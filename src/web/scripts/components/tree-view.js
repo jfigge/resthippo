@@ -44,6 +44,18 @@ export class TreeView {
   /** @type {string|null} — id of the node currently being dragged */
   #dragId = null;
 
+  /** @type {boolean} — true while the drag cursor is inside the treeview */
+  #dragInsideTreeView = false;
+
+  /** @type {boolean} — true after a successful in-tree drop */
+  #dropHandled = false;
+
+  /** @type {HTMLLIElement} — the grey placeholder shown while dragging */
+  #dragPhantomEl = null;
+
+  /** @type {Function|null} — document-level dragover handler, cleaned up on dragend */
+  #docDragOverHandler = null;
+
   /**
    * @param {object}   [opts]
    * @param {object[]} [opts.items]  - Initial tree data
@@ -54,9 +66,39 @@ export class TreeView {
     this.#el.setAttribute("role", "tree");
 
     this.#ctxMenuEl = this.#createCtxMenuEl();
+
+    // Create the phantom drop-target placeholder (shared, moved around the DOM)
+    this.#dragPhantomEl = document.createElement("li");
+    this.#dragPhantomEl.className = "tree-drop-phantom";
+    this.#dragPhantomEl.setAttribute("aria-hidden", "true");
+
     this.#renderToolbar();
     this.#items = items;
     this.#renderTree(this.#items);
+
+    // Container-level: allow drop anywhere inside the treeview
+    this.#el.addEventListener("dragover", (e) => {
+      if (this.#dragId) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+      }
+    });
+
+    // Container-level: handle the actual drop (phantom target stores where to drop)
+    this.#el.addEventListener("drop", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!this.#dragId) return;
+      const targetId = this.#dragPhantomEl.dataset.targetId;
+      const pos      = this.#dragPhantomEl.dataset.targetPos;
+      if (targetId && pos) {
+        this.#dropHandled = true;
+        this.#moveNode(this.#dragId, targetId, pos);
+        // #moveNode → #rerender() rebuilds the DOM cleanly
+      } else {
+        this.#cancelDrag();
+      }
+    });
   }
 
   /** Root DOM element — pass to Panel.mount(). */
@@ -624,77 +666,145 @@ export class TreeView {
   /**
    * Attach HTML5 drag-and-drop listeners to a row.
    * Called once per node in #createNode for both collections and requests.
+   *
+   * Behaviour:
+   *  • dragstart  — hides the dragged <li> and inserts the phantom placeholder
+   *                 where the item was.
+   *  • dragover   — moves the phantom to show where the item would land.
+   *  • dragend    — if not a successful in-tree drop, restores the original state.
+   *  • Leaving the treeview temporarily restores the item; re-entering resumes.
+   *  • Releasing outside the treeview cancels and restores original state.
    */
   #attachDragListeners(node, row, li) {
     row.draggable = true;
 
+    // ── dragstart ──────────────────────────────────────────────────────────
     row.addEventListener("dragstart", (e) => {
-      this.#dragId = node.id;
+      this.#dragId      = node.id;
+      this.#dropHandled = false;
       e.dataTransfer.effectAllowed = "move";
-      // Required by Firefox to allow the drag
+      // Required by Firefox to start the drag
       e.dataTransfer.setData("text/plain", node.id);
-      // Apply dimming after the browser has captured the drag image
-      requestAnimationFrame(() => li.classList.add("tree-node--dragging"));
+
+      requestAnimationFrame(() => {
+        this.#dragInsideTreeView = true;
+        // Reset phantom metadata
+        this.#dragPhantomEl.dataset.targetId  = "";
+        this.#dragPhantomEl.dataset.targetPos = "";
+        this.#dragPhantomEl.dataset.posKey    = "";
+        // Insert phantom where the item was, then hide the actual item
+        li.parentElement.insertBefore(this.#dragPhantomEl, li);
+        li.style.display = "none";
+      });
+
+      // Monitor the drag position relative to the treeview via document dragover
+      this.#docDragOverHandler = (ev) => {
+        if (!this.#dragId) return;
+        const inside = this.#el.contains(ev.target);
+        if (!inside && this.#dragInsideTreeView) {
+          // Cursor left the treeview — remove phantom and restore the dragged item
+          this.#dragInsideTreeView = false;
+          this.#dragPhantomEl.remove();
+          const draggedLi = this.#el.querySelector(`[data-id="${CSS.escape(this.#dragId)}"]`);
+          if (draggedLi) draggedLi.style.display = "";
+        } else if (inside && !this.#dragInsideTreeView) {
+          // Cursor re-entered the treeview — phantom will be placed on next row dragover
+          this.#dragInsideTreeView = true;
+        }
+      };
+      document.addEventListener("dragover", this.#docDragOverHandler);
     });
 
+    // ── dragover ───────────────────────────────────────────────────────────
     row.addEventListener("dragover", (e) => {
-      if (!this.#isDragAllowed(node)) return; // no e.preventDefault() → "not-allowed" cursor
+      if (!this.#isDragAllowed(node)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
 
-      const rect = row.getBoundingClientRect();
+      const rect  = row.getBoundingClientRect();
       const ratio = (e.clientY - rect.top) / rect.height;
 
       let pos;
       if (node.type === "collection") {
-        if (ratio < 0.25)       pos = "before";
-        else if (ratio > 0.75)  pos = "after";
-        else                    pos = "inside";
+        if (ratio < 0.25)      pos = "before";
+        else if (ratio > 0.75) pos = "after";
+        else                   pos = "inside";
       } else {
         pos = ratio < 0.5 ? "before" : "after";
       }
 
-      if (row.dataset.dropPos !== pos) {
-        this.#clearDropIndicators();
-        row.classList.add(`tree-drop-${pos}`);
-        row.dataset.dropPos = pos;
+      // Only move the phantom when the position actually changes (perf)
+      const posKey = `${node.id}:${pos}`;
+      if (this.#dragPhantomEl.dataset.posKey !== posKey) {
+        this.#dragPhantomEl.dataset.posKey    = posKey;
+        this.#dragPhantomEl.dataset.targetId  = node.id;
+        this.#dragPhantomEl.dataset.targetPos = pos;
+        this.#moveDragPhantom(li, pos, node);
       }
     });
 
-    row.addEventListener("dragleave", (e) => {
-      // Only clear when the cursor leaves the row entirely (not when it enters a child span)
-      if (!row.contains(e.relatedTarget)) {
-        row.classList.remove("tree-drop-before", "tree-drop-after", "tree-drop-inside");
-        delete row.dataset.dropPos;
-      }
-    });
-
-    row.addEventListener("drop", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const draggedId = this.#dragId;
-      const pos       = row.dataset.dropPos;
-      this.#clearDropIndicators();
-      if (draggedId && pos) {
-        this.#moveNode(draggedId, node.id, pos);
-      }
-    });
-
+    // ── dragend ────────────────────────────────────────────────────────────
     row.addEventListener("dragend", () => {
-      li.classList.remove("tree-node--dragging");
-      this.#dragId = null;
-      this.#clearDropIndicators();
+      if (!this.#dropHandled) {
+        // Drag was cancelled (Escape) or released outside the treeview
+        this.#cancelDrag();
+      }
+      // If drop was handled, #moveNode already re-rendered; just clean up state
+      this.#finalizeDrag();
     });
   }
 
-  /** Remove all drop-indicator classes from every row in the tree. */
-  #clearDropIndicators() {
-    this.#el
-      .querySelectorAll(".tree-drop-before, .tree-drop-after, .tree-drop-inside")
-      .forEach((el) => {
-        el.classList.remove("tree-drop-before", "tree-drop-after", "tree-drop-inside");
-        delete el.dataset.dropPos;
-      });
+  /**
+   * Move the phantom placeholder to the position indicated by `pos` relative
+   * to `targetLi`.  Also ensures the dragged item's <li> is hidden (handles
+   * re-entry into the treeview after briefly leaving).
+   */
+  #moveDragPhantom(targetLi, pos, targetNode) {
+    // Ensure the dragged item stays hidden (e.g. after re-entering treeview)
+    const draggedLi = this.#el.querySelector(`[data-id="${CSS.escape(this.#dragId)}"]`);
+    if (draggedLi && draggedLi.style.display !== "none") {
+      draggedLi.style.display = "none";
+    }
+
+    if (pos === "before") {
+      targetLi.parentElement.insertBefore(this.#dragPhantomEl, targetLi);
+    } else if (pos === "after") {
+      targetLi.parentElement.insertBefore(this.#dragPhantomEl, targetLi.nextSibling);
+    } else if (pos === "inside" && targetNode.type === "collection") {
+      const childList = targetLi.querySelector(".tree-list--nested");
+      if (childList && childList.style.display !== "none") {
+        childList.insertBefore(this.#dragPhantomEl, childList.firstChild);
+      } else {
+        // Collapsed collection — treat as after
+        targetLi.parentElement.insertBefore(this.#dragPhantomEl, targetLi.nextSibling);
+      }
+    }
+  }
+
+  /**
+   * Cancel an in-progress drag: remove the phantom and re-render from the
+   * unchanged #items, which naturally restores the original tree state.
+   */
+  #cancelDrag() {
+    this.#dragPhantomEl.remove();
+    this.#rerender();
+  }
+
+  /**
+   * Clean up all drag state variables and remove the document-level listener.
+   * Must be called after #cancelDrag() or after a successful #moveNode().
+   */
+  #finalizeDrag() {
+    if (this.#docDragOverHandler) {
+      document.removeEventListener("dragover", this.#docDragOverHandler);
+      this.#docDragOverHandler = null;
+    }
+    this.#dragId              = null;
+    this.#dragInsideTreeView  = false;
+    this.#dropHandled         = false;
+    this.#dragPhantomEl.dataset.targetId  = "";
+    this.#dragPhantomEl.dataset.targetPos = "";
+    this.#dragPhantomEl.dataset.posKey    = "";
   }
 
   /**

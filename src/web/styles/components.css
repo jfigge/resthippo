@@ -217,6 +217,19 @@
   margin: var(--space-1) 0;
 }
 
+/* ── Drag phantom (drop target placeholder) ──────────────────────────────── */
+
+.tree-drop-phantom {
+  height: 28px;
+  margin: 1px var(--space-1);
+  background: var(--color-surface-2);
+  border: 2px dashed var(--color-overlay-0);
+  border-radius: var(--radius-sm);
+  list-style: none;
+  pointer-events: none; /* let dragover fall through to the row beneath */
+  box-sizing: border-box;
+}
+
 /* ── Inline rename input ─────────────────────────────────────────────────── */
 
 .tree-node__rename-input {

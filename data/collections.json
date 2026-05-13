@@ -2,6 +2,27 @@
   "version": 1,
   "collections": [
     {
+      "id": "col-2",
+      "type": "collection",
+      "name": "Auth Endpoints",
+      "children": [
+        {
+          "id": "req-6",
+          "type": "request",
+          "name": "Login",
+          "method": "POST",
+          "url": ""
+        },
+        {
+          "id": "req-7",
+          "type": "request",
+          "name": "Refresh",
+          "method": "POST",
+          "url": ""
+        }
+      ]
+    },
+    {
       "id": "col-1",
       "type": "collection",
       "name": "Example API",
@@ -35,27 +56,6 @@
           "url": "https://jsonplaceholder.typicode.com/users/1"
         },
         {
-          "id": "req-5",
-          "type": "request",
-          "name": "Delete user",
-          "method": "DELETE",
-          "url": "https://jsonplaceholder.typicode.com/users/1"
-        }
-      ]
-    },
-    {
-      "id": "col-2",
-      "type": "collection",
-      "name": "Auth Endpoints",
-      "children": [
-        {
-          "id": "req-6",
-          "type": "request",
-          "name": "Login",
-          "method": "POST",
-          "url": ""
-        },
-        {
           "id": "67cab615-5e77-4e90-a81c-61602cc3bcbb",
           "type": "request",
           "name": "New Request",
@@ -63,11 +63,11 @@
           "url": ""
         },
         {
-          "id": "req-7",
+          "id": "req-5",
           "type": "request",
-          "name": "Refresh",
-          "method": "POST",
-          "url": ""
+          "name": "Delete user",
+          "method": "DELETE",
+          "url": "https://jsonplaceholder.typicode.com/users/1"
         }
       ]
     }
