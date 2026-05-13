@@ -90,17 +90,21 @@
   color: var(--color-accent);
 }
 
-.tree-node__toggle {
-  font-size: 10px;
-  color: var(--color-overlay-0);
-  width: 10px;
-  text-align: center;
+
+.tree-node__icon {
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
 }
 
-.tree-node__icon {
-  font-size: 13px;
-  flex-shrink: 0;
+.tree-folder-icon {
+  display: block;
+  color: var(--color-accent-dim, var(--color-overlay-0));
+  transition: color var(--transition-fast);
+}
+
+.tree-node__row:hover .tree-folder-icon {
+  color: var(--color-accent);
 }
 
 .tree-node__label {

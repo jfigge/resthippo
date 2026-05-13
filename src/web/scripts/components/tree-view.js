@@ -13,6 +13,10 @@
 
 "use strict";
 
+// SVG folder icons (Feather-style, stroke-based)
+const ICON_FOLDER_CLOSED = `<svg class="tree-folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+const ICON_FOLDER_OPEN   = `<svg class="tree-folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><polyline points="2 10 12 10 17 15 22 10"/></svg>`;
+
 export class TreeView {
   /** @type {HTMLElement} */
   #el;
@@ -88,19 +92,18 @@ export class TreeView {
       li.setAttribute("aria-expanded", "true");
       li.innerHTML = `
         <div class="tree-node__row" tabindex="0">
-          <span class="tree-node__toggle">▾</span>
-          <span class="tree-node__icon">📁</span>
+          <span class="tree-node__icon">${ICON_FOLDER_OPEN}</span>
           <span class="tree-node__label">${this.#escape(node.name)}</span>
         </div>
       `;
 
-      // Toggle collapse / expand
+      // Toggle collapse / expand — swap folder icon
       const row = li.querySelector(".tree-node__row");
       row.addEventListener("click", () => {
         const expanded = li.getAttribute("aria-expanded") === "true";
         li.setAttribute("aria-expanded", String(!expanded));
-        const toggle = li.querySelector(".tree-node__toggle");
-        if (toggle) toggle.textContent = expanded ? "▸" : "▾";
+        const iconEl = li.querySelector(".tree-node__icon");
+        if (iconEl) iconEl.innerHTML = expanded ? ICON_FOLDER_CLOSED : ICON_FOLDER_OPEN;
         childList.style.display = expanded ? "none" : "";
       });
 
