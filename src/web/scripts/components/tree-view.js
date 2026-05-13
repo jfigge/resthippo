@@ -15,6 +15,8 @@
 
 "use strict";
 
+import { PopupManager } from "../popup-manager.js";
+
 // SVG folder icons (Feather-style, stroke-based)
 const ICON_FOLDER_CLOSED = `<svg class="tree-folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
 const ICON_FOLDER_OPEN   = `<svg class="tree-folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><polyline points="2 10 12 10 17 15 22 10"/></svg>`;
@@ -36,6 +38,9 @@ export class TreeView {
   /** @type {HTMLButtonElement} — kept to toggle disabled state */
   #btnNewRequest = null;
 
+  /** @type {HTMLElement} — reused context-menu element */
+  #ctxMenuEl = null;
+
   /**
    * @param {object}   [opts]
    * @param {object[]} [opts.items]  - Initial tree data
@@ -45,6 +50,7 @@ export class TreeView {
     this.#el.className = "tree-view";
     this.#el.setAttribute("role", "tree");
 
+    this.#ctxMenuEl = this.#createCtxMenuEl();
     this.#renderToolbar();
     this.#items = items;
     this.#renderTree(this.#items);
@@ -112,7 +118,73 @@ export class TreeView {
     this.#el.appendChild(bar);
   }
 
-  // ── Mutations ───────────────────────────────────────────────────────────
+  // ── Context menu ────────────────────────────────────────────────────────
+
+  /** Create the shared context-menu DOM element (populated on each open). */
+  #createCtxMenuEl() {
+    const el = document.createElement("div");
+    el.className = "tree-ctxmenu";
+    el.setAttribute("role", "menu");
+    // Prevent the row's contextmenu from firing inside the menu itself
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+    return el;
+  }
+
+  /**
+   * Populate and open the context menu for a node.
+   * @param {object}      node
+   * @param {string|null} parentCollectionId
+   * @param {number}      x  clientX of the contextmenu event
+   * @param {number}      y  clientY of the contextmenu event
+   */
+  #showContextMenu(node, parentCollectionId, x, y) {
+    const el = this.#ctxMenuEl;
+    el.innerHTML = "";
+
+    const menuItems =
+      node.type === "collection"
+        ? [
+            { label: "Add Request", action: () => this.#addRequestTo(node.id) },
+            { label: "Add Folder",  action: () => this.#addFolderTo(node.id)  },
+            { label: "Rename",      action: () => this.#renameNode(node.id)   },
+            "separator",
+            { label: "Duplicate",     action: () => this.#duplicateNode(node.id) },
+            { label: "Generate cURL", action: () => this.#generateCurl(node)     },
+            "separator",
+            { label: "Delete", danger: true, action: () => this.#deleteNode(node.id) },
+          ]
+        : [
+            { label: "Rename",      action: () => this.#renameNode(node.id)   },
+            "separator",
+            { label: "Duplicate",     action: () => this.#duplicateNode(node.id) },
+            { label: "Generate cURL", action: () => this.#generateCurl(node)     },
+            "separator",
+            { label: "Delete", danger: true, action: () => this.#deleteNode(node.id) },
+          ];
+
+    menuItems.forEach((item) => {
+      if (item === "separator") {
+        const sep = document.createElement("div");
+        sep.className = "tree-ctxmenu__separator";
+        el.appendChild(sep);
+        return;
+      }
+      const btn = document.createElement("button");
+      btn.className = "tree-ctxmenu__item";
+      if (item.danger) btn.classList.add("tree-ctxmenu__item--danger");
+      btn.setAttribute("role", "menuitem");
+      btn.textContent = item.label;
+      btn.addEventListener("click", () => {
+        PopupManager.close();
+        item.action();
+      });
+      el.appendChild(btn);
+    });
+
+    PopupManager.openMenu(el, x, y);
+  }
+
+  // ── Mutations — toolbar ─────────────────────────────────────────────────
 
   /** Add a new top-level collection and persist. */
   #addCollection() {
@@ -137,7 +209,13 @@ export class TreeView {
     const targetId =
       this.#activeCollectionId ?? this.#items.find((n) => n.type === "collection")?.id;
     if (!targetId) return;
+    this.#addRequestTo(targetId);
+  }
 
+  // ── Mutations — context menu actions ────────────────────────────────────
+
+  /** Add a new request directly inside the collection identified by `collectionId`. */
+  #addRequestTo(collectionId) {
     const request = {
       id: crypto.randomUUID(),
       type: "request",
@@ -145,19 +223,114 @@ export class TreeView {
       method: "GET",
       url: "",
     };
+    this.#items = this.#insertChild(this.#items, collectionId, request);
+    this.#rerender();
+    this.#emitChange();
+  }
 
-    this.#items = this.#insertChild(this.#items, targetId, request);
+  /** Add a nested folder (collection) inside the collection identified by `collectionId`. */
+  #addFolderTo(collectionId) {
+    const folder = {
+      id: crypto.randomUUID(),
+      type: "collection",
+      name: "New Folder",
+      children: [],
+    };
+    this.#items = this.#insertChild(this.#items, collectionId, folder);
     this.#rerender();
     this.#emitChange();
   }
 
   /**
+   * Begin inline rename for the node whose `data-id` matches `nodeId`.
+   * Replaces the label span with a text input; commits on Enter or blur,
+   * cancels on Escape.
+   */
+  #renameNode(nodeId) {
+    const li = this.#el.querySelector(`[data-id="${CSS.escape(nodeId)}"]`);
+    if (!li) return;
+    const labelEl = li.querySelector(".tree-node__label");
+    if (!labelEl) return;
+
+    const originalName = labelEl.textContent;
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = originalName;
+    input.className = "tree-node__rename-input";
+    input.setAttribute("aria-label", "Rename");
+    labelEl.replaceWith(input);
+    input.select();
+    input.focus();
+
+    const commit = () => {
+      const newName = input.value.trim() || originalName;
+      this.#items = this.#updateNodeName(this.#items, nodeId, newName);
+      this.#rerender();
+      if (newName !== originalName) this.#emitChange();
+    };
+
+    input.addEventListener("blur", commit, { once: true });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        input.blur(); // triggers blur → commit
+      } else if (e.key === "Escape") {
+        // Cancel: restore original without saving
+        input.removeEventListener("blur", commit);
+        const span = document.createElement("span");
+        span.className = "tree-node__label";
+        span.textContent = originalName;
+        input.replaceWith(span);
+      }
+    });
+  }
+
+  /**
+   * Deep-clone the node with `nodeId` (assigning new UUIDs throughout),
+   * name it "<original> (copy)", and insert it right after the original.
+   */
+  #duplicateNode(nodeId) {
+    const original = this.#findNode(this.#items, nodeId);
+    if (!original) return;
+
+    const clone   = this.#cloneWithNewIds(original);
+    clone.name    = `${clone.name} (copy)`;
+    this.#items   = this.#insertNodeAfter(this.#items, nodeId, clone);
+    this.#rerender();
+    this.#emitChange();
+  }
+
+  /** Remove the node with `nodeId` from the tree at any nesting depth. */
+  #deleteNode(nodeId) {
+    this.#items = this.#removeNode(this.#items, nodeId);
+    if (this.#activeCollectionId === nodeId) this.#activeCollectionId = null;
+    this.#syncButtonState();
+    this.#rerender();
+    this.#emitChange();
+  }
+
+  /**
+   * Build a cURL command for a request, or for every request in a collection,
+   * then write it to the clipboard.
+   * @param {object} node
+   */
+  #generateCurl(node) {
+    const curl = this.#buildCurl(node);
+    if (!curl) return;
+    navigator.clipboard.writeText(curl).then(() => {
+      // A toast/notification here would be ideal; for now log to console
+      console.info("[wurl] cURL copied to clipboard:\n", curl);
+    }).catch(() => {
+      console.info("[wurl] cURL statement:\n", curl);
+    });
+  }
+
+  // ── Tree mutation helpers ───────────────────────────────────────────────
+
+  /**
    * Recursively insert `child` under the node with `parentId`.
    * Supports arbitrary nesting (folders within folders).
-   * @param {object[]} nodes
-   * @param {string}   parentId
-   * @param {object}   child
-   * @returns {object[]} new nodes array
    */
   #insertChild(nodes, parentId, child) {
     return nodes.map((node) => {
@@ -174,9 +347,6 @@ export class TreeView {
   /**
    * Recursively remove the node with `targetId` from the tree.
    * Works at any nesting depth.
-   * @param {object[]} nodes
-   * @param {string}   targetId
-   * @returns {object[]}
    */
   #removeNode(nodes, targetId) {
     return nodes
@@ -187,6 +357,106 @@ export class TreeView {
         }
         return n;
       });
+  }
+
+  /** Find a node by id at any depth. Returns the node or null. */
+  #findNode(nodes, targetId) {
+    for (const node of nodes) {
+      if (node.id === targetId) return node;
+      if (Array.isArray(node.children)) {
+        const found = this.#findNode(node.children, targetId);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  /** Deep-clone a node, replacing every `id` with a new UUID. */
+  #cloneWithNewIds(node) {
+    const clone = { ...node, id: crypto.randomUUID() };
+    if (Array.isArray(node.children)) {
+      clone.children = node.children.map((c) => this.#cloneWithNewIds(c));
+    }
+    return clone;
+  }
+
+  /**
+   * Insert `newNode` immediately after the node with `afterId`.
+   * Searches recursively; handles nested collections correctly.
+   */
+  #insertNodeAfter(nodes, afterId, newNode) {
+    const result = [];
+    for (const node of nodes) {
+      let current = node;
+      let insertedInChildren = false;
+
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        const newChildren = this.#insertNodeAfter(node.children, afterId, newNode);
+        insertedInChildren = newChildren.length > node.children.length;
+        if (insertedInChildren) current = { ...node, children: newChildren };
+      }
+
+      result.push(current);
+
+      if (!insertedInChildren && node.id === afterId) {
+        result.push(newNode);
+      }
+    }
+    return result;
+  }
+
+  /** Return a new tree with the name of `targetId` replaced. */
+  #updateNodeName(nodes, targetId, newName) {
+    return nodes.map((node) => {
+      if (node.id === targetId) return { ...node, name: newName };
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        return { ...node, children: this.#updateNodeName(node.children, targetId, newName) };
+      }
+      return node;
+    });
+  }
+
+  /**
+   * Build a cURL command string.
+   * For a collection, concatenates the cURL of every contained request.
+   */
+  #buildCurl(node) {
+    if (node.type === "request") {
+      const method = node.method ?? "GET";
+      const url    = node.url    || "<url>";
+      let   cmd    = "curl";
+      if (method !== "GET") cmd += ` -X ${method}`;
+      if (node.headers && Object.keys(node.headers).length > 0) {
+        Object.entries(node.headers).forEach(([k, v]) => {
+          cmd += ` \\\n  -H "${k}: ${v}"`;
+        });
+      }
+      if (node.body) {
+        // Escape single quotes inside the body
+        const body = String(node.body).replace(/'/g, "'\\''");
+        cmd += ` \\\n  -d '${body}'`;
+      }
+      cmd += ` "${url}"`;
+      return cmd;
+    }
+    if (node.type === "collection") {
+      const requests = this.#collectRequests(node.children ?? []);
+      return requests.map((r) => this.#buildCurl(r)).join("\n\n");
+    }
+    return "";
+  }
+
+  /** Recursively collect all request nodes within a subtree. */
+  #collectRequests(nodes) {
+    const requests = [];
+    for (const node of nodes) {
+      if (node.type === "request") {
+        requests.push(node);
+      } else if (Array.isArray(node.children)) {
+        requests.push(...this.#collectRequests(node.children));
+      }
+    }
+    return requests;
   }
 
   // ── Rendering ───────────────────────────────────────────────────────────
@@ -237,8 +507,9 @@ export class TreeView {
         </div>
       `;
 
-      // Toggle collapse / expand — swap folder icon; also track active collection
       const row = li.querySelector(".tree-node__row");
+
+      // Left-click: toggle expand/collapse + track active collection
       row.addEventListener("click", () => {
         this.#activeCollectionId = node.id;
         const expanded = li.getAttribute("aria-expanded") === "true";
@@ -246,6 +517,13 @@ export class TreeView {
         const iconEl = li.querySelector(".tree-node__icon");
         if (iconEl) iconEl.innerHTML = expanded ? ICON_FOLDER_CLOSED : ICON_FOLDER_OPEN;
         childList.style.display = expanded ? "none" : "";
+      });
+
+      // Right-click: context menu
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.#showContextMenu(node, parentCollectionId, e.clientX, e.clientY);
       });
 
       const childList = document.createElement("ul");
@@ -267,8 +545,9 @@ export class TreeView {
       `;
 
       const row = li.querySelector(".tree-node__row");
+
+      // Left-click: select request
       row.addEventListener("click", () => {
-        // Track the parent so "New Request" adds to the same collection
         if (parentCollectionId) this.#activeCollectionId = parentCollectionId;
         this.#selectRequest(node, li);
       });
@@ -277,6 +556,13 @@ export class TreeView {
           if (parentCollectionId) this.#activeCollectionId = parentCollectionId;
           this.#selectRequest(node, li);
         }
+      });
+
+      // Right-click: context menu
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.#showContextMenu(node, parentCollectionId, e.clientX, e.clientY);
       });
     }
 

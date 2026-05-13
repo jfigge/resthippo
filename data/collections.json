@@ -61,16 +61,8 @@
           "name": "Refresh",
           "method": "POST",
           "url": ""
-        },
-        {
-          "id": "req-8",
-          "type": "request",
-          "name": "Logout",
-          "method": "DELETE",
-          "url": ""
         }
       ]
     }
   ]
 }
-

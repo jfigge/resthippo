@@ -123,24 +123,39 @@ export const PopupManager = {
 
   /**
    * Hide and remove the active popup, and hide the overlay mask.
+   * Handles both animated modal popups and instant context menus.
    */
   close() {
     if (!_activePopup) return;
 
     const el = _activePopup.element;
-    el.classList.remove("popup--visible");
 
-    // Wait for the CSS transition, then remove from DOM
-    const onTransitionEnd = () => {
-      el.removeEventListener("transitionend", onTransitionEnd);
-      if (el.parentNode) el.parentNode.removeChild(el);
-    };
-    el.addEventListener("transitionend", onTransitionEnd);
-
-    // Hide mask
-    if (_maskEl) _maskEl.classList.remove("popup-overlay--visible");
+    // Reset any inline style overrides applied by openMenu()
+    if (_maskEl) {
+      _maskEl.style.background = "";
+      _maskEl.style.transition = "";
+      _maskEl.classList.remove("popup-overlay--visible");
+    }
 
     _activePopup = null;
+
+    if (el.classList.contains("popup--visible")) {
+      // Animated modal — fade out, then remove
+      el.classList.remove("popup--visible");
+      const onEnd = () => {
+        el.removeEventListener("transitionend", onEnd);
+        if (el.parentNode) el.parentNode.removeChild(el);
+      };
+      el.addEventListener("transitionend", onEnd);
+      // Safety fallback in case transitionend never fires
+      setTimeout(() => {
+        el.removeEventListener("transitionend", onEnd);
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 400);
+    } else {
+      // Context-menu or other non-animated element — remove immediately
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }
   },
 
   /**
@@ -197,5 +212,49 @@ export const PopupManager = {
     // Focus the safe "Keep editing" button by default
     requestAnimationFrame(() => keepBtn.focus());
   },
-};
 
+  /**
+   * Show a context menu at the given viewport coordinates.
+   * The overlay mask is made interactive but transparent — clicking anywhere
+   * outside the menu closes it immediately with no confirmation.
+   *
+   * @param {HTMLElement} element  - The context-menu DOM element to display
+   * @param {number}      x        - Desired left position (clientX)
+   * @param {number}      y        - Desired top position (clientY)
+   */
+  openMenu(element, x, y) {
+    _ensureMask();
+
+    // Tear down any previously active popup
+    if (_activePopup?.element?.parentNode) {
+      _activePopup.element.parentNode.removeChild(_activePopup.element);
+    }
+
+    // Wrap in the standard popup-like interface; mask click always just closes
+    _activePopup = {
+      element,
+      onMaskClick: () => PopupManager.close(),
+    };
+
+    // Transparent mask — click-capture only, no dimming
+    _maskEl.style.background = "transparent";
+    _maskEl.style.transition  = "none";
+    _maskEl.classList.add("popup-overlay--visible");
+
+    // Position and mount
+    element.style.left = `${x}px`;
+    element.style.top  = `${y}px`;
+    document.body.appendChild(element);
+
+    // Clamp to viewport after layout
+    requestAnimationFrame(() => {
+      const rect = element.getBoundingClientRect();
+      if (rect.right > window.innerWidth - 8) {
+        element.style.left = `${Math.max(8, x - rect.width)}px`;
+      }
+      if (rect.bottom > window.innerHeight - 8) {
+        element.style.top = `${Math.max(8, y - rect.height)}px`;
+      }
+    });
+  },
+};

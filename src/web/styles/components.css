@@ -161,6 +161,77 @@
   font-size: var(--font-size-sm);
 }
 
+/* ── Tree context menu ────────────────────────────────────────────────────── */
+
+.tree-ctxmenu {
+  position: fixed;
+  z-index: 101;
+  min-width: 190px;
+  background: var(--color-base);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-md);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.25);
+  padding: var(--space-1) 0;
+  display: flex;
+  flex-direction: column;
+  /* Subtle pop-in */
+  animation: ctxmenu-open 0.08s ease-out;
+}
+
+@keyframes ctxmenu-open {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1);    }
+}
+
+.tree-ctxmenu__item {
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--transition-fast);
+}
+
+.tree-ctxmenu__item:hover {
+  background-color: var(--color-surface-1);
+}
+
+.tree-ctxmenu__item--danger {
+  color: var(--color-error);
+}
+
+.tree-ctxmenu__item--danger:hover {
+  background-color: var(--color-error);
+  color: var(--color-base);
+}
+
+.tree-ctxmenu__separator {
+  height: 1px;
+  background: var(--color-surface-2);
+  margin: var(--space-1) 0;
+}
+
+/* ── Inline rename input ─────────────────────────────────────────────────── */
+
+.tree-node__rename-input {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  padding: 0 var(--space-1);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-accent);
+  border-radius: 2px;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  outline: none;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    REQUEST EDITOR
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -712,5 +783,3 @@
   flex-shrink: 0;
   min-width: unset;
 }
-
-
