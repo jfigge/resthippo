@@ -11,6 +11,7 @@
 
 /* ── App header ───────────────────────────────────────────────────────────── */
 #app-header {
+  position: relative;        /* anchor for absolutely-positioned children */
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -35,6 +36,47 @@
 .app-subtitle {
   font-size: var(--font-size-sm);
   color: var(--color-overlay-0);
+}
+
+/* ── Header icon panel (right-aligned) ───────────────────────────────────── */
+.header-icon-panel {
+  position: absolute;
+  top: 50%;
+  right: var(--space-4);
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  -webkit-app-region: no-drag;
+}
+
+.header-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  color: var(--color-subtext);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.header-icon-btn:hover {
+  background-color: var(--color-surface-1);
+  color: var(--color-text);
+}
+
+.header-icon-btn:active {
+  background-color: var(--color-surface-2);
+}
+
+.header-icon-btn svg {
+  pointer-events: none;
 }
 
 /* ── Main layout container ────────────────────────────────────────────────── */

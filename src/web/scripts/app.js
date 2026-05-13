@@ -21,6 +21,7 @@ import {
 import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
 import { ResponseViewer } from "./components/response-viewer.js";
+import { SettingsPopup } from "./components/settings-popup.js";
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
@@ -28,6 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initComponents();
   initSplitters();
   initEventBus();
+  initHeader();
   loadDemoData();
 });
 
@@ -186,6 +188,19 @@ function makeSplitter(el, beforePanel, afterPanel) {
       el.className = `splitter splitter--${newFlow === "row" ? "h" : "v"}`;
     },
   };
+}
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+/**
+ * Wire up header icon buttons.
+ * Each button opens a dedicated popup instance via the PopupManager.
+ */
+const settingsPopup = new SettingsPopup();
+
+function initHeader() {
+  document.getElementById("btn-settings").addEventListener("click", () => {
+    settingsPopup.open();
+  });
 }
 
 // ─── Event bus ────────────────────────────────────────────────────────────────
