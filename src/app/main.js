@@ -1,11 +1,49 @@
 // main.js — Electron main process for wurl
 "use strict";
 
-const { app, BrowserWindow, shell, Menu } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, Menu } = require("electron");
+const fs   = require("fs");
 const path = require("path");
 
 const isDev = process.argv.includes("--dev");
 const DEV_SERVER_PORT = process.env.SERVER_PORT || 8080;
+
+// ─── Collections IPC ──────────────────────────────────────────────────────────
+// Register handlers before app.whenReady() so they are ready the moment the
+// renderer process makes its first invoke() call.
+(function initCollectionsIPC() {
+  // Electron resolves app.getPath('userData') to the correct platform directory:
+  //   macOS:   ~/Library/Application Support/wurl
+  //   Linux:   ~/.config/wurl
+  //   Windows: %APPDATA%\wurl
+  const dataFile = () => path.join(app.getPath("userData"), "collections.json");
+
+  /** Return the stored collections array, or [] on first run / error. */
+  ipcMain.handle("collections:read", async () => {
+    const file = dataFile();
+    try {
+      if (!fs.existsSync(file)) return [];
+      const raw    = fs.readFileSync(file, "utf8");
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed.collections) ? parsed.collections : [];
+    } catch (err) {
+      console.error("[main] collections:read error:", err.message);
+      return [];
+    }
+  });
+
+  /** Overwrite the stored collections file with the supplied array. */
+  ipcMain.handle("collections:write", async (_event, items) => {
+    const file = dataFile();
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      const payload = JSON.stringify({ version: 1, collections: items }, null, 2);
+      fs.writeFileSync(file, payload, "utf8");
+    } catch (err) {
+      console.error("[main] collections:write error:", err.message);
+    }
+  });
+})();
 
 // ─── Window creation ──────────────────────────────────────────────────────────
 function createWindow() {

@@ -22,15 +22,16 @@ import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
 import { ResponseViewer } from "./components/response-viewer.js";
 import { SettingsPopup } from "./components/settings-popup.js";
+import { loadCollections, saveCollections } from "./data-store.js";
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   initPanels();
   initComponents();
   initSplitters();
   initEventBus();
   initHeader();
-  loadDemoData();
+  await initCollections();
 });
 
 // ─── Panels ───────────────────────────────────────────────────────────────────
@@ -210,6 +211,11 @@ function initEventBus() {
     requestEditor.load(e.detail);
   });
 
+  // Auto-save whenever the tree is mutated (add / remove collection or request)
+  window.addEventListener("wurl:collections-changed", (e) => {
+    saveCollections(e.detail);
+  });
+
   // When the editor fires a send, execute the request
   window.addEventListener("wurl:send-request", async (e) => {
     const descriptor = e.detail;
@@ -253,80 +259,13 @@ function initEventBus() {
   });
 }
 
-// ─── Demo data ────────────────────────────────────────────────────────────────
-function loadDemoData() {
-  const items = [
-    {
-      id: "col-1",
-      type: "collection",
-      name: "Example API",
-      children: [
-        {
-          id: "req-1",
-          type: "request",
-          name: "List users",
-          method: "GET",
-          url: "https://jsonplaceholder.typicode.com/users",
-        },
-        {
-          id: "req-2",
-          type: "request",
-          name: "Get user",
-          method: "GET",
-          url: "https://jsonplaceholder.typicode.com/users/1",
-        },
-        {
-          id: "req-3",
-          type: "request",
-          name: "Create user",
-          method: "POST",
-          url: "https://jsonplaceholder.typicode.com/users",
-        },
-        {
-          id: "req-4",
-          type: "request",
-          name: "Update user",
-          method: "PUT",
-          url: "https://jsonplaceholder.typicode.com/users/1",
-        },
-        {
-          id: "req-5",
-          type: "request",
-          name: "Delete user",
-          method: "DELETE",
-          url: "https://jsonplaceholder.typicode.com/users/1",
-        },
-      ],
-    },
-    {
-      id: "col-2",
-      type: "collection",
-      name: "Auth Endpoints",
-      children: [
-        {
-          id: "req-6",
-          type: "request",
-          name: "Login",
-          method: "POST",
-          url: "",
-        },
-        {
-          id: "req-7",
-          type: "request",
-          name: "Refresh",
-          method: "POST",
-          url: "",
-        },
-        {
-          id: "req-8",
-          type: "request",
-          name: "Logout",
-          method: "DELETE",
-          url: "",
-        },
-      ],
-    },
-  ];
-
+// ─── Collections ──────────────────────────────────────────────────────────────
+/**
+ * Load persisted collections on startup and hand them to the TreeView.
+ * In Go dev mode  → fetches from /api/collections (reads data/collections.json)
+ * In Electron     → reads via ipcMain from the platform userData directory
+ */
+async function initCollections() {
+  const items = await loadCollections();
   treeView.setItems(items);
 }

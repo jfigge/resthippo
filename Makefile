@@ -20,6 +20,7 @@ CMD_DIR         ?= $(WORKSPACE)/src/cmd
 
 # Dev server configuration
 SERVER_PORT     ?= 8080
+DATA_DIR        ?= $(WORKSPACE)/data
 
 # ─── Default ──────────────────────────────────────────────────────────────────
 all: install fmt lint build
@@ -42,9 +43,9 @@ fmt: fmt-js fmt-go-imports fmt-go-src
 
 fmt-js:
 	@echo "Formatting JavaScript / CSS / HTML..."
-	@npx prettier --write \
-		"$(WEB_DIR)/**/*.{js,css,html}" \
-		"$(APP_DIR)/**/*.js" > /dev/null || true
+#	@npx prettier --write \
+#		"$(WEB_DIR)/**/*.{js,css,html}" \
+#		"$(APP_DIR)/**/*.js" > /dev/null || true
 	@echo "--------------------------------"
 
 fmt-go-imports:
@@ -77,9 +78,10 @@ dev: dev-server
 
 dev-server:
 	@echo "Starting Go dev server → http://localhost:$(SERVER_PORT)"
-	@go run $(CMD_DIR)/server/main.go \
+	@go run $(CMD_DIR)/main.go \
 		-port $(SERVER_PORT) \
-		-web  $(WEB_DIR)
+		-web  $(WEB_DIR) \
+		-data $(DATA_DIR)
 
 dev-electron:
 	@echo "Starting Electron in development mode..."
@@ -106,7 +108,7 @@ build-electron: build-mac build-linux build-win
 
 build-mac: build-setup build-install
 	@echo "Building Electron app for macOS..."
-	@cd ${BUILD_DIR}/src; npx electron-builder --mac --dir --publish never > /dev/null/
+	@cd ${BUILD_DIR}/src; npx electron-builder --mac --dir --publish never > /dev/null
 	@echo "--------------------------------"
 
 build-linux: build-setup build-install
