@@ -56,6 +56,13 @@
           "url": ""
         },
         {
+          "id": "67cab615-5e77-4e90-a81c-61602cc3bcbb",
+          "type": "request",
+          "name": "New Request",
+          "method": "GET",
+          "url": ""
+        },
+        {
           "id": "req-7",
           "type": "request",
           "name": "Refresh",

@@ -41,6 +41,9 @@ export class TreeView {
   /** @type {HTMLElement} — reused context-menu element */
   #ctxMenuEl = null;
 
+  /** @type {string|null} — id of the node currently being dragged */
+  #dragId = null;
+
   /**
    * @param {object}   [opts]
    * @param {object[]} [opts.items]  - Initial tree data
@@ -526,6 +529,9 @@ export class TreeView {
         this.#showContextMenu(node, parentCollectionId, e.clientX, e.clientY);
       });
 
+      // Drag-to-reorder
+      this.#attachDragListeners(node, row, li);
+
       const childList = document.createElement("ul");
       childList.className = "tree-list tree-list--nested";
       childList.setAttribute("role", "group");
@@ -564,6 +570,9 @@ export class TreeView {
         e.stopPropagation();
         this.#showContextMenu(node, parentCollectionId, e.clientX, e.clientY);
       });
+
+      // Drag-to-reorder
+      this.#attachDragListeners(node, row, li);
     }
 
     return li;
@@ -608,5 +617,151 @@ export class TreeView {
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  // ── Drag-to-reorder ─────────────────────────────────────────────────────
+
+  /**
+   * Attach HTML5 drag-and-drop listeners to a row.
+   * Called once per node in #createNode for both collections and requests.
+   */
+  #attachDragListeners(node, row, li) {
+    row.draggable = true;
+
+    row.addEventListener("dragstart", (e) => {
+      this.#dragId = node.id;
+      e.dataTransfer.effectAllowed = "move";
+      // Required by Firefox to allow the drag
+      e.dataTransfer.setData("text/plain", node.id);
+      // Apply dimming after the browser has captured the drag image
+      requestAnimationFrame(() => li.classList.add("tree-node--dragging"));
+    });
+
+    row.addEventListener("dragover", (e) => {
+      if (!this.#isDragAllowed(node)) return; // no e.preventDefault() → "not-allowed" cursor
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+
+      const rect = row.getBoundingClientRect();
+      const ratio = (e.clientY - rect.top) / rect.height;
+
+      let pos;
+      if (node.type === "collection") {
+        if (ratio < 0.25)       pos = "before";
+        else if (ratio > 0.75)  pos = "after";
+        else                    pos = "inside";
+      } else {
+        pos = ratio < 0.5 ? "before" : "after";
+      }
+
+      if (row.dataset.dropPos !== pos) {
+        this.#clearDropIndicators();
+        row.classList.add(`tree-drop-${pos}`);
+        row.dataset.dropPos = pos;
+      }
+    });
+
+    row.addEventListener("dragleave", (e) => {
+      // Only clear when the cursor leaves the row entirely (not when it enters a child span)
+      if (!row.contains(e.relatedTarget)) {
+        row.classList.remove("tree-drop-before", "tree-drop-after", "tree-drop-inside");
+        delete row.dataset.dropPos;
+      }
+    });
+
+    row.addEventListener("drop", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const draggedId = this.#dragId;
+      const pos       = row.dataset.dropPos;
+      this.#clearDropIndicators();
+      if (draggedId && pos) {
+        this.#moveNode(draggedId, node.id, pos);
+      }
+    });
+
+    row.addEventListener("dragend", () => {
+      li.classList.remove("tree-node--dragging");
+      this.#dragId = null;
+      this.#clearDropIndicators();
+    });
+  }
+
+  /** Remove all drop-indicator classes from every row in the tree. */
+  #clearDropIndicators() {
+    this.#el
+      .querySelectorAll(".tree-drop-before, .tree-drop-after, .tree-drop-inside")
+      .forEach((el) => {
+        el.classList.remove("tree-drop-before", "tree-drop-after", "tree-drop-inside");
+        delete el.dataset.dropPos;
+      });
+  }
+
+  /**
+   * Return true when it is valid to drop the current drag onto `targetNode`.
+   * Disallows dropping a node onto itself or into any of its own descendants.
+   */
+  #isDragAllowed(targetNode) {
+    if (!this.#dragId) return false;
+    if (this.#dragId === targetNode.id) return false;
+    // Prevent dragging a collection into one of its own descendants
+    const dragged = this.#findNode(this.#items, this.#dragId);
+    if (dragged?.type === "collection") {
+      if (this.#findNode(dragged.children ?? [], targetNode.id)) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Move the node `draggedId` to a position relative to `targetId`.
+   * @param {string} draggedId
+   * @param {string} targetId
+   * @param {'before'|'after'|'inside'} position
+   */
+  #moveNode(draggedId, targetId, position) {
+    if (draggedId === targetId) return;
+
+    const node = this.#findNode(this.#items, draggedId);
+    if (!node) return;
+
+    // Remove the node from its current position (children travel with it)
+    let newItems = this.#removeNode(this.#items, draggedId);
+
+    // Insert at the requested position
+    if (position === "before") {
+      newItems = this.#insertBefore(newItems, targetId, node);
+    } else if (position === "after") {
+      newItems = this.#insertNodeAfter(newItems, targetId, node);
+    } else if (position === "inside") {
+      newItems = this.#insertChild(newItems, targetId, node);
+    }
+
+    this.#items = newItems;
+    this.#syncButtonState();
+    this.#rerender();
+    this.#emitChange();
+  }
+
+  /**
+   * Insert `newNode` immediately before the node with `beforeId`.
+   * Searches recursively through the tree.
+   */
+  #insertBefore(nodes, beforeId, newNode) {
+    const result = [];
+    for (const node of nodes) {
+      if (node.id === beforeId) {
+        result.push(newNode, node);
+        continue;
+      }
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        const newChildren = this.#insertBefore(node.children, beforeId, newNode);
+        if (newChildren.length > node.children.length) {
+          result.push({ ...node, children: newChildren });
+          continue;
+        }
+      }
+      result.push(node);
+    }
+    return result;
   }
 }
