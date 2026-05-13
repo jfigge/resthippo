@@ -1,0 +1,446 @@
+/* components.css — Styles for TreeView, RequestEditor, and ResponseViewer */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TREE VIEW
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tree-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Toolbar */
+.tree-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-mantle);
+}
+
+.tree-search {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--space-2);
+  background: var(--color-surface-0);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+
+.tree-search::placeholder {
+  color: var(--color-overlay-0);
+}
+
+/* Icon buttons */
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--color-subtext);
+  font-size: 14px;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.icon-btn:hover {
+  background-color: var(--color-surface-1);
+  color: var(--color-text);
+}
+
+/* Tree list */
+.tree-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-1) 0;
+}
+
+.tree-list--nested {
+  padding-left: var(--space-4);
+}
+
+/* Tree node rows */
+.tree-node__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+  margin: 1px var(--space-1);
+  transition: background-color var(--transition-fast);
+  user-select: none;
+}
+
+.tree-node__row:hover {
+  background-color: var(--color-surface-1);
+}
+
+.tree-node--active > .tree-node__row {
+  background-color: var(--color-surface-0);
+  color: var(--color-accent);
+}
+
+.tree-node__toggle {
+  font-size: 10px;
+  color: var(--color-overlay-0);
+  width: 10px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.tree-node__icon {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.tree-node__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Method badges */
+.tree-node__method {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  background: var(--color-surface-1);
+  min-width: 46px;
+  text-align: center;
+}
+
+.method--get {
+  color: var(--color-method-get);
+}
+.method--post {
+  color: var(--color-method-post);
+}
+.method--put {
+  color: var(--color-method-put);
+}
+.method--patch {
+  color: var(--color-method-patch);
+}
+.method--delete {
+  color: var(--color-method-delete);
+}
+.method--head {
+  color: var(--color-method-head);
+}
+.method--options {
+  color: var(--color-method-options);
+}
+
+/* Empty state */
+.tree-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  gap: var(--space-2);
+  color: var(--color-overlay-0);
+  font-size: var(--font-size-sm);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   REQUEST EDITOR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.request-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* URL bar */
+.req-url-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-surface-0);
+  flex-shrink: 0;
+}
+
+.req-method-select {
+  height: 34px;
+  padding: 0 var(--space-2);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
+  min-width: 90px;
+}
+
+/* Colour-code the selected method */
+.req-method-select[data-method="get"] {
+  color: var(--color-method-get);
+}
+.req-method-select[data-method="post"] {
+  color: var(--color-method-post);
+}
+.req-method-select[data-method="put"] {
+  color: var(--color-method-put);
+}
+.req-method-select[data-method="patch"] {
+  color: var(--color-method-patch);
+}
+.req-method-select[data-method="delete"] {
+  color: var(--color-method-delete);
+}
+.req-method-select[data-method="head"] {
+  color: var(--color-method-head);
+}
+.req-method-select[data-method="options"] {
+  color: var(--color-method-options);
+}
+
+.req-url-input {
+  flex: 1;
+  height: 34px;
+  padding: 0 var(--space-3);
+  background: var(--color-base);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  font-family: var(--font-mono);
+  transition: border-color var(--transition-fast);
+}
+
+.req-url-input:focus {
+  border-color: var(--color-accent);
+}
+
+.req-url-input::placeholder {
+  color: var(--color-overlay-0);
+}
+
+.req-send-btn {
+  height: 34px;
+  padding: 0 var(--space-4);
+  background: var(--color-accent);
+  color: var(--color-crust);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  transition: opacity var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.req-send-btn:hover {
+  opacity: 0.85;
+}
+.req-send-btn:active {
+  opacity: 0.7;
+}
+
+/* Tab strip */
+.req-tab-strip {
+  display: flex;
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-mantle);
+  flex-shrink: 0;
+}
+
+.req-tab-btn {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+  border-bottom: 2px solid transparent;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.req-tab-btn:hover {
+  color: var(--color-text);
+}
+.req-tab-btn--active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
+/* Tab content */
+.req-tab-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.req-tab-pane {
+  flex: 1;
+  overflow: auto;
+}
+
+.req-tab-pane[hidden] {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSE VIEWER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.response-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Status bar */
+.res-status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-mantle);
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+  min-height: 40px;
+}
+
+.res-status-badge {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--font-size-md);
+  padding: 1px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-1);
+}
+
+.res-status--success {
+  color: var(--color-success);
+}
+.res-status--redirect {
+  color: var(--color-warning);
+}
+.res-status--client-error {
+  color: var(--color-error);
+}
+.res-status--server-error {
+  color: var(--color-error);
+}
+
+.res-status-text {
+  color: var(--color-subtext);
+  flex: 1;
+}
+
+.res-meta {
+  display: flex;
+  gap: var(--space-3);
+  color: var(--color-overlay-0);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+/* Tab strip */
+.res-tab-strip {
+  display: flex;
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-mantle);
+  flex-shrink: 0;
+}
+
+.res-tab-btn {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+  border-bottom: 2px solid transparent;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.res-tab-btn:hover {
+  color: var(--color-text);
+}
+.res-tab-btn--active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
+/* Tab content */
+.res-tab-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.res-tab-pane {
+  flex: 1;
+  overflow: auto;
+}
+
+.res-tab-pane[hidden] {
+  display: none;
+}
+
+/* Response body — monospace pre block */
+.res-body-pre {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Headers table */
+.res-headers-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+}
+
+.res-headers-table td {
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--color-surface-2);
+  vertical-align: top;
+}
+
+.res-headers-table td:first-child {
+  color: var(--color-accent-dim);
+  white-space: nowrap;
+  width: 35%;
+}
+
+/* Spinner animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.res-spinner {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}

@@ -1,0 +1,56 @@
+{
+  "name": "wurl",
+  "version": "0.1.0",
+  "description": "A web-based REST API client — like Insomnia, built with Electron",
+  "main": "app/main.js",
+  "scripts": {
+    "start": "../node_modules/.bin/electron app/main.js",
+    "dev": "../node_modules/.bin/electron app/main.js --dev",
+    "build": "../node_modules/.bin/electron-builder",
+    "build:mac": "../node_modules/.bin/electron-builder --mac",
+    "build:linux": "../node_modules/.bin/electron-builder --linux",
+    "build:win": "../node_modules/.bin/electron-builder --win",
+    "fmt": "../node_modules/.bin/prettier --write \"web/**/*.{js,css,html}\" \"app/**/*.js\"",
+    "lint": "../node_modules/.bin/eslint \"src/web/scripts/**/*.js\" \"src/app/**/*.js\""
+  },
+  "devDependencies": {
+    "electron": "^29.4.6",
+    "electron-builder": "^26.8.1",
+    "prettier": "^3.3.3",
+    "eslint": "^8.57.1"
+  },
+  "build": {
+    "appId": "dev.wurl.app",
+    "productName": "wurl",
+    "copyright": "Copyright © 2026",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build-resources"
+    },
+    "files": [
+      "app/**/*",
+      "web/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
+      ]
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] },
+        { "target": "deb",      "arch": ["x64"] }
+      ]
+    },
+    "win": {
+      "target": [
+        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    }
+  }
+}
+

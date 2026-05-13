@@ -1,0 +1,127 @@
+/* panels.css — Panel system: containers, headers, splitters */
+
+/* ── Base panel ───────────────────────────────────────────────────────────── */
+.panel {
+  display: flex;
+  overflow: hidden;
+  position: relative;
+  background-color: var(--color-surface-0);
+}
+
+/* Flow directions (set by JS or data-flow attribute) */
+.panel[data-flow="column"] {
+  flex-direction: column;
+}
+.panel[data-flow="row"] {
+  flex-direction: row;
+}
+
+/* Panels can flex-grow to fill their parent */
+.panel.panel--fill {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ── Panel header bar ─────────────────────────────────────────────────────── */
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  height: 36px;
+  min-height: 36px;
+  background-color: var(--color-mantle);
+  border-bottom: 1px solid var(--color-surface-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-subtext);
+  user-select: none;
+}
+
+.panel-header .panel-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-header .panel-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* ── Panel body (scrollable content area) ────────────────────────────────── */
+.panel-body {
+  flex: 1 1 0;
+  overflow: auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* ── Splitter (resize handle) ─────────────────────────────────────────────── */
+.splitter {
+  flex: 0 0 var(--splitter-size);
+  position: relative;
+  background-color: var(--color-surface-2);
+  z-index: 10;
+  transition: background-color var(--transition-fast);
+}
+
+.splitter::after {
+  /* Wider invisible hit-target so it's easy to grab */
+  content: "";
+  position: absolute;
+  background: transparent;
+}
+
+/* Horizontal splitter — separates left/right panels, drag cursor ←→ */
+.splitter--h {
+  width: var(--splitter-size);
+  cursor: col-resize;
+  min-height: 0;
+}
+.splitter--h::after {
+  top: 0;
+  bottom: 0;
+  left: calc(var(--splitter-size) / -2);
+  right: calc(var(--splitter-size) / -2);
+}
+
+/* Vertical splitter — separates top/bottom panels, drag cursor ↕ */
+.splitter--v {
+  height: var(--splitter-size);
+  cursor: row-resize;
+  min-width: 0;
+}
+.splitter--v::after {
+  left: 0;
+  right: 0;
+  top: calc(var(--splitter-size) / -2);
+  bottom: calc(var(--splitter-size) / -2);
+}
+
+.splitter:hover,
+.splitter.splitter--dragging {
+  background-color: var(--color-accent);
+}
+
+/* ── Panel placeholder content (shown before real content is loaded) ──────── */
+.panel-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--space-3);
+  color: var(--color-overlay-0);
+  font-size: var(--font-size-sm);
+}
+
+.panel-placeholder .placeholder-icon {
+  font-size: 32px;
+  opacity: 0.4;
+}

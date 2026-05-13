@@ -1,0 +1,96 @@
+/* theme.css — Design tokens and global typography */
+
+:root {
+  /* ── Colour palette (Catppuccin Mocha-inspired) ────────────────────────── */
+  --color-base: #1e1e2e; /* app background */
+  --color-mantle: #181825; /* header / sidebar bg */
+  --color-crust: #11111b; /* deepest background */
+  --color-surface-0: #313244; /* panel bg */
+  --color-surface-1: #45475a; /* raised elements */
+  --color-surface-2: #585b70; /* borders, dividers */
+  --color-overlay-0: #6c7086; /* muted text, placeholders */
+  --color-overlay-1: #7f849c;
+  --color-text: #cdd6f4; /* primary text */
+  --color-subtext: #a6adc8; /* secondary text */
+  --color-accent: #89b4fa; /* links, highlights */
+  --color-accent-dim: #74c7ec;
+  --color-success: #a6e3a1;
+  --color-warning: #f9e2af;
+  --color-error: #f38ba8;
+  --color-info: #89dceb;
+
+  /* ── HTTP method colours ──────────────────────────────────────────────── */
+  --color-method-get: #a6e3a1;
+  --color-method-post: #fab387;
+  --color-method-put: #89b4fa;
+  --color-method-patch: #cba6f7;
+  --color-method-delete: #f38ba8;
+  --color-method-head: #f9e2af;
+  --color-method-options: #94e2d5;
+
+  /* ── Typography ──────────────────────────────────────────────────────── */
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+
+  /* ── Spacing ─────────────────────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* ── Radii ───────────────────────────────────────────────────────────── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* ── Transitions ─────────────────────────────────────────────────────── */
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
+
+  /* ── Splitter ────────────────────────────────────────────────────────── */
+  --splitter-size: 4px;
+  --splitter-hit: 12px; /* wider hit-target layer */
+
+  /* ── Panel default sizes ─────────────────────────────────────────────── */
+  --panel-nav-basis: 240px;
+  --panel-res-basis: 340px;
+}
+
+/* ── Global styles ────────────────────────────────────────────────────────── */
+body {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  background-color: var(--color-base);
+  line-height: 1.5;
+}
+
+/* Scrollbar styling (WebKit) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-overlay-0);
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

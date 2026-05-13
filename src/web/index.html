@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      CSP: only load scripts/styles from the same origin.
+      Adjust connect-src for the domains you need when making real API calls.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src  'self';
+        style-src   'self' 'unsafe-inline';
+        connect-src *;
+        img-src     'self' data: blob:;
+      "
+    />
+    <title>wurl</title>
+
+    <!-- Design tokens, reset, layout, panel system, components -->
+    <link rel="stylesheet" href="styles/reset.css" />
+    <link rel="stylesheet" href="styles/theme.css" />
+    <link rel="stylesheet" href="styles/panels.css" />
+    <link rel="stylesheet" href="styles/layout.css" />
+    <link rel="stylesheet" href="styles/components.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- ── App header ────────────────────────────────────────────────── -->
+      <header id="app-header" aria-label="Application header">
+        <span class="app-logo" aria-label="wurl">wurl</span>
+        <span class="app-subtitle">REST API Client</span>
+      </header>
+
+      <!-- ── Main 3-section layout ─────────────────────────────────────── -->
+      <!--
+        CSS grid areas (see layout.css):
+          landscape  → nav | spl-1 | request | spl-2 | response   (3 columns)
+          in-between → nav + request top / response full-width bottom
+          portrait   → nav / request / response  (3 rows)
+
+        The two splitter divs are real grid children so they occupy a grid cell
+        in each breakpoint's template-areas declaration.
+      -->
+      <main id="app-main" aria-label="Main workspace">
+        <!-- Section 1 — Navigation / Collections tree ───────────────── -->
+        <div
+          id="panel-nav"
+          class="panel"
+          data-flow="column"
+          role="region"
+          aria-label="Collections"
+        >
+          <div class="panel-header">
+            <span class="panel-title">Collections</span>
+          </div>
+          <div class="panel-body" id="tree-view-root"></div>
+        </div>
+
+        <!-- Splitter 1 (between nav and request) ─────────────────────── -->
+        <div
+          id="splitter-1"
+          class="splitter splitter--h"
+          role="separator"
+          aria-orientation="vertical"
+          title="Drag to resize"
+        ></div>
+
+        <!-- Section 2 — Request editor ──────────────────────────────── -->
+        <div
+          id="panel-request"
+          class="panel"
+          data-flow="column"
+          role="region"
+          aria-label="Request editor"
+        >
+          <div class="panel-header">
+            <span class="panel-title">Request</span>
+          </div>
+          <div class="panel-body" id="request-editor-root"></div>
+        </div>
+
+        <!-- Splitter 2 (between request and response) ────────────────── -->
+        <div
+          id="splitter-2"
+          class="splitter splitter--h"
+          role="separator"
+          aria-orientation="vertical"
+          title="Drag to resize"
+        ></div>
+
+        <!-- Section 3 — Response viewer ─────────────────────────────── -->
+        <div
+          id="panel-response"
+          class="panel"
+          data-flow="column"
+          role="region"
+          aria-label="Response viewer"
+        >
+          <div class="panel-header">
+            <span class="panel-title">Response</span>
+          </div>
+          <div class="panel-body" id="response-viewer-root"></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- ES-module entry point — imports all components -->
+    <script type="module" src="scripts/app.js"></script>
+  </body>
+</html>

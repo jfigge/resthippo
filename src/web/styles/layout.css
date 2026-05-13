@@ -1,0 +1,218 @@
+/* layout.css — App shell and responsive 3-section layout */
+
+/* ── App shell ────────────────────────────────────────────────────────────── */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* ── App header ───────────────────────────────────────────────────────────── */
+#app-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+  height: 44px;
+  min-height: 44px;
+  background-color: var(--color-crust);
+  border-bottom: 1px solid var(--color-surface-2);
+  user-select: none;
+  /* Allow dragging the Electron window from the header bar */
+  -webkit-app-region: drag;
+}
+
+.app-logo {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-accent);
+  letter-spacing: -0.02em;
+  -webkit-app-region: no-drag;
+}
+
+.app-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-overlay-0);
+}
+
+/* ── Main layout container ────────────────────────────────────────────────── */
+/*
+ * Three layout modes driven by media queries.
+ *
+ * Columns use CSS custom properties so JavaScript can update them live when
+ * the user drags a splitter:
+ *   --col-nav   : width  of the navigation panel
+ *   --col-res   : width  of the response panel    (landscape only)
+ *   --row-res   : height of the response panel    (in-between only)
+ *
+ * All splitters are children of #app-main and are repositioned by each
+ * grid-template-areas declaration.
+ */
+#app-main {
+  flex: 1 1 0;
+  overflow: hidden;
+  display: grid;
+
+  /* ── Default variables (JS may override these) ─────────────────────── */
+  --col-nav: var(--panel-nav-basis);
+  --col-res: var(--panel-res-basis);
+  --row-res: 320px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LANDSCAPE  ≥ 1024 px  →  [nav | spl-1 | request | spl-2 | response]
+   ════════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 1024px) {
+  #app-main {
+    grid-template-columns:
+      var(--col-nav)
+      var(--splitter-size)
+      1fr
+      var(--splitter-size)
+      var(--col-res);
+    grid-template-rows: 1fr;
+    grid-template-areas: "nav spl-1 request spl-2 response";
+  }
+
+  #panel-nav {
+    grid-area: nav;
+  }
+  #splitter-1 {
+    grid-area: spl-1;
+  }
+  #panel-request {
+    grid-area: request;
+  }
+  #splitter-2 {
+    grid-area: spl-2;
+  }
+  #panel-response {
+    grid-area: response;
+  }
+
+  /* In landscape both splitters resize columns */
+  #splitter-1,
+  #splitter-2 {
+    cursor: col-resize;
+  }
+  #splitter-1 {
+    flex-direction: column;
+  }
+  #splitter-2 {
+    flex-direction: column;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   IN-BETWEEN  600 px – 1023 px
+   ┌───────────┬───────┬─────────────┐
+   │  nav      │ spl-1 │  request    │
+   ├───────────┴───────┴─────────────┤
+   │  spl-2  (full width)            │
+   ├─────────────────────────────────┤
+   │  response  (full width)         │
+   └─────────────────────────────────┘
+   ════════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 600px) and (max-width: 1023px) {
+  #app-main {
+    grid-template-columns:
+      var(--col-nav)
+      var(--splitter-size)
+      1fr;
+    grid-template-rows:
+      1fr
+      var(--splitter-size)
+      var(--row-res);
+    grid-template-areas:
+      "nav    spl-1   request"
+      "spl-2  spl-2   spl-2"
+      "response response response";
+  }
+
+  #panel-nav {
+    grid-area: nav;
+  }
+  #splitter-1 {
+    grid-area: spl-1;
+  }
+  #panel-request {
+    grid-area: request;
+  }
+  #splitter-2 {
+    grid-area: spl-2;
+  }
+  #panel-response {
+    grid-area: response;
+  }
+
+  #splitter-1 {
+    cursor: col-resize;
+  }
+  #splitter-2 {
+    cursor: row-resize;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PORTRAIT  < 600 px  →  stacked rows: [nav] [request] [response]
+   ════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 599px) {
+  #app-main {
+    grid-template-columns: 1fr;
+    grid-template-rows:
+      var(--col-nav) /* reuse --col-nav as height in portrait */
+      var(--splitter-size)
+      1fr
+      var(--splitter-size)
+      var(--row-res);
+    grid-template-areas:
+      "nav"
+      "spl-1"
+      "request"
+      "spl-2"
+      "response";
+  }
+
+  #panel-nav {
+    grid-area: nav;
+  }
+  #splitter-1 {
+    grid-area: spl-1;
+  }
+  #panel-request {
+    grid-area: request;
+  }
+  #splitter-2 {
+    grid-area: spl-2;
+  }
+  #panel-response {
+    grid-area: response;
+  }
+
+  /* In portrait both splitters resize rows */
+  #splitter-1,
+  #splitter-2 {
+    cursor: row-resize;
+  }
+}
+
+/* ── Per-panel defaults ────────────────────────────────────────────────────── */
+#panel-nav {
+  background-color: var(--color-mantle);
+  min-width: 160px;
+  min-height: 80px;
+}
+
+#panel-request {
+  background-color: var(--color-surface-0);
+  min-width: 200px;
+  min-height: 80px;
+}
+
+#panel-response {
+  background-color: var(--color-base);
+  min-width: 160px;
+  min-height: 80px;
+}
