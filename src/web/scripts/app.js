@@ -22,7 +22,7 @@ import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
 import { ResponseViewer } from "./components/response-viewer.js";
 import { SettingsPopup } from "./components/settings-popup.js";
-import { loadCollections, saveCollections } from "./data-store.js";
+import { loadAll, saveCollections, saveSettings } from "./data-store.js";
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
@@ -195,12 +195,15 @@ function makeSplitter(el, beforePanel, afterPanel) {
 /**
  * Wire up header icon buttons.
  * Each button opens a dedicated popup instance via the PopupManager.
+ * currentSettings is kept in sync here so the popup always opens with the
+ * latest values.
  */
 const settingsPopup = new SettingsPopup();
+let currentSettings = {};
 
 function initHeader() {
   document.getElementById("btn-settings").addEventListener("click", () => {
-    settingsPopup.open();
+    settingsPopup.open(currentSettings);
   });
 }
 
@@ -214,6 +217,13 @@ function initEventBus() {
   // Auto-save whenever the tree is mutated (add / remove collection or request)
   window.addEventListener("wurl:collections-changed", (e) => {
     saveCollections(e.detail);
+  });
+
+  // Persist settings immediately whenever any control in the popup changes
+  window.addEventListener("wurl:settings-changed", (e) => {
+    currentSettings = e.detail;
+    applySettings(currentSettings);
+    saveSettings(currentSettings);
   });
 
   // When the editor fires a send, execute the request
@@ -259,13 +269,38 @@ function initEventBus() {
   });
 }
 
-// ─── Collections ──────────────────────────────────────────────────────────────
+// ─── Collections & Settings ───────────────────────────────────────────────────
 /**
- * Load persisted collections on startup and hand them to the TreeView.
+ * Load persisted data on startup.
  * In Go dev mode  → fetches from /api/collections (reads data/collections.json)
  * In Electron     → reads via ipcMain from the platform userData directory
+ *
+ * Hands collections to the TreeView and seeds the SettingsPopup with the
+ * stored settings values so they are correct when the popup is first opened.
  */
 async function initCollections() {
-  const items = await loadCollections();
-  treeView.setItems(items);
+  const { collections, settings } = await loadAll();
+  treeView.setItems(collections);
+  currentSettings = settings;
+  settingsPopup.load(settings);
+  applySettings(settings);
+}
+
+/**
+ * Apply a settings object to the live UI.
+ * Extend this function whenever a new setting needs to affect the DOM.
+ * @param {object} settings
+ */
+function applySettings(settings) {
+  // Theme — stored as a data attribute so CSS can target [data-theme="latte"] etc.
+  if (settings.theme) {
+    document.documentElement.dataset.theme = settings.theme;
+  }
+  // Editor font size — exposed as a CSS custom property
+  if (settings.fontSize) {
+    document.documentElement.style.setProperty(
+      "--editor-font-size",
+      `${settings.fontSize}px`,
+    );
+  }
 }

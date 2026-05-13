@@ -18,26 +18,36 @@ const DEV_SERVER_PORT = process.env.SERVER_PORT || 8080;
   //   Windows: %APPDATA%\wurl
   const dataFile = () => path.join(app.getPath("userData"), "collections.json");
 
-  /** Return the stored collections array, or [] on first run / error. */
+  /**
+   * Return the full stored data document, or safe defaults on first run / error.
+   * Shape: { version, collections, settings }
+   */
   ipcMain.handle("collections:read", async () => {
     const file = dataFile();
     try {
-      if (!fs.existsSync(file)) return [];
+      if (!fs.existsSync(file)) return { version: 1, collections: [], settings: {} };
       const raw    = fs.readFileSync(file, "utf8");
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed.collections) ? parsed.collections : [];
+      return {
+        version:     parsed.version     ?? 1,
+        collections: Array.isArray(parsed.collections) ? parsed.collections : [],
+        settings:    parsed.settings    ?? {},
+      };
     } catch (err) {
       console.error("[main] collections:read error:", err.message);
-      return [];
+      return { version: 1, collections: [], settings: {} };
     }
   });
 
-  /** Overwrite the stored collections file with the supplied array. */
-  ipcMain.handle("collections:write", async (_event, items) => {
+  /**
+   * Atomically overwrite the stored data file with the supplied document.
+   * Accepts: { version, collections, settings }
+   */
+  ipcMain.handle("collections:write", async (_event, doc) => {
     const file = dataFile();
     try {
       fs.mkdirSync(path.dirname(file), { recursive: true });
-      const payload = JSON.stringify({ version: 1, collections: items }, null, 2);
+      const payload = JSON.stringify({ version: 1, ...doc }, null, 2);
       fs.writeFileSync(file, payload, "utf8");
     } catch (err) {
       console.error("[main] collections:write error:", err.message);

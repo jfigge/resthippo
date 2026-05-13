@@ -2,12 +2,16 @@
  * settings-popup.js — Application settings popup
  *
  * Built on top of PopupManager so it participates in the shared overlay/mask
- * system and implements the dirty-tracking / close-confirmation protocol.
+ * system.  Settings are persisted immediately on every control change by
+ * dispatching a "wurl:settings-changed" event; app.js listens and writes to
+ * storage.  There is no explicit Save button — any change is live.
  *
  * Usage:
  *   import { SettingsPopup } from "./components/settings-popup.js";
  *   const settings = new SettingsPopup();
- *   document.getElementById("btn-settings").addEventListener("click", () => settings.open());
+ *   document.getElementById("btn-settings").addEventListener("click", () => {
+ *     settings.open(currentSettingsValues);
+ *   });
  */
 
 "use strict";
@@ -17,9 +21,6 @@ import { PopupManager } from "../popup-manager.js";
 export class SettingsPopup {
   /** @type {HTMLElement} */
   #el;
-
-  /** True when any setting has been changed since the popup was opened */
-  #dirty = false;
 
   constructor() {
     this.#el = this.#build();
@@ -54,7 +55,7 @@ export class SettingsPopup {
           <div class="settings-row">
             <label class="settings-label" for="setting-theme">Theme</label>
             <select class="settings-select" id="setting-theme">
-              <option value="mocha" selected>Mocha (Dark)</option>
+              <option value="mocha">Mocha (Dark)</option>
               <option value="latte">Latte (Light)</option>
             </select>
           </div>
@@ -64,7 +65,7 @@ export class SettingsPopup {
             <select class="settings-select" id="setting-font-size">
               <option value="11">11 px</option>
               <option value="12">12 px</option>
-              <option value="13" selected>13 px</option>
+              <option value="13">13 px</option>
               <option value="14">14 px</option>
               <option value="16">16 px</option>
             </select>
@@ -81,7 +82,6 @@ export class SettingsPopup {
               class="settings-input"
               id="setting-timeout"
               type="number"
-              value="30000"
               min="0"
               max="300000"
               step="1000"
@@ -94,7 +94,6 @@ export class SettingsPopup {
               class="settings-toggle"
               id="setting-follow-redirects"
               type="checkbox"
-              checked
             />
           </div>
 
@@ -104,7 +103,6 @@ export class SettingsPopup {
               class="settings-toggle"
               id="setting-verify-ssl"
               type="checkbox"
-              checked
             />
           </div>
         </div>
@@ -131,8 +129,7 @@ export class SettingsPopup {
       </div>
 
       <div class="popup-footer">
-        <button class="popup-btn popup-btn--secondary js-cancel">Cancel</button>
-        <button class="popup-btn popup-btn--primary   js-save">Save changes</button>
+        <button class="popup-btn popup-btn--primary js-close">Close</button>
       </div>
     `;
 
@@ -142,25 +139,19 @@ export class SettingsPopup {
   // ── Events ─────────────────────────────────────────────────────────────────
 
   #bindEvents() {
-    // Mark dirty on any user interaction with a form control
+    // Auto-save on every user interaction — no explicit Save needed
     this.#el.querySelectorAll("select, input").forEach((control) => {
-      control.addEventListener("change", () => { this.#dirty = true; });
-      control.addEventListener("input",  () => { this.#dirty = true; });
+      control.addEventListener("change", () => this.#emitChange());
+      control.addEventListener("input",  () => this.#emitChange());
     });
 
     // Close button (top-right ✕)
     this.#el.querySelector(".popup-close").addEventListener("click", () => {
-      this.#requestClose();
+      PopupManager.close();
     });
 
-    // Cancel button (footer)
-    this.#el.querySelector(".js-cancel").addEventListener("click", () => {
-      this.#requestClose();
-    });
-
-    // Save button (footer)
-    this.#el.querySelector(".js-save").addEventListener("click", () => {
-      this.#save();
+    // Close button (footer)
+    this.#el.querySelector(".js-close").addEventListener("click", () => {
       PopupManager.close();
     });
   }
@@ -168,62 +159,83 @@ export class SettingsPopup {
   // ── Internal helpers ───────────────────────────────────────────────────────
 
   /**
-   * Initiates a close attempt — shows discard confirmation when dirty,
-   * otherwise closes immediately.
+   * Read current control values and dispatch "wurl:settings-changed".
+   * app.js listens and persists to storage immediately.
    */
-  #requestClose() {
-    if (this.#dirty) {
-      PopupManager.confirmClose(() => {
-        this.#dirty = false;
-        PopupManager.close();
-      });
-    } else {
-      PopupManager.close();
-    }
-  }
-
-  /**
-   * Persist the current settings values.
-   * Dispatches a custom event so other parts of the app can react.
-   */
-  #save() {
-    const values = this.#readValues();
-    this.#dirty = false;
-
+  #emitChange() {
     window.dispatchEvent(
-      new CustomEvent("wurl:settings-changed", { detail: values }),
+      new CustomEvent("wurl:settings-changed", {
+        detail: this.#readValues(),
+        bubbles: true,
+      }),
     );
   }
 
-  /** Collect all setting values into a plain object */
+  /** Collect all setting values into a plain object. */
   #readValues() {
     return {
-      theme:            this.#el.querySelector("#setting-theme").value,
-      fontSize:         parseInt(this.#el.querySelector("#setting-font-size").value, 10),
-      timeout:          parseInt(this.#el.querySelector("#setting-timeout").value, 10),
-      followRedirects:  this.#el.querySelector("#setting-follow-redirects").checked,
-      verifySsl:        this.#el.querySelector("#setting-verify-ssl").checked,
-      proxyEnabled:     this.#el.querySelector("#setting-proxy-enabled").checked,
-      proxyUrl:         this.#el.querySelector("#setting-proxy-url").value.trim(),
+      theme:           this.#el.querySelector("#setting-theme").value,
+      fontSize:        parseInt(this.#el.querySelector("#setting-font-size").value, 10),
+      timeout:         parseInt(this.#el.querySelector("#setting-timeout").value, 10),
+      followRedirects: this.#el.querySelector("#setting-follow-redirects").checked,
+      verifySsl:       this.#el.querySelector("#setting-verify-ssl").checked,
+      proxyEnabled:    this.#el.querySelector("#setting-proxy-enabled").checked,
+      proxyUrl:        this.#el.querySelector("#setting-proxy-url").value.trim(),
     };
   }
 
   // ── PopupManager protocol ──────────────────────────────────────────────────
 
-  /**
-   * Called by PopupManager when the user clicks the overlay mask.
-   * Implements dirty-check/confirmation before closing.
-   */
+  /** Called by PopupManager when the user clicks the overlay mask. */
   onMaskClick() {
-    this.#requestClose();
+    PopupManager.close();
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
-  /** Open the settings popup (resets the dirty flag). */
-  open() {
-    this.#dirty = false;
+  /**
+   * Populate the controls from a stored settings object, then open the popup.
+   * Missing keys fall back to their HTML default values.
+   * @param {object} [settings]
+   */
+  open(settings = {}) {
+    this.#applyValues(settings);
     PopupManager.open(this);
   }
-}
 
+  /**
+   * Populate all controls from a settings object without opening the popup.
+   * Call this at startup to initialise the controls from persisted values.
+   * @param {object} settings
+   */
+  load(settings = {}) {
+    this.#applyValues(settings);
+  }
+
+  // ── Private helpers ────────────────────────────────────────────────────────
+
+  /** Write a settings object back into the form controls. */
+  #applyValues(settings) {
+    if (settings.theme !== undefined) {
+      this.#el.querySelector("#setting-theme").value = settings.theme;
+    }
+    if (settings.fontSize !== undefined) {
+      this.#el.querySelector("#setting-font-size").value = String(settings.fontSize);
+    }
+    if (settings.timeout !== undefined) {
+      this.#el.querySelector("#setting-timeout").value = String(settings.timeout);
+    }
+    if (settings.followRedirects !== undefined) {
+      this.#el.querySelector("#setting-follow-redirects").checked = settings.followRedirects;
+    }
+    if (settings.verifySsl !== undefined) {
+      this.#el.querySelector("#setting-verify-ssl").checked = settings.verifySsl;
+    }
+    if (settings.proxyEnabled !== undefined) {
+      this.#el.querySelector("#setting-proxy-enabled").checked = settings.proxyEnabled;
+    }
+    if (settings.proxyUrl !== undefined) {
+      this.#el.querySelector("#setting-proxy-url").value = settings.proxyUrl;
+    }
+  }
+}

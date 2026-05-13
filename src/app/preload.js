@@ -12,22 +12,25 @@ contextBridge.exposeInMainWorld("wurl", {
   version: require("../package.json").version,
 
   /**
-   * Collections persistence — backed by a JSON file in the platform user-data
+   * Data persistence — backed by a JSON file in the platform user-data
    * directory, accessed via ipcMain handlers in main.js.
+   *
+   * The stored document shape is:
+   *   { version: number, collections: object[], settings: object }
    *
    *   macOS:   ~/Library/Application Support/wurl/collections.json
    *   Linux:   ~/.config/wurl/collections.json
    *   Windows: %APPDATA%\wurl\collections.json
    */
   collections: {
-    /** @returns {Promise<object[]>} the stored collections array ([] on first run) */
+    /** @returns {Promise<{ version: number, collections: object[], settings: object }>} */
     load: () => ipcRenderer.invoke("collections:read"),
 
     /**
-     * Persist the full collections array.
-     * @param {object[]} items
+     * Persist the full data document.
+     * @param {{ version: number, collections: object[], settings: object }} doc
      * @returns {Promise<void>}
      */
-    save: (items) => ipcRenderer.invoke("collections:write", items),
+    save: (doc) => ipcRenderer.invoke("collections:write", doc),
   },
 });

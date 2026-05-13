@@ -1,5 +1,11 @@
 /**
- * data-store.js — Persistence layer for collections data.
+ * data-store.js — Persistence layer for the wurl data document.
+ *
+ * The on-disk format is a single JSON file:
+ *   { "version": 1, "collections": [...], "settings": { ... } }
+ *
+ * An in-memory document cache ensures that concurrent saves of collections
+ * and settings never overwrite each other's keys.
  *
  * Environment detection:
  *   Electron (prod or --dev):  window.wurl.collections is exposed by preload.js
@@ -15,10 +21,28 @@
 
 "use strict";
 
-/**
- * Returns true when the renderer is running inside Electron and the
- * contextBridge collections API is available.
- */
+/** Canonical default settings — merged over whatever is stored on disk. */
+export const DEFAULT_SETTINGS = {
+  theme:           "mocha",
+  fontSize:        13,
+  timeout:         30000,
+  followRedirects: true,
+  verifySsl:       true,
+  proxyEnabled:    false,
+  proxyUrl:        "",
+};
+
+// ── In-memory document cache ──────────────────────────────────────────────────
+// Keeping the full doc in memory prevents concurrent saves (collections vs
+// settings) from clobbering each other's keys.
+let _doc = {
+  version:     1,
+  collections: [],
+  settings:    { ...DEFAULT_SETTINGS },
+};
+
+// ── Environment detection ─────────────────────────────────────────────────────
+
 function isElectron() {
   return (
     typeof window !== "undefined" &&
@@ -27,51 +51,77 @@ function isElectron() {
   );
 }
 
-/**
- * Load the full collections array from persistent storage.
- * Returns an empty array on first run or on any error.
- *
- * @returns {Promise<object[]>}
- */
-export async function loadCollections() {
+// ── Internal write ────────────────────────────────────────────────────────────
+
+async function _persist() {
   try {
     if (isElectron()) {
-      return await window.wurl.collections.load();
-    }
-
-    // Go dev server — same origin, no CORS needed
-    const res = await fetch("/api/collections");
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    return Array.isArray(data.collections) ? data.collections : [];
-  } catch (err) {
-    console.warn("[data-store] load failed:", err.message);
-    return [];
-  }
-}
-
-/**
- * Persist the full collections array.
- * Writes are fire-and-forget — errors are logged but not re-thrown.
- *
- * @param {object[]} items  - Full collections array as returned by TreeView.getItems()
- * @returns {Promise<void>}
- */
-export async function saveCollections(items) {
-  try {
-    if (isElectron()) {
-      await window.wurl.collections.save(items);
+      await window.wurl.collections.save(_doc);
       return;
     }
-
-    // Go dev server
     await fetch("/api/collections", {
-      method: "PUT",
+      method:  "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ version: 1, collections: items }),
+      body:    JSON.stringify(_doc),
     });
   } catch (err) {
     console.warn("[data-store] save failed:", err.message);
   }
 }
 
+// ── Public API ────────────────────────────────────────────────────────────────
+
+/**
+ * Load the full data document from persistent storage on startup.
+ * Populates the in-memory cache and returns { collections, settings }.
+ * Returns safe defaults on first run or on any error.
+ *
+ * @returns {Promise<{ collections: object[], settings: object }>}
+ */
+export async function loadAll() {
+  try {
+    let raw;
+    if (isElectron()) {
+      raw = await window.wurl.collections.load();
+    } else {
+      const res = await fetch("/api/collections");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      raw = await res.json();
+    }
+
+    _doc = {
+      version:     raw.version ?? 1,
+      collections: Array.isArray(raw.collections) ? raw.collections : [],
+      settings:    { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) },
+    };
+  } catch (err) {
+    console.warn("[data-store] load failed:", err.message);
+    _doc = { version: 1, collections: [], settings: { ...DEFAULT_SETTINGS } };
+  }
+
+  return { collections: _doc.collections, settings: _doc.settings };
+}
+
+/**
+ * Persist an updated collections array.
+ * Merges into the cached document, then atomically writes the full document.
+ *
+ * @param {object[]} items  - Full collections array as returned by TreeView.getItems()
+ * @returns {Promise<void>}
+ */
+export async function saveCollections(items) {
+  _doc = { ..._doc, collections: items };
+  await _persist();
+}
+
+/**
+ * Persist updated settings.
+ * Merges into the cached document, then atomically writes the full document.
+ *
+ * @param {object} settings  - Plain settings object (see DEFAULT_SETTINGS for shape)
+ * @returns {Promise<void>}
+ */
+export async function saveSettings(settings) {
+  _doc = { ..._doc, settings };
+  await _persist();
+}

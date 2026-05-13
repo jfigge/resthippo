@@ -1,5 +1,14 @@
 {
   "version": 1,
+  "settings": {
+    "theme": "mocha",
+    "fontSize": 13,
+    "timeout": 30000,
+    "followRedirects": true,
+    "verifySsl": true,
+    "proxyEnabled": false,
+    "proxyUrl": ""
+  },
   "collections": [
     {
       "id": "col-1",

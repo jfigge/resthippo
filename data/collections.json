@@ -71,5 +71,14 @@
         }
       ]
     }
-  ]
+  ],
+  "settings": {
+    "theme": "latte",
+    "fontSize": 13,
+    "timeout": 30000,
+    "followRedirects": true,
+    "verifySsl": true,
+    "proxyEnabled": false,
+    "proxyUrl": ""
+  }
 }
