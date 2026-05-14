@@ -11,7 +11,7 @@
           "type": "request",
           "name": "Create user",
           "method": "GET",
-          "url": "https://jsonplaceholder.typicode.com/users/6",
+          "url": "https://jsonplaceholder.typicode.com/users/5",
           "params": [
             {
               "id": "346d1be9-26db-4010-8f26-16d2548c7f69",
@@ -50,7 +50,7 @@
           "authOAuth2": {
             "grantType": "client_credentials",
             "clientId": "",
-            "clientSecret": "",
+            "clientSecret": "sadas",
             "accessTokenUrl": "",
             "authUrl": "",
             "scope": "",
@@ -133,15 +133,11 @@
   "settings": {
     "theme": "grey-dark",
     "fontSize": 13,
+    "removeHeaders": false,
     "timeout": 30000,
     "followRedirects": true,
     "verifySsl": true,
     "proxyEnabled": false,
-    "proxyUrl": "",
-    "splitterNav": 240,
-    "splitterRes": 340,
-    "splitterRowRes": 320,
-    "listHeaders": true,
-    "removeHeaders": true
+    "proxyUrl": ""
   }
 }

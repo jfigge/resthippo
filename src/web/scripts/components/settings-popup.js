@@ -86,7 +86,7 @@ export class SettingsPopup {
             </select>
           </div>
 
-          <div class="settings-row settings-row--toggle">
+          <div class="settings-row settings-row--toggle" id="setting-remove-headers-row">
             <label class="settings-label" for="setting-remove-headers">Remove headers</label>
             <input
               class="settings-toggle"
@@ -169,6 +169,10 @@ export class SettingsPopup {
       control.addEventListener("input",  () => this.#emitChange());
     });
 
+    // Update the "Remove headers" tooltip whenever the checkbox is toggled
+    const removeHeadersCb = this.#el.querySelector("#setting-remove-headers");
+    removeHeadersCb.addEventListener("change", () => this.#updateRemoveHeadersTitle());
+
     // Close button (top-right ✕)
     this.#el.querySelector(".popup-close").addEventListener("click", () => {
       PopupManager.close();
@@ -181,6 +185,20 @@ export class SettingsPopup {
   }
 
   // ── Internal helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Sync the tooltip on the "Remove headers" row to reflect the current state.
+   * Checked → explains where the icon will be after checking the box.
+   * Unchecked   → explains where the settings icon moves when headers are hidden.
+   */
+  #updateRemoveHeadersTitle() {
+    const cb  = this.#el.querySelector("#setting-remove-headers");
+    const row = this.#el.querySelector("#setting-remove-headers-row");
+    if (!cb || !row) return;
+    row.title = cb.checked
+      ? "When headers are shown, the settings icon will move to the top right corner"
+      : "When headers are hidden, the settings icon will move to the bottom left corner";
+  }
 
   /**
    * Read current control values and dispatch "wurl:settings-changed".
@@ -250,6 +268,8 @@ export class SettingsPopup {
     if (settings.removeHeaders !== undefined) {
       this.#el.querySelector("#setting-remove-headers").checked = settings.removeHeaders;
     }
+    // Always refresh the tooltip so it matches the current checkbox state
+    this.#updateRemoveHeadersTitle();
     if (settings.timeout !== undefined) {
       this.#el.querySelector("#setting-timeout").value = String(settings.timeout);
     }
