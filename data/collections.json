@@ -133,11 +133,16 @@
   "settings": {
     "theme": "grey-dark",
     "fontSize": 13,
-    "removeHeaders": false,
     "timeout": 30000,
     "followRedirects": true,
     "verifySsl": true,
     "proxyEnabled": false,
-    "proxyUrl": ""
+    "proxyUrl": "",
+    "splitterNav": 240,
+    "splitterRes": 340,
+    "splitterRowRes": 320,
+    "listHeaders": true,
+    "showUrlPreview": true,
+    "removeHeaders": false
   }
 }

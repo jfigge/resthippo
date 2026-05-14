@@ -192,6 +192,9 @@ export class RequestEditor {
   // Params state
   #params            = [];   // [{ id, name, value, enabled }]
   #paramsListEl      = null;
+  #urlPreviewEnabled = true; // toggled by "Show URL" checkbox
+  #urlPreviewEl      = null; // the preview bar element
+  #urlPreviewInputEl = null; // the read-only input inside it
   // Drag state
   #dragSrcId         = null; // id of the param being dragged
   #dragInsideList    = false;
@@ -280,6 +283,7 @@ export class RequestEditor {
     urlInput.addEventListener("input", () => {
       this.#url = urlInput.value;
       this.#dispatchRequestUpdated();
+      this.#updateUrlPreview();
     });
     urlInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") this.#sendRequest();
@@ -1299,6 +1303,38 @@ export class RequestEditor {
 
     toolbar.appendChild(addBtn);
     toolbar.appendChild(deleteAllBtn);
+
+    // Spacer pushes the Show URL toggle to the right
+    const showUrlSpacer = document.createElement("span");
+    showUrlSpacer.style.flex = "1";
+    toolbar.appendChild(showUrlSpacer);
+
+    // ── "Show URL" toggle — right side (mirrors "List Headers" in headers toolbar) ─
+    const showUrlLabel = document.createElement("label");
+    showUrlLabel.className = "params-toolbar-toggle-label";
+    showUrlLabel.title = "Show or hide the URL preview bar";
+
+    const showUrlCheck = document.createElement("input");
+    showUrlCheck.type      = "checkbox";
+    showUrlCheck.id        = "url-preview-toggle";
+    showUrlCheck.className = "params-toolbar-toggle";
+    showUrlCheck.checked   = this.#urlPreviewEnabled;
+    showUrlCheck.addEventListener("change", () => {
+      this.#urlPreviewEnabled = showUrlCheck.checked;
+      this.#updateUrlPreview();
+      window.dispatchEvent(new CustomEvent("wurl:editor-setting-changed", {
+        detail: { showUrlPreview: showUrlCheck.checked },
+        bubbles: true,
+      }));
+    });
+
+    showUrlLabel.appendChild(showUrlCheck);
+    showUrlLabel.append(" Show URL");
+    toolbar.appendChild(showUrlLabel);
+
+
+    // ── URL preview bar (above the toolbar, between tab strip and params) ─
+    container.appendChild(this.#buildUrlPreviewBar());
     container.appendChild(toolbar);
 
     // ── Column headers ───────────────────────────────────────────────────
@@ -1391,6 +1427,7 @@ export class RequestEditor {
 
     const listHdrCheck = document.createElement("input");
     listHdrCheck.type      = "checkbox";
+    listHdrCheck.id        = "list-headers-toggle";
     listHdrCheck.checked   = this.#headerSuggestionsEnabled;
     listHdrCheck.className = "params-toolbar-toggle";
     listHdrCheck.addEventListener("change", () => {
@@ -1720,12 +1757,82 @@ export class RequestEditor {
       empty.className = "params-empty";
       empty.textContent = "No parameters — click  +  to add one.";
       this.#paramsListEl.appendChild(empty);
+      this.#updateUrlPreview();
       return;
     }
 
     this.#params.forEach((param, index) => {
       this.#paramsListEl.appendChild(this.#buildParamRow(param, index));
     });
+    this.#updateUrlPreview();
+  }
+
+  // ── URL preview helpers ──────────────────────────────────────────────────
+
+  /**
+   * Build the one-time URL preview bar DOM element (read-only input + Copy button).
+   * Stored in #urlPreviewEl / #urlPreviewInputEl for later updates.
+   */
+  #buildUrlPreviewBar() {
+    const bar = document.createElement("div");
+    bar.className = "params-url-preview";
+
+    const input = document.createElement("input");
+    input.type        = "text";
+    input.readOnly    = true;
+    input.className   = "params-url-preview__input";
+    input.placeholder = "Enter a URL above to preview it here";
+    input.setAttribute("aria-label", "Request URL with query parameters");
+    input.tabIndex    = -1;
+
+    const copyBtn = document.createElement("button");
+    copyBtn.type      = "button";
+    copyBtn.className = "params-url-preview__copy-btn";
+    copyBtn.textContent = "Copy";
+    copyBtn.title     = "Copy URL to clipboard";
+    copyBtn.setAttribute("aria-label", "Copy URL to clipboard");
+    copyBtn.addEventListener("click", () => {
+      const text = input.value;
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
+      }).catch(() => {
+        // Fallback: select + execCommand for environments without Clipboard API
+        input.removeAttribute("readonly");
+        input.select();
+        document.execCommand("copy");
+        input.setAttribute("readonly", "");
+      });
+    });
+
+    bar.appendChild(input);
+    bar.appendChild(copyBtn);
+
+    this.#urlPreviewEl      = bar;
+    this.#urlPreviewInputEl = input;
+    this.#updateUrlPreview();
+    return bar;
+  }
+
+  /** Assemble the URL string with enabled query parameters appended. */
+  #buildPreviewUrl() {
+    const base    = this.#url ?? "";
+    const enabled = this.#params.filter(p => p.enabled && p.name.trim());
+    if (!enabled.length) return base;
+    const qs = enabled
+      .map(p => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`)
+      .join("&");
+    return base + (base.includes("?") ? "&" : "?") + qs;
+  }
+
+  /** Refresh the preview bar's visibility and text content. */
+  #updateUrlPreview() {
+    if (!this.#urlPreviewEl) return;
+    this.#urlPreviewEl.classList.toggle("params-url-preview--hidden", !this.#urlPreviewEnabled);
+    if (this.#urlPreviewInputEl) {
+      this.#urlPreviewInputEl.value = this.#buildPreviewUrl();
+    }
   }
 
   #buildParamRow(param, index) {
@@ -1949,10 +2056,17 @@ export class RequestEditor {
   applySettings(settings) {
     if (settings.listHeaders != null) {
       this.#headerSuggestionsEnabled = !!settings.listHeaders;
-      // Sync the checkbox DOM if it already exists
-      const cb = this.#el.querySelector(".params-toolbar-toggle");
+      // Sync the specific List Headers checkbox by ID
+      const cb = this.#el.querySelector("#list-headers-toggle");
       if (cb) cb.checked = this.#headerSuggestionsEnabled;
       if (!this.#headerSuggestionsEnabled) _hideHdrDropdown();
+    }
+    if (settings.showUrlPreview != null) {
+      this.#urlPreviewEnabled = !!settings.showUrlPreview;
+      // Sync the Show URL checkbox by ID
+      const cb = this.#el.querySelector("#url-preview-toggle");
+      if (cb) cb.checked = this.#urlPreviewEnabled;
+      this.#updateUrlPreview();
     }
   }
 

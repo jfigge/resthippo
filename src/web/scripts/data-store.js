@@ -36,6 +36,7 @@ export const DEFAULT_SETTINGS = {
   splitterRowRes: 320,   // --row-res  (response panel height in between/portrait)
   // Editor preferences
   listHeaders:    true,  // show standard-header suggestions in the Headers tab
+  showUrlPreview: true,  // show the URL-with-params preview bar in the Params tab
 };
 
 // ── In-memory document cache ──────────────────────────────────────────────────
