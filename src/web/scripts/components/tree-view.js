@@ -662,9 +662,15 @@ export class TreeView {
   #selectRequest(node, li) {
     this.#setActiveRow(li);
 
+    // Always read the live node from #items so we get the latest field values.
+    // The click-handler closure captures the node object at render time; if
+    // updateNode() has since patched #items (creating a new object), the
+    // closure reference would be stale and load outdated method/url/etc.
+    const currentNode = this.#findNode(this.#items, node.id) ?? node;
+
     window.dispatchEvent(
       new CustomEvent("wurl:request-selected", {
-        detail: node,
+        detail: currentNode,
         bubbles: true,
       }),
     );
@@ -892,13 +898,16 @@ export class TreeView {
 
   /**
    * Merge `fields` into the in-memory node identified by `id`, patch the live
-   * DOM element when it is visible, and persist via #emitChange().
+   * DOM element when it is visible.
    *
    * Supports any field stored on request nodes (method, url, params, …).
    * @param {string} id
    * @param {object} fields
+   * @param {{ silent?: boolean }} [opts]
+   *   silent – when true, skips the #emitChange() call so the caller can
+   *            batch / debounce the resulting storage write themselves.
    */
-  updateNode(id, fields) {
+  updateNode(id, fields, { silent = false } = {}) {
     // 1. Patch in-memory tree
     this.#items = this.#patchNodeFields(this.#items, id, fields);
 
@@ -927,8 +936,8 @@ export class TreeView {
       this.#rerender();
     }
 
-    // 3. Persist
-    this.#emitChange();
+    // 3. Persist (unless the caller has opted out to handle saving themselves)
+    if (!silent) this.#emitChange();
   }
 
   /** Recursively return a new tree with the fields of `targetId` merged. */

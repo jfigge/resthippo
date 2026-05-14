@@ -11,8 +11,58 @@
           "type": "request",
           "name": "Create user",
           "method": "GET",
-          "url": "https://jsonplaceholder.typicode.com/users/1",
-          "params": []
+          "url": "https://jsonplaceholder.typicode.com/users/6",
+          "params": [
+            {
+              "id": "346d1be9-26db-4010-8f26-16d2548c7f69",
+              "name": "banana",
+              "value": "",
+              "enabled": true
+            },
+            {
+              "id": "556032e7-ea1b-477c-94b4-5b306aa5f339",
+              "name": "echo",
+              "value": "dasf",
+              "enabled": true
+            }
+          ],
+          "headers": [
+            {
+              "id": "a58aba5f-0e7f-4cc4-9c60-8179b1afab68",
+              "name": "Accept",
+              "value": "application/JSON",
+              "enabled": true
+            }
+          ],
+          "bodyType": "yaml",
+          "bodyFormRows": [],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": "asdf"
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "token": ""
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          }
         },
         {
           "id": "req-4",
@@ -83,11 +133,15 @@
   "settings": {
     "theme": "grey-dark",
     "fontSize": 13,
-    "removeHeaders": true,
     "timeout": 30000,
     "followRedirects": true,
     "verifySsl": true,
     "proxyEnabled": false,
-    "proxyUrl": ""
+    "proxyUrl": "",
+    "splitterNav": 240,
+    "splitterRes": 340,
+    "splitterRowRes": 320,
+    "listHeaders": true,
+    "removeHeaders": true
   }
 }

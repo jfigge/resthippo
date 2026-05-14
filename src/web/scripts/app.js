@@ -306,11 +306,26 @@ function initEventBus() {
     saveSettings(currentSettings);
   });
 
-  // When the request editor mutates a field (method, url, params, …),
-  // push the change into the tree-view so the node stays in sync.
+  // When the request editor mutates a field (method, url, params, body, auth, …),
+  // immediately sync the in-memory tree and update the visible tree-view node
+  // (e.g. the method badge), then schedule a debounced storage write so that
+  // rapid typing does not flood the persistence layer with individual saves.
+  let _requestSaveTimer = null;
+  function _scheduleRequestSave() {
+    clearTimeout(_requestSaveTimer);
+    _requestSaveTimer = setTimeout(() => {
+      if (treeView) saveCollections(treeView.getItems());
+    }, 400);
+  }
+
   window.addEventListener("wurl:request-updated", (e) => {
     const { id, ...fields } = e.detail;
-    if (id && treeView) treeView.updateNode(id, fields);
+    if (id && treeView) {
+      // silent=true → in-memory patch + DOM update, no immediate #emitChange
+      treeView.updateNode(id, fields, { silent: true });
+      // Debounced write so keystrokes batch into a single save
+      _scheduleRequestSave();
+    }
   });
 
   // When the editor fires a send, execute the request
