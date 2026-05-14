@@ -10,8 +10,9 @@
           "id": "req-3",
           "type": "request",
           "name": "Create user",
-          "method": "POST",
-          "url": "https://jsonplaceholder.typicode.com/users"
+          "method": "GET",
+          "url": "https://jsonplaceholder.typicode.com/users/1",
+          "params": []
         },
         {
           "id": "req-4",
@@ -25,7 +26,7 @@
           "type": "request",
           "name": "New Request",
           "method": "GET",
-          "url": ""
+          "url": "WEFWFFADSFA"
         },
         {
           "id": "54553ea6-9d98-4f1f-be89-3eec2ebcbe8a",

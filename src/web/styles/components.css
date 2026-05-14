@@ -141,16 +141,6 @@
   display: none;
 }
 
-/* Request rows need a taller row to accommodate the URL subtitle */
-.tree-node--request > .tree-node__row {
-  align-items: flex-start;
-  padding-top: 4px;
-  padding-bottom: 4px;
-}
-
-.tree-node--request .tree-node__method {
-  margin-top: 1px;
-}
 
 /* Method badges */
 .tree-node__method {
@@ -462,6 +452,15 @@
 .params-toolbar-btn--danger:hover {
   background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
   color: var(--color-error);
+}
+
+.params-delete-all-btn {
+  width: auto;
+  height: 24px;
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  border-radius: var(--radius-sm);
 }
 
 /* Column header row */

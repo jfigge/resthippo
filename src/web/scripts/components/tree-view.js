@@ -617,14 +617,10 @@ export class TreeView {
       // Request item
       li.classList.add("tree-node--request");
       const methodClass = `method--${(node.method ?? "GET").toLowerCase()}`;
-      const urlText = node.url ? this.#escape(node.url) : "";
       li.innerHTML = `
         <div class="tree-node__row" tabindex="0">
           <span class="tree-node__method ${methodClass}">${node.method ?? "GET"}</span>
-          <div class="tree-node__info">
-            <span class="tree-node__label">${this.#escape(node.name)}</span>
-            <span class="tree-node__url">${urlText}</span>
-          </div>
+          <span class="tree-node__label">${this.#escape(node.name)}</span>
         </div>
       `;
 

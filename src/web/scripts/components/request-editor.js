@@ -175,15 +175,10 @@ export class RequestEditor {
     addBtn.addEventListener("click", () => this.#addParam());
 
     const deleteAllBtn = document.createElement("button");
-    deleteAllBtn.className = "icon-btn params-toolbar-btn params-toolbar-btn--danger";
+    deleteAllBtn.className = "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
     deleteAllBtn.title = "Delete all parameters";
     deleteAllBtn.setAttribute("aria-label", "Delete all parameters");
-    deleteAllBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"
-        stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="1,3.5 13,3.5"/><polyline points="4,3.5 4,1.5 10,1.5 10,3.5"/>
-      <rect x="2" y="3.5" width="10" height="9" rx="1"/>
-      <line x1="5.5" y1="6.5" x2="5.5" y2="10"/><line x1="8.5" y1="6.5" x2="8.5" y2="10"/>
-    </svg>`;
+    deleteAllBtn.textContent = "Delete All";
     deleteAllBtn.addEventListener("click", () => this.#deleteAllParams());
 
     toolbar.appendChild(addBtn);
