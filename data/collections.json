@@ -82,6 +82,7 @@
     "proxyUrl": "",
     "splitterNav": 402,
     "splitterRes": 274.5,
-    "splitterRowRes": 192
+    "splitterRowRes": 192,
+    "listHeaders": false
   }
 }

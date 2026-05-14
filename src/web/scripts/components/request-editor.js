@@ -200,6 +200,7 @@ export class RequestEditor {
   // Headers state
   #headers               = [];   // [{ id, name, value, enabled }]
   #headersListEl         = null;
+  #headerSuggestionsEnabled = true;  // toggled by "List Headers" checkbox
   // Headers drag state
   #hdrDragSrcId          = null;
   #hdrDragInsideList     = false;
@@ -434,6 +435,34 @@ export class RequestEditor {
 
     toolbar.appendChild(addBtn);
     toolbar.appendChild(deleteAllBtn);
+
+    // ── "List Headers" toggle — pushed to the right ───────────────────────
+    const spacer = document.createElement("span");
+    spacer.style.flex = "1";
+    toolbar.appendChild(spacer);
+
+    const listHdrLabel = document.createElement("label");
+    listHdrLabel.className = "params-toolbar-toggle-label";
+    listHdrLabel.title = "Show standard header suggestions when editing the header name";
+
+    const listHdrCheck = document.createElement("input");
+    listHdrCheck.type      = "checkbox";
+    listHdrCheck.checked   = this.#headerSuggestionsEnabled;
+    listHdrCheck.className = "params-toolbar-toggle";
+    listHdrCheck.addEventListener("change", () => {
+      this.#headerSuggestionsEnabled = listHdrCheck.checked;
+      if (!listHdrCheck.checked) _hideHdrDropdown();
+      // Persist the preference into settings
+      window.dispatchEvent(new CustomEvent("wurl:editor-setting-changed", {
+        detail: { listHeaders: listHdrCheck.checked },
+        bubbles: true,
+      }));
+    });
+
+    listHdrLabel.appendChild(listHdrCheck);
+    listHdrLabel.append(" List Headers");
+    toolbar.appendChild(listHdrLabel);
+
     container.appendChild(toolbar);
 
     // ── Column headers ───────────────────────────────────────────────────
@@ -579,11 +608,13 @@ export class RequestEditor {
     headerInput.value       = header.name;
     headerInput.setAttribute("aria-label",    "Header name");
     headerInput.setAttribute("autocomplete",  "off");
-    headerInput.addEventListener("focus", () => _showHdrDropdown(headerInput));
+    headerInput.addEventListener("focus", () => {
+      if (this.#headerSuggestionsEnabled) _showHdrDropdown(headerInput);
+    });
     headerInput.addEventListener("input", () => {
       header.name = headerInput.value;
       this.#dispatchHeadersUpdated();
-      _showHdrDropdown(headerInput);
+      if (this.#headerSuggestionsEnabled) _showHdrDropdown(headerInput);
     });
     headerInput.addEventListener("blur", () => {
       // Store the timer ID so focus can cancel it if the user clicks back quickly
@@ -964,6 +995,21 @@ export class RequestEditor {
       detail: descriptor,
       bubbles: true,
     }));
+  }
+
+  /**
+   * Apply persisted settings to the editor UI.
+   * Called on startup after settings are loaded from disk.
+   * @param {object} settings
+   */
+  applySettings(settings) {
+    if (settings.listHeaders != null) {
+      this.#headerSuggestionsEnabled = !!settings.listHeaders;
+      // Sync the checkbox DOM if it already exists
+      const cb = this.#el.querySelector(".params-toolbar-toggle");
+      if (cb) cb.checked = this.#headerSuggestionsEnabled;
+      if (!this.#headerSuggestionsEnabled) _hideHdrDropdown();
+    }
   }
 
   /**

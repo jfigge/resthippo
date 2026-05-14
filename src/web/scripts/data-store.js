@@ -34,6 +34,8 @@ export const DEFAULT_SETTINGS = {
   splitterNav:    240,   // --col-nav  (nav panel width, also used as height in portrait)
   splitterRes:    340,   // --col-res  (response panel width in landscape)
   splitterRowRes: 320,   // --row-res  (response panel height in between/portrait)
+  // Editor preferences
+  listHeaders:    true,  // show standard-header suggestions in the Headers tab
 };
 
 // ── In-memory document cache ──────────────────────────────────────────────────

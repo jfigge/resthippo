@@ -454,6 +454,31 @@
   color: var(--color-error);
 }
 
+/* "List Headers" right-aligned toggle in the headers toolbar */
+.params-toolbar-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-size-xs);
+  color: var(--color-subtext);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  padding: 0 var(--space-1);
+}
+
+.params-toolbar-toggle-label:hover {
+  color: var(--color-text);
+}
+
+.params-toolbar-toggle {
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  accent-color: var(--color-accent);
+  flex-shrink: 0;
+}
+
 .params-delete-all-btn {
   width: auto;
   height: 24px;

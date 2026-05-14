@@ -294,6 +294,13 @@ function initEventBus() {
     saveSettings(currentSettings);
   });
 
+  // When the request editor fires a preference change (e.g. List Headers toggle),
+  // merge into currentSettings and persist.
+  window.addEventListener("wurl:editor-setting-changed", (e) => {
+    currentSettings = { ...currentSettings, ...e.detail };
+    saveSettings(currentSettings);
+  });
+
   // When the request editor mutates a field (method, url, params, …),
   // push the change into the tree-view so the node stays in sync.
   window.addEventListener("wurl:request-updated", (e) => {
@@ -383,4 +390,7 @@ function applySettings(settings) {
   if (settings.splitterRes    != null) splitterSizes.res    = settings.splitterRes;
   if (settings.splitterRowRes != null) splitterSizes.rowRes = settings.splitterRowRes;
   applyGridVars();
+
+  // Editor preferences
+  if (requestEditor) requestEditor.applySettings(settings);
 }
