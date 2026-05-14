@@ -33,9 +33,14 @@ export class RequestEditor {
   #currentNodeId = null;
 
   // Params state
-  #params       = [];          // [{ id, name, value, enabled }]
-  #paramsListEl = null;
-  #dragSrcIndex = null;
+  #params            = [];   // [{ id, name, value, enabled }]
+  #paramsListEl      = null;
+  // Drag state
+  #dragSrcId         = null; // id of the param being dragged
+  #dragInsideList    = false;
+  #dragDropHandled   = false;
+  #paramPhantomEl    = null; // placeholder shown while dragging
+  #docDragOverHandler = null;
 
   constructor() {
     this.#el = document.createElement("div");
@@ -200,6 +205,38 @@ export class RequestEditor {
     const list = document.createElement("div");
     list.className = "params-list";
     this.#paramsListEl = list;
+
+    // Phantom placeholder shown at the drop target while dragging
+    this.#paramPhantomEl = document.createElement("div");
+    this.#paramPhantomEl.className = "params-drop-phantom";
+    this.#paramPhantomEl.setAttribute("aria-hidden", "true");
+
+    // Container-level drop — commit the reorder
+    list.addEventListener("dragover", (e) => {
+      if (this.#dragSrcId) e.preventDefault();
+    });
+    list.addEventListener("drop", (e) => {
+      e.preventDefault();
+      if (!this.#dragSrcId) return;
+      this.#dragDropHandled = true;
+      const ph = this.#paramPhantomEl;
+      // Find the index of the phantom to know where to insert
+      const allChildren = [...list.children];
+      const phantomIdx = allChildren.indexOf(ph);
+      if (phantomIdx === -1) { this.#cancelParamDrag(); this.#finalizeParamDrag(); return; }
+      // Count only param rows before the phantom
+      const insertBefore = allChildren.slice(0, phantomIdx).filter(el => el.classList.contains("params-row")).length;
+      const srcIdx = this.#params.findIndex(p => p.id === this.#dragSrcId);
+      if (srcIdx !== -1) {
+        const [moved] = this.#params.splice(srcIdx, 1);
+        const target = insertBefore > srcIdx ? insertBefore - 1 : insertBefore;
+        this.#params.splice(target, 0, moved);
+        this.#renderParamsList();
+        this.#dispatchParamsUpdated();
+      }
+      this.#finalizeParamDrag();
+    });
+
     container.appendChild(list);
 
     this.#renderParamsList();
@@ -333,40 +370,60 @@ export class RequestEditor {
     </svg>`;
     deleteBtn.addEventListener("click", () => this.#deleteParam(param.id));
 
-    // ── HTML5 drag-and-drop reordering ───────────────────────────────────
+    // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
+    row.draggable = true;
+
     row.addEventListener("dragstart", (e) => {
-      this.#dragSrcIndex = index;
+      this.#dragSrcId      = param.id;
+      this.#dragDropHandled = false;
       e.dataTransfer.effectAllowed = "move";
-      // Small delay so browser can render drag image before adding class
-      requestAnimationFrame(() => row.classList.add("params-row--dragging"));
+      e.dataTransfer.setData("text/plain", param.id); // required by Firefox
+
+      requestAnimationFrame(() => {
+        this.#dragInsideList = true;
+        // Insert phantom where the row was, then hide the row
+        row.parentElement?.insertBefore(this.#paramPhantomEl, row);
+        row.style.display = "none";
+      });
+
+      // Document-level handler to detect leaving/re-entering the list
+      this.#docDragOverHandler = (ev) => {
+        if (!this.#dragSrcId) return;
+        const inside = this.#paramsListEl.contains(ev.target);
+        if (!inside && this.#dragInsideList) {
+          this.#dragInsideList = false;
+          this.#paramPhantomEl.remove();
+          const draggedRow = this.#paramsListEl.querySelector(`[data-id="${this.#dragSrcId}"]`);
+          if (draggedRow) draggedRow.style.display = "";
+        } else if (inside && !this.#dragInsideList) {
+          this.#dragInsideList = true;
+        }
+      };
+      document.addEventListener("dragover", this.#docDragOverHandler);
     });
-    row.addEventListener("dragend", () => {
-      row.classList.remove("params-row--dragging");
-      this.#paramsListEl
-        .querySelectorAll(".params-row--over")
-        .forEach((r) => r.classList.remove("params-row--over"));
-      this.#dragSrcIndex = null;
-    });
+
     row.addEventListener("dragover", (e) => {
+      if (!this.#dragSrcId || this.#dragSrcId === param.id) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-      if (index === this.#dragSrcIndex) return;
-      this.#paramsListEl
-        .querySelectorAll(".params-row--over")
-        .forEach((r) => r.classList.remove("params-row--over"));
-      row.classList.add("params-row--over");
+
+      const rect  = row.getBoundingClientRect();
+      const after = (e.clientY - rect.top) / rect.height >= 0.5;
+      const ph    = this.#paramPhantomEl;
+
+      // Ensure dragged row stays hidden after re-entry
+      const draggedRow = this.#paramsListEl.querySelector(`[data-id="${this.#dragSrcId}"]`);
+      if (draggedRow && draggedRow.style.display !== "none") draggedRow.style.display = "none";
+
+      const sibling = after ? row.nextSibling : row;
+      if (ph.nextSibling !== sibling && ph !== sibling) {
+        row.parentElement?.insertBefore(ph, after ? row.nextSibling : row);
+      }
     });
-    row.addEventListener("dragleave", (e) => {
-      if (!row.contains(e.relatedTarget)) row.classList.remove("params-row--over");
-    });
-    row.addEventListener("drop", (e) => {
-      e.preventDefault();
-      const src = this.#dragSrcIndex;
-      if (src === null || src === index) return;
-      const [moved] = this.#params.splice(src, 1);
-      this.#params.splice(index, 0, moved);
-      this.#renderParamsList();
-      this.#dispatchParamsUpdated();
+
+    row.addEventListener("dragend", () => {
+      if (!this.#dragDropHandled) this.#cancelParamDrag();
+      this.#finalizeParamDrag();
     });
 
     row.appendChild(handle);
@@ -375,6 +432,23 @@ export class RequestEditor {
     row.appendChild(valueInput);
     row.appendChild(deleteBtn);
     return row;
+  }
+
+  /** Cancel a drag: remove phantom and re-render from unchanged #params. */
+  #cancelParamDrag() {
+    this.#paramPhantomEl.remove();
+    this.#renderParamsList();
+  }
+
+  /** Clean up all drag state and remove the document-level listener. */
+  #finalizeParamDrag() {
+    if (this.#docDragOverHandler) {
+      document.removeEventListener("dragover", this.#docDragOverHandler);
+      this.#docDragOverHandler = null;
+    }
+    this.#dragSrcId       = null;
+    this.#dragInsideList  = false;
+    this.#dragDropHandled = false;
   }
 
   // ── Tab switching ─────────────────────────────────────────────────────────

@@ -484,6 +484,11 @@
   user-select: none;
 }
 
+/* Indent the Value headers to match the input's internal padding */
+.params-col-value {
+  padding-left: var(--space-2);
+}
+
 /* Scrollable list */
 .params-list {
   flex: 1;
@@ -506,17 +511,17 @@
   background-color: var(--color-surface-0);
 }
 
-/* Drag-in-progress */
-.params-row--dragging {
-  opacity: 0.4;
+/* Drop phantom placeholder shown while dragging a param row */
+.params-drop-phantom {
+  height: 26px;
+  margin: 0 var(--space-1);
+  background: var(--color-surface-2);
+  border: 2px dashed var(--color-overlay-0);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  box-sizing: border-box;
 }
 
-/* Drop target indicator */
-.params-row--over {
-  background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  outline: 1px dashed var(--color-accent);
-  outline-offset: -1px;
-}
 
 /* Disabled row */
 .params-row--disabled .params-input,
