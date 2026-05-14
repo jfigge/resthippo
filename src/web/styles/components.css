@@ -453,6 +453,38 @@
 
 .body-text-editor::placeholder { color: var(--color-overlay-0); font-style: italic; }
 
+/* Validation badge — sits in the type-selector bar between the select and Prettify */
+.body-validate-badge {
+  display: none; /* hidden when neutral; shown below via data-state */
+  align-items: center;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  font-family: var(--font-mono), monospace;
+  padding: 2px var(--space-2);
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.body-validate-badge[data-state="valid"],
+.body-validate-badge[data-state="invalid"] {
+  display: inline-flex;
+}
+
+.body-validate-badge[data-state="valid"] {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+}
+
+.body-validate-badge[data-state="invalid"] {
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 14%, transparent);
+}
+
 /* ── File drop zone ─────────────────────────────────────────────────────── */
 .body-file-zone {
   flex: 1;
@@ -578,6 +610,12 @@
 
 .body-prettify-btn:active {
   opacity: 0.8;
+}
+
+.body-prettify-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* Body-type selector in the toolbar */

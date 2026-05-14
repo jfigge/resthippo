@@ -131,11 +131,16 @@ build-setup:
 	@echo "COMMIT=${COMMIT}" > ${BUILD_DIR}/src/REVISION_INFO.txt
 	@echo "BRANCH=${BRANCH}" >> ${BUILD_DIR}/src/REVISION_INFO.txt
 	@echo "FULL_COMMIT_HASH=${FULL_COMMIT_HASH}" >> ${BUILD_DIR}/src/REVISION_INFO.txt
-	@cp -r ${SRC_DIR}/* ${BUILD_DIR}/src
+	@rsync -a --exclude=node_modules ${SRC_DIR}/ ${BUILD_DIR}/src/
 
 build-install:
 	@echo "Installing Node.js dependencies..."
 	@cd ${BUILD_DIR}/src; npm install > /dev/null
+	@echo "--------------------------------"
+
+vendor-yaml:
+	@echo "Bundling yaml vendor file..."
+	@cd ${SRC_DIR}; npm run vendor-yaml
 	@echo "--------------------------------"
 
 # ─── Distribution packages ────────────────────────────────────────────────────
@@ -183,6 +188,7 @@ help:
 	@echo "    dist-mac      Build macOS installer"
 	@echo "    dist-linux    Build Linux installer"
 	@echo "    dist-win      Build Windows installer"
+	@echo "    vendor-yaml   Bundle yaml npm pkg → web/scripts/vendor/yaml.js"
 	@echo "    fmt           Format JS/CSS/HTML (prettier) and Go (gofmt)"
 	@echo "    lint          Lint JS (eslint) and Go (golangci-lint / go vet)"
 	@echo "    clean         Remove build and dist directories"
@@ -198,5 +204,6 @@ help:
         dev dev-server dev-electron \
         build build-server build-electron build-mac build-linux build-win \
         dist dist-mac dist-linux dist-win \
+        vendor-yaml \
         clean help
 

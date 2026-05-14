@@ -4,7 +4,9 @@
 
 "use strict";
 
+import { parse as parseYaml, stringify as stringifyYaml } from "../vendor/yaml.js";
 import { PopupManager } from "../popup-manager.js";
+
 
 // Standard HTTP request headers offered in the header-name combo box.
 // Custom values are always accepted too (free-text input).
@@ -402,8 +404,9 @@ export class RequestEditor {
     const el = this.#bodyContentEl;
     if (!el) return;
     el.innerHTML = "";
-    // Remove any Prettify button left over from a previous text type
+    // Remove any Prettify button / validation badge left over from a previous text type
     this.#bodyTypeBarEl?.querySelector(".body-prettify-btn")?.remove();
+    this.#bodyTypeBarEl?.querySelector(".body-validate-badge")?.remove();
     // Reset body form drag state whenever we switch panels
     this.#bfListEl = this.#bfPhantom = null;
     this.#bfDragSrcId = null;
@@ -645,22 +648,64 @@ export class RequestEditor {
 
     // ── Text editor (JSON / YAML / XML / Plain Text) ──────────────────────────
     #renderBodyText(el, type, canPrettify) {
-    // Textarea fills the content area
     const ta = document.createElement("textarea");
     ta.className = "body-text-editor";
     ta.value     = this.#bodyTexts[type] ?? "";
     ta.placeholder = `Enter ${type === "text" ? "plain text" : type.toUpperCase()} body here…`;
     ta.spellcheck  = false;
     ta.setAttribute("aria-label", `${type} body`);
+    el.appendChild(ta);
+
+    // ── Inline validation (JSON / YAML / XML) ─────────────────────────────
+    const canValidate = canPrettify && type !== "text";
+    let validateBadge  = null;
+    let prettyBtnRef   = null;
+    let validateTimer  = null;
+    const VALIDATE_MS  = 400;
+
+    const applyValidity = (state /* "valid" | "invalid" | null */) => {
+      if (prettyBtnRef) prettyBtnRef.disabled = state === "invalid";
+      if (!validateBadge) return;
+      validateBadge.dataset.state = state ?? "";
+      if (state === "valid") {
+        validateBadge.textContent = "✓ valid";
+        validateBadge.title = `${type.toUpperCase()} is valid`;
+      } else if (state === "invalid") {
+        validateBadge.textContent = "✗ invalid";
+        validateBadge.title = `${type.toUpperCase()} has a syntax error`;
+      } else {
+        validateBadge.textContent = "";
+        validateBadge.title = "";
+      }
+    };
+
+    const scheduleValidation = () => {
+      clearTimeout(validateTimer);
+      validateTimer = setTimeout(() => {
+        const text = ta.value;
+        if (!text.trim()) { applyValidity(null); return; }
+        applyValidity(this.#validate(type, text) ? "valid" : "invalid");
+      }, VALIDATE_MS);
+    };
+
     ta.addEventListener("input", () => {
       this.#bodyTexts[type] = ta.value;
       this.#dispatchBodyUpdated();
+      if (canValidate) scheduleValidation();
     });
-    el.appendChild(ta);
 
-    // Inject Prettify button into the type selector bar (not a separate toolbar)
+    // Inject badge + Prettify button into the type selector bar
     if (canPrettify && this.#bodyTypeBarEl) {
+      // Validation badge (appears between the type select and the Prettify btn)
+      validateBadge = document.createElement("span");
+      validateBadge.className = "body-validate-badge";
+      validateBadge.setAttribute("aria-live", "polite");
+      validateBadge.dataset.state = "";
+      this.#bodyTypeBarEl.appendChild(validateBadge);
+
+      // Prettify button
       const prettyBtn = document.createElement("button");
+      prettyBtnRef = prettyBtn;
       prettyBtn.className = "params-toolbar-btn params-delete-all-btn body-prettify-btn";
       prettyBtn.title = `Prettify ${type.toUpperCase()}`;
       prettyBtn.textContent = "Prettify";
@@ -669,27 +714,35 @@ export class RequestEditor {
         ta.value = prettified;
         this.#bodyTexts[type] = prettified;
         this.#dispatchBodyUpdated();
+        // Immediate re-validate after prettifying (no debounce needed)
+        if (canValidate) {
+          applyValidity(ta.value.trim()
+            ? (this.#validate(type, ta.value) ? "valid" : "invalid")
+            : null);
+        }
       });
       this.#bodyTypeBarEl.appendChild(prettyBtn);
+
+      // Validate any pre-loaded content immediately on render
+      if (canValidate && ta.value.trim()) {
+        applyValidity(this.#validate(type, ta.value) ? "valid" : "invalid");
+      }
     }
     }
 
-    /** Validate the given text for a body type. */
-    /**
-    #validateBodyType(type, ctrl) {
-    if (!text.trim()) return text;
+    /** Validate body text for a given type. Returns true = valid, false = invalid. */
+    #validate(type, text) {
+    if (!text.trim()) return null;
     try {
-      if (type === "json") {
-        JSON.parse(text);
-      }
+      if (type === "json") { JSON.parse(text); return true; }
+      if (type === "yaml") { parseYaml(text);  return true; }
       if (type === "xml") {
         const doc = new DOMParser().parseFromString(text, "application/xml");
-        if (doc.querySelector("parsererror")) return text;
+        return !doc.querySelector("parsererror");
       }
-    } catch (_) {  }
-    return text;
+    } catch (_) { /* fall through */ }
+    return false;
     }
-    */
 
     /** Prettify the given text for a body type. */
     #prettify(type, text) {
@@ -716,12 +769,7 @@ export class RequestEditor {
         }).filter(l => l !== "").join("\n");
       }
       if (type === "yaml") {
-        // Basic cleanup: normalize indent, trim trailing spaces
-        return text.split("\n")
-          .map(l => l.trimEnd())
-          .join("\n")
-          .replace(/\n{3,}/g, "\n\n")
-          .trim();
+        return stringifyYaml(parseYaml(text));
       }
     } catch (_) { /* invalid — return unchanged */ }
     return text;
