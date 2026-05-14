@@ -57,6 +57,7 @@
 /* ── Panel body (scrollable content area) ────────────────────────────────── */
 .panel-body {
   flex: 1 1 0;
+  background-color: var(--color-mantle);
   overflow: auto;
   min-height: 0;
   min-width: 0;

@@ -7,13 +7,6 @@
       "name": "Example API",
       "children": [
         {
-          "id": "req-2",
-          "type": "request",
-          "name": "Get user",
-          "method": "GET",
-          "url": "https://jsonplaceholder.typicode.com/users/1"
-        },
-        {
           "id": "req-3",
           "type": "request",
           "name": "Create user",
@@ -35,11 +28,11 @@
           "url": ""
         },
         {
-          "id": "req-5",
+          "id": "54553ea6-9d98-4f1f-be89-3eec2ebcbe8a",
           "type": "request",
-          "name": "Delete user",
-          "method": "DELETE",
-          "url": "https://jsonplaceholder.typicode.com/users/1"
+          "name": "New Request",
+          "method": "GET",
+          "url": ""
         }
       ]
     },
@@ -86,8 +79,8 @@
     "verifySsl": true,
     "proxyEnabled": false,
     "proxyUrl": "",
-    "splitterNav": 274,
-    "splitterRes": 281.5,
-    "splitterRowRes": 457
+    "splitterNav": 402,
+    "splitterRes": 185.5,
+    "splitterRowRes": 192
   }
 }

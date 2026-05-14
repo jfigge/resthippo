@@ -294,6 +294,13 @@ function initEventBus() {
     saveSettings(currentSettings);
   });
 
+  // When the request editor mutates a field (method, url, params, …),
+  // push the change into the tree-view so the node stays in sync.
+  window.addEventListener("wurl:request-updated", (e) => {
+    const { id, ...fields } = e.detail;
+    if (id && treeView) treeView.updateNode(id, fields);
+  });
+
   // When the editor fires a send, execute the request
   window.addEventListener("wurl:send-request", async (e) => {
     const descriptor = e.detail;

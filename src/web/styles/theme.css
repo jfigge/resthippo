@@ -1,6 +1,9 @@
 /* theme.css — Design tokens and global typography */
 
 :root {
+  /* Tell Chromium/Electron to render native form controls in dark mode. */
+  color-scheme: dark;
+
   /* ── Colour palette (Catppuccin Mocha-inspired) ────────────────────────── */
   --color-base: #1e1e2e; /* app background */
   --color-mantle: #181825; /* header / sidebar bg */

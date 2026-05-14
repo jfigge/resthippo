@@ -159,6 +159,73 @@ export const PopupManager = {
   },
 
   /**
+   * Show a lightweight, self-contained confirmation dialog.
+   * Does NOT require an active popup — suitable for any in-page action.
+   *
+   * @param {{ title?: string, message: string, confirmLabel?: string, confirmClass?: string, onConfirm: () => void }} opts
+   */
+  confirm({ title = "Are you sure?", message, confirmLabel = "Confirm", confirmClass = "popup-btn--danger", onConfirm }) {
+    _ensureMask();
+
+    // Build a one-shot dialog element
+    const dlg = document.createElement("div");
+    dlg.className = "popup popup-confirm";
+    dlg.setAttribute("role", "alertdialog");
+    dlg.setAttribute("aria-modal", "true");
+    dlg.innerHTML = `
+      <div class="popup-header">
+        <span class="popup-title">${title}</span>
+      </div>
+      <div class="popup-body popup-confirm-body">
+        <p>${message}</p>
+      </div>
+      <div class="popup-footer">
+        <button class="popup-btn popup-btn--secondary" data-action="cancel">Cancel</button>
+        <button class="popup-btn ${confirmClass}" data-action="confirm">${confirmLabel}</button>
+      </div>
+    `;
+    document.body.appendChild(dlg);
+
+    // Show mask (transparent overlay so background is still visible)
+    const prevActivePopup = _activePopup;
+    _activePopup = { element: dlg, onMaskClick: cancel };
+    _maskEl.classList.add("popup-overlay--visible");
+
+    requestAnimationFrame(() => dlg.classList.add("popup--visible"));
+
+    const cancelBtn  = dlg.querySelector("[data-action='cancel']");
+    const confirmBtn = dlg.querySelector("[data-action='confirm']");
+
+    requestAnimationFrame(() => cancelBtn.focus());
+
+    function cleanup() {
+      _activePopup = prevActivePopup;
+      if (!_activePopup) {
+        _maskEl.classList.remove("popup-overlay--visible");
+      }
+      dlg.classList.remove("popup--visible");
+      const onEnd = () => {
+        dlg.removeEventListener("transitionend", onEnd);
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      };
+      dlg.addEventListener("transitionend", onEnd);
+      setTimeout(() => { if (dlg.parentNode) dlg.parentNode.removeChild(dlg); }, 400);
+    }
+
+    function cancel()  { cleanup(); }
+    function confirm_() { cleanup(); onConfirm(); }
+
+    cancelBtn.addEventListener("click",  cancel);
+    confirmBtn.addEventListener("click", confirm_);
+
+    // Escape key cancels
+    function onKey(e) {
+      if (e.key === "Escape") { document.removeEventListener("keydown", onKey); cancel(); }
+    }
+    document.addEventListener("keydown", onKey);
+  },
+
+  /**
    * Display a blocking confirmation dialog on top of the current popup.
    * Calls `onConfirm` if the user selects "Discard".
    *

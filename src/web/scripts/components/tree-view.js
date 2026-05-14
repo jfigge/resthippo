@@ -617,10 +617,14 @@ export class TreeView {
       // Request item
       li.classList.add("tree-node--request");
       const methodClass = `method--${(node.method ?? "GET").toLowerCase()}`;
+      const urlText = node.url ? this.#escape(node.url) : "";
       li.innerHTML = `
         <div class="tree-node__row" tabindex="0">
           <span class="tree-node__method ${methodClass}">${node.method ?? "GET"}</span>
-          <span class="tree-node__label">${this.#escape(node.name)}</span>
+          <div class="tree-node__info">
+            <span class="tree-node__label">${this.#escape(node.name)}</span>
+            <span class="tree-node__url">${urlText}</span>
+          </div>
         </div>
       `;
 
@@ -886,6 +890,60 @@ export class TreeView {
     this.#syncButtonState();
     this.#rerender();
     this.#emitChange();
+  }
+
+  // ── Public update API ────────────────────────────────────────────────────
+
+  /**
+   * Merge `fields` into the in-memory node identified by `id`, patch the live
+   * DOM element when it is visible, and persist via #emitChange().
+   *
+   * Supports any field stored on request nodes (method, url, params, …).
+   * @param {string} id
+   * @param {object} fields
+   */
+  updateNode(id, fields) {
+    // 1. Patch in-memory tree
+    this.#items = this.#patchNodeFields(this.#items, id, fields);
+
+    // 2. Attempt surgical DOM update
+    let li = null;
+    try {
+      li = this.#el.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    } catch (_) {
+      li = this.#el.querySelector(`[data-id="${id}"]`);
+    }
+
+    if (li) {
+      if (fields.method != null) {
+        const badge = li.querySelector(".tree-node__method");
+        if (badge) {
+          badge.textContent = fields.method;
+          badge.className   = `tree-node__method method--${fields.method.toLowerCase()}`;
+        }
+      }
+      if (fields.url != null) {
+        const urlEl = li.querySelector(".tree-node__url");
+        if (urlEl) urlEl.textContent = fields.url;
+      }
+    } else {
+      // Node not visible (e.g. inside a collapsed collection) — full re-render.
+      this.#rerender();
+    }
+
+    // 3. Persist
+    this.#emitChange();
+  }
+
+  /** Recursively return a new tree with the fields of `targetId` merged. */
+  #patchNodeFields(nodes, targetId, fields) {
+    return nodes.map((node) => {
+      if (node.id === targetId) return { ...node, ...fields };
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        return { ...node, children: this.#patchNodeFields(node.children, targetId, fields) };
+      }
+      return node;
+    });
   }
 
   /**
