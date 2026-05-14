@@ -42,6 +42,16 @@ export class RequestEditor {
   #paramPhantomEl    = null; // placeholder shown while dragging
   #docDragOverHandler = null;
 
+  // Headers state
+  #headers               = [];   // [{ id, name, value, enabled }]
+  #headersListEl         = null;
+  // Headers drag state
+  #hdrDragSrcId          = null;
+  #hdrDragInsideList     = false;
+  #hdrDragDropHandled    = false;
+  #headerPhantomEl       = null;
+  #hdrDocDragOverHandler = null;
+
   constructor() {
     this.#el = document.createElement("div");
     this.#el.className = "request-editor";
@@ -149,22 +159,23 @@ export class RequestEditor {
     this._tabContent = content;
   }
 
-  #buildTabPane(tabId) {
-    if (tabId === "params") return this.#buildParamsEditor();
+    #buildTabPane(tabId) {
+    if (tabId === "params")   return this.#buildParamsEditor();
+    if (tabId === "headers")  return this.#buildHeadersEditor();
 
     // Placeholder for other tabs
     const placeholder = document.createElement("div");
     placeholder.className = "panel-placeholder";
-    const icons  = { headers: "🗂", body: "📄", auth: "🔑", settings: "⚙️" };
-    const labels = { headers: "Request headers", body: "Request body", auth: "Authentication", settings: "Request settings" };
+    const icons  = { body: "📄", auth: "🔑", settings: "⚙️" };
+    const labels = { body: "Request body", auth: "Authentication", settings: "Request settings" };
     placeholder.innerHTML =
       `<span class="placeholder-icon">${icons[tabId]}</span>` +
       `<span>${labels[tabId]} — coming soon</span>`;
     return placeholder;
-  }
+    }
 
-  // ── Params editor ────────────────────────────────────────────────────────
-  #buildParamsEditor() {
+    // ── Params editor ────────────────────────────────────────────────────────
+    #buildParamsEditor() {
     const container = document.createElement("div");
     container.className = "params-editor";
 
@@ -241,7 +252,286 @@ export class RequestEditor {
 
     this.#renderParamsList();
     return container;
-  }
+    }
+
+    // ── Headers editor ──────────��────────────────────────────────────────────
+    #buildHeadersEditor() {
+    const container = document.createElement("div");
+    container.className = "params-editor";
+
+    // ── Toolbar ──────────────────────────────────────────────────────────
+    const toolbar = document.createElement("div");
+    toolbar.className = "params-toolbar";
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "icon-btn params-toolbar-btn";
+    addBtn.title = "Add header";
+    addBtn.setAttribute("aria-label", "Add header");
+    addBtn.innerHTML = `<span class="icon">＋</span>`;
+    addBtn.addEventListener("click", () => this.#addHeader());
+
+    const deleteAllBtn = document.createElement("button");
+    deleteAllBtn.className = "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
+    deleteAllBtn.title = "Delete all headers";
+    deleteAllBtn.setAttribute("aria-label", "Delete all headers");
+    deleteAllBtn.textContent = "Delete All";
+    deleteAllBtn.addEventListener("click", () => this.#deleteAllHeaders());
+
+    toolbar.appendChild(addBtn);
+    toolbar.appendChild(deleteAllBtn);
+    container.appendChild(toolbar);
+
+    // ── Column headers ───────────────────────────────────────────────────
+    const colHeaders = document.createElement("div");
+    colHeaders.className = "params-header-row";
+    colHeaders.innerHTML = `
+      <span class="params-col-handle"></span>
+      <span class="params-col-enabled"></span>
+      <span class="params-col-name">Name</span>
+      <span class="params-col-value">Value</span>
+      <span class="params-col-delete"></span>`;
+    container.appendChild(colHeaders);
+
+    // ── List ─────────────────────────────────────────────────────────────
+    const list = document.createElement("div");
+    list.className = "params-list";
+    this.#headersListEl = list;
+
+    // Phantom placeholder shown at the drop target while dragging
+    this.#headerPhantomEl = document.createElement("div");
+    this.#headerPhantomEl.className = "params-drop-phantom";
+    this.#headerPhantomEl.setAttribute("aria-hidden", "true");
+
+    // Container-level drop — commit the reorder
+    list.addEventListener("dragover", (e) => {
+      if (this.#hdrDragSrcId) e.preventDefault();
+    });
+    list.addEventListener("drop", (e) => {
+      e.preventDefault();
+      if (!this.#hdrDragSrcId) return;
+      this.#hdrDragDropHandled = true;
+      const ph = this.#headerPhantomEl;
+      const allChildren = [...list.children];
+      const phantomIdx = allChildren.indexOf(ph);
+      if (phantomIdx === -1) { this.#cancelHeaderDrag(); this.#finalizeHeaderDrag(); return; }
+      const insertBefore = allChildren.slice(0, phantomIdx).filter(el => el.classList.contains("params-row")).length;
+      const srcIdx = this.#headers.findIndex(h => h.id === this.#hdrDragSrcId);
+      if (srcIdx !== -1) {
+        const [moved] = this.#headers.splice(srcIdx, 1);
+        const target = insertBefore > srcIdx ? insertBefore - 1 : insertBefore;
+        this.#headers.splice(target, 0, moved);
+        this.#renderHeadersList();
+        this.#dispatchHeadersUpdated();
+      }
+      this.#finalizeHeaderDrag();
+    });
+
+    container.appendChild(list);
+
+    this.#renderHeadersList();
+    return container;
+    }
+
+    #addHeader() {
+    this.#headers.push({
+      id:      crypto.randomUUID(),
+      name:    "",
+      value:   "",
+      enabled: true,
+    });
+    this.#renderHeadersList();
+    const rows = this.#headersListEl.querySelectorAll(".params-row");
+    if (rows.length) rows[rows.length - 1].querySelector(".params-name")?.focus();
+    this.#dispatchHeadersUpdated();
+    }
+
+    #deleteAllHeaders() {
+    if (this.#headers.length === 0) return;
+    PopupManager.confirm({
+      title:        "Delete all headers?",
+      message:      "This will remove all request headers. This cannot be undone.",
+      confirmLabel: "Delete all",
+      confirmClass: "popup-btn--danger",
+      onConfirm:    () => {
+        this.#headers = [];
+        this.#renderHeadersList();
+        this.#dispatchHeadersUpdated();
+      },
+    });
+    }
+
+    #deleteHeader(id) {
+    this.#headers = this.#headers.filter((h) => h.id !== id);
+    this.#renderHeadersList();
+    this.#dispatchHeadersUpdated();
+    }
+
+    #renderHeadersList() {
+    if (!this.#headersListEl) return;
+    this.#headersListEl.innerHTML = "";
+
+    if (this.#headers.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "params-empty";
+      empty.textContent = "No headers — click  +  to add one.";
+      this.#headersListEl.appendChild(empty);
+      return;
+    }
+
+    this.#headers.forEach((header, index) => {
+      this.#headersListEl.appendChild(this.#buildHeaderRow(header, index));
+    });
+    }
+
+    #buildHeaderRow(header, index) {
+    const row = document.createElement("div");
+    row.className = "params-row";
+    row.dataset.id    = header.id;
+    row.dataset.index = String(index);
+    row.draggable = true;
+    if (!header.enabled) row.classList.add("params-row--disabled");
+
+    // ── Drag handle ──────────────────────────────────────────────────────
+    const handle = document.createElement("span");
+    handle.className = "params-drag-handle";
+    handle.setAttribute("aria-hidden", "true");
+    handle.title = "Drag to reorder";
+    handle.innerHTML = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+      <circle cx="3" cy="3"  r="1.4"/><circle cx="7" cy="3"  r="1.4"/>
+      <circle cx="3" cy="8"  r="1.4"/><circle cx="7" cy="8"  r="1.4"/>
+      <circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/>
+    </svg>`;
+
+    // ── Enabled checkbox ─────────────────────────────────────────────────
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "params-checkbox";
+    checkbox.checked = header.enabled;
+    checkbox.title = header.enabled ? "Disable header" : "Enable header";
+    checkbox.setAttribute("aria-label", "Enable header");
+    checkbox.addEventListener("change", () => {
+      header.enabled  = checkbox.checked;
+      checkbox.title  = header.enabled ? "Disable header" : "Enable header";
+      row.classList.toggle("params-row--disabled", !header.enabled);
+      this.#dispatchHeadersUpdated();
+    });
+
+    // ── Header input ───────────────────────────────────────────────────────
+    const headerInput = document.createElement("input");
+    headerInput.type        = "text";
+    headerInput.className   = "params-input params-name";
+    headerInput.placeholder = "Header";
+    headerInput.value       = header.name;
+    headerInput.setAttribute("aria-label", "Header name");
+    headerInput.addEventListener("input", () => {
+      header.name = headerInput.value;
+      this.#dispatchHeadersUpdated();
+    });
+    headerInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); this.#addHeader(); }
+    });
+
+    // ── Value input ────────────────────────────────────────────────────��─
+    const valueInput = document.createElement("input");
+    valueInput.type        = "text";
+    valueInput.className   = "params-input params-value";
+    valueInput.placeholder = "Value";
+    valueInput.value       = header.value;
+    valueInput.setAttribute("aria-label", "Header value");
+    valueInput.addEventListener("input", () => {
+      header.value = valueInput.value;
+      this.#dispatchHeadersUpdated();
+    });
+    valueInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); this.#addHeader(); }
+    });
+
+    // ── Delete button ────────────────────────────────────────────────────
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "icon-btn params-delete-btn";
+    deleteBtn.title = "Delete header";
+    deleteBtn.setAttribute("aria-label", "Delete header");
+    deleteBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
+    </svg>`;
+    deleteBtn.addEventListener("click", () => this.#deleteHeader(header.id));
+
+    // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
+    row.addEventListener("dragstart", (e) => {
+      this.#hdrDragSrcId       = header.id;
+      this.#hdrDragDropHandled = false;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", header.id);
+
+      requestAnimationFrame(() => {
+        this.#hdrDragInsideList = true;
+        row.parentElement?.insertBefore(this.#headerPhantomEl, row);
+        row.style.display = "none";
+      });
+
+      this.#hdrDocDragOverHandler = (ev) => {
+        if (!this.#hdrDragSrcId) return;
+        const inside = this.#headersListEl.contains(ev.target);
+        if (!inside && this.#hdrDragInsideList) {
+          this.#hdrDragInsideList = false;
+          this.#headerPhantomEl.remove();
+          const draggedRow = this.#headersListEl.querySelector(`[data-id="${this.#hdrDragSrcId}"]`);
+          if (draggedRow) draggedRow.style.display = "";
+        } else if (inside && !this.#hdrDragInsideList) {
+          this.#hdrDragInsideList = true;
+        }
+      };
+      document.addEventListener("dragover", this.#hdrDocDragOverHandler);
+    });
+
+    row.addEventListener("dragover", (e) => {
+      if (!this.#hdrDragSrcId || this.#hdrDragSrcId === header.id) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+
+      const rect  = row.getBoundingClientRect();
+      const after = (e.clientY - rect.top) / rect.height >= 0.5;
+      const ph    = this.#headerPhantomEl;
+
+      const draggedRow = this.#headersListEl.querySelector(`[data-id="${this.#hdrDragSrcId}"]`);
+      if (draggedRow && draggedRow.style.display !== "none") draggedRow.style.display = "none";
+
+      const sibling = after ? row.nextSibling : row;
+      if (ph.nextSibling !== sibling && ph !== sibling) {
+        row.parentElement?.insertBefore(ph, after ? row.nextSibling : row);
+      }
+    });
+
+    row.addEventListener("dragend", () => {
+      if (!this.#hdrDragDropHandled) this.#cancelHeaderDrag();
+      this.#finalizeHeaderDrag();
+    });
+
+    row.appendChild(handle);
+    row.appendChild(checkbox);
+    row.appendChild(headerInput);
+    row.appendChild(valueInput);
+    row.appendChild(deleteBtn);
+    return row;
+    }
+
+    /** Cancel a header drag: remove phantom and re-render. */
+    #cancelHeaderDrag() {
+    this.#headerPhantomEl.remove();
+    this.#renderHeadersList();
+    }
+
+    /** Clean up all header drag state and remove the document-level listener. */
+    #finalizeHeaderDrag() {
+    if (this.#hdrDocDragOverHandler) {
+      document.removeEventListener("dragover", this.#hdrDocDragOverHandler);
+      this.#hdrDocDragOverHandler = null;
+    }
+    this.#hdrDragSrcId       = null;
+    this.#hdrDragInsideList  = false;
+    this.#hdrDragDropHandled = false;
+    }
 
   #addParam() {
     this.#params.push({
@@ -464,22 +754,30 @@ export class RequestEditor {
     });
   }
 
-  // ── Event dispatch ────────────────────────────────────────────────────────
-  #dispatchRequestUpdated() {
+    // ── Event dispatch ────────────────────────────────────────────────────────
+    #dispatchRequestUpdated() {
     if (!this.#currentNodeId) return;
     window.dispatchEvent(new CustomEvent("wurl:request-updated", {
       detail: { id: this.#currentNodeId, method: this.#method, url: this.#url },
       bubbles: true,
     }));
-  }
+    }
 
-  #dispatchParamsUpdated() {
+    #dispatchParamsUpdated() {
     if (!this.#currentNodeId) return;
     window.dispatchEvent(new CustomEvent("wurl:request-updated", {
       detail: { id: this.#currentNodeId, params: this.#params.map((p) => ({ ...p })) },
       bubbles: true,
     }));
-  }
+    }
+
+    #dispatchHeadersUpdated() {
+    if (!this.#currentNodeId) return;
+    window.dispatchEvent(new CustomEvent("wurl:request-updated", {
+      detail: { id: this.#currentNodeId, headers: this.#headers.map((h) => ({ ...h })) },
+      bubbles: true,
+    }));
+    }
 
   // ── Send ─────────────────────────────────────────────────────────────────
   #sendRequest() {
@@ -527,5 +825,16 @@ export class RequestEditor {
         }))
       : [];
     this.#renderParamsList();
+
+    // Headers
+    this.#headers = Array.isArray(node.headers)
+      ? node.headers.map((h) => ({
+          id:      h.id      ?? crypto.randomUUID(),
+          name:    h.name    ?? "",
+          value:   h.value   ?? "",
+          enabled: h.enabled ?? true,
+        }))
+      : [];
+    this.#renderHeadersList();
   }
 }
