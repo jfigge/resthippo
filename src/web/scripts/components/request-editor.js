@@ -59,6 +59,7 @@ const STANDARD_HEADERS = [
 let _hdrAcDropdown     = null;   // the floating listbox div
 let _hdrAcActiveInput  = null;   // which input currently owns the dropdown
 let _hdrAcActiveIdx    = -1;     // keyboard-focused item index (-1 = none)
+let _hdrAcBlurTimer    = null;   // pending blur-hide timer (cancelled on re-focus)
 
 function _ensureHdrDropdown() {
   if (_hdrAcDropdown) return _hdrAcDropdown;
@@ -79,6 +80,9 @@ function _ensureHdrDropdown() {
 }
 
 function _showHdrDropdown(input) {
+  // Cancel any pending blur-hide so rapid blur→focus doesn't flash the dropdown
+  if (_hdrAcBlurTimer !== null) { clearTimeout(_hdrAcBlurTimer); _hdrAcBlurTimer = null; }
+
   const dl     = _ensureHdrDropdown();
   const query  = input.value.toLowerCase().trim();
   const matches = query
@@ -119,6 +123,7 @@ function _showHdrDropdown(input) {
 }
 
 function _hideHdrDropdown() {
+  _hdrAcBlurTimer = null;
   if (_hdrAcDropdown) {
     _hdrAcDropdown.classList.remove("hdr-autocomplete--visible");
     _hdrAcDropdown.innerHTML = "";
@@ -581,8 +586,8 @@ export class RequestEditor {
       _showHdrDropdown(headerInput);
     });
     headerInput.addEventListener("blur", () => {
-      // Small delay so mousedown on a list item fires first
-      setTimeout(_hideHdrDropdown, 120);
+      // Store the timer ID so focus can cancel it if the user clicks back quickly
+      _hdrAcBlurTimer = setTimeout(_hideHdrDropdown, 150);
     });
     headerInput.addEventListener("keydown", (e) => {
       if (e.key === "ArrowDown")  { e.preventDefault(); _hdrDropdownNavigate(+1); return; }
