@@ -1865,6 +1865,7 @@ export class RequestEditor {
       param.enabled  = checkbox.checked;
       checkbox.title = param.enabled ? "Disable parameter" : "Enable parameter";
       row.classList.toggle("params-row--disabled", !param.enabled);
+      this.#updateUrlPreview();
       this.#dispatchParamsUpdated();
     });
 
@@ -1877,6 +1878,7 @@ export class RequestEditor {
     nameInput.setAttribute("aria-label", "Parameter name");
     nameInput.addEventListener("input", () => {
       param.name = nameInput.value;
+      this.#updateUrlPreview();
       this.#dispatchParamsUpdated();
     });
     // Tab to value, Enter to add new row
@@ -1893,6 +1895,7 @@ export class RequestEditor {
     valueInput.setAttribute("aria-label", "Parameter value");
     valueInput.addEventListener("input", () => {
       param.value = valueInput.value;
+      this.#updateUrlPreview();
       this.#dispatchParamsUpdated();
     });
     valueInput.addEventListener("keydown", (e) => {

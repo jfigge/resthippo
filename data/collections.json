@@ -12,7 +12,26 @@
           "name": "Create user",
           "method": "GET",
           "url": "https://jsonplaceholder.typicode.com/users/5",
-          "params": [],
+          "params": [
+            {
+              "id": "4fe478bb-30aa-449d-b56c-79807def1030",
+              "name": "er",
+              "value": "dsfsd",
+              "enabled": true
+            },
+            {
+              "id": "ad66a536-963b-484b-a81f-6ec5dd9a35a0",
+              "name": "dfd",
+              "value": "sdf",
+              "enabled": true
+            },
+            {
+              "id": "f4d7b1fc-e42b-44d0-bd6d-32f5d02c2ff7",
+              "name": "bob",
+              "value": "sdf",
+              "enabled": true
+            }
+          ],
           "headers": [
             {
               "id": "a58aba5f-0e7f-4cc4-9c60-8179b1afab68",
@@ -120,12 +139,17 @@
   "settings": {
     "theme": "grey-dark",
     "fontSize": 13,
-    "removeHeaders": true,
     "timeout": 30000,
     "followRedirects": true,
     "verifySsl": true,
     "proxyEnabled": false,
     "proxyUrl": "",
-    "showUrlPreview": false
+    "splitterNav": 240,
+    "splitterRes": 340,
+    "splitterRowRes": 320,
+    "listHeaders": true,
+    "showUrlPreview": true,
+    "selectedRequestId": "req-3",
+    "removeHeaders": true
   }
 }
