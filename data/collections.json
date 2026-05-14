@@ -19,7 +19,15 @@
           "type": "request",
           "name": "Update user",
           "method": "PUT",
-          "url": "https://jsonplaceholder.typicode.com/users/1"
+          "url": "https://jsonplaceholder.typicode.com/users/1",
+          "headers": [
+            {
+              "id": "9ed71054-425d-447d-861e-68551fe3d31b",
+              "name": "Upgrade",
+              "value": "",
+              "enabled": true
+            }
+          ]
         },
         {
           "id": "67cab615-5e77-4e90-a81c-61602cc3bcbb",
@@ -73,16 +81,12 @@
     }
   ],
   "settings": {
-    "theme": "latte",
+    "theme": "grey-dark",
     "fontSize": 13,
     "timeout": 30000,
     "followRedirects": true,
     "verifySsl": true,
     "proxyEnabled": false,
-    "proxyUrl": "",
-    "splitterNav": 402,
-    "splitterRes": 274.5,
-    "splitterRowRes": 192,
-    "listHeaders": false
+    "proxyUrl": ""
   }
 }

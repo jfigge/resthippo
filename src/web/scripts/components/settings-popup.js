@@ -55,8 +55,22 @@ export class SettingsPopup {
           <div class="settings-row">
             <label class="settings-label" for="setting-theme">Theme</label>
             <select class="settings-select" id="setting-theme">
-              <option value="mocha">Mocha (Dark)</option>
-              <option value="latte">Latte (Light)</option>
+              <optgroup label="Dark">
+                <option value="mocha">Mocha</option>
+                <option value="grey-dark">Grey</option>
+                <option value="yellow">Yellow</option>
+                <option value="green">Green</option>
+                <option value="blue">Blue</option>
+                <option value="red">Red</option>
+              </optgroup>
+              <optgroup label="Light">
+                <option value="latte">Latte</option>
+                <option value="grey-light">Grey</option>
+                <option value="yellow-light">Yellow</option>
+                <option value="green-light">Green</option>
+                <option value="blue-light">Blue</option>
+                <option value="red-light">Red</option>
+              </optgroup>
             </select>
           </div>
 
@@ -68,6 +82,7 @@ export class SettingsPopup {
               <option value="13">13 px</option>
               <option value="14">14 px</option>
               <option value="16">16 px</option>
+              <option value="18">18 px</option>
             </select>
           </div>
         </div>

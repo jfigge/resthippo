@@ -374,16 +374,14 @@ async function initCollections() {
  * @param {object} settings
  */
 function applySettings(settings) {
-  // Theme — stored as a data attribute so CSS can target [data-theme="latte"] etc.
+  // Theme — stored as a data attribute so CSS [data-theme="latte"] etc. applies
   if (settings.theme) {
     document.documentElement.dataset.theme = settings.theme;
   }
-  // Editor font size — exposed as a CSS custom property
+  // Font size — sets --font-size-base; all other sizes (xs, sm, md, lg, xl)
+  // are defined as calc(base ± Npx) in theme.css so the whole UI scales.
   if (settings.fontSize) {
-    document.documentElement.style.setProperty(
-      "--editor-font-size",
-      `${settings.fontSize}px`,
-    );
+    document.documentElement.style.setProperty("--font-size-base", `${settings.fontSize}px`);
   }
   // Splitter positions — restore saved pixel values into the grid variables
   if (settings.splitterNav    != null) splitterSizes.nav    = settings.splitterNav;
