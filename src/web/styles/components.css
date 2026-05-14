@@ -594,6 +594,42 @@
   font-style: italic;
 }
 
+/* ── Header-name autocomplete dropdown ───────────────────────────────────── */
+
+.hdr-autocomplete {
+  position: fixed;
+  z-index: 300;
+  background: var(--color-base);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  max-height: 180px;
+  overflow-y: auto;
+  display: none;
+  padding: var(--space-1) 0;
+}
+
+.hdr-autocomplete--visible {
+  display: block;
+}
+
+.hdr-autocomplete__item {
+  padding: 3px var(--space-2);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono), monospace;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hdr-autocomplete__item:hover,
+.hdr-autocomplete__item--active {
+  background: var(--color-surface-1);
+  color: var(--color-accent);
+}
+
 /* Delete button */
 .params-delete-btn {
   width: 22px;

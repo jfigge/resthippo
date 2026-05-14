@@ -6,6 +6,156 @@
 
 import { PopupManager } from "../popup-manager.js";
 
+// Standard HTTP request headers offered in the header-name combo box.
+// Custom values are always accepted too (free-text input).
+const STANDARD_HEADERS = [
+  "Accept",
+  "Accept-Charset",
+  "Accept-Encoding",
+  "Accept-Language",
+  "Authorization",
+  "Cache-Control",
+  "Connection",
+  "Content-Encoding",
+  "Content-Length",
+  "Content-MD5",
+  "Content-Type",
+  "Cookie",
+  "Date",
+  "DNT",
+  "Expect",
+  "Forwarded",
+  "From",
+  "Host",
+  "If-Match",
+  "If-Modified-Since",
+  "If-None-Match",
+  "If-Range",
+  "If-Unmodified-Since",
+  "Max-Forwards",
+  "Origin",
+  "Pragma",
+  "Proxy-Authorization",
+  "Range",
+  "Referer",
+  "TE",
+  "Trailer",
+  "Transfer-Encoding",
+  "Upgrade",
+  "User-Agent",
+  "Via",
+  "Warning",
+  "X-Api-Key",
+  "X-Auth-Token",
+  "X-Csrf-Token",
+  "X-Forwarded-For",
+  "X-Forwarded-Host",
+  "X-Forwarded-Proto",
+  "X-Request-Id",
+  "X-Requested-With",
+];
+
+/** Lazily create + cache the shared autocomplete dropdown in the document. */
+let _hdrAcDropdown     = null;   // the floating listbox div
+let _hdrAcActiveInput  = null;   // which input currently owns the dropdown
+let _hdrAcActiveIdx    = -1;     // keyboard-focused item index (-1 = none)
+
+function _ensureHdrDropdown() {
+  if (_hdrAcDropdown) return _hdrAcDropdown;
+  _hdrAcDropdown = document.createElement("div");
+  _hdrAcDropdown.className = "hdr-autocomplete";
+  _hdrAcDropdown.setAttribute("role", "listbox");
+  _hdrAcDropdown.setAttribute("aria-label", "Header suggestions");
+  document.body.appendChild(_hdrAcDropdown);
+
+  // Hide when anything outside the input+dropdown is clicked
+  document.addEventListener("mousedown", (e) => {
+    if (_hdrAcActiveInput && !_hdrAcActiveInput.contains(e.target) && !_hdrAcDropdown.contains(e.target)) {
+      _hideHdrDropdown();
+    }
+  }, true);
+
+  return _hdrAcDropdown;
+}
+
+function _showHdrDropdown(input) {
+  const dl     = _ensureHdrDropdown();
+  const query  = input.value.toLowerCase().trim();
+  const matches = query
+    ? STANDARD_HEADERS.filter(h => h.toLowerCase().includes(query))
+    : STANDARD_HEADERS;
+
+  if (matches.length === 0) { _hideHdrDropdown(); return; }
+
+  dl.innerHTML    = "";
+  _hdrAcActiveIdx = -1;
+
+  matches.forEach((h, i) => {
+    const item = document.createElement("div");
+    item.className = "hdr-autocomplete__item";
+    item.setAttribute("role", "option");
+    item.setAttribute("aria-selected", "false");
+    item.dataset.idx = String(i);
+    item.textContent = h;
+
+    // mousedown (not click) so we fire before the input's blur
+    item.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      input.value = h;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      _hideHdrDropdown();
+      input.focus();
+    });
+    dl.appendChild(item);
+  });
+
+  // Position directly below the input
+  const rect = input.getBoundingClientRect();
+  dl.style.left  = `${rect.left + window.scrollX}px`;
+  dl.style.top   = `${rect.bottom + window.scrollY + 2}px`;
+  dl.style.width = `${rect.width}px`;
+  dl.classList.add("hdr-autocomplete--visible");
+  _hdrAcActiveInput = input;
+}
+
+function _hideHdrDropdown() {
+  if (_hdrAcDropdown) {
+    _hdrAcDropdown.classList.remove("hdr-autocomplete--visible");
+    _hdrAcDropdown.innerHTML = "";
+  }
+  _hdrAcActiveInput = null;
+  _hdrAcActiveIdx   = -1;
+}
+
+/** Move keyboard focus within the dropdown; wraps around. */
+function _hdrDropdownNavigate(dir) {
+  if (!_hdrAcDropdown) return;
+  const items = [..._hdrAcDropdown.querySelectorAll(".hdr-autocomplete__item")];
+  if (!items.length) return;
+
+  items[_hdrAcActiveIdx]?.classList.remove("hdr-autocomplete__item--active");
+  items[_hdrAcActiveIdx]?.setAttribute("aria-selected", "false");
+
+  _hdrAcActiveIdx = (_hdrAcActiveIdx + dir + items.length) % items.length;
+
+  const active = items[_hdrAcActiveIdx];
+  active.classList.add("hdr-autocomplete__item--active");
+  active.setAttribute("aria-selected", "true");
+  active.scrollIntoView({ block: "nearest" });
+}
+
+/** Accept the currently keyboard-focused item, if any. */
+function _hdrDropdownAccept(input) {
+  if (!_hdrAcDropdown || _hdrAcActiveIdx < 0) return false;
+  const items = _hdrAcDropdown.querySelectorAll(".hdr-autocomplete__item");
+  const active = items[_hdrAcActiveIdx];
+  if (!active) return false;
+  input.value = active.textContent;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  _hideHdrDropdown();
+  return true;
+}
+
 const HTTP_METHODS = [
   "GET",
   "POST",
@@ -416,22 +566,35 @@ export class RequestEditor {
       this.#dispatchHeadersUpdated();
     });
 
-    // ── Header input ───────────────────────────────────────────────────────
+    // ── Header name combo box ─────────────────────────────────────────────
     const headerInput = document.createElement("input");
     headerInput.type        = "text";
     headerInput.className   = "params-input params-name";
     headerInput.placeholder = "Header";
     headerInput.value       = header.name;
-    headerInput.setAttribute("aria-label", "Header name");
+    headerInput.setAttribute("aria-label",    "Header name");
+    headerInput.setAttribute("autocomplete",  "off");
+    headerInput.addEventListener("focus", () => _showHdrDropdown(headerInput));
     headerInput.addEventListener("input", () => {
       header.name = headerInput.value;
       this.#dispatchHeadersUpdated();
+      _showHdrDropdown(headerInput);
+    });
+    headerInput.addEventListener("blur", () => {
+      // Small delay so mousedown on a list item fires first
+      setTimeout(_hideHdrDropdown, 120);
     });
     headerInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); this.#addHeader(); }
+      if (e.key === "ArrowDown")  { e.preventDefault(); _hdrDropdownNavigate(+1); return; }
+      if (e.key === "ArrowUp")    { e.preventDefault(); _hdrDropdownNavigate(-1); return; }
+      if (e.key === "Escape")     { _hideHdrDropdown(); return; }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (!_hdrDropdownAccept(headerInput)) this.#addHeader();
+      }
     });
 
-    // ── Value input ────────────────────────────────────────────────────��─
+    // ── Value input ─────────────────────────────────────────────────────
     const valueInput = document.createElement("input");
     valueInput.type        = "text";
     valueInput.className   = "params-input params-value";
