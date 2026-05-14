@@ -19,6 +19,13 @@
           "name": "Refresh",
           "method": "POST",
           "url": ""
+        },
+        {
+          "id": "req-1",
+          "type": "request",
+          "name": "List users",
+          "method": "GET",
+          "url": "https://jsonplaceholder.typicode.com/users"
         }
       ]
     },
@@ -28,11 +35,10 @@
       "name": "Example API",
       "children": [
         {
-          "id": "req-1",
-          "type": "request",
-          "name": "List users",
-          "method": "GET",
-          "url": "https://jsonplaceholder.typicode.com/users"
+          "id": "5cef542f-8b63-43e7-a128-b86eba2b8d76",
+          "type": "collection",
+          "name": "New Collection",
+          "children": []
         },
         {
           "id": "req-2",
@@ -79,6 +85,9 @@
     "followRedirects": true,
     "verifySsl": true,
     "proxyEnabled": false,
-    "proxyUrl": ""
+    "proxyUrl": "",
+    "splitterNav": 274,
+    "splitterRes": 452,
+    "splitterRowRes": 457
   }
 }

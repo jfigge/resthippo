@@ -60,8 +60,12 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
     height: 820,
-    minWidth: 480,
-    minHeight: 400,
+    // Minimum enforced so splitter drag minimums (nav≥160, res≥160, request≥200)
+    // are always achievable without the window becoming unusably cramped.
+    //   landscape  : 160 + 4 + 200 + 4 + 160 = 528 px minimum columns
+    //   height     : 44 header + 500 content   = 544 px
+    minWidth: 800,
+    minHeight: 560,
     title: "wurl",
     backgroundColor: "#1e1e2e",
     webPreferences: {

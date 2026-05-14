@@ -11,13 +11,7 @@
 
 "use strict";
 
-import {
-  Panel,
-  Splitter,
-  getLayoutMode,
-  BREAKPOINT_LANDSCAPE,
-  BREAKPOINT_PORTRAIT,
-} from "./panel.js";
+import { getLayoutMode } from "./panel.js";
 import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
 import { ResponseViewer } from "./components/response-viewer.js";
@@ -85,92 +79,167 @@ function initComponents() {
 
 // ─── Splitters ────────────────────────────────────────────────────────────────
 /**
- * The two splitter <div>s exist in index.html (id="splitter-1" / "splitter-2").
- * We drive them with Splitter instances that know about the panels on either side.
+ * Live splitter sizes — JS source of truth for the three CSS grid variables.
+ * Initialised from defaults; overwritten by loadAll() settings on startup.
  *
- * Because the CSS grid repositions the splitters at each breakpoint, we also
- * update the Splitter flow direction on resize so drag behaviour stays correct.
+ *   --col-nav   : width of the nav panel  (also used as height in portrait)
+ *   --col-res   : width of the response panel in landscape
+ *   --row-res   : height of the response panel in between / portrait
+ *
+ * Panel minimum sizes (pixels):
+ *   nav    ≥ 160     request ≥ 200 (1fr, unconstrained here)
+ *   res    ≥ 160     rowRes  ≥ 120
  */
+const SPLITTER_MIN_NAV    = 160;
+const SPLITTER_MIN_RES    = 160;
+const SPLITTER_MIN_ROWRES = 120;
+
+let splitterSizes = {
+  nav:    240,
+  res:    340,
+  rowRes: 320,
+};
+
+/** Push current splitter sizes into the CSS grid on #app-main. */
+function applyGridVars() {
+  const appMain = document.getElementById("app-main");
+  appMain.style.setProperty("--col-nav",  `${splitterSizes.nav}px`);
+  appMain.style.setProperty("--col-res",  `${splitterSizes.res}px`);
+  appMain.style.setProperty("--row-res",  `${splitterSizes.rowRes}px`);
+}
+
+/** Persist current splitter positions into the settings document. */
+function saveSplitterPositions() {
+  currentSettings = {
+    ...currentSettings,
+    splitterNav:    splitterSizes.nav,
+    splitterRes:    splitterSizes.res,
+    splitterRowRes: splitterSizes.rowRes,
+  };
+  saveSettings(currentSettings);
+}
+
+/** Returns the #app-main element (cached after first call). */
+function getAppMain() {
+  return document.getElementById("app-main");
+}
 
 function initSplitters() {
   const spl1El = document.getElementById("splitter-1");
   const spl2El = document.getElementById("splitter-2");
 
-  // We manage the splitters manually here rather than through PanelGroup,
-  // because the top-level layout is a CSS grid, not a flexbox PanelGroup.
-  const splitter1 = makeSplitter(spl1El, panelNav, panelRequest);
-  const splitter2 = makeSplitter(spl2El, panelRequest, panelResponse);
+  applyGridVars();
 
-  // Update splitter flow direction whenever the window width crosses a breakpoint.
+  // Splitter 1 — always resizes the nav panel (--col-nav).
+  // Flow: horizontal in landscape/between, vertical in portrait (nav height).
+  // Dragging right/down grows nav → delta is positive → no inversion needed.
+  const splitter1 = makeSplitter(spl1El, {
+    getFlow: () => (getLayoutMode() === "portrait" ? "column" : "row"),
+    getSize: () => splitterSizes.nav,
+    setSize: (v) => {
+      const appMain = getAppMain();
+      const max = getLayoutMode() === "portrait"
+        ? appMain.clientHeight * 0.5
+        : appMain.clientWidth  * 0.5;
+      splitterSizes.nav = Math.min(max, Math.max(SPLITTER_MIN_NAV, v));
+      applyGridVars();
+    },
+    onDragEnd: saveSplitterPositions,
+    invert: false,
+  });
+
+  // Splitter 2 — resizes the response panel.
+  // landscape  → changes --col-res   (horizontal drag)
+  // between    → changes --row-res   (vertical drag)
+  // portrait   → changes --row-res   (vertical drag)
+  //
+  // Inversion: the response panel is to the RIGHT of / BELOW the splitter.
+  // Dragging the splitter right/down moves away from the response panel, so
+  // the panel should SHRINK → negate the delta.
+  const splitter2 = makeSplitter(spl2El, {
+    getFlow: () => (getLayoutMode() === "landscape" ? "row" : "column"),
+    getSize: () =>
+      getLayoutMode() === "landscape" ? splitterSizes.res : splitterSizes.rowRes,
+    setSize: (v) => {
+      const appMain = getAppMain();
+      if (getLayoutMode() === "landscape") {
+        const max = appMain.clientWidth * 0.5;
+        splitterSizes.res    = Math.min(max, Math.max(SPLITTER_MIN_RES,    v));
+      } else {
+        const max = appMain.clientHeight * 0.5;
+        splitterSizes.rowRes = Math.min(max, Math.max(SPLITTER_MIN_ROWRES, v));
+      }
+      applyGridVars();
+    },
+    onDragEnd: saveSplitterPositions,
+    invert: true,
+  });
+
+  // Sync splitter class (--h / --v) whenever layout mode changes.
   const observer = new ResizeObserver(() => {
     const mode = getLayoutMode();
-    // spl-1: always separates nav/request horizontally (col) in landscape+between,
-    //        vertically   (row)  in portrait.
-    const spl1Flow = mode === "portrait" ? "column" : "row";
-    // spl-2: between⟹row=response is below⟹vertical drag; others⟹horizontal
-    const spl2Flow =
-      mode === "between" ? "column" : mode === "portrait" ? "column" : "row";
-
-    splitter1.setFlow(spl1Flow);
-    splitter2.setFlow(spl2Flow);
+    splitter1.setFlow(mode === "portrait" ? "column" : "row");
+    splitter2.setFlow(mode === "landscape" ? "row" : "column");
   });
   observer.observe(document.getElementById("app-main"));
 }
 
 /**
- * Attach Splitter drag logic to an existing DOM element.
- * Returns a Splitter-like object exposing setFlow().
+ * Attach drag-to-resize logic to an existing splitter DOM element.
+ *
+ * @param {HTMLElement} el
+ * @param {{ getFlow, getSize, setSize, onDragEnd, invert }} opts
+ *   invert: when true the delta is negated so dragging away from the panel
+ *           shrinks it (needed for panels that trail the splitter in the grid).
+ * @returns {{ setFlow(flow: string): void }}
  */
-function makeSplitter(el, beforePanel, afterPanel) {
-  let flow = getLayoutMode() === "portrait" ? "column" : "row";
-  let dragging = false;
-  let startPos = 0;
+function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false }) {
+  let dragging  = false;
+  let startPos  = 0;
   let startSize = 0;
+  let dragFlow  = "row";
 
   function clientPos(e) {
     const src = e.touches ? e.touches[0] : e;
-    return flow === "row" ? src.clientX : src.clientY;
-  }
-
-  function currentSize() {
-    const rect = beforePanel.element.getBoundingClientRect();
-    return flow === "row" ? rect.width : rect.height;
+    return dragFlow === "row" ? src.clientX : src.clientY;
   }
 
   function onStart(e) {
     e.preventDefault();
-    dragging = true;
-    startPos = clientPos(e);
-    startSize = currentSize();
+    dragFlow  = getFlow();
+    dragging  = true;
+    startPos  = clientPos(e);
+    startSize = getSize();
     el.classList.add("splitter--dragging");
-    document.body.style.cursor = flow === "row" ? "col-resize" : "row-resize";
+    document.body.style.cursor     = dragFlow === "row" ? "col-resize" : "row-resize";
     document.body.style.userSelect = "none";
   }
 
   function onMove(e) {
     if (!dragging) return;
     if (e.cancelable) e.preventDefault();
-    const delta = clientPos(e) - startPos;
-    const newSize = Math.max(80, startSize + delta);
-    beforePanel.element.style.flex = `0 0 ${newSize}px`;
+    const rawDelta = clientPos(e) - startPos;
+    const delta    = invert ? -rawDelta : rawDelta;
+    setSize(startSize + delta);
   }
 
   function onEnd() {
     if (!dragging) return;
     dragging = false;
     el.classList.remove("splitter--dragging");
-    document.body.style.cursor = "";
+    document.body.style.cursor     = "";
     document.body.style.userSelect = "";
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup", onEnd);
-    window.removeEventListener("touchmove", onMove);
-    window.removeEventListener("touchend", onEnd);
+    window.removeEventListener("mousemove",  onMove);
+    window.removeEventListener("mouseup",    onEnd);
+    window.removeEventListener("touchmove",  onMove);
+    window.removeEventListener("touchend",   onEnd);
+    if (onDragEnd) onDragEnd();
   }
 
   el.addEventListener("mousedown", (e) => {
     onStart(e);
     window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onEnd);
+    window.addEventListener("mouseup",   onEnd);
   });
 
   el.addEventListener(
@@ -178,14 +247,13 @@ function makeSplitter(el, beforePanel, afterPanel) {
     (e) => {
       onStart(e);
       window.addEventListener("touchmove", onMove, { passive: false });
-      window.addEventListener("touchend", onEnd);
+      window.addEventListener("touchend",  onEnd);
     },
     { passive: false },
   );
 
   return {
     setFlow(newFlow) {
-      flow = newFlow;
       el.className = `splitter splitter--${newFlow === "row" ? "h" : "v"}`;
     },
   };
@@ -303,4 +371,9 @@ function applySettings(settings) {
       `${settings.fontSize}px`,
     );
   }
+  // Splitter positions — restore saved pixel values into the grid variables
+  if (settings.splitterNav    != null) splitterSizes.nav    = settings.splitterNav;
+  if (settings.splitterRes    != null) splitterSizes.res    = settings.splitterRes;
+  if (settings.splitterRowRes != null) splitterSizes.rowRes = settings.splitterRowRes;
+  applyGridVars();
 }

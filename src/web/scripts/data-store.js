@@ -30,6 +30,10 @@ export const DEFAULT_SETTINGS = {
   verifySsl:       true,
   proxyEnabled:    false,
   proxyUrl:        "",
+  // Splitter positions in pixels (saved/restored across sessions)
+  splitterNav:    240,   // --col-nav  (nav panel width, also used as height in portrait)
+  splitterRes:    340,   // --col-res  (response panel width in landscape)
+  splitterRowRes: 320,   // --row-res  (response panel height in between/portrait)
 };
 
 // ── In-memory document cache ──────────────────────────────────────────────────
