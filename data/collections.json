@@ -12,20 +12,7 @@
           "name": "Create user",
           "method": "GET",
           "url": "https://jsonplaceholder.typicode.com/users/5",
-          "params": [
-            {
-              "id": "346d1be9-26db-4010-8f26-16d2548c7f69",
-              "name": "banana",
-              "value": "",
-              "enabled": true
-            },
-            {
-              "id": "556032e7-ea1b-477c-94b4-5b306aa5f339",
-              "name": "echo",
-              "value": "dasf",
-              "enabled": true
-            }
-          ],
+          "params": [],
           "headers": [
             {
               "id": "a58aba5f-0e7f-4cc4-9c60-8179b1afab68",
@@ -133,16 +120,12 @@
   "settings": {
     "theme": "grey-dark",
     "fontSize": 13,
+    "removeHeaders": true,
     "timeout": 30000,
     "followRedirects": true,
     "verifySsl": true,
     "proxyEnabled": false,
     "proxyUrl": "",
-    "splitterNav": 240,
-    "splitterRes": 340,
-    "splitterRowRes": 320,
-    "listHeaders": true,
-    "showUrlPreview": true,
-    "removeHeaders": false
+    "showUrlPreview": false
   }
 }

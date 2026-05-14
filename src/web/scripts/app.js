@@ -285,6 +285,12 @@ function initEventBus() {
   // When a request is selected in the tree, load it into the editor
   window.addEventListener("wurl:request-selected", (e) => {
     requestEditor.load(e.detail);
+    // Persist the selected node ID so it can be restored on reload
+    const id = e.detail?.id;
+    if (id) {
+      currentSettings = { ...currentSettings, selectedRequestId: id };
+      saveSettings(currentSettings);
+    }
   });
 
   // Auto-save whenever the tree is mutated (add / remove collection or request)
@@ -386,6 +392,11 @@ async function initCollections() {
   currentSettings = settings;
   settingsPopup.load(settings);
   applySettings(settings);
+
+  // Restore the previously selected request (if any)
+  if (settings.selectedRequestId) {
+    treeView.selectById(settings.selectedRequestId);
+  }
 }
 
 /**

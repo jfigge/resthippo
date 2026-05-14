@@ -35,8 +35,9 @@ export const DEFAULT_SETTINGS = {
   splitterRes:    340,   // --col-res  (response panel width in landscape)
   splitterRowRes: 320,   // --row-res  (response panel height in between/portrait)
   // Editor preferences
-  listHeaders:    true,  // show standard-header suggestions in the Headers tab
-  showUrlPreview: true,  // show the URL-with-params preview bar in the Params tab
+  listHeaders:       true,   // show standard-header suggestions in the Headers tab
+  showUrlPreview:    true,   // show the URL-with-params preview bar in the Params tab
+  selectedRequestId: null,   // ID of the last-selected request node (restored on reload)
 };
 
 // ── In-memory document cache ──────────────────────────────────────────────────

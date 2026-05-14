@@ -1329,13 +1329,13 @@ export class RequestEditor {
     });
 
     showUrlLabel.appendChild(showUrlCheck);
-    showUrlLabel.append(" Show URL");
+    showUrlLabel.append("Show URL Preview");
     toolbar.appendChild(showUrlLabel);
 
-
-    // ── URL preview bar (above the toolbar, between tab strip and params) ─
-    container.appendChild(this.#buildUrlPreviewBar());
     container.appendChild(toolbar);
+
+    // ── URL preview bar (below toolbar, above column headers) ─────────────
+    container.appendChild(this.#buildUrlPreviewBar());
 
     // ── Column headers ───────────────────────────────────────────────────
     const headers = document.createElement("div");

@@ -973,4 +973,30 @@ export class TreeView {
     }
     return result;
   }
+
+  /**
+   * Programmatically select a request node by ID, as if the user clicked it.
+   * Used to restore the last-selected request on page/app reload.
+   * Collections always start expanded, so the node's <li> is always in the DOM
+   * immediately after setItems() is called.
+   *
+   * @param {string} id
+   * @returns {boolean} true if the node was found and selected
+   */
+  selectById(id) {
+    if (!id) return false;
+    const node = this.#findNode(this.#items, id);
+    if (!node || node.type !== "request") return false;
+
+    let li;
+    try {
+      li = this.#el.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    } catch (_) {
+      li = this.#el.querySelector(`[data-id="${id}"]`);
+    }
+    if (!li) return false;
+
+    this.#selectRequest(node, li);
+    return true;
+  }
 }
