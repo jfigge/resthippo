@@ -254,7 +254,7 @@ export class RequestEditor {
     return container;
     }
 
-    // ── Headers editor ──────────��────────────────────────────────────────────
+    // ── Headers editor ──────────────────────────────────────────────────
     #buildHeadersEditor() {
     const container = document.createElement("div");
     container.className = "params-editor";
@@ -287,7 +287,7 @@ export class RequestEditor {
     colHeaders.innerHTML = `
       <span class="params-col-handle"></span>
       <span class="params-col-enabled"></span>
-      <span class="params-col-name">Name</span>
+      <span class="params-col-name">Header</span>
       <span class="params-col-value">Value</span>
       <span class="params-col-delete"></span>`;
     container.appendChild(colHeaders);
