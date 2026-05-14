@@ -427,6 +427,37 @@
   overflow: hidden;
 }
 
+/* Body content area */
+.body-content {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Body-type selector in the toolbar */
+.body-type-select {
+  height: 26px;
+  padding: 0 var(--space-2);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  min-width: 160px;
+  transition: border-color var(--transition-fast);
+}
+
+.body-type-select:hover {
+  border-color: var(--color-overlay-1);
+}
+
+.body-type-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
 /* Toolbar */
 .params-toolbar {
   display: flex;

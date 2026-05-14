@@ -202,6 +202,10 @@ export class RequestEditor {
   #headersListEl         = null;
   #headerSuggestionsEnabled = true;  // toggled by "List Headers" checkbox
   // Headers drag state
+
+  // Body state
+  #bodyType    = "no-body";   // current body-type selector value
+  #bodyContentEl = null;      // the area below the toolbar
   #hdrDragSrcId          = null;
   #hdrDragInsideList     = false;
   #hdrDragDropHandled    = false;
@@ -318,16 +322,105 @@ export class RequestEditor {
     #buildTabPane(tabId) {
     if (tabId === "params")   return this.#buildParamsEditor();
     if (tabId === "headers")  return this.#buildHeadersEditor();
+    if (tabId === "body")     return this.#buildBodyEditor();
 
     // Placeholder for other tabs
     const placeholder = document.createElement("div");
     placeholder.className = "panel-placeholder";
-    const icons  = { body: "📄", auth: "🔑", settings: "⚙️" };
-    const labels = { body: "Request body", auth: "Authentication", settings: "Request settings" };
+    const icons  = { auth: "🔑", settings: "⚙️" };
+    const labels = { auth: "Authentication", settings: "Request settings" };
     placeholder.innerHTML =
       `<span class="placeholder-icon">${icons[tabId]}</span>` +
       `<span>${labels[tabId]} — coming soon</span>`;
     return placeholder;
+    }
+
+    // ── Body editor ──────────────────────────────────────────────────────────
+    #buildBodyEditor() {
+    const container = document.createElement("div");
+    container.className = "params-editor";   // reuse same flex-column layout
+
+    // ── Toolbar ──────────────────────────────────────────────────────────
+    const toolbar = document.createElement("div");
+    toolbar.className = "params-toolbar";
+
+    const typeSelect = document.createElement("select");
+    typeSelect.className = "body-type-select";
+    typeSelect.setAttribute("aria-label", "Body type");
+    typeSelect.innerHTML = `
+      <optgroup label="Structured">
+        <option value="form-data">Form Data</option>
+        <option value="form-urlencoded">Form URL Encoded</option>
+      </optgroup>
+      <optgroup label="Text">
+        <option value="json">JSON</option>
+        <option value="yaml">YAML</option>
+        <option value="xml">XML</option>
+        <option value="text">Plain Text</option>
+      </optgroup>
+      <optgroup label="Other">
+        <option value="file">File</option>
+        <option value="no-body" selected>No Body</option>
+      </optgroup>
+    `;
+    typeSelect.value = this.#bodyType;
+    typeSelect.addEventListener("change", () => {
+      this.#bodyType = typeSelect.value;
+      this.#renderBodyContent();
+      this.#dispatchBodyUpdated();
+    });
+
+    toolbar.appendChild(typeSelect);
+    container.appendChild(toolbar);
+
+    // ── Content area ─────────────────────────────────────────────────────
+    const content = document.createElement("div");
+    content.className = "body-content";
+    this.#bodyContentEl = content;
+    container.appendChild(content);
+
+    this.#renderBodyContent();
+    return container;
+    }
+
+    /** Render the body content area to match the current #bodyType. */
+    #renderBodyContent() {
+    const el = this.#bodyContentEl;
+    if (!el) return;
+    el.innerHTML = "";
+
+    if (this.#bodyType === "no-body") {
+      const msg = document.createElement("div");
+      msg.className = "params-empty";
+      msg.textContent = "No body will be sent with this request.";
+      el.appendChild(msg);
+      return;
+    }
+
+    // Placeholder for types not yet implemented
+    const placeholder = document.createElement("div");
+    placeholder.className = "panel-placeholder";
+    const labels = {
+      "form-data":        "Form Data editor",
+      "form-urlencoded":  "Form URL Encoded editor",
+      "json":             "JSON editor",
+      "yaml":             "YAML editor",
+      "xml":              "XML editor",
+      "text":             "Plain Text editor",
+      "file":             "File picker",
+    };
+    placeholder.innerHTML =
+      `<span class="placeholder-icon">📄</span>` +
+      `<span>${labels[this.#bodyType] ?? "Body editor"} — coming soon</span>`;
+    el.appendChild(placeholder);
+    }
+
+    #dispatchBodyUpdated() {
+    if (!this.#currentNodeId) return;
+    window.dispatchEvent(new CustomEvent("wurl:request-updated", {
+      detail: { id: this.#currentNodeId, bodyType: this.#bodyType },
+      bubbles: true,
+    }));
     }
 
     // ── Params editor ────────────────────────────────────────────────────────
@@ -1050,5 +1143,12 @@ export class RequestEditor {
         }))
       : [];
     this.#renderHeadersList();
+
+    // Body type
+    this.#bodyType = node.bodyType ?? "no-body";
+    // Sync the select element if the body tab has been built
+    const sel = this.#el.querySelector(".body-type-select");
+    if (sel) sel.value = this.#bodyType;
+    this.#renderBodyContent();
   }
 }
