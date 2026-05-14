@@ -896,6 +896,152 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   AUTH EDITOR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Scrollable form container inside the auth content area */
+.auth-form {
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Dimmed / non-interactive state when the Enabled checkbox is unchecked */
+.auth-content--disabled {
+  opacity: 0.38;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Label + input row — 2-column grid */
+.auth-field {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.auth-field__label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-subtext);
+  text-align: right;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.auth-field__input {
+  width: 100%;
+  height: 30px;
+  padding: 0 var(--space-2);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  box-sizing: border-box;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.auth-field__input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-base);
+}
+
+.auth-field__input::placeholder {
+  color: var(--color-overlay-0);
+  font-style: italic;
+}
+
+.auth-field__input[type="password"] {
+  font-family: var(--font-mono), monospace;
+  letter-spacing: 0.1em;
+}
+
+.auth-field__select {
+  cursor: pointer;
+}
+
+/* Hint text — sits in the second grid column below the input */
+.auth-field__hint {
+  grid-column: 2;
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+  font-style: italic;
+}
+
+/* Password input + show/hide toggle side by side */
+.auth-pwd-wrapper {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.auth-pwd-wrapper .auth-field__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.auth-pwd-toggle {
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 var(--space-2);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-subtext);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.auth-pwd-toggle:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-base);
+}
+
+/* Section divider label (e.g. "Current Access Token") */
+.auth-section-title {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-overlay-0);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-surface-2);
+  margin-top: var(--space-1);
+}
+
+/* Token display box */
+.auth-token-display {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface-0);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+}
+
+.auth-token-value {
+  flex: 1;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-xs);
+  color: var(--color-text);
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    RESPONSE VIEWER
    ═══════════════════════════════════════════════════════════════════════════ */
 

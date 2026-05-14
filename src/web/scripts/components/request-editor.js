@@ -178,7 +178,7 @@ const TABS = [
   { id: "headers",  label: "Headers"  },
   { id: "body",     label: "Body"     },
   { id: "auth",     label: "Auth"     },
-  { id: "settings", label: "Settings" },
+//  { id: "settings", label: "Settings" },
 ];
 
 export class RequestEditor {
@@ -204,6 +204,16 @@ export class RequestEditor {
   #headersListEl         = null;
   #headerSuggestionsEnabled = true;  // toggled by "List Headers" checkbox
   // Headers drag state
+
+  // Auth state
+  #authType      = "none";
+  #authEnabled   = true;
+  #authBasic     = { username: "", password: "" };
+  #authBearer    = { token: "" };
+  #authOAuth2    = { grantType: "client_credentials", clientId: "", clientSecret: "", accessTokenUrl: "", authUrl: "", scope: "", token: "" };
+  #authAwsIam    = { accessKeyId: "", secretAccessKey: "", region: "", service: "", sessionToken: "" };
+  #authContentEl = null;
+  #authTypeBarEl = null;
 
   // Body state
   #bodyType      = "no-body";
@@ -337,16 +347,381 @@ export class RequestEditor {
     if (tabId === "params")   return this.#buildParamsEditor();
     if (tabId === "headers")  return this.#buildHeadersEditor();
     if (tabId === "body")     return this.#buildBodyEditor();
+    if (tabId === "auth")     return this.#buildAuthEditor();
 
     // Placeholder for other tabs
     const placeholder = document.createElement("div");
     placeholder.className = "panel-placeholder";
-    const icons  = { auth: "🔑", settings: "⚙️" };
-    const labels = { auth: "Authentication", settings: "Request settings" };
+    const icons  = { settings: "⚙️" };
+    const labels = { settings: "Request settings" };
     placeholder.innerHTML =
       `<span class="placeholder-icon">${icons[tabId]}</span>` +
       `<span>${labels[tabId]} — coming soon</span>`;
     return placeholder;
+    }
+
+    // ── Auth editor ───────────────────────────────────────────────────────────
+    #buildAuthEditor() {
+    const container = document.createElement("div");
+    container.className = "params-editor";
+
+    // ── Type selector bar ─────────────────────────────────────────────────
+    const typeBar = document.createElement("div");
+    typeBar.className = "params-toolbar body-type-bar";
+    this.#authTypeBarEl = typeBar;
+
+    const typeSelect = document.createElement("select");
+    typeSelect.className = "body-type-select";
+    typeSelect.id = "auth-type-select";
+    typeSelect.setAttribute("aria-label", "Auth type");
+    typeSelect.innerHTML = `
+      <optgroup label="Auth Types">
+        <option value="basic">Basic</option>
+        <option value="oauth2">OAuth 2.0</option>
+        <option value="aws-iam">AWS IAM</option>
+        <option value="bearer">Bearer Token</option>
+      </optgroup>
+      <optgroup label="Other">
+        <option value="none">None</option>
+      </optgroup>
+    `;
+    typeSelect.value = this.#authType;
+    typeSelect.addEventListener("change", () => {
+      this.#authType = typeSelect.value;
+      this.#renderAuthContent();
+      this.#dispatchAuthUpdated();
+    });
+
+    typeBar.appendChild(typeSelect);
+
+    // ── Enabled toggle — floated right ────────────────────────────────────
+    const spacer = document.createElement("span");
+    spacer.style.flex = "1";
+    typeBar.appendChild(spacer);
+
+    const enabledLabel = document.createElement("label");
+    enabledLabel.className = "params-toolbar-toggle-label";
+    enabledLabel.title = "Enable or disable authentication for this request";
+
+    const enabledCheck = document.createElement("input");
+    enabledCheck.type      = "checkbox";
+    enabledCheck.className = "params-toolbar-toggle";
+    enabledCheck.id        = "auth-enabled-check";
+    enabledCheck.checked   = this.#authEnabled;
+    enabledCheck.addEventListener("change", () => {
+      this.#authEnabled = enabledCheck.checked;
+      this.#authContentEl?.classList.toggle("auth-content--disabled", !this.#authEnabled);
+      this.#dispatchAuthUpdated();
+    });
+
+    enabledLabel.appendChild(enabledCheck);
+    enabledLabel.append(" Enabled");
+    typeBar.appendChild(enabledLabel);
+
+    container.appendChild(typeBar);
+
+    // ── Content area ──────────────────────────────────────────────────────
+    const content = document.createElement("div");
+    content.className = "body-content";
+    if (!this.#authEnabled) content.classList.add("auth-content--disabled");
+    this.#authContentEl = content;
+    container.appendChild(content);
+
+    this.#renderAuthContent();
+    return container;
+    }
+
+    /** Re-render the auth content area to match #authType. */
+    #renderAuthContent() {
+    const el = this.#authContentEl;
+    if (!el) return;
+    el.innerHTML = "";
+    switch (this.#authType) {
+      case "none":    return this.#renderAuthNone(el);
+      case "basic":   return this.#renderAuthBasic(el);
+      case "bearer":  return this.#renderAuthBearer(el);
+      case "oauth2":  return this.#renderAuthOAuth2(el);
+      case "aws-iam": return this.#renderAuthAwsIam(el);
+    }
+    }
+
+    // ── None ──────────────────────────────────────────────────────────────────
+    #renderAuthNone(el) {
+    const msg = document.createElement("div");
+    msg.className = "params-empty";
+    msg.textContent = "No authentication will be sent with this request.";
+    el.appendChild(msg);
+    }
+
+    // ── Basic ─────────────────────────────────────────────────────────────────
+    #renderAuthBasic(el) {
+    const form = document.createElement("div");
+    form.className = "auth-form";
+
+    form.appendChild(this.#buildAuthField("Username", "text", {
+      placeholder: "Username",
+      value:       this.#authBasic.username,
+      onInput:     (v) => { this.#authBasic.username = v; this.#dispatchAuthUpdated(); },
+    }));
+
+    form.appendChild(this.#buildAuthFieldPassword("Password", {
+      placeholder: "Password",
+      value:       this.#authBasic.password,
+      onInput:     (v) => { this.#authBasic.password = v; this.#dispatchAuthUpdated(); },
+    }));
+
+    el.appendChild(form);
+    }
+
+    // ── Bearer Token ──────────────────────────────────────────────────────────
+    #renderAuthBearer(el) {
+    const form = document.createElement("div");
+    form.className = "auth-form";
+
+    form.appendChild(this.#buildAuthField("Token", "text", {
+      placeholder: "Enter your bearer token…",
+      value:       this.#authBearer.token,
+      onInput:     (v) => { this.#authBearer.token = v; this.#dispatchAuthUpdated(); },
+      hint:        "Sent as: Authorization: Bearer <token>",
+    }));
+
+    el.appendChild(form);
+    }
+
+    // ── OAuth 2.0 ─────────────────────────────────────────────────────────────
+    #renderAuthOAuth2(el) {
+    const form = document.createElement("div");
+    form.className = "auth-form";
+
+    // Grant Type select
+    const grantWrapper = document.createElement("div");
+    grantWrapper.className = "auth-field";
+    const grantLabel = document.createElement("label");
+    grantLabel.className = "auth-field__label";
+    grantLabel.textContent = "Grant Type";
+    const grantSelect = document.createElement("select");
+    grantSelect.className = "auth-field__input auth-field__select";
+    grantSelect.setAttribute("aria-label", "Grant type");
+    grantSelect.innerHTML = `
+      <option value="authorization_code">Authorization Code</option>
+      <option value="client_credentials">Client Credentials</option>
+      <option value="password">Resource Owner Password</option>
+      <option value="implicit">Implicit</option>
+    `;
+    grantSelect.value = this.#authOAuth2.grantType;
+    grantSelect.addEventListener("change", () => {
+      this.#authOAuth2.grantType = grantSelect.value;
+      this.#renderAuthContent();
+      this.#dispatchAuthUpdated();
+    });
+    grantWrapper.appendChild(grantLabel);
+    grantWrapper.appendChild(grantSelect);
+    form.appendChild(grantWrapper);
+
+    // Client ID
+    form.appendChild(this.#buildAuthField("Client ID", "text", {
+      placeholder: "Client ID",
+      value:       this.#authOAuth2.clientId,
+      onInput:     (v) => { this.#authOAuth2.clientId = v; this.#dispatchAuthUpdated(); },
+    }));
+
+    // Client Secret (hidden for implicit)
+    if (this.#authOAuth2.grantType !== "implicit") {
+      form.appendChild(this.#buildAuthFieldPassword("Client Secret", {
+        placeholder: "Client Secret",
+        value:       this.#authOAuth2.clientSecret,
+        onInput:     (v) => { this.#authOAuth2.clientSecret = v; this.#dispatchAuthUpdated(); },
+      }));
+    }
+
+    // Access Token URL (hidden for implicit)
+    if (this.#authOAuth2.grantType !== "implicit") {
+      form.appendChild(this.#buildAuthField("Access Token URL", "url", {
+        placeholder: "https://example.com/oauth/token",
+        value:       this.#authOAuth2.accessTokenUrl,
+        onInput:     (v) => { this.#authOAuth2.accessTokenUrl = v; this.#dispatchAuthUpdated(); },
+      }));
+    }
+
+    // Auth URL (shown for authorization_code and implicit)
+    if (["authorization_code", "implicit"].includes(this.#authOAuth2.grantType)) {
+      form.appendChild(this.#buildAuthField("Auth URL", "url", {
+        placeholder: "https://example.com/oauth/authorize",
+        value:       this.#authOAuth2.authUrl,
+        onInput:     (v) => { this.#authOAuth2.authUrl = v; this.#dispatchAuthUpdated(); },
+      }));
+    }
+
+    // Scope
+    form.appendChild(this.#buildAuthField("Scope", "text", {
+      placeholder: "openid profile email",
+      value:       this.#authOAuth2.scope,
+      onInput:     (v) => { this.#authOAuth2.scope = v; this.#dispatchAuthUpdated(); },
+      hint:        "Space-separated list of requested scopes",
+    }));
+
+    // Current access token display
+    if (this.#authOAuth2.token) {
+      const tokenSection = document.createElement("div");
+      tokenSection.className = "auth-section-title";
+      tokenSection.textContent = "Current Access Token";
+      form.appendChild(tokenSection);
+
+      const tokenDisplay = document.createElement("div");
+      tokenDisplay.className = "auth-token-display";
+      const tokenValue = document.createElement("span");
+      tokenValue.className = "auth-token-value";
+      tokenValue.textContent = this.#authOAuth2.token;
+      const clearBtn = document.createElement("button");
+      clearBtn.type = "button";
+      clearBtn.className = "body-file-reset-btn";
+      clearBtn.textContent = "Clear Token";
+      clearBtn.addEventListener("click", () => {
+        this.#authOAuth2.token = "";
+        this.#renderAuthContent();
+        this.#dispatchAuthUpdated();
+      });
+      tokenDisplay.appendChild(tokenValue);
+      tokenDisplay.appendChild(clearBtn);
+      form.appendChild(tokenDisplay);
+    }
+
+    el.appendChild(form);
+    }
+
+    // ── AWS IAM ───────────────────────────────────────────────────────────────
+    #renderAuthAwsIam(el) {
+    const form = document.createElement("div");
+    form.className = "auth-form";
+
+    form.appendChild(this.#buildAuthField("Access Key ID", "text", {
+      placeholder: "AKIAIOSFODNN7EXAMPLE",
+      value:       this.#authAwsIam.accessKeyId,
+      onInput:     (v) => { this.#authAwsIam.accessKeyId = v; this.#dispatchAuthUpdated(); },
+    }));
+
+    form.appendChild(this.#buildAuthFieldPassword("Secret Access Key", {
+      placeholder: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+      value:       this.#authAwsIam.secretAccessKey,
+      onInput:     (v) => { this.#authAwsIam.secretAccessKey = v; this.#dispatchAuthUpdated(); },
+    }));
+
+    form.appendChild(this.#buildAuthField("Region", "text", {
+      placeholder: "us-east-1",
+      value:       this.#authAwsIam.region,
+      onInput:     (v) => { this.#authAwsIam.region = v; this.#dispatchAuthUpdated(); },
+    }));
+
+    form.appendChild(this.#buildAuthField("Service", "text", {
+      placeholder: "execute-api",
+      value:       this.#authAwsIam.service,
+      onInput:     (v) => { this.#authAwsIam.service = v; this.#dispatchAuthUpdated(); },
+    }));
+
+    form.appendChild(this.#buildAuthFieldPassword("Session Token", {
+      placeholder: "Optional — for temporary / STS credentials",
+      value:       this.#authAwsIam.sessionToken,
+      onInput:     (v) => { this.#authAwsIam.sessionToken = v; this.#dispatchAuthUpdated(); },
+    }));
+
+    el.appendChild(form);
+    }
+
+    // ── Auth field helpers ─────────────────────────────────────────────────────
+    /**
+     * Build a standard labeled input row for use inside an auth-form.
+     * @param {string} label
+     * @param {string} inputType  e.g. "text" | "url"
+     * @param {{ placeholder?, value?, onInput?, hint? }} opts
+     */
+    #buildAuthField(label, inputType, { placeholder = "", value = "", onInput, hint } = {}) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "auth-field";
+
+    const lbl = document.createElement("label");
+    lbl.className = "auth-field__label";
+    lbl.textContent = label;
+
+    const input = document.createElement("input");
+    input.type        = inputType;
+    input.className   = "auth-field__input";
+    input.placeholder = placeholder;
+    input.value       = value;
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("aria-label", label);
+    if (onInput) input.addEventListener("input", () => onInput(input.value));
+
+    wrapper.appendChild(lbl);
+    wrapper.appendChild(input);
+
+    if (hint) {
+      const hintEl = document.createElement("span");
+      hintEl.className = "auth-field__hint";
+      hintEl.textContent = hint;
+      wrapper.appendChild(hintEl);
+    }
+
+    return wrapper;
+    }
+
+    /**
+     * Build a labeled password input with a show/hide toggle button.
+     * @param {string} label
+     * @param {{ placeholder?, value?, onInput? }} opts
+     */
+    #buildAuthFieldPassword(label, { placeholder = "", value = "", onInput } = {}) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "auth-field";
+
+    const lbl = document.createElement("label");
+    lbl.className = "auth-field__label";
+    lbl.textContent = label;
+
+    const inputWrap = document.createElement("div");
+    inputWrap.className = "auth-pwd-wrapper";
+
+    const input = document.createElement("input");
+    input.type        = "password";
+    input.className   = "auth-field__input";
+    input.placeholder = placeholder;
+    input.value       = value;
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("aria-label", label);
+    if (onInput) input.addEventListener("input", () => onInput(input.value));
+
+    const toggle = document.createElement("button");
+    toggle.type      = "button";
+    toggle.className = "auth-pwd-toggle";
+    toggle.textContent = "Show";
+    toggle.title = "Toggle visibility";
+    toggle.addEventListener("click", () => {
+      const hidden = input.type === "password";
+      input.type     = hidden ? "text" : "password";
+      toggle.textContent = hidden ? "Hide" : "Show";
+    });
+
+    inputWrap.appendChild(input);
+    inputWrap.appendChild(toggle);
+    wrapper.appendChild(lbl);
+    wrapper.appendChild(inputWrap);
+
+    return wrapper;
+    }
+
+    #dispatchAuthUpdated() {
+    if (!this.#currentNodeId) return;
+    window.dispatchEvent(new CustomEvent("wurl:request-updated", {
+      detail: {
+        id:          this.#currentNodeId,
+        authEnabled: this.#authEnabled,
+        authType:    this.#authType,
+        authBasic:   { ...this.#authBasic },
+        authBearer:  { ...this.#authBearer },
+        authOAuth2:  { ...this.#authOAuth2 },
+        authAwsIam:  { ...this.#authAwsIam },
+      },
+      bubbles: true,
+    }));
     }
 
     // ── Body editor ──────────────────────────────────────────────────────────
@@ -1631,5 +2006,19 @@ export class RequestEditor {
     const sel = this.#el.querySelector(".body-type-select");
     if (sel) sel.value = this.#bodyType;
     this.#renderBodyContent();
+
+    // Auth
+    this.#authType    = node.authType    ?? "none";
+    this.#authEnabled = node.authEnabled ?? true;
+    if (node.authBasic)  this.#authBasic  = { ...this.#authBasic,  ...node.authBasic  };
+    if (node.authBearer) this.#authBearer = { ...this.#authBearer, ...node.authBearer };
+    if (node.authOAuth2) this.#authOAuth2 = { ...this.#authOAuth2, ...node.authOAuth2 };
+    if (node.authAwsIam) this.#authAwsIam = { ...this.#authAwsIam, ...node.authAwsIam };
+    const authSel = this.#el.querySelector("#auth-type-select");
+    if (authSel) authSel.value = this.#authType;
+    const authEnabledCheck = this.#el.querySelector("#auth-enabled-check");
+    if (authEnabledCheck) authEnabledCheck.checked = this.#authEnabled;
+    this.#authContentEl?.classList.toggle("auth-content--disabled", !this.#authEnabled);
+    this.#renderAuthContent();
   }
 }
