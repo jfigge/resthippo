@@ -83,6 +83,7 @@
   "settings": {
     "theme": "grey-dark",
     "fontSize": 13,
+    "removeHeaders": true,
     "timeout": 30000,
     "followRedirects": true,
     "verifySsl": true,

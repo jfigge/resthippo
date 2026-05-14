@@ -85,6 +85,15 @@ export class SettingsPopup {
               <option value="18">18 px</option>
             </select>
           </div>
+
+          <div class="settings-row settings-row--toggle">
+            <label class="settings-label" for="setting-remove-headers">Remove headers</label>
+            <input
+              class="settings-toggle"
+              id="setting-remove-headers"
+              type="checkbox"
+            />
+          </div>
         </div>
 
         <!-- Request ──────────────────────────────────────────────────── -->
@@ -191,6 +200,7 @@ export class SettingsPopup {
     return {
       theme:           this.#el.querySelector("#setting-theme").value,
       fontSize:        parseInt(this.#el.querySelector("#setting-font-size").value, 10),
+      removeHeaders:   this.#el.querySelector("#setting-remove-headers").checked,
       timeout:         parseInt(this.#el.querySelector("#setting-timeout").value, 10),
       followRedirects: this.#el.querySelector("#setting-follow-redirects").checked,
       verifySsl:       this.#el.querySelector("#setting-verify-ssl").checked,
@@ -236,6 +246,9 @@ export class SettingsPopup {
     }
     if (settings.fontSize !== undefined) {
       this.#el.querySelector("#setting-font-size").value = String(settings.fontSize);
+    }
+    if (settings.removeHeaders !== undefined) {
+      this.#el.querySelector("#setting-remove-headers").checked = settings.removeHeaders;
     }
     if (settings.timeout !== undefined) {
       this.#el.querySelector("#setting-timeout").value = String(settings.timeout);

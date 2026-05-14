@@ -79,6 +79,22 @@
   pointer-events: none;
 }
 
+/* ── Nav settings bar (visible only when app-header is hidden) ────────────── */
+.nav-settings-bar {
+  display: none;               /* hidden by default; JS toggles this */
+  flex-shrink: 0;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  height: 44px;
+  min-height: 44px;
+  background-color: var(--color-crust);
+  border-top: 1px solid var(--color-surface-2);
+}
+
+.nav-settings-bar.is-visible {
+  display: flex;
+}
+
 /* ── Main layout container ────────────────────────────────────────────────── */
 /*
  * Three layout modes driven by media queries.

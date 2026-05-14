@@ -273,6 +273,11 @@ function initHeader() {
   document.getElementById("btn-settings").addEventListener("click", () => {
     settingsPopup.open(currentSettings);
   });
+
+  // Secondary settings button inside the nav panel — shown when app-header is hidden
+  document.getElementById("btn-settings-nav").addEventListener("click", () => {
+    settingsPopup.open(currentSettings);
+  });
 }
 
 // ─── Event bus ────────────────────────────────────────────────────────────────
@@ -391,4 +396,25 @@ function applySettings(settings) {
 
   // Editor preferences
   if (requestEditor) requestEditor.applySettings(settings);
+
+  // Remove headers — hide/show all .panel-header elements, app-header, and nav settings bar
+  if (settings.removeHeaders !== undefined) {
+    const remove = settings.removeHeaders;
+
+    // Panel title bars
+    document.querySelectorAll(".panel-header").forEach((header) => {
+      header.style.display = remove ? "none" : "";
+    });
+
+    // App-level header (contains the logo, subtitle and primary settings button)
+    const appHeader = document.getElementById("app-header");
+    if (appHeader) appHeader.style.display = remove ? "none" : "";
+
+    // Fallback settings bar at the bottom of the nav panel
+    const navBar = document.getElementById("nav-settings-bar");
+    if (navBar) {
+      navBar.classList.toggle("is-visible", remove);
+      navBar.setAttribute("aria-hidden", String(!remove));
+    }
+  }
 }
