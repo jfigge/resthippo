@@ -219,8 +219,8 @@ export class RequestEditor {
   #bodyType      = "no-body";
   #bodyContentEl = null;
   #bodyTypeBarEl = null;      // the bar holding the type selector (+ optional Prettify)
-  #bodyFormRows  = { "form-data": [], "form-urlencoded": [] };
-  #bodyTexts     = { json: "", yaml: "", xml: "", text: "" };
+  #bodyFormRows  = [];        // shared for form-data AND form-urlencoded
+  #bodyText      = "";        // shared for json, yaml, xml, and plain text
   #bodyFilePath  = "";
   // Body form drag state (one active form editor at a time)
   #bfListEl      = null;
@@ -808,7 +808,7 @@ export class RequestEditor {
 
     // ── Form key-value editor (form-data / form-urlencoded) ───────────────────
     #renderBodyForm(el, type) {
-    const rows = this.#bodyFormRows[type];
+    const rows = this.#bodyFormRows;
 
     // Toolbar
     const toolbar = document.createElement("div");
@@ -837,7 +837,7 @@ export class RequestEditor {
         confirmLabel: "Delete all",
         confirmClass: "popup-btn--danger",
         onConfirm: () => {
-          this.#bodyFormRows[type] = [];
+          this.#bodyFormRows = [];
           this.#renderBodyContent();
           this.#dispatchBodyUpdated();
         },
@@ -963,7 +963,7 @@ export class RequestEditor {
       <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
     </svg>`;
     delBtn.addEventListener("click", () => {
-      this.#bodyFormRows[type] = rows.filter(r => r.id !== row.id);
+      this.#bodyFormRows = rows.filter(r => r.id !== row.id);
       this.#renderBodyContent();
       this.#dispatchBodyUpdated();
     });
@@ -1025,7 +1025,7 @@ export class RequestEditor {
     #renderBodyText(el, type, canPrettify) {
     const ta = document.createElement("textarea");
     ta.className = "body-text-editor";
-    ta.value     = this.#bodyTexts[type] ?? "";
+    ta.value     = this.#bodyText;
     ta.placeholder = `Enter ${type === "text" ? "plain text" : type.toUpperCase()} body here…`;
     ta.spellcheck  = false;
     ta.setAttribute("aria-label", `${type} body`);
@@ -1064,7 +1064,7 @@ export class RequestEditor {
     };
 
     ta.addEventListener("input", () => {
-      this.#bodyTexts[type] = ta.value;
+      this.#bodyText = ta.value;
       this.#dispatchBodyUpdated();
       if (canValidate) scheduleValidation();
     });
@@ -1087,7 +1087,7 @@ export class RequestEditor {
       prettyBtn.addEventListener("click", () => {
         const prettified = this.#prettify(type, ta.value);
         ta.value = prettified;
-        this.#bodyTexts[type] = prettified;
+        this.#bodyText = prettified;
         this.#dispatchBodyUpdated();
         // Immediate re-validate after prettifying (no debounce needed)
         if (canValidate) {
@@ -1266,9 +1266,8 @@ export class RequestEditor {
       detail: {
         id:       this.#currentNodeId,
         bodyType: this.#bodyType,
-        bodyFormData:         [...this.#bodyFormRows["form-data"]],
-        bodyFormUrlEncoded:   [...this.#bodyFormRows["form-urlencoded"]],
-        bodyTexts:            { ...this.#bodyTexts },
+        bodyFormRows:         [...this.#bodyFormRows],
+        bodyText:             this.#bodyText,
         bodyFilePath:         this.#bodyFilePath,
       },
       bubbles: true,
@@ -1998,9 +1997,22 @@ export class RequestEditor {
 
     // Body
     this.#bodyType = node.bodyType ?? "no-body";
-    if (Array.isArray(node.bodyFormData))       this.#bodyFormRows["form-data"]        = node.bodyFormData.map(r => ({ id: r.id ?? crypto.randomUUID(), name: r.name ?? "", value: r.value ?? "", enabled: r.enabled ?? true }));
-    if (Array.isArray(node.bodyFormUrlEncoded)) this.#bodyFormRows["form-urlencoded"]  = node.bodyFormUrlEncoded.map(r => ({ id: r.id ?? crypto.randomUUID(), name: r.name ?? "", value: r.value ?? "", enabled: r.enabled ?? true }));
-    if (node.bodyTexts) this.#bodyTexts = { ...this.#bodyTexts, ...node.bodyTexts };
+    // Form rows — new unified format first, then legacy per-type fallbacks
+    if (Array.isArray(node.bodyFormRows)) {
+      this.#bodyFormRows = node.bodyFormRows.map(r => ({ id: r.id ?? crypto.randomUUID(), name: r.name ?? "", value: r.value ?? "", enabled: r.enabled ?? true }));
+    } else if (Array.isArray(node.bodyFormData)) {
+      this.#bodyFormRows = node.bodyFormData.map(r => ({ id: r.id ?? crypto.randomUUID(), name: r.name ?? "", value: r.value ?? "", enabled: r.enabled ?? true }));
+    } else if (Array.isArray(node.bodyFormUrlEncoded)) {
+      this.#bodyFormRows = node.bodyFormUrlEncoded.map(r => ({ id: r.id ?? crypto.randomUUID(), name: r.name ?? "", value: r.value ?? "", enabled: r.enabled ?? true }));
+    }
+    // Text body — new unified format first, then legacy per-type dict
+    if (node.bodyText != null) {
+      this.#bodyText = node.bodyText;
+    } else if (node.bodyTexts) {
+      // Legacy: prefer the text stored for the current body type, then the first non-empty entry
+      const bt = node.bodyTexts;
+      this.#bodyText = bt[this.#bodyType] ?? bt.json ?? bt.yaml ?? bt.xml ?? bt.text ?? "";
+    }
     if (node.bodyFilePath != null) this.#bodyFilePath = node.bodyFilePath;
     // Sync the select element if the body tab has been built
     const sel = this.#el.querySelector(".body-type-select");
