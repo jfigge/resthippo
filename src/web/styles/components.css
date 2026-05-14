@@ -430,9 +430,154 @@
 /* Body content area */
 .body-content {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* ── Text editor (JSON / YAML / XML / plain) ────────────────────────────── */
+.body-text-editor {
+  flex: 1;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-base);
+  color: var(--color-text);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  border: none;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.body-text-editor::placeholder { color: var(--color-overlay-0); font-style: italic; }
+
+/* ── File drop zone ─────────────────────────────────────────────────────── */
+.body-file-zone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 2px dashed var(--color-surface-2);
+  border-radius: var(--radius-md);
+  margin: var(--space-4);
+  padding: var(--space-6);
+  color: var(--color-overlay-0);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  cursor: default;
+}
+
+.body-file-zone--over {
+  border-color: var(--color-accent);
+  background-color: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  color: var(--color-accent);
+}
+
+.body-file-zone__icon  { opacity: 0.5; }
+.body-file-zone--over .body-file-zone__icon { opacity: 1; }
+
+.body-file-zone__label {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  margin: 0;
+}
+
+.body-file-zone__sub { font-size: var(--font-size-sm); margin: 0; }
+
+.body-file-browse-btn {
+  height: 30px;
+  padding: 0 var(--space-4);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: var(--space-1);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.body-file-browse-btn:hover {
+  background: var(--color-surface-2);
+  border-color: var(--color-overlay-0);
+}
+
+/* ── File chosen view ───────────────────────────────────────────────────── */
+.body-file-chosen {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface-0);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-md);
+  margin: var(--space-4);
+}
+
+.body-file-chosen__icon  { color: var(--color-accent); flex-shrink: 0; }
+
+.body-file-chosen__path {
+  flex: 1;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.body-file-reset-btn {
+  height: 26px;
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-subtext);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--transition-fast), border-color var(--transition-fast),
+              background-color var(--transition-fast);
+}
+
+.body-file-reset-btn:hover {
+  color: var(--color-error);
+  border-color: var(--color-error);
+  background-color: color-mix(in srgb, var(--color-error) 10%, transparent);
+}
+
+/* ── Prettify button (sits in the type-selector bar, left side) ──────────── */
+.body-prettify-btn {
+  height: 26px;
+  padding: 0 var(--space-3);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: background-color var(--transition-fast),
+              border-color var(--transition-fast),
+              color var(--transition-fast);
+}
+
+.body-prettify-btn:hover {
+  background-color: var(--color-surface-2);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.body-prettify-btn:active {
+  opacity: 0.8;
 }
 
 /* Body-type selector in the toolbar */

@@ -204,8 +204,20 @@ export class RequestEditor {
   // Headers drag state
 
   // Body state
-  #bodyType    = "no-body";   // current body-type selector value
-  #bodyContentEl = null;      // the area below the toolbar
+  #bodyType      = "no-body";
+  #bodyContentEl = null;
+  #bodyTypeBarEl = null;      // the bar holding the type selector (+ optional Prettify)
+  #bodyFormRows  = { "form-data": [], "form-urlencoded": [] };
+  #bodyTexts     = { json: "", yaml: "", xml: "", text: "" };
+  #bodyFilePath  = "";
+  // Body form drag state (one active form editor at a time)
+  #bfListEl      = null;
+  #bfPhantom     = null;
+  #bfDragSrcId   = null;
+  #bfDragInside  = false;
+  #bfDropHandled = false;
+  #bfActiveType  = null;
+  #bfDocHandler  = null;
   #hdrDragSrcId          = null;
   #hdrDragInsideList     = false;
   #hdrDragDropHandled    = false;
@@ -338,14 +350,16 @@ export class RequestEditor {
     // ── Body editor ──────────────────────────────────────────────────────────
     #buildBodyEditor() {
     const container = document.createElement("div");
-    container.className = "params-editor";   // reuse same flex-column layout
+    container.className = "params-editor";
 
-    // ── Toolbar ──────────────────────────────────────────────────────────
-    const toolbar = document.createElement("div");
-    toolbar.className = "params-toolbar";
+    // ── Type selector bar (also hosts the Prettify button when relevant) ──
+    const typeBar = document.createElement("div");
+    typeBar.className = "params-toolbar body-type-bar";
+    this.#bodyTypeBarEl = typeBar;
 
     const typeSelect = document.createElement("select");
     typeSelect.className = "body-type-select";
+    typeSelect.id = "body-type-select";
     typeSelect.setAttribute("aria-label", "Body type");
     typeSelect.innerHTML = `
       <optgroup label="Structured">
@@ -370,8 +384,8 @@ export class RequestEditor {
       this.#dispatchBodyUpdated();
     });
 
-    toolbar.appendChild(typeSelect);
-    container.appendChild(toolbar);
+    typeBar.appendChild(typeSelect);
+    container.appendChild(typeBar);
 
     // ── Content area ─────────────────────────────────────────────────────
     const content = document.createElement("div");
@@ -388,37 +402,452 @@ export class RequestEditor {
     const el = this.#bodyContentEl;
     if (!el) return;
     el.innerHTML = "";
+    // Remove any Prettify button left over from a previous text type
+    this.#bodyTypeBarEl?.querySelector(".body-prettify-btn")?.remove();
+    // Reset body form drag state whenever we switch panels
+    this.#bfListEl = this.#bfPhantom = null;
+    this.#bfDragSrcId = null;
 
-    if (this.#bodyType === "no-body") {
-      const msg = document.createElement("div");
-      msg.className = "params-empty";
-      msg.textContent = "No body will be sent with this request.";
-      el.appendChild(msg);
-      return;
+    switch (this.#bodyType) {
+      case "no-body":         return this.#renderBodyNone(el);
+      case "form-data":
+      case "form-urlencoded": return this.#renderBodyForm(el, this.#bodyType);
+      case "json":            return this.#renderBodyText(el, "json",  true);
+      case "yaml":            return this.#renderBodyText(el, "yaml",  true);
+      case "xml":             return this.#renderBodyText(el, "xml",   true);
+      case "text":            return this.#renderBodyText(el, "text",  false);
+      case "file":            return this.#renderBodyFile(el);
+    }
     }
 
-    // Placeholder for types not yet implemented
-    const placeholder = document.createElement("div");
-    placeholder.className = "panel-placeholder";
-    const labels = {
-      "form-data":        "Form Data editor",
-      "form-urlencoded":  "Form URL Encoded editor",
-      "json":             "JSON editor",
-      "yaml":             "YAML editor",
-      "xml":              "XML editor",
-      "text":             "Plain Text editor",
-      "file":             "File picker",
+    // ── No body ───────────────────────────────────────────────────────────────
+    #renderBodyNone(el) {
+    const msg = document.createElement("div");
+    msg.className = "params-empty";
+    msg.textContent = "No body will be sent with this request.";
+    el.appendChild(msg);
+    }
+
+    // ── Form key-value editor (form-data / form-urlencoded) ───────────────────
+    #renderBodyForm(el, type) {
+    const rows = this.#bodyFormRows[type];
+
+    // Toolbar
+    const toolbar = document.createElement("div");
+    toolbar.className = "params-toolbar";
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "icon-btn params-toolbar-btn";
+    addBtn.title = "Add field";
+    addBtn.setAttribute("aria-label", "Add field");
+    addBtn.innerHTML = `<span class="icon">＋</span>`;
+    addBtn.addEventListener("click", () => {
+      rows.push({ id: crypto.randomUUID(), name: "", value: "", enabled: true });
+      this.#renderBodyContent();
+      this.#dispatchBodyUpdated();
+    });
+
+    const delAllBtn = document.createElement("button");
+    delAllBtn.className = "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
+    delAllBtn.title = "Delete all fields";
+    delAllBtn.textContent = "Delete All";
+    delAllBtn.addEventListener("click", () => {
+      if (!rows.length) return;
+      PopupManager.confirm({
+        title: "Delete all fields?",
+        message: "This will remove all form fields. This cannot be undone.",
+        confirmLabel: "Delete all",
+        confirmClass: "popup-btn--danger",
+        onConfirm: () => {
+          this.#bodyFormRows[type] = [];
+          this.#renderBodyContent();
+          this.#dispatchBodyUpdated();
+        },
+      });
+    });
+
+    toolbar.appendChild(addBtn);
+    toolbar.appendChild(delAllBtn);
+    el.appendChild(toolbar);
+
+    // Column headers
+    const hdr = document.createElement("div");
+    hdr.className = "params-header-row";
+    hdr.innerHTML = `
+      <span class="params-col-handle"></span>
+      <span class="params-col-enabled"></span>
+      <span class="params-col-name">Name</span>
+      <span class="params-col-value">Value</span>
+      <span class="params-col-delete"></span>`;
+    el.appendChild(hdr);
+
+    // Phantom + list
+    const phantom = document.createElement("div");
+    phantom.className = "params-drop-phantom";
+    phantom.setAttribute("aria-hidden", "true");
+    this.#bfPhantom    = phantom;
+    this.#bfActiveType = type;
+
+    const list = document.createElement("div");
+    list.className = "params-list";
+    this.#bfListEl = list;
+
+    list.addEventListener("dragover", (e) => { if (this.#bfDragSrcId) e.preventDefault(); });
+    list.addEventListener("drop", (e) => {
+      e.preventDefault();
+      if (!this.#bfDragSrcId) return;
+      this.#bfDropHandled = true;
+      const allCh = [...list.children];
+      const phIdx = allCh.indexOf(phantom);
+      if (phIdx === -1) { this.#cancelBfDrag(); this.#finalizeBfDrag(); return; }
+      const insertBefore = allCh.slice(0, phIdx).filter(c => c.classList.contains("params-row")).length;
+      const srcIdx = rows.findIndex(r => r.id === this.#bfDragSrcId);
+      if (srcIdx !== -1) {
+        const [moved] = rows.splice(srcIdx, 1);
+        rows.splice(insertBefore > srcIdx ? insertBefore - 1 : insertBefore, 0, moved);
+        this.#renderBodyContent();
+        this.#dispatchBodyUpdated();
+      }
+      this.#finalizeBfDrag();
+    });
+
+    if (!rows.length) {
+      const empty = document.createElement("div");
+      empty.className = "params-empty";
+      empty.textContent = "No fields — click  +  to add one.";
+      list.appendChild(empty);
+    } else {
+      rows.forEach((row, idx) => list.appendChild(this.#buildBfRow(row, idx, rows, type)));
+    }
+
+    el.appendChild(list);
+    }
+
+    #buildBfRow(row, index, rows, type) {
+    const div = document.createElement("div");
+    div.className = "params-row";
+    div.dataset.id = row.id;
+    div.draggable  = true;
+    if (!row.enabled) div.classList.add("params-row--disabled");
+
+    // Drag handle
+    const handle = document.createElement("span");
+    handle.className = "params-drag-handle";
+    handle.setAttribute("aria-hidden", "true");
+    handle.innerHTML = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+      <circle cx="3" cy="3"  r="1.4"/><circle cx="7" cy="3"  r="1.4"/>
+      <circle cx="3" cy="8"  r="1.4"/><circle cx="7" cy="8"  r="1.4"/>
+      <circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/>
+    </svg>`;
+
+    // Checkbox
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.className = "params-checkbox"; cb.checked = row.enabled;
+    cb.addEventListener("change", () => {
+      row.enabled = cb.checked;
+      div.classList.toggle("params-row--disabled", !row.enabled);
+      this.#dispatchBodyUpdated();
+    });
+
+    // Name
+    const nameInput = document.createElement("input");
+    nameInput.type = "text"; nameInput.className = "params-input params-name";
+    nameInput.placeholder = "Name"; nameInput.value = row.name;
+    nameInput.addEventListener("input", () => { row.name = nameInput.value; this.#dispatchBodyUpdated(); });
+    nameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        rows.push({ id: crypto.randomUUID(), name: "", value: "", enabled: true });
+        this.#renderBodyContent();
+        this.#dispatchBodyUpdated();
+      }
+    });
+
+    // Value
+    const valInput = document.createElement("input");
+    valInput.type = "text"; valInput.className = "params-input params-value";
+    valInput.placeholder = "Value"; valInput.value = row.value;
+    valInput.addEventListener("input", () => { row.value = valInput.value; this.#dispatchBodyUpdated(); });
+    valInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        rows.push({ id: crypto.randomUUID(), name: "", value: "", enabled: true });
+        this.#renderBodyContent();
+        this.#dispatchBodyUpdated();
+      }
+    });
+
+    // Delete
+    const delBtn = document.createElement("button");
+    delBtn.className = "icon-btn params-delete-btn"; delBtn.title = "Delete field";
+    delBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
+    </svg>`;
+    delBtn.addEventListener("click", () => {
+      this.#bodyFormRows[type] = rows.filter(r => r.id !== row.id);
+      this.#renderBodyContent();
+      this.#dispatchBodyUpdated();
+    });
+
+    // Drag events
+    div.addEventListener("dragstart", (e) => {
+      this.#bfDragSrcId  = row.id;
+      this.#bfDropHandled = false;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", row.id);
+      requestAnimationFrame(() => {
+        this.#bfDragInside = true;
+        div.parentElement?.insertBefore(this.#bfPhantom, div);
+        div.style.display = "none";
+      });
+      this.#bfDocHandler = (ev) => {
+        if (!this.#bfDragSrcId) return;
+        const inside = this.#bfListEl?.contains(ev.target);
+        if (!inside && this.#bfDragInside) {
+          this.#bfDragInside = false;
+          this.#bfPhantom?.remove();
+          this.#bfListEl?.querySelector(`[data-id="${this.#bfDragSrcId}"]`)?.style?.removeProperty("display");
+        } else if (inside && !this.#bfDragInside) {
+          this.#bfDragInside = true;
+        }
+      };
+      document.addEventListener("dragover", this.#bfDocHandler);
+    });
+    div.addEventListener("dragover", (e) => {
+      if (!this.#bfDragSrcId || this.#bfDragSrcId === row.id) return;
+      e.preventDefault(); e.dataTransfer.dropEffect = "move";
+      const rect  = div.getBoundingClientRect();
+      const after = (e.clientY - rect.top) / rect.height >= 0.5;
+      const ph    = this.#bfPhantom;
+      const draggedEl = this.#bfListEl?.querySelector(`[data-id="${this.#bfDragSrcId}"]`);
+      if (draggedEl?.style.display !== "none") draggedEl.style.display = "none";
+      const sibling = after ? div.nextSibling : div;
+      if (ph.nextSibling !== sibling && ph !== sibling) div.parentElement?.insertBefore(ph, sibling);
+    });
+    div.addEventListener("dragend", () => {
+      if (!this.#bfDropHandled) this.#cancelBfDrag();
+      this.#finalizeBfDrag();
+    });
+
+    div.appendChild(handle); div.appendChild(cb);
+    div.appendChild(nameInput); div.appendChild(valInput); div.appendChild(delBtn);
+    return div;
+    }
+
+    #cancelBfDrag() { this.#bfPhantom?.remove(); this.#renderBodyContent(); }
+    #finalizeBfDrag() {
+    if (this.#bfDocHandler) { document.removeEventListener("dragover", this.#bfDocHandler); this.#bfDocHandler = null; }
+    this.#bfDragSrcId  = null;
+    this.#bfDragInside = false;
+    this.#bfDropHandled = false;
+    }
+
+    // ── Text editor (JSON / YAML / XML / Plain Text) ──────────────────────────
+    #renderBodyText(el, type, canPrettify) {
+    // Textarea fills the content area
+    const ta = document.createElement("textarea");
+    ta.className = "body-text-editor";
+    ta.value     = this.#bodyTexts[type] ?? "";
+    ta.placeholder = `Enter ${type === "text" ? "plain text" : type.toUpperCase()} body here…`;
+    ta.spellcheck  = false;
+    ta.setAttribute("aria-label", `${type} body`);
+    ta.addEventListener("input", () => {
+      this.#bodyTexts[type] = ta.value;
+      this.#dispatchBodyUpdated();
+    });
+    el.appendChild(ta);
+
+    // Inject Prettify button into the type selector bar (not a separate toolbar)
+    if (canPrettify && this.#bodyTypeBarEl) {
+      const prettyBtn = document.createElement("button");
+      prettyBtn.className = "params-toolbar-btn params-delete-all-btn body-prettify-btn";
+      prettyBtn.title = `Prettify ${type.toUpperCase()}`;
+      prettyBtn.textContent = "Prettify";
+      prettyBtn.addEventListener("click", () => {
+        const prettified = this.#prettify(type, ta.value);
+        ta.value = prettified;
+        this.#bodyTexts[type] = prettified;
+        this.#dispatchBodyUpdated();
+      });
+      this.#bodyTypeBarEl.appendChild(prettyBtn);
+    }
+    }
+
+    /** Validate the given text for a body type. */
+    /**
+    #validateBodyType(type, ctrl) {
+    if (!text.trim()) return text;
+    try {
+      if (type === "json") {
+        JSON.parse(text);
+      }
+      if (type === "xml") {
+        const doc = new DOMParser().parseFromString(text, "application/xml");
+        if (doc.querySelector("parsererror")) return text;
+      }
+    } catch (_) {  }
+    return text;
+    }
+    */
+
+    /** Prettify the given text for a body type. */
+    #prettify(type, text) {
+    if (!text.trim()) return text;
+    try {
+      if (type === "json") {
+        return JSON.stringify(JSON.parse(text), null, 2);
+      }
+      if (type === "xml") {
+        // Use DOMParser then a simple indent pass
+        const doc = new DOMParser().parseFromString(text, "application/xml");
+        if (doc.querySelector("parsererror")) return text;
+        const raw = new XMLSerializer().serializeToString(doc)
+          .replace(/>\s*</g, ">\n<");
+        let indent = 0;
+        return raw.split("\n").map(line => {
+          const trimmed = line.trim();
+          if (!trimmed) return "";
+          if (trimmed.startsWith("</")) indent = Math.max(0, indent - 1);
+          const out = "  ".repeat(indent) + trimmed;
+          if (!trimmed.startsWith("</") && !trimmed.startsWith("<?") &&
+              !trimmed.endsWith("/>") && !trimmed.includes("</")) indent++;
+          return out;
+        }).filter(l => l !== "").join("\n");
+      }
+      if (type === "yaml") {
+        // Basic cleanup: normalize indent, trim trailing spaces
+        return text.split("\n")
+          .map(l => l.trimEnd())
+          .join("\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+      }
+    } catch (_) { /* invalid — return unchanged */ }
+    return text;
+    }
+
+    // ── File picker ───────────────────────────────────────────────────────────
+    #renderBodyFile(el) {
+    const showPicker = () => {
+      if (this.#bodyFilePath) {
+        this.#renderFileChosen(el);
+      } else {
+        this.#renderFileDropZone(el);
+      }
     };
-    placeholder.innerHTML =
-      `<span class="placeholder-icon">📄</span>` +
-      `<span>${labels[this.#bodyType] ?? "Body editor"} — coming soon</span>`;
-    el.appendChild(placeholder);
+    showPicker();
+    }
+
+    #renderFileDropZone(el) {
+    el.innerHTML = "";
+    const zone = document.createElement("div");
+    zone.className = "body-file-zone";
+
+    const icon  = document.createElement("div");
+    icon.className = "body-file-zone__icon";
+    icon.innerHTML = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="6" y="4" width="28" height="32" rx="3"/>
+      <polyline points="24,4 24,14 34,14"/>
+      <line x1="14" y1="22" x2="26" y2="22"/>
+      <line x1="14" y1="28" x2="22" y2="28"/>
+    </svg>`;
+
+    const label = document.createElement("p");
+    label.className = "body-file-zone__label";
+    label.textContent = "Drop a file here";
+
+    const sub = document.createElement("p");
+    sub.className = "body-file-zone__sub";
+    sub.textContent = "or";
+
+    const browseBtn = document.createElement("button");
+    browseBtn.className = "body-file-browse-btn";
+    browseBtn.textContent = "Browse…";
+
+    const fileInput = document.createElement("input");
+    fileInput.type = "file"; fileInput.style.display = "none";
+    fileInput.addEventListener("change", () => {
+      const f = fileInput.files?.[0];
+      if (!f) return;
+      this.#bodyFilePath = f.path || f.name;   // Electron exposes .path
+      this.#renderFileChosen(el);
+      this.#dispatchBodyUpdated();
+    });
+
+    browseBtn.addEventListener("click", () => fileInput.click());
+
+    // Drag-and-drop
+    zone.addEventListener("dragover", (e) => {
+      e.preventDefault(); e.dataTransfer.dropEffect = "copy";
+      zone.classList.add("body-file-zone--over");
+    });
+    zone.addEventListener("dragleave", (e) => {
+      if (!zone.contains(e.relatedTarget)) zone.classList.remove("body-file-zone--over");
+    });
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault(); zone.classList.remove("body-file-zone--over");
+      const f = e.dataTransfer.files?.[0];
+      if (!f) return;
+      this.#bodyFilePath = f.path || f.webkitRelativePath || f.name;
+      this.#renderFileChosen(el);
+      this.#dispatchBodyUpdated();
+    });
+
+    zone.appendChild(icon); zone.appendChild(label);
+    zone.appendChild(sub); zone.appendChild(browseBtn);
+    zone.appendChild(fileInput);
+    el.appendChild(zone);
+    }
+
+    #renderFileChosen(el) {
+    el.innerHTML = "";
+    const chosen = document.createElement("div");
+    chosen.className = "body-file-chosen";
+
+    const pathIcon = document.createElement("span");
+    pathIcon.className = "body-file-chosen__icon";
+    pathIcon.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"
+        stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <rect x="3" y="2" width="14" height="16" rx="2"/>
+      <line x1="7" y1="7" x2="13" y2="7"/>
+      <line x1="7" y1="10" x2="13" y2="10"/>
+      <line x1="7" y1="13" x2="11" y2="13"/>
+    </svg>`;
+
+    const pathText = document.createElement("span");
+    pathText.className = "body-file-chosen__path";
+    pathText.title = this.#bodyFilePath;
+    pathText.textContent = this.#bodyFilePath;
+
+    const resetBtn = document.createElement("button");
+    resetBtn.className = "body-file-reset-btn";
+    resetBtn.textContent = "Reset";
+    resetBtn.title = "Remove selected file";
+    resetBtn.addEventListener("click", () => {
+      this.#bodyFilePath = "";
+      this.#renderFileDropZone(el);
+      this.#dispatchBodyUpdated();
+    });
+
+    chosen.appendChild(pathIcon);
+    chosen.appendChild(pathText);
+    chosen.appendChild(resetBtn);
+    el.appendChild(chosen);
     }
 
     #dispatchBodyUpdated() {
     if (!this.#currentNodeId) return;
     window.dispatchEvent(new CustomEvent("wurl:request-updated", {
-      detail: { id: this.#currentNodeId, bodyType: this.#bodyType },
+      detail: {
+        id:       this.#currentNodeId,
+        bodyType: this.#bodyType,
+        bodyFormData:         [...this.#bodyFormRows["form-data"]],
+        bodyFormUrlEncoded:   [...this.#bodyFormRows["form-urlencoded"]],
+        bodyTexts:            { ...this.#bodyTexts },
+        bodyFilePath:         this.#bodyFilePath,
+      },
       bubbles: true,
     }));
     }
@@ -1144,8 +1573,12 @@ export class RequestEditor {
       : [];
     this.#renderHeadersList();
 
-    // Body type
+    // Body
     this.#bodyType = node.bodyType ?? "no-body";
+    if (Array.isArray(node.bodyFormData))       this.#bodyFormRows["form-data"]        = node.bodyFormData.map(r => ({ id: r.id ?? crypto.randomUUID(), name: r.name ?? "", value: r.value ?? "", enabled: r.enabled ?? true }));
+    if (Array.isArray(node.bodyFormUrlEncoded)) this.#bodyFormRows["form-urlencoded"]  = node.bodyFormUrlEncoded.map(r => ({ id: r.id ?? crypto.randomUUID(), name: r.name ?? "", value: r.value ?? "", enabled: r.enabled ?? true }));
+    if (node.bodyTexts) this.#bodyTexts = { ...this.#bodyTexts, ...node.bodyTexts };
+    if (node.bodyFilePath != null) this.#bodyFilePath = node.bodyFilePath;
     // Sync the select element if the body tab has been built
     const sel = this.#el.querySelector(".body-type-select");
     if (sel) sel.value = this.#bodyType;
