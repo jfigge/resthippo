@@ -552,16 +552,48 @@ export class TreeView {
         </div>
       `;
 
-      const row = li.querySelector(".tree-node__row");
+      const row     = li.querySelector(".tree-node__row");
+      const iconEl  = row.querySelector(".tree-node__icon");
+      const labelEl = row.querySelector(".tree-node__label");
 
-      // Left-click: toggle expand/collapse + track active collection
-      row.addEventListener("click", () => {
-        this.#activeCollectionId = node.id;
+      /** Toggle this folder's expanded / collapsed state. */
+      const toggleExpand = () => {
         const expanded = li.getAttribute("aria-expanded") === "true";
         li.setAttribute("aria-expanded", String(!expanded));
-        const iconEl = li.querySelector(".tree-node__icon");
-        if (iconEl) iconEl.innerHTML = expanded ? ICON_FOLDER_CLOSED : ICON_FOLDER_OPEN;
+        iconEl.innerHTML = expanded ? ICON_FOLDER_CLOSED : ICON_FOLDER_OPEN;
         childList.style.display = expanded ? "none" : "";
+      };
+
+      // Single click anywhere on the row → select / highlight the row only (no toggle).
+      row.addEventListener("click", () => {
+        this.#activeCollectionId = node.id;
+        this.#setActiveRow(li);
+      });
+
+      // Single (or double) click on the folder icon → also toggle expand/collapse.
+      // Event bubbles to row, so selection is handled there automatically.
+      iconEl.addEventListener("click", () => {
+        toggleExpand();
+      });
+
+      // Double-click on the label text → toggle expand/collapse.
+      // (The two preceding single-click events already selected the row.)
+      labelEl.addEventListener("dblclick", () => {
+        toggleExpand();
+      });
+
+      // Keyboard: Enter → toggle; Space → select only.
+      row.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this.#activeCollectionId = node.id;
+          this.#setActiveRow(li);
+          toggleExpand();
+        } else if (e.key === " ") {
+          e.preventDefault();
+          this.#activeCollectionId = node.id;
+          this.#setActiveRow(li);
+        }
       });
 
       // Right-click: context menu
@@ -620,11 +652,15 @@ export class TreeView {
     return li;
   }
 
-  #selectRequest(node, li) {
+  #setActiveRow(li) {
     this.#el.querySelectorAll(".tree-node--active").forEach((el) => {
       el.classList.remove("tree-node--active");
     });
     li.classList.add("tree-node--active");
+  }
+
+  #selectRequest(node, li) {
+    this.#setActiveRow(li);
 
     window.dispatchEvent(
       new CustomEvent("wurl:request-selected", {

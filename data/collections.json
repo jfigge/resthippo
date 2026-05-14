@@ -2,44 +2,10 @@
   "version": 1,
   "collections": [
     {
-      "id": "col-2",
-      "type": "collection",
-      "name": "Auth Endpoints",
-      "children": [
-        {
-          "id": "req-6",
-          "type": "request",
-          "name": "Login",
-          "method": "POST",
-          "url": ""
-        },
-        {
-          "id": "req-7",
-          "type": "request",
-          "name": "Refresh",
-          "method": "POST",
-          "url": ""
-        },
-        {
-          "id": "req-1",
-          "type": "request",
-          "name": "List users",
-          "method": "GET",
-          "url": "https://jsonplaceholder.typicode.com/users"
-        }
-      ]
-    },
-    {
       "id": "col-1",
       "type": "collection",
       "name": "Example API",
       "children": [
-        {
-          "id": "5cef542f-8b63-43e7-a128-b86eba2b8d76",
-          "type": "collection",
-          "name": "New Collection",
-          "children": []
-        },
         {
           "id": "req-2",
           "type": "request",
@@ -76,6 +42,40 @@
           "url": "https://jsonplaceholder.typicode.com/users/1"
         }
       ]
+    },
+    {
+      "id": "5cef542f-8b63-43e7-a128-b86eba2b8d76",
+      "type": "collection",
+      "name": "New Collection",
+      "children": []
+    },
+    {
+      "id": "col-2",
+      "type": "collection",
+      "name": "Auth Endpoints",
+      "children": [
+        {
+          "id": "req-6",
+          "type": "request",
+          "name": "Login",
+          "method": "POST",
+          "url": ""
+        },
+        {
+          "id": "req-7",
+          "type": "request",
+          "name": "Refresh",
+          "method": "POST",
+          "url": ""
+        },
+        {
+          "id": "req-1",
+          "type": "request",
+          "name": "List users",
+          "method": "GET",
+          "url": "https://jsonplaceholder.typicode.com/users"
+        }
+      ]
     }
   ],
   "settings": {
@@ -87,7 +87,7 @@
     "proxyEnabled": false,
     "proxyUrl": "",
     "splitterNav": 274,
-    "splitterRes": 452,
+    "splitterRes": 281.5,
     "splitterRowRes": 457
   }
 }
