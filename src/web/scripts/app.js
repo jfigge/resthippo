@@ -334,6 +334,16 @@ function initEventBus() {
     }
   });
 
+  // Active AbortController for the current in-flight request (null when idle)
+  let _activeAbortController = null;
+
+  window.addEventListener("wurl:cancel-request", () => {
+    if (_activeAbortController) {
+      _activeAbortController.abort();
+      _activeAbortController = null;
+    }
+  });
+
   // When the editor fires a send, execute the request
   window.addEventListener("wurl:send-request", async (e) => {
     const descriptor = e.detail;
@@ -347,13 +357,18 @@ function initEventBus() {
       body:    descriptor.body ?? null,
     };
 
+    const controller = new AbortController();
+    _activeAbortController = controller;
+
     const start = performance.now();
     try {
       const response = await fetch(descriptor.url, {
         method:  descriptor.method,
         headers: descriptor.headers,
         body:    descriptor.body ?? undefined,
+        signal:  controller.signal,
       });
+      _activeAbortController = null;
       const elapsed = Math.round(performance.now() - start);
       const body = await response.text();
 
@@ -375,6 +390,7 @@ function initEventBus() {
         }),
       );
     } catch (err) {
+      _activeAbortController = null;
       const elapsed = Math.round(performance.now() - start);
       const msg = err.message ?? "";
 

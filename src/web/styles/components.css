@@ -372,6 +372,13 @@
   opacity: 0.7;
 }
 
+.req-send-btn--cancel {
+  background: var(--color-red, #e06c75);
+}
+.req-send-btn--cancel:hover {
+  opacity: 0.85;
+}
+
 /* Tab strip */
 .req-tab-strip {
   display: flex;

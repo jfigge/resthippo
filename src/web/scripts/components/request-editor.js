@@ -290,12 +290,35 @@ export class RequestEditor {
       if (e.key === "Enter") this.#sendRequest();
     });
 
-    // Send button
+    // Send / Cancel button
     const sendBtn = document.createElement("button");
     sendBtn.className = "req-send-btn";
     sendBtn.textContent = "Send";
     sendBtn.setAttribute("aria-label", "Send request");
-    sendBtn.addEventListener("click", () => this.#sendRequest());
+    sendBtn.addEventListener("click", () => {
+      if (this._requestInFlight) {
+        window.dispatchEvent(new CustomEvent("wurl:cancel-request"));
+      } else {
+        this.#sendRequest();
+      }
+    });
+
+    // Track in-flight state to toggle the button
+    this._requestInFlight = false;
+    window.addEventListener("wurl:request-loading", () => {
+      this._requestInFlight = true;
+      sendBtn.textContent = "Cancel";
+      sendBtn.setAttribute("aria-label", "Cancel request");
+      sendBtn.classList.add("req-send-btn--cancel");
+    });
+    const resetSendBtn = () => {
+      this._requestInFlight = false;
+      sendBtn.textContent = "Send";
+      sendBtn.setAttribute("aria-label", "Send request");
+      sendBtn.classList.remove("req-send-btn--cancel");
+    };
+    window.addEventListener("wurl:response-received", resetSendBtn);
+    window.addEventListener("wurl:request-error",     resetSendBtn);
 
     bar.appendChild(methodSel);
     bar.appendChild(urlInput);

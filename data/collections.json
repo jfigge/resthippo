@@ -145,7 +145,7 @@
             }
           ],
           "authEnabled": true,
-          "authType": "oauth2",
+          "authType": "basic",
           "authBasic": {
             "username": "user",
             "password": "pass"
@@ -199,7 +199,7 @@
     "splitterRes": 340,
     "splitterRowRes": 320,
     "listHeaders": true,
-    "showUrlPreview": true,
+    "showUrlPreview": false,
     "selectedRequestId": "req-6",
     "removeHeaders": false
   }
