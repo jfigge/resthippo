@@ -219,10 +219,60 @@ export class TreeView {
       if (item.danger) btn.classList.add("tree-ctxmenu__item--danger");
       btn.setAttribute("role", "menuitem");
       btn.textContent = item.label;
-      btn.addEventListener("click", () => {
-        PopupManager.close();
-        item.action();
-      });
+
+      if (item.danger) {
+        // First click → enter "Confirm?" state; second click → execute + close.
+        // Escape or clicking outside the button cancels the confirm state.
+        let cleanupConfirm = null;
+
+        btn.addEventListener("click", () => {
+          if (cleanupConfirm) {
+            // Already confirming — second click executes the action.
+            cleanupConfirm();
+            PopupManager.close();
+            item.action();
+            return;
+          }
+
+          // Enter confirm state.
+          btn.textContent = "Confirm?";
+          btn.classList.remove("tree-ctxmenu__item--danger");
+          btn.classList.add("tree-ctxmenu__item--confirming");
+
+          const restore = () => {
+            btn.textContent = item.label;
+            btn.classList.remove("tree-ctxmenu__item--confirming");
+            btn.classList.add("tree-ctxmenu__item--danger");
+            document.removeEventListener("keydown", onEsc, true);
+            document.removeEventListener("mousedown", onOutside, true);
+            cleanupConfirm = null;
+          };
+
+          const onEsc = (e) => {
+            if (e.key === "Escape") {
+              restore();
+              PopupManager.close();
+            }
+          };
+
+          // Clicking anywhere outside this button (including other menu items
+          // or the mask) cancels the confirm state. The mask/outside-click
+          // handler in PopupManager will separately close the menu if needed.
+          const onOutside = (e) => {
+            if (!btn.contains(e.target)) restore();
+          };
+
+          document.addEventListener("keydown", onEsc, true);
+          document.addEventListener("mousedown", onOutside, true);
+          cleanupConfirm = restore;
+        });
+      } else {
+        btn.addEventListener("click", () => {
+          PopupManager.close();
+          item.action();
+        });
+      }
+
       el.appendChild(btn);
     });
 

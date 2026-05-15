@@ -239,6 +239,36 @@
   color: var(--color-base);
 }
 
+/* Inline-confirm state: the menu item transforms into a button waiting for a
+   second click. It renders as a filled, pill-shaped button inset within the
+   menu row so it looks clearly actionable and distinct from a plain text item. */
+.tree-ctxmenu__item--confirming {
+  /* Inset from the menu edges so the button shape is clearly visible */
+  display: block;
+  width: auto;
+  margin: var(--space-1) var(--space-3);
+  padding: var(--space-1) var(--space-4);
+
+  /* Filled warning-amber appearance */
+  background-color: var(--color-warning);
+  color: var(--color-base);
+  font-weight: 700;
+  text-align: center;
+
+  /* Button shape */
+  border-radius: var(--radius-sm);
+  border: none;
+
+  transition: opacity var(--transition-fast);
+}
+
+.tree-ctxmenu__item--confirming:hover {
+  /* Keep the same colour — just dim slightly on hover to signal interactivity */
+  background-color: var(--color-warning);
+  color: var(--color-base);
+  opacity: 0.85;
+}
+
 .tree-ctxmenu__separator {
   height: 1px;
   background: var(--color-surface-2);
@@ -736,6 +766,17 @@
 .params-toolbar-btn--danger:hover {
   background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
   color: var(--color-error);
+}
+
+/* Inline-confirm state: button has become "Confirm?" waiting for second click */
+.params-toolbar-btn--confirming {
+  color: var(--color-warning);
+  font-weight: 700;
+}
+
+.params-toolbar-btn--confirming:hover {
+  background-color: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
 }
 
 /* "List Headers" right-aligned toggle in the headers toolbar */

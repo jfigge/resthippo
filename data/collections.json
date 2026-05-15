@@ -139,13 +139,6 @@
           "name": "New Request",
           "method": "GET",
           "url": "WEFWFFADSFA"
-        },
-        {
-          "id": "54553ea6-9d98-4f1f-be89-3eec2ebcbe8a",
-          "type": "request",
-          "name": "New Request",
-          "method": "GET",
-          "url": ""
         }
       ]
     },
@@ -248,7 +241,7 @@
     "splitterRowRes": 480,
     "listHeaders": true,
     "showUrlPreview": false,
-    "selectedRequestId": "req-3",
+    "selectedRequestId": "req-6",
     "removeHeaders": false
   }
 }

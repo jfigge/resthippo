@@ -1326,7 +1326,47 @@ export class RequestEditor {
     deleteAllBtn.title = "Delete all parameters";
     deleteAllBtn.setAttribute("aria-label", "Delete all parameters");
     deleteAllBtn.textContent = "Delete All";
-    deleteAllBtn.addEventListener("click", () => this.#deleteAllParams());
+
+    // Inline confirm: first click → "Confirm?"; second click → delete all.
+    // Escape or clicking outside the button cancels.
+    {
+      let cleanupConfirm = null;
+
+      const enterConfirm = () => {
+        deleteAllBtn.textContent = "Confirm?";
+        deleteAllBtn.classList.remove("params-toolbar-btn--danger");
+        deleteAllBtn.classList.add("params-toolbar-btn--confirming");
+
+        const restore = () => {
+          deleteAllBtn.textContent = "Delete All";
+          deleteAllBtn.classList.remove("params-toolbar-btn--confirming");
+          deleteAllBtn.classList.add("params-toolbar-btn--danger");
+          document.removeEventListener("keydown", onEsc, true);
+          document.removeEventListener("mousedown", onOutside, true);
+          cleanupConfirm = null;
+        };
+
+        const onEsc     = (e) => { if (e.key === "Escape") { e.stopPropagation(); restore(); } };
+        const onOutside = (e) => { if (!deleteAllBtn.contains(e.target)) restore(); };
+
+        document.addEventListener("keydown",   onEsc,     true);
+        document.addEventListener("mousedown", onOutside, true);
+        cleanupConfirm = restore;
+      };
+
+      deleteAllBtn.addEventListener("click", () => {
+        if (!this.#params.length) return;
+        if (cleanupConfirm) {
+          cleanupConfirm();
+          this.#deleteAllParams();
+        } else {
+          enterConfirm();
+        }
+      });
+
+      // Expose so load() can cancel an in-progress confirm when switching nodes.
+      this._paramsDeleteAllCleanup = () => cleanupConfirm?.();
+    }
 
     toolbar.appendChild(addBtn);
     toolbar.appendChild(deleteAllBtn);
@@ -1438,7 +1478,47 @@ export class RequestEditor {
     deleteAllBtn.title = "Delete all headers";
     deleteAllBtn.setAttribute("aria-label", "Delete all headers");
     deleteAllBtn.textContent = "Delete All";
-    deleteAllBtn.addEventListener("click", () => this.#deleteAllHeaders());
+
+    // Inline confirm: first click → "Confirm?"; second click → delete all.
+    // Escape or clicking outside the button cancels.
+    {
+      let cleanupConfirm = null;
+
+      const enterConfirm = () => {
+        deleteAllBtn.textContent = "Confirm?";
+        deleteAllBtn.classList.remove("params-toolbar-btn--danger");
+        deleteAllBtn.classList.add("params-toolbar-btn--confirming");
+
+        const restore = () => {
+          deleteAllBtn.textContent = "Delete All";
+          deleteAllBtn.classList.remove("params-toolbar-btn--confirming");
+          deleteAllBtn.classList.add("params-toolbar-btn--danger");
+          document.removeEventListener("keydown", onEsc, true);
+          document.removeEventListener("mousedown", onOutside, true);
+          cleanupConfirm = null;
+        };
+
+        const onEsc     = (e) => { if (e.key === "Escape") { e.stopPropagation(); restore(); } };
+        const onOutside = (e) => { if (!deleteAllBtn.contains(e.target)) restore(); };
+
+        document.addEventListener("keydown",   onEsc,     true);
+        document.addEventListener("mousedown", onOutside, true);
+        cleanupConfirm = restore;
+      };
+
+      deleteAllBtn.addEventListener("click", () => {
+        if (!this.#headers.length) return;
+        if (cleanupConfirm) {
+          cleanupConfirm();
+          this.#deleteAllHeaders();
+        } else {
+          enterConfirm();
+        }
+      });
+
+      // Expose so load() can cancel an in-progress confirm when switching nodes.
+      this._headersDeleteAllCleanup = () => cleanupConfirm?.();
+    }
 
     toolbar.appendChild(addBtn);
     toolbar.appendChild(deleteAllBtn);
@@ -1539,17 +1619,9 @@ export class RequestEditor {
 
     #deleteAllHeaders() {
     if (this.#headers.length === 0) return;
-    PopupManager.confirm({
-      title:        "Delete all headers?",
-      message:      "This will remove all request headers. This cannot be undone.",
-      confirmLabel: "Delete all",
-      confirmClass: "popup-btn--danger",
-      onConfirm:    () => {
-        this.#headers = [];
-        this.#renderHeadersList();
-        this.#dispatchHeadersUpdated();
-      },
-    });
+    this.#headers = [];
+    this.#renderHeadersList();
+    this.#dispatchHeadersUpdated();
     }
 
     #deleteHeader(id) {
@@ -1756,17 +1828,9 @@ export class RequestEditor {
 
   #deleteAllParams() {
     if (this.#params.length === 0) return;
-    PopupManager.confirm({
-      title:         "Delete all parameters?",
-      message:       "This will remove all query parameters. This cannot be undone.",
-      confirmLabel:  "Delete all",
-      confirmClass:  "popup-btn--danger",
-      onConfirm:     () => {
-        this.#params = [];
-        this.#renderParamsList();
-        this.#dispatchParamsUpdated();
-      },
-    });
+    this.#params = [];
+    this.#renderParamsList();
+    this.#dispatchParamsUpdated();
   }
 
   #deleteParam(id) {
@@ -2215,6 +2279,10 @@ export class RequestEditor {
    */
   load(node) {
     this.#currentNodeId = node.id ?? null;
+
+    // Cancel any in-progress inline confirm on the Delete All buttons.
+    this._paramsDeleteAllCleanup?.();
+    this._headersDeleteAllCleanup?.();
 
     if (node.method) {
       this.#method = node.method;
