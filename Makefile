@@ -23,7 +23,7 @@ SERVER_PORT     ?= 8080
 DATA_DIR        ?= $(WORKSPACE)/data
 
 # ─── Default ──────────────────────────────────────────────────────────────────
-all: install fmt lint build
+all: clean install fmt lint build
 	@echo "Build complete"
 
 # ─── Version / Info ───────────────────────────────────────────────────────────

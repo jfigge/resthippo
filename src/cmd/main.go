@@ -9,13 +9,18 @@
 package main
 
 import (
+	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 // Version and commit are injected at build time via -ldflags.
@@ -23,6 +28,22 @@ var (
 	version = "dev"
 	commit  = "unknown"
 )
+
+// writeExecuteError writes a JSON error result for the /api/execute endpoint.
+func writeExecuteError(w http.ResponseWriter, status int, statusText string, consoleLog []string, errName, errMsg string) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     status,
+		"statusText": statusText,
+		"headers":    map[string]string{},
+		"cookies":    []string{},
+		"body":       "",
+		"elapsed":    int64(0),
+		"size":       0,
+		"consoleLog": consoleLog,
+		"error":      map[string]string{"name": errName, "message": errMsg},
+	})
+}
 
 func main() {
 	port := flag.Int("port", 8080, "TCP port to listen on")
@@ -49,6 +70,162 @@ func main() {
 	collectionsFile := filepath.Join(absDataDir, "collections.json")
 
 	mux := http.NewServeMux()
+
+	// ── Execute API ───────────────────────────────────────────────────────────
+	// POST /api/execute  →  perform an outgoing HTTP request server-side.
+	// The browser renderer cannot make arbitrary cross-origin requests, so we
+	// proxy the actual call through the Go dev server and return a rich result
+	// that mirrors the Electron ipcMain "http:execute" response shape.
+	mux.HandleFunc("/api/execute", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+
+		// ── Parse JSON descriptor ─────────────────────────────────────────────
+		var desc struct {
+			Method          string            `json:"method"`
+			URL             string            `json:"url"`
+			Headers         map[string]string `json:"headers"`
+			Body            string            `json:"body"`
+			Timeout         int               `json:"timeout"` // ms; 0 → 30 s
+			FollowRedirects bool              `json:"followRedirects"`
+			VerifySSL       bool              `json:"verifySsl"`
+		}
+		// Safe defaults
+		desc.FollowRedirects = true
+		desc.VerifySSL = true
+
+		if err = json.NewDecoder(r.Body).Decode(&desc); err != nil {
+			http.Error(w, `{"error":"invalid JSON body"}`, http.StatusBadRequest)
+			return
+		}
+		if desc.Method == "" {
+			desc.Method = "GET"
+		}
+		timeout := time.Duration(desc.Timeout) * time.Millisecond
+		if timeout <= 0 {
+			timeout = 30 * time.Second
+		}
+
+		consoleLog := []string{}
+		consoleLog = append(consoleLog, fmt.Sprintf("* Connecting to %s", desc.URL))
+
+		// ── Build HTTP client ─────────────────────────────────────────────────
+		transport := &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: !desc.VerifySSL, //nolint:gosec
+			},
+		}
+
+		var redirectCount int
+		client := &http.Client{
+			Timeout:   timeout,
+			Transport: transport,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if !desc.FollowRedirects {
+					return http.ErrUseLastResponse
+				}
+				if len(via) >= 10 {
+					return fmt.Errorf("stopped after 10 redirects")
+				}
+				redirectCount++
+				consoleLog = append(consoleLog,
+					fmt.Sprintf("* Redirect %d → %s", redirectCount, req.URL),
+					fmt.Sprintf("> %s %s HTTP/1.1", req.Method, req.URL.RequestURI()),
+					fmt.Sprintf("> Host: %s", req.URL.Host),
+					">",
+				)
+				return nil
+			},
+		}
+
+		// ── Build the outgoing request ────────────────────────────────────────
+		var bodyReader io.Reader
+		if desc.Body != "" {
+			bodyReader = bytes.NewBufferString(desc.Body)
+		}
+		outReq, err := http.NewRequest(strings.ToUpper(desc.Method), desc.URL, bodyReader)
+		if err != nil {
+			consoleLog = append(consoleLog, fmt.Sprintf("* Request build error: %s", err))
+			writeExecuteError(w, 0, "", consoleLog, "RequestError", err.Error())
+			return
+		}
+		for k, v := range desc.Headers {
+			outReq.Header.Set(k, v)
+		}
+
+		// ── Log outgoing request ──────────────────────────────────────────────
+		consoleLog = append(consoleLog,
+			fmt.Sprintf("> %s %s HTTP/1.1", strings.ToUpper(desc.Method), outReq.URL.RequestURI()),
+			fmt.Sprintf("> Host: %s", outReq.URL.Host),
+		)
+		for k, vals := range outReq.Header {
+			for _, v := range vals {
+				consoleLog = append(consoleLog, fmt.Sprintf("> %s: %s", k, v))
+			}
+		}
+		consoleLog = append(consoleLog, ">")
+
+		// ── Execute ───────────────────────────────────────────────────────────
+		start := time.Now()
+		resp, err := client.Do(outReq)
+		elapsed := time.Since(start).Milliseconds()
+
+		if err != nil {
+			consoleLog = append(consoleLog, fmt.Sprintf("* %s", err))
+			writeExecuteError(w, 0, "", consoleLog, "NetworkError", err.Error())
+			return
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		// ── Log incoming response ─────────────────────────────────────────────
+		statusText := resp.Status
+		if len(statusText) > 4 {
+			statusText = statusText[4:] // "200 OK" → "OK"
+		}
+
+		consoleLog = append(consoleLog,
+			fmt.Sprintf("< HTTP/1.1 %d %s", resp.StatusCode, statusText),
+		)
+		for k, vals := range resp.Header {
+			for _, v := range vals {
+				consoleLog = append(consoleLog, fmt.Sprintf("< %s: %s", k, v))
+			}
+		}
+		consoleLog = append(consoleLog, "<")
+
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		size := len(bodyBytes)
+		consoleLog = append(consoleLog,
+			fmt.Sprintf("* Received %d bytes in %dms", size, elapsed),
+		)
+
+		// ── Flatten response headers ──────────────────────────────────────────
+		flatHdrs := map[string]string{}
+		for k, vals := range resp.Header {
+			flatHdrs[k] = strings.Join(vals, ", ")
+		}
+
+		// ── Extract Set-Cookie values ─────────────────────────────────────────
+		cookies := resp.Header["Set-Cookie"]
+		if cookies == nil {
+			cookies = []string{}
+		}
+
+		// ── Write result ──────────────────────────────────────────────────────
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":     resp.StatusCode,
+			"statusText": statusText,
+			"headers":    flatHdrs,
+			"cookies":    cookies,
+			"body":       string(bodyBytes),
+			"elapsed":    elapsed,
+			"size":       size,
+			"consoleLog": consoleLog,
+		})
+	})
 
 	// ── Collections API ──────────────────────────────────────────────────────
 	// GET  /api/collections  →  read collections.json; returns [] on first run

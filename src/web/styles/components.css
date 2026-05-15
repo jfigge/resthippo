@@ -1235,7 +1235,7 @@
 
 .res-headers-table td {
   padding: var(--space-1) var(--space-3);
-  border-bottom: 1px solid var(--color-surface-2);
+  border-bottom: 1px solid var(--color-surface-0);
   vertical-align: top;
 }
 
@@ -1254,6 +1254,59 @@
 .res-spinner {
   display: inline-block;
   animation: spin 1s linear infinite;
+}
+
+/* ── Generic error status badge class ───────────────────────────────────────  */
+.res-status--error {
+  color: var(--color-error);
+}
+
+/* ── Error hint text shown below the error message in the body pane ─────────  */
+.res-error-hint {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+  font-style: italic;
+  margin-top: var(--space-2);
+  max-width: 480px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ── Console tab — verbose request/response log ────────────────────────────  */
+.res-console-pre {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--color-text);
+}
+
+.res-console-line {
+  display: block;
+}
+
+/* ">" lines — outgoing request (accent / blue) */
+.res-console-line--sent {
+  color: var(--color-accent);
+}
+
+/* "<" lines — incoming response (success / green) */
+.res-console-line--recv {
+  color: var(--color-success);
+}
+
+/* "*" lines — informational / timing */
+.res-console-line--info {
+  color: var(--color-overlay-0);
+}
+
+/* "[error]" lines — errors */
+.res-console-line--error {
+  color: var(--color-error);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

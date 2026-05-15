@@ -334,85 +334,186 @@ function initEventBus() {
     }
   });
 
-  // Active AbortController for the current in-flight request (null when idle)
+  // Active AbortController for the current in-flight Go-dev-mode request
   let _activeAbortController = null;
+  // Flag set when the user cancels; prevents stale results from being displayed
+  let _cancelCurrentRequest  = false;
+  // Snapshot of the most-recently-started request (used in cancel error detail)
+  let _lastRequestSnapshot   = null;
 
   window.addEventListener("wurl:cancel-request", () => {
+    _cancelCurrentRequest = true;
     if (_activeAbortController) {
       _activeAbortController.abort();
       _activeAbortController = null;
     }
+    // Give instant feedback: treat cancel as an error
+    window.dispatchEvent(new CustomEvent("wurl:request-error", {
+      detail: {
+        request:    _lastRequestSnapshot ?? { method: "GET", url: "", headers: {}, body: null },
+        name:       "AbortError",
+        message:    "Request cancelled.",
+        hint:       "The request was cancelled by the user.",
+        elapsed:    0,
+        consoleLog: ["* Request cancelled by user"],
+      },
+    }));
   });
 
-  // When the editor fires a send, execute the request
+  // ── classify common network failures for a human-readable hint ──────────────
+  function _buildHint(errName, msg) {
+    if (errName === "AbortError")
+      return "The request was aborted.";
+    if (/cors/i.test(msg))
+      return "CORS policy blocked the request — the server may need to send Access-Control-Allow-Origin headers.";
+    if (/failed to fetch|load failed|networkerror|network request failed/i.test(msg))
+      return "Could not reach the server. Check the URL, network connectivity, and whether the server is running.";
+    if (/ssl|certificate|cert/i.test(msg))
+      return "TLS/SSL certificate error — the server certificate may be self-signed or invalid.";
+    if (/timeout/i.test(msg))
+      return "The request timed out before the server responded.";
+    if (/too many redirects/i.test(msg))
+      return "The server sent too many redirects. Check for redirect loops.";
+    return "";
+  }
+
+  // When the request editor fires a send, execute the request via the
+  // native layer (Electron IPC or the Go dev-server proxy endpoint).
   window.addEventListener("wurl:send-request", async (e) => {
     const descriptor = e.detail;
+
+    // ── Guard: URL must be a non-empty string ────────────────────────────────
+    const rawUrl = descriptor?.url;
+    if (!rawUrl || typeof rawUrl !== "string" || !rawUrl.trim()) {
+      window.dispatchEvent(new CustomEvent("wurl:request-error", {
+        detail: {
+          request:    { method: descriptor?.method ?? "GET", url: rawUrl ?? "", headers: {}, body: null },
+          name:       "TypeError",
+          message:    "No URL specified.",
+          hint:       "Enter a URL in the request bar before sending.",
+          elapsed:    0,
+          consoleLog: ["* Error: No URL specified."],
+        },
+      }));
+      return;
+    }
+
     window.dispatchEvent(new CustomEvent("wurl:request-loading"));
 
-    // Snapshot the outgoing request for Console tab display
-    const requestSnapshot = {
+    _cancelCurrentRequest  = false;
+    _lastRequestSnapshot   = {
       method:  descriptor.method,
       url:     descriptor.url,
       headers: descriptor.headers ?? {},
-      body:    descriptor.body ?? null,
+      body:    typeof descriptor.body === "string" ? descriptor.body : null,
     };
 
-    const controller = new AbortController();
-    _activeAbortController = controller;
+    // ── Build the descriptor for the native layer ────────────────────────────
+    const nativeDesc = {
+      method:          descriptor.method,
+      url:             descriptor.url,
+      headers:         descriptor.headers ?? {},
+      body:            typeof descriptor.body === "string" ? descriptor.body : null,
+      bodyFilePath:    descriptor.bodyFilePath ?? null,
+      timeout:         currentSettings.timeout         ?? 30000,
+      followRedirects: currentSettings.followRedirects ?? true,
+      verifySsl:       currentSettings.verifySsl       ?? true,
+    };
 
-    const start = performance.now();
+    // ── Choose execution path ────────────────────────────────────────────────
+    // window.wurl.isElectron is set to true by Electron's preload.js.
+    // It is never present when the page is served by the Go dev server in a
+    // plain browser context.  We check this explicit sentinel rather than
+    // testing for a function reference so detection cannot silently regress
+    // if the preload is out of sync.
+    const inElectron = window.wurl?.isElectron === true;
+
     try {
-      const response = await fetch(descriptor.url, {
-        method:  descriptor.method,
-        headers: descriptor.headers,
-        body:    descriptor.body ?? undefined,
-        signal:  controller.signal,
-      });
-      _activeAbortController = null;
-      const elapsed = Math.round(performance.now() - start);
-      const body = await response.text();
+      let result;
 
-      // Collect response headers into a plain object
-      const headers = {};
-      response.headers.forEach((v, k) => { headers[k] = v; });
+      if (inElectron) {
+        // ── Electron path: all HTTP via Node.js IPC (no Chromium/CORS) ───────
+        // The main process uses Node's built-in http/https modules, so CORS,
+        // certificate policies, and same-origin restrictions don't apply.
+        if (typeof window.wurl?.http?.execute !== "function") {
+          // Preload is out of date — this is a developer error, not a user
+          // error.  Surface it clearly rather than silently falling back.
+          throw new Error(
+            "window.wurl.http.execute is not available. " +
+            "Ensure the Electron app was rebuilt with the latest preload.js."
+          );
+        }
+        result = await window.wurl.http.execute(nativeDesc);
 
-      window.dispatchEvent(
-        new CustomEvent("wurl:response-received", {
-          detail: {
-            request:    requestSnapshot,
-            status:     response.status,
-            statusText: response.statusText,
-            headers,
-            body,
-            elapsed,
-            size: new TextEncoder().encode(body).length,
-          },
-        }),
-      );
-    } catch (err) {
-      _activeAbortController = null;
-      const elapsed = Math.round(performance.now() - start);
-      const msg = err.message ?? "";
+      } else {
+        // ── Go dev-server path: POST to /api/execute proxy endpoint ──────────
+        // The Go server makes the outgoing request server-side so CORS is
+        // never a factor.  AbortController gives us cancellation support.
+        const controller = new AbortController();
+        _activeAbortController = controller;
 
-      // Classify common fetch failure modes into a human-readable hint
-      let hint = "";
-      if (err.name === "AbortError") {
-        hint = "The request was aborted.";
-      } else if (/cors/i.test(msg)) {
-        hint = "CORS policy blocked the request — the server may need to send Access-Control-Allow-Origin headers.";
-      } else if (/failed to fetch|load failed|networkerror|network request failed/i.test(msg)) {
-        hint = "Could not reach the server. Check the URL, network connectivity, and whether the server is running.";
-      } else if (/ssl|certificate|cert/i.test(msg)) {
-        hint = "TLS/SSL certificate error — the server certificate may be self-signed or invalid.";
-      } else if (/timeout/i.test(msg)) {
-        hint = "The request timed out before the server responded.";
+        const res = await fetch("/api/execute", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify(nativeDesc),
+          signal:  controller.signal,
+        });
+        _activeAbortController = null;
+
+        if (!res.ok) throw new Error(`Execute API returned HTTP ${res.status}`);
+        result = await res.json();
       }
 
-      window.dispatchEvent(
-        new CustomEvent("wurl:request-error", {
-          detail: { request: requestSnapshot, name: err.name ?? "Error", message: msg, hint, elapsed },
-        }),
-      );
+      // Discard the result if the user already cancelled
+      if (_cancelCurrentRequest) return;
+
+      // ── Dispatch result ──────────────────────────────────────────────────
+      if (result.error && result.status === 0) {
+        // Network-level failure — no HTTP response received
+        window.dispatchEvent(new CustomEvent("wurl:request-error", {
+          detail: {
+            request:    _lastRequestSnapshot,
+            name:       result.error.name,
+            message:    result.error.message,
+            hint:       _buildHint(result.error.name, result.error.message),
+            elapsed:    result.elapsed ?? 0,
+            consoleLog: result.consoleLog ?? [],
+          },
+        }));
+      } else {
+        // We got an HTTP response (any status code, including 4xx / 5xx)
+        window.dispatchEvent(new CustomEvent("wurl:response-received", {
+          detail: {
+            request:    _lastRequestSnapshot,
+            status:     result.status,
+            statusText: result.statusText,
+            headers:    result.headers  ?? {},
+            cookies:    result.cookies  ?? [],
+            body:       result.body     ?? "",
+            elapsed:    result.elapsed  ?? 0,
+            size:       result.size     ?? 0,
+            consoleLog: result.consoleLog ?? [],
+          },
+        }));
+      }
+
+    } catch (err) {
+      if (_cancelCurrentRequest) return;
+      _activeAbortController = null;
+
+      const errName = (err instanceof Error ? err.name    : "Error")   || "Error";
+      const msg     = (err instanceof Error ? err.message : String(err)) || "";
+
+      window.dispatchEvent(new CustomEvent("wurl:request-error", {
+        detail: {
+          request:    _lastRequestSnapshot,
+          name:       errName,
+          message:    msg,
+          hint:       _buildHint(errName, msg),
+          elapsed:    0,
+          consoleLog: [`* ${errName}: ${msg}`],
+        },
+      }));
     }
   });
 }

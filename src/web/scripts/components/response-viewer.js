@@ -3,24 +3,21 @@
  *
  * Shows the result of a wurl:send-request dispatched by the RequestEditor.
  * Displays:
- *   - Status line (code + text + elapsed time)
- *   - Tab strip: Body | Headers | Cookies | Timeline
- *   - Pretty-printed response body (JSON / XML / plain text / image)
- *
- * Future expansion:
- *   - Syntax highlighting (JSON, XML, HTML)
- *   - Binary / image preview
- *   - Save-to-file
- *   - Response history
- *   - Size / timing breakdown
+ *   - Status line (code + text + elapsed time + size)
+ *   - Tab strip: Body | Headers | Cookies | Console | Timeline
+ *   - Pretty-printed response body (JSON / XML / plain text)
+ *   - Response headers table
+ *   - Parsed Set-Cookie values
+ *   - Verbose console log captured by the native HTTP layer
  */
 
 "use strict";
 
 const TABS = [
-  { id: "body", label: "Body" },
-  { id: "headers", label: "Headers" },
-  { id: "cookies", label: "Cookies" },
+  { id: "body",     label: "Body"     },
+  { id: "headers",  label: "Headers"  },
+  { id: "cookies",  label: "Cookies"  },
+  { id: "console",  label: "Console"  },
   { id: "timeline", label: "Timeline" },
 ];
 
@@ -109,9 +106,13 @@ export class ResponseViewer {
       content.appendChild(pane);
     });
 
-    // Initial empty state
+    // Initial empty state in body pane
     const bodyPane = content.querySelector("#res-tab-body");
     bodyPane.appendChild(this.#emptyState());
+
+    // Initial empty state in console pane
+    const consolePane = content.querySelector("#res-tab-console");
+    consolePane.appendChild(this.#consolePlaceholder());
 
     this.#el.appendChild(content);
     this._tabContent = content;
@@ -123,6 +124,15 @@ export class ResponseViewer {
     el.innerHTML =
       '<span class="placeholder-icon">📡</span>' +
       "<span>Send a request to see the response</span>";
+    return el;
+  }
+
+  #consolePlaceholder() {
+    const el = document.createElement("div");
+    el.className = "panel-placeholder";
+    el.innerHTML =
+      '<span class="placeholder-icon">🖥️</span>' +
+      "<span>Verbose output from each request will appear here</span>";
     return el;
   }
 
@@ -152,13 +162,22 @@ export class ResponseViewer {
       '<span class="placeholder-icon res-spinner">⏳</span>' +
       "<span>Sending request…</span>";
     bodyPane.appendChild(loading);
+
+    // Clear console pane on each new request
+    this.#renderConsole([]);
   }
 
   #showError(detail) {
-    this.#setStatus("ERR", "Network Error", "", "");
-    const badge = this._statusBar.querySelector(".res-status-badge");
-    badge.className = "res-status-badge res-status--error";
+    const hasStatus  = detail?.status && detail.status > 0;
+    const statusCode = hasStatus ? String(detail.status) : "ERR";
+    const statusTxt  = detail?.statusText || detail?.name || "Connection Error";
+    const elapsed    = detail?.elapsed ? `${detail.elapsed} ms` : "";
 
+    this.#setStatus(statusCode, statusTxt, elapsed, "");
+    const badge = this._statusBar.querySelector(".res-status-badge");
+    badge.className = `res-status-badge ${hasStatus ? this.#statusClass(detail.status) : "res-status--error"}`;
+
+    // Body pane — show error placeholder
     const bodyPane = this._tabContent.querySelector("#res-tab-body");
     bodyPane.innerHTML = "";
     const err = document.createElement("div");
@@ -166,29 +185,49 @@ export class ResponseViewer {
     err.innerHTML =
       '<span class="placeholder-icon">⚠️</span>' +
       `<span>${this.#escapeHtml(detail?.message ?? "Request failed")}</span>`;
+    if (detail?.hint) {
+      const hint = document.createElement("span");
+      hint.className = "res-error-hint";
+      hint.textContent = detail.hint;
+      err.appendChild(hint);
+    }
     bodyPane.appendChild(err);
+
+    // Console pane — always show the verbose log (or an error summary)
+    const log = Array.isArray(detail?.consoleLog) && detail.consoleLog.length
+      ? detail.consoleLog
+      : [
+          `* Error: ${detail?.name || "NetworkError"}`,
+          `* ${detail?.message || "An unknown error occurred."}`,
+          detail?.hint ? `* Hint: ${detail.hint}` : null,
+        ].filter(Boolean);
+    this.#renderConsole(log);
   }
 
   /**
    * @param {object} response
-   * @param {number} response.status
-   * @param {string} response.statusText
-   * @param {Headers|object} response.headers
-   * @param {string} response.body
-   * @param {number} response.elapsed  - milliseconds
-   * @param {number} response.size     - bytes
+   * @param {number}   response.status
+   * @param {string}   response.statusText
+   * @param {object}   response.headers
+   * @param {string[]} response.cookies
+   * @param {string}   response.body
+   * @param {number}   response.elapsed   - milliseconds
+   * @param {number}   response.size      - bytes
+   * @param {string[]} response.consoleLog
    */
   #showResponse(response) {
     const {
-      status,
-      statusText,
-      headers = {},
-      body = "",
-      elapsed = 0,
-      size = 0,
+      status     = 0,
+      statusText = "",
+      headers    = {},
+      cookies    = [],
+      body       = "",
+      elapsed    = 0,
+      size       = 0,
+      consoleLog = [],
     } = response;
 
-    // Status badge
+    // Status bar
     const statusClass = this.#statusClass(status);
     this.#setStatus(
       status,
@@ -199,7 +238,7 @@ export class ResponseViewer {
     const badge = this._statusBar.querySelector(".res-status-badge");
     badge.className = `res-status-badge ${statusClass}`;
 
-    // Body pane
+    // ── Body pane ──────────────────────────────────────────────────────────
     const bodyPane = this._tabContent.querySelector("#res-tab-body");
     bodyPane.innerHTML = "";
     const pre = document.createElement("pre");
@@ -207,7 +246,7 @@ export class ResponseViewer {
     pre.textContent = this.#prettyBody(body, headers["content-type"] ?? "");
     bodyPane.appendChild(pre);
 
-    // Headers pane
+    // ── Headers pane ───────────────────────────────────────────────────────
     const headersPane = this._tabContent.querySelector("#res-tab-headers");
     headersPane.innerHTML = "";
     const table = document.createElement("table");
@@ -218,20 +257,110 @@ export class ResponseViewer {
       row.insertCell().textContent = v;
     });
     headersPane.appendChild(table);
+
+    // ── Cookies pane ───────────────────────────────────────────────────────
+    const cookiesPane = this._tabContent.querySelector("#res-tab-cookies");
+    cookiesPane.innerHTML = "";
+    if (cookies.length > 0) {
+      const ct = document.createElement("table");
+      ct.className = "res-headers-table";
+      // Header row
+      const hdr = ct.insertRow();
+      ["Name", "Value", "Attributes"].forEach((lbl) => {
+        const th = document.createElement("th");
+        th.textContent = lbl;
+        th.style.fontWeight = "700";
+        th.style.textAlign  = "left";
+        th.style.padding    = "4px 12px";
+        th.style.color      = "var(--color-overlay-0)";
+        th.style.fontSize   = "var(--font-size-xs)";
+        th.style.textTransform = "uppercase";
+        th.style.letterSpacing = "0.06em";
+        hdr.appendChild(th);
+      });
+      cookies.forEach((raw) => {
+        const parts = raw.split(";").map((s) => s.trim());
+        const [nameVal, ...attrs] = parts;
+        const eqIdx = nameVal.indexOf("=");
+        const name  = eqIdx >= 0 ? nameVal.slice(0, eqIdx) : nameVal;
+        const value = eqIdx >= 0 ? nameVal.slice(eqIdx + 1) : "";
+        const row   = ct.insertRow();
+        row.title   = raw;
+        row.insertCell().textContent = name;
+        row.insertCell().textContent = value;
+        row.insertCell().textContent = attrs.join("; ");
+      });
+      cookiesPane.appendChild(ct);
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "panel-placeholder";
+      empty.innerHTML = "<span>No cookies were set by this response</span>";
+      cookiesPane.appendChild(empty);
+    }
+
+    // ── Console pane ───────────────────────────────────────────────────────
+    this.#renderConsole(consoleLog);
   }
 
+  // ── Console rendering ─────────────────────────────────────────────────────
+  /**
+   * Render the verbose console log lines into the Console tab pane.
+   * Each line is styled based on its prefix character:
+   *   >  sent / request lines  → accent colour
+   *   <  received / response   → success colour
+   *   *  informational         → muted colour
+   *   [error]  error lines     → error colour
+   *
+   * @param {string[]} lines
+   */
+  #renderConsole(lines) {
+    const pane = this._tabContent.querySelector("#res-tab-console");
+    if (!pane) return;
+    pane.innerHTML = "";
+
+    if (!lines || lines.length === 0) {
+      pane.appendChild(this.#consolePlaceholder());
+      return;
+    }
+
+    const pre = document.createElement("pre");
+    pre.className = "res-console-pre";
+
+    lines.forEach((line) => {
+      const span = document.createElement("span");
+      span.className = "res-console-line";
+
+      if (line === ">" || line.startsWith("> ")) {
+        span.classList.add("res-console-line--sent");
+      } else if (line === "<" || line.startsWith("< ")) {
+        span.classList.add("res-console-line--recv");
+      } else if (line.startsWith("* ")) {
+        span.classList.add("res-console-line--info");
+      } else if (line.startsWith("[error]")) {
+        span.classList.add("res-console-line--error");
+      }
+
+      span.textContent = line;
+      pre.appendChild(span);
+      pre.appendChild(document.createTextNode("\n"));
+    });
+
+    pane.appendChild(pre);
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
   #setStatus(code, text, time, size) {
     this._statusBar.querySelector(".res-status-badge").textContent = code;
-    this._statusBar.querySelector(".res-status-text").textContent = text;
-    this._statusBar.querySelector(".res-time").textContent = time;
-    this._statusBar.querySelector(".res-size").textContent = size;
+    this._statusBar.querySelector(".res-status-text").textContent  = text;
+    this._statusBar.querySelector(".res-time").textContent         = time;
+    this._statusBar.querySelector(".res-size").textContent         = size;
   }
 
   #statusClass(code) {
     if (code >= 200 && code < 300) return "res-status--success";
     if (code >= 300 && code < 400) return "res-status--redirect";
     if (code >= 400 && code < 500) return "res-status--client-error";
-    if (code >= 500) return "res-status--server-error";
+    if (code >= 500)               return "res-status--server-error";
     return "";
   }
 
@@ -245,8 +374,8 @@ export class ResponseViewer {
   }
 
   #formatSize(bytes) {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024)            return `${bytes} B`;
+    if (bytes < 1024 * 1024)    return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
 

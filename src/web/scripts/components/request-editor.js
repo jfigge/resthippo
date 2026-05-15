@@ -2104,19 +2104,28 @@ export class RequestEditor {
     }
 
     // ── 4. Body — build based on the selected body type ───────────────────
-    // GET and HEAD must not carry a body (browsers reject it).
+    // GET and HEAD must not carry a body.
+    // All body types are serialised to a plain string (or null) so they can
+    // be forwarded to the native layer (Electron IPC / Go dev server) which
+    // cannot receive FormData, URLSearchParams, or File objects directly.
     const noBodyMethods = new Set(["GET", "HEAD"]);
-    let body = null;
+    let body         = null;   // string | null
+    let bodyFilePath = null;   // absolute path for the "file" body type (Electron only)
 
     if (!noBodyMethods.has(this.#method)) {
       switch (this.#bodyType) {
         case "form-data": {
-          const fd = new FormData();
-          this.#bodyFormRows
-            .filter(r => r.enabled && r.name.trim())
-            .forEach(r => fd.append(r.name, r.value));
-          body = fd;
-          // FormData sets its own multipart Content-Type with boundary; don't override
+          // Build a multipart/form-data body manually so we get a plain string.
+          const boundary = `----WurlBoundary${Date.now()}`;
+          const enabled  = this.#bodyFormRows.filter(r => r.enabled && r.name.trim());
+          if (enabled.length > 0) {
+            const parts = enabled.map(r =>
+              `--${boundary}\r\nContent-Disposition: form-data; name="${r.name}"\r\n\r\n${r.value}`
+            ).join("\r\n");
+            body = `${parts}\r\n--${boundary}--`;
+            if (!headers["Content-Type"])
+              headers["Content-Type"] = `multipart/form-data; boundary=${boundary}`;
+          }
           break;
         }
         case "form-urlencoded": {
@@ -2159,7 +2168,9 @@ export class RequestEditor {
           break;
         case "file":
           if (this.#bodyFileObject) {
-            body = this.#bodyFileObject;
+            // Electron exposes the real filesystem path via File.path.
+            // In a plain browser context this will be undefined/empty.
+            bodyFilePath = this.#bodyFileObject.path ?? "";
             if (!headers["Content-Type"])
               headers["Content-Type"] =
                 this.#bodyFileObject.type || "application/octet-stream";
@@ -2171,7 +2182,7 @@ export class RequestEditor {
     }
 
     window.dispatchEvent(new CustomEvent("wurl:send-request", {
-      detail: { method: this.#method, url: finalUrl, headers, body },
+      detail: { method: this.#method, url: finalUrl, headers, body, bodyFilePath },
       bubbles: true,
     }));
   }
