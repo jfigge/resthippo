@@ -52,7 +52,15 @@
             }
           ],
           "bodyText": "",
-          "bodyFilePath": ""
+          "bodyFilePath": "",
+          "params": [
+            {
+              "id": "e38bf36d-f167-4eae-b9eb-31a22668a8fc",
+              "name": "",
+              "value": "",
+              "enabled": true
+            }
+          ]
         },
         {
           "id": "req-3",

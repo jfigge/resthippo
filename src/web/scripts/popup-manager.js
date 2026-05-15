@@ -28,7 +28,7 @@ let _maskEl = null;
 /** @type {HTMLElement | null} */
 let _confirmEl = null;
 
-/** Whether the confirmation dialog is currently visible */
+/** Whether the confirmClose dialog is currently visible */
 let _confirmOpen = false;
 
 // ── Private helpers ───────────────────────────────────────────────────────────
@@ -81,6 +81,83 @@ function _onMaskClick(e) {
   } else {
     PopupManager.close();
   }
+}
+
+/**
+ * Create, mount, animate, and wire keyboard/mask dismissal for a one-shot dialog.
+ *
+ * All shared boilerplate between confirm() and notify() lives here:
+ *   – element creation, class/role/aria wiring
+ *   – mask show/restore
+ *   – popup-in animation
+ *   – initial focus
+ *   – keyboard listener (always torn down on dismiss, never leaks)
+ *   – fade-out animation + DOM removal
+ *
+ * Returns the dialog element and a `dismiss(afterFn?)` function.
+ * Callers wire their own buttons then call dismiss() in each handler.
+ *
+ * @param {{
+ *   cssClass:  string,     Extra CSS class added alongside "popup" (e.g. "popup-confirm")
+ *   role:      string,     ARIA role — "dialog" or "alertdialog"
+ *   ariaLabel: string,     aria-label value for screen readers
+ *   innerHTML: string,     Full inner HTML of the dialog
+ *   focusSel:  string,     querySelector string for the element to receive initial focus
+ *   escKeys?:  string[],   Key values that trigger dismissal — default ["Escape"]
+ * }} opts
+ * @returns {{ dlg: HTMLElement, dismiss: (afterFn?: () => void) => void }}
+ */
+function _showOneShotDialog({ cssClass, role, ariaLabel, innerHTML, focusSel, escKeys = ["Escape"] }) {
+  _ensureMask();
+
+  // Build the dialog element
+  const dlg = document.createElement("div");
+  dlg.className = `popup ${cssClass}`;
+  dlg.setAttribute("role", role);
+  dlg.setAttribute("aria-modal", "true");
+  dlg.setAttribute("aria-label", ariaLabel);
+  dlg.innerHTML = innerHTML;
+  document.body.appendChild(dlg);
+
+  // Snapshot and replace the active popup slot
+  const prevActivePopup = _activePopup;
+
+  /**
+   * Tear down this dialog cleanly, then optionally invoke a callback.
+   * Safe to call from any dismissal path (button, keyboard, mask).
+   * @param {(() => void) | undefined} afterFn  called after teardown begins
+   */
+  function dismiss(afterFn) {
+    document.removeEventListener("keydown", onKey);
+    _activePopup = prevActivePopup;
+    if (!_activePopup) _maskEl.classList.remove("popup-overlay--visible");
+    dlg.classList.remove("popup--visible");
+    const onEnd = () => {
+      dlg.removeEventListener("transitionend", onEnd);
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+    };
+    dlg.addEventListener("transitionend", onEnd);
+    // Safety fallback in case transitionend never fires
+    setTimeout(() => { if (dlg.parentNode) dlg.parentNode.removeChild(dlg); }, 400);
+    if (typeof afterFn === "function") afterFn();
+  }
+
+  // Register as the active popup so mask clicks delegate correctly
+  _activePopup = { element: dlg, onMaskClick: () => dismiss() };
+  _maskEl.classList.add("popup-overlay--visible");
+
+  // Animate in and focus the primary button
+  requestAnimationFrame(() => dlg.classList.add("popup--visible"));
+  const focusEl = dlg.querySelector(focusSel);
+  if (focusEl) requestAnimationFrame(() => focusEl.focus());
+
+  // Keyboard dismissal — removed inside dismiss() so it never leaks
+  function onKey(e) {
+    if (escKeys.includes(e.key)) dismiss();
+  }
+  document.addEventListener("keydown", onKey);
+
+  return { dlg, dismiss };
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -162,67 +239,37 @@ export const PopupManager = {
    * Show a lightweight, self-contained confirmation dialog.
    * Does NOT require an active popup — suitable for any in-page action.
    *
-   * @param {{ title?: string, message: string, confirmLabel?: string, confirmClass?: string, onConfirm: () => void }} opts
+   * @param {{
+   *   title?:        string,
+   *   message:       string,
+   *   confirmLabel?: string,
+   *   confirmClass?: string,
+   *   onConfirm:     () => void,
+   * }} opts
    */
   confirm({ title = "Are you sure?", message, confirmLabel = "Confirm", confirmClass = "popup-btn--danger", onConfirm }) {
-    _ensureMask();
+    const { dlg, dismiss } = _showOneShotDialog({
+      cssClass:  "popup-confirm",
+      role:      "alertdialog",
+      ariaLabel: title,
+      innerHTML: `
+        <div class="popup-header">
+          <span class="popup-title">${title}</span>
+        </div>
+        <div class="popup-body popup-confirm-body">
+          <p>${message}</p>
+        </div>
+        <div class="popup-footer">
+          <button class="popup-btn popup-btn--secondary" data-action="cancel">Cancel</button>
+          <button class="popup-btn ${confirmClass}"      data-action="confirm">${confirmLabel}</button>
+        </div>
+      `,
+      focusSel: "[data-action='cancel']",
+      escKeys:  ["Escape"],
+    });
 
-    // Build a one-shot dialog element
-    const dlg = document.createElement("div");
-    dlg.className = "popup popup-confirm";
-    dlg.setAttribute("role", "alertdialog");
-    dlg.setAttribute("aria-modal", "true");
-    dlg.innerHTML = `
-      <div class="popup-header">
-        <span class="popup-title">${title}</span>
-      </div>
-      <div class="popup-body popup-confirm-body">
-        <p>${message}</p>
-      </div>
-      <div class="popup-footer">
-        <button class="popup-btn popup-btn--secondary" data-action="cancel">Cancel</button>
-        <button class="popup-btn ${confirmClass}" data-action="confirm">${confirmLabel}</button>
-      </div>
-    `;
-    document.body.appendChild(dlg);
-
-    // Show mask (transparent overlay so background is still visible)
-    const prevActivePopup = _activePopup;
-    _activePopup = { element: dlg, onMaskClick: cancel };
-    _maskEl.classList.add("popup-overlay--visible");
-
-    requestAnimationFrame(() => dlg.classList.add("popup--visible"));
-
-    const cancelBtn  = dlg.querySelector("[data-action='cancel']");
-    const confirmBtn = dlg.querySelector("[data-action='confirm']");
-
-    requestAnimationFrame(() => cancelBtn.focus());
-
-    function cleanup() {
-      _activePopup = prevActivePopup;
-      if (!_activePopup) {
-        _maskEl.classList.remove("popup-overlay--visible");
-      }
-      dlg.classList.remove("popup--visible");
-      const onEnd = () => {
-        dlg.removeEventListener("transitionend", onEnd);
-        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
-      };
-      dlg.addEventListener("transitionend", onEnd);
-      setTimeout(() => { if (dlg.parentNode) dlg.parentNode.removeChild(dlg); }, 400);
-    }
-
-    function cancel()  { cleanup(); }
-    function confirm_() { cleanup(); onConfirm(); }
-
-    cancelBtn.addEventListener("click",  cancel);
-    confirmBtn.addEventListener("click", confirm_);
-
-    // Escape key cancels
-    function onKey(e) {
-      if (e.key === "Escape") { document.removeEventListener("keydown", onKey); cancel(); }
-    }
-    document.addEventListener("keydown", onKey);
+    dlg.querySelector("[data-action='cancel']").addEventListener("click",  () => dismiss());
+    dlg.querySelector("[data-action='confirm']").addEventListener("click", () => dismiss(onConfirm));
   },
 
   /**
@@ -284,68 +331,31 @@ export const PopupManager = {
    * Show a lightweight informational dialog with a single "OK" button.
    * Does NOT require an active popup — suitable for any in-page notification.
    *
-   * @param {{ title?: string, message?: string, detail?: string }} opts
+   * @param {{ title?: string, message?: string }} opts
    *   title   — Dialog title (default: "Info")
-   *   message — Primary message text
-   *   detail  — Optional secondary / pre-formatted text shown in a code block
+   *   message — Message text shown in the dialog body
    */
-  notify({ title = "Info", message = "", detail = "" } = {}) {
-    _ensureMask();
+  notify({ title = "Info", message = "" } = {}) {
+    const { dlg, dismiss } = _showOneShotDialog({
+      cssClass:  "popup-notify",
+      role:      "dialog",
+      ariaLabel: title,
+      innerHTML: `
+        <div class="popup-header">
+          <span class="popup-title">${title}</span>
+        </div>
+        <div class="popup-body popup-notify-body">
+          ${message ? `<p>${message}</p>` : ""}
+        </div>
+        <div class="popup-footer">
+          <button class="popup-btn popup-btn--primary" data-action="ok">OK</button>
+        </div>
+      `,
+      focusSel: "[data-action='ok']",
+      escKeys:  ["Escape", "Enter"],
+    });
 
-    const dlg = document.createElement("div");
-    dlg.className = "popup popup-notify";
-    dlg.setAttribute("role", "dialog");
-    dlg.setAttribute("aria-modal", "true");
-    dlg.setAttribute("aria-label", title);
-
-    const detailHtml = detail
-      ? `<pre class="popup-notify-detail">${detail.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`
-      : "";
-
-    dlg.innerHTML = `
-      <div class="popup-header">
-        <span class="popup-title">${title}</span>
-      </div>
-      <div class="popup-body popup-notify-body">
-        ${message ? `<p>${message}</p>` : ""}
-        ${detailHtml}
-      </div>
-      <div class="popup-footer">
-        <button class="popup-btn popup-btn--primary" data-action="ok">OK</button>
-      </div>
-    `;
-    document.body.appendChild(dlg);
-
-    const prevActivePopup = _activePopup;
-    _activePopup = { element: dlg, onMaskClick: close_ };
-    _maskEl.classList.add("popup-overlay--visible");
-
-    requestAnimationFrame(() => dlg.classList.add("popup--visible"));
-
-    const okBtn = dlg.querySelector("[data-action='ok']");
-    requestAnimationFrame(() => okBtn.focus());
-
-    function close_() {
-      _activePopup = prevActivePopup;
-      if (!_activePopup) _maskEl.classList.remove("popup-overlay--visible");
-      dlg.classList.remove("popup--visible");
-      const onEnd = () => {
-        dlg.removeEventListener("transitionend", onEnd);
-        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
-      };
-      dlg.addEventListener("transitionend", onEnd);
-      setTimeout(() => { if (dlg.parentNode) dlg.parentNode.removeChild(dlg); }, 400);
-    }
-
-    okBtn.addEventListener("click", close_);
-
-    function onKey(e) {
-      if (e.key === "Escape" || e.key === "Enter") {
-        document.removeEventListener("keydown", onKey);
-        close_();
-      }
-    }
-    document.addEventListener("keydown", onKey);
+    dlg.querySelector("[data-action='ok']").addEventListener("click", () => dismiss());
   },
 
   /**
