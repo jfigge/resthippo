@@ -115,9 +115,60 @@
         {
           "id": "req-6",
           "type": "request",
-          "name": "Login",
+          "name": "Reflect",
           "method": "POST",
-          "url": ""
+          "url": "https://echo.free.beeceptor.com/path/test",
+          "bodyType": "json",
+          "bodyFormRows": [],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "params": [
+            {
+              "id": "14d08659-5394-4447-abe2-0635526e6852",
+              "name": "test",
+              "value": "1",
+              "enabled": true
+            }
+          ],
+          "headers": [
+            {
+              "id": "7f171302-b8c3-48a5-bb34-cbc0184f71ae",
+              "name": "X-Jason",
+              "value": "figge",
+              "enabled": true
+            },
+            {
+              "id": "8a0327b5-adeb-4927-9e08-2088d7e41032",
+              "name": "Forwarded",
+              "value": "figge.us",
+              "enabled": true
+            }
+          ],
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "user",
+            "password": "pass"
+          },
+          "authBearer": {
+            "token": "asdf"
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientId": "",
+            "clientSecret": "sadas",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "token": ""
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          }
         },
         {
           "id": "req-7",
@@ -149,7 +200,7 @@
     "splitterRowRes": 320,
     "listHeaders": true,
     "showUrlPreview": true,
-    "selectedRequestId": "req-3",
-    "removeHeaders": true
+    "selectedRequestId": "req-6",
+    "removeHeaders": false
   }
 }

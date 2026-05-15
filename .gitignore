@@ -28,3 +28,5 @@ wurl
 # ── Electron builder cache ────────────────────────────────────────────────────
 .electron-builder-cache/
 
+# ── Data and local test files ─────────────────────────────────────────────────
+data/collections.json

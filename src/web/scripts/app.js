@@ -339,26 +339,33 @@ function initEventBus() {
     const descriptor = e.detail;
     window.dispatchEvent(new CustomEvent("wurl:request-loading"));
 
+    // Snapshot the outgoing request for Console tab display
+    const requestSnapshot = {
+      method:  descriptor.method,
+      url:     descriptor.url,
+      headers: descriptor.headers ?? {},
+      body:    descriptor.body ?? null,
+    };
+
+    const start = performance.now();
     try {
-      const start = performance.now();
       const response = await fetch(descriptor.url, {
-        method: descriptor.method,
+        method:  descriptor.method,
         headers: descriptor.headers,
-        body: descriptor.body ?? undefined,
+        body:    descriptor.body ?? undefined,
       });
       const elapsed = Math.round(performance.now() - start);
       const body = await response.text();
 
       // Collect response headers into a plain object
       const headers = {};
-      response.headers.forEach((v, k) => {
-        headers[k] = v;
-      });
+      response.headers.forEach((v, k) => { headers[k] = v; });
 
       window.dispatchEvent(
         new CustomEvent("wurl:response-received", {
           detail: {
-            status: response.status,
+            request:    requestSnapshot,
+            status:     response.status,
             statusText: response.statusText,
             headers,
             body,
@@ -368,9 +375,26 @@ function initEventBus() {
         }),
       );
     } catch (err) {
+      const elapsed = Math.round(performance.now() - start);
+      const msg = err.message ?? "";
+
+      // Classify common fetch failure modes into a human-readable hint
+      let hint = "";
+      if (err.name === "AbortError") {
+        hint = "The request was aborted.";
+      } else if (/cors/i.test(msg)) {
+        hint = "CORS policy blocked the request — the server may need to send Access-Control-Allow-Origin headers.";
+      } else if (/failed to fetch|load failed|networkerror|network request failed/i.test(msg)) {
+        hint = "Could not reach the server. Check the URL, network connectivity, and whether the server is running.";
+      } else if (/ssl|certificate|cert/i.test(msg)) {
+        hint = "TLS/SSL certificate error — the server certificate may be self-signed or invalid.";
+      } else if (/timeout/i.test(msg)) {
+        hint = "The request timed out before the server responded.";
+      }
+
       window.dispatchEvent(
         new CustomEvent("wurl:request-error", {
-          detail: { message: err.message },
+          detail: { request: requestSnapshot, name: err.name ?? "Error", message: msg, hint, elapsed },
         }),
       );
     }

@@ -224,7 +224,8 @@ export class RequestEditor {
   #bodyTypeBarEl = null;      // the bar holding the type selector (+ optional Prettify)
   #bodyFormRows  = [];        // shared for form-data AND form-urlencoded
   #bodyText      = "";        // shared for json, yaml, xml, and plain text
-  #bodyFilePath  = "";
+  #bodyFilePath  = "";        // path/name of selected file (display)
+  #bodyFileObject = null;     // actual File object reference for sending
   // Body form drag state (one active form editor at a time)
   #bfListEl      = null;
   #bfPhantom     = null;
@@ -1198,7 +1199,8 @@ export class RequestEditor {
     fileInput.addEventListener("change", () => {
       const f = fileInput.files?.[0];
       if (!f) return;
-      this.#bodyFilePath = f.path || f.name;   // Electron exposes .path
+      this.#bodyFilePath   = f.path || f.name;   // Electron exposes .path
+      this.#bodyFileObject = f;
       this.#renderFileChosen(el);
       this.#dispatchBodyUpdated();
     });
@@ -1217,7 +1219,8 @@ export class RequestEditor {
       e.preventDefault(); zone.classList.remove("body-file-zone--over");
       const f = e.dataTransfer.files?.[0];
       if (!f) return;
-      this.#bodyFilePath = f.path || f.webkitRelativePath || f.name;
+      this.#bodyFilePath   = f.path || f.webkitRelativePath || f.name;
+      this.#bodyFileObject = f;
       this.#renderFileChosen(el);
       this.#dispatchBodyUpdated();
     });
@@ -1253,7 +1256,8 @@ export class RequestEditor {
     resetBtn.textContent = "Reset";
     resetBtn.title = "Remove selected file";
     resetBtn.addEventListener("click", () => {
-      this.#bodyFilePath = "";
+      this.#bodyFilePath   = "";
+      this.#bodyFileObject = null;
       this.#renderFileDropZone(el);
       this.#dispatchBodyUpdated();
     });
@@ -2034,19 +2038,117 @@ export class RequestEditor {
 
   // ── Send ─────────────────────────────────────────────────────────────────
   #sendRequest() {
-    const url = this._urlInput.value.trim();
-    if (!url) { this._urlInput.focus(); return; }
+    const baseUrl = this._urlInput.value.trim();
+    if (!baseUrl) { this._urlInput.focus(); return; }
 
-    const descriptor = {
-      method:  this.#method,
-      url,
-      params:  this.#params.filter((p) => p.enabled),
-      headers: {},
-      body:    null,
-    };
+    // ── 1. URL — append enabled, non-blank query parameters ──────────────
+    const enabledParams = this.#params.filter(p => p.enabled && p.name.trim());
+    let finalUrl = baseUrl;
+    if (enabledParams.length) {
+      const qs = enabledParams
+        .map(p => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`)
+        .join("&");
+      finalUrl += (baseUrl.includes("?") ? "&" : "?") + qs;
+    }
+
+    // ── 2. Headers — start with all enabled, non-blank request headers ────
+    const headers = {};
+    this.#headers
+      .filter(h => h.enabled && h.name.trim())
+      .forEach(h => { headers[h.name.trim()] = h.value; });
+
+    // ── 3. Auth — inject Authorization (or other) headers if enabled ──────
+    if (this.#authEnabled && this.#authType !== "none") {
+      switch (this.#authType) {
+        case "basic": {
+          const { username, password } = this.#authBasic;
+          if (username || password) {
+            headers["Authorization"] =
+              `Basic ${btoa(`${username}:${password}`)}`;
+          }
+          break;
+        }
+        case "bearer":
+          if (this.#authBearer.token)
+            headers["Authorization"] = `Bearer ${this.#authBearer.token}`;
+          break;
+        case "oauth2":
+          if (this.#authOAuth2.token)
+            headers["Authorization"] = `Bearer ${this.#authOAuth2.token}`;
+          break;
+        // aws-iam: Signature v4 requires request-time signing — not yet implemented
+      }
+    }
+
+    // ── 4. Body — build based on the selected body type ───────────────────
+    // GET and HEAD must not carry a body (browsers reject it).
+    const noBodyMethods = new Set(["GET", "HEAD"]);
+    let body = null;
+
+    if (!noBodyMethods.has(this.#method)) {
+      switch (this.#bodyType) {
+        case "form-data": {
+          const fd = new FormData();
+          this.#bodyFormRows
+            .filter(r => r.enabled && r.name.trim())
+            .forEach(r => fd.append(r.name, r.value));
+          body = fd;
+          // FormData sets its own multipart Content-Type with boundary; don't override
+          break;
+        }
+        case "form-urlencoded": {
+          const sp = new URLSearchParams();
+          this.#bodyFormRows
+            .filter(r => r.enabled && r.name.trim())
+            .forEach(r => sp.append(r.name, r.value));
+          body = sp.toString();
+          if (!headers["Content-Type"])
+            headers["Content-Type"] = "application/x-www-form-urlencoded";
+          break;
+        }
+        case "json":
+          if (this.#bodyText.trim()) {
+            body = this.#bodyText;
+            if (!headers["Content-Type"])
+              headers["Content-Type"] = "application/json";
+          }
+          break;
+        case "yaml":
+          if (this.#bodyText.trim()) {
+            body = this.#bodyText;
+            if (!headers["Content-Type"])
+              headers["Content-Type"] = "application/x-yaml";
+          }
+          break;
+        case "xml":
+          if (this.#bodyText.trim()) {
+            body = this.#bodyText;
+            if (!headers["Content-Type"])
+              headers["Content-Type"] = "application/xml";
+          }
+          break;
+        case "text":
+          if (this.#bodyText.trim()) {
+            body = this.#bodyText;
+            if (!headers["Content-Type"])
+              headers["Content-Type"] = "text/plain";
+          }
+          break;
+        case "file":
+          if (this.#bodyFileObject) {
+            body = this.#bodyFileObject;
+            if (!headers["Content-Type"])
+              headers["Content-Type"] =
+                this.#bodyFileObject.type || "application/octet-stream";
+          }
+          break;
+        default:
+          break; // "no-body" — leave body as null
+      }
+    }
 
     window.dispatchEvent(new CustomEvent("wurl:send-request", {
-      detail: descriptor,
+      detail: { method: this.#method, url: finalUrl, headers, body },
       bubbles: true,
     }));
   }
