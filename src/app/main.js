@@ -134,8 +134,7 @@ let _devServerProcess = null;
         }
       }
 
-      // ── Connection info + outgoing request log ────────────────────────────
-      consoleLog.push(`* Connected to ${parsed.hostname} (${parsed.hostname}) port ${port}`);
+      // ── Outgoing request log ──────────────────────────────────────────────
       const httpVersion = isHttps ? "HTTP/2" : "HTTP/1.1";
       consoleLog.push(`> ${effectiveMethod} ${parsed.pathname}${parsed.search} ${httpVersion}`);
       consoleLog.push(`> Host: ${parsed.hostname}${parsed.port ? `:${parsed.port}` : ""}`);
@@ -151,6 +150,7 @@ let _devServerProcess = null;
       }
 
       // ── Make the request ───────────────────────────────────────────────────
+      consoleLog.push(`* Trying to resolve host '${parsed.hostname}'...`);
       const options = {
         hostname: parsed.hostname,
         port,
@@ -258,6 +258,43 @@ let _devServerProcess = null;
             error: { name: "StreamError", message: err.message },
           });
         });
+      });
+
+      req.on("socket", (socket) => {
+        // ── DNS resolution ──────────────────────────────────────────────────
+        socket.on("lookup", (err, address, _family, hostname) => {
+          if (err) {
+            consoleLog.push(`* Could not resolve host '${hostname}': ${err.message}`);
+          } else {
+            consoleLog.push(`* Resolved '${hostname}' → ${address}`);
+            consoleLog.push(`* Trying ${address}:${port}...`);
+          }
+        });
+
+        // ── TCP connection established ───────────────────────────────────────
+        socket.on("connect", () => {
+          const remoteAddr = socket.remoteAddress;
+          const remotePort = socket.remotePort;
+          consoleLog.push(`* Connected to ${parsed.hostname} (${remoteAddr}) port ${remotePort}`);
+          if (isHttps) {
+            consoleLog.push(`* Performing TLS handshake with '${parsed.hostname}'...`);
+          }
+        });
+
+        // ── TLS handshake complete (HTTPS only) ─────────────────────────────
+        if (isHttps) {
+          socket.on("secureConnect", () => {
+            const protocol = socket.getProtocol();
+            const cipher   = socket.getCipher();
+            consoleLog.push(
+              `* SSL connection using ${protocol} / ${cipher.standardName || cipher.name}`
+            );
+            const alpn = socket.alpnProtocol;
+            if (alpn && alpn !== false) {
+              consoleLog.push(`* ALPN: server accepted '${alpn}'`);
+            }
+          });
+        }
       });
 
       req.on("timeout", () => {

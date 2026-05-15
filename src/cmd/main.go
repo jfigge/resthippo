@@ -16,10 +16,13 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"net/http/httptrace"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -157,16 +160,6 @@ func main() {
 					consoleLog = append(consoleLog, "* Switch to GET")
 				}
 				consoleLog = append(consoleLog,
-					fmt.Sprintf("* Connected to %s (%s) port %s", redirectURL.Hostname(), redirectURL.Hostname(), func() string {
-						p := redirectURL.Port()
-						if p != "" {
-							return p
-						}
-						if redirectURL.Scheme == "https" {
-							return "443"
-						}
-						return "80"
-					}()),
 					fmt.Sprintf("> %s %s %s", req.Method, req.URL.RequestURI(), httpVer),
 					fmt.Sprintf("> Host: %s", req.URL.Host),
 					">",
@@ -190,22 +183,86 @@ func main() {
 			outReq.Header.Set(k, v)
 		}
 
+		// ── Attach connection trace ───────────────────────────────────────────
+		// Hooks fire on the transport goroutines so guard consoleLog with a mutex.
+		var traceMu sync.Mutex
+		appendTrace := func(msg string) {
+			traceMu.Lock()
+			consoleLog = append(consoleLog, msg)
+			traceMu.Unlock()
+		}
+		requestHost := outReq.URL.Hostname()
+		trace := &httptrace.ClientTrace{
+			DNSStart: func(info httptrace.DNSStartInfo) {
+				appendTrace(fmt.Sprintf("* Trying to resolve host '%s'...", info.Host))
+			},
+			DNSDone: func(info httptrace.DNSDoneInfo) {
+				if info.Err != nil {
+					appendTrace(fmt.Sprintf("* Could not resolve host '%s': %s", requestHost, info.Err))
+				} else {
+					addrs := make([]string, 0, len(info.Addrs))
+					for _, a := range info.Addrs {
+						addrs = append(addrs, a.String())
+					}
+					appendTrace(fmt.Sprintf("* Resolved '%s' → %s", requestHost, strings.Join(addrs, ", ")))
+				}
+			},
+			ConnectStart: func(network, addr string) {
+				appendTrace(fmt.Sprintf("* Trying %s...", addr))
+			},
+			ConnectDone: func(network, addr string, err error) {
+				if err != nil {
+					appendTrace(fmt.Sprintf("* Failed to connect to %s: %s", addr, err))
+				} else {
+					host, port, _ := net.SplitHostPort(addr)
+					appendTrace(fmt.Sprintf("* Connected to %s (%s) port %s", requestHost, host, port))
+				}
+			},
+			TLSHandshakeStart: func() {
+				appendTrace(fmt.Sprintf("* Performing TLS handshake with '%s'...", requestHost))
+			},
+			TLSHandshakeDone: func(state tls.ConnectionState, err error) {
+				if err != nil {
+					appendTrace(fmt.Sprintf("* TLS handshake failed: %s", err))
+				} else {
+					appendTrace(fmt.Sprintf("* SSL connection using %s / %s",
+						tls.VersionName(state.Version),
+						tls.CipherSuiteName(state.CipherSuite),
+					))
+					if state.NegotiatedProtocol != "" {
+						appendTrace(fmt.Sprintf("* ALPN: server accepted '%s'", state.NegotiatedProtocol))
+					}
+				}
+			},
+			WroteHeaderField: func(key string, value []string) {
+				for _, v := range value {
+					appendTrace(fmt.Sprintf("> %s: %s", key, v))
+				}
+				appendTrace(">")
+			},
+			WroteHeaders: func() {
+				if desc.Body != "" {
+					appendTrace("* Finished writing request headers and body")
+				} else {
+					appendTrace("* Finished writing request headers")
+				}
+			},
+			WroteRequest: func(info httptrace.WroteRequestInfo) {
+				if info.Err != nil {
+					appendTrace(fmt.Sprintf("* Error writing request: %s", info.Err))
+				} else {
+					appendTrace("* Request write complete")
+				}
+			},
+		}
+		outReq = outReq.WithContext(httptrace.WithClientTrace(r.Context(), trace))
+
 		// ── Log outgoing request ──────────────────────────────────────────────
 		{
-			h := outReq.URL.Hostname()
-			p := outReq.URL.Port()
-			if p == "" {
-				if outReq.URL.Scheme == "https" {
-					p = "443"
-				} else {
-					p = "80"
-				}
-			}
 			httpVer := "HTTP/1.1"
 			if outReq.URL.Scheme == "https" {
 				httpVer = "HTTP/2"
 			}
-			consoleLog = append(consoleLog, fmt.Sprintf("* Connected to %s (%s) port %s", h, h, p))
 			consoleLog = append(consoleLog,
 				fmt.Sprintf("> %s %s %s", strings.ToUpper(desc.Method), outReq.URL.RequestURI(), httpVer),
 				fmt.Sprintf("> Host: %s", outReq.URL.Host),

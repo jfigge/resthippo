@@ -1278,7 +1278,7 @@
   margin: 0;
   padding: var(--space-3) var(--space-4);
   font-family: var(--font-mono), monospace;
-  font-size: var(--font-size-sm);
+  font-size: var( --font-size-xs);
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-all;
