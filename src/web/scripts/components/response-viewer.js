@@ -336,6 +336,8 @@ export class ResponseViewer {
         span.classList.add("res-console-line--recv");
       } else if (line.startsWith("* ")) {
         span.classList.add("res-console-line--info");
+      } else if (line === "|" || line.startsWith("| ")) {
+        span.classList.add("res-console-line--body");
       } else if (line.startsWith("[error]")) {
         span.classList.add("res-console-line--error");
       }

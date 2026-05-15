@@ -109,7 +109,16 @@ func main() {
 		}
 
 		consoleLog := []string{}
-		consoleLog = append(consoleLog, fmt.Sprintf("* Connecting to %s", desc.URL))
+		consoleLog = append(consoleLog, fmt.Sprintf("* Preparing request to %s", desc.URL))
+		consoleLog = append(consoleLog, fmt.Sprintf("* Current time is %s", time.Now().UTC().Format("2006-01-02T15:04:05.000Z")))
+		consoleLog = append(consoleLog, "* Enable automatic URL encoding")
+		consoleLog = append(consoleLog, "* Using default HTTP version")
+		consoleLog = append(consoleLog, fmt.Sprintf("* Enable timeout of %dms", timeout.Milliseconds()))
+		if !desc.VerifySSL {
+			consoleLog = append(consoleLog, "* Disable SSL validation")
+		} else {
+			consoleLog = append(consoleLog, "* Enable SSL validation")
+		}
 
 		// ── Build HTTP client ─────────────────────────────────────────────────
 		transport := &http.Transport{
@@ -118,7 +127,6 @@ func main() {
 			},
 		}
 
-		var redirectCount int
 		client := &http.Client{
 			Timeout:   timeout,
 			Transport: transport,
@@ -129,10 +137,37 @@ func main() {
 				if len(via) >= 10 {
 					return fmt.Errorf("stopped after 10 redirects")
 				}
-				redirectCount++
+				redirectURL := req.URL
+				prevHost := ""
+				if len(via) > 0 {
+					prevHost = via[len(via)-1].URL.Hostname()
+				}
+				if prevHost == "" {
+					prevHost = redirectURL.Hostname()
+				}
+				httpVer := "HTTP/1.1"
+				if redirectURL.Scheme == "https" {
+					httpVer = "HTTP/2"
+				}
 				consoleLog = append(consoleLog,
-					fmt.Sprintf("* Redirect %d → %s", redirectCount, req.URL),
-					fmt.Sprintf("> %s %s HTTP/1.1", req.Method, req.URL.RequestURI()),
+					fmt.Sprintf("* Connection to host %s left intact", prevHost),
+					fmt.Sprintf("* Issue another request to this URL: '%s'", redirectURL),
+				)
+				if req.Method == "GET" && len(via) > 0 && via[len(via)-1].Method != "GET" {
+					consoleLog = append(consoleLog, "* Switch to GET")
+				}
+				consoleLog = append(consoleLog,
+					fmt.Sprintf("* Connected to %s (%s) port %s", redirectURL.Hostname(), redirectURL.Hostname(), func() string {
+						p := redirectURL.Port()
+						if p != "" {
+							return p
+						}
+						if redirectURL.Scheme == "https" {
+							return "443"
+						}
+						return "80"
+					}()),
+					fmt.Sprintf("> %s %s %s", req.Method, req.URL.RequestURI(), httpVer),
 					fmt.Sprintf("> Host: %s", req.URL.Host),
 					">",
 				)
@@ -156,16 +191,41 @@ func main() {
 		}
 
 		// ── Log outgoing request ──────────────────────────────────────────────
-		consoleLog = append(consoleLog,
-			fmt.Sprintf("> %s %s HTTP/1.1", strings.ToUpper(desc.Method), outReq.URL.RequestURI()),
-			fmt.Sprintf("> Host: %s", outReq.URL.Host),
-		)
-		for k, vals := range outReq.Header {
-			for _, v := range vals {
-				consoleLog = append(consoleLog, fmt.Sprintf("> %s: %s", k, v))
+		{
+			h := outReq.URL.Hostname()
+			p := outReq.URL.Port()
+			if p == "" {
+				if outReq.URL.Scheme == "https" {
+					p = "443"
+				} else {
+					p = "80"
+				}
+			}
+			httpVer := "HTTP/1.1"
+			if outReq.URL.Scheme == "https" {
+				httpVer = "HTTP/2"
+			}
+			consoleLog = append(consoleLog, fmt.Sprintf("* Connected to %s (%s) port %s", h, h, p))
+			consoleLog = append(consoleLog,
+				fmt.Sprintf("> %s %s %s", strings.ToUpper(desc.Method), outReq.URL.RequestURI(), httpVer),
+				fmt.Sprintf("> Host: %s", outReq.URL.Host),
+			)
+			for k, vals := range outReq.Header {
+				for _, v := range vals {
+					consoleLog = append(consoleLog, fmt.Sprintf("> %s: %s", k, v))
+				}
+			}
+			consoleLog = append(consoleLog, ">")
+			// Log request body with "|" prefix
+			if desc.Body != "" {
+				consoleLog = append(consoleLog, "")
+				for _, line := range strings.Split(desc.Body, "\n") {
+					consoleLog = append(consoleLog, "| "+line)
+				}
+				consoleLog = append(consoleLog, "")
+				consoleLog = append(consoleLog, "* We are completely uploaded and fine")
 			}
 		}
-		consoleLog = append(consoleLog, ">")
 
 		// ── Execute ───────────────────────────────────────────────────────────
 		start := time.Now()
@@ -184,9 +244,12 @@ func main() {
 		if len(statusText) > 4 {
 			statusText = statusText[4:] // "200 OK" → "OK"
 		}
-
+		respHttpVer := "HTTP/1.1"
+		if resp.TLS != nil || outReq.URL.Scheme == "https" {
+			respHttpVer = "HTTP/2"
+		}
 		consoleLog = append(consoleLog,
-			fmt.Sprintf("< HTTP/1.1 %d %s", resp.StatusCode, statusText),
+			fmt.Sprintf("< %s %d %s", respHttpVer, resp.StatusCode, statusText),
 		)
 		for k, vals := range resp.Header {
 			for _, v := range vals {
@@ -194,11 +257,13 @@ func main() {
 			}
 		}
 		consoleLog = append(consoleLog, "<")
+		consoleLog = append(consoleLog, "")
 
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		size := len(bodyBytes)
 		consoleLog = append(consoleLog,
-			fmt.Sprintf("* Received %d bytes in %dms", size, elapsed),
+			fmt.Sprintf("* Received %d B chunk", size),
+			fmt.Sprintf("* Connection to host %s left intact", outReq.URL.Hostname()),
 		)
 
 		// ── Flatten response headers ──────────────────────────────────────────

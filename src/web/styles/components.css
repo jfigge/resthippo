@@ -1285,9 +1285,7 @@
   color: var(--color-text);
 }
 
-.res-console-line {
-  display: block;
-}
+.res-console-line {}
 
 /* ">" lines — outgoing request (accent / blue) */
 .res-console-line--sent {
@@ -1307,6 +1305,11 @@
 /* "[error]" lines — errors */
 .res-console-line--error {
   color: var(--color-error);
+}
+
+/* "|" lines — request body */
+.res-console-line--body {
+  color: var(--color-warning);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

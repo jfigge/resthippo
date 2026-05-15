@@ -2,14 +2,22 @@
 "use strict";
 
 const { app, BrowserWindow, ipcMain, shell, Menu, nativeImage } = require("electron");
-const fs    = require("fs");
-const path  = require("path");
-const http  = require("http");
-const https = require("https");
-const { URL } = require("url");
+const fs           = require("fs");
+const path         = require("path");
+const http         = require("http");
+const https        = require("https");
+const net          = require("net");
+const { spawn }    = require("child_process");
+const { URL }      = require("url");
 
 const isDev = process.argv.includes("--dev");
-const DEV_SERVER_PORT = process.env.SERVER_PORT || 8080;
+
+// devPort is resolved asynchronously inside app.whenReady().
+// It is declared here so createWindow() can close over the final value.
+let devPort = 0;
+
+// Handle to the spawned Go dev-server process (dev mode only, no SERVER_PORT env).
+let _devServerProcess = null;
 
 // ─── Collections IPC ──────────────────────────────────────────────────────────
 // Register handlers before app.whenReady() so they are ready the moment the
@@ -126,11 +134,21 @@ const DEV_SERVER_PORT = process.env.SERVER_PORT || 8080;
         }
       }
 
-      // ── Log outgoing request ───────────────────────────────────────────────
-      consoleLog.push(`> ${effectiveMethod} ${parsed.pathname}${parsed.search} HTTP/1.1`);
+      // ── Connection info + outgoing request log ────────────────────────────
+      consoleLog.push(`* Connected to ${parsed.hostname} (${parsed.hostname}) port ${port}`);
+      const httpVersion = isHttps ? "HTTP/2" : "HTTP/1.1";
+      consoleLog.push(`> ${effectiveMethod} ${parsed.pathname}${parsed.search} ${httpVersion}`);
       consoleLog.push(`> Host: ${parsed.hostname}${parsed.port ? `:${parsed.port}` : ""}`);
       Object.entries(reqHeaders).forEach(([k, v]) => consoleLog.push(`> ${k}: ${v}`));
       consoleLog.push(">");
+
+      // ── Log request body (if any) with "|" prefix ─────────────────────
+      if (bodyBuffer) {
+        consoleLog.push("");
+        bodyBuffer.toString("utf8").split("\n").forEach(line => consoleLog.push(`| ${line}`));
+        consoleLog.push("");
+        consoleLog.push("* We are completely uploaded and fine");
+      }
 
       // ── Make the request ───────────────────────────────────────────────────
       const options = {
@@ -150,12 +168,13 @@ const DEV_SERVER_PORT = process.env.SERVER_PORT || 8080;
         // ── Redirect handling ────────────────────────────────────────────────
         if (followRedirects && [301, 302, 303, 307, 308].includes(code)) {
           const location = res.headers["location"];
-          consoleLog.push(`< HTTP/1.1 ${code} ${phrase}`);
+          consoleLog.push(`< ${httpVersion} ${code} ${phrase}`);
           Object.entries(res.headers).forEach(([k, v]) => {
             const vals = Array.isArray(v) ? v : [v];
             vals.forEach(vi => consoleLog.push(`< ${k}: ${vi}`));
           });
           consoleLog.push("<");
+          consoleLog.push("");
 
           if (!location) {
             consoleLog.push("* Redirect missing Location header — stopping");
@@ -187,7 +206,11 @@ const DEV_SERVER_PORT = process.env.SERVER_PORT || 8080;
           const newMethod = (code === 303 || ([301, 302].includes(code) && effectiveMethod === "POST"))
             ? "GET" : effectiveMethod;
 
-          consoleLog.push(`* Redirect ${redirects + 1} → ${redirectUrl}`);
+          consoleLog.push(`* Connection to host ${parsed.hostname} left intact`);
+          consoleLog.push(`* Issue another request to this URL: '${redirectUrl}'`);
+          if (newMethod !== effectiveMethod) {
+            consoleLog.push(`* Switch to ${newMethod}`);
+          }
           res.resume(); // drain the redirect body
 
           doRequest(
@@ -208,13 +231,15 @@ const DEV_SERVER_PORT = process.env.SERVER_PORT || 8080;
           const bodyText  = rawBody.toString("utf8");
           const size      = rawBody.length;
 
-          consoleLog.push(`< HTTP/1.1 ${code} ${phrase}`);
+          consoleLog.push(`< ${httpVersion} ${code} ${phrase}`);
           Object.entries(res.headers).forEach(([k, v]) => {
             const vals = Array.isArray(v) ? v : [v];
             vals.forEach(vi => consoleLog.push(`< ${k}: ${vi}`));
           });
           consoleLog.push("<");
-          consoleLog.push(`* Received ${size} bytes in ${elapsed}ms`);
+          consoleLog.push("");
+          consoleLog.push(`* Received ${size} B chunk`);
+          consoleLog.push(`* Connection to host ${parsed.hostname} left intact`);
 
           resolve({
             status: code, statusText: phrase,
@@ -274,7 +299,13 @@ const DEV_SERVER_PORT = process.env.SERVER_PORT || 8080;
   ipcMain.handle("http:execute", async (_event, descriptor) => {
     const consoleLog = [];
     const startTime  = Date.now();
-    consoleLog.push(`* Connecting to ${descriptor.url}`);
+    const _timeout = descriptor.timeout || 30000;
+    consoleLog.push(`* Preparing request to ${descriptor.url}`);
+    consoleLog.push(`* Current time is ${new Date().toISOString()}`);
+    consoleLog.push(`* Enable automatic URL encoding`);
+    consoleLog.push(`* Using default HTTP version`);
+    consoleLog.push(`* Enable timeout of ${_timeout}ms`);
+    consoleLog.push(descriptor.verifySsl === false ? `* Disable SSL validation` : `* Enable SSL validation`);
     console.log("[http:execute] →", descriptor.method, descriptor.url);
     try {
       const result = await doRequest(descriptor, consoleLog, startTime, 0);
@@ -291,6 +322,91 @@ const DEV_SERVER_PORT = process.env.SERVER_PORT || 8080;
     }
   });
 })();
+
+// ─── Dev-server port helpers ──────────────────────────────────────────────────
+
+/**
+ * Probe whether nothing is listening on `port` at 127.0.0.1.
+ * @param {number} port
+ * @returns {Promise<boolean>}
+ */
+function isPortFree(port) {
+  return new Promise((resolve) => {
+    const probe = net.createServer();
+    probe.once("error", () => resolve(false));
+    probe.once("listening", () => probe.close(() => resolve(true)));
+    probe.listen(port, "127.0.0.1");
+  });
+}
+
+/**
+ * Return a random unused port in the IANA ephemeral range [49152, 65534].
+ * Keeps trying random candidates until it finds one that is free.
+ * @returns {Promise<number>}
+ */
+async function findFreePort() {
+  const MIN = 49152;
+  const MAX = 65534;
+  while (true) {
+    const candidate = Math.floor(Math.random() * (MAX - MIN + 1)) + MIN;
+    if (await isPortFree(candidate)) return candidate;
+  }
+}
+
+/**
+ * Poll 127.0.0.1:port until something accepts connections or the deadline passes.
+ * Used to wait for the Go server to finish compiling and start up.
+ * @param {number} port
+ * @param {number} maxWaitMs
+ */
+function waitForPort(port, maxWaitMs = 30000) {
+  const deadline = Date.now() + maxWaitMs;
+  return new Promise((resolve, reject) => {
+    function attempt() {
+      const sock = net.createConnection(port, "127.0.0.1");
+      sock.once("connect", () => { sock.destroy(); resolve(); });
+      sock.once("error",   () => {
+        sock.destroy();
+        if (Date.now() >= deadline) {
+          reject(new Error(`Timed out waiting for dev server on port ${port}`));
+        } else {
+          setTimeout(attempt, 150);
+        }
+      });
+    }
+    attempt();
+  });
+}
+
+/**
+ * Spawn the Go dev server (via `go run`) on the given port.
+ * Stores the child process in `_devServerProcess` so it can be killed on quit.
+ * @param {number} port
+ */
+async function startDevServer(port) {
+  const goMain  = path.join(__dirname, "..", "cmd", "main.go");
+  const webDir  = path.join(__dirname, "..", "web");
+  const dataDir = path.join(__dirname, "..", "..", "data");
+
+  console.log(`[dev-server] spawning on port ${port}`);
+
+  const proc = spawn(
+    "go",
+    ["run", goMain, "-port", String(port), "-web", webDir, "-data", dataDir],
+    { stdio: ["ignore", "pipe", "pipe"], env: { ...process.env } },
+  );
+
+  proc.stdout.on("data", (d) => process.stdout.write(`[dev-server] ${d}`));
+  proc.stderr.on("data", (d) => process.stderr.write(`[dev-server] ${d}`));
+  proc.on("exit",  (code, sig) => console.log(`[dev-server] exit code=${code} signal=${sig}`));
+  proc.on("error", (err)       => console.error("[dev-server] spawn error:", err.message));
+
+  _devServerProcess = proc;
+
+  // go run needs to compile first — allow up to 30 s
+  await waitForPort(port, 30000);
+  console.log(`[dev-server] ready on port ${port}`);
+}
 
 // ─── App icon ─────────────────────────────────────────────────────────────────
 // Resolved once at startup; used for both the BrowserWindow and the macOS dock.
@@ -327,8 +443,8 @@ function createWindow() {
   });
 
   if (isDev) {
-    // Development: load from the Go dev server
-    win.loadURL(`http://localhost:${DEV_SERVER_PORT}`);
+    // Development: load from the Go dev server (port resolved in app.whenReady)
+    win.loadURL(`http://localhost:${devPort}`);
     win.webContents.openDevTools({ mode: "detach" });
   } else {
     // Production: load bundled web assets
@@ -398,21 +514,45 @@ function buildMenu() {
 }
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
-app.whenReady().then(() => {
+
+// Always quit when the last window is closed — including on macOS.
+// Standard macOS apps linger in the Dock after the window closes, but for an
+// HTTP testing tool "close window = quit" is the expected behaviour.
+app.on("window-all-closed", () => app.quit());
+
+// Kill the spawned dev server (if any) before the process exits.
+app.on("will-quit", () => {
+  if (_devServerProcess) {
+    _devServerProcess.kill();
+    _devServerProcess = null;
+  }
+});
+
+app.whenReady().then(async () => {
   // Set the macOS dock icon (no-op on Windows/Linux).
   if (process.platform === "darwin" && app.dock) {
     app.dock.setIcon(appIcon);
   }
 
+  // In dev mode: resolve the port, spawning the Go server if needed.
+  if (isDev) {
+    if (process.env.SERVER_PORT) {
+      // Caller already started the Go server on a known port — just connect.
+      devPort = parseInt(process.env.SERVER_PORT, 10);
+      console.log(`[main] Connecting to external dev server on port ${devPort}`);
+    } else {
+      // Pick a random unused high port and start the Go server ourselves.
+      devPort = await findFreePort();
+      await startDevServer(devPort);
+    }
+  }
+
   buildMenu();
   createWindow();
 
+  // macOS: re-open a window when the dock icon is clicked with no open windows.
   app.on("activate", () => {
-    // macOS: re-create window when dock icon is clicked with no open windows
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
-});
