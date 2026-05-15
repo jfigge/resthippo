@@ -281,6 +281,74 @@ export const PopupManager = {
   },
 
   /**
+   * Show a lightweight informational dialog with a single "OK" button.
+   * Does NOT require an active popup — suitable for any in-page notification.
+   *
+   * @param {{ title?: string, message?: string, detail?: string }} opts
+   *   title   — Dialog title (default: "Info")
+   *   message — Primary message text
+   *   detail  — Optional secondary / pre-formatted text shown in a code block
+   */
+  notify({ title = "Info", message = "", detail = "" } = {}) {
+    _ensureMask();
+
+    const dlg = document.createElement("div");
+    dlg.className = "popup popup-notify";
+    dlg.setAttribute("role", "dialog");
+    dlg.setAttribute("aria-modal", "true");
+    dlg.setAttribute("aria-label", title);
+
+    const detailHtml = detail
+      ? `<pre class="popup-notify-detail">${detail.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`
+      : "";
+
+    dlg.innerHTML = `
+      <div class="popup-header">
+        <span class="popup-title">${title}</span>
+      </div>
+      <div class="popup-body popup-notify-body">
+        ${message ? `<p>${message}</p>` : ""}
+        ${detailHtml}
+      </div>
+      <div class="popup-footer">
+        <button class="popup-btn popup-btn--primary" data-action="ok">OK</button>
+      </div>
+    `;
+    document.body.appendChild(dlg);
+
+    const prevActivePopup = _activePopup;
+    _activePopup = { element: dlg, onMaskClick: close_ };
+    _maskEl.classList.add("popup-overlay--visible");
+
+    requestAnimationFrame(() => dlg.classList.add("popup--visible"));
+
+    const okBtn = dlg.querySelector("[data-action='ok']");
+    requestAnimationFrame(() => okBtn.focus());
+
+    function close_() {
+      _activePopup = prevActivePopup;
+      if (!_activePopup) _maskEl.classList.remove("popup-overlay--visible");
+      dlg.classList.remove("popup--visible");
+      const onEnd = () => {
+        dlg.removeEventListener("transitionend", onEnd);
+        if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+      };
+      dlg.addEventListener("transitionend", onEnd);
+      setTimeout(() => { if (dlg.parentNode) dlg.parentNode.removeChild(dlg); }, 400);
+    }
+
+    okBtn.addEventListener("click", close_);
+
+    function onKey(e) {
+      if (e.key === "Escape" || e.key === "Enter") {
+        document.removeEventListener("keydown", onKey);
+        close_();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+  },
+
+  /**
    * Show a context menu at the given viewport coordinates.
    * The overlay mask is made interactive but transparent — clicking anywhere
    * outside the menu closes it immediately with no confirmation.

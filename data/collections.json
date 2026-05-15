@@ -237,11 +237,11 @@
     "proxyEnabled": false,
     "proxyUrl": "",
     "splitterNav": 240,
-    "splitterRes": 915,
+    "splitterRes": 403,
     "splitterRowRes": 480,
     "listHeaders": true,
     "showUrlPreview": false,
-    "selectedRequestId": "req-6",
+    "selectedRequestId": "a3ba1a4e-75d1-4b7f-abbc-8d8745dd55ce",
     "removeHeaders": false
   }
 }

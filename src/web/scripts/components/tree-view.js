@@ -407,17 +407,23 @@ export class TreeView {
 
   /**
    * Build a cURL command for a request, or for every request in a collection,
-   * then write it to the clipboard.
+   * write it to the clipboard, then show a confirmation dialog.
    * @param {object} node
    */
   #generateCurl(node) {
     const curl = this.#buildCurl(node);
     if (!curl) return;
+
     navigator.clipboard.writeText(curl).then(() => {
-      // A toast/notification here would be ideal; for now log to console
-      console.info("[wurl] cURL copied to clipboard:\n", curl);
+      PopupManager.notify({
+        title:   "Copied to Clipboard",
+        message: "The cURL command has been copied to your clipboard.",
+      });
     }).catch(() => {
-      console.info("[wurl] cURL statement:\n", curl);
+      PopupManager.notify({
+        title:   "Copy Failed",
+        message: "Unable to write to the clipboard. Please try again.",
+      });
     });
   }
 
@@ -512,28 +518,160 @@ export class TreeView {
   }
 
   /**
-   * Build a cURL command string.
+   * Build a cURL command string for a request node, respecting all editor
+   * settings: enabled/disabled params, headers, body type, and auth.
    * For a collection, concatenates the cURL of every contained request.
+   *
+   * Mirrors the assembly logic in RequestEditor.#sendRequest() so the
+   * generated command matches what the Send button actually transmits.
    */
   #buildCurl(node) {
     if (node.type === "request") {
-      const method = node.method ?? "GET";
-      const url    = node.url    || "<url>";
-      let   cmd    = "curl";
+      const method  = node.method ?? "GET";
+      const baseUrl = node.url    || "<url>";
+
+      // ── 1. URL — append enabled, non-blank query parameters ──────────────
+      const params        = Array.isArray(node.params) ? node.params : [];
+      const enabledParams = params.filter(p => p.enabled && p.name.trim());
+      let   finalUrl      = baseUrl;
+      if (enabledParams.length) {
+        const qs = enabledParams
+          .map(p => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`)
+          .join("&");
+        finalUrl += (baseUrl.includes("?") ? "&" : "?") + qs;
+      }
+
+      // ── 2. Headers — enabled array rows (new format) or legacy object ─────
+      const headers = {};
+      if (Array.isArray(node.headers)) {
+        node.headers
+          .filter(h => h.enabled && h.name.trim())
+          .forEach(h => { headers[h.name.trim()] = h.value; });
+      } else if (node.headers && typeof node.headers === "object") {
+        // Legacy: plain key→value object (no enabled flag)
+        Object.assign(headers, node.headers);
+      }
+
+      // ── 3. Auth — inject Authorization header when enabled ────────────────
+      const authEnabled = node.authEnabled ?? true;
+      const authType    = node.authType    ?? "none";
+      if (authEnabled && authType !== "none") {
+        switch (authType) {
+          case "basic": {
+            const { username = "", password = "" } = node.authBasic ?? {};
+            if (username || password) {
+              headers["Authorization"] = `Basic ${btoa(`${username}:${password}`)}`;
+            }
+            break;
+          }
+          case "bearer":
+            if (node.authBearer?.token)
+              headers["Authorization"] = `Bearer ${node.authBearer.token}`;
+            break;
+          case "oauth2":
+            if (node.authOAuth2?.token)
+              headers["Authorization"] = `Bearer ${node.authOAuth2.token}`;
+            break;
+          // aws-iam: Signature v4 requires request-time signing — not representable as static curl
+        }
+      }
+
+      // ── 4. Body — match RequestEditor body assembly by type ───────────────
+      const noBodyMethods = new Set(["GET", "HEAD"]);
+      const bodyType      = node.bodyType ?? "no-body";
+      let   body          = null;   // string payload for -d
+      let   bodyFilePath  = null;   // file path for --data-binary @path
+
+      if (!noBodyMethods.has(method)) {
+        switch (bodyType) {
+          case "form-data": {
+            // Fixed boundary (no Date.now()) so the curl output is stable/readable
+            const boundary = "----WurlFormBoundary";
+            const rows = (node.bodyFormRows ?? []).filter(r => r.enabled && r.name.trim());
+            if (rows.length > 0) {
+              const parts = rows.map(r =>
+                `--${boundary}\r\nContent-Disposition: form-data; name="${r.name}"\r\n\r\n${r.value}`
+              ).join("\r\n");
+              body = `${parts}\r\n--${boundary}--`;
+              if (!headers["Content-Type"])
+                headers["Content-Type"] = `multipart/form-data; boundary=${boundary}`;
+            }
+            break;
+          }
+          case "form-urlencoded": {
+            const sp = new URLSearchParams();
+            (node.bodyFormRows ?? [])
+              .filter(r => r.enabled && r.name.trim())
+              .forEach(r => sp.append(r.name, r.value));
+            const encoded = sp.toString();
+            if (encoded) {
+              body = encoded;
+              if (!headers["Content-Type"])
+                headers["Content-Type"] = "application/x-www-form-urlencoded";
+            }
+            break;
+          }
+          case "json":
+            if (node.bodyText?.trim()) {
+              body = node.bodyText;
+              if (!headers["Content-Type"]) headers["Content-Type"] = "application/json";
+            }
+            break;
+          case "yaml":
+            if (node.bodyText?.trim()) {
+              body = node.bodyText;
+              if (!headers["Content-Type"]) headers["Content-Type"] = "application/x-yaml";
+            }
+            break;
+          case "xml":
+            if (node.bodyText?.trim()) {
+              body = node.bodyText;
+              if (!headers["Content-Type"]) headers["Content-Type"] = "application/xml";
+            }
+            break;
+          case "text":
+            if (node.bodyText?.trim()) {
+              body = node.bodyText;
+              if (!headers["Content-Type"]) headers["Content-Type"] = "text/plain";
+            }
+            break;
+          case "file":
+            if (node.bodyFilePath) {
+              bodyFilePath = node.bodyFilePath;
+            }
+            break;
+          default:
+            break; // "no-body" — leave body null
+        }
+      }
+
+      // ── 5. Assemble the curl command ──────────────────────────────────────
+      let cmd = "curl";
       if (method !== "GET") cmd += ` -X ${method}`;
-      if (node.headers && Object.keys(node.headers).length > 0) {
-        Object.entries(node.headers).forEach(([k, v]) => {
-          cmd += ` \\\n  -H "${k}: ${v}"`;
-        });
+
+      // Headers: escape backslashes and double-quotes inside header values
+      Object.entries(headers).forEach(([k, v]) => {
+        const safe = String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        cmd += ` \\\n  -H "${k}: ${safe}"`;
+      });
+
+      // Body
+      if (bodyFilePath !== null) {
+        // Use --data-binary so the file is sent byte-for-byte
+        const safePath = bodyFilePath.replace(/'/g, "'\\''");
+        cmd += ` \\\n  --data-binary '@${safePath}'`;
+      } else if (body !== null) {
+        // Single-quote the body; escape any embedded single quotes
+        const safeBody = String(body).replace(/'/g, "'\\''");
+        cmd += ` \\\n  -d '${safeBody}'`;
       }
-      if (node.body) {
-        // Escape single quotes inside the body
-        const body = String(node.body).replace(/'/g, "'\\''");
-        cmd += ` \\\n  -d '${body}'`;
-      }
-      cmd += ` "${url}"`;
+
+      // URL — double-quoted to handle spaces / special chars
+      const safeUrl = finalUrl.replace(/"/g, '\\"');
+      cmd += ` "${safeUrl}"`;
       return cmd;
     }
+
     if (node.type === "collection") {
       const requests = this.#collectRequests(node.children ?? []);
       return requests.map((r) => this.#buildCurl(r)).join("\n\n");

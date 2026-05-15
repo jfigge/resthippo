@@ -191,33 +191,44 @@
 
 /* ── Tree context menu ────────────────────────────────────────────────────── */
 
+/*
+ * POPUP MENU STANDARD — matches .req-method-select visual language:
+ *   background : var(--color-surface-1)   (one step up from base)
+ *   border     : 1px solid var(--color-surface-2)
+ *   radius     : var(--radius-sm)
+ *   font       : var(--font-mono), weight 600
+ *   hover bg   : var(--color-surface-2)   (one step up from menu bg)
+ *
+ * Apply these same tokens to any future popup / dropdown menu.
+ */
 .tree-ctxmenu {
   position: fixed;
   z-index: 101;
   min-width: 190px;
-  background: var(--color-base);
+  background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-md);
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.45),
-    0 2px 6px rgba(0, 0, 0, 0.25);
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 1px 3px  rgba(0, 0, 0, 0.15);
   padding: var(--space-1) 0;
   display: flex;
   flex-direction: column;
-  /* Subtle pop-in */
   animation: ctxmenu-open 0.08s ease-out;
 }
 
 @keyframes ctxmenu-open {
-  from { opacity: 0; transform: scale(0.96); }
+  from { opacity: 0; transform: scale(0.97); }
   to   { opacity: 1; transform: scale(1);    }
 }
 
 .tree-ctxmenu__item {
   width: 100%;
   text-align: left;
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-1) var(--space-3);
+  font-family: var(--font-mono);
   font-size: var(--font-size-sm);
+  font-weight: 600;
   color: var(--color-text);
   background: transparent;
   border: none;
@@ -227,7 +238,8 @@
 }
 
 .tree-ctxmenu__item:hover {
-  background-color: var(--color-surface-1);
+  /* One surface step above the menu background */
+  background-color: var(--color-surface-2);
 }
 
 .tree-ctxmenu__item--danger {
@@ -1529,6 +1541,43 @@
 
 .popup-confirm-body p {
   margin: 0;
+}
+
+/* Notify (info) popup */
+.popup-notify {
+  min-width: 380px;
+  max-width: 620px;
+  z-index: 102;
+}
+
+.popup-notify-body {
+  font-size: var(--font-size-base);
+  color: var(--color-subtext);
+  line-height: 1.6;
+}
+
+.popup-notify-body p {
+  margin: 0 0 var(--space-3) 0;
+}
+
+.popup-notify-body p:only-child {
+  margin-bottom: 0;
+}
+
+.popup-notify-detail {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-0);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm, 4px);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: var(--font-size-xs);
+  color: var(--color-text);
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 320px;
+  overflow-y: auto;
+  line-height: 1.5;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
