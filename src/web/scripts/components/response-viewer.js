@@ -266,7 +266,7 @@ export class ResponseViewer {
       ct.className = "res-headers-table";
       // Header row
       const hdr = ct.insertRow();
-      ["Name", "Value", "Attributes"].forEach((lbl) => {
+      ["Name", "Attributes", "Value"].forEach((lbl) => {
         const th = document.createElement("th");
         th.textContent = lbl;
         th.style.fontWeight = "700";
@@ -287,8 +287,8 @@ export class ResponseViewer {
         const row   = ct.insertRow();
         row.title   = raw;
         row.insertCell().textContent = name;
-        row.insertCell().textContent = value;
         row.insertCell().textContent = attrs.join("; ");
+        row.insertCell().textContent = value;
       });
       cookiesPane.appendChild(ct);
     } else {

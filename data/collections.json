@@ -7,6 +7,54 @@
       "name": "Example API",
       "children": [
         {
+          "id": "a3ba1a4e-75d1-4b7f-abbc-8d8745dd55ce",
+          "type": "request",
+          "name": "token",
+          "method": "POST",
+          "url": "https://login-dev.qacustomer.teradata.com/as/token.oauth2",
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "18a677e9-e8b0-4f98-87cf-1636905ddcf8",
+              "name": "grant_type",
+              "value": "password",
+              "enabled": true
+            },
+            {
+              "id": "8a9bdec2-fdcd-4224-b922-55b3ffa502a7",
+              "name": "username",
+              "value": "sa-ce-gns-dev",
+              "enabled": true
+            },
+            {
+              "id": "7a52cbb3-e674-4948-ad6f-44e7e5d9b23d",
+              "name": "password",
+              "value": "aQOANeHfwiS0jEvu1V2NBlXa3B1Qdi8R",
+              "enabled": true
+            },
+            {
+              "id": "839fef9e-2106-4c6a-a375-2da960eef184",
+              "name": "scope",
+              "value": "openid profile email",
+              "enabled": true
+            },
+            {
+              "id": "fb50bd55-245e-485e-bc42-95708dab239a",
+              "name": "client_id",
+              "value": "sso-confidential",
+              "enabled": true
+            },
+            {
+              "id": "13552b8f-34fd-4713-9b11-efcaa39a76a7",
+              "name": "client_secret",
+              "value": "El5B3JmIPKKy1E6l8Gvh5M7pZHG6wo1uqAZo1yP7nyyoqd6lhsAzxiNcqRYL5cvB",
+              "enabled": true
+            }
+          ],
+          "bodyText": "",
+          "bodyFilePath": ""
+        },
+        {
           "id": "req-3",
           "type": "request",
           "name": "Create user",
@@ -200,7 +248,7 @@
     "splitterRowRes": 480,
     "listHeaders": true,
     "showUrlPreview": false,
-    "selectedRequestId": "req-6",
+    "selectedRequestId": "req-3",
     "removeHeaders": false
   }
 }
