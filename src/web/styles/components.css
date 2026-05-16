@@ -1897,12 +1897,6 @@
   opacity: 0.85;
 }
 
-/* Header close button is disabled while JSON is invalid */
-.vars-popup .popup-close:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  pointer-events: none;
-}
 
 /* KV (table) mode — wraps the header row, scrollable list, and add bar */
 .vars-kv-wrap {
