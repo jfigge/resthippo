@@ -84,6 +84,7 @@
   display: none;               /* hidden by default; JS toggles this */
   flex-shrink: 0;
   align-items: center;
+  gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
   height: 44px;
   min-height: 44px;
@@ -93,6 +94,12 @@
 
 .nav-settings-bar.is-visible {
   display: flex;
+}
+
+/* When the bottom bar is visible (Remove Headers mode), hide the panel-header
+   Environment button so it only appears in the bottom bar. */
+#panel-nav:has(.nav-settings-bar.is-visible) .panel-header .btn-environment {
+  display: none;
 }
 
 /* ── Main layout container ────────────────────────────────────────────────── */

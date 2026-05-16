@@ -573,6 +573,11 @@ function applySettings(settings) {
       header.style.display = remove ? "none" : "";
     });
 
+    // Params / headers column-label rows
+    document.querySelectorAll(".params-header-row").forEach((row) => {
+      row.style.display = remove ? "none" : "";
+    });
+
     // App-level header (contains the logo, subtitle and primary settings button)
     const appHeader = document.getElementById("app-header");
     if (appHeader) appHeader.style.display = remove ? "none" : "";
