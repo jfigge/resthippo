@@ -164,6 +164,16 @@ export class VariablesPopup {
     el.querySelector(".vars-add-btn").addEventListener("click", () => this.#addRow());
     this.#resetBtn.addEventListener("click", () => this.#handleReset());
 
+    // Escape closes the popup (unless the Reset confirm state is active,
+    // in which case the document-level Escape handler in #handleReset takes
+    // priority and cancels the confirm instead).
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !this.#resetCleanup) {
+        e.stopPropagation();
+        this.#doClose();
+      }
+    });
+
     // List-level drag events (fires even when cursor is over the phantom)
     this.#kvListEl.addEventListener("dragover", (e) => {
       if (!this.#dragSrcId) return;

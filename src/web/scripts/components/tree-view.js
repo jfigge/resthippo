@@ -11,6 +11,7 @@
  * Events dispatched on window:
  *   wurl:request-selected    { detail: node }   — user clicked a request
  *   wurl:collections-changed { detail: items }  — tree was mutated (add/remove)
+ *   wurl:folder-vars-open    { nodeId, folderName, variables } — user opened folder vars
  */
 
 "use strict";
@@ -195,6 +196,17 @@ export class TreeView {
             "separator",
             { label: "Duplicate",     action: () => this.#duplicateNode(node.id) },
             { label: "Generate cURL", action: () => this.#generateCurl(node)     },
+            "separator",
+            {
+              label: "Variables",
+              action: () => {
+                const liveNode = this.#findNode(this.#items, node.id) ?? node;
+                window.dispatchEvent(new CustomEvent("wurl:folder-vars-open", {
+                  detail: { nodeId: liveNode.id, folderName: liveNode.name, variables: liveNode.variables ?? {} },
+                  bubbles: true,
+                }));
+              },
+            },
             "separator",
             { label: "Delete", danger: true, action: () => this.#deleteNode(node.id) },
           ]
@@ -784,10 +796,12 @@ export class TreeView {
         }
       });
 
-      // Right-click: context menu
+      // Right-click: select the row then show context menu
       row.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         e.stopPropagation();
+        this.#activeCollectionId = node.id;
+        this.#setActiveRow(li);
         this.#showContextMenu(node, parentCollectionId, e.clientX, e.clientY);
       });
 
@@ -826,10 +840,12 @@ export class TreeView {
         }
       });
 
-      // Right-click: context menu
+      // Right-click: select the request then show context menu
       row.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         e.stopPropagation();
+        if (parentCollectionId) this.#activeCollectionId = parentCollectionId;
+        this.#selectRequest(node, li);
         this.#showContextMenu(node, parentCollectionId, e.clientX, e.clientY);
       });
 

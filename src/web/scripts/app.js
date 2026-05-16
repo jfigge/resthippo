@@ -523,21 +523,43 @@ function initEventBus() {
 
   // ── Variable events ──────────────────────────────────────────────────────
 
+  /** Open the variables popup for a folder node. */
+  window.addEventListener("wurl:folder-vars-open", (e) => {
+    const { nodeId, folderName, variables } = e.detail;
+    varsPopup.open({
+      envId:      nodeId,
+      envName:    folderName,
+      variables:  variables ?? {},
+      bulkEditor: currentSettings.varsBulkEditor ?? true,
+    });
+  });
+
   /**
-   * Persist variables for an environment and keep `currentEnvs` in sync so
-   * subsequent opens of the popup always show the latest values.
+   * Persist variables and keep in-memory state in sync.
+   * The `envId` field doubles as a folder-node ID when it doesn't match any
+   * environment — in that case the variables are stored on the tree node.
    */
   window.addEventListener("wurl:vars-save", (e) => {
     const { envId, variables } = e.detail;
-    // Update in-memory environment state
-    currentEnvs = {
-      ...currentEnvs,
-      environments: currentEnvs.environments.map(env =>
-        env.id === envId ? { ...env, variables } : env,
-      ),
-    };
-    // Persist to <envId>.json (env file)
-    saveEnvVariables(envId, variables);
+
+    const isEnv = currentEnvs.environments.some(env => env.id === envId);
+
+    if (isEnv) {
+      // Update in-memory environment state
+      currentEnvs = {
+        ...currentEnvs,
+        environments: currentEnvs.environments.map(env =>
+          env.id === envId ? { ...env, variables } : env,
+        ),
+      };
+      saveEnvVariables(envId, variables);
+    } else {
+      // It's a folder node — patch the tree and persist collections
+      if (treeView) {
+        treeView.updateNode(envId, { variables }, { silent: true });
+        saveCollections(treeView.getItems());
+      }
+    }
   });
 
   /** Persist the Bulk Editor toggle preference into settings. */
