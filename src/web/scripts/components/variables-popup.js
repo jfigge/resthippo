@@ -7,17 +7,19 @@
  * payload differ.
  *
  * Features:
- *   • Live JSON validation with a ✓ valid / ✗ invalid badge (same logic as
- *     the request-editor JSON body validator).
- *   • Auto-save (debounced) whenever the JSON is valid.
- *   • Reset button with an inline confirm pattern (one click → "Confirm?";
- *     second click → restores the JSON that was loaded when the popup opened;
- *     click elsewhere / Escape → cancel).
+ *   • "Bulk editor" toggle (remembered in settings):
+ *       - ON  → textarea with live JSON validation badge (same as request body)
+ *       - OFF → key/value row list identical in appearance to request params
+ *   • Live JSON validation (bulk mode only) — disables Close while invalid.
+ *   • Auto-save (debounced) whenever content changes and is valid.
+ *   • Reset button with inline confirm pattern (first click → "Confirm?",
+ *     second click → restore the JSON that was loaded when the popup opened).
  *   • Close button — flushes any pending valid save then closes.
  *   • User-resizable via CSS `resize: both`.
  *
  * Events dispatched on window:
- *   wurl:vars-save  { envId, variables }  — a valid JSON object was saved
+ *   wurl:vars-save                { envId, variables }
+ *   wurl:vars-bulk-editor-changed { bulkEditor: bool }
  */
 
 "use strict";
@@ -25,95 +27,86 @@
 import { PopupManager } from "../popup-manager.js";
 
 export class VariablesPopup {
-  /** @type {HTMLElement} */
-  #el;
-  /** @type {HTMLElement} */
-  #titleEl;
-  /** @type {HTMLTextAreaElement} */
-  #textareaEl;
-  /** @type {HTMLElement} */
-  #badgeEl;
-  /** @type {HTMLButtonElement} */
-  #resetBtn;
-  /** @type {HTMLButtonElement} */
-  #closeBtnEl;
-  /** @type {HTMLButtonElement} */
-  #closeHeaderBtn;
+  /** @type {HTMLElement} */ #el;
+  /** @type {HTMLElement} */ #titleEl;
+  /** @type {HTMLInputElement} */ #bulkToggleEl;
+  /** @type {HTMLElement} */ #badgeEl;
+  /** @type {HTMLElement} */ #hintEl;
+  /** @type {HTMLTextAreaElement} */ #textareaEl;
+  /** @type {HTMLElement} */ #kvWrapEl;
+  /** @type {HTMLElement} */ #kvListEl;
+  /** @type {HTMLButtonElement} */ #resetBtn;
+  /** @type {HTMLButtonElement} */ #closeHeaderBtn;
 
-  /** @type {string|null} */
-  #envId = null;
-
-  /** The JSON string that was loaded when the popup opened — used by Reset. */
+  /** @type {string|null} */   #envId = null;
+  /** JSON loaded at open() — used by Reset. */
   #initialJson = "{}";
+  /** true = textarea (bulk); false = KV rows */
+  #isBulkMode = true;
+  /** @type {{ id:string, name:string, value:string }[]} */
+  #rows = [];
 
-  /** @type {number|null} */
-  #validateTimer = null;
-  /** @type {number|null} */
-  #saveTimer = null;
+  // drag state
+  #dragSrcId   = null;
+  #dragHandled = false;
+  /** @type {HTMLElement} */ #phantom;
 
-  /**
-   * Cleanup function installed while the Reset button is in "Confirm?" state.
-   * Null when the button is in its normal state.
-   * @type {Function|null}
-   */
-  #resetCleanup = null;
+  /** @type {number|null} */ #validateTimer = null;
+  /** @type {number|null} */ #saveTimer     = null;
+  /** @type {Function|null} */ #resetCleanup = null;
 
-  static #VALIDATE_MS = 400;
+  static #VALIDATE_MS = 300;
   static #SAVE_MS     = 600;
 
   constructor() {
-    this.#el = this.#build();
+    this.#el      = this.#build();
+    this.#phantom = this.#buildPhantom();
   }
 
-  /** Root DOM element — required by PopupManager. */
-  get element() {
-    return this.#el;
-  }
+  get element() { return this.#el; }
 
   // ── Public API ──────────────────────────────────────────────────────────────
 
   /**
-   * Open the popup seeded with an environment's current variables.
-   *
-   * @param {{
-   *   envId:     string,
-   *   envName:   string,
-   *   variables: object,
-   * }} opts
+   * @param {{ envId:string, envName:string, variables:object, bulkEditor?:boolean }} opts
    */
-  open({ envId, envName, variables }) {
+  open({ envId, envName, variables, bulkEditor = true }) {
     this.#envId = envId;
-
-    // Dynamic title so users know which scope they're editing
     this.#titleEl.textContent = `Variables — ${envName}`;
     this.#el.setAttribute("aria-label", `Variables — ${envName}`);
 
-    // Populate editor with prettified JSON (or empty object on first use)
     const vars = (variables && typeof variables === "object" && !Array.isArray(variables))
-      ? variables
-      : {};
-    this.#textareaEl.value = Object.keys(vars).length > 0
+      ? variables : {};
+
+    this.#initialJson = Object.keys(vars).length > 0
       ? JSON.stringify(vars, null, 2)
       : "{}";
 
-    // Snapshot the initial content so Reset can restore it exactly
-    this.#initialJson = this.#textareaEl.value;
-
-    // Reset transient state
     this.#cancelResetConfirm();
     clearTimeout(this.#validateTimer);
     clearTimeout(this.#saveTimer);
 
-    // Validate whatever content we just loaded
-    this.#validateNow();
+    this.#isBulkMode = bulkEditor;
+    this.#bulkToggleEl.checked = this.#isBulkMode;
+
+    if (this.#isBulkMode) {
+      this.#textareaEl.value = this.#initialJson;
+      this.#applyMode();
+      this.#validateNow();
+    } else {
+      this.#rows = this.#jsonToRows(vars);
+      this.#applyMode();
+      this.#renderRows();
+    }
 
     PopupManager.open(this);
-    requestAnimationFrame(() => this.#textareaEl.focus());
+    requestAnimationFrame(() => {
+      if (this.#isBulkMode) this.#textareaEl.focus();
+    });
   }
 
-  /** Called by PopupManager when the user clicks the overlay mask. */
   onMaskClick() {
-    if (this.#closeBtnEl?.disabled) return; // block close while JSON is invalid
+    if (this.#closeHeaderBtn?.disabled) return;
     this.#doClose();
   }
 
@@ -133,6 +126,11 @@ export class VariablesPopup {
       </div>
       <div class="popup-body vars-popup-body">
         <div class="vars-toolbar">
+          <label class="params-toolbar-toggle-label vars-bulk-label"
+                 title="Toggle between bulk JSON editor and key/value row editor">
+            <input type="checkbox" class="params-toolbar-toggle vars-bulk-toggle" checked>
+            Bulk editor
+          </label>
           <span class="body-validate-badge vars-validate-badge" aria-live="polite" data-state=""></span>
           <span class="vars-hint">Valid JSON key/value pairs only</span>
         </div>
@@ -143,102 +141,302 @@ export class VariablesPopup {
           placeholder='{&#10;  "key": "value"&#10;}'
           aria-label="Variables JSON editor"
         ></textarea>
+        <div class="vars-kv-wrap" style="display:none">
+          <div class="vars-kv-header params-header-row">
+            <span></span><span>Name</span><span class="params-col-value">Value</span><span></span>
+          </div>
+          <div class="vars-kv-list params-list" aria-label="Variables"></div>
+          <div class="vars-kv-add-bar">
+            <button class="icon-btn vars-add-btn" title="Add variable" aria-label="Add variable">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/>
+              </svg>
+              Add
+            </button>
+          </div>
+        </div>
       </div>
       <div class="popup-footer vars-popup-footer">
-        <button class="popup-btn popup-btn--secondary vars-reset-btn" title="Reset variables to the values they had when this dialog was opened">Reset</button>
-        <button class="popup-btn popup-btn--primary  vars-close-btn">Close</button>
+        <button class="popup-btn popup-btn--secondary vars-reset-btn"
+                title="Reset variables to the values they had when this dialog was opened">Reset</button>
       </div>
     `;
 
     this.#titleEl        = el.querySelector(".vars-popup-title");
-    this.#textareaEl     = el.querySelector(".vars-textarea");
+    this.#bulkToggleEl   = el.querySelector(".vars-bulk-toggle");
     this.#badgeEl        = el.querySelector(".vars-validate-badge");
+    this.#hintEl         = el.querySelector(".vars-hint");
+    this.#textareaEl     = el.querySelector(".vars-textarea");
+    this.#kvWrapEl       = el.querySelector(".vars-kv-wrap");
+    this.#kvListEl       = el.querySelector(".vars-kv-list");
     this.#resetBtn       = el.querySelector(".vars-reset-btn");
-    this.#closeBtnEl     = el.querySelector(".vars-close-btn");
     this.#closeHeaderBtn = el.querySelector(".popup-close");
 
-    // Header × close
-    el.querySelector(".popup-close").addEventListener("click", () => this.#doClose());
-
-    // Footer close
-    el.querySelector(".vars-close-btn").addEventListener("click", () => this.#doClose());
-
-    // Live validation + auto-save on any keystroke
+    this.#closeHeaderBtn.addEventListener("click", () => this.#doClose());
+    this.#bulkToggleEl.addEventListener("change", () => this.#handleBulkToggle());
     this.#textareaEl.addEventListener("input", () => {
       this.#scheduleValidate();
       this.#scheduleAutoSave();
     });
-
-    // Reset with inline confirm
+    el.querySelector(".vars-add-btn").addEventListener("click", () => this.#addRow());
     this.#resetBtn.addEventListener("click", () => this.#handleReset());
+
+    // ── List-level drag-and-drop (fires even when cursor is over the phantom) ──
+    this.#kvListEl.addEventListener("dragover", (e) => {
+      if (!this.#dragSrcId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      // If the phantom drifted outside (e.g. dragged past last row), re-append it
+      if (!this.#kvListEl.contains(this.#phantom)) {
+        this.#kvListEl.appendChild(this.#phantom);
+      }
+    });
+
+    this.#kvListEl.addEventListener("drop", (e) => {
+      e.preventDefault();
+      if (!this.#dragSrcId) return;
+      this.#dragHandled = true;
+      const ph       = this.#phantom;
+      const children = [...this.#kvListEl.children];
+      const phIdx    = children.indexOf(ph);
+      if (phIdx === -1) { this.#finalizeDrag(); return; }
+      const rowEls   = children.filter(c => c.classList.contains("vars-kv-row"));
+      const insertAt = rowEls.filter((_r, i) => children.indexOf(rowEls[i]) < phIdx).length;
+      const srcIdx   = this.#rows.findIndex(r => r.id === this.#dragSrcId);
+      if (srcIdx !== -1) {
+        const [moved] = this.#rows.splice(srcIdx, 1);
+        this.#rows.splice(insertAt > srcIdx ? insertAt - 1 : insertAt, 0, moved);
+        this.#renderRows();
+        this.#saveFromRows();
+      }
+      this.#finalizeDrag();
+    });
 
     return el;
   }
 
-  // ── Validation ──────────────────────────────────────────────────────────────
+  #buildPhantom() {
+    const ph = document.createElement("div");
+    ph.className = "params-drop-phantom";
+    return ph;
+  }
+
+  // ── Mode switching ──────────────────────────────────────────────────────────
+
+  #applyMode() {
+    const bulk = this.#isBulkMode;
+    this.#textareaEl.style.display = bulk ? "" : "none";
+    this.#kvWrapEl.style.display   = bulk ? "none" : "";
+    this.#badgeEl.style.display    = bulk ? "" : "none";
+    this.#hintEl.style.display     = bulk ? "" : "none";
+    if (!bulk) this.#applyValidity(null); // clear invalid → re-enable Close
+  }
+
+  #handleBulkToggle() {
+    const nowBulk = this.#bulkToggleEl.checked;
+
+    if (nowBulk && !this.#isBulkMode) {
+      // Table → Bulk: serialise rows
+      const obj = this.#rowsToObject();
+      this.#textareaEl.value = Object.keys(obj).length > 0
+        ? JSON.stringify(obj, null, 2) : "{}";
+    } else if (!nowBulk && this.#isBulkMode) {
+      // Bulk → Table: parse current textarea
+      const text  = this.#textareaEl.value.trim();
+      if (text) {
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+            this.#rows = this.#jsonToRows(parsed);
+          }
+        } catch (_) { /* keep existing rows */ }
+      }
+    }
+
+    this.#isBulkMode = nowBulk;
+    this.#applyMode();
+
+    if (nowBulk) {
+      this.#validateNow();
+      requestAnimationFrame(() => this.#textareaEl.focus());
+    } else {
+      this.#renderRows();
+      this.#saveFromRows();
+    }
+
+    window.dispatchEvent(new CustomEvent("wurl:vars-bulk-editor-changed", {
+      detail: { bulkEditor: nowBulk }, bubbles: true,
+    }));
+  }
+
+  // ── KV helpers ──────────────────────────────────────────────────────────────
+
+  #jsonToRows(obj) {
+    return Object.entries(obj).map(([name, value]) => ({
+      id:    crypto.randomUUID(),
+      name,
+      value: typeof value === "string" ? value : JSON.stringify(value),
+    }));
+  }
+
+  #rowsToObject() {
+    const out = {};
+    for (const r of this.#rows) { if (r.name.trim()) out[r.name] = r.value; }
+    return out;
+  }
+
+  // ── KV row rendering ────────────────────────────────────────────────────────
+
+  #renderRows() {
+    if (!this.#kvListEl) return;
+    this.#kvListEl.innerHTML = "";
+
+    if (this.#rows.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "params-empty";
+      empty.textContent = "No variables — click  +  to add one.";
+      this.#kvListEl.appendChild(empty);
+      return;
+    }
+
+    this.#rows.forEach(row => this.#kvListEl.appendChild(this.#buildRow(row)));
+  }
+
+  #buildRow(row) {
+    const el = document.createElement("div");
+    el.className  = "vars-kv-row params-row";
+    el.dataset.id = row.id;
+    el.draggable  = true;
+
+    const handle = document.createElement("span");
+    handle.className = "params-drag-handle";
+    handle.setAttribute("aria-hidden", "true");
+    handle.title = "Drag to reorder";
+    handle.innerHTML = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+      <circle cx="3" cy="3"  r="1.4"/><circle cx="7" cy="3"  r="1.4"/>
+      <circle cx="3" cy="8"  r="1.4"/><circle cx="7" cy="8"  r="1.4"/>
+      <circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/>
+    </svg>`;
+
+    const nameIn = document.createElement("input");
+    nameIn.type = "text"; nameIn.className = "params-input params-name";
+    nameIn.placeholder = "Name"; nameIn.value = row.name;
+    nameIn.setAttribute("aria-label", "Variable name");
+    nameIn.setAttribute("autocomplete", "off");
+    nameIn.addEventListener("input",   () => { row.name = nameIn.value; this.#saveFromRows(); });
+    nameIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); this.#addRow(); } });
+
+    const valIn = document.createElement("input");
+    valIn.type = "text"; valIn.className = "params-input params-value";
+    valIn.placeholder = "Value"; valIn.value = row.value;
+    valIn.setAttribute("aria-label", "Variable value");
+    valIn.addEventListener("input",   () => { row.value = valIn.value; this.#saveFromRows(); });
+    valIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); this.#addRow(); } });
+
+    const del = document.createElement("button");
+    del.className = "icon-btn params-delete-btn";
+    del.title = "Delete variable";
+    del.setAttribute("aria-label", "Delete variable");
+    del.innerHTML = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
+    </svg>`;
+    del.addEventListener("click", () => {
+      this.#rows = this.#rows.filter(r => r.id !== row.id);
+      this.#renderRows();
+      this.#saveFromRows();
+    });
+
+    // Drag
+    el.addEventListener("dragstart", (e) => {
+      this.#dragSrcId  = row.id;
+      this.#dragHandled = false;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", row.id);
+      requestAnimationFrame(() => {
+        el.parentElement?.insertBefore(this.#phantom, el);
+        el.style.display = "none";
+      });
+    });
+
+    el.addEventListener("dragover", (e) => {
+      if (!this.#dragSrcId || this.#dragSrcId === row.id) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const rect  = el.getBoundingClientRect();
+      const after = (e.clientY - rect.top) / rect.height >= 0.5;
+      el.parentElement?.insertBefore(this.#phantom, after ? el.nextSibling : el);
+    });
+
+
+    el.addEventListener("dragend", () => {
+      if (!this.#dragHandled) { el.style.display = ""; this.#phantom.remove(); }
+      this.#finalizeDrag();
+    });
+
+    el.appendChild(handle);
+    el.appendChild(nameIn);
+    el.appendChild(valIn);
+    el.appendChild(del);
+    return el;
+  }
+
+  #finalizeDrag() {
+    this.#dragSrcId = null; this.#dragHandled = false; this.#phantom.remove();
+  }
+
+  #addRow() {
+    const row = { id: crypto.randomUUID(), name: "", value: "" };
+    this.#rows.push(row);
+    this.#renderRows();
+    const rows = this.#kvListEl.querySelectorAll(".vars-kv-row");
+    if (rows.length) rows[rows.length - 1].querySelector(".params-name")?.focus();
+  }
+
+  #saveFromRows() {
+    if (!this.#envId) return;
+    this.#dispatchSave(this.#rowsToObject());
+  }
+
+  // ── Validation (bulk mode) ──────────────────────────────────────────────────
 
   #scheduleValidate() {
     clearTimeout(this.#validateTimer);
-    this.#validateTimer = setTimeout(
-      () => this.#validateNow(),
-      VariablesPopup.#VALIDATE_MS,
-    );
+    this.#validateTimer = setTimeout(() => this.#validateNow(), VariablesPopup.#VALIDATE_MS);
   }
 
   #validateNow() {
     const text = this.#textareaEl?.value ?? "";
-    if (!text.trim()) {
-      this.#applyValidity(null);
-      return;
-    }
+    if (!text.trim()) { this.#applyValidity(null); return; }
     try {
       const parsed = JSON.parse(text);
-      const isObj  = parsed !== null && typeof parsed === "object" && !Array.isArray(parsed);
-      this.#applyValidity(isObj ? "valid" : "invalid");
-    } catch (_) {
-      this.#applyValidity("invalid");
-    }
+      this.#applyValidity(
+        parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+          ? "valid" : "invalid",
+      );
+    } catch (_) { this.#applyValidity("invalid"); }
   }
 
-  /**
-   * Apply a validation state to the badge element.
-   * @param {"valid"|"invalid"|null} state
-   */
+  /** @param {"valid"|"invalid"|null} state */
   #applyValidity(state) {
     if (!this.#badgeEl) return;
     this.#badgeEl.dataset.state = state ?? "";
-    if (state === "valid") {
-      this.#badgeEl.textContent = "✓ valid";
-      this.#badgeEl.title = "JSON is valid";
-    } else if (state === "invalid") {
-      this.#badgeEl.textContent = "✗ invalid";
-      this.#badgeEl.title = "Must be a valid JSON object { \"key\": \"value\" }";
-    } else {
-      this.#badgeEl.textContent = "";
-      this.#badgeEl.title = "";
-    }
+    if      (state === "valid")   { this.#badgeEl.textContent = "✓ valid";   this.#badgeEl.title = "JSON is valid"; }
+    else if (state === "invalid") { this.#badgeEl.textContent = "✗ invalid"; this.#badgeEl.title = "Must be a valid JSON object { \"key\": \"value\" }"; }
+    else                          { this.#badgeEl.textContent = "";           this.#badgeEl.title = ""; }
 
-    // Close is only allowed when the content is valid (or empty/untouched)
-    const canClose = state !== "invalid";
-    if (this.#closeBtnEl)     this.#closeBtnEl.disabled     = !canClose;
+    const canClose = !this.#isBulkMode || state !== "invalid";
     if (this.#closeHeaderBtn) this.#closeHeaderBtn.disabled = !canClose;
   }
 
-  // ── Auto-save ───────────────────────────────────────────────────────────────
+  // ── Auto-save (bulk mode) ───────────────────────────────────────────────────
 
   #scheduleAutoSave() {
     clearTimeout(this.#saveTimer);
-    this.#saveTimer = setTimeout(
-      () => this.#trySave(),
-      VariablesPopup.#SAVE_MS,
-    );
+    this.#saveTimer = setTimeout(() => this.#trySave(), VariablesPopup.#SAVE_MS);
   }
 
-  /**
-   * Parse the current textarea content and, if it is a valid plain object,
-   * dispatch the save event.
-   * @returns {boolean} true if the save was dispatched
-   */
   #trySave() {
     if (!this.#envId) return false;
     const text = this.#textareaEl?.value ?? "";
@@ -246,17 +444,15 @@ export class VariablesPopup {
     try {
       const parsed = JSON.parse(text);
       if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
-        this.#dispatchSave(parsed);
-        return true;
+        this.#dispatchSave(parsed); return true;
       }
-    } catch (_) { /* invalid JSON — skip */ }
+    } catch (_) { /* skip */ }
     return false;
   }
 
   #dispatchSave(variables) {
     window.dispatchEvent(new CustomEvent("wurl:vars-save", {
-      detail: { envId: this.#envId, variables },
-      bubbles: true,
+      detail: { envId: this.#envId, variables }, bubbles: true,
     }));
   }
 
@@ -264,60 +460,47 @@ export class VariablesPopup {
 
   #handleReset() {
     if (this.#resetCleanup) {
-      // ── Second click: commit the reset ──────────────────────────────────
       this.#cancelResetConfirm();
-
-      this.#textareaEl.value = this.#initialJson;
-      this.#validateNow();
-      this.#trySave();
+      if (this.#isBulkMode) {
+        this.#textareaEl.value = this.#initialJson;
+        this.#validateNow();
+        this.#trySave();
+      } else {
+        try {
+          this.#rows = this.#jsonToRows(JSON.parse(this.#initialJson));
+        } catch (_) { this.#rows = []; }
+        this.#renderRows();
+        this.#saveFromRows();
+      }
       return;
     }
-
-    // ── First click: enter "Confirm?" state ──────────────────────────────
     this.#resetBtn.textContent = "Confirm?";
-    this.#resetBtn.classList.remove("popup-btn--secondary");
-    this.#resetBtn.classList.add("popup-btn--warning");
+    this.#resetBtn.classList.replace("popup-btn--secondary", "popup-btn--warning");
 
     const restore = () => {
       this.#resetBtn.textContent = "Reset";
-      this.#resetBtn.classList.remove("popup-btn--warning");
-      this.#resetBtn.classList.add("popup-btn--secondary");
+      this.#resetBtn.classList.replace("popup-btn--warning", "popup-btn--secondary");
       document.removeEventListener("keydown",   onEsc,     true);
       document.removeEventListener("mousedown", onOutside, true);
       this.#resetCleanup = null;
     };
-
-    const onEsc = (e) => {
-      if (e.key === "Escape") restore();
-    };
-
-    // Any click outside the Reset button (like on the mask or Close) cancels.
-    const onOutside = (e) => {
-      if (!this.#resetBtn.contains(e.target)) restore();
-    };
+    const onEsc     = (e) => { if (e.key === "Escape") restore(); };
+    const onOutside = (e) => { if (!this.#resetBtn.contains(e.target)) restore(); };
 
     document.addEventListener("keydown",   onEsc,     true);
     document.addEventListener("mousedown", onOutside, true);
     this.#resetCleanup = restore;
   }
 
-  #cancelResetConfirm() {
-    if (this.#resetCleanup) {
-      this.#resetCleanup();
-    }
-  }
+  #cancelResetConfirm() { if (this.#resetCleanup) this.#resetCleanup(); }
 
   // ── Close ───────────────────────────────────────────────────────────────────
 
   #doClose() {
-    // Flush any pending timers
     clearTimeout(this.#validateTimer);
     clearTimeout(this.#saveTimer);
     this.#cancelResetConfirm();
-
-    // Persist any valid unsaved content before closing
-    this.#trySave();
-
+    if (this.#isBulkMode) this.#trySave(); else this.#saveFromRows();
     PopupManager.close();
   }
 }

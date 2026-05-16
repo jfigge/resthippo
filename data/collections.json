@@ -24,7 +24,8 @@
     "splitterRowRes": 320,
     "listHeaders": true,
     "showUrlPreview": true,
+    "varsBulkEditor": true,
     "selectedRequestId": null,
-    "removeHeaders": false
+    "removeHeaders": true
   }
 }

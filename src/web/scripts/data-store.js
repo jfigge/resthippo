@@ -35,6 +35,7 @@ export const DEFAULT_SETTINGS = {
   splitterRowRes: 320,
   listHeaders:       true,
   showUrlPreview:    true,
+  varsBulkEditor:    true,
   selectedRequestId: null,
 };
 

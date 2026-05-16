@@ -334,9 +334,10 @@ function _buildEnvCtxMenu() {
         );
         if (!activeEnv) return;
         varsPopup.open({
-          envId:     activeEnv.id,
-          envName:   activeEnv.name,
-          variables: activeEnv.variables ?? {},
+          envId:      activeEnv.id,
+          envName:    activeEnv.name,
+          variables:  activeEnv.variables ?? {},
+          bulkEditor: currentSettings.varsBulkEditor ?? true,
         });
       },
     },
@@ -537,6 +538,12 @@ function initEventBus() {
     };
     // Persist to <envId>.json (env file)
     saveEnvVariables(envId, variables);
+  });
+
+  /** Persist the Bulk Editor toggle preference into settings. */
+  window.addEventListener("wurl:vars-bulk-editor-changed", (e) => {
+    currentSettings = { ...currentSettings, varsBulkEditor: e.detail.bulkEditor };
+    saveSettings(currentSettings);
   });
 
   // When the request editor mutates a field (method, url, params, body, auth, …),
