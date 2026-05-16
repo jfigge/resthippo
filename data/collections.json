@@ -244,12 +244,12 @@
     "verifySsl": true,
     "proxyEnabled": false,
     "proxyUrl": "",
-    "splitterNav": 240,
-    "splitterRes": 403,
+    "splitterNav": 308,
+    "splitterRes": 306,
     "splitterRowRes": 480,
     "listHeaders": true,
-    "showUrlPreview": false,
+    "showUrlPreview": true,
     "selectedRequestId": "a3ba1a4e-75d1-4b7f-abbc-8d8745dd55ce",
-    "removeHeaders": false
+    "removeHeaders": true
   }
 }

@@ -307,8 +307,8 @@ export class RequestEditor {
     this._requestInFlight = false;
     window.addEventListener("wurl:request-loading", () => {
       this._requestInFlight = true;
-      sendBtn.textContent = "Cancel";
-      sendBtn.setAttribute("aria-label", "Cancel request");
+      sendBtn.textContent = "Stop";
+      sendBtn.setAttribute("aria-label", "Stop request");
       sendBtn.classList.add("req-send-btn--cancel");
     });
     const resetSendBtn = () => {
