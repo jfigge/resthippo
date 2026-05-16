@@ -13,6 +13,8 @@
 
 "use strict";
 
+import { PopupManager } from "../popup-manager.js";
+
 const TABS = [
   { id: "body",     label: "Body"     },
   { id: "headers",  label: "Headers"  },
@@ -24,7 +26,9 @@ const TABS = [
 export class ResponseViewer {
   /** @type {HTMLElement} */
   #el;
-  #activeTab = "body";
+  #activeTab   = "body";
+  #renderMode  = "preview";   // "preview" | "raw"
+  #lastResponse = null;        // cached so mode changes can re-render
 
   constructor() {
     this.#el = document.createElement("div");
@@ -42,6 +46,17 @@ export class ResponseViewer {
     window.addEventListener("wurl:request-error", (e) =>
       this.#showError(e.detail),
     );
+  }
+
+  /**
+   * Apply persisted settings to the viewer.
+   * @param {{ responseBodyRenderMode?: string }} settings
+   */
+  applySettings(settings) {
+    if (settings.responseBodyRenderMode) {
+      this.#renderMode = settings.responseBodyRenderMode;
+      this.#updateBodyTabLabel();
+    }
   }
 
   /** Root DOM element — pass to Panel.mount(). */
@@ -74,7 +89,6 @@ export class ResponseViewer {
     TABS.forEach((tab) => {
       const btn = document.createElement("button");
       btn.className = "res-tab-btn";
-      btn.textContent = tab.label;
       btn.dataset.tab = tab.id;
       btn.setAttribute("role", "tab");
       btn.setAttribute(
@@ -83,6 +97,18 @@ export class ResponseViewer {
       );
       btn.setAttribute("aria-controls", `res-tab-${tab.id}`);
       if (tab.id === this.#activeTab) btn.classList.add("res-tab-btn--active");
+
+      if (tab.id === "body") {
+        btn.textContent = this.#bodyTabLabel();
+        // Right-click on the Body tab → render-mode context menu
+        btn.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          PopupManager.openMenu(this.#buildBodyContextMenu(), e.clientX, e.clientY);
+        });
+      } else {
+        btn.textContent = tab.label;
+      }
 
       btn.addEventListener("click", () => this.#switchTab(tab.id));
       strip.appendChild(btn);
@@ -136,7 +162,76 @@ export class ResponseViewer {
     return el;
   }
 
-  // ── Tab switching ─────────────────────────────────────────────────────────
+  // ── Body context menu ─────────────────────────────────────────────────────
+
+  /** Returns the label text for the Body tab given the current render mode. */
+  #bodyTabLabel() {
+    return this.#renderMode === "raw" ? "Body: Raw" : "Body: Preview";
+  }
+
+  /** Sync the Body tab button text to the current render mode. */
+  #updateBodyTabLabel() {
+    const btn = this._tabStrip?.querySelector('[data-tab="body"]');
+    if (btn) btn.textContent = this.#bodyTabLabel();
+  }
+
+  #buildBodyContextMenu() {
+    const menu = document.createElement("div");
+    menu.className = "tree-ctxmenu";
+    menu.setAttribute("role", "menu");
+    menu.addEventListener("contextmenu", (e) => e.preventDefault());
+
+    [
+      { label: "Preview", mode: "preview" },
+      { label: "Raw",     mode: "raw"     },
+    ].forEach(({ label, mode }) => {
+      const btn = document.createElement("button");
+      btn.className = "tree-ctxmenu__item res-body-menu-item";
+      btn.setAttribute("role", "menuitem");
+
+      const tick = document.createElement("span");
+      tick.className = "res-body-menu-tick";
+      tick.textContent = this.#renderMode === mode ? "✓" : "";
+
+      btn.appendChild(tick);
+      btn.appendChild(document.createTextNode(label));
+      btn.addEventListener("click", () => {
+        PopupManager.close();
+        this.#setRenderMode(mode);
+      });
+      menu.appendChild(btn);
+    });
+
+    return menu;
+  }
+
+  #setRenderMode(mode) {
+    if (this.#renderMode === mode) return;
+    this.#renderMode = mode;
+    this.#updateBodyTabLabel();
+    // Persist the choice via the shared editor-setting channel
+    window.dispatchEvent(new CustomEvent("wurl:editor-setting-changed", {
+      detail: { responseBodyRenderMode: mode },
+    }));
+    // Re-render the body pane if we have a cached response
+    if (this.#lastResponse) {
+      this.#renderBodyPane(this.#lastResponse);
+    }
+  }
+
+  // ── Render body pane ──────────────────────────────────────────────────────
+  #renderBodyPane(response) {
+    const bodyPane = this._tabContent.querySelector("#res-tab-body");
+    bodyPane.innerHTML = "";
+    const pre = document.createElement("pre");
+    pre.className = "res-body-pre";
+    const contentType = response.headers?.["content-type"] ?? "";
+    pre.textContent = this.#renderMode === "raw"
+      ? response.body
+      : this.#prettyBody(response.body, contentType);
+    bodyPane.appendChild(pre);
+  }
+
   #switchTab(tabId) {
     this.#activeTab = tabId;
 
@@ -153,6 +248,7 @@ export class ResponseViewer {
 
   // ── Response states ───────────────────────────────────────────────────────
   #showLoading() {
+    this.#lastResponse = null;
     this.#setStatus("", "", "", "");
     const bodyPane = this._tabContent.querySelector("#res-tab-body");
     bodyPane.innerHTML = "";
@@ -168,6 +264,7 @@ export class ResponseViewer {
   }
 
   #showError(detail) {
+    this.#lastResponse = null;
     const hasStatus  = detail?.status && detail.status > 0;
     const statusCode = hasStatus ? String(detail.status) : "ERR";
     const statusTxt  = detail?.statusText || detail?.name || "Connection Error";
@@ -227,6 +324,9 @@ export class ResponseViewer {
       consoleLog = [],
     } = response;
 
+    // Cache for re-rendering when the mode is changed
+    this.#lastResponse = { status, statusText, headers, cookies, body, elapsed, size, consoleLog };
+
     // Status bar
     const statusClass = this.#statusClass(status);
     this.#setStatus(
@@ -239,12 +339,7 @@ export class ResponseViewer {
     badge.className = `res-status-badge ${statusClass}`;
 
     // ── Body pane ──────────────────────────────────────────────────────────
-    const bodyPane = this._tabContent.querySelector("#res-tab-body");
-    bodyPane.innerHTML = "";
-    const pre = document.createElement("pre");
-    pre.className = "res-body-pre";
-    pre.textContent = this.#prettyBody(body, headers["content-type"] ?? "");
-    bodyPane.appendChild(pre);
+    this.#renderBodyPane(this.#lastResponse);
 
     // ── Headers pane ───────────────────────────────────────────────────────
     const headersPane = this._tabContent.querySelector("#res-tab-headers");

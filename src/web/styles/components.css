@@ -204,7 +204,7 @@
 .tree-ctxmenu {
   position: fixed;
   z-index: 101;
-  min-width: 190px;
+  min-width: 120px;
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-md);
@@ -415,7 +415,7 @@
 }
 
 .req-send-btn--cancel {
-  background: var(--color-red, #e06c75);
+  background: var(--color-warning, #f9e2af);
 }
 .req-send-btn--cancel:hover {
   opacity: 0.85;
@@ -1324,6 +1324,26 @@
   max-width: 480px;
   text-align: center;
   line-height: 1.5;
+}
+
+/* ── Response body context menu items ───────────────────────────────────────  */
+
+/* Lay out the tick + label side-by-side in body-mode menu items */
+.res-body-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Fixed-width column so the label stays left-aligned regardless of tick */
+.res-body-menu-tick {
+  display: inline-block;
+  width: 16px;
+  flex-shrink: 0;
+  text-align: center;
+  color: var(--color-accent);
+  font-size: var(--font-size-md);
+  line-height: 1;
 }
 
 /* ── Console tab — verbose request/response log ────────────────────────────  */
