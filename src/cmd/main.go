@@ -362,8 +362,7 @@ func main() {
 		}
 		// Sanitise: only UUID characters allowed (prevents path traversal)
 		for _, c := range envID {
-			if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-				(c >= '0' && c <= '9') || c == '-') {
+			if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '-' {
 				http.Error(w, `{"error":"invalid id"}`, http.StatusBadRequest)
 				return
 			}

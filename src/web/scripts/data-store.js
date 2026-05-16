@@ -6,8 +6,8 @@
  *   collections.json   — manifest:
  *     { version: 2, environments: [{id, name}], activeEnvironmentId, settings }
  *
- *   <envId>.json       — per-environment collections:
- *     { version: 1, collections: [...] }
+ *   <envId>.json       — per-environment data:
+ *     { version: 1, collections: [...], variables: {...} }
  *
  * Migration from v1:
  *   If collections.json has version:1 (old { collections:[...], settings:{} } format),
@@ -49,6 +49,12 @@ let _manifest = {
 /** The environment ID currently used by saveCollections(). */
 let _activeEnvId = null;
 
+/** Cached collections for the active environment. */
+let _activeEnvCollections = [];
+
+/** Cached variables for the active environment — preserved across saveCollections() calls. */
+let _activeEnvVariables = {};
+
 // ── Environment detection ─────────────────────────────────────────────────────
 
 function isElectron() {
@@ -83,28 +89,34 @@ async function _loadEnvFile(envId) {
   try {
     if (isElectron()) {
       const raw = await window.wurl.env.load(envId);
-      return Array.isArray(raw?.collections) ? raw.collections : [];
+      return {
+        collections: Array.isArray(raw?.collections) ? raw.collections : [],
+        variables:   (raw?.variables && typeof raw.variables === "object") ? raw.variables : {},
+      };
     }
     const res = await fetch(`/api/env?id=${encodeURIComponent(envId)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const raw = await res.json();
-    return Array.isArray(raw?.collections) ? raw.collections : [];
+    return {
+      collections: Array.isArray(raw?.collections) ? raw.collections : [],
+      variables:   (raw?.variables && typeof raw.variables === "object") ? raw.variables : {},
+    };
   } catch (err) {
     console.warn(`[data-store] env load failed (${envId}):`, err.message);
-    return [];
+    return { collections: [], variables: {} };
   }
 }
 
-async function _saveEnvFile(envId, collections) {
+async function _saveEnvFile(envId, collections, variables = {}) {
   try {
     if (isElectron()) {
-      await window.wurl.env.save(envId, { version: 1, collections });
+      await window.wurl.env.save(envId, { version: 1, collections, variables });
       return;
     }
     await fetch(`/api/env?id=${encodeURIComponent(envId)}`, {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ version: 1, collections }),
+      body:    JSON.stringify({ version: 1, collections, variables }),
     });
   } catch (err) {
     console.warn(`[data-store] env save failed (${envId}):`, err.message);
@@ -122,6 +134,7 @@ async function _saveEnvFile(envId, collections) {
  *   activeEnvironmentId: string,
  *   settings:            object,
  *   collections:         object[],
+ *   variables:           object,
  * }>}
  */
 export async function loadAll() {
@@ -142,7 +155,7 @@ export async function loadAll() {
       const defaultEnv = { id: defaultId, name: "COLLECTIONS" };
 
       // Persist the old collections under their new per-env file
-      await _saveEnvFile(defaultId, raw.collections);
+      await _saveEnvFile(defaultId, raw.collections, {});
 
       _manifest = {
         version:             2,
@@ -152,12 +165,15 @@ export async function loadAll() {
       };
       await _persistManifest();
 
-      _activeEnvId = defaultId;
+      _activeEnvId        = defaultId;
+      _activeEnvCollections = raw.collections;
+      _activeEnvVariables = {};
       return {
         environments:        _manifest.environments,
         activeEnvironmentId: _activeEnvId,
         settings:            _manifest.settings,
         collections:         raw.collections,
+        variables:           {},
       };
     }
 
@@ -183,14 +199,17 @@ export async function loadAll() {
       activeEnvironmentId: activeId,
       settings:            { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) },
     };
-    _activeEnvId = activeId;
+    _activeEnvId         = activeId;
 
-    const collections = await _loadEnvFile(activeId);
+    const { collections, variables } = await _loadEnvFile(activeId);
+    _activeEnvCollections = collections;
+    _activeEnvVariables   = variables;
     return {
       environments:        _manifest.environments,
       activeEnvironmentId: _activeEnvId,
       settings:            _manifest.settings,
       collections,
+      variables,
     };
   } catch (err) {
     console.warn("[data-store] load failed:", err.message);
@@ -201,12 +220,15 @@ export async function loadAll() {
       activeEnvironmentId: defaultId,
       settings:            { ...DEFAULT_SETTINGS },
     };
-    _activeEnvId = defaultId;
+    _activeEnvId          = defaultId;
+    _activeEnvCollections = [];
+    _activeEnvVariables   = {};
     return {
       environments:        _manifest.environments,
       activeEnvironmentId: _activeEnvId,
       settings:            _manifest.settings,
       collections:         [],
+      variables:           {},
     };
   }
 }
@@ -217,7 +239,8 @@ export async function loadAll() {
  */
 export async function saveCollections(items) {
   if (_activeEnvId) {
-    await _saveEnvFile(_activeEnvId, items);
+    _activeEnvCollections = items;
+    await _saveEnvFile(_activeEnvId, items, _activeEnvVariables);
   }
 }
 
@@ -235,9 +258,11 @@ export async function saveSettings(settings) {
  * @param {{ environments: object[], activeEnvironmentId: string, settings?: object }} opts
  */
 export async function saveManifest({ environments, activeEnvironmentId, settings }) {
+  // Strip any `variables` fields — those live in per-env files, not the manifest
+  const cleanEnvs = environments.map(({ variables: _v, ...rest }) => rest);
   _manifest = {
     ..._manifest,
-    environments,
+    environments: cleanEnvs,
     activeEnvironmentId,
     ...(settings !== undefined ? { settings } : {}),
   };
@@ -245,29 +270,70 @@ export async function saveManifest({ environments, activeEnvironmentId, settings
 }
 
 /**
- * Load the collections for a specific environment (used when switching envs).
+ * Load the collections and variables for a specific environment (used when switching envs).
+ * When loading the currently active environment, the in-memory caches are updated
+ * so subsequent saveCollections() / saveEnvVariables() calls are non-destructive.
  * @param {string} envId
- * @returns {Promise<object[]>}
+ * @returns {Promise<{ collections: object[], variables: object }>}
  */
 export async function loadEnvCollections(envId) {
-  return _loadEnvFile(envId);
+  const data = await _loadEnvFile(envId);
+  if (envId === _activeEnvId) {
+    _activeEnvCollections = data.collections;
+    _activeEnvVariables   = data.variables;
+  }
+  return data;
 }
 
 /**
  * Save collections for a specific environment (used when cloning / switching).
- * @param {string} envId
+ * When `variables` is omitted and the env is the currently active one, the
+ * in-memory variable cache is used so existing variables are preserved.
+ * @param {string}   envId
  * @param {object[]} collections
+ * @param {object}   [variables]  — omit to preserve cached variables for the active env
  */
-export async function saveEnvCollections(envId, collections) {
-  return _saveEnvFile(envId, collections);
+export async function saveEnvCollections(envId, collections, variables) {
+  const vars = variables !== undefined
+    ? variables
+    : (envId === _activeEnvId ? _activeEnvVariables : {});
+  if (envId === _activeEnvId) {
+    _activeEnvCollections = collections;
+  }
+  return _saveEnvFile(envId, collections, vars);
 }
 
 /**
  * Update the in-memory active environment ID so that subsequent
  * saveCollections() calls write to the correct file.
+ * Callers should follow this with a loadEnvCollections() call and manually
+ * update the caches via subsequent saves if needed.
  * @param {string} envId
  */
 export function setActiveEnvironment(envId) {
-  _activeEnvId = envId;
-  _manifest    = { ..._manifest, activeEnvironmentId: envId };
+  _activeEnvId          = envId;
+  _activeEnvCollections = [];
+  _activeEnvVariables   = {};
+  _manifest             = { ..._manifest, activeEnvironmentId: envId };
 }
+
+/**
+ * Persist key/value variables for a specific environment.
+ * Variables are stored in the environment's own <envId>.json file alongside
+ * its collections, not in the manifest.
+ *
+ * @param {string} envId
+ * @param {object} variables  — plain key/value object, e.g. { baseUrl: "…" }
+ */
+export async function saveEnvVariables(envId, variables) {
+  if (envId === _activeEnvId) {
+    // Update cache so subsequent saveCollections() calls don't overwrite variables
+    _activeEnvVariables = variables;
+    await _saveEnvFile(_activeEnvId, _activeEnvCollections, variables);
+  } else {
+    // For non-active envs: load current collections first, then re-save with updated variables
+    const { collections } = await _loadEnvFile(envId);
+    await _saveEnvFile(envId, collections, variables);
+  }
+}
+

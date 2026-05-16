@@ -11,19 +11,26 @@
 
 "use strict";
 
+import { PopupManager } from "./popup-manager.js";
 import { getLayoutMode } from "./panel.js";
 import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
 import { ResponseViewer } from "./components/response-viewer.js";
 import { SettingsPopup } from "./components/settings-popup.js";
 import { EnvironmentPopup } from "./components/environment-popup.js";
+import { VariablesPopup } from "./components/variables-popup.js";
 import {
   loadAll, saveCollections, saveSettings, saveManifest,
   loadEnvCollections, saveEnvCollections, setActiveEnvironment,
+  saveEnvVariables,
 } from "./data-store.js";
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
+  // Suppress the browser's native context menu everywhere — the app provides
+  // its own custom context menus on tree nodes.
+  document.addEventListener("contextmenu", (e) => e.preventDefault());
+
   initPanels();
   initComponents();
   initSplitters();
@@ -272,6 +279,7 @@ function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false
  */
 const settingsPopup = new SettingsPopup();
 const envPopup      = new EnvironmentPopup();
+const varsPopup     = new VariablesPopup();
 let currentSettings = {};
 
 /** Live environment state — kept in sync with data-store. */
@@ -297,6 +305,56 @@ function initHeader() {
   document.getElementById("btn-environment-nav").addEventListener("click", () => {
     envPopup.open(currentEnvs);
   });
+
+  // Right-click on the environment label or either environment icon → context menu
+  const _openEnvCtxMenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    PopupManager.openMenu(_buildEnvCtxMenu(), e.clientX, e.clientY);
+  };
+
+  document.querySelector("#panel-nav .panel-title").addEventListener("contextmenu", _openEnvCtxMenu);
+  document.getElementById("btn-environment").addEventListener("contextmenu", _openEnvCtxMenu);
+  document.getElementById("btn-environment-nav").addEventListener("contextmenu", _openEnvCtxMenu);
+}
+
+/** Build the environment context-menu element. */
+function _buildEnvCtxMenu() {
+  const menu = document.createElement("div");
+  menu.className = "tree-ctxmenu";
+  menu.setAttribute("role", "menu");
+  menu.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  const items = [
+    {
+      label: "Variables",
+      action: () => {
+        const activeEnv = currentEnvs.environments.find(
+          e => e.id === currentEnvs.activeEnvironmentId,
+        );
+        if (!activeEnv) return;
+        varsPopup.open({
+          envId:     activeEnv.id,
+          envName:   activeEnv.name,
+          variables: activeEnv.variables ?? {},
+        });
+      },
+    },
+  ];
+
+  items.forEach((item) => {
+    const btn = document.createElement("button");
+    btn.className = "tree-ctxmenu__item";
+    btn.setAttribute("role", "menuitem");
+    btn.textContent = item.label;
+    btn.addEventListener("click", () => {
+      PopupManager.close();
+      item.action();
+    });
+    menu.appendChild(btn);
+  });
+
+  return menu;
 }
 
 // ─── Event bus ────────────────────────────────────────────────────────────────
@@ -353,8 +411,16 @@ function initEventBus() {
     saveSettings(currentSettings);
 
     // Load new env's collections
-    const collections = await loadEnvCollections(id);
+    const { collections, variables } = await loadEnvCollections(id);
     treeView.setItems(collections);
+
+    // Attach variables to the env entry in memory
+    currentEnvs = {
+      ...currentEnvs,
+      environments: currentEnvs.environments.map(env =>
+        env.id === id ? { ...env, variables: variables ?? {} } : env,
+      ),
+    };
 
     // Update UI
     setNavPanelTitle(_envName(currentEnvs.environments, id));
@@ -392,20 +458,25 @@ function initEventBus() {
 
     // Load source collections (if source is currently active, use the live tree)
     let sourceCollections;
+    let sourceVariables;
     if (sourceId === currentEnvs.activeEnvironmentId) {
       sourceCollections = treeView ? treeView.getItems() : [];
+      sourceVariables   = currentEnvs.environments.find(e => e.id === sourceId)?.variables ?? {};
     } else {
-      sourceCollections = await loadEnvCollections(sourceId);
+      const loaded      = await loadEnvCollections(sourceId);
+      sourceCollections = loaded.collections;
+      sourceVariables   = loaded.variables ?? {};
     }
 
-    // Deep-clone with new UUIDs
-    const cloned = sourceCollections.map(_deepCloneWithNewIds);
+    // Deep-clone collections with new UUIDs; copy variables directly
+    const cloned         = sourceCollections.map(_deepCloneWithNewIds);
+    const clonedVariables = { ...sourceVariables };
 
-    // Save cloned collections and switch to the new env
-    await saveEnvCollections(newEnv.id, cloned);
+    // Save cloned collections + variables and switch to the new env
+    await saveEnvCollections(newEnv.id, cloned, clonedVariables);
     if (treeView) saveEnvCollections(currentEnvs.activeEnvironmentId, treeView.getItems());
 
-    const environments = [...currentEnvs.environments, newEnv];
+    const environments = [...currentEnvs.environments, { ...newEnv, variables: clonedVariables }];
     setActiveEnvironment(newEnv.id);
     currentEnvs = { environments, activeEnvironmentId: newEnv.id };
 
@@ -424,18 +495,22 @@ function initEventBus() {
     const { id } = e.detail;
     if (currentEnvs.environments.length <= 1) return; // guard
 
-    const environments = currentEnvs.environments.filter(env => env.id !== id);
+    let environments = currentEnvs.environments.filter(env => env.id !== id);
     let activeId = currentEnvs.activeEnvironmentId;
 
     // If we're deleting the active env, switch to the first remaining one
     if (id === activeId) {
       activeId = environments[0].id;
-      const collections = await loadEnvCollections(activeId);
+      const { collections, variables } = await loadEnvCollections(activeId);
       setActiveEnvironment(activeId);
       currentSettings = { ...currentSettings, selectedRequestId: null };
       saveSettings(currentSettings);
       treeView.setItems(collections);
       setNavPanelTitle(_envName(environments, activeId));
+      // Attach variables in memory
+      environments = environments.map(env =>
+        env.id === activeId ? { ...env, variables: variables ?? {} } : env,
+      );
     } else {
       setActiveEnvironment(activeId);
     }
@@ -443,6 +518,25 @@ function initEventBus() {
     currentEnvs = { environments, activeEnvironmentId: activeId };
     await saveManifest({ environments, activeEnvironmentId: activeId });
     envPopup.update(currentEnvs);
+  });
+
+  // ── Variable events ──────────────────────────────────────────────────────
+
+  /**
+   * Persist variables for an environment and keep `currentEnvs` in sync so
+   * subsequent opens of the popup always show the latest values.
+   */
+  window.addEventListener("wurl:vars-save", (e) => {
+    const { envId, variables } = e.detail;
+    // Update in-memory environment state
+    currentEnvs = {
+      ...currentEnvs,
+      environments: currentEnvs.environments.map(env =>
+        env.id === envId ? { ...env, variables } : env,
+      ),
+    };
+    // Persist to <envId>.json (env file)
+    saveEnvVariables(envId, variables);
   });
 
   // When the request editor mutates a field (method, url, params, body, auth, …),
@@ -658,15 +752,18 @@ function initEventBus() {
  * In Electron     → reads via ipcMain from the platform userData directory
  */
 async function initCollections() {
-  const { collections, settings, environments, activeEnvironmentId } = await loadAll();
+  const { collections, settings, environments, activeEnvironmentId, variables } = await loadAll();
 
   treeView.setItems(collections);
   currentSettings = settings;
   settingsPopup.load(settings);
   applySettings(settings);
 
-  // Seed environment state
-  currentEnvs = { environments, activeEnvironmentId };
+  // Seed environment state — attach loaded variables to the active env object
+  const envsWithVars = environments.map(env =>
+    env.id === activeEnvironmentId ? { ...env, variables: variables ?? {} } : env,
+  );
+  currentEnvs = { environments: envsWithVars, activeEnvironmentId };
   setNavPanelTitle(_envName(environments, activeEnvironmentId));
 
   // Restore the previously selected request (if any)
