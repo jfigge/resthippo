@@ -16,7 +16,11 @@ import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
 import { ResponseViewer } from "./components/response-viewer.js";
 import { SettingsPopup } from "./components/settings-popup.js";
-import { loadAll, saveCollections, saveSettings } from "./data-store.js";
+import { EnvironmentPopup } from "./components/environment-popup.js";
+import {
+  loadAll, saveCollections, saveSettings, saveManifest,
+  loadEnvCollections, saveEnvCollections, setActiveEnvironment,
+} from "./data-store.js";
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
@@ -267,7 +271,14 @@ function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false
  * latest values.
  */
 const settingsPopup = new SettingsPopup();
+const envPopup      = new EnvironmentPopup();
 let currentSettings = {};
+
+/** Live environment state — kept in sync with data-store. */
+let currentEnvs = {
+  environments:        [],
+  activeEnvironmentId: null,
+};
 
 function initHeader() {
   document.getElementById("btn-settings").addEventListener("click", () => {
@@ -277,6 +288,14 @@ function initHeader() {
   // Secondary settings button inside the nav panel — shown when app-header is hidden
   document.getElementById("btn-settings-nav").addEventListener("click", () => {
     settingsPopup.open(currentSettings);
+  });
+
+  // Environment buttons (panel header + bottom bar)
+  document.getElementById("btn-environment").addEventListener("click", () => {
+    envPopup.open(currentEnvs);
+  });
+  document.getElementById("btn-environment-nav").addEventListener("click", () => {
+    envPopup.open(currentEnvs);
   });
 }
 
@@ -310,6 +329,120 @@ function initEventBus() {
   window.addEventListener("wurl:editor-setting-changed", (e) => {
     currentSettings = { ...currentSettings, ...e.detail };
     saveSettings(currentSettings);
+  });
+
+  // ── Environment events ───────────────────────────────────────────────────
+
+  /** Switch the active environment: save current collections, load new ones. */
+  window.addEventListener("wurl:env-select", async (e) => {
+    const { id } = e.detail;
+    if (id === currentEnvs.activeEnvironmentId) return;
+
+    // Persist the current env's collections before switching
+    if (treeView) saveEnvCollections(currentEnvs.activeEnvironmentId, treeView.getItems());
+
+    // Update in-memory active env
+    setActiveEnvironment(id);
+    currentEnvs = { ...currentEnvs, activeEnvironmentId: id };
+
+    // Persist manifest
+    await saveManifest({ environments: currentEnvs.environments, activeEnvironmentId: id });
+
+    // Clear selected request (it belongs to the previous env)
+    currentSettings = { ...currentSettings, selectedRequestId: null };
+    saveSettings(currentSettings);
+
+    // Load new env's collections
+    const collections = await loadEnvCollections(id);
+    treeView.setItems(collections);
+
+    // Update UI
+    setNavPanelTitle(_envName(currentEnvs.environments, id));
+    envPopup.update(currentEnvs);
+  });
+
+  /** Add a new (empty) environment and switch to it. */
+  window.addEventListener("wurl:env-add", async (e) => {
+    const { name } = e.detail;
+    const newEnv   = { id: crypto.randomUUID(), name };
+    const environments = [...currentEnvs.environments, newEnv];
+
+    // Save empty collections for the new env
+    await saveEnvCollections(newEnv.id, []);
+
+    // Switch to the new env
+    if (treeView) saveEnvCollections(currentEnvs.activeEnvironmentId, treeView.getItems());
+    setActiveEnvironment(newEnv.id);
+    currentEnvs = { environments, activeEnvironmentId: newEnv.id };
+
+    await saveManifest({ environments, activeEnvironmentId: newEnv.id });
+
+    currentSettings = { ...currentSettings, selectedRequestId: null };
+    saveSettings(currentSettings);
+
+    treeView.setItems([]);
+    setNavPanelTitle(newEnv.name);
+    envPopup.update(currentEnvs);
+  });
+
+  /** Clone an environment: deep-copy its collections with new UUIDs, then switch. */
+  window.addEventListener("wurl:env-clone", async (e) => {
+    const { sourceId, name } = e.detail;
+    const newEnv = { id: crypto.randomUUID(), name };
+
+    // Load source collections (if source is currently active, use the live tree)
+    let sourceCollections;
+    if (sourceId === currentEnvs.activeEnvironmentId) {
+      sourceCollections = treeView ? treeView.getItems() : [];
+    } else {
+      sourceCollections = await loadEnvCollections(sourceId);
+    }
+
+    // Deep-clone with new UUIDs
+    const cloned = sourceCollections.map(_deepCloneWithNewIds);
+
+    // Save cloned collections and switch to the new env
+    await saveEnvCollections(newEnv.id, cloned);
+    if (treeView) saveEnvCollections(currentEnvs.activeEnvironmentId, treeView.getItems());
+
+    const environments = [...currentEnvs.environments, newEnv];
+    setActiveEnvironment(newEnv.id);
+    currentEnvs = { environments, activeEnvironmentId: newEnv.id };
+
+    await saveManifest({ environments, activeEnvironmentId: newEnv.id });
+
+    currentSettings = { ...currentSettings, selectedRequestId: null };
+    saveSettings(currentSettings);
+
+    treeView.setItems(cloned);
+    setNavPanelTitle(newEnv.name);
+    envPopup.update(currentEnvs);
+  });
+
+  /** Delete an environment (must always leave at least 1). */
+  window.addEventListener("wurl:env-delete", async (e) => {
+    const { id } = e.detail;
+    if (currentEnvs.environments.length <= 1) return; // guard
+
+    const environments = currentEnvs.environments.filter(env => env.id !== id);
+    let activeId = currentEnvs.activeEnvironmentId;
+
+    // If we're deleting the active env, switch to the first remaining one
+    if (id === activeId) {
+      activeId = environments[0].id;
+      const collections = await loadEnvCollections(activeId);
+      setActiveEnvironment(activeId);
+      currentSettings = { ...currentSettings, selectedRequestId: null };
+      saveSettings(currentSettings);
+      treeView.setItems(collections);
+      setNavPanelTitle(_envName(environments, activeId));
+    } else {
+      setActiveEnvironment(activeId);
+    }
+
+    currentEnvs = { environments, activeEnvironmentId: activeId };
+    await saveManifest({ environments, activeEnvironmentId: activeId });
+    envPopup.update(currentEnvs);
   });
 
   // When the request editor mutates a field (method, url, params, body, auth, …),
@@ -523,21 +656,43 @@ function initEventBus() {
  * Load persisted data on startup.
  * In Go dev mode  → fetches from /api/collections (reads data/collections.json)
  * In Electron     → reads via ipcMain from the platform userData directory
- *
- * Hands collections to the TreeView and seeds the SettingsPopup with the
- * stored settings values so they are correct when the popup is first opened.
  */
 async function initCollections() {
-  const { collections, settings } = await loadAll();
+  const { collections, settings, environments, activeEnvironmentId } = await loadAll();
+
   treeView.setItems(collections);
   currentSettings = settings;
   settingsPopup.load(settings);
   applySettings(settings);
 
+  // Seed environment state
+  currentEnvs = { environments, activeEnvironmentId };
+  setNavPanelTitle(_envName(environments, activeEnvironmentId));
+
   // Restore the previously selected request (if any)
   if (settings.selectedRequestId) {
     treeView.selectById(settings.selectedRequestId);
   }
+}
+
+/** Return the name of an environment by id, falling back to a default. */
+function _envName(environments, id) {
+  return environments.find(e => e.id === id)?.name ?? "Collections";
+}
+
+/** Update the nav panel's title text. */
+function setNavPanelTitle(name) {
+  const titleEl = document.querySelector("#panel-nav .panel-title");
+  if (titleEl) titleEl.textContent = name;
+}
+
+/** Deep-clone a tree node, assigning fresh UUIDs throughout. */
+function _deepCloneWithNewIds(node) {
+  const clone = { ...node, id: crypto.randomUUID() };
+  if (Array.isArray(node.children)) {
+    clone.children = node.children.map(_deepCloneWithNewIds);
+  }
+  return clone;
 }
 
 /**

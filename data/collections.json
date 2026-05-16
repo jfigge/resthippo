@@ -1,249 +1,25 @@
 {
-  "version": 1,
-  "collections": [
+  "version": 2,
+  "environments": [
     {
-      "id": "col-1",
-      "type": "collection",
-      "name": "Example API",
-      "children": [
-        {
-          "id": "a3ba1a4e-75d1-4b7f-abbc-8d8745dd55ce",
-          "type": "request",
-          "name": "token",
-          "method": "POST",
-          "url": "https://login-dev.qacustomer.teradata.com/as/token.oauth2",
-          "bodyType": "form-urlencoded",
-          "bodyFormRows": [
-            {
-              "id": "18a677e9-e8b0-4f98-87cf-1636905ddcf8",
-              "name": "grant_type",
-              "value": "password",
-              "enabled": true
-            },
-            {
-              "id": "8a9bdec2-fdcd-4224-b922-55b3ffa502a7",
-              "name": "username",
-              "value": "sa-ce-gns-dev",
-              "enabled": true
-            },
-            {
-              "id": "7a52cbb3-e674-4948-ad6f-44e7e5d9b23d",
-              "name": "password",
-              "value": "aQOANeHfwiS0jEvu1V2NBlXa3B1Qdi8R",
-              "enabled": true
-            },
-            {
-              "id": "839fef9e-2106-4c6a-a375-2da960eef184",
-              "name": "scope",
-              "value": "openid profile email",
-              "enabled": true
-            },
-            {
-              "id": "fb50bd55-245e-485e-bc42-95708dab239a",
-              "name": "client_id",
-              "value": "sso-confidential",
-              "enabled": true
-            },
-            {
-              "id": "13552b8f-34fd-4713-9b11-efcaa39a76a7",
-              "name": "client_secret",
-              "value": "El5B3JmIPKKy1E6l8Gvh5M7pZHG6wo1uqAZo1yP7nyyoqd6lhsAzxiNcqRYL5cvB",
-              "enabled": true
-            }
-          ],
-          "bodyText": "",
-          "bodyFilePath": "",
-          "params": [
-            {
-              "id": "e38bf36d-f167-4eae-b9eb-31a22668a8fc",
-              "name": "",
-              "value": "",
-              "enabled": true
-            }
-          ]
-        },
-        {
-          "id": "req-3",
-          "type": "request",
-          "name": "Create user",
-          "method": "GET",
-          "url": "https://jsonplaceholder.typicode.com/users/5",
-          "params": [
-            {
-              "id": "4fe478bb-30aa-449d-b56c-79807def1030",
-              "name": "er",
-              "value": "dsfsd",
-              "enabled": true
-            },
-            {
-              "id": "ad66a536-963b-484b-a81f-6ec5dd9a35a0",
-              "name": "dfd",
-              "value": "sdf",
-              "enabled": true
-            },
-            {
-              "id": "f4d7b1fc-e42b-44d0-bd6d-32f5d02c2ff7",
-              "name": "bob",
-              "value": "sdf",
-              "enabled": true
-            }
-          ],
-          "headers": [
-            {
-              "id": "a58aba5f-0e7f-4cc4-9c60-8179b1afab68",
-              "name": "Accept",
-              "value": "application/JSON",
-              "enabled": true
-            }
-          ],
-          "bodyType": "yaml",
-          "bodyFormRows": [],
-          "bodyText": "{\n  \"sds\": 1\n}",
-          "bodyFilePath": "",
-          "authEnabled": true,
-          "authType": "oauth2",
-          "authBasic": {
-            "username": "",
-            "password": ""
-          },
-          "authBearer": {
-            "token": "asdf"
-          },
-          "authOAuth2": {
-            "grantType": "client_credentials",
-            "clientId": "",
-            "clientSecret": "sadas",
-            "accessTokenUrl": "",
-            "authUrl": "",
-            "scope": "",
-            "token": ""
-          },
-          "authAwsIam": {
-            "accessKeyId": "",
-            "secretAccessKey": "",
-            "region": "",
-            "service": "",
-            "sessionToken": ""
-          }
-        },
-        {
-          "id": "req-4",
-          "type": "request",
-          "name": "Update user",
-          "method": "PUT",
-          "url": "https://jsonplaceholder.typicode.com/users/1",
-          "headers": [
-            {
-              "id": "9ed71054-425d-447d-861e-68551fe3d31b",
-              "name": "Upgrade",
-              "value": "",
-              "enabled": true
-            }
-          ]
-        },
-        {
-          "id": "67cab615-5e77-4e90-a81c-61602cc3bcbb",
-          "type": "request",
-          "name": "New Request",
-          "method": "GET",
-          "url": "WEFWFFADSFA"
-        }
-      ]
+      "id": "dc1c40bf-643d-476f-a5a1-d5dd2fd70e0e",
+      "name": "COLLECTIONS"
     },
     {
-      "id": "5cef542f-8b63-43e7-a128-b86eba2b8d76",
-      "type": "collection",
-      "name": "New Collection",
-      "children": []
-    },
-    {
-      "id": "col-2",
-      "type": "collection",
-      "name": "Auth Endpoints",
-      "children": [
-        {
-          "id": "req-6",
-          "type": "request",
-          "name": "Reflect",
-          "method": "POST",
-          "url": "https://echo.free.beeceptor.com/path/test",
-          "bodyType": "json",
-          "bodyFormRows": [],
-          "bodyText": "{\n  \"sds\": 1\n}",
-          "bodyFilePath": "",
-          "params": [
-            {
-              "id": "14d08659-5394-4447-abe2-0635526e6852",
-              "name": "test",
-              "value": "1",
-              "enabled": true
-            }
-          ],
-          "headers": [
-            {
-              "id": "7f171302-b8c3-48a5-bb34-cbc0184f71ae",
-              "name": "X-Jason",
-              "value": "figge",
-              "enabled": true
-            },
-            {
-              "id": "8a0327b5-adeb-4927-9e08-2088d7e41032",
-              "name": "Forwarded",
-              "value": "figge.us",
-              "enabled": true
-            }
-          ],
-          "authEnabled": true,
-          "authType": "basic",
-          "authBasic": {
-            "username": "user",
-            "password": "pass"
-          },
-          "authBearer": {
-            "token": "asdf"
-          },
-          "authOAuth2": {
-            "grantType": "client_credentials",
-            "clientId": "",
-            "clientSecret": "sadas",
-            "accessTokenUrl": "",
-            "authUrl": "",
-            "scope": "",
-            "token": ""
-          },
-          "authAwsIam": {
-            "accessKeyId": "",
-            "secretAccessKey": "",
-            "region": "",
-            "service": "",
-            "sessionToken": ""
-          }
-        },
-        {
-          "id": "req-7",
-          "type": "request",
-          "name": "Refresh",
-          "method": "POST",
-          "url": ""
-        },
-        {
-          "id": "req-1",
-          "type": "request",
-          "name": "List users",
-          "method": "GET",
-          "url": "https://jsonplaceholder.typicode.com/users"
-        }
-      ]
+      "id": "fe840962-0d47-455f-be36-dce05595f98a",
+      "name": "Bananas"
     }
   ],
+  "activeEnvironmentId": "fe840962-0d47-455f-be36-dce05595f98a",
   "settings": {
     "theme": "grey-dark",
     "fontSize": 13,
-    "removeHeaders": false,
+    "removeHeaders": true,
     "timeout": 30000,
     "followRedirects": true,
     "verifySsl": true,
     "proxyEnabled": false,
-    "proxyUrl": ""
+    "proxyUrl": "",
+    "selectedRequestId": null
   }
 }

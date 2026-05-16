@@ -1645,3 +1645,167 @@
   flex-shrink: 0;
   min-width: unset;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ENVIRONMENT POPUP
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.env-popup {
+  width: 380px;
+}
+
+.env-popup-body {
+  padding: var(--space-2) 0;
+  min-height: 80px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* ── Name input row (hidden by default, shown when adding/cloning) ─────────── */
+.env-name-input-row {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  background: var(--color-surface-0);
+  border-bottom: 1px solid var(--color-surface-2);
+  margin-bottom: var(--space-1);
+}
+
+.env-name-input-row--visible {
+  display: flex;
+}
+
+.env-name-input {
+  flex: 1;
+  height: 30px;
+  padding: 0 var(--space-2);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  transition: border-color var(--transition-fast);
+  box-sizing: border-box;
+}
+
+.env-name-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-base);
+}
+
+.env-name-input::placeholder {
+  color: var(--color-overlay-0);
+  font-style: italic;
+}
+
+.env-name-input--error {
+  border-color: var(--color-error) !important;
+}
+
+/* ── Environment list ──────────────────────────────────────────────────────── */
+.env-list {
+  list-style: none;
+  padding: var(--space-1) 0;
+  margin: 0;
+}
+
+.env-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  margin: 1px var(--space-2);
+  transition: background-color var(--transition-fast);
+}
+
+.env-list-item:hover {
+  background-color: var(--color-surface-1);
+}
+
+.env-list-item--active {
+  background-color: var(--color-surface-0);
+}
+
+.env-list-item__check {
+  width: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+}
+
+.env-list-item__name {
+  flex: 1;
+  text-align: left;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.env-list-item--active .env-list-item__name {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.env-list-item__name:hover {
+  text-decoration: underline;
+}
+
+.env-list-item__actions {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  /* Show actions only on hover */
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.env-list-item:hover .env-list-item__actions,
+.env-list-item--active .env-list-item__actions {
+  opacity: 1;
+}
+
+.env-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  color: var(--color-subtext);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.env-action-btn:hover {
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.env-action-btn--danger:hover {
+  background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
+  color: var(--color-error);
+}
+
+.env-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+

@@ -24,26 +24,42 @@ contextBridge.exposeInMainWorld("wurl", {
 
 
   /**
-   * Data persistence — backed by a JSON file in the platform user-data
-   * directory, accessed via ipcMain handlers in main.js.
+   * Data persistence — manifest backed by collections.json; per-environment
+   * collections backed by <envId>.json files; all in the platform user-data dir.
    *
-   * The stored document shape is:
-   *   { version: number, collections: object[], settings: object }
+   * Manifest shape (v2):
+   *   { version, environments: [{id,name}], activeEnvironmentId, settings }
    *
-   *   macOS:   ~/Library/Application Support/wurl/collections.json
-   *   Linux:   ~/.config/wurl/collections.json
-   *   Windows: %APPDATA%\wurl\collections.json
+   *   macOS:   ~/Library/Application Support/wurl/
+   *   Linux:   ~/.config/wurl/
+   *   Windows: %APPDATA%\wurl\
    */
   collections: {
-    /** @returns {Promise<{ version: number, collections: object[], settings: object }>} */
+    /** @returns {Promise<object>} manifest document */
     load: () => ipcRenderer.invoke("collections:read"),
 
     /**
-     * Persist the full data document.
-     * @param {{ version: number, collections: object[], settings: object }} doc
+     * Persist the full manifest document.
+     * @param {object} doc
      * @returns {Promise<void>}
      */
     save: (doc) => ipcRenderer.invoke("collections:write", doc),
+  },
+
+  /**
+   * Per-environment collections persistence.
+   * Each environment's collections live in <userData>/<envId>.json
+   */
+  env: {
+    /** @returns {Promise<{ version: number, collections: object[] }>} */
+    load: (envId) => ipcRenderer.invoke("env:read", envId),
+
+    /**
+     * @param {string} envId
+     * @param {{ version: number, collections: object[] }} doc
+     * @returns {Promise<void>}
+     */
+    save: (envId, doc) => ipcRenderer.invoke("env:write", envId, doc),
   },
 
   /**

@@ -349,8 +349,72 @@ func main() {
 		})
 	})
 
+	// ── Environment Collections API ──────────────────────────────────────────
+	// GET  /api/env?id={envId}  →  read <dataDir>/<envId>.json
+	// PUT  /api/env?id={envId}  →  atomically overwrite <dataDir>/<envId>.json
+	mux.HandleFunc("/api/env", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		envID := r.URL.Query().Get("id")
+		if envID == "" {
+			http.Error(w, `{"error":"missing id parameter"}`, http.StatusBadRequest)
+			return
+		}
+		// Sanitise: only UUID characters allowed (prevents path traversal)
+		for _, c := range envID {
+			if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+				(c >= '0' && c <= '9') || c == '-') {
+				http.Error(w, `{"error":"invalid id"}`, http.StatusBadRequest)
+				return
+			}
+		}
+		envFile := filepath.Join(absDataDir, envID+".json")
+
+		switch r.Method {
+		case http.MethodGet:
+			data, err := os.ReadFile(envFile)
+			if err != nil {
+				if os.IsNotExist(err) {
+					_, _ = w.Write([]byte(`{"version":1,"collections":[]}`))
+					return
+				}
+				log.Printf("[api] env read error: %v", err)
+				http.Error(w, `{"error":"failed to read environment"}`, http.StatusInternalServerError)
+				return
+			}
+			_, _ = w.Write(data)
+
+		case http.MethodPut:
+			var payload json.RawMessage
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				http.Error(w, `{"error":"invalid JSON body"}`, http.StatusBadRequest)
+				return
+			}
+			out, err := json.MarshalIndent(payload, "", "  ")
+			if err != nil {
+				http.Error(w, `{"error":"failed to marshal JSON"}`, http.StatusInternalServerError)
+				return
+			}
+			tmp := envFile + ".tmp"
+			if err := os.WriteFile(tmp, out, 0o644); err != nil {
+				log.Printf("[api] env write error: %v", err)
+				http.Error(w, `{"error":"failed to write environment"}`, http.StatusInternalServerError)
+				return
+			}
+			if err := os.Rename(tmp, envFile); err != nil {
+				log.Printf("[api] env rename error: %v", err)
+				http.Error(w, `{"error":"failed to commit environment"}`, http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+
+		default:
+			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+	})
+
 	// ── Collections API ──────────────────────────────────────────────────────
-	// GET  /api/collections  →  read collections.json; returns [] on first run
+	// GET  /api/collections  →  read collections.json (v2 manifest); returns defaults on first run
 	// PUT  /api/collections  →  atomically overwrite collections.json
 	mux.HandleFunc("/api/collections", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -360,8 +424,8 @@ func main() {
 			data, err := os.ReadFile(collectionsFile)
 			if err != nil {
 				if os.IsNotExist(err) {
-					// First run — return an empty set so the UI starts blank.
-					_, _ = w.Write([]byte(`{"version":1,"collections":[]}`))
+					// First run — return an empty v2 manifest so the UI bootstraps correctly.
+					_, _ = w.Write([]byte(`{"version":2,"environments":[],"activeEnvironmentId":null,"settings":{}}`))
 					return
 				}
 				log.Printf("[api] read error: %v", err)

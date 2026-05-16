@@ -28,40 +28,72 @@ let _devServerProcess = null;
   //   Linux:   ~/.config/wurl
   //   Windows: %APPDATA%\wurl
   const dataFile = () => path.join(app.getPath("userData"), "collections.json");
+  const envFile  = (id) => path.join(app.getPath("userData"), `${id}.json`);
 
   /**
-   * Return the full stored data document, or safe defaults on first run / error.
-   * Shape: { version, collections, settings }
+   * Return the full stored manifest, or safe defaults on first run / error.
+   * Shape v2: { version, environments, activeEnvironmentId, settings }
+   * Shape v1 (legacy): { version, collections, settings }  — migration done in renderer
    */
   ipcMain.handle("collections:read", async () => {
     const file = dataFile();
     try {
-      if (!fs.existsSync(file)) return { version: 1, collections: [], settings: {} };
+      if (!fs.existsSync(file)) return { version: 2, environments: [], activeEnvironmentId: null, settings: {} };
       const raw    = fs.readFileSync(file, "utf8");
       const parsed = JSON.parse(raw);
-      return {
-        version:     parsed.version     ?? 1,
-        collections: Array.isArray(parsed.collections) ? parsed.collections : [],
-        settings:    parsed.settings    ?? {},
-      };
+      // Return as-is; the renderer detects version and migrates if needed
+      return parsed;
     } catch (err) {
       console.error("[main] collections:read error:", err.message);
-      return { version: 1, collections: [], settings: {} };
+      return { version: 2, environments: [], activeEnvironmentId: null, settings: {} };
     }
   });
 
   /**
-   * Atomically overwrite the stored data file with the supplied document.
-   * Accepts: { version, collections, settings }
+   * Atomically overwrite the stored manifest file.
    */
   ipcMain.handle("collections:write", async (_event, doc) => {
     const file = dataFile();
     try {
       fs.mkdirSync(path.dirname(file), { recursive: true });
-      const payload = JSON.stringify({ version: 1, ...doc }, null, 2);
+      const payload = JSON.stringify(doc, null, 2);
       fs.writeFileSync(file, payload, "utf8");
     } catch (err) {
       console.error("[main] collections:write error:", err.message);
+    }
+  });
+
+  /**
+   * Load a per-environment collections file: <userData>/<envId>.json
+   * Returns { version, collections } or safe defaults on missing / error.
+   */
+  ipcMain.handle("env:read", async (_event, envId) => {
+    const file = envFile(envId);
+    try {
+      if (!fs.existsSync(file)) return { version: 1, collections: [] };
+      const raw    = fs.readFileSync(file, "utf8");
+      const parsed = JSON.parse(raw);
+      return {
+        version:     parsed.version     ?? 1,
+        collections: Array.isArray(parsed.collections) ? parsed.collections : [],
+      };
+    } catch (err) {
+      console.error("[main] env:read error:", err.message);
+      return { version: 1, collections: [] };
+    }
+  });
+
+  /**
+   * Atomically overwrite a per-environment collections file.
+   */
+  ipcMain.handle("env:write", async (_event, envId, doc) => {
+    const file = envFile(envId);
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      const payload = JSON.stringify({ version: 1, ...doc }, null, 2);
+      fs.writeFileSync(file, payload, "utf8");
+    } catch (err) {
+      console.error("[main] env:write error:", err.message);
     }
   });
 })();
