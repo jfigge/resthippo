@@ -77,4 +77,23 @@ contextBridge.exposeInMainWorld("wurl", {
   http: {
     execute: (descriptor) => ipcRenderer.invoke("http:execute", descriptor),
   },
+
+  /**
+   * HTML response live-preview — overlays a WebContentsView on the response body
+   * pane and loads the original request URL so the page renders natively.
+   *
+   * Bounds shape: { x, y, width, height }  (integer pixels, viewport-relative)
+   */
+  htmlPreview: {
+    /** Create/reuse the overlay view, set bounds, and navigate to `url`. */
+    loadUrl:  (url, bounds) => ipcRenderer.invoke("htmlPreview:loadUrl",  url, bounds),
+    /** Update the overlay view's bounds (used by ResizeObserver). */
+    resize:   (bounds)      => ipcRenderer.invoke("htmlPreview:resize",   bounds),
+    /** Re-attach and optionally reposition the overlay after it was hidden. */
+    show:     (bounds)      => ipcRenderer.invoke("htmlPreview:show",     bounds),
+    /** Detach the overlay from the window without destroying it. */
+    hide:     ()            => ipcRenderer.invoke("htmlPreview:hide"),
+    /** Fully destroy the overlay and release its WebContents. */
+    destroy:  ()            => ipcRenderer.invoke("htmlPreview:destroy"),
+  },
 });

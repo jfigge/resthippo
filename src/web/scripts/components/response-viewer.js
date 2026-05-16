@@ -1,14 +1,13 @@
 /**
  * response-viewer.js — HTTP response display component
  *
- * Shows the result of a wurl:send-request dispatched by the RequestEditor.
- * Displays:
- *   - Status line (code + text + elapsed time + size)
- *   - Tab strip: Body | Headers | Cookies | Console | Timeline
- *   - Pretty-printed response body (JSON / XML / plain text)
- *   - Response headers table
- *   - Parsed Set-Cookie values
- *   - Verbose console log captured by the native HTTP layer
+ * Displays the result of a wurl:send-request in one of three views:
+ *
+ *  1. JSON / YAML / XML  — raw text or pretty-printed depending on renderMode
+ *  2. HTML               — raw text (raw mode) or live browser preview (preview mode)
+ *                          • Electron: WebContentsView that loads the request URL
+ *                          • Dev/browser: <iframe src=requestUrl> placeholder
+ *  3. Everything else    — raw text only (renderMode toggle is a no-op)
  */
 
 "use strict";
@@ -23,12 +22,80 @@ const TABS = [
   { id: "timeline", label: "Timeline" },
 ];
 
+// ── Content-type classification ───────────────────────────────────────────────
+
+/**
+ * Classify a Content-Type header value into one of the rendering categories.
+ * @param {string} ct  - raw Content-Type value (may include charset/boundary)
+ * @returns {"json"|"yaml"|"xml"|"html"|"other"}
+ */
+function classifyContentType(ct) {
+  const base = (ct ?? "").toLowerCase().split(";")[0].trim();
+  if (base.includes("json"))                                         return "json";
+  if (base.includes("yaml"))                                         return "yaml";
+  if (base.includes("xml"))                                          return "xml";
+  if (base === "text/html" || base === "application/xhtml+xml")      return "html";
+  return "other";
+}
+
+// ── Simple XML pretty-printer ─────────────────────────────────────────────────
+
+function prettyXml(xml) {
+  try {
+    const INDENT = "  ";
+    // Collapse existing whitespace between tags so we start fresh.
+    const normalised = xml.replace(/>\s+</g, "><").trim();
+    let depth  = 0;
+    let result = "";
+
+    const re = /(<[^>]+>|[^<]+)/g;
+    let m;
+    while ((m = re.exec(normalised)) !== null) {
+      const token = m[1].trim();
+      if (!token) continue;
+
+      if (token.startsWith("</")) {
+        // Closing tag — dedent before printing
+        depth = Math.max(0, depth - 1);
+        result += INDENT.repeat(depth) + token + "\n";
+      } else if (
+        token.startsWith("<?") ||
+        token.startsWith("<!") ||
+        token.endsWith("/>")
+      ) {
+        // Processing instruction, doctype, or self-closing tag — no depth change
+        result += INDENT.repeat(depth) + token + "\n";
+      } else if (token.startsWith("<")) {
+        // Opening tag — print then indent
+        result += INDENT.repeat(depth) + token + "\n";
+        depth++;
+      } else {
+        // Text node
+        result += INDENT.repeat(depth) + token + "\n";
+      }
+    }
+    return result.trim();
+  } catch {
+    return xml;
+  }
+}
+
+// ── ResponseViewer class ──────────────────────────────────────────────────────
+
 export class ResponseViewer {
   /** @type {HTMLElement} */
   #el;
-  #activeTab   = "body";
-  #renderMode  = "preview";   // "preview" | "raw"
+  #activeTab    = "body";
+  #renderMode   = "preview";   // "preview" | "raw"
   #lastResponse = null;        // cached so mode changes can re-render
+
+  // Cached reference to the body pane element (set once in #renderTabContent)
+  #bodyPane = null;
+
+  // HTML-preview state
+  #htmlPreviewActive  = false;  // true while an HTML preview is live
+  #iframeEl           = null;   // dev-mode <iframe> element
+  #resizeObserver     = null;   // observes body pane size for Electron overlay
 
   constructor() {
     this.#el = document.createElement("div");
@@ -132,9 +199,11 @@ export class ResponseViewer {
       content.appendChild(pane);
     });
 
+    // Cache a direct reference to the body pane for use by HTML preview
+    this.#bodyPane = content.querySelector("#res-tab-body");
+
     // Initial empty state in body pane
-    const bodyPane = content.querySelector("#res-tab-body");
-    bodyPane.appendChild(this.#emptyState());
+    this.#bodyPane.appendChild(this.#emptyState());
 
     // Initial empty state in console pane
     const consolePane = content.querySelector("#res-tab-console");
@@ -220,19 +289,172 @@ export class ResponseViewer {
   }
 
   // ── Render body pane ──────────────────────────────────────────────────────
+
+  /**
+   * Main body-pane renderer — routes to text, HTML iframe, or Electron overlay
+   * depending on content type and render mode.
+   *
+   * @param {object} response  - cached response object (includes requestUrl)
+   */
   #renderBodyPane(response) {
-    const bodyPane = this._tabContent.querySelector("#res-tab-body");
-    bodyPane.innerHTML = "";
+    const pane       = this.#bodyPane;
+    const ct         = response.headers?.["content-type"] ?? "";
+    const category   = classifyContentType(ct);
+    const isElectron = window.wurl?.isElectron === true;
+
+    // Always tear down any existing HTML preview before re-rendering.
+    this.#destroyHtmlPreview();
+    pane.innerHTML = "";
+
+    // ── HTML content type ─────────────────────────────────────────────────
+    if (category === "html" && this.#renderMode === "preview") {
+      if (isElectron) {
+        this.#activateElectronHtmlPreview(response.requestUrl, pane);
+      } else {
+        this.#activateDevHtmlPreview(response.requestUrl, pane);
+      }
+      return;
+    }
+
+    // ── Text rendering (JSON / YAML / XML / other / HTML-raw) ─────────────
     const pre = document.createElement("pre");
     pre.className = "res-body-pre";
-    const contentType = response.headers?.["content-type"] ?? "";
-    pre.textContent = this.#renderMode === "raw"
-      ? response.body
-      : this.#prettyBody(response.body, contentType);
-    bodyPane.appendChild(pre);
+
+    if (this.#renderMode === "preview" && (category === "json" || category === "yaml" || category === "xml")) {
+      // Pretty-print structured formats
+      pre.textContent = this.#prettyBody(response.body, category);
+    } else {
+      // raw mode, HTML-raw, or unrecognised type — show verbatim
+      pre.textContent = response.body;
+    }
+
+    pane.appendChild(pre);
   }
 
+  // ── HTML preview helpers ──────────────────────────────────────────────────
+
+  /**
+   * Electron mode: overlay a WebContentsView on the body pane and navigate to
+   * the request URL.  A ResizeObserver keeps the bounds in sync as panels resize.
+   *
+   * @param {string}      url   - original request URL to load
+   * @param {HTMLElement} pane  - body pane element used for bounds calculation
+   */
+  #activateElectronHtmlPreview(url, pane) {
+    this.#htmlPreviewActive = true;
+
+    // Show a lightweight loading indicator inside the pane while the URL loads.
+    const placeholder = document.createElement("div");
+    placeholder.className = "panel-placeholder res-html-loading";
+    placeholder.innerHTML =
+      '<span class="placeholder-icon res-spinner">⏳</span>' +
+      "<span>Loading preview…</span>";
+    pane.appendChild(placeholder);
+
+    // Helper: compute current pane bounds and round to integers.
+    const getBounds = () => {
+      const r = pane.getBoundingClientRect();
+      return {
+        x:      Math.round(r.left),
+        y:      Math.round(r.top),
+        width:  Math.max(1, Math.round(r.width)),
+        height: Math.max(1, Math.round(r.height)),
+      };
+    };
+
+    // Keep the overlay positioned correctly when the panel splitter moves.
+    this.#resizeObserver = new ResizeObserver(() => {
+      if (this.#htmlPreviewActive && window.wurl?.htmlPreview?.resize) {
+        window.wurl.htmlPreview.resize(getBounds());
+      }
+    });
+    this.#resizeObserver.observe(pane);
+
+    // Defer the first loadUrl call so the pane has been laid out.
+    requestAnimationFrame(() => {
+      if (!this.#htmlPreviewActive) return;  // destroyed before frame fired
+      const bounds = getBounds();
+      window.wurl?.htmlPreview?.loadUrl(url, bounds).catch(() => {});
+    });
+  }
+
+  /**
+   * Dev / plain-browser mode: render a simple <iframe> placeholder that
+   * points at the request URL.  This is a stand-in until the Electron path
+   * is verified working; the iframe is subject to normal browser same-origin
+   * restrictions.
+   *
+   * @param {string}      url   - original request URL
+   * @param {HTMLElement} pane  - body pane element
+   */
+  #activateDevHtmlPreview(url, pane) {
+    this.#htmlPreviewActive = true;
+
+    // Pane must be the stacking context for the absolutely-positioned iframe.
+    pane.style.position = "relative";
+    pane.style.overflow = "hidden";
+
+    const iframe = document.createElement("iframe");
+    iframe.src = url;
+    iframe.setAttribute("title", "HTML response preview");
+    iframe.style.cssText =
+      "position:absolute;inset:0;width:100%;height:100%;border:none;background:#fff;";
+    pane.appendChild(iframe);
+    this.#iframeEl = iframe;
+  }
+
+  /**
+   * Tear down whichever HTML preview is currently active (Electron overlay or
+   * dev iframe).  Safe to call when no preview is active.
+   */
+  #destroyHtmlPreview() {
+    if (!this.#htmlPreviewActive) return;
+    this.#htmlPreviewActive = false;
+
+    // Disconnect ResizeObserver first so no more resize callbacks fire.
+    if (this.#resizeObserver) {
+      this.#resizeObserver.disconnect();
+      this.#resizeObserver = null;
+    }
+
+    // Remove dev-mode iframe.
+    if (this.#iframeEl) {
+      this.#iframeEl.remove();
+      this.#iframeEl = null;
+    }
+
+    // Destroy the Electron WebContentsView.
+    if (window.wurl?.htmlPreview?.destroy) {
+      window.wurl.htmlPreview.destroy().catch(() => {});
+    }
+  }
+
+  // ── Pretty-printing ───────────────────────────────────────────────────────
+
+  /**
+   * Return a pretty-printed version of `body` for the given category.
+   * Falls back to the raw body if parsing fails.
+   *
+   * @param {string} body
+   * @param {"json"|"yaml"|"xml"} category
+   */
+  #prettyBody(body, category) {
+    try {
+      if (category === "json") {
+        return JSON.stringify(JSON.parse(body), null, 2);
+      }
+      if (category === "xml") {
+        return prettyXml(body);
+      }
+      // YAML is typically already human-readable; return as-is.
+    } catch { /* fall through to raw */ }
+    return body;
+  }
+
+  // ── Tab switching ─────────────────────────────────────────────────────────
+
   #switchTab(tabId) {
+    const prevTab = this.#activeTab;
     this.#activeTab = tabId;
 
     this._tabStrip.querySelectorAll(".res-tab-btn").forEach((btn) => {
@@ -244,13 +466,39 @@ export class ResponseViewer {
     this._tabContent.querySelectorAll(".res-tab-pane").forEach((pane) => {
       pane.hidden = pane.id !== `res-tab-${tabId}`;
     });
+
+    // When running in Electron with an HTML preview active, hide/show the
+    // WebContentsView overlay depending on whether the body tab is visible.
+    if (this.#htmlPreviewActive && window.wurl?.htmlPreview) {
+      if (tabId !== "body" && prevTab === "body") {
+        // Leaving the body tab — detach the overlay
+        window.wurl.htmlPreview.hide().catch(() => {});
+      } else if (tabId === "body" && prevTab !== "body") {
+        // Returning to the body tab — re-attach and reposition the overlay
+        requestAnimationFrame(() => {
+          const r = this.#bodyPane.getBoundingClientRect();
+          window.wurl.htmlPreview.show({
+            x:      Math.round(r.left),
+            y:      Math.round(r.top),
+            width:  Math.max(1, Math.round(r.width)),
+            height: Math.max(1, Math.round(r.height)),
+          }).catch(() => {});
+        });
+      }
+    }
+
+    // Dev-mode iframe: simply show/hide it via CSS.
+    if (this.#iframeEl) {
+      this.#iframeEl.style.display = tabId === "body" ? "" : "none";
+    }
   }
 
   // ── Response states ───────────────────────────────────────────────────────
   #showLoading() {
     this.#lastResponse = null;
+    this.#destroyHtmlPreview();
     this.#setStatus("", "", "", "");
-    const bodyPane = this._tabContent.querySelector("#res-tab-body");
+    const bodyPane = this.#bodyPane;
     bodyPane.innerHTML = "";
     const loading = document.createElement("div");
     loading.className = "panel-placeholder";
@@ -265,6 +513,7 @@ export class ResponseViewer {
 
   #showError(detail) {
     this.#lastResponse = null;
+    this.#destroyHtmlPreview();
     const hasStatus  = detail?.status && detail.status > 0;
     const statusCode = hasStatus ? String(detail.status) : "ERR";
     const statusTxt  = detail?.statusText || detail?.name || "Connection Error";
@@ -275,7 +524,7 @@ export class ResponseViewer {
     badge.className = `res-status-badge ${hasStatus ? this.#statusClass(detail.status) : "res-status--error"}`;
 
     // Body pane — show error placeholder
-    const bodyPane = this._tabContent.querySelector("#res-tab-body");
+    const bodyPane = this.#bodyPane;
     bodyPane.innerHTML = "";
     const err = document.createElement("div");
     err.className = "panel-placeholder";
@@ -303,6 +552,7 @@ export class ResponseViewer {
 
   /**
    * @param {object} response
+   * @param {object}   response.request    - original request {method, url, headers, body}
    * @param {number}   response.status
    * @param {string}   response.statusText
    * @param {object}   response.headers
@@ -314,6 +564,7 @@ export class ResponseViewer {
    */
   #showResponse(response) {
     const {
+      request    = {},
       status     = 0,
       statusText = "",
       headers    = {},
@@ -324,8 +575,12 @@ export class ResponseViewer {
       consoleLog = [],
     } = response;
 
-    // Cache for re-rendering when the mode is changed
-    this.#lastResponse = { status, statusText, headers, cookies, body, elapsed, size, consoleLog };
+    // Cache for re-rendering when the mode is changed.
+    // Store the original request URL so HTML preview can load it.
+    this.#lastResponse = {
+      requestUrl: request.url ?? "",
+      status, statusText, headers, cookies, body, elapsed, size, consoleLog,
+    };
 
     // Status bar
     const statusClass = this.#statusClass(status);
@@ -461,14 +716,6 @@ export class ResponseViewer {
     return "";
   }
 
-  #prettyBody(body, contentType) {
-    if (contentType.includes("application/json")) {
-      try {
-        return JSON.stringify(JSON.parse(body), null, 2);
-      } catch {}
-    }
-    return body;
-  }
 
   #formatSize(bytes) {
     if (bytes < 1024)            return `${bytes} B`;

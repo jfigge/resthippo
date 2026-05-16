@@ -1,7 +1,7 @@
 // main.js — Electron main process for wurl
 "use strict";
 
-const { app, BrowserWindow, ipcMain, shell, Menu, nativeImage } = require("electron");
+const { app, BrowserWindow, WebContentsView, ipcMain, shell, Menu, nativeImage } = require("electron");
 const fs           = require("fs");
 const path         = require("path");
 const http         = require("http");
@@ -18,6 +18,13 @@ let devPort = 0;
 
 // Handle to the spawned Go dev-server process (dev mode only, no SERVER_PORT env).
 let _devServerProcess = null;
+
+// ─── HTML Preview state ────────────────────────────────────────────────────────
+// Tracks the main BrowserWindow and an optional WebContentsView overlay that
+// renders live HTML responses inside the response body pane.
+let _mainWin           = null;   // set once createWindow() runs
+let _htmlPreviewView   = null;   // WebContentsView instance, created lazily
+let _htmlPreviewAdded  = false;  // whether the view is currently a child of contentView
 
 // ─── Collections IPC ──────────────────────────────────────────────────────────
 // Register handlers before app.whenReady() so they are ready the moment the
@@ -392,6 +399,110 @@ let _devServerProcess = null;
   });
 })();
 
+// ─── HTML Preview IPC ─────────────────────────────────────────────────────────
+// Creates/manages a WebContentsView that overlays the response body pane and
+// loads the last request URL so the user sees a live browser preview.
+(function initHtmlPreviewIPC() {
+  /**
+   * Ensure the WebContentsView exists and is attached to the main window.
+   * @returns {WebContentsView|null}
+   */
+  function _ensureView() {
+    if (!_mainWin || _mainWin.isDestroyed()) return null;
+
+    if (!_htmlPreviewView) {
+      _htmlPreviewView = new WebContentsView({
+        webPreferences: {
+          sandbox:          true,
+          contextIsolation: true,
+          nodeIntegration:  false,
+          webSecurity:      true,
+        },
+      });
+    }
+
+    if (!_htmlPreviewAdded) {
+      _mainWin.contentView.addChildView(_htmlPreviewView);
+      _htmlPreviewAdded = true;
+    }
+
+    return _htmlPreviewView;
+  }
+
+  /**
+   * Convert a {x, y, width, height} rect to integer pixel bounds.
+   */
+  function _intBounds(b) {
+    return {
+      x:      Math.round(b.x      ?? 0),
+      y:      Math.round(b.y      ?? 0),
+      width:  Math.max(1, Math.round(b.width  ?? 0)),
+      height: Math.max(1, Math.round(b.height ?? 0)),
+    };
+  }
+
+  /**
+   * Load a URL into the preview view and set its bounds.
+   * Creates the view if it does not yet exist.
+   */
+  ipcMain.handle("htmlPreview:loadUrl", async (_event, url, bounds) => {
+    const view = _ensureView();
+    if (!view) return;
+
+    view.setBounds(_intBounds(bounds));
+    try {
+      await view.webContents.loadURL(url);
+    } catch (err) {
+      console.error("[htmlPreview] loadURL error:", err.message);
+    }
+  });
+
+  /**
+   * Reposition/resize the preview view (called by the ResizeObserver in renderer).
+   */
+  ipcMain.handle("htmlPreview:resize", async (_event, bounds) => {
+    if (!_htmlPreviewView) return;
+    _htmlPreviewView.setBounds(_intBounds(bounds));
+  });
+
+  /**
+   * Show the preview view at the given bounds (re-attaches if needed).
+   */
+  ipcMain.handle("htmlPreview:show", async (_event, bounds) => {
+    const view = _ensureView();
+    if (!view) return;
+    if (bounds) view.setBounds(_intBounds(bounds));
+  });
+
+  /**
+   * Temporarily hide the preview view by removing it from the content view.
+   * The instance is retained so it can be re-shown without reloading.
+   */
+  ipcMain.handle("htmlPreview:hide", async (_event) => {
+    if (_htmlPreviewView && _htmlPreviewAdded && _mainWin && !_mainWin.isDestroyed()) {
+      _mainWin.contentView.removeChildView(_htmlPreviewView);
+      _htmlPreviewAdded = false;
+    }
+  });
+
+  /**
+   * Destroy the preview view entirely (called when the response changes or the
+   * user switches to raw mode).
+   */
+  ipcMain.handle("htmlPreview:destroy", async (_event) => {
+    if (_htmlPreviewAdded && _mainWin && !_mainWin.isDestroyed()) {
+      _mainWin.contentView.removeChildView(_htmlPreviewView);
+      _htmlPreviewAdded = false;
+    }
+    if (_htmlPreviewView) {
+      // Electron cleans up the WebContents when the view is GC'd, but navigating
+      // to about:blank first ensures the previous page's resources are released.
+      try { _htmlPreviewView.webContents.loadURL("about:blank"); } catch {}
+      _htmlPreviewView = null;
+    }
+  });
+})();
+
 // ─── Dev-server port helpers ──────────────────────────────────────────────────
 
 /**
@@ -524,6 +635,14 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: "deny" };
+  });
+
+  // Track the main window globally so the HTML preview IPC can reference it.
+  _mainWin = win;
+  win.on("closed", () => {
+    _mainWin          = null;
+    _htmlPreviewView  = null;
+    _htmlPreviewAdded = false;
   });
 
   return win;
