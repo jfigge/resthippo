@@ -24,6 +24,7 @@ import {
   loadEnvCollections, saveEnvCollections, setActiveEnvironment,
   saveEnvVariables,
 } from "./data-store.js";
+import { buildFolderChain } from "./components/variable-resolver.js";
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
@@ -375,9 +376,12 @@ function _buildEnvCtxMenu() {
 function initEventBus() {
   // When a request is selected in the tree, load it into the editor
   window.addEventListener("wurl:request-selected", (e) => {
-    requestEditor.load(e.detail);
+    const node = e.detail;
+    // Set variable context BEFORE load() so pill editors render with correct validation
+    _refreshEditorVariableContext(node.id);
+    requestEditor.load(node);
     // Persist the selected node ID so it can be restored on reload
-    const id = e.detail?.id;
+    const id = node?.id;
     if (id) {
       currentSettings = { ...currentSettings, selectedRequestId: id };
       saveSettings(currentSettings);
@@ -439,6 +443,8 @@ function initEventBus() {
     // Update UI
     setNavPanelTitle(_envName(currentEnvs.environments, id));
     envPopup.update(currentEnvs);
+    // Refresh pill editor variable context for the new environment
+    _refreshEditorVariableContext();
   });
 
   /** Add a new (empty) environment and switch to it. */
@@ -590,6 +596,9 @@ function initEventBus() {
         saveCollections(treeView.getItems());
       }
     }
+
+    // Revalidate pill editors in the request panel for the updated context
+    _refreshEditorVariableContext(currentSettings.selectedRequestId);
   });
 
   /** Persist the Bulk Editor toggle preference into settings. */
@@ -597,6 +606,30 @@ function initEventBus() {
     currentSettings = { ...currentSettings, varsBulkEditor: e.detail.bulkEditor };
     saveSettings(currentSettings);
   });
+
+  // ── Variable context helper ──────────────────────────────────────────────
+
+  /**
+   * Compute the current variable resolution context and push it to the
+   * request editor so its pill editors can validate {{variables}}.
+   *
+   * @param {string|null} [nodeId]  — the selected request/folder node ID;
+   *   defaults to currentSettings.selectedRequestId.
+   */
+  function _refreshEditorVariableContext(nodeId) {
+    if (!requestEditor) return;
+    const id = nodeId ?? currentSettings.selectedRequestId ?? null;
+    const folderChain = (treeView && id)
+      ? buildFolderChain(treeView.getItems(), id)
+      : [];
+    const activeEnv = currentEnvs.environments.find(
+      env => env.id === currentEnvs.activeEnvironmentId,
+    );
+    requestEditor.setVariableContext({
+      envVariables: activeEnv?.variables ?? {},
+      folderChain,
+    });
+  }
 
   // When the request editor mutates a field (method, url, params, body, auth, …),
   // immediately sync the in-memory tree and update the visible tree-view node

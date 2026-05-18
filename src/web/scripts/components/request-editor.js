@@ -5,6 +5,7 @@
 "use strict";
 
 import { parse as parseYaml, stringify as stringifyYaml } from "../vendor/yaml.js";
+import { VariablePillEditor } from "./variable-pill-editor.js";
 
 
 // Standard HTTP request headers offered in the header-name combo box.
@@ -264,6 +265,19 @@ export class RequestEditor {
   // Global "Remove Headers" setting — applied to body-form column label row
   #removeHeaders = false;
 
+  // ── Variable pill editor support ───────────────────────────────────────────
+  /** Current variable resolution context: { envVariables, folderChain } */
+  #variableContext = null;
+
+  /** Pill editor for the URL bar (single instance, never replaced). */
+  #urlPillEditor       = null;
+  /** All active pill editors in the params list (cleared on each re-render). */
+  #paramPillEditors    = [];
+  /** All active pill editors in the headers list (cleared on each re-render). */
+  #headerPillEditors   = [];
+  /** All active pill editors in the body-form list (cleared on each re-render). */
+  #bodyFormPillEditors = [];
+
   constructor() {
     this.#el = document.createElement("div");
     this.#el.className = "request-editor";
@@ -299,20 +313,20 @@ export class RequestEditor {
       this.#dispatchRequestUpdated();
     });
 
-    // URL input
-    const urlInput = document.createElement("input");
-    urlInput.type = "url";
-    urlInput.className = "req-url-input";
-    urlInput.placeholder = "https://api.example.com/endpoint";
-    urlInput.setAttribute("aria-label", "Request URL");
-    urlInput.addEventListener("input", () => {
-      this.#url = urlInput.value;
-      this.#dispatchRequestUpdated();
-      this.#updateUrlPreview();
+    // URL pill editor — replaces the plain <input type="url">
+    const urlEditor = new VariablePillEditor({
+      placeholder: "https://api.example.com/endpoint",
+      ariaLabel:   "Request URL",
+      className:   "req-url-input",
+      getContext:  () => this.#variableContext,
+      onInput: (v) => {
+        this.#url = v;
+        this.#dispatchRequestUpdated();
+        this.#updateUrlPreview();
+      },
+      onEnter: () => this.#sendRequest(),
     });
-    urlInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") this.#sendRequest();
-    });
+    this.#urlPillEditor = urlEditor;
 
     // Send / Cancel button
     const sendBtn = document.createElement("button");
@@ -345,12 +359,14 @@ export class RequestEditor {
     window.addEventListener("wurl:request-error",     resetSendBtn);
 
     bar.appendChild(methodSel);
-    bar.appendChild(urlInput);
+    bar.appendChild(urlEditor.element);
     bar.appendChild(sendBtn);
     this.#el.appendChild(bar);
 
     this._methodSel = methodSel;
-    this._urlInput  = urlInput;
+    // Keep _urlInput as a compatibility shim pointing at the editor's element
+    // so any external code that reads _urlInput.focus() still works.
+    this._urlInput  = urlEditor.element;
   }
 
   // ── Tab strip ────────────────────────────────────────────────────────────
@@ -831,6 +847,8 @@ export class RequestEditor {
     const el = this.#bodyContentEl;
     if (!el) return;
     el.innerHTML = "";
+    // Discard stale pill editor references for form rows
+    this.#bodyFormPillEditors = [];
     // Remove any Prettify button / validation badge left over from a previous text type
     this.#bodyTypeBarEl?.querySelector(".body-prettify-btn")?.remove();
     this.#bodyTypeBarEl?.querySelector(".body-validate-badge")?.remove();
@@ -1016,33 +1034,38 @@ export class RequestEditor {
       this.#dispatchBodyUpdated();
     });
 
-    // Name
-    const nameInput = document.createElement("input");
-    nameInput.type = "text"; nameInput.className = "params-input params-name";
-    nameInput.placeholder = "Name"; nameInput.value = row.name;
-    nameInput.addEventListener("input", () => { row.name = nameInput.value; this.#dispatchBodyUpdated(); });
-    nameInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
+    // Name pill editor
+    const getCtx = () => this.#variableContext;
+    const nameEditor = new VariablePillEditor({
+      placeholder: "Name",
+      ariaLabel:   "Field name",
+      className:   "params-name",
+      getContext:  getCtx,
+      onInput: (v) => { row.name = v; this.#dispatchBodyUpdated(); },
+      onEnter: () => {
         rows.push({ id: crypto.randomUUID(), name: "", value: "", enabled: true });
         this.#renderBodyContent();
         this.#dispatchBodyUpdated();
-      }
+      },
     });
+    nameEditor.setValue(row.name);
+    this.#bodyFormPillEditors.push(nameEditor);
 
-    // Value
-    const valInput = document.createElement("input");
-    valInput.type = "text"; valInput.className = "params-input params-value";
-    valInput.placeholder = "Value"; valInput.value = row.value;
-    valInput.addEventListener("input", () => { row.value = valInput.value; this.#dispatchBodyUpdated(); });
-    valInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
+    // Value pill editor
+    const valueEditor = new VariablePillEditor({
+      placeholder: "Value",
+      ariaLabel:   "Field value",
+      className:   "params-value",
+      getContext:  getCtx,
+      onInput: (v) => { row.value = v; this.#dispatchBodyUpdated(); },
+      onEnter: () => {
         rows.push({ id: crypto.randomUUID(), name: "", value: "", enabled: true });
         this.#renderBodyContent();
         this.#dispatchBodyUpdated();
-      }
+      },
     });
+    valueEditor.setValue(row.value);
+    this.#bodyFormPillEditors.push(valueEditor);
 
     // Delete
     const delBtn = document.createElement("button");
@@ -1098,7 +1121,7 @@ export class RequestEditor {
     });
 
     div.appendChild(handle); div.appendChild(cb);
-    div.appendChild(nameInput); div.appendChild(valInput); div.appendChild(delBtn);
+    div.appendChild(nameEditor.element); div.appendChild(valueEditor.element); div.appendChild(delBtn);
     return div;
     }
 
@@ -1701,6 +1724,8 @@ export class RequestEditor {
 
     #renderHeadersList() {
     if (!this.#headersListEl) return;
+    // Discard stale pill editor references
+    this.#headerPillEditors = [];
 
     // In bulk mode just keep the textarea in sync
     if (this.#headersBulkMode) {
@@ -1787,19 +1812,19 @@ export class RequestEditor {
     });
 
     // ── Value input ─────────────────────────────────────────────────────
-    const valueInput = document.createElement("input");
-    valueInput.type        = "text";
-    valueInput.className   = "params-input params-value";
-    valueInput.placeholder = "Value";
-    valueInput.value       = header.value;
-    valueInput.setAttribute("aria-label", "Header value");
-    valueInput.addEventListener("input", () => {
-      header.value = valueInput.value;
-      this.#dispatchHeadersUpdated();
+    const valueEditor = new VariablePillEditor({
+      placeholder: "Value",
+      ariaLabel:   "Header value",
+      className:   "params-value",
+      getContext:  () => this.#variableContext,
+      onInput: (v) => {
+        header.value = v;
+        this.#dispatchHeadersUpdated();
+      },
+      onEnter: () => this.#addHeader(),
     });
-    valueInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); this.#addHeader(); }
-    });
+    valueEditor.setValue(header.value);
+    this.#headerPillEditors.push(valueEditor);
 
     // ── Delete button ────────────────────────────────────────────────────
     const deleteBtn = document.createElement("button");
@@ -1866,7 +1891,7 @@ export class RequestEditor {
     row.appendChild(handle);
     row.appendChild(checkbox);
     row.appendChild(headerInput);
-    row.appendChild(valueInput);
+    row.appendChild(valueEditor.element);
     row.appendChild(deleteBtn);
     return row;
     }
@@ -1917,6 +1942,8 @@ export class RequestEditor {
 
   #renderParamsList() {
     if (!this.#paramsListEl) return;
+    // Discard stale pill editor references
+    this.#paramPillEditors = [];
 
     // In bulk mode just keep the textarea in sync and update the URL preview
     if (this.#paramsBulkMode) {
@@ -2044,38 +2071,38 @@ export class RequestEditor {
       this.#dispatchParamsUpdated();
     });
 
-    // ── Name input ───────────────────────────────────────────────────────
-    const nameInput = document.createElement("input");
-    nameInput.type        = "text";
-    nameInput.className   = "params-input params-name";
-    nameInput.placeholder = "Name";
-    nameInput.value       = param.name;
-    nameInput.setAttribute("aria-label", "Parameter name");
-    nameInput.addEventListener("input", () => {
-      param.name = nameInput.value;
-      this.#updateUrlPreview();
-      this.#dispatchParamsUpdated();
+    // ── Name pill editor ─────────────────────────────────────────────────
+    const getCtx = () => this.#variableContext;
+    const nameEditor = new VariablePillEditor({
+      placeholder: "Name",
+      ariaLabel:   "Parameter name",
+      className:   "params-name",
+      getContext:  getCtx,
+      onInput: (v) => {
+        param.name = v;
+        this.#updateUrlPreview();
+        this.#dispatchParamsUpdated();
+      },
+      onEnter: () => this.#addParam(),
     });
-    // Tab to value, Enter to add new row
-    nameInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); this.#addParam(); }
-    });
+    nameEditor.setValue(param.name);
+    this.#paramPillEditors.push(nameEditor);
 
-    // ── Value input ──────────────────────────────────────────────────────
-    const valueInput = document.createElement("input");
-    valueInput.type        = "text";
-    valueInput.className   = "params-input params-value";
-    valueInput.placeholder = "Value";
-    valueInput.value       = param.value;
-    valueInput.setAttribute("aria-label", "Parameter value");
-    valueInput.addEventListener("input", () => {
-      param.value = valueInput.value;
-      this.#updateUrlPreview();
-      this.#dispatchParamsUpdated();
+    // ── Value pill editor ─────────────────────────────────────────────────
+    const valueEditor = new VariablePillEditor({
+      placeholder: "Value",
+      ariaLabel:   "Parameter value",
+      className:   "params-value",
+      getContext:  getCtx,
+      onInput: (v) => {
+        param.value = v;
+        this.#updateUrlPreview();
+        this.#dispatchParamsUpdated();
+      },
+      onEnter: () => this.#addParam(),
     });
-    valueInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); this.#addParam(); }
-    });
+    valueEditor.setValue(param.value);
+    this.#paramPillEditors.push(valueEditor);
 
     // ── Delete button ────────────────────────────────────────────────────
     const deleteBtn = document.createElement("button");
@@ -2094,16 +2121,14 @@ export class RequestEditor {
       this.#dragSrcId      = param.id;
       this.#dragDropHandled = false;
       e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", param.id); // required by Firefox
+      e.dataTransfer.setData("text/plain", param.id);
 
       requestAnimationFrame(() => {
         this.#dragInsideList = true;
-        // Insert phantom where the row was, then hide the row
         row.parentElement?.insertBefore(this.#paramPhantomEl, row);
         row.style.display = "none";
       });
 
-      // Document-level handler to detect leaving/re-entering the list
       this.#docDragOverHandler = (ev) => {
         if (!this.#dragSrcId) return;
         const inside = this.#paramsListEl.contains(ev.target);
@@ -2128,7 +2153,6 @@ export class RequestEditor {
       const after = (e.clientY - rect.top) / rect.height >= 0.5;
       const ph    = this.#paramPhantomEl;
 
-      // Ensure dragged row stays hidden after re-entry
       const draggedRow = this.#paramsListEl.querySelector(`[data-id="${this.#dragSrcId}"]`);
       if (draggedRow && draggedRow.style.display !== "none") draggedRow.style.display = "none";
 
@@ -2145,8 +2169,8 @@ export class RequestEditor {
 
     row.appendChild(handle);
     row.appendChild(checkbox);
-    row.appendChild(nameInput);
-    row.appendChild(valueInput);
+    row.appendChild(nameEditor.element);
+    row.appendChild(valueEditor.element);
     row.appendChild(deleteBtn);
     return row;
   }
@@ -2372,6 +2396,8 @@ export class RequestEditor {
     this.#bodyFormBulkMode = nowBulk;
     this.#applyBodyFormBulkMode();
     if (!nowBulk) {
+      // Discard stale pill editors before rebuilding the KV list
+      this.#bodyFormPillEditors = [];
       // Re-render the KV list so it reflects any edits made in bulk mode
       if (this.#bfListEl) {
         this.#bfListEl.innerHTML = "";
@@ -2436,8 +2462,8 @@ export class RequestEditor {
 
   // ── Send ─────────────────────────────────────────────────────────────────
   #sendRequest() {
-    const baseUrl = this._urlInput.value.trim();
-    if (!baseUrl) { this._urlInput.focus(); return; }
+    const baseUrl = this.#urlPillEditor.getValue().trim();
+    if (!baseUrl) { this.#urlPillEditor.focus(); return; }
 
     // ── 0. Safety flush — if a bulk textarea is active, parse its current
     //       content now so in-progress edits (e.g. uncommitted IME) are
@@ -2573,6 +2599,26 @@ export class RequestEditor {
   }
 
   /**
+   * Update the variable resolution context used by all active pill editors.
+   * Call this whenever the selected request, environment, or folder variables
+   * change so that pills are re-validated immediately.
+   *
+   * @param {{ envVariables?: object, folderChain?: object[] } | null} context
+   */
+  setVariableContext(context) {
+    this.#variableContext = context;
+    const allEditors = [
+      this.#urlPillEditor,
+      ...this.#paramPillEditors,
+      ...this.#headerPillEditors,
+      ...this.#bodyFormPillEditors,
+    ].filter(Boolean);
+    for (const editor of allEditors) {
+      editor.revalidate();
+    }
+  }
+
+  /**
    * Apply persisted settings to the editor UI.
    * Called on startup after settings are loaded from disk.
    * @param {object} settings
@@ -2624,7 +2670,7 @@ export class RequestEditor {
 
     const url = node.url ?? "";
     this.#url = url;
-    this._urlInput.value = url;
+    this.#urlPillEditor.setValue(url);
 
     // Params
     this.#params = Array.isArray(node.params)

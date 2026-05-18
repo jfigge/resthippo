@@ -394,6 +394,44 @@
   color: var(--color-overlay-0);
 }
 
+/* ── Pill-editor variant of the URL bar ──────────────────────────────────── */
+/*
+ * The URL pill editor combines .pill-editor, .params-input, and .req-url-input.
+ * The rules below override the params-input defaults so the URL bar looks and
+ * feels exactly like the original <input type="url"> it replaces.
+ */
+.pill-editor.req-url-input {
+  /* Undo params-input's transparent border and fill the background */
+  background: var(--color-base);
+  border-color: var(--color-surface-2);
+  /* Match original height and padding */
+  min-height: 30px;
+  padding: var(--space-1) var(--space-3);
+  /* Font size matches the original req-url-input */
+  font-size: var(--font-size-base);
+  /* Grow to fill the bar (flex:1 already on .req-url-input) */
+  flex: 1;
+  /* Align text/pills vertically */
+  align-items: center;
+  /* Single-line feel — allow pills to wrap only when necessary */
+  overflow: hidden;
+}
+
+.pill-editor.req-url-input:focus,
+.pill-editor.req-url-input:focus-within {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-base);
+}
+
+.pill-editor.req-url-input:hover:not(:focus):not(:focus-within) {
+  border-color: var(--color-accent);
+}
+
+.pill-editor.req-url-input[data-empty="true"]::before {
+  font-size: var(--font-size-base);
+}
+
 .req-send-btn {
   height: 30px;
   padding: 0 var(--space-4);
@@ -1987,5 +2025,106 @@ input[type="checkbox"]:focus-visible {
 input[type="checkbox"]:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VARIABLE PILL EDITOR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/*
+ * .pill-editor — contenteditable div that replaces plain <input> fields
+ * when variable pill support is needed.  It shares the .params-input
+ * sizing rules (width, height, padding, border, colors) and adds display
+ * overrides so inline pill spans lay out correctly.
+ */
+.pill-editor.params-input {
+  /* Override <input> height with min-height so multi-pill rows can grow */
+  height: auto;
+  min-height: 24px;
+  /* Center content vertically when there is only one line */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  /* Prevent the browser from adding its own outline on contenteditable */
+  outline: none;
+  /* Inherit the mono font already set on .params-input */
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  cursor: text;
+  /* Remove resize handle (contenteditable doesn't have one, but be safe) */
+  resize: none;
+  line-height: 20px;
+}
+
+/* Placeholder via CSS — shown when the editor has data-empty="true" */
+.pill-editor.params-input[data-empty="true"]::before {
+  content: attr(data-placeholder);
+  color: var(--color-overlay-0);
+  font-style: italic;
+  pointer-events: none;
+  /* Ensure it doesn't shift layout */
+  position: relative;
+}
+
+/* Focus ring consistent with regular inputs */
+.pill-editor.params-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-base);
+}
+
+.pill-editor.params-input:hover:not(:focus) {
+  border-color: var(--color-surface-2);
+}
+
+/* Disabled-row dimming already applied to .params-input covers pill-editor too */
+
+/* ── Variable pill chips ──────────────────────────────────────────────────── */
+
+/*
+ * Base pill — shown inside either a .pill-editor or as a read-only preview.
+ * contenteditable="false" on the span ensures the caret cannot enter it.
+ * user-select: all makes click+drag select the whole pill atomically.
+ */
+.variable-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: default;
+  user-select: all;
+  vertical-align: middle;
+  flex-shrink: 0;
+  /* Prevent drag-initiating from the pill itself */
+  -webkit-user-drag: none;
+}
+
+/* Known variable — success colour palette */
+.variable-pill--known {
+  color:            var(--color-success);
+  background-color: color-mix(in srgb, var(--color-success) 18%, transparent);
+  border:           1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+
+/* Unknown / unresolved variable — error colour palette */
+.variable-pill--unknown {
+  color:            var(--color-error);
+  background-color: color-mix(in srgb, var(--color-error) 18%, transparent);
+  border:           1px solid color-mix(in srgb, var(--color-error) 35%, transparent);
+}
+
+/* Hover state — subtle brightness shift so pills feel interactive */
+.variable-pill--known:hover {
+  background-color: color-mix(in srgb, var(--color-success) 28%, transparent);
+}
+.variable-pill--unknown:hover {
+  background-color: color-mix(in srgb, var(--color-error) 28%, transparent);
 }
 
