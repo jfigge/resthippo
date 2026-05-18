@@ -50,6 +50,9 @@ export class VariablesPopup {
   /** @type {number|null} */   #saveTimer    = null;
   /** @type {Function|null} */ #resetCleanup = null;
 
+  /** Whether the "Remove headers" setting is active. */
+  #removeHeaders = false;
+
   static #SAVE_MS = 500;
 
   constructor() {
@@ -60,6 +63,18 @@ export class VariablesPopup {
   get element() { return this.#el; }
 
   // ── Public API ──────────────────────────────────────────────────────────────
+
+  /**
+   * Receive global settings. Currently responds to `removeHeaders`.
+   * Safe to call at any time — applies immediately if the popup is open.
+   * @param {{ removeHeaders?: boolean }} settings
+   */
+  applySettings(settings) {
+    if (settings.removeHeaders !== undefined) {
+      this.#removeHeaders = settings.removeHeaders;
+      this.#applyRemoveHeaders();
+    }
+  }
 
   /**
    * @param {{ envId:string, envName:string, variables:object, bulkEditor?:boolean }} opts
@@ -91,6 +106,7 @@ export class VariablesPopup {
     }
 
     PopupManager.open(this);
+    this.#applyRemoveHeaders();
     requestAnimationFrame(() => {
       if (this.#isBulkMode) this.#textareaEl.focus();
     });
@@ -99,6 +115,18 @@ export class VariablesPopup {
   onMaskClick() { this.#doClose(); }
 
   // ── Build ───────────────────────────────────────────────────────────────────
+
+  /**
+   * Apply (or clear) the "Remove headers" style to the popup's header bar and
+   * the KV-mode column-label row.  Idempotent — safe to call any number of times.
+   */
+  #applyRemoveHeaders() {
+    const display = this.#removeHeaders ? "none" : "";
+    // Popup title-bar (contains the "Variables — Env" label + close button)
+    // KV-mode column labels ("Name" / "Value")
+    const kvHeader = this.#el.querySelector(".vars-kv-header");
+    if (kvHeader) kvHeader.style.display = display;
+  }
 
   #build() {
     const el = document.createElement("div");
@@ -114,6 +142,7 @@ export class VariablesPopup {
       </div>
       <div class="popup-body vars-popup-body">
         <div class="vars-toolbar">
+          <button class="icon-btn vars-add-btn" title="Add variable" aria-label="Add variable" style="display:none">+</button>
           <label class="params-toolbar-toggle-label vars-bulk-label"
                  title="Toggle between bulk text editor and key/value row editor">
             <input type="checkbox" class="params-toolbar-toggle vars-bulk-toggle" checked>
@@ -133,15 +162,6 @@ export class VariablesPopup {
             <span></span><span>Name</span><span class="params-col-value">Value</span><span></span>
           </div>
           <div class="vars-kv-list params-list" aria-label="Variables"></div>
-          <div class="vars-kv-add-bar">
-            <button class="icon-btn vars-add-btn" title="Add variable" aria-label="Add variable">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/>
-              </svg>
-              Add
-            </button>
-          </div>
         </div>
       </div>
       <div class="popup-footer vars-popup-footer">
@@ -220,6 +240,8 @@ export class VariablesPopup {
     this.#kvWrapEl.style.display   = bulk ? "none" : "";
     const hint = this.#el.querySelector(".vars-hint");
     if (hint) hint.style.display   = bulk ? "" : "none";
+    const addBtn = this.#el.querySelector(".vars-add-btn");
+    if (addBtn) addBtn.style.display = bulk ? "none" : "";
   }
 
   #handleBulkToggle() {

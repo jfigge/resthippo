@@ -845,6 +845,7 @@ function applySettings(settings) {
   // Editor preferences
   if (requestEditor) requestEditor.applySettings(settings);
   if (responseViewer) responseViewer.applySettings(settings);
+  if (varsPopup) varsPopup.applySettings(settings);
 
   // Remove headers — hide/show all .panel-header elements, app-header, and nav settings bar
   if (settings.removeHeaders !== undefined) {
