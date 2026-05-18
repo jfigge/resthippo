@@ -631,6 +631,11 @@ function createWindow() {
     win.loadFile(path.join(__dirname, "..", "web", "index.html"));
   }
 
+  // Disable Chromium's built-in visual zoom (pinch / ctrl+wheel) so the app
+  // can intercept those gestures and adjust the settings font-size instead.
+  // Level limits (1,1) means the page is always at 100% visual zoom.
+  win.webContents.setVisualZoomLevelLimits(1, 1).catch(() => {});
+
   // Open <a target="_blank"> links in the system browser
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -684,9 +689,30 @@ function buildMenu() {
         { role: "forceReload" },
         { role: "toggleDevTools" },
         { type: "separator" },
-        { role: "resetZoom" },
-        { role: "zoomIn" },
-        { role: "zoomOut" },
+        // Custom font-size zoom — delegates to the renderer's zoom handler so
+        // the settings fontSize is adjusted (and persisted) instead of performing
+        // a Chromium visual zoom that bypasses the app theming system.
+        {
+          label: "Increase Font Size",
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("wurl:ui-font-change", "in");
+          },
+        },
+        {
+          label: "Decrease Font Size",
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("wurl:ui-font-change", "out");
+          },
+        },
+        {
+          label: "Reset Font Size",
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("wurl:ui-font-change", "reset");
+          },
+        },
         { type: "separator" },
         { role: "togglefullscreen" },
       ],

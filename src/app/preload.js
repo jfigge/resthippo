@@ -11,6 +11,17 @@
 
 const { contextBridge, ipcRenderer } = require("electron");
 
+// ─── Main → Renderer push events ─────────────────────────────────────────────
+// Forward IPC push messages from the main process to the renderer by
+// re-dispatching them as standard window CustomEvents.  contextBridge cannot
+// expose ipcRenderer.on() directly, so we listen here in the privileged
+// preload context and relay the payload via window.dispatchEvent.
+ipcRenderer.on("wurl:ui-font-change", (_event, direction) => {
+  window.dispatchEvent(
+    new CustomEvent("wurl:ui-font-change", { detail: direction })
+  );
+});
+
 contextBridge.exposeInMainWorld("wurl", {
   /**
    * Explicit sentinel that the renderer uses to detect the Electron environment.
