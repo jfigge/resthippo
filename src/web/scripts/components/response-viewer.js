@@ -95,8 +95,9 @@ export class ResponseViewer {
   // HTML-preview state
   #htmlPreviewActive  = false;  // true while an HTML preview is live
   #iframeEl           = null;   // dev-mode <iframe> element
-  #resizeObserver     = null;   // observes body pane size for Electron overlay
+  #resizeObserver     = null;   // observes body pane for Electron overlay
   #winResizeHandler   = null;   // window resize listener for Electron overlay
+  #settingsHandler    = null;   // wurl:settings-changed listener for font-size repositioning
 
   constructor() {
     this.#el = document.createElement("div");
@@ -127,14 +128,8 @@ export class ResponseViewer {
       if (!this.#htmlPreviewActive || !window.wurl?.isElectron) return;
       if (this.#activeTab !== "body") return;   // body tab is not visible — stay hidden
       requestAnimationFrame(() => {
-        if (!this.#htmlPreviewActive || !this.#bodyPane) return;
-        const r = this.#bodyPane.getBoundingClientRect();
-        window.wurl.htmlPreview.show({
-          x:      Math.round(r.left),
-          y:      Math.round(r.top),
-          width:  Math.max(1, Math.round(r.width)),
-          height: Math.max(1, Math.round(r.height)),
-        }).catch(() => {});
+        if (!this.#htmlPreviewActive) return;
+        window.wurl.htmlPreview.show(this.#computePreviewBounds()).catch(() => {});
       });
     });
   }
@@ -358,11 +353,36 @@ export class ResponseViewer {
   // ── HTML preview helpers ──────────────────────────────────────────────────
 
   /**
+   * Compute the pixel bounds for the Electron WebContentsView overlay.
+   *
+   * Uses the body pane's own bounding rect — the pane IS the exact area the
+   * overlay should cover.  Its left edge sits against splitter-2, its top edge
+   * starts below the res-tab-strip, and it fills to the bottom-right corner.
+   *
+   * Because the pane is flex: 1 inside its container, any font-size change
+   * that shrinks/grows elements above it will cause the pane's OWN size to
+   * change, which the ResizeObserver detects.  Reading the rect at callback
+   * time gives us pixel-perfect position and dimensions in one shot.
+   *
+   * @returns {{ x: number, y: number, width: number, height: number }}
+   */
+  #computePreviewBounds() {
+    const r = this.#bodyPane.getBoundingClientRect();
+    return {
+      x:      Math.round(r.left),
+      y:      Math.round(r.top),
+      width:  Math.max(1, Math.round(r.width)),
+      height: Math.max(1, Math.round(r.height)),
+    };
+  }
+
+  /**
    * Electron mode: overlay a WebContentsView on the body pane and navigate to
-   * the request URL.  A ResizeObserver keeps the bounds in sync as panels resize.
+   * the request URL.  A ResizeObserver on the body pane plus a settings-changed
+   * listener keeps the bounds in sync as panels resize or the font-size changes.
    *
    * @param {string}      url   - original request URL to load
-   * @param {HTMLElement} pane  - body pane element used for bounds calculation
+   * @param {HTMLElement} pane  - body pane element (used only for the loading placeholder)
    */
   #activateElectronHtmlPreview(url, pane) {
     this.#htmlPreviewActive = true;
@@ -375,34 +395,38 @@ export class ResponseViewer {
       "<span>Loading preview…</span>";
     pane.appendChild(placeholder);
 
-    // Helper: compute current pane bounds and round to integers.
-    const getBounds = () => {
-      const r = pane.getBoundingClientRect();
-      return {
-        x:      Math.round(r.left),
-        y:      Math.round(r.top),
-        width:  Math.max(1, Math.round(r.width)),
-        height: Math.max(1, Math.round(r.height)),
-      };
-    };
-
-    // Keep the overlay positioned correctly when the panel splitter moves.
+    // Keep the overlay positioned correctly when the panel splitter moves
+    // (pane width/height changes) or font-size changes (pane grows/shrinks as
+    // sibling elements like the tab-strip change height).
     this.#resizeObserver = new ResizeObserver(() => {
       if (this.#htmlPreviewActive && window.wurl?.htmlPreview?.resize) {
-        window.wurl.htmlPreview.resize(getBounds());
+        window.wurl.htmlPreview.resize(this.#computePreviewBounds());
       }
     });
     this.#resizeObserver.observe(pane);
 
+    // Listen for settings changes (primarily font-size) as a safety net.
+    // Font-size changes alter the tab-strip and status-bar heights, which shifts
+    // the pane's position.  In a flex layout the pane's own size changes too
+    // (triggering the ResizeObserver), but a deferred reposition ensures we
+    // pick up the final layout even if the observer fires before reflow settles.
+    this.#settingsHandler = () => {
+      if (!this.#htmlPreviewActive || !window.wurl?.htmlPreview?.resize) return;
+      requestAnimationFrame(() => {
+        if (this.#htmlPreviewActive && window.wurl?.htmlPreview?.resize) {
+          window.wurl.htmlPreview.resize(this.#computePreviewBounds());
+        }
+      });
+    };
+    window.addEventListener("wurl:settings-changed", this.#settingsHandler);
+
     // Also reposition when the Electron window itself is resized.
-    // The ResizeObserver covers splitter drags; this covers OS-level window resizes
-    // where the pane's position or size may change without a separate layout event.
     this.#winResizeHandler = () => {
       if (!this.#htmlPreviewActive || !window.wurl?.htmlPreview?.resize) return;
       // Defer one frame so the renderer layout has finished reflowing.
       requestAnimationFrame(() => {
         if (this.#htmlPreviewActive && window.wurl?.htmlPreview?.resize) {
-          window.wurl.htmlPreview.resize(getBounds());
+          window.wurl.htmlPreview.resize(this.#computePreviewBounds());
         }
       });
     };
@@ -411,8 +435,7 @@ export class ResponseViewer {
     // Defer the first loadUrl call so the pane has been laid out.
     requestAnimationFrame(() => {
       if (!this.#htmlPreviewActive) return;  // destroyed before frame fired
-      const bounds = getBounds();
-      window.wurl?.htmlPreview?.loadUrl(url, bounds).catch(() => {});
+      window.wurl?.htmlPreview?.loadUrl(url, this.#computePreviewBounds()).catch(() => {});
     });
   }
 
@@ -459,6 +482,12 @@ export class ResponseViewer {
     if (this.#winResizeHandler) {
       window.removeEventListener("resize", this.#winResizeHandler);
       this.#winResizeHandler = null;
+    }
+
+    // Remove the settings-changed listener.
+    if (this.#settingsHandler) {
+      window.removeEventListener("wurl:settings-changed", this.#settingsHandler);
+      this.#settingsHandler = null;
     }
 
     // Remove dev-mode iframe.
@@ -520,13 +549,7 @@ export class ResponseViewer {
       } else if (tabId === "body" && prevTab !== "body") {
         // Returning to the body tab — re-attach and reposition the overlay
         requestAnimationFrame(() => {
-          const r = this.#bodyPane.getBoundingClientRect();
-          window.wurl.htmlPreview.show({
-            x:      Math.round(r.left),
-            y:      Math.round(r.top),
-            width:  Math.max(1, Math.round(r.width)),
-            height: Math.max(1, Math.round(r.height)),
-          }).catch(() => {});
+          window.wurl.htmlPreview.show(this.#computePreviewBounds()).catch(() => {});
         });
       }
     }
