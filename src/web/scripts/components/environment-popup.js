@@ -83,6 +83,18 @@ export class EnvironmentPopup {
   // ── Public API ─────────────────────────────────────────────────────────────
 
   /**
+   * Open the popup and immediately begin renaming the specified environment.
+   * Used by external callers (e.g. the nav-panel context menu).
+   * @param {{ environments: object[], activeEnvironmentId: string }} state
+   * @param {string} envId  — the environment to rename (defaults to active)
+   */
+  openWithRename({ environments, activeEnvironmentId }, envId = activeEnvironmentId) {
+    this.open({ environments, activeEnvironmentId });
+    const env = this.#environments.find(e => e.id === envId);
+    if (env) this.#startRename(env);
+  }
+
+  /**
    * Open the popup, seeded with the current app state.
    * @param {{ environments: object[], activeEnvironmentId: string }} state
    */

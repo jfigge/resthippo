@@ -327,6 +327,13 @@ function _buildEnvCtxMenu() {
 
   const items = [
     {
+      label: "Rename",
+      action: () => {
+        envPopup.openWithRename(currentEnvs);
+      },
+    },
+    "separator",
+    {
       label: "Variables",
       action: () => {
         const activeEnv = currentEnvs.environments.find(
@@ -344,6 +351,12 @@ function _buildEnvCtxMenu() {
   ];
 
   items.forEach((item) => {
+    if (item === "separator") {
+      const sep = document.createElement("div");
+      sep.className = "tree-ctxmenu__separator";
+      menu.appendChild(sep);
+      return;
+    }
     const btn = document.createElement("button");
     btn.className = "tree-ctxmenu__item";
     btn.setAttribute("role", "menuitem");
