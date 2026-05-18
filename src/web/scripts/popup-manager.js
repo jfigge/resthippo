@@ -31,6 +31,31 @@ let _confirmEl = null;
 /** Whether the confirmClose dialog is currently visible */
 let _confirmOpen = false;
 
+// ── Resize → close any active popup / dialog ──────────────────────────────────
+
+/**
+ * Dismiss the confirmClose overlay without taking any action.
+ * Mirrors the "Keep editing" path but skips the focus-restore step.
+ */
+function _closeConfirmIfOpen() {
+  if (!_confirmOpen || !_confirmEl) return;
+  _confirmOpen = false;
+  _confirmEl.classList.remove("popup--visible");
+  const onEnd = () => {
+    _confirmEl.removeEventListener("transitionend", onEnd);
+    if (_confirmEl.parentNode) _confirmEl.parentNode.removeChild(_confirmEl);
+  };
+  _confirmEl.addEventListener("transitionend", onEnd);
+  setTimeout(() => {
+    if (_confirmEl && _confirmEl.parentNode) _confirmEl.parentNode.removeChild(_confirmEl);
+  }, 400);
+}
+
+window.addEventListener("resize", () => {
+  if (_confirmOpen) _closeConfirmIfOpen();
+  if (_activePopup)  PopupManager.close();
+});
+
 // ── Private helpers ───────────────────────────────────────────────────────────
 
 function _ensureMask() {

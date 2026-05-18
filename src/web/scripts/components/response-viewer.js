@@ -96,6 +96,7 @@ export class ResponseViewer {
   #htmlPreviewActive  = false;  // true while an HTML preview is live
   #iframeEl           = null;   // dev-mode <iframe> element
   #resizeObserver     = null;   // observes body pane size for Electron overlay
+  #winResizeHandler   = null;   // window resize listener for Electron overlay
 
   constructor() {
     this.#el = document.createElement("div");
@@ -370,6 +371,20 @@ export class ResponseViewer {
     });
     this.#resizeObserver.observe(pane);
 
+    // Also reposition when the Electron window itself is resized.
+    // The ResizeObserver covers splitter drags; this covers OS-level window resizes
+    // where the pane's position or size may change without a separate layout event.
+    this.#winResizeHandler = () => {
+      if (!this.#htmlPreviewActive || !window.wurl?.htmlPreview?.resize) return;
+      // Defer one frame so the renderer layout has finished reflowing.
+      requestAnimationFrame(() => {
+        if (this.#htmlPreviewActive && window.wurl?.htmlPreview?.resize) {
+          window.wurl.htmlPreview.resize(getBounds());
+        }
+      });
+    };
+    window.addEventListener("resize", this.#winResizeHandler);
+
     // Defer the first loadUrl call so the pane has been laid out.
     requestAnimationFrame(() => {
       if (!this.#htmlPreviewActive) return;  // destroyed before frame fired
@@ -415,6 +430,12 @@ export class ResponseViewer {
     if (this.#resizeObserver) {
       this.#resizeObserver.disconnect();
       this.#resizeObserver = null;
+    }
+
+    // Remove the window resize listener for the Electron overlay.
+    if (this.#winResizeHandler) {
+      window.removeEventListener("resize", this.#winResizeHandler);
+      this.#winResizeHandler = null;
     }
 
     // Remove dev-mode iframe.
