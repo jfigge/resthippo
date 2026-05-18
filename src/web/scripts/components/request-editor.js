@@ -5,7 +5,6 @@
 "use strict";
 
 import { parse as parseYaml, stringify as stringifyYaml } from "../vendor/yaml.js";
-import { PopupManager } from "../popup-manager.js";
 
 
 // Standard HTTP request headers offered in the header-name combo box.
@@ -239,6 +238,30 @@ export class RequestEditor {
   #hdrDragDropHandled    = false;
   #headerPhantomEl       = null;
   #hdrDocDragOverHandler = null;
+
+  // Params bulk editor
+  #paramsBulkMode    = false;
+  #paramsBulkEl      = null;   // <textarea> shown in bulk mode
+  #paramsKvWrapEl    = null;   // div wrapping col-headers + list
+  #paramsAddBtnEl    = null;   // hidden in bulk mode
+  #paramsDelAllBtnEl = null;   // hidden in bulk mode
+
+  // Headers bulk editor
+  #headersBulkMode    = false;
+  #headersBulkEl      = null;
+  #headersKvWrapEl    = null;
+  #headersAddBtnEl    = null;
+  #headersDelAllBtnEl = null;
+
+  // Body form bulk editor
+  #bodyFormBulkMode    = false;
+  #bodyFormBulkEl      = null;
+  #bodyFormKvWrapEl    = null;
+  #bodyFormAddBtnEl    = null;
+  #bodyFormDelAllBtnEl = null;
+
+  // Global "Remove Headers" setting — applied to body-form column label row
+  #removeHeaders = false;
 
   constructor() {
     this.#el = document.createElement("div");
@@ -813,6 +836,8 @@ export class RequestEditor {
     // Reset body form drag state whenever we switch panels
     this.#bfListEl = this.#bfPhantom = null;
     this.#bfDragSrcId = null;
+    // Reset body form bulk refs (will be reassigned by #renderBodyForm if applicable)
+    this.#bodyFormBulkEl = this.#bodyFormKvWrapEl = this.#bodyFormAddBtnEl = this.#bodyFormDelAllBtnEl = null;
 
     switch (this.#bodyType) {
       case "no-body":         return this.#renderBodyNone(el);
@@ -857,24 +882,85 @@ export class RequestEditor {
     delAllBtn.className = "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
     delAllBtn.title = "Delete all fields";
     delAllBtn.textContent = "Delete All";
-    delAllBtn.addEventListener("click", () => {
-      if (!rows.length) return;
-      PopupManager.confirm({
-        title: "Delete all fields?",
-        message: "This will remove all form fields. This cannot be undone.",
-        confirmLabel: "Delete all",
-        confirmClass: "popup-btn--danger",
-        onConfirm: () => {
+
+    // Inline confirm: first click → "Confirm?"; second click → delete all.
+    // Escape or clicking outside the button cancels.
+    {
+      let cleanupConfirm = null;
+
+      const enterConfirm = () => {
+        delAllBtn.textContent = "Confirm?";
+        delAllBtn.classList.remove("params-toolbar-btn--danger");
+        delAllBtn.classList.add("params-toolbar-btn--confirming");
+
+        const restore = () => {
+          delAllBtn.textContent = "Delete All";
+          delAllBtn.classList.remove("params-toolbar-btn--confirming");
+          delAllBtn.classList.add("params-toolbar-btn--danger");
+          document.removeEventListener("keydown",   onEsc,     true);
+          document.removeEventListener("mousedown", onOutside, true);
+          cleanupConfirm = null;
+        };
+
+        const onEsc     = (e) => { if (e.key === "Escape") { e.stopPropagation(); restore(); } };
+        const onOutside = (e) => { if (!delAllBtn.contains(e.target)) restore(); };
+
+        document.addEventListener("keydown",   onEsc,     true);
+        document.addEventListener("mousedown", onOutside, true);
+        cleanupConfirm = restore;
+      };
+
+      delAllBtn.addEventListener("click", () => {
+        if (!this.#bodyFormRows.length) return;
+        if (cleanupConfirm) {
+          cleanupConfirm();
           this.#bodyFormRows = [];
           this.#renderBodyContent();
           this.#dispatchBodyUpdated();
-        },
+        } else {
+          enterConfirm();
+        }
       });
-    });
+    }
+
+    this.#bodyFormAddBtnEl    = addBtn;
+    this.#bodyFormDelAllBtnEl = delAllBtn;
+
+    // ── Bulk Editor toggle — leftmost ─────────────────────────────────────
+    const bfBulkLabel = document.createElement("label");
+    bfBulkLabel.className = "params-toolbar-toggle-label";
+    bfBulkLabel.title = "Toggle between bulk text editor and key/value row editor";
+    const bfBulkCheck = document.createElement("input");
+    bfBulkCheck.type      = "checkbox";
+    bfBulkCheck.className = "params-toolbar-toggle";
+    bfBulkCheck.checked   = this.#bodyFormBulkMode;
+    bfBulkCheck.addEventListener("change", () => this.#handleBodyFormBulkToggle(bfBulkCheck.checked));
+    bfBulkLabel.appendChild(bfBulkCheck);
+    bfBulkLabel.append(" Bulk Editor");
+    toolbar.appendChild(bfBulkLabel);
 
     toolbar.appendChild(addBtn);
     toolbar.appendChild(delAllBtn);
     el.appendChild(toolbar);
+
+    // ── Bulk mode textarea ────────────────────────────────────────────────
+    const bfBulkTa = document.createElement("textarea");
+    bfBulkTa.className   = "body-text-editor";
+    bfBulkTa.placeholder = "name=value\nfield1=foo\nfield2=bar";
+    bfBulkTa.spellcheck  = false;
+    bfBulkTa.setAttribute("aria-label", "Form fields bulk editor");
+    bfBulkTa.value = this.#kvRowsToText(this.#bodyFormRows);
+    bfBulkTa.addEventListener("input", () => {
+      this.#bodyFormRows = this.#textToKvRows(bfBulkTa.value);
+      this.#dispatchBodyUpdated();
+    });
+    this.#bodyFormBulkEl = bfBulkTa;
+    el.appendChild(bfBulkTa);
+
+    // ── KV wrap (column headers + list) ──────────────────────────────────
+    const bfKvWrap = document.createElement("div");
+    bfKvWrap.style.cssText = "display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden";
+    this.#bodyFormKvWrapEl = bfKvWrap;
 
     // Column headers
     const hdr = document.createElement("div");
@@ -885,7 +971,7 @@ export class RequestEditor {
       <span class="params-col-name">Name</span>
       <span class="params-col-value">Value</span>
       <span class="params-col-delete"></span>`;
-    el.appendChild(hdr);
+    bfKvWrap.appendChild(hdr);
 
     // Phantom + list
     const phantom = document.createElement("div");
@@ -926,7 +1012,11 @@ export class RequestEditor {
       rows.forEach((row, idx) => list.appendChild(this.#buildBfRow(row, idx, rows, type)));
     }
 
-    el.appendChild(list);
+    bfKvWrap.appendChild(list);
+    el.appendChild(bfKvWrap);
+
+    this.#applyBodyFormBulkMode();
+    this.#applyBodyFormHeaderRow();
     }
 
     #buildBfRow(row, index, rows, type) {
@@ -1370,6 +1460,8 @@ export class RequestEditor {
 
     toolbar.appendChild(addBtn);
     toolbar.appendChild(deleteAllBtn);
+    this.#paramsAddBtnEl    = addBtn;
+    this.#paramsDelAllBtnEl = deleteAllBtn;
 
     // Spacer pushes the Show URL toggle to the right
     const showUrlSpacer = document.createElement("span");
@@ -1399,10 +1491,42 @@ export class RequestEditor {
     showUrlLabel.append("Show URL Preview");
     toolbar.appendChild(showUrlLabel);
 
+    // ── Bulk Editor toggle — leftmost in toolbar ──────────────────────────
+    const pBulkLabel = document.createElement("label");
+    pBulkLabel.className = "params-toolbar-toggle-label";
+    pBulkLabel.title = "Toggle between bulk text editor and key/value row editor";
+    const pBulkCheck = document.createElement("input");
+    pBulkCheck.type      = "checkbox";
+    pBulkCheck.className = "params-toolbar-toggle";
+    pBulkCheck.checked   = this.#paramsBulkMode;
+    pBulkCheck.addEventListener("change", () => this.#handleParamsBulkToggle(pBulkCheck.checked));
+    pBulkLabel.appendChild(pBulkCheck);
+    pBulkLabel.append(" Bulk Editor");
+    toolbar.insertBefore(pBulkLabel, toolbar.firstChild);
+
     container.appendChild(toolbar);
 
     // ── URL preview bar (below toolbar, above column headers) ─────────────
     container.appendChild(this.#buildUrlPreviewBar());
+
+    // ── Bulk mode textarea ────────────────────────────────────────────────
+    const pBulkTa = document.createElement("textarea");
+    pBulkTa.className   = "body-text-editor";
+    pBulkTa.placeholder = "name=value\nparam1=foo\nparam2=bar";
+    pBulkTa.spellcheck  = false;
+    pBulkTa.setAttribute("aria-label", "Parameters bulk editor");
+    pBulkTa.addEventListener("input", () => {
+      this.#params = this.#textToKvRows(pBulkTa.value);
+      this.#updateUrlPreview();
+      this.#dispatchParamsUpdated();
+    });
+    this.#paramsBulkEl = pBulkTa;
+    container.appendChild(pBulkTa);
+
+    // ── KV wrap (column headers + list) ──────────────────────────────────
+    const pKvWrap = document.createElement("div");
+    pKvWrap.style.cssText = "display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden";
+    this.#paramsKvWrapEl = pKvWrap;
 
     // ── Column headers ───────────────────────────────────────────────────
     const headers = document.createElement("div");
@@ -1413,7 +1537,7 @@ export class RequestEditor {
       <span class="params-col-name">Name</span>
       <span class="params-col-value">Value</span>
       <span class="params-col-delete"></span>`;
-    container.appendChild(headers);
+    pKvWrap.appendChild(headers);
 
     // ── List ─────────────────────────────────────────────────────────────
     const list = document.createElement("div");
@@ -1451,8 +1575,10 @@ export class RequestEditor {
       this.#finalizeParamDrag();
     });
 
-    container.appendChild(list);
+    pKvWrap.appendChild(list);
+    container.appendChild(pKvWrap);
 
+    this.#applyParamsBulkMode();
     this.#renderParamsList();
     return container;
     }
@@ -1522,6 +1648,8 @@ export class RequestEditor {
 
     toolbar.appendChild(addBtn);
     toolbar.appendChild(deleteAllBtn);
+    this.#headersAddBtnEl    = addBtn;
+    this.#headersDelAllBtnEl = deleteAllBtn;
 
     // ── "List Headers" toggle — pushed to the right ───────────────────────
     const spacer = document.createElement("span");
@@ -1551,7 +1679,38 @@ export class RequestEditor {
     listHdrLabel.append(" List Headers");
     toolbar.appendChild(listHdrLabel);
 
+    // ── Bulk Editor toggle — leftmost in toolbar ──────────────────────────
+    const hBulkLabel = document.createElement("label");
+    hBulkLabel.className = "params-toolbar-toggle-label";
+    hBulkLabel.title = "Toggle between bulk text editor and key/value row editor";
+    const hBulkCheck = document.createElement("input");
+    hBulkCheck.type      = "checkbox";
+    hBulkCheck.className = "params-toolbar-toggle";
+    hBulkCheck.checked   = this.#headersBulkMode;
+    hBulkCheck.addEventListener("change", () => this.#handleHeadersBulkToggle(hBulkCheck.checked));
+    hBulkLabel.appendChild(hBulkCheck);
+    hBulkLabel.append(" Bulk Editor");
+    toolbar.insertBefore(hBulkLabel, toolbar.firstChild);
+
     container.appendChild(toolbar);
+
+    // ── Bulk mode textarea ────────────────────────────────────────────────
+    const hBulkTa = document.createElement("textarea");
+    hBulkTa.className   = "body-text-editor";
+    hBulkTa.placeholder = "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token";
+    hBulkTa.spellcheck  = false;
+    hBulkTa.setAttribute("aria-label", "Headers bulk editor");
+    hBulkTa.addEventListener("input", () => {
+      this.#headers = this.#textToHeaderRows(hBulkTa.value);
+      this.#dispatchHeadersUpdated();
+    });
+    this.#headersBulkEl = hBulkTa;
+    container.appendChild(hBulkTa);
+
+    // ── KV wrap (column headers + list) ──────────────────────────────────
+    const hKvWrap = document.createElement("div");
+    hKvWrap.style.cssText = "display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden";
+    this.#headersKvWrapEl = hKvWrap;
 
     // ── Column headers ───────────────────────────────────────────────────
     const colHeaders = document.createElement("div");
@@ -1562,7 +1721,7 @@ export class RequestEditor {
       <span class="params-col-name">Header</span>
       <span class="params-col-value">Value</span>
       <span class="params-col-delete"></span>`;
-    container.appendChild(colHeaders);
+    hKvWrap.appendChild(colHeaders);
 
     // ── List ─────────────────────────────────────────────────────────────
     const list = document.createElement("div");
@@ -1598,8 +1757,10 @@ export class RequestEditor {
       this.#finalizeHeaderDrag();
     });
 
-    container.appendChild(list);
+    hKvWrap.appendChild(list);
+    container.appendChild(hKvWrap);
 
+    this.#applyHeadersBulkMode();
     this.#renderHeadersList();
     return container;
     }
@@ -1632,6 +1793,13 @@ export class RequestEditor {
 
     #renderHeadersList() {
     if (!this.#headersListEl) return;
+
+    // In bulk mode just keep the textarea in sync
+    if (this.#headersBulkMode) {
+      if (this.#headersBulkEl) this.#headersBulkEl.value = this.#headerRowsToText(this.#headers);
+      return;
+    }
+
     this.#headersListEl.innerHTML = "";
 
     if (this.#headers.length === 0) {
@@ -1841,6 +2009,14 @@ export class RequestEditor {
 
   #renderParamsList() {
     if (!this.#paramsListEl) return;
+
+    // In bulk mode just keep the textarea in sync and update the URL preview
+    if (this.#paramsBulkMode) {
+      if (this.#paramsBulkEl) this.#paramsBulkEl.value = this.#kvRowsToText(this.#params);
+      this.#updateUrlPreview();
+      return;
+    }
+
     this.#paramsListEl.innerHTML = "";
 
     if (this.#params.length === 0) {
@@ -2085,6 +2261,161 @@ export class RequestEditor {
     this.#dragDropHandled = false;
   }
 
+  // ── Bulk editor shared utilities ─────────────────────────────────────────
+
+  /**
+   * Serialise an array of { name, value } rows to  name=value  text.
+   * All rows are included regardless of their enabled flag.
+   */
+  #kvRowsToText(rows) {
+    return rows.map(r => `${r.name}=${r.value}`).join("\n");
+  }
+
+  /**
+   * Serialise header rows to  Name: value  text (standard HTTP format).
+   */
+  #headerRowsToText(rows) {
+    return rows.map(r => `${r.name}: ${r.value}`).join("\n");
+  }
+
+  /**
+   * Parse  name=value  bulk text into an array of row objects.
+   * All parsed rows are enabled=true.
+   * Lines with no '=' are treated as name-only rows with an empty value.
+   */
+  #textToKvRows(text) {
+    const out = [];
+    for (const line of text.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const eqIdx = trimmed.indexOf("=");
+      const name  = eqIdx === -1 ? trimmed           : trimmed.slice(0, eqIdx).trim();
+      const value = eqIdx === -1 ? ""                : trimmed.slice(eqIdx + 1);
+      if (name) out.push({ id: crypto.randomUUID(), name, value, enabled: true });
+    }
+    return out;
+  }
+
+  /**
+   * Parse  Header-Name: value  OR  Header-Name=value  lines into header rows.
+   * Supports both colon-separated (natural HTTP format) and equals-separated.
+   */
+  #textToHeaderRows(text) {
+    const out = [];
+    for (const line of text.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      // Prefer colon separator for headers, fall back to equals
+      const colonIdx = trimmed.indexOf(":");
+      const eqIdx    = trimmed.indexOf("=");
+      let name, value;
+      if (colonIdx !== -1 && (eqIdx === -1 || colonIdx < eqIdx)) {
+        name  = trimmed.slice(0, colonIdx).trim();
+        value = trimmed.slice(colonIdx + 1).trim();
+      } else if (eqIdx !== -1) {
+        name  = trimmed.slice(0, eqIdx).trim();
+        value = trimmed.slice(eqIdx + 1);
+      } else {
+        name  = trimmed;
+        value = "";
+      }
+      if (name) out.push({ id: crypto.randomUUID(), name, value, enabled: true });
+    }
+    return out;
+  }
+
+  // ── Params bulk editor ────────────────────────────────────────────────────
+
+  #handleParamsBulkToggle(nowBulk) {
+    if (nowBulk && !this.#paramsBulkMode) {
+      // KV → Bulk: serialise current rows into the textarea
+      if (this.#paramsBulkEl)
+        this.#paramsBulkEl.value = this.#kvRowsToText(this.#params);
+    } else if (!nowBulk && this.#paramsBulkMode) {
+      // Bulk → KV: parse textarea back to rows
+      if (this.#paramsBulkEl)
+        this.#params = this.#textToKvRows(this.#paramsBulkEl.value);
+    }
+    this.#paramsBulkMode = nowBulk;
+    this.#applyParamsBulkMode();
+    if (!nowBulk) this.#renderParamsList();
+    this.#updateUrlPreview();
+    this.#dispatchParamsUpdated();
+  }
+
+  #applyParamsBulkMode() {
+    const bulk = this.#paramsBulkMode;
+    if (this.#paramsBulkEl)    this.#paramsBulkEl.style.display    = bulk ? "" : "none";
+    if (this.#paramsKvWrapEl)  this.#paramsKvWrapEl.style.display  = bulk ? "none" : "";
+    if (this.#paramsAddBtnEl)    this.#paramsAddBtnEl.style.display    = bulk ? "none" : "";
+    if (this.#paramsDelAllBtnEl) this.#paramsDelAllBtnEl.style.display = bulk ? "none" : "";
+  }
+
+  // ── Headers bulk editor ───────────────────────────────────────────────────
+
+  #handleHeadersBulkToggle(nowBulk) {
+    if (nowBulk && !this.#headersBulkMode) {
+      if (this.#headersBulkEl)
+        this.#headersBulkEl.value = this.#headerRowsToText(this.#headers);
+    } else if (!nowBulk && this.#headersBulkMode) {
+      if (this.#headersBulkEl)
+        this.#headers = this.#textToHeaderRows(this.#headersBulkEl.value);
+    }
+    this.#headersBulkMode = nowBulk;
+    this.#applyHeadersBulkMode();
+    if (!nowBulk) this.#renderHeadersList();
+    this.#dispatchHeadersUpdated();
+  }
+
+  #applyHeadersBulkMode() {
+    const bulk = this.#headersBulkMode;
+    if (this.#headersBulkEl)    this.#headersBulkEl.style.display    = bulk ? "" : "none";
+    if (this.#headersKvWrapEl)  this.#headersKvWrapEl.style.display  = bulk ? "none" : "";
+    if (this.#headersAddBtnEl)    this.#headersAddBtnEl.style.display    = bulk ? "none" : "";
+    if (this.#headersDelAllBtnEl) this.#headersDelAllBtnEl.style.display = bulk ? "none" : "";
+    // Hide the autocomplete dropdown when entering bulk mode
+    if (bulk) _hideHdrDropdown();
+  }
+
+  // ── Body form bulk editor ─────────────────────────────────────────────────
+
+  #handleBodyFormBulkToggle(nowBulk) {
+    if (nowBulk && !this.#bodyFormBulkMode) {
+      if (this.#bodyFormBulkEl)
+        this.#bodyFormBulkEl.value = this.#kvRowsToText(this.#bodyFormRows);
+    } else if (!nowBulk && this.#bodyFormBulkMode) {
+      if (this.#bodyFormBulkEl)
+        this.#bodyFormRows = this.#textToKvRows(this.#bodyFormBulkEl.value);
+    }
+    this.#bodyFormBulkMode = nowBulk;
+    this.#applyBodyFormBulkMode();
+    if (!nowBulk) {
+      // Re-render the KV list so it reflects any edits made in bulk mode
+      if (this.#bfListEl) {
+        this.#bfListEl.innerHTML = "";
+        if (!this.#bodyFormRows.length) {
+          const empty = document.createElement("div");
+          empty.className = "params-empty";
+          empty.textContent = "No fields — click  +  to add one.";
+          this.#bfListEl.appendChild(empty);
+        } else {
+          this.#bodyFormRows.forEach((row, idx) =>
+            this.#bfListEl.appendChild(this.#buildBfRow(row, idx, this.#bodyFormRows, this.#bfActiveType))
+          );
+        }
+      }
+    }
+    this.#dispatchBodyUpdated();
+  }
+
+  #applyBodyFormBulkMode() {
+    const bulk = this.#bodyFormBulkMode;
+    if (this.#bodyFormBulkEl)    this.#bodyFormBulkEl.style.display    = bulk ? "" : "none";
+    if (this.#bodyFormKvWrapEl)  this.#bodyFormKvWrapEl.style.display  = bulk ? "none" : "";
+    if (this.#bodyFormAddBtnEl)    this.#bodyFormAddBtnEl.style.display    = bulk ? "none" : "";
+    if (this.#bodyFormDelAllBtnEl) this.#bodyFormDelAllBtnEl.style.display = bulk ? "none" : "";
+  }
+
   // ── Tab switching ─────────────────────────────────────────────────────────
   #switchTab(tabId) {
     this.#activeTab = tabId;
@@ -2271,6 +2602,16 @@ export class RequestEditor {
       if (cb) cb.checked = this.#urlPreviewEnabled;
       this.#updateUrlPreview();
     }
+    if (settings.removeHeaders != null) {
+      this.#removeHeaders = !!settings.removeHeaders;
+      this.#applyBodyFormHeaderRow();
+    }
+  }
+
+  /** Show/hide the body-form column-label row to match the removeHeaders setting. */
+  #applyBodyFormHeaderRow() {
+    const hdr = this.#bodyFormKvWrapEl?.querySelector(".params-header-row");
+    if (hdr) hdr.style.display = this.#removeHeaders ? "none" : "";
   }
 
   /**
