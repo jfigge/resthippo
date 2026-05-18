@@ -205,7 +205,6 @@ export class RequestEditor {
   #headers               = [];   // [{ id, name, value, enabled }]
   #headersListEl         = null;
   #headerSuggestionsEnabled = true;  // toggled by "List Headers" checkbox
-  // Headers drag state
 
   // Auth state
   #authType      = "none";
@@ -836,6 +835,8 @@ export class RequestEditor {
     // Reset body form drag state whenever we switch panels
     this.#bfListEl = this.#bfPhantom = null;
     this.#bfDragSrcId = null;
+    // Cancel any in-progress delete-all confirm before the UI is rebuilt
+    this._bodyFormDeleteAllCleanup?.();
     // Reset body form bulk refs (will be reassigned by #renderBodyForm if applicable)
     this.#bodyFormBulkEl = this.#bodyFormKvWrapEl = this.#bodyFormAddBtnEl = this.#bodyFormDelAllBtnEl = null;
 
@@ -885,43 +886,11 @@ export class RequestEditor {
 
     // Inline confirm: first click → "Confirm?"; second click → delete all.
     // Escape or clicking outside the button cancels.
-    {
-      let cleanupConfirm = null;
-
-      const enterConfirm = () => {
-        delAllBtn.textContent = "Confirm?";
-        delAllBtn.classList.remove("params-toolbar-btn--danger");
-        delAllBtn.classList.add("params-toolbar-btn--confirming");
-
-        const restore = () => {
-          delAllBtn.textContent = "Delete All";
-          delAllBtn.classList.remove("params-toolbar-btn--confirming");
-          delAllBtn.classList.add("params-toolbar-btn--danger");
-          document.removeEventListener("keydown",   onEsc,     true);
-          document.removeEventListener("mousedown", onOutside, true);
-          cleanupConfirm = null;
-        };
-
-        const onEsc     = (e) => { if (e.key === "Escape") { e.stopPropagation(); restore(); } };
-        const onOutside = (e) => { if (!delAllBtn.contains(e.target)) restore(); };
-
-        document.addEventListener("keydown",   onEsc,     true);
-        document.addEventListener("mousedown", onOutside, true);
-        cleanupConfirm = restore;
-      };
-
-      delAllBtn.addEventListener("click", () => {
-        if (!this.#bodyFormRows.length) return;
-        if (cleanupConfirm) {
-          cleanupConfirm();
-          this.#bodyFormRows = [];
-          this.#renderBodyContent();
-          this.#dispatchBodyUpdated();
-        } else {
-          enterConfirm();
-        }
-      });
-    }
+    this._bodyFormDeleteAllCleanup = this.#wireDeleteAllConfirm(
+      delAllBtn,
+      () => this.#bodyFormRows.length,
+      () => { this.#bodyFormRows = []; this.#renderBodyContent(); this.#dispatchBodyUpdated(); },
+    );
 
     this.#bodyFormAddBtnEl    = addBtn;
     this.#bodyFormDelAllBtnEl = delAllBtn;
@@ -946,7 +915,7 @@ export class RequestEditor {
     // ── Bulk mode textarea ────────────────────────────────────────────────
     const bfBulkTa = document.createElement("textarea");
     bfBulkTa.className   = "body-text-editor";
-    bfBulkTa.placeholder = "name=value\nfield1=foo\nfield2=bar";
+    bfBulkTa.placeholder = "name=value\nfield1=foo\nfield2=bar\n# disabled=row";
     bfBulkTa.spellcheck  = false;
     bfBulkTa.setAttribute("aria-label", "Form fields bulk editor");
     bfBulkTa.value = this.#kvRowsToText(this.#bodyFormRows);
@@ -1009,7 +978,7 @@ export class RequestEditor {
       empty.textContent = "No fields — click  +  to add one.";
       list.appendChild(empty);
     } else {
-      rows.forEach((row, idx) => list.appendChild(this.#buildBfRow(row, idx, rows, type)));
+      rows.forEach((row) => list.appendChild(this.#buildBfRow(row, rows)));
     }
 
     bfKvWrap.appendChild(list);
@@ -1019,7 +988,7 @@ export class RequestEditor {
     this.#applyBodyFormHeaderRow();
     }
 
-    #buildBfRow(row, index, rows, type) {
+    #buildBfRow(row, rows) {
     const div = document.createElement("div");
     div.className = "params-row";
     div.dataset.id = row.id;
@@ -1233,7 +1202,7 @@ export class RequestEditor {
         const doc = new DOMParser().parseFromString(text, "application/xml");
         return !doc.querySelector("parsererror");
       }
-    } catch (_) { /* fall through */ }
+    } catch { /* fall through */ }
     return false;
     }
 
@@ -1264,7 +1233,7 @@ export class RequestEditor {
       if (type === "yaml") {
         return stringifyYaml(parseYaml(text));
       }
-    } catch (_) { /* invalid — return unchanged */ }
+    } catch { /* invalid — return unchanged */ }
     return text;
     }
 
@@ -1404,6 +1373,19 @@ export class RequestEditor {
     const toolbar = document.createElement("div");
     toolbar.className = "params-toolbar";
 
+    // ── Bulk Editor toggle — leftmost in toolbar ──────────────────────────
+    const pBulkLabel = document.createElement("label");
+    pBulkLabel.className = "params-toolbar-toggle-label";
+    pBulkLabel.title = "Toggle between bulk text editor and key/value row editor";
+    const pBulkCheck = document.createElement("input");
+    pBulkCheck.type      = "checkbox";
+    pBulkCheck.className = "params-toolbar-toggle";
+    pBulkCheck.checked   = this.#paramsBulkMode;
+    pBulkCheck.addEventListener("change", () => this.#handleParamsBulkToggle(pBulkCheck.checked));
+    pBulkLabel.appendChild(pBulkCheck);
+    pBulkLabel.append(" Bulk Editor");
+    toolbar.appendChild(pBulkLabel);
+
     const addBtn = document.createElement("button");
     addBtn.className = "icon-btn params-toolbar-btn";
     addBtn.title = "Add parameter";
@@ -1419,44 +1401,11 @@ export class RequestEditor {
 
     // Inline confirm: first click → "Confirm?"; second click → delete all.
     // Escape or clicking outside the button cancels.
-    {
-      let cleanupConfirm = null;
-
-      const enterConfirm = () => {
-        deleteAllBtn.textContent = "Confirm?";
-        deleteAllBtn.classList.remove("params-toolbar-btn--danger");
-        deleteAllBtn.classList.add("params-toolbar-btn--confirming");
-
-        const restore = () => {
-          deleteAllBtn.textContent = "Delete All";
-          deleteAllBtn.classList.remove("params-toolbar-btn--confirming");
-          deleteAllBtn.classList.add("params-toolbar-btn--danger");
-          document.removeEventListener("keydown", onEsc, true);
-          document.removeEventListener("mousedown", onOutside, true);
-          cleanupConfirm = null;
-        };
-
-        const onEsc     = (e) => { if (e.key === "Escape") { e.stopPropagation(); restore(); } };
-        const onOutside = (e) => { if (!deleteAllBtn.contains(e.target)) restore(); };
-
-        document.addEventListener("keydown",   onEsc,     true);
-        document.addEventListener("mousedown", onOutside, true);
-        cleanupConfirm = restore;
-      };
-
-      deleteAllBtn.addEventListener("click", () => {
-        if (!this.#params.length) return;
-        if (cleanupConfirm) {
-          cleanupConfirm();
-          this.#deleteAllParams();
-        } else {
-          enterConfirm();
-        }
-      });
-
-      // Expose so load() can cancel an in-progress confirm when switching nodes.
-      this._paramsDeleteAllCleanup = () => cleanupConfirm?.();
-    }
+    this._paramsDeleteAllCleanup = this.#wireDeleteAllConfirm(
+      deleteAllBtn,
+      () => this.#params.length,
+      () => this.#deleteAllParams(),
+    );
 
     toolbar.appendChild(addBtn);
     toolbar.appendChild(deleteAllBtn);
@@ -1468,7 +1417,7 @@ export class RequestEditor {
     showUrlSpacer.style.flex = "1";
     toolbar.appendChild(showUrlSpacer);
 
-    // ── "Show URL" toggle — right side (mirrors "List Headers" in headers toolbar) ─
+    // ── "Show URL" toggle — right side ───────────────────────────────────
     const showUrlLabel = document.createElement("label");
     showUrlLabel.className = "params-toolbar-toggle-label";
     showUrlLabel.title = "Show or hide the URL preview bar";
@@ -1491,19 +1440,6 @@ export class RequestEditor {
     showUrlLabel.append("Show URL Preview");
     toolbar.appendChild(showUrlLabel);
 
-    // ── Bulk Editor toggle — leftmost in toolbar ──────────────────────────
-    const pBulkLabel = document.createElement("label");
-    pBulkLabel.className = "params-toolbar-toggle-label";
-    pBulkLabel.title = "Toggle between bulk text editor and key/value row editor";
-    const pBulkCheck = document.createElement("input");
-    pBulkCheck.type      = "checkbox";
-    pBulkCheck.className = "params-toolbar-toggle";
-    pBulkCheck.checked   = this.#paramsBulkMode;
-    pBulkCheck.addEventListener("change", () => this.#handleParamsBulkToggle(pBulkCheck.checked));
-    pBulkLabel.appendChild(pBulkCheck);
-    pBulkLabel.append(" Bulk Editor");
-    toolbar.insertBefore(pBulkLabel, toolbar.firstChild);
-
     container.appendChild(toolbar);
 
     // ── URL preview bar (below toolbar, above column headers) ─────────────
@@ -1512,7 +1448,7 @@ export class RequestEditor {
     // ── Bulk mode textarea ────────────────────────────────────────────────
     const pBulkTa = document.createElement("textarea");
     pBulkTa.className   = "body-text-editor";
-    pBulkTa.placeholder = "name=value\nparam1=foo\nparam2=bar";
+    pBulkTa.placeholder = "name=value\nparam1=foo\nparam2=bar\n# disabled=row";
     pBulkTa.spellcheck  = false;
     pBulkTa.setAttribute("aria-label", "Parameters bulk editor");
     pBulkTa.addEventListener("input", () => {
@@ -1592,6 +1528,19 @@ export class RequestEditor {
     const toolbar = document.createElement("div");
     toolbar.className = "params-toolbar";
 
+    // ── Bulk Editor toggle — leftmost in toolbar ──────────────────────────
+    const hBulkLabel = document.createElement("label");
+    hBulkLabel.className = "params-toolbar-toggle-label";
+    hBulkLabel.title = "Toggle between bulk text editor and key/value row editor";
+    const hBulkCheck = document.createElement("input");
+    hBulkCheck.type      = "checkbox";
+    hBulkCheck.className = "params-toolbar-toggle";
+    hBulkCheck.checked   = this.#headersBulkMode;
+    hBulkCheck.addEventListener("change", () => this.#handleHeadersBulkToggle(hBulkCheck.checked));
+    hBulkLabel.appendChild(hBulkCheck);
+    hBulkLabel.append(" Bulk Editor");
+    toolbar.appendChild(hBulkLabel);
+
     const addBtn = document.createElement("button");
     addBtn.className = "icon-btn params-toolbar-btn";
     addBtn.title = "Add header";
@@ -1607,44 +1556,11 @@ export class RequestEditor {
 
     // Inline confirm: first click → "Confirm?"; second click → delete all.
     // Escape or clicking outside the button cancels.
-    {
-      let cleanupConfirm = null;
-
-      const enterConfirm = () => {
-        deleteAllBtn.textContent = "Confirm?";
-        deleteAllBtn.classList.remove("params-toolbar-btn--danger");
-        deleteAllBtn.classList.add("params-toolbar-btn--confirming");
-
-        const restore = () => {
-          deleteAllBtn.textContent = "Delete All";
-          deleteAllBtn.classList.remove("params-toolbar-btn--confirming");
-          deleteAllBtn.classList.add("params-toolbar-btn--danger");
-          document.removeEventListener("keydown", onEsc, true);
-          document.removeEventListener("mousedown", onOutside, true);
-          cleanupConfirm = null;
-        };
-
-        const onEsc     = (e) => { if (e.key === "Escape") { e.stopPropagation(); restore(); } };
-        const onOutside = (e) => { if (!deleteAllBtn.contains(e.target)) restore(); };
-
-        document.addEventListener("keydown",   onEsc,     true);
-        document.addEventListener("mousedown", onOutside, true);
-        cleanupConfirm = restore;
-      };
-
-      deleteAllBtn.addEventListener("click", () => {
-        if (!this.#headers.length) return;
-        if (cleanupConfirm) {
-          cleanupConfirm();
-          this.#deleteAllHeaders();
-        } else {
-          enterConfirm();
-        }
-      });
-
-      // Expose so load() can cancel an in-progress confirm when switching nodes.
-      this._headersDeleteAllCleanup = () => cleanupConfirm?.();
-    }
+    this._headersDeleteAllCleanup = this.#wireDeleteAllConfirm(
+      deleteAllBtn,
+      () => this.#headers.length,
+      () => this.#deleteAllHeaders(),
+    );
 
     toolbar.appendChild(addBtn);
     toolbar.appendChild(deleteAllBtn);
@@ -1679,25 +1595,13 @@ export class RequestEditor {
     listHdrLabel.append(" List Headers");
     toolbar.appendChild(listHdrLabel);
 
-    // ── Bulk Editor toggle — leftmost in toolbar ──────────────────────────
-    const hBulkLabel = document.createElement("label");
-    hBulkLabel.className = "params-toolbar-toggle-label";
-    hBulkLabel.title = "Toggle between bulk text editor and key/value row editor";
-    const hBulkCheck = document.createElement("input");
-    hBulkCheck.type      = "checkbox";
-    hBulkCheck.className = "params-toolbar-toggle";
-    hBulkCheck.checked   = this.#headersBulkMode;
-    hBulkCheck.addEventListener("change", () => this.#handleHeadersBulkToggle(hBulkCheck.checked));
-    hBulkLabel.appendChild(hBulkCheck);
-    hBulkLabel.append(" Bulk Editor");
-    toolbar.insertBefore(hBulkLabel, toolbar.firstChild);
 
     container.appendChild(toolbar);
 
     // ── Bulk mode textarea ────────────────────────────────────────────────
     const hBulkTa = document.createElement("textarea");
     hBulkTa.className   = "body-text-editor";
-    hBulkTa.placeholder = "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token";
+    hBulkTa.placeholder = "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped";
     hBulkTa.spellcheck  = false;
     hBulkTa.setAttribute("aria-label", "Headers bulk editor");
     hBulkTa.addEventListener("input", () => {
@@ -2181,7 +2085,6 @@ export class RequestEditor {
     deleteBtn.addEventListener("click", () => this.#deleteParam(param.id));
 
     // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
-    row.draggable = true;
 
     row.addEventListener("dragstart", (e) => {
       this.#dragSrcId      = param.id;
@@ -2261,37 +2164,105 @@ export class RequestEditor {
     this.#dragDropHandled = false;
   }
 
+  // ── Shared UI helpers ─────────────────────────────────────────────────────
+
+  /**
+   * Wire up the standard two-click inline-confirm pattern on a "Delete All"
+   * button.  First click turns it amber and shows "Confirm?"; second click
+   * runs `onDelete`.  Escape or clicking outside cancels.
+   *
+   * Returns a cancel function (store it so node-switches can reset the button).
+   *
+   * @param {HTMLButtonElement} btn
+   * @param {() => number}      getCount   — called to guard against empty list
+   * @param {() => void}        onDelete   — called on confirmed second click
+   * @returns {() => void} cancel function
+   */
+  #wireDeleteAllConfirm(btn, getCount, onDelete) {
+    let cleanupConfirm = null;
+
+    const enterConfirm = () => {
+      btn.textContent = "Confirm?";
+      btn.classList.remove("params-toolbar-btn--danger");
+      btn.classList.add("params-toolbar-btn--confirming");
+
+      const restore = () => {
+        btn.textContent = "Delete All";
+        btn.classList.remove("params-toolbar-btn--confirming");
+        btn.classList.add("params-toolbar-btn--danger");
+        document.removeEventListener("keydown",   onEsc,     true);
+        document.removeEventListener("mousedown", onOutside, true);
+        cleanupConfirm = null;
+      };
+
+      const onEsc     = (e) => { if (e.key === "Escape") { e.stopPropagation(); restore(); } };
+      const onOutside = (e) => { if (!btn.contains(e.target)) restore(); };
+
+      document.addEventListener("keydown",   onEsc,     true);
+      document.addEventListener("mousedown", onOutside, true);
+      cleanupConfirm = restore;
+    };
+
+    btn.addEventListener("click", () => {
+      if (!getCount()) return;
+      if (cleanupConfirm) { cleanupConfirm(); onDelete(); }
+      else enterConfirm();
+    });
+
+    return () => cleanupConfirm?.();
+  }
+
+  /**
+   * Toggle a bulk-editor's textarea/kv-wrap and KV-only toolbar buttons.
+   * @param {boolean}          bulk
+   * @param {HTMLElement|null} textareaEl
+   * @param {HTMLElement|null} kvWrapEl
+   * @param {HTMLElement|null} addBtnEl
+   * @param {HTMLElement|null} delAllBtnEl
+   */
+  #applyBulkMode(bulk, textareaEl, kvWrapEl, addBtnEl, delAllBtnEl) {
+    if (textareaEl)  textareaEl.style.display  = bulk ? ""     : "none";
+    if (kvWrapEl)    kvWrapEl.style.display    = bulk ? "none" : "";
+    if (addBtnEl)    addBtnEl.style.display    = bulk ? "none" : "";
+    if (delAllBtnEl) delAllBtnEl.style.display = bulk ? "none" : "";
+  }
+
   // ── Bulk editor shared utilities ─────────────────────────────────────────
 
   /**
-   * Serialise an array of { name, value } rows to  name=value  text.
-   * All rows are included regardless of their enabled flag.
+   * Serialise an array of { name, value, enabled } rows to  name=value  text.
+   * Disabled rows are prefixed with "# " so the enabled state survives a
+   * round-trip through the bulk editor.
    */
   #kvRowsToText(rows) {
-    return rows.map(r => `${r.name}=${r.value}`).join("\n");
+    return rows.map(r => `${r.enabled ? "" : "# "}${r.name}=${r.value}`).join("\n");
   }
 
   /**
    * Serialise header rows to  Name: value  text (standard HTTP format).
+   * Disabled rows are prefixed with "# ".
    */
   #headerRowsToText(rows) {
-    return rows.map(r => `${r.name}: ${r.value}`).join("\n");
+    return rows.map(r => `${r.enabled ? "" : "# "}${r.name}: ${r.value}`).join("\n");
   }
 
   /**
    * Parse  name=value  bulk text into an array of row objects.
-   * All parsed rows are enabled=true.
+   * Lines prefixed with "# " are parsed as disabled rows; all others are enabled.
    * Lines with no '=' are treated as name-only rows with an empty value.
    */
   #textToKvRows(text) {
     const out = [];
     for (const line of text.split("\n")) {
-      const trimmed = line.trim();
+      let trimmed = line.trim();
+      if (!trimmed) continue;
+      const disabled = trimmed.startsWith("# ");
+      if (disabled) trimmed = trimmed.slice(2).trim();
       if (!trimmed) continue;
       const eqIdx = trimmed.indexOf("=");
       const name  = eqIdx === -1 ? trimmed           : trimmed.slice(0, eqIdx).trim();
       const value = eqIdx === -1 ? ""                : trimmed.slice(eqIdx + 1);
-      if (name) out.push({ id: crypto.randomUUID(), name, value, enabled: true });
+      if (name) out.push({ id: crypto.randomUUID(), name, value, enabled: !disabled });
     }
     return out;
   }
@@ -2299,11 +2270,15 @@ export class RequestEditor {
   /**
    * Parse  Header-Name: value  OR  Header-Name=value  lines into header rows.
    * Supports both colon-separated (natural HTTP format) and equals-separated.
+   * Lines prefixed with "# " are parsed as disabled rows; all others are enabled.
    */
   #textToHeaderRows(text) {
     const out = [];
     for (const line of text.split("\n")) {
-      const trimmed = line.trim();
+      let trimmed = line.trim();
+      if (!trimmed) continue;
+      const disabled = trimmed.startsWith("# ");
+      if (disabled) trimmed = trimmed.slice(2).trim();
       if (!trimmed) continue;
       // Prefer colon separator for headers, fall back to equals
       const colonIdx = trimmed.indexOf(":");
@@ -2319,7 +2294,7 @@ export class RequestEditor {
         name  = trimmed;
         value = "";
       }
-      if (name) out.push({ id: crypto.randomUUID(), name, value, enabled: true });
+      if (name) out.push({ id: crypto.randomUUID(), name, value, enabled: !disabled });
     }
     return out;
   }
@@ -2399,8 +2374,8 @@ export class RequestEditor {
           empty.textContent = "No fields — click  +  to add one.";
           this.#bfListEl.appendChild(empty);
         } else {
-          this.#bodyFormRows.forEach((row, idx) =>
-            this.#bfListEl.appendChild(this.#buildBfRow(row, idx, this.#bodyFormRows, this.#bfActiveType))
+          this.#bodyFormRows.forEach((row) =>
+            this.#bfListEl.appendChild(this.#buildBfRow(row, this.#bodyFormRows))
           );
         }
       }
@@ -2409,11 +2384,9 @@ export class RequestEditor {
   }
 
   #applyBodyFormBulkMode() {
-    const bulk = this.#bodyFormBulkMode;
-    if (this.#bodyFormBulkEl)    this.#bodyFormBulkEl.style.display    = bulk ? "" : "none";
-    if (this.#bodyFormKvWrapEl)  this.#bodyFormKvWrapEl.style.display  = bulk ? "none" : "";
-    if (this.#bodyFormAddBtnEl)    this.#bodyFormAddBtnEl.style.display    = bulk ? "none" : "";
-    if (this.#bodyFormDelAllBtnEl) this.#bodyFormDelAllBtnEl.style.display = bulk ? "none" : "";
+    this.#applyBulkMode(this.#bodyFormBulkMode,
+      this.#bodyFormBulkEl, this.#bodyFormKvWrapEl,
+      this.#bodyFormAddBtnEl, this.#bodyFormDelAllBtnEl);
   }
 
   // ── Tab switching ─────────────────────────────────────────────────────────
@@ -2458,6 +2431,16 @@ export class RequestEditor {
   #sendRequest() {
     const baseUrl = this._urlInput.value.trim();
     if (!baseUrl) { this._urlInput.focus(); return; }
+
+    // ── 0. Safety flush — if a bulk textarea is active, parse its current
+    //       content now so in-progress edits (e.g. uncommitted IME) are
+    //       captured even if the `input` event hasn't fired yet.
+    if (this.#paramsBulkMode && this.#paramsBulkEl)
+      this.#params = this.#textToKvRows(this.#paramsBulkEl.value);
+    if (this.#headersBulkMode && this.#headersBulkEl)
+      this.#headers = this.#textToHeaderRows(this.#headersBulkEl.value);
+    if (this.#bodyFormBulkMode && this.#bodyFormBulkEl)
+      this.#bodyFormRows = this.#textToKvRows(this.#bodyFormBulkEl.value);
 
     // ── 1. URL — append enabled, non-blank query parameters ──────────────
     const enabledParams = this.#params.filter(p => p.enabled && p.name.trim());
@@ -2624,6 +2607,7 @@ export class RequestEditor {
     // Cancel any in-progress inline confirm on the Delete All buttons.
     this._paramsDeleteAllCleanup?.();
     this._headersDeleteAllCleanup?.();
+    this._bodyFormDeleteAllCleanup?.();
 
     if (node.method) {
       this.#method = node.method;

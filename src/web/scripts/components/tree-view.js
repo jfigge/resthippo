@@ -423,7 +423,12 @@ export class TreeView {
    * @param {object} node
    */
   #generateCurl(node) {
-    const curl = this.#buildCurl(node);
+    // The closure-captured `node` may be stale: updateNode() replaces the node
+    // object in #items immutably, so any field changes (bodyType, bodyFormRows,
+    // headers, params, etc.) made after the DOM row was rendered are invisible
+    // through the old reference.  Always look up the live version first.
+    const liveNode = this.#findNode(this.#items, node.id) ?? node;
+    const curl = this.#buildCurl(liveNode);
     if (!curl) return;
 
     navigator.clipboard.writeText(curl).then(() => {
@@ -591,33 +596,30 @@ export class TreeView {
       // ── 4. Body — match RequestEditor body assembly by type ───────────────
       const noBodyMethods = new Set(["GET", "HEAD"]);
       const bodyType      = node.bodyType ?? "no-body";
-      let   body          = null;   // string payload for -d
-      let   bodyFilePath  = null;   // file path for --data-binary @path
+      let   body          = null;         // string payload for --data (text bodies)
+      let   bodyFilePath  = null;         // file path for --data-binary @path
+      // For form fields: array of already-encoded "name=value" strings (urlencoded)
+      // or {name, value} objects (multipart).  formStyle tells the assembler which.
+      let   formPairs     = null;         // string[] — urlencoded, already percent-encoded
+      let   formEntries   = null;         // {name,value}[] — multipart/form-data
 
       if (!noBodyMethods.has(method)) {
         switch (bodyType) {
           case "form-data": {
-            // Fixed boundary (no Date.now()) so the curl output is stable/readable
-            const boundary = "----WurlFormBoundary";
+            // Use --form flags (curl sets Content-Type + boundary automatically)
             const rows = (node.bodyFormRows ?? []).filter(r => r.enabled && r.name.trim());
-            if (rows.length > 0) {
-              const parts = rows.map(r =>
-                `--${boundary}\r\nContent-Disposition: form-data; name="${r.name}"\r\n\r\n${r.value}`
-              ).join("\r\n");
-              body = `${parts}\r\n--${boundary}--`;
-              if (!headers["Content-Type"])
-                headers["Content-Type"] = `multipart/form-data; boundary=${boundary}`;
-            }
+            if (rows.length > 0)
+              formEntries = rows.map(r => ({ name: r.name, value: r.value }));
             break;
           }
           case "form-urlencoded": {
-            const sp = new URLSearchParams();
-            (node.bodyFormRows ?? [])
-              .filter(r => r.enabled && r.name.trim())
-              .forEach(r => sp.append(r.name, r.value));
-            const encoded = sp.toString();
-            if (encoded) {
-              body = encoded;
+            // Use one --data flag per field; URLSearchParams gives correct encoding.
+            const rows = (node.bodyFormRows ?? []).filter(r => r.enabled && r.name.trim());
+            if (rows.length > 0) {
+              const sp = new URLSearchParams();
+              rows.forEach(r => sp.append(r.name, r.value));
+              // Split "a=1&b=2" → ["a=1", "b=2"] — each token is already percent-encoded
+              formPairs = sp.toString().split("&").filter(Boolean);
               if (!headers["Content-Type"])
                 headers["Content-Type"] = "application/x-www-form-urlencoded";
             }
@@ -648,39 +650,48 @@ export class TreeView {
             }
             break;
           case "file":
-            if (node.bodyFilePath) {
-              bodyFilePath = node.bodyFilePath;
-            }
+            if (node.bodyFilePath) bodyFilePath = node.bodyFilePath;
             break;
           default:
-            break; // "no-body" — leave body null
+            break; // "no-body" — leave everything null
         }
       }
 
       // ── 5. Assemble the curl command ──────────────────────────────────────
-      let cmd = "curl";
-      if (method !== "GET") cmd += ` -X ${method}`;
+      // Use long-form flags (--request, --url, --header, --data / --form) so
+      // the output matches common style guides and is easy to read and paste.
+      // Helper: single-quote a shell token, escaping embedded single quotes.
+      const sq = s => `'${String(s).replace(/'/g, "'\\''")}'`;
 
-      // Headers: escape backslashes and double-quotes inside header values
+      let cmd = `curl --request ${method}`;
+
+      // URL — single-quoted; placed right after the method
+      cmd += ` \\\n  --url ${sq(finalUrl)}`;
+
+      // Headers — one --header flag per entry
       Object.entries(headers).forEach(([k, v]) => {
-        const safe = String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-        cmd += ` \\\n  -H "${k}: ${safe}"`;
+        cmd += ` \\\n  --header ${sq(`${k}: ${v}`)}`;
       });
 
       // Body
-      if (bodyFilePath !== null) {
-        // Use --data-binary so the file is sent byte-for-byte
-        const safePath = bodyFilePath.replace(/'/g, "'\\''");
-        cmd += ` \\\n  --data-binary '@${safePath}'`;
+      if (formEntries !== null) {
+        // multipart/form-data: one --form flag per field; curl sets Content-Type
+        formEntries.forEach(({ name, value }) => {
+          cmd += ` \\\n  --form ${sq(`${name}=${value}`)}`;
+        });
+      } else if (formPairs !== null) {
+        // application/x-www-form-urlencoded: one --data flag per encoded pair.
+        // The pairs from URLSearchParams are already percent-encoded and shell-safe
+        // (no spaces, single quotes, or glob chars), so no extra quoting needed.
+        formPairs.forEach(pair => {
+          cmd += ` \\\n  --data ${pair}`;
+        });
+      } else if (bodyFilePath !== null) {
+        cmd += ` \\\n  --data-binary '@${bodyFilePath.replace(/'/g, "'\\''")}'`;
       } else if (body !== null) {
-        // Single-quote the body; escape any embedded single quotes
-        const safeBody = String(body).replace(/'/g, "'\\''");
-        cmd += ` \\\n  -d '${safeBody}'`;
+        cmd += ` \\\n  --data ${sq(body)}`;
       }
 
-      // URL — double-quoted to handle spaces / special chars
-      const safeUrl = finalUrl.replace(/"/g, '\\"');
-      cmd += ` "${safeUrl}"`;
       return cmd;
     }
 
