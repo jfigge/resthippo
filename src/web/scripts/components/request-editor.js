@@ -251,6 +251,8 @@ export class RequestEditor {
   #headersKvWrapEl    = null;
   #headersAddBtnEl    = null;
   #headersDelAllBtnEl = null;
+  #listHdrSpacerEl    = null;   // spacer before "List Headers" toggle
+  #listHdrLabelEl     = null;   // "List Headers" toggle label
 
   // Body form bulk editor
   #bodyFormBulkMode    = false;
@@ -1571,6 +1573,7 @@ export class RequestEditor {
     const spacer = document.createElement("span");
     spacer.style.flex = "1";
     toolbar.appendChild(spacer);
+    this.#listHdrSpacerEl = spacer;
 
     const listHdrLabel = document.createElement("label");
     listHdrLabel.className = "params-toolbar-toggle-label";
@@ -1594,6 +1597,7 @@ export class RequestEditor {
     listHdrLabel.appendChild(listHdrCheck);
     listHdrLabel.append(" List Headers");
     toolbar.appendChild(listHdrLabel);
+    this.#listHdrLabelEl = listHdrLabel;
 
 
     container.appendChild(toolbar);
@@ -2348,6 +2352,9 @@ export class RequestEditor {
     if (this.#headersKvWrapEl)  this.#headersKvWrapEl.style.display  = bulk ? "none" : "";
     if (this.#headersAddBtnEl)    this.#headersAddBtnEl.style.display    = bulk ? "none" : "";
     if (this.#headersDelAllBtnEl) this.#headersDelAllBtnEl.style.display = bulk ? "none" : "";
+    // Hide the "List Headers" toggle (and its spacer) in bulk mode
+    if (this.#listHdrSpacerEl) this.#listHdrSpacerEl.style.display = bulk ? "none" : "";
+    if (this.#listHdrLabelEl)  this.#listHdrLabelEl.style.display  = bulk ? "none" : "";
     // Hide the autocomplete dropdown when entering bulk mode
     if (bulk) _hideHdrDropdown();
   }
