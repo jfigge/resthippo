@@ -491,6 +491,23 @@ function initEventBus() {
     envPopup.update(currentEnvs);
   });
 
+  /** Rename an environment — updates its display name everywhere without touching its collections. */
+  window.addEventListener("wurl:env-rename", async (e) => {
+    const { id, name } = e.detail;
+    const environments = currentEnvs.environments.map(env =>
+      env.id === id ? { ...env, name } : env,
+    );
+    currentEnvs = { ...currentEnvs, environments };
+
+    // Persist the manifest with the new name
+    await saveManifest({ environments, activeEnvironmentId: currentEnvs.activeEnvironmentId });
+
+    // If the renamed env is active, update the nav panel title
+    if (id === currentEnvs.activeEnvironmentId) setNavPanelTitle(name);
+
+    envPopup.update(currentEnvs);
+  });
+
   /** Delete an environment (must always leave at least 1). */
   window.addEventListener("wurl:env-delete", async (e) => {
     const { id } = e.detail;

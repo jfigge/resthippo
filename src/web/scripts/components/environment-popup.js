@@ -16,6 +16,7 @@
  *   wurl:env-select  { id }                    — switch active environment
  *   wurl:env-add     { name }                  — create new empty environment
  *   wurl:env-clone   { sourceId, name }         — clone an environment
+ *   wurl:env-rename  { id, name }              — rename an environment
  *   wurl:env-delete  { id }                    — delete an environment
  */
 
@@ -34,6 +35,13 @@ const ICON_CLONE = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
   aria-hidden="true">
   <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+</svg>`;
+
+const ICON_RENAME = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+  aria-hidden="true">
+  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
 </svg>`;
 
 const ICON_DELETE = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -202,6 +210,13 @@ export class EnvironmentPopup {
       cloneBtn.setAttribute("aria-label", `Clone ${env.name}`);
       cloneBtn.addEventListener("click", () => this.#startClone(env));
 
+      const renameBtn = document.createElement("button");
+      renameBtn.className = "env-action-btn";
+      renameBtn.title     = "Rename environment";
+      renameBtn.innerHTML = ICON_RENAME;
+      renameBtn.setAttribute("aria-label", `Rename ${env.name}`);
+      renameBtn.addEventListener("click", () => this.#startRename(env));
+
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "env-action-btn env-action-btn--danger";
       deleteBtn.title     = count <= 1 ? "Cannot delete the only environment" : "Delete environment";
@@ -211,6 +226,7 @@ export class EnvironmentPopup {
       deleteBtn.addEventListener("click", () => this.#confirmDelete(env));
 
       actions.appendChild(cloneBtn);
+      actions.appendChild(renameBtn);
       actions.appendChild(deleteBtn);
 
       li.appendChild(check);
@@ -222,7 +238,7 @@ export class EnvironmentPopup {
 
   // ── Name input form ────────────────────────────────────────────────────────
 
-  #setNameInputVisible(visible, { placeholder = "Environment name…", defaultValue = "" } = {}) {
+  #setNameInputVisible(visible, { placeholder = "Environment name…", defaultValue = "", okLabel = "Add" } = {}) {
     const row    = this.#el.querySelector(".env-name-input-row");
     const input  = this.#el.querySelector(".env-name-input");
     const okBtn  = this.#el.querySelector(".env-name-ok");
@@ -231,6 +247,7 @@ export class EnvironmentPopup {
     if (visible) {
       input.placeholder = placeholder;
       input.value       = defaultValue;
+      okBtn.textContent = okLabel;
       okBtn.disabled    = !defaultValue.trim();
       input.classList.remove("env-name-input--error");
       row.classList.add("env-name-input-row--visible");
@@ -238,8 +255,9 @@ export class EnvironmentPopup {
       requestAnimationFrame(() => { input.focus(); input.select(); });
     } else {
       row.classList.remove("env-name-input-row--visible");
-      input.value     = "";
-      newBtn.disabled = false;
+      input.value       = "";
+      okBtn.textContent = "Add";
+      newBtn.disabled   = false;
       this.#pendingAction = null;
     }
   }
@@ -257,13 +275,34 @@ export class EnvironmentPopup {
     });
   }
 
+  #startRename(env) {
+    this.#pendingAction = { type: "rename", id: env.id, currentName: env.name };
+    this.#setNameInputVisible(true, {
+      placeholder:  "Environment name…",
+      defaultValue: env.name,
+      okLabel:      "Rename",
+    });
+  }
+
   #commitName() {
     const input = this.#el.querySelector(".env-name-input");
     const name  = input.value.trim();
     if (!name) return;
 
-    // Uniqueness check (case-insensitive)
-    if (this.#environments.some(e => e.name.toLowerCase() === name.toLowerCase())) {
+    const action = this.#pendingAction;
+
+    // For rename: if the name hasn't changed just close silently
+    if (action?.type === "rename" && name === action.currentName) {
+      this.#setNameInputVisible(false);
+      return;
+    }
+
+    // Uniqueness check (case-insensitive); for rename, exclude the env being renamed
+    const isDuplicate = this.#environments.some(e => {
+      if (action?.type === "rename" && e.id === action.id) return false;
+      return e.name.toLowerCase() === name.toLowerCase();
+    });
+    if (isDuplicate) {
       input.classList.add("env-name-input--error");
       input.title = "An environment with this name already exists.";
       setTimeout(() => {
@@ -273,7 +312,6 @@ export class EnvironmentPopup {
       return;
     }
 
-    const action = this.#pendingAction;
     this.#setNameInputVisible(false);
 
     if (action === "add") {
@@ -281,6 +319,11 @@ export class EnvironmentPopup {
     } else if (action?.type === "clone") {
       window.dispatchEvent(new CustomEvent("wurl:env-clone", {
         detail: { sourceId: action.sourceId, name },
+        bubbles: true,
+      }));
+    } else if (action?.type === "rename") {
+      window.dispatchEvent(new CustomEvent("wurl:env-rename", {
+        detail: { id: action.id, name },
         bubbles: true,
       }));
     }

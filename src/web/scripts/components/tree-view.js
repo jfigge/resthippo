@@ -192,10 +192,10 @@ export class TreeView {
         ? [
             { label: "Add Request", action: () => this.#addRequestTo(node.id) },
             { label: "Add Folder",  action: () => this.#addFolderTo(node.id)  },
+            "separator",
             { label: "Rename",      action: () => this.#renameNode(node.id)   },
             "separator",
             { label: "Duplicate",     action: () => this.#duplicateNode(node.id) },
-            { label: "Generate cURL", action: () => this.#generateCurl(node)     },
             "separator",
             {
               label: "Variables",
