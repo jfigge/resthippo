@@ -2482,7 +2482,7 @@ export class RequestEditor {
     // the actual HTTP request (and cURL output) use concrete values, not
     // template placeholders.
     const ctx = this.#variableContext;
-    const rv  = ctx ? (s) => resolveString(s, ctx) : (s) => s ?? "";
+    const rv  = (s) => resolveString(s, ctx);
 
     // ── Variable pre-flight check ─────────────────────────────────────────
     // Before sending, collect every {{varName}} token from all request fields
@@ -2647,9 +2647,21 @@ export class RequestEditor {
       t.push(this.#authBearer?.token   ?? "");
       t.push(this.#authOAuth2?.token   ?? "");
     }
-    t.push(this.#bodyText ?? "");
-    for (const r of this.#bodyFormRows) {
-      if (r.enabled) { t.push(r.name ?? "", r.value ?? ""); }
+    // Only scan fields that will actually be sent — avoids false-positive
+    // warnings for inactive body data retained while switching body types.
+    const noBodyMethods = new Set(["GET", "HEAD"]);
+    if (!noBodyMethods.has(this.#method)) {
+      switch (this.#bodyType) {
+        case "json": case "yaml": case "xml": case "text":
+          t.push(this.#bodyText ?? "");
+          break;
+        case "form-data": case "form-urlencoded":
+          for (const r of this.#bodyFormRows) {
+            if (r.enabled) { t.push(r.name ?? "", r.value ?? ""); }
+          }
+          break;
+        default: break; // "no-body" / "file" — nothing to scan
+      }
     }
     return t.filter(Boolean);
   }

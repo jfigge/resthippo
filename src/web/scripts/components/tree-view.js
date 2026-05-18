@@ -447,12 +447,13 @@ export class TreeView {
     // ── Variable pre-flight check (single requests only) ─────────────────
     // For collection nodes the variables vary per-child request, so the check
     // is skipped to avoid an overwhelming list.
+    let prebuiltContext = null;
     if (!force && liveNode.type === "request") {
-      const nodeContext = {
+      prebuiltContext = {
         envVariables: this.#envVariables,
         folderChain:  buildFolderChain(this.#items, liveNode.id),
       };
-      const allVars  = collectTemplateVariables(this.#gatherNodeTemplates(liveNode), nodeContext);
+      const allVars  = collectTemplateVariables(this.#gatherNodeTemplates(liveNode), prebuiltContext);
       const badCount = allVars.filter(v => !v.found).length;
       if (badCount > 0) {
         PopupManager.warnVariables({
@@ -464,7 +465,7 @@ export class TreeView {
       }
     }
 
-    const curl = this.#buildCurl(liveNode);
+    const curl = this.#buildCurl(liveNode, prebuiltContext);
     if (!curl) return;
 
     navigator.clipboard.writeText(curl).then(() => {
@@ -503,9 +504,23 @@ export class TreeView {
       t.push(node.authBearer?.token  ?? "");
       t.push(node.authOAuth2?.token  ?? "");
     }
-    t.push(node.bodyText ?? "");
-    for (const r of (node.bodyFormRows ?? [])) {
-      if (r.enabled) { t.push(r.name ?? "", r.value ?? ""); }
+    // Only scan fields that will actually be sent — avoids false-positive
+    // warnings for inactive body data retained while switching body types.
+    const noBodyMethods = new Set(["GET", "HEAD"]);
+    const method   = node.method   ?? "GET";
+    const bodyType = node.bodyType ?? "no-body";
+    if (!noBodyMethods.has(method)) {
+      switch (bodyType) {
+        case "json": case "yaml": case "xml": case "text":
+          t.push(node.bodyText ?? "");
+          break;
+        case "form-data": case "form-urlencoded":
+          for (const r of (node.bodyFormRows ?? [])) {
+            if (r.enabled) { t.push(r.name ?? "", r.value ?? ""); }
+          }
+          break;
+        default: break; // "no-body" / "file" — nothing to scan
+      }
     }
     return t.filter(Boolean);
   }
@@ -608,15 +623,14 @@ export class TreeView {
    * Mirrors the assembly logic in RequestEditor.#sendRequest() so the
    * generated command matches what the Send button actually transmits.
    */
-  #buildCurl(node) {
+  #buildCurl(node, prebuiltContext = null) {
     if (node.type === "request") {
       const method  = node.method ?? "GET";
 
       // ── Variable resolver for this node ─────────────────────────────────
-      // Build a context with the node's folder chain (nearest ancestor first)
-      // plus the active environment variables.  This mirrors the precedence
-      // order used by RequestEditor.#sendRequest() at execute-time.
-      const nodeContext = {
+      // Reuse a pre-built context from #generateCurl when available so the
+      // folder-chain tree traversal is not repeated for the same node.
+      const nodeContext = prebuiltContext ?? {
         envVariables: this.#envVariables,
         folderChain:  buildFolderChain(this.#items, node.id),
       };
