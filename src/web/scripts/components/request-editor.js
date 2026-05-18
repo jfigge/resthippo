@@ -6,6 +6,8 @@
 
 import { parse as parseYaml, stringify as stringifyYaml } from "../vendor/yaml.js";
 import { VariablePillEditor } from "./variable-pill-editor.js";
+import { resolveString, collectTemplateVariables } from "./variable-resolver.js";
+import { PopupManager } from "../popup-manager.js";
 
 
 // Standard HTTP request headers offered in the header-name combo box.
@@ -2461,9 +2463,9 @@ export class RequestEditor {
     }
 
   // ── Send ─────────────────────────────────────────────────────────────────
-  #sendRequest() {
-    const baseUrl = this.#urlPillEditor.getValue().trim();
-    if (!baseUrl) { this.#urlPillEditor.focus(); return; }
+  #sendRequest(force = false) {
+    const rawUrl = this.#urlPillEditor.getValue().trim();
+    if (!rawUrl) { this.#urlPillEditor.focus(); return; }
 
     // ── 0. Safety flush — if a bulk textarea is active, parse its current
     //       content now so in-progress edits (e.g. uncommitted IME) are
@@ -2475,12 +2477,41 @@ export class RequestEditor {
     if (this.#bodyFormBulkMode && this.#bodyFormBulkEl)
       this.#bodyFormRows = this.#textToKvRows(this.#bodyFormBulkEl.value);
 
+    // ── Variable resolver helper ──────────────────────────────────────────
+    // Resolve {{varName}} tokens using the current variable context so that
+    // the actual HTTP request (and cURL output) use concrete values, not
+    // template placeholders.
+    const ctx = this.#variableContext;
+    const rv  = ctx ? (s) => resolveString(s, ctx) : (s) => s ?? "";
+
+    // ── Variable pre-flight check ─────────────────────────────────────────
+    // Before sending, collect every {{varName}} token from all request fields
+    // and check whether each one resolves.  If any are unresolved and the
+    // user hasn't already confirmed they want to proceed, show a warning
+    // popup that lists all variables (resolved in success colour, unresolved
+    // as "?" in error colour) with Cancel / Send Anyway options.
+    if (!force) {
+      const allVars  = collectTemplateVariables(this.#gatherRequestTemplates(), ctx);
+      const badCount = allVars.filter(v => !v.found).length;
+      if (badCount > 0) {
+        PopupManager.warnVariables({
+          variables:   allVars,
+          actionLabel: "Send Anyway",
+          onAction:    () => this.#sendRequest(true),
+        });
+        return;
+      }
+    }
+
+
+    const baseUrl = rv(rawUrl);
+
     // ── 1. URL — append enabled, non-blank query parameters ──────────────
     const enabledParams = this.#params.filter(p => p.enabled && p.name.trim());
     let finalUrl = baseUrl;
     if (enabledParams.length) {
       const qs = enabledParams
-        .map(p => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`)
+        .map(p => `${encodeURIComponent(rv(p.name))}=${encodeURIComponent(rv(p.value))}`)
         .join("&");
       finalUrl += (baseUrl.includes("?") ? "&" : "?") + qs;
     }
@@ -2489,26 +2520,26 @@ export class RequestEditor {
     const headers = {};
     this.#headers
       .filter(h => h.enabled && h.name.trim())
-      .forEach(h => { headers[h.name.trim()] = h.value; });
+      .forEach(h => { headers[rv(h.name).trim()] = rv(h.value); });
 
     // ── 3. Auth — inject Authorization (or other) headers if enabled ──────
     if (this.#authEnabled && this.#authType !== "none") {
       switch (this.#authType) {
         case "basic": {
-          const { username, password } = this.#authBasic;
+          const username = rv(this.#authBasic.username ?? "");
+          const password = rv(this.#authBasic.password ?? "");
           if (username || password) {
-            headers["Authorization"] =
-              `Basic ${btoa(`${username}:${password}`)}`;
+            headers["Authorization"] = `Basic ${btoa(`${username}:${password}`)}`;
           }
           break;
         }
         case "bearer":
           if (this.#authBearer.token)
-            headers["Authorization"] = `Bearer ${this.#authBearer.token}`;
+            headers["Authorization"] = `Bearer ${rv(this.#authBearer.token)}`;
           break;
         case "oauth2":
           if (this.#authOAuth2.token)
-            headers["Authorization"] = `Bearer ${this.#authOAuth2.token}`;
+            headers["Authorization"] = `Bearer ${rv(this.#authOAuth2.token)}`;
           break;
         // aws-iam: Signature v4 requires request-time signing — not yet implemented
       }
@@ -2531,7 +2562,7 @@ export class RequestEditor {
           const enabled  = this.#bodyFormRows.filter(r => r.enabled && r.name.trim());
           if (enabled.length > 0) {
             const parts = enabled.map(r =>
-              `--${boundary}\r\nContent-Disposition: form-data; name="${r.name}"\r\n\r\n${r.value}`
+              `--${boundary}\r\nContent-Disposition: form-data; name="${rv(r.name)}"\r\n\r\n${rv(r.value)}`
             ).join("\r\n");
             body = `${parts}\r\n--${boundary}--`;
             if (!headers["Content-Type"])
@@ -2543,7 +2574,7 @@ export class RequestEditor {
           const sp = new URLSearchParams();
           this.#bodyFormRows
             .filter(r => r.enabled && r.name.trim())
-            .forEach(r => sp.append(r.name, r.value));
+            .forEach(r => sp.append(rv(r.name), rv(r.value)));
           body = sp.toString();
           if (!headers["Content-Type"])
             headers["Content-Type"] = "application/x-www-form-urlencoded";
@@ -2551,28 +2582,28 @@ export class RequestEditor {
         }
         case "json":
           if (this.#bodyText.trim()) {
-            body = this.#bodyText;
+            body = rv(this.#bodyText);
             if (!headers["Content-Type"])
               headers["Content-Type"] = "application/json";
           }
           break;
         case "yaml":
           if (this.#bodyText.trim()) {
-            body = this.#bodyText;
+            body = rv(this.#bodyText);
             if (!headers["Content-Type"])
               headers["Content-Type"] = "application/x-yaml";
           }
           break;
         case "xml":
           if (this.#bodyText.trim()) {
-            body = this.#bodyText;
+            body = rv(this.#bodyText);
             if (!headers["Content-Type"])
               headers["Content-Type"] = "application/xml";
           }
           break;
         case "text":
           if (this.#bodyText.trim()) {
-            body = this.#bodyText;
+            body = rv(this.#bodyText);
             if (!headers["Content-Type"])
               headers["Content-Type"] = "text/plain";
           }
@@ -2596,6 +2627,31 @@ export class RequestEditor {
       detail: { method: this.#method, url: finalUrl, headers, body, bodyFilePath },
       bubbles: true,
     }));
+  }
+
+  /**
+   * Collect all template strings from the current request state so every
+   * {{varName}} token can be checked before execution.
+   * @returns {string[]}
+   */
+  #gatherRequestTemplates() {
+    const t = [this.#urlPillEditor.getValue() ?? ""];
+    for (const p of this.#params) {
+      if (p.enabled) { t.push(p.name ?? "", p.value ?? ""); }
+    }
+    for (const h of this.#headers) {
+      if (h.enabled) { t.push(h.name ?? "", h.value ?? ""); }
+    }
+    if (this.#authEnabled && this.#authType !== "none") {
+      t.push(this.#authBasic?.username ?? "", this.#authBasic?.password ?? "");
+      t.push(this.#authBearer?.token   ?? "");
+      t.push(this.#authOAuth2?.token   ?? "");
+    }
+    t.push(this.#bodyText ?? "");
+    for (const r of this.#bodyFormRows) {
+      if (r.enabled) { t.push(r.name ?? "", r.value ?? ""); }
+    }
+    return t.filter(Boolean);
   }
 
   /**

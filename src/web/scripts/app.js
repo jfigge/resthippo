@@ -625,10 +625,14 @@ function initEventBus() {
     const activeEnv = currentEnvs.environments.find(
       env => env.id === currentEnvs.activeEnvironmentId,
     );
+    const envVariables = activeEnv?.variables ?? {};
     requestEditor.setVariableContext({
-      envVariables: activeEnv?.variables ?? {},
+      envVariables,
       folderChain,
     });
+    // Also feed the active environment variables to the tree-view so that
+    // "Generate cURL" resolves variables the same way the Send button does.
+    if (treeView) treeView.setEnvVariables(envVariables);
   }
 
   // When the request editor mutates a field (method, url, params, body, auth, …),

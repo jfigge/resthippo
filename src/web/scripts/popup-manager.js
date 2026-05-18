@@ -384,6 +384,67 @@ export const PopupManager = {
   },
 
   /**
+   * Show a variable-resolution warning dialog.
+   *
+   * Triggered when a request contains {{variable}} placeholders that could
+   * not be fully resolved against the active variable context.  Lists every
+   * variable found in the request, colour-coded by resolution status:
+   *   • resolved   → actual value shown in the success colour
+   *   • unresolved → "?" shown in the error colour
+   *
+   * The user can dismiss (Cancel) or acknowledge and proceed anyway.
+   *
+   * @param {{
+   *   variables:    Array<{ name: string, found: boolean, value: string|null }>,
+   *   actionLabel?: string,     label for the "proceed" button  (default: "Send Anyway")
+   *   onAction:     () => void  called when the user chooses to proceed
+   * }} opts
+   */
+  warnVariables({ variables = [], actionLabel = "Send Anyway", onAction } = {}) {
+    // Minimal HTML entity escaper — avoids XSS from variable names / values
+    const esc = (s) => String(s ?? "")
+      .replace(/&/g,  "&amp;")
+      .replace(/</g,  "&lt;")
+      .replace(/>/g,  "&gt;")
+      .replace(/"/g,  "&quot;");
+
+    const itemsHtml = variables.map(v => {
+      const valueCell = v.found
+        ? `<span class="var-warn-value var-warn-value--known">${esc(v.value)}</span>`
+        : `<span class="var-warn-value var-warn-value--unknown">?</span>`;
+      return `
+        <li class="var-warn-item">
+          <span class="var-warn-name">{{${esc(v.name)}}}</span>
+          <span class="var-warn-arrow">→</span>
+          ${valueCell}
+        </li>`;
+    }).join("");
+
+    const { dlg, dismiss } = _showOneShotDialog({
+      cssClass:  "popup-var-warn",
+      role:      "alertdialog",
+      ariaLabel: "Unresolved variables",
+      innerHTML: `
+        <div class="popup-header">
+          <span class="popup-title">Unresolved Variables</span>
+        </div>
+        <div class="popup-body var-warn-body">
+          <p class="var-warn-desc">One or more variable placeholders in this request could not be resolved. Review the values below before proceeding.</p>
+          <ul class="var-warn-list" role="list">${itemsHtml}</ul>
+        </div>
+        <div class="popup-footer">
+          <button class="popup-btn popup-btn--secondary" data-action="cancel">Cancel</button>
+          <button class="popup-btn popup-btn--warning"   data-action="proceed">${esc(actionLabel)}</button>
+        </div>
+      `,
+      focusSel: "[data-action='cancel']",
+    });
+
+    dlg.querySelector("[data-action='cancel']").addEventListener("click",  () => dismiss());
+    dlg.querySelector("[data-action='proceed']").addEventListener("click", () => dismiss(onAction));
+  },
+
+  /**
    * Show a lightweight informational dialog with a single "OK" button.
    * Does NOT require an active popup — suitable for any in-page notification.
    *

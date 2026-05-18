@@ -17,6 +17,7 @@
 "use strict";
 
 import { PopupManager } from "../popup-manager.js";
+import { resolveString, buildFolderChain, collectTemplateVariables } from "./variable-resolver.js";
 
 // SVG folder icons (Feather-style, stroke-based)
 const ICON_FOLDER_CLOSED = `<svg class="tree-folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
@@ -44,6 +45,9 @@ export class TreeView {
 
   /** @type {string|null} — id of the node currently being dragged */
   #dragId = null;
+
+  /** @type {object} — active environment variables used for variable resolution in cURL generation */
+  #envVariables = {};
 
   /** @type {boolean} — true while the drag cursor is inside the treeview */
   #dragInsideTreeView = false;
@@ -126,6 +130,16 @@ export class TreeView {
    */
   getItems() {
     return JSON.parse(JSON.stringify(this.#items));
+  }
+
+  /**
+   * Update the active environment variables used when generating cURL commands.
+   * Call this whenever the active environment or its variables change.
+   *
+   * @param {object} vars  — plain { name: value } map of resolved env variables
+   */
+  setEnvVariables(vars) {
+    this.#envVariables = (vars && typeof vars === "object") ? vars : {};
   }
 
   // ── Toolbar ─────────────────────────────────────────────────────────────
@@ -421,13 +435,35 @@ export class TreeView {
    * Build a cURL command for a request, or for every request in a collection,
    * write it to the clipboard, then show a confirmation dialog.
    * @param {object} node
+   * @param {boolean} [force=false]  skip variable pre-flight check
    */
-  #generateCurl(node) {
+  #generateCurl(node, force = false) {
     // The closure-captured `node` may be stale: updateNode() replaces the node
     // object in #items immutably, so any field changes (bodyType, bodyFormRows,
     // headers, params, etc.) made after the DOM row was rendered are invisible
     // through the old reference.  Always look up the live version first.
     const liveNode = this.#findNode(this.#items, node.id) ?? node;
+
+    // ── Variable pre-flight check (single requests only) ─────────────────
+    // For collection nodes the variables vary per-child request, so the check
+    // is skipped to avoid an overwhelming list.
+    if (!force && liveNode.type === "request") {
+      const nodeContext = {
+        envVariables: this.#envVariables,
+        folderChain:  buildFolderChain(this.#items, liveNode.id),
+      };
+      const allVars  = collectTemplateVariables(this.#gatherNodeTemplates(liveNode), nodeContext);
+      const badCount = allVars.filter(v => !v.found).length;
+      if (badCount > 0) {
+        PopupManager.warnVariables({
+          variables:   allVars,
+          actionLabel: "Copy Anyway",
+          onAction:    () => this.#generateCurl(node, true),
+        });
+        return;
+      }
+    }
+
     const curl = this.#buildCurl(liveNode);
     if (!curl) return;
 
@@ -442,6 +478,36 @@ export class TreeView {
         message: "Unable to write to the clipboard. Please try again.",
       });
     });
+  }
+
+  /**
+   * Collect all template strings from a request node so every {{varName}}
+   * token can be checked before cURL generation.
+   * @param {object} node  a request-type tree node
+   * @returns {string[]}
+   */
+  #gatherNodeTemplates(node) {
+    const t = [node.url ?? ""];
+    for (const p of (node.params ?? [])) {
+      if (p.enabled) { t.push(p.name ?? "", p.value ?? ""); }
+    }
+    if (Array.isArray(node.headers)) {
+      for (const h of node.headers) {
+        if (h.enabled) { t.push(h.name ?? "", h.value ?? ""); }
+      }
+    }
+    const authEnabled = node.authEnabled ?? true;
+    const authType    = node.authType    ?? "none";
+    if (authEnabled && authType !== "none") {
+      t.push(node.authBasic?.username ?? "", node.authBasic?.password ?? "");
+      t.push(node.authBearer?.token  ?? "");
+      t.push(node.authOAuth2?.token  ?? "");
+    }
+    t.push(node.bodyText ?? "");
+    for (const r of (node.bodyFormRows ?? [])) {
+      if (r.enabled) { t.push(r.name ?? "", r.value ?? ""); }
+    }
+    return t.filter(Boolean);
   }
 
   // ── Tree mutation helpers ───────────────────────────────────────────────
@@ -545,7 +611,18 @@ export class TreeView {
   #buildCurl(node) {
     if (node.type === "request") {
       const method  = node.method ?? "GET";
-      const baseUrl = node.url    || "<url>";
+
+      // ── Variable resolver for this node ─────────────────────────────────
+      // Build a context with the node's folder chain (nearest ancestor first)
+      // plus the active environment variables.  This mirrors the precedence
+      // order used by RequestEditor.#sendRequest() at execute-time.
+      const nodeContext = {
+        envVariables: this.#envVariables,
+        folderChain:  buildFolderChain(this.#items, node.id),
+      };
+      const rv = (s) => resolveString(s ?? "", nodeContext);
+
+      const baseUrl = rv(node.url || "<url>");
 
       // ── 1. URL — append enabled, non-blank query parameters ──────────────
       const params        = Array.isArray(node.params) ? node.params : [];
@@ -553,7 +630,7 @@ export class TreeView {
       let   finalUrl      = baseUrl;
       if (enabledParams.length) {
         const qs = enabledParams
-          .map(p => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`)
+          .map(p => `${encodeURIComponent(rv(p.name))}=${encodeURIComponent(rv(p.value))}`)
           .join("&");
         finalUrl += (baseUrl.includes("?") ? "&" : "?") + qs;
       }
@@ -563,10 +640,12 @@ export class TreeView {
       if (Array.isArray(node.headers)) {
         node.headers
           .filter(h => h.enabled && h.name.trim())
-          .forEach(h => { headers[h.name.trim()] = h.value; });
+          .forEach(h => { headers[rv(h.name).trim()] = rv(h.value); });
       } else if (node.headers && typeof node.headers === "object") {
-        // Legacy: plain key→value object (no enabled flag)
-        Object.assign(headers, node.headers);
+        // Legacy: plain key→value object (no enabled flag) — resolve each value
+        Object.entries(node.headers).forEach(([k, v]) => {
+          headers[rv(k)] = rv(v);
+        });
       }
 
       // ── 3. Auth — inject Authorization header when enabled ────────────────
@@ -575,7 +654,8 @@ export class TreeView {
       if (authEnabled && authType !== "none") {
         switch (authType) {
           case "basic": {
-            const { username = "", password = "" } = node.authBasic ?? {};
+            const username = rv(node.authBasic?.username ?? "");
+            const password = rv(node.authBasic?.password ?? "");
             if (username || password) {
               headers["Authorization"] = `Basic ${btoa(`${username}:${password}`)}`;
             }
@@ -583,11 +663,11 @@ export class TreeView {
           }
           case "bearer":
             if (node.authBearer?.token)
-              headers["Authorization"] = `Bearer ${node.authBearer.token}`;
+              headers["Authorization"] = `Bearer ${rv(node.authBearer.token)}`;
             break;
           case "oauth2":
             if (node.authOAuth2?.token)
-              headers["Authorization"] = `Bearer ${node.authOAuth2.token}`;
+              headers["Authorization"] = `Bearer ${rv(node.authOAuth2.token)}`;
             break;
           // aws-iam: Signature v4 requires request-time signing — not representable as static curl
         }
@@ -609,7 +689,7 @@ export class TreeView {
             // Use --form flags (curl sets Content-Type + boundary automatically)
             const rows = (node.bodyFormRows ?? []).filter(r => r.enabled && r.name.trim());
             if (rows.length > 0)
-              formEntries = rows.map(r => ({ name: r.name, value: r.value }));
+              formEntries = rows.map(r => ({ name: rv(r.name), value: rv(r.value) }));
             break;
           }
           case "form-urlencoded": {
@@ -617,7 +697,7 @@ export class TreeView {
             const rows = (node.bodyFormRows ?? []).filter(r => r.enabled && r.name.trim());
             if (rows.length > 0) {
               const sp = new URLSearchParams();
-              rows.forEach(r => sp.append(r.name, r.value));
+              rows.forEach(r => sp.append(rv(r.name), rv(r.value)));
               // Split "a=1&b=2" → ["a=1", "b=2"] — each token is already percent-encoded
               formPairs = sp.toString().split("&").filter(Boolean);
               if (!headers["Content-Type"])
@@ -627,25 +707,25 @@ export class TreeView {
           }
           case "json":
             if (node.bodyText?.trim()) {
-              body = node.bodyText;
+              body = rv(node.bodyText);
               if (!headers["Content-Type"]) headers["Content-Type"] = "application/json";
             }
             break;
           case "yaml":
             if (node.bodyText?.trim()) {
-              body = node.bodyText;
+              body = rv(node.bodyText);
               if (!headers["Content-Type"]) headers["Content-Type"] = "application/x-yaml";
             }
             break;
           case "xml":
             if (node.bodyText?.trim()) {
-              body = node.bodyText;
+              body = rv(node.bodyText);
               if (!headers["Content-Type"]) headers["Content-Type"] = "application/xml";
             }
             break;
           case "text":
             if (node.bodyText?.trim()) {
-              body = node.bodyText;
+              body = rv(node.bodyText);
               if (!headers["Content-Type"]) headers["Content-Type"] = "text/plain";
             }
             break;

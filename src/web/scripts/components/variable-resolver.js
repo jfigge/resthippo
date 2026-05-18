@@ -95,6 +95,52 @@ export function serializeEditor(el) {
 }
 
 /**
+ * Scan one or more template strings and return every {{varName}} token found,
+ * together with its resolution status.  Results are deduplicated by name —
+ * first occurrence wins for found / value when the same name appears in
+ * multiple strings.
+ *
+ * @param {string[]} templates
+ * @param {{ envVariables?: object, folderChain?: object[] } | null} context
+ * @returns {Array<{ name: string, found: boolean, value: string|null }>}
+ */
+export function collectTemplateVariables(templates, context) {
+  const seen = new Map();
+  const re   = /\{\{([^{}]+)\}\}/g;
+
+  for (const tpl of templates) {
+    if (!tpl) continue;
+    re.lastIndex = 0;
+    let match;
+    while ((match = re.exec(tpl)) !== null) {
+      const name = match[1].trim();
+      if (!name || seen.has(name)) continue;
+      const { found, value } = resolveVariable(name, context);
+      seen.set(name, { name, found, value: found ? String(value) : null });
+    }
+  }
+
+  return [...seen.values()];
+}
+
+/**
+ * Resolve all {{varName}} occurrences in a template string, substituting
+ * each variable's resolved value.  Variables that cannot be resolved are
+ * left as-is ({{varName}}) so the caller can still see what was unresolved.
+ *
+ * @param {string} template
+ * @param {{ envVariables?: object, folderChain?: object[] } | null} context
+ * @returns {string}
+ */
+export function resolveString(template, context) {
+  if (!template || !context) return template ?? "";
+  return template.replace(/\{\{([^{}]+)\}\}/g, (_match, name) => {
+    const result = resolveVariable(name.trim(), context);
+    return result.found ? String(result.value) : `{{${name}}}`;
+  });
+}
+
+/**
  * Build the ancestor folder chain for a given node ID within a tree.
  * Returns an array of folder/collection nodes ordered nearest-to-farthest,
  * NOT including the node itself.
