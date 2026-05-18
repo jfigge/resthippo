@@ -30,6 +30,7 @@ export class VariablesPopup {
   /** @type {HTMLElement} */       #kvListEl;
   /** @type {HTMLButtonElement} */ #resetBtn;
   /** @type {HTMLButtonElement} */ #closeHeaderBtn;
+  /** @type {HTMLButtonElement} */ #closeFooterBtn;
 
   /** @type {string|null} */ #envId = null;
 
@@ -142,12 +143,12 @@ export class VariablesPopup {
       </div>
       <div class="popup-body vars-popup-body">
         <div class="vars-toolbar">
-          <button class="icon-btn vars-add-btn" title="Add variable" aria-label="Add variable" style="display:none">+</button>
           <label class="params-toolbar-toggle-label vars-bulk-label"
                  title="Toggle between bulk text editor and key/value row editor">
             <input type="checkbox" class="params-toolbar-toggle vars-bulk-toggle" checked>
             Bulk editor
           </label>
+          <button class="icon-btn vars-add-btn" title="Add variable" aria-label="Add variable" style="display:none">+</button>
           <span class="vars-hint">One  name=value  per line</span>
         </div>
         <textarea
@@ -167,6 +168,8 @@ export class VariablesPopup {
       <div class="popup-footer vars-popup-footer">
         <button class="popup-btn popup-btn--secondary vars-reset-btn"
                 title="Reset variables to the values they had when this dialog was opened">Reset</button>
+        <button class="popup-btn popup-btn--primary vars-close-btn"
+                title="Save and close">Close</button>
       </div>
     `;
 
@@ -177,8 +180,10 @@ export class VariablesPopup {
     this.#kvListEl       = el.querySelector(".vars-kv-list");
     this.#resetBtn       = el.querySelector(".vars-reset-btn");
     this.#closeHeaderBtn = el.querySelector(".popup-close");
+    this.#closeFooterBtn = el.querySelector(".vars-close-btn");
 
     this.#closeHeaderBtn.addEventListener("click", () => this.#doClose());
+    this.#closeFooterBtn.addEventListener("click", () => this.#doClose());
     this.#bulkToggleEl.addEventListener("change", () => this.#handleBulkToggle());
     this.#textareaEl.addEventListener("input", () => this.#scheduleSave());
     el.querySelector(".vars-add-btn").addEventListener("click", () => this.#addRow());

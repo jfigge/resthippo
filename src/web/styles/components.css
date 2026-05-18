@@ -802,6 +802,7 @@
   user-select: none;
   white-space: nowrap;
   padding: 0 var(--space-1);
+  height: 28px;
 }
 
 .params-toolbar-toggle-label:hover {
@@ -809,11 +810,8 @@
 }
 
 .params-toolbar-toggle {
-  width: 13px;
-  height: 13px;
-  cursor: pointer;
-  accent-color: var(--color-accent);
-  flex-shrink: 0;
+  /* Dimensions / cursor / accent-color are handled by the universal
+     input[type="checkbox"] slider rule below. */
 }
 
 .params-delete-all-btn {
@@ -915,17 +913,10 @@
 /* Enabled checkbox */
 .params-checkbox {
   justify-self: center;
-  width: 14px;
-  height: 14px;
-  cursor: pointer;
-  accent-color: var(--color-overlay-0);
-  flex-shrink: 0;
+  /* Dimensions / cursor / accent-color handled by universal slider rule. */
 }
 
-/* Checked → use the theme accent colour */
-.params-checkbox:checked {
-  accent-color: var(--color-accent);
-}
+/* (accent-color on :checked is handled by the universal slider rule) */
 
 /* Name / value inputs */
 .params-input {
@@ -1658,12 +1649,7 @@
 }
 
 .settings-toggle {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  accent-color: var(--color-accent);
-  flex-shrink: 0;
-  min-width: unset;
+  /* Dimensions / cursor / accent-color handled by universal slider rule. */
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1948,4 +1934,58 @@
 }
 
 /* Toolbar — keep toggle label left-aligned, badge + hint fill rest */
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UNIVERSAL CHECKBOX → SLIDER TOGGLE
+   Replaces the native checkbox appearance with an animated pill-shaped
+   slider across the entire app.  Checked state uses --color-success.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+
+  /* Track dimensions */
+  width: 28px;
+  height: 17px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  vertical-align: middle;
+
+  /* Unchecked: muted surface colour */
+  background-color: var(--color-surface-2);
+
+  /*
+   * Knob — a white circle drawn via radial-gradient.
+   * background-position animates left → right on check.
+   *   bg-size  : 13 × 13 px  (knob image tile)
+   *   left pos : 1.5 px      (unchecked — knob hugs left edge)
+   *   right pos: 13.5 px     (checked   — 28 − 13 − 1.5 = 13.5)
+   */
+  background-image: radial-gradient(circle 5.5px, #fff 100%, transparent 0);
+  background-size: 13px 13px;
+  background-repeat: no-repeat;
+  background-position: 1.5px center;
+
+  cursor: pointer;
+  transition:
+    background-color var(--transition-normal),
+    background-position var(--transition-normal);
+}
+
+input[type="checkbox"]:checked {
+  background-color: var(--color-success);
+  background-position: 13.5px center;
+}
+
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+input[type="checkbox"]:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
