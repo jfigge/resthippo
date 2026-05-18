@@ -114,6 +114,29 @@ export class ResponseViewer {
     window.addEventListener("wurl:request-error", (e) =>
       this.#showError(e.detail),
     );
+
+    // Hide the Electron HTML preview whenever any popup/menu/dialog opens so the
+    // native WebContentsView (which renders above all web content) does not cover it.
+    // Re-show it with the correct bounds once the popup is dismissed.
+    window.addEventListener("wurl:popup-opened", () => {
+      if (this.#htmlPreviewActive && window.wurl?.isElectron) {
+        window.wurl.htmlPreview.hide().catch(() => {});
+      }
+    });
+    window.addEventListener("wurl:popup-closed", () => {
+      if (!this.#htmlPreviewActive || !window.wurl?.isElectron) return;
+      if (this.#activeTab !== "body") return;   // body tab is not visible — stay hidden
+      requestAnimationFrame(() => {
+        if (!this.#htmlPreviewActive || !this.#bodyPane) return;
+        const r = this.#bodyPane.getBoundingClientRect();
+        window.wurl.htmlPreview.show({
+          x:      Math.round(r.left),
+          y:      Math.round(r.top),
+          width:  Math.max(1, Math.round(r.width)),
+          height: Math.max(1, Math.round(r.height)),
+        }).catch(() => {});
+      });
+    });
   }
 
   /**

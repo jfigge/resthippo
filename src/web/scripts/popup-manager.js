@@ -31,6 +31,37 @@ let _confirmEl = null;
 /** Whether the confirmClose dialog is currently visible */
 let _confirmOpen = false;
 
+/** Whether the overlay mask is currently visible (used to coalesce open/close events). */
+let _maskVisible = false;
+
+// ── Mask visibility helpers (dispatch popup-open/close events) ────────────────
+
+/**
+ * Show the overlay mask and fire `wurl:popup-opened` the first time it becomes
+ * visible.  Safe to call multiple times — only fires one event per open cycle.
+ */
+function _showMask() {
+  if (!_maskEl) return;
+  if (!_maskVisible) {
+    _maskVisible = true;
+    window.dispatchEvent(new CustomEvent("wurl:popup-opened"));
+  }
+  _maskEl.classList.add("popup-overlay--visible");
+}
+
+/**
+ * Hide the overlay mask and fire `wurl:popup-closed` once it goes away.
+ * Safe to call when the mask is already hidden (no-op).
+ */
+function _hideMask() {
+  if (!_maskEl) return;
+  _maskEl.classList.remove("popup-overlay--visible");
+  if (_maskVisible) {
+    _maskVisible = false;
+    window.dispatchEvent(new CustomEvent("wurl:popup-closed"));
+  }
+}
+
 // ── Resize → close any active popup / dialog ──────────────────────────────────
 
 /**
@@ -155,7 +186,7 @@ function _showOneShotDialog({ cssClass, role, ariaLabel, innerHTML, focusSel, es
   function dismiss(afterFn) {
     document.removeEventListener("keydown", onKey);
     _activePopup = prevActivePopup;
-    if (!_activePopup) _maskEl.classList.remove("popup-overlay--visible");
+    if (!_activePopup) _hideMask();
     dlg.classList.remove("popup--visible");
     const onEnd = () => {
       dlg.removeEventListener("transitionend", onEnd);
@@ -169,7 +200,7 @@ function _showOneShotDialog({ cssClass, role, ariaLabel, innerHTML, focusSel, es
 
   // Register as the active popup so mask clicks delegate correctly
   _activePopup = { element: dlg, onMaskClick: () => dismiss() };
-  _maskEl.classList.add("popup-overlay--visible");
+  _showMask();
 
   // Animate in and focus the primary button
   requestAnimationFrame(() => dlg.classList.add("popup--visible"));
@@ -204,7 +235,7 @@ export const PopupManager = {
     _activePopup = popup;
 
     // Show mask first (behind popup)
-    _maskEl.classList.add("popup-overlay--visible");
+    _showMask();
 
     // Mount popup above the mask
     document.body.appendChild(popup.element);
@@ -236,8 +267,8 @@ export const PopupManager = {
     if (_maskEl) {
       _maskEl.style.background = "";
       _maskEl.style.transition = "";
-      _maskEl.classList.remove("popup-overlay--visible");
     }
+    _hideMask();
 
     _activePopup = null;
 
@@ -409,7 +440,7 @@ export const PopupManager = {
     // Transparent mask — click-capture only, no dimming
     _maskEl.style.background = "transparent";
     _maskEl.style.transition  = "none";
-    _maskEl.classList.add("popup-overlay--visible");
+    _showMask();
 
     // Position and mount
     element.style.left = `${x}px`;
