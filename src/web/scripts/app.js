@@ -885,6 +885,16 @@ function _deepCloneWithNewIds(node) {
   if (Array.isArray(node.children)) {
     clone.children = node.children.map(_deepCloneWithNewIds);
   }
+  // Regenerate IDs for request-level row arrays
+  if (Array.isArray(node.bodyFormRows)) {
+    clone.bodyFormRows = node.bodyFormRows.map((r) => ({ ...r, id: crypto.randomUUID() }));
+  }
+  if (Array.isArray(node.params)) {
+    clone.params = node.params.map((r) => ({ ...r, id: crypto.randomUUID() }));
+  }
+  if (Array.isArray(node.headers)) {
+    clone.headers = node.headers.map((r) => ({ ...r, id: crypto.randomUUID() }));
+  }
   return clone;
 }
 

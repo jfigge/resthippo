@@ -573,8 +573,20 @@ export class TreeView {
   /** Deep-clone a node, replacing every `id` with a new UUID. */
   #cloneWithNewIds(node) {
     const clone = { ...node, id: crypto.randomUUID() };
+    // Recurse into tree children (sub-folders / sub-requests)
     if (Array.isArray(node.children)) {
       clone.children = node.children.map((c) => this.#cloneWithNewIds(c));
+    }
+    // Regenerate IDs for request-level row arrays so duplicated requests
+    // never share row IDs with the original.
+    if (Array.isArray(node.bodyFormRows)) {
+      clone.bodyFormRows = node.bodyFormRows.map((r) => ({ ...r, id: crypto.randomUUID() }));
+    }
+    if (Array.isArray(node.params)) {
+      clone.params = node.params.map((r) => ({ ...r, id: crypto.randomUUID() }));
+    }
+    if (Array.isArray(node.headers)) {
+      clone.headers = node.headers.map((r) => ({ ...r, id: crypto.randomUUID() }));
     }
     return clone;
   }
@@ -591,7 +603,11 @@ export class TreeView {
 
       if (Array.isArray(node.children) && node.children.length > 0) {
         const newChildren = this.#insertNodeAfter(node.children, afterId, newNode);
-        insertedInChildren = newChildren.length > node.children.length;
+        // Use both a length check (item inserted at this level) AND a reference
+        // check (item inserted at a deeper level — immediate count unchanged but
+        // one of the child objects is a new spread copy).
+        insertedInChildren = newChildren.length > node.children.length ||
+                             newChildren.some((c, i) => c !== node.children[i]);
         if (insertedInChildren) current = { ...node, children: newChildren };
       }
 
@@ -1273,7 +1289,10 @@ export class TreeView {
       }
       if (Array.isArray(node.children) && node.children.length > 0) {
         const newChildren = this.#insertBefore(node.children, beforeId, newNode);
-        if (newChildren.length > node.children.length) {
+        // Use both a length check AND a reference check (deep insertion changes
+        // a child object reference even if the count stays the same).
+        if (newChildren.length > node.children.length ||
+            newChildren.some((c, i) => c !== node.children[i])) {
           result.push({ ...node, children: newChildren });
           continue;
         }
