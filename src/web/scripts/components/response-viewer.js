@@ -317,7 +317,7 @@ export class ResponseViewer {
    */
   #renderBodyPane(response) {
     const pane       = this.#bodyPane;
-    const ct         = response.headers?.["content-type"] ?? "";
+    const ct         = response.headers?.["Content-Type"] ?? "";
     const category   = classifyContentType(ct);
     const isElectron = window.wurl?.isElectron === true;
 
