@@ -100,6 +100,16 @@ export class ResponseViewer {
   #winResizeHandler   = null;   // window resize listener for Electron overlay
   #settingsHandler    = null;   // wurl:settings-changed listener for font-size repositioning
 
+  // Find-in-response search bar state
+  #searchBar     = null;   // the bar element
+  #searchInput   = null;   // text input
+  #prevBtn       = null;   // navigate to previous match
+  #nextBtn       = null;   // navigate to next match
+  #caseBtn       = null;   // Cc toggle button
+  #regexBtn      = null;   // .* toggle button
+  #searchMatches = [];     // current <mark> elements
+  #searchCurrent = -1;     // index of the active (focused) match
+
   constructor() {
     this.#el = document.createElement("div");
     this.#el.className = "response-viewer";
@@ -107,6 +117,7 @@ export class ResponseViewer {
     this.#renderStatusBar();
     this.#renderTabStrip();
     this.#renderTabContent();
+    this.#renderSearchBar();   // inserted between tab-strip and tab-content
 
     // Listen for responses
     window.addEventListener("wurl:response-received", (e) =>
@@ -117,20 +128,30 @@ export class ResponseViewer {
       this.#showError(e.detail),
     );
 
-    // Cmd/Ctrl+A while focus is inside the response viewer → select only the
-    // body text, not the whole page.
+    // Keyboard shortcuts while focus is inside the response viewer
     this.#el.addEventListener("keydown", (e) => {
+      // Cmd/Ctrl+A → select body text only (pass through when search input is focused)
       const selectAll = e.key === "a" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
-      if (!selectAll) return;
-      const pre = this.#bodyPane?.querySelector(".res-body-pre");
-      if (!pre) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const range = document.createRange();
-      range.selectNodeContents(pre);
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
+      if (selectAll && e.target !== this.#searchInput) {
+        const pre = this.#bodyPane?.querySelector(".res-body-pre");
+        if (!pre) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const range = document.createRange();
+        range.selectNodeContents(pre);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        return;
+      }
+
+      // Cmd/Ctrl+F → open find bar (ignored when HTML preview is live)
+      const findKey = e.key === "f" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
+      if (findKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.#openSearch();
+      }
     });
 
     // Hide the Electron HTML preview whenever any popup/menu/dialog opens so the
@@ -247,6 +268,274 @@ export class ResponseViewer {
 
     this.#el.appendChild(content);
     this._tabContent = content;
+  }
+
+  // ── Find / search bar ─────────────────────────────────────────────────────
+
+  /**
+   * Build the search bar and insert it between the tab strip and the tab
+   * content area.  The bar starts hidden and is revealed by Cmd/Ctrl+F.
+   */
+  #renderSearchBar() {
+    const bar = document.createElement("div");
+    bar.className = "res-search-bar";
+    bar.hidden = true;
+
+    const label = document.createElement("span");
+    label.className = "res-search-label";
+    label.textContent = "Find";
+    label.setAttribute("aria-hidden", "true");
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "res-search-input";
+    input.placeholder = "Search…";
+    input.setAttribute("aria-label", "Search in response body");
+
+    const actions = document.createElement("div");
+    actions.className = "res-search-actions";
+
+    // Previous-match button (up arrow)
+    const prevBtn = document.createElement("button");
+    prevBtn.className = "res-search-btn res-search-nav-btn";
+    prevBtn.title = "Previous match (Shift+Enter)";
+    prevBtn.setAttribute("aria-label", "Previous match");
+    prevBtn.disabled = true;
+    prevBtn.innerHTML =
+      `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+         <polyline points="18 15 12 9 6 15"/>
+       </svg>`;
+
+    // Next-match button (down arrow)
+    const nextBtn = document.createElement("button");
+    nextBtn.className = "res-search-btn res-search-nav-btn";
+    nextBtn.title = "Next match (Enter)";
+    nextBtn.setAttribute("aria-label", "Next match");
+    nextBtn.disabled = true;
+    nextBtn.innerHTML =
+      `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+         <polyline points="6 9 12 15 18 9"/>
+       </svg>`;
+
+    // Case-sensitivity toggle
+    const caseBtn = document.createElement("button");
+    caseBtn.className = "res-search-btn";
+    caseBtn.title = "Match case";
+    caseBtn.setAttribute("aria-label", "Match case");
+    caseBtn.setAttribute("aria-pressed", "false");
+    caseBtn.textContent = "Cc";
+
+    // Regular-expression toggle
+    const regexBtn = document.createElement("button");
+    regexBtn.className = "res-search-btn";
+    regexBtn.title = "Regular expression";
+    regexBtn.setAttribute("aria-label", "Use regular expression");
+    regexBtn.setAttribute("aria-pressed", "false");
+    regexBtn.textContent = ".*";
+
+    // Close button
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "res-search-btn res-search-close-btn";
+    closeBtn.title = "Close search (Escape)";
+    closeBtn.setAttribute("aria-label", "Close search");
+    closeBtn.textContent = "✕";
+
+    actions.appendChild(prevBtn);
+    actions.appendChild(nextBtn);
+    actions.appendChild(caseBtn);
+    actions.appendChild(regexBtn);
+    actions.appendChild(closeBtn);
+
+    bar.appendChild(label);
+    bar.appendChild(input);
+    bar.appendChild(actions);
+
+    // ── Event wiring ──────────────────────────────────────────────────────
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        // If results are already applied, Enter/Shift+Enter navigates; otherwise run.
+        if (this.#searchMatches.length > 0) {
+          this.#goToMatch(this.#searchCurrent + (e.shiftKey ? -1 : 1));
+        } else {
+          this.#runSearch();
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        this.#closeSearch();
+      }
+    });
+
+    prevBtn.addEventListener("click", () => this.#goToMatch(this.#searchCurrent - 1));
+    nextBtn.addEventListener("click", () => this.#goToMatch(this.#searchCurrent + 1));
+
+    caseBtn.addEventListener("click", () => {
+      const active = caseBtn.classList.toggle("res-search-btn--active");
+      caseBtn.setAttribute("aria-pressed", String(active));
+      if (input.value.trim()) this.#runSearch();
+    });
+
+    regexBtn.addEventListener("click", () => {
+      const active = regexBtn.classList.toggle("res-search-btn--active");
+      regexBtn.setAttribute("aria-pressed", String(active));
+      if (input.value.trim()) this.#runSearch();
+    });
+
+    closeBtn.addEventListener("click", () => this.#closeSearch());
+
+    this.#searchBar   = bar;
+    this.#searchInput = input;
+    this.#prevBtn     = prevBtn;
+    this.#nextBtn     = nextBtn;
+    this.#caseBtn     = caseBtn;
+    this.#regexBtn    = regexBtn;
+
+    // Insert between tab strip and tab content
+    this.#el.insertBefore(bar, this._tabContent);
+  }
+
+  /** Show the search bar and focus the input. No-op when HTML preview is live. */
+  #openSearch() {
+    if (this.#htmlPreviewActive) return;
+    this.#searchBar.hidden = false;
+    this.#searchInput.select();
+    this.#searchInput.focus();
+  }
+
+  /** Hide the search bar and remove all highlights. */
+  #closeSearch() {
+    this.#searchBar.hidden = true;
+    this.#clearHighlights();
+  }
+
+  /**
+   * Navigate to the match at `index`, wrapping at both ends.
+   * Removes the current-highlight class from the old match, adds it to the
+   * new one, and scrolls it into view.
+   */
+  #goToMatch(index) {
+    const count = this.#searchMatches.length;
+    if (count === 0) return;
+
+    // Remove current-highlight from the previous active match
+    if (this.#searchCurrent >= 0 && this.#searchCurrent < count) {
+      this.#searchMatches[this.#searchCurrent].classList.remove("res-search-highlight--current");
+    }
+
+    // Wrap around
+    this.#searchCurrent = ((index % count) + count) % count;
+
+    const mark = this.#searchMatches[this.#searchCurrent];
+    mark.classList.add("res-search-highlight--current");
+    mark.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
+  /** Enable or disable the prev/next nav buttons based on whether matches exist. */
+  #updateNavButtons() {
+    const has = this.#searchMatches.length > 0;
+    if (this.#prevBtn) this.#prevBtn.disabled = !has;
+    if (this.#nextBtn) this.#nextBtn.disabled = !has;
+  }
+
+  /**
+   * Run the current search query against the visible body text, wrapping
+   * each match in a <mark class="res-search-highlight"> element.
+   * Navigates to and highlights the first match.
+   */
+  #runSearch() {
+    const query = this.#searchInput?.value ?? "";
+    this.#clearHighlights();
+    if (!query) return;
+
+    // Only search text content — bail out for HTML previews or missing body
+    if (this.#htmlPreviewActive) return;
+    const pre = this.#bodyPane?.querySelector(".res-body-pre");
+    if (!pre) return;
+
+    const caseSensitive = this.#caseBtn.classList.contains("res-search-btn--active");
+    const useRegex      = this.#regexBtn.classList.contains("res-search-btn--active");
+    const flags         = caseSensitive ? "g" : "gi";
+
+    let pattern;
+    try {
+      pattern = useRegex
+        ? new RegExp(query, flags)
+        : new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), flags);
+    } catch {
+      return; // invalid regex — silently skip
+    }
+
+    this.#searchMatches = this.#highlightMatches(pre, pattern);
+    this.#updateNavButtons();
+
+    if (this.#searchMatches.length > 0) {
+      this.#goToMatch(0);
+    }
+  }
+
+  /**
+   * Walk every text node inside `element`, wrap all regex matches in <mark>
+   * elements styled with `res-search-highlight`, and return those marks.
+   *
+   * @param {HTMLElement} element
+   * @param {RegExp}      regex    Must have the `g` flag set.
+   * @returns {HTMLElement[]} ordered list of <mark> nodes
+   */
+  #highlightMatches(element, regex) {
+    const marks = [];
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+    const textNodes = [];
+    let node;
+    while ((node = walker.nextNode())) textNodes.push(node);
+
+    for (const textNode of textNodes) {
+      const text = textNode.textContent;
+      regex.lastIndex = 0;
+      if (!regex.test(text)) { regex.lastIndex = 0; continue; }
+      regex.lastIndex = 0;
+
+      const frag = document.createDocumentFragment();
+      let lastIndex = 0;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+          frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        }
+        const mark = document.createElement("mark");
+        mark.className = "res-search-highlight";
+        mark.textContent = match[0];
+        frag.appendChild(mark);
+        marks.push(mark);
+        lastIndex = match.index + match[0].length;
+        if (match[0].length === 0) regex.lastIndex++; // guard against zero-length matches
+      }
+      if (lastIndex < text.length) {
+        frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+      }
+      textNode.parentNode.replaceChild(frag, textNode);
+    }
+
+    return marks;
+  }
+
+  /**
+   * Unwrap all <mark class="res-search-highlight"> nodes, restoring plain
+   * text in their place, and reset the match list.
+   */
+  #clearHighlights() {
+    if (this.#bodyPane) {
+      this.#bodyPane.querySelectorAll("mark.res-search-highlight").forEach((mark) => {
+        const parent = mark.parentNode;
+        if (!parent) return;
+        parent.replaceChild(document.createTextNode(mark.textContent), mark);
+        parent.normalize();
+      });
+    }
+    this.#searchMatches = [];
+    this.#searchCurrent = -1;
+    this.#updateNavButtons();
   }
 
   #emptyState() {
@@ -393,6 +682,11 @@ export class ResponseViewer {
     }
 
     pane.appendChild(pre);
+
+    // Re-apply an active search query (the pane was just rebuilt from scratch)
+    if (this.#searchBar && !this.#searchBar.hidden && this.#searchInput?.value.trim()) {
+      this.#runSearch();
+    }
   }
 
   // ── HTML preview helpers ──────────────────────────────────────────────────
@@ -609,6 +903,7 @@ export class ResponseViewer {
   #showLoading() {
     this.#lastResponse = null;
     this.#destroyHtmlPreview();
+    this.#clearHighlights();
     this.#setStatus("", "", "", "");
     const bodyPane = this.#bodyPane;
     bodyPane.innerHTML = "";
@@ -626,6 +921,7 @@ export class ResponseViewer {
   #showError(detail) {
     this.#lastResponse = null;
     this.#destroyHtmlPreview();
+    this.#clearHighlights();
     const hasStatus  = detail?.status && detail.status > 0;
     const statusCode = hasStatus ? String(detail.status) : "ERR";
     const statusTxt  = detail?.statusText || detail?.name || "Connection Error";

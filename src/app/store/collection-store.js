@@ -1,0 +1,52 @@
+/**
+ * collection-store.js — Manages the global collections manifest.
+ *
+ * The manifest (collections/index.json) stores the environments list,
+ * the active environment ID, and global application settings.
+ * It does not contain request data or environment-level variables.
+ */
+"use strict";
+
+const { readJSON, writeJSON, ensureDir } = require("./io");
+
+/** Default manifest returned on first run (no file yet). */
+const DEFAULT_MANIFEST = Object.freeze({
+  version:             2,
+  environments:        [],
+  activeEnvironmentId: null,
+  settings:            {},
+});
+
+class CollectionStore {
+  /**
+   * @param {import('./paths').Paths} paths
+   */
+  constructor(paths) {
+    this._paths = paths;
+  }
+
+  /**
+   * Return the global manifest.
+   * Returns a safe default when the manifest file does not exist yet.
+   *
+   * @returns {object}
+   */
+  getManifest() {
+    ensureDir(this._paths.collectionsDir());
+    const data = readJSON(this._paths.manifestPath());
+    return data ?? { ...DEFAULT_MANIFEST };
+  }
+
+  /**
+   * Atomically persist the global manifest.
+   *
+   * @param {object} data
+   */
+  saveManifest(data) {
+    ensureDir(this._paths.collectionsDir());
+    writeJSON(this._paths.manifestPath(), data);
+  }
+}
+
+module.exports = { CollectionStore };
+

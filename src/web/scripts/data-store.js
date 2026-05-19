@@ -1,22 +1,44 @@
 /**
  * data-store.js — Persistence layer for the wurl data document.
  *
- * Storage layout (v2):
+ * Storage layout (new per-file architecture):
  *
- *   collections.json   — manifest:
+ *   collections/index.json          — manifest:
  *     { version: 2, environments: [{id, name}], activeEnvironmentId, settings }
  *
- *   <envId>.json       — per-environment data:
- *     { version: 1, collections: [...], variables: {...} }
+ *   collections/<envId>/            — per-environment data:
+ *     metadata.json                 — { id, variables }
+ *     tree.json                     — lightweight nav tree
+ *     requests/<reqId>.json         — one file per request
+ *     history/<reqId>/<histId>.json — execution metadata
+ *     responses/<reqId>/<histId>.json — full response payloads (lazy)
  *
- * Migration from v1:
- *   If collections.json has version:1 (old { collections:[...], settings:{} } format),
- *   the existing collections are moved into a "<newUUID>.json" file and the manifest
- *   is rewritten as v2 with a single default environment named "COLLECTIONS".
+ * Transport detection:
+ *   Electron:      window.wurl.store  (new IPC channels via preload.js)
+ *   Go dev server: fetch() against /api/*  (Go backend REST APIs)
  *
- * Environment detection:
- *   Electron: window.wurl.collections / window.wurl.env exposed by preload.js
- *   Go dev server: fetch() against /api/collections and /api/env?id=
+ * Public API (consumed by app.js and other renderer modules):
+ *
+ *   Core (manifest + environment blob):
+ *     loadAll()                              → startup data
+ *     saveCollections(items)                 → persist active env's collection tree
+ *     saveSettings(settings)
+ *     saveManifest({ environments, activeEnvironmentId, settings? })
+ *     loadEnvCollections(envId)              → { collections, variables }
+ *     saveEnvCollections(envId, collections, variables?)
+ *     setActiveEnvironment(envId)
+ *     saveEnvVariables(envId, variables)
+ *
+ *   Granular (request, tree, history):
+ *     getCollectionTree(collectionId)        → { children }
+ *     saveCollectionTree(collectionId, tree)
+ *     getRequest(id)                         → request object
+ *     createRequest(collectionId, data)      → saved request
+ *     updateRequest(id, patch)               → updated request
+ *     deleteRequest(id)
+ *     listHistory(requestId, options?)       → { items, nextCursor }
+ *     addHistory(requestId, entry, response?)→ stored entry
+ *     getHistoryResponse(requestId, histId)  → response payload
  */
 
 "use strict";
@@ -40,7 +62,8 @@ export const DEFAULT_SETTINGS = {
   responseBodyRenderMode: "preview",
 };
 
-// ── In-memory manifest cache ──────────────────────────────────────────────────
+// ── In-memory caches ──────────────────────────────────────────────────────────
+
 let _manifest = {
   version:             2,
   environments:        [],
@@ -54,25 +77,41 @@ let _activeEnvId = null;
 /** Cached collections for the active environment. */
 let _activeEnvCollections = [];
 
-/** Cached variables for the active environment — preserved across saveCollections() calls. */
+/** Cached variables for the active environment. */
 let _activeEnvVariables = {};
 
-// ── Environment detection ─────────────────────────────────────────────────────
+// ── Transport detection ───────────────────────────────────────────────────────
 
+/**
+ * Returns true when running inside Electron (new store API surface present).
+ * @returns {boolean}
+ */
 function isElectron() {
   return (
     typeof window !== "undefined" &&
     window.wurl != null &&
-    typeof window.wurl.collections?.load === "function"
+    typeof window.wurl.store?.manifest?.get === "function"
   );
 }
 
 // ── Low-level manifest I/O ────────────────────────────────────────────────────
 
+async function _loadManifest() {
+  try {
+    if (isElectron()) return await window.wurl.store.manifest.get();
+    const res = await fetch("/api/collections");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn("[data-store] manifest load failed:", err.message);
+    return { version: 2, environments: [], activeEnvironmentId: null, settings: {} };
+  }
+}
+
 async function _persistManifest() {
   try {
     if (isElectron()) {
-      await window.wurl.collections.save(_manifest);
+      await window.wurl.store.manifest.save(_manifest);
       return;
     }
     await fetch("/api/collections", {
@@ -86,19 +125,19 @@ async function _persistManifest() {
 }
 
 // ── Low-level per-environment I/O ─────────────────────────────────────────────
+// The "env blob" shape is: { version: 1, collections: [...], variables: {...} }
+// It is assembled from / decomposed into the new per-file layout transparently.
 
 async function _loadEnvFile(envId) {
   try {
+    let raw;
     if (isElectron()) {
-      const raw = await window.wurl.env.load(envId);
-      return {
-        collections: Array.isArray(raw?.collections) ? raw.collections : [],
-        variables:   (raw?.variables && typeof raw.variables === "object") ? raw.variables : {},
-      };
+      raw = await window.wurl.store.env.get(envId);
+    } else {
+      const res = await fetch(`/api/env?id=${encodeURIComponent(envId)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      raw = await res.json();
     }
-    const res = await fetch(`/api/env?id=${encodeURIComponent(envId)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const raw = await res.json();
     return {
       collections: Array.isArray(raw?.collections) ? raw.collections : [],
       variables:   (raw?.variables && typeof raw.variables === "object") ? raw.variables : {},
@@ -112,7 +151,7 @@ async function _loadEnvFile(envId) {
 async function _saveEnvFile(envId, collections, variables = {}) {
   try {
     if (isElectron()) {
-      await window.wurl.env.save(envId, { version: 1, collections, variables });
+      await window.wurl.store.env.save(envId, { version: 1, collections, variables });
       return;
     }
     await fetch(`/api/env?id=${encodeURIComponent(envId)}`, {
@@ -125,11 +164,10 @@ async function _saveEnvFile(envId, collections, variables = {}) {
   }
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
+// ── Public: core API ──────────────────────────────────────────────────────────
 
 /**
  * Load the full application state on startup.
- * Performs v1→v2 migration if the stored file is in the old format.
  *
  * @returns {Promise<{
  *   environments:        {id:string, name:string}[],
@@ -141,45 +179,8 @@ async function _saveEnvFile(envId, collections, variables = {}) {
  */
 export async function loadAll() {
   try {
-    let raw;
-    if (isElectron()) {
-      raw = await window.wurl.collections.load();
-    } else {
-      const res = await fetch("/api/collections");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      raw = await res.json();
-    }
+    const raw = await _loadManifest();
 
-    // ── v1 → v2 migration ───────────────────────────────────────────────────
-    // Old format: { version:1, collections:[...], settings:{...} }
-    if ((raw.version ?? 1) < 2 && Array.isArray(raw.collections)) {
-      const defaultId  = crypto.randomUUID();
-      const defaultEnv = { id: defaultId, name: "COLLECTIONS" };
-
-      // Persist the old collections under their new per-env file
-      await _saveEnvFile(defaultId, raw.collections, {});
-
-      _manifest = {
-        version:             2,
-        environments:        [defaultEnv],
-        activeEnvironmentId: defaultId,
-        settings:            { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) },
-      };
-      await _persistManifest();
-
-      _activeEnvId        = defaultId;
-      _activeEnvCollections = raw.collections;
-      _activeEnvVariables = {};
-      return {
-        environments:        _manifest.environments,
-        activeEnvironmentId: _activeEnvId,
-        settings:            _manifest.settings,
-        collections:         raw.collections,
-        variables:           {},
-      };
-    }
-
-    // ── Normal v2 load ──────────────────────────────────────────────────────
     let environments = Array.isArray(raw.environments) ? raw.environments : [];
     let activeId     = raw.activeEnvironmentId ?? null;
 
@@ -201,11 +202,12 @@ export async function loadAll() {
       activeEnvironmentId: activeId,
       settings:            { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) },
     };
-    _activeEnvId         = activeId;
+    _activeEnvId = activeId;
 
     const { collections, variables } = await _loadEnvFile(activeId);
     _activeEnvCollections = collections;
     _activeEnvVariables   = variables;
+
     return {
       environments:        _manifest.environments,
       activeEnvironmentId: _activeEnvId,
@@ -260,7 +262,6 @@ export async function saveSettings(settings) {
  * @param {{ environments: object[], activeEnvironmentId: string, settings?: object }} opts
  */
 export async function saveManifest({ environments, activeEnvironmentId, settings }) {
-  // Strip any `variables` fields — those live in per-env files, not the manifest
   const cleanEnvs = environments.map(({ variables: _v, ...rest }) => rest);
   _manifest = {
     ..._manifest,
@@ -272,9 +273,7 @@ export async function saveManifest({ environments, activeEnvironmentId, settings
 }
 
 /**
- * Load the collections and variables for a specific environment (used when switching envs).
- * When loading the currently active environment, the in-memory caches are updated
- * so subsequent saveCollections() / saveEnvVariables() calls are non-destructive.
+ * Load collections and variables for a specific environment.
  * @param {string} envId
  * @returns {Promise<{ collections: object[], variables: object }>}
  */
@@ -288,12 +287,10 @@ export async function loadEnvCollections(envId) {
 }
 
 /**
- * Save collections for a specific environment (used when cloning / switching).
- * When `variables` is omitted and the env is the currently active one, the
- * in-memory variable cache is used so existing variables are preserved.
+ * Save collections for a specific environment.
  * @param {string}   envId
  * @param {object[]} collections
- * @param {object}   [variables]  — omit to preserve cached variables for the active env
+ * @param {object}   [variables]
  */
 export async function saveEnvCollections(envId, collections, variables) {
   const vars = variables !== undefined
@@ -306,10 +303,7 @@ export async function saveEnvCollections(envId, collections, variables) {
 }
 
 /**
- * Update the in-memory active environment ID so that subsequent
- * saveCollections() calls write to the correct file.
- * Callers should follow this with a loadEnvCollections() call and manually
- * update the caches via subsequent saves if needed.
+ * Update the in-memory active environment ID.
  * @param {string} envId
  */
 export function setActiveEnvironment(envId) {
@@ -321,21 +315,210 @@ export function setActiveEnvironment(envId) {
 
 /**
  * Persist key/value variables for a specific environment.
- * Variables are stored in the environment's own <envId>.json file alongside
- * its collections, not in the manifest.
- *
  * @param {string} envId
- * @param {object} variables  — plain key/value object, e.g. { baseUrl: "…" }
+ * @param {object} variables
  */
 export async function saveEnvVariables(envId, variables) {
   if (envId === _activeEnvId) {
-    // Update cache so subsequent saveCollections() calls don't overwrite variables
     _activeEnvVariables = variables;
     await _saveEnvFile(_activeEnvId, _activeEnvCollections, variables);
   } else {
-    // For non-active envs: load current collections first, then re-save with updated variables
     const { collections } = await _loadEnvFile(envId);
     await _saveEnvFile(envId, collections, variables);
   }
 }
 
+// ── Public: granular collection tree API ──────────────────────────────────────
+
+/**
+ * Load the lightweight navigation tree for a collection.
+ * Never loads request bodies — only folder structure + requestRef IDs.
+ *
+ * @param {string} collectionId
+ * @returns {Promise<{ children: object[] }>}
+ */
+export async function getCollectionTree(collectionId) {
+  try {
+    if (isElectron()) return await window.wurl.store.tree.get(collectionId);
+    const res = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/tree`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[data-store] getCollectionTree(${collectionId}) failed:`, err.message);
+    return { children: [] };
+  }
+}
+
+/**
+ * Replace the navigation tree for a collection.
+ *
+ * @param {string}              collectionId
+ * @param {{ children: object[] }} tree
+ * @returns {Promise<void>}
+ */
+export async function saveCollectionTree(collectionId, tree) {
+  try {
+    if (isElectron()) {
+      await window.wurl.store.tree.save(collectionId, tree);
+      return;
+    }
+    await fetch(`/api/collections/${encodeURIComponent(collectionId)}/tree`, {
+      method:  "PUT",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(tree),
+    });
+  } catch (err) {
+    console.warn(`[data-store] saveCollectionTree(${collectionId}) failed:`, err.message);
+  }
+}
+
+// ── Public: granular request API ──────────────────────────────────────────────
+
+/**
+ * Retrieve a single request by ID.
+ * @param {string} id
+ * @returns {Promise<object|null>}
+ */
+export async function getRequest(id) {
+  try {
+    if (isElectron()) return await window.wurl.store.requests.get(id);
+    const res = await fetch(`/api/requests/${encodeURIComponent(id)}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[data-store] getRequest(${id}) failed:`, err.message);
+    return null;
+  }
+}
+
+/**
+ * Create a new request under `collectionId`.
+ * @param {string} collectionId
+ * @param {object} data  Request definition (id optional)
+ * @returns {Promise<object|null>}  Saved request with id assigned
+ */
+export async function createRequest(collectionId, data) {
+  try {
+    if (isElectron()) return await window.wurl.store.requests.create(collectionId, data);
+    const res = await fetch("/api/requests", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ ...data, collectionId }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn("[data-store] createRequest failed:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Apply a partial update to an existing request.
+ * Only fields present in `patch` are updated.
+ * @param {string} id
+ * @param {object} patch
+ * @returns {Promise<object|null>}
+ */
+export async function updateRequest(id, patch) {
+  try {
+    if (isElectron()) return await window.wurl.store.requests.update(id, patch);
+    const res = await fetch(`/api/requests/${encodeURIComponent(id)}`, {
+      method:  "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(patch),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[data-store] updateRequest(${id}) failed:`, err.message);
+    return null;
+  }
+}
+
+/**
+ * Permanently delete a request.
+ * @param {string} id
+ * @returns {Promise<void>}
+ */
+export async function deleteRequest(id) {
+  try {
+    if (isElectron()) { await window.wurl.store.requests.delete(id); return; }
+    await fetch(`/api/requests/${encodeURIComponent(id)}`, { method: "DELETE" });
+  } catch (err) {
+    console.warn(`[data-store] deleteRequest(${id}) failed:`, err.message);
+  }
+}
+
+// ── Public: request history API ───────────────────────────────────────────────
+
+/**
+ * Return a cursor-paginated page of history entries for `requestId`, newest-first.
+ *
+ * @param {string} requestId
+ * @param {{ limit?: number, cursor?: string }} [options]
+ * @returns {Promise<{ items: object[], nextCursor: string }>}
+ */
+export async function listHistory(requestId, options = {}) {
+  try {
+    if (isElectron()) return await window.wurl.store.history.list(requestId, options);
+    const params = new URLSearchParams();
+    if (options.limit)  params.set("limit",  String(options.limit));
+    if (options.cursor) params.set("cursor", options.cursor);
+    const qs  = params.toString() ? `?${params}` : "";
+    const res = await fetch(`/api/requests/${encodeURIComponent(requestId)}/history${qs}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[data-store] listHistory(${requestId}) failed:`, err.message);
+    return { items: [], nextCursor: "" };
+  }
+}
+
+/**
+ * Record a new execution in the request's history.
+ *
+ * @param {string} requestId
+ * @param {{ status, durationMs, responseSize, timestamp?, id? }} entry  Lightweight metadata
+ * @param {{ headers, body, contentType? }}                        [response]  Full payload
+ * @returns {Promise<object|null>}  Stored entry
+ */
+export async function addHistory(requestId, entry, response) {
+  try {
+    if (isElectron()) return await window.wurl.store.history.add(requestId, entry, response);
+    const payload = response ? { ...entry, response } : entry;
+    const res = await fetch(`/api/requests/${encodeURIComponent(requestId)}/history`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[data-store] addHistory(${requestId}) failed:`, err.message);
+    return null;
+  }
+}
+
+/**
+ * Lazy-load the full response payload for a history entry.
+ *
+ * @param {string} requestId
+ * @param {string} historyId
+ * @returns {Promise<object|null>}
+ */
+export async function getHistoryResponse(requestId, historyId) {
+  try {
+    if (isElectron()) return await window.wurl.store.history.getResponse(requestId, historyId);
+    const res = await fetch(
+      `/api/requests/${encodeURIComponent(requestId)}/history/${encodeURIComponent(historyId)}/response`,
+    );
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[data-store] getHistoryResponse(${requestId}, ${historyId}) failed:`, err.message);
+    return null;
+  }
+}

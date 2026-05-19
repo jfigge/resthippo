@@ -23,7 +23,7 @@ SERVER_PORT     ?= 8080
 DATA_DIR        ?= $(WORKSPACE)/data
 
 # ─── Default ──────────────────────────────────────────────────────────────────
-all: clean install fmt lint build
+all: clean install fmt lint test build
 	@echo "Build complete"
 
 # ─── Version / Info ───────────────────────────────────────────────────────────
@@ -72,6 +72,19 @@ lint-go:
 	@echo "Linting Go code..."
 	@cd ${SRC_DIR}; go tool -modfile=../tools/golangci-lint/go.mod golangci-lint run
 	@echo --------------------------------
+
+# ─── Testing ──────────────────────────────────────────────────────────────────
+test: test-go test-js
+
+test-go:
+	@echo "Running Go tests..."
+	@cd ${SRC_DIR}; go test ./...
+	@echo "--------------------------------"
+
+test-js:
+	@echo "Running JavaScript store tests..."
+	@node --test $(APP_DIR)/store/tests/stores.test.js
+	@echo "--------------------------------"
 
 # ─── Development ──────────────────────────────────────────────────────────────
 dev: dev-server
@@ -180,7 +193,7 @@ help:
 	@echo "  wurl — Web URL REST API Client"
 	@echo ""
 	@echo "  Targets:"
-	@echo "    all           install → fmt → lint → build  (default)"
+	@echo "    all           install → fmt → lint → test → build  (default)"
 	@echo "    install       npm install"
 	@echo "    dev           Run Go dev server on :$(SERVER_PORT) (IDE mode)"
 	@echo "    dev-electron  Run Electron in development mode (requires dev server)"
@@ -197,6 +210,7 @@ help:
 	@echo "    vendor-prism  Bundle Prism.js → web/scripts/vendor/prism.js"
 	@echo "    fmt           Format JS/CSS/HTML (prettier) and Go (gofmt)"
 	@echo "    lint          Lint JS (eslint) and Go (golangci-lint / go vet)"
+	@echo "    test          Run all Go + JavaScript tests"
 	@echo "    clean         Remove build and dist directories"
 	@echo "    version       Print version string"
 	@echo "    info          Print full build information"
@@ -207,6 +221,7 @@ help:
         install \
         fmt fmt-js fmt-go \
         lint lint-js lint-go \
+        test test-go test-js \
         dev dev-server dev-electron \
         build build-server build-electron build-mac build-linux build-win \
         dist dist-mac dist-linux dist-win \

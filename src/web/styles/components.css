@@ -1038,6 +1038,14 @@
   color: var(--color-accent);
 }
 
+/* ── Header-value suggestions dropdown ────────────────────────────────────── */
+/* Inherits all .hdr-autocomplete styles; overrides just the sizing behaviour. */
+
+.hdr-val-autocomplete {
+  max-height: 200px;
+  min-width: 220px;
+}
+
 /* Delete button */
 .params-delete-btn {
   width: 22px;
@@ -1390,6 +1398,139 @@
   color: var(--color-accent);
   font-size: var(--font-size-md);
   line-height: 1;
+}
+
+/* ── In-viewer find / search bar ───────────────────────────────────────────  */
+
+/*
+ * Sits between .res-tab-strip and .res-tab-content.
+ * Revealed by Cmd/Ctrl+F when focus is inside the response viewer.
+ */
+.res-search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-mantle);
+  flex-shrink: 0;
+}
+
+/* Explicit rule so the CSS display:flex doesn't override the hidden attribute */
+.res-search-bar[hidden] {
+  display: none;
+}
+
+.res-search-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-overlay-0);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.res-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 var(--space-2);
+  background: var(--color-surface-0);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-sm);
+  transition: border-color var(--transition-fast);
+}
+
+.res-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.res-search-input::placeholder {
+  color: var(--color-overlay-0);
+}
+
+.res-search-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+/*
+ * All three search tool buttons (Cc, .*, ✕) share the same invisible-until-
+ * hovered style that all other X/close buttons in the app use (.popup-close).
+ */
+.res-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--color-subtext);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono), monospace;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.res-search-btn:hover {
+  background-color: var(--color-surface-1);
+  color: var(--color-text);
+}
+
+/* Cc / .* active (toggled-on) state */
+.res-search-btn--active {
+  background-color: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-accent);
+}
+
+.res-search-btn--active:hover {
+  background-color: color-mix(in srgb, var(--color-accent) 28%, transparent);
+  color: var(--color-accent);
+}
+
+.res-search-close-btn {
+    font-size: var(--font-size-xl);
+}
+/* Close (✕) button — turns red on hover, like .popup-close */
+.res-search-close-btn:hover {
+  background-color: var(--color-surface-1);
+  color: var(--color-error);
+}
+
+/* Matched text highlighted inside .res-body-pre */
+.res-search-highlight {
+  background-color: color-mix(in srgb, var(--color-warning) 45%, transparent);
+  color: inherit;
+  border-radius: 2px;
+}
+
+/* The currently-active (navigated-to) match — stronger, accent colour */
+.res-search-highlight--current {
+  background-color: var(--color-accent);
+  color: var(--color-crust);
+  border-radius: 2px;
+}
+
+/* Disabled state for prev/next nav buttons */
+.res-search-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* ── Console tab — verbose request/response log ────────────────────────────  */

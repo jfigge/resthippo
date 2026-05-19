@@ -13,58 +13,287 @@ import Prism from "../vendor/prism.js";
 
 // Standard HTTP request headers offered in the header-name combo box.
 // Custom values are always accepted too (free-text input).
-const STANDARD_HEADERS = [
-  "Accept",
-  "Accept-Charset",
-  "Accept-Encoding",
-  "Accept-Language",
-  "Authorization",
-  "Cache-Control",
-  "Connection",
-  "Content-Encoding",
-  "Content-Length",
-  "Content-MD5",
-  "Content-Type",
-  "Cookie",
-  "Date",
-  "DNT",
-  "Expect",
-  "Forwarded",
-  "From",
-  "Host",
-  "If-Match",
-  "If-Modified-Since",
-  "If-None-Match",
-  "If-Range",
-  "If-Unmodified-Since",
-  "Max-Forwards",
-  "Origin",
-  "Pragma",
-  "Proxy-Authorization",
-  "Range",
-  "Referer",
-  "TE",
-  "Trailer",
-  "Transfer-Encoding",
-  "Upgrade",
-  "User-Agent",
-  "Via",
-  "Warning",
-  "X-Api-Key",
-  "X-Auth-Token",
-  "X-Csrf-Token",
-  "X-Forwarded-For",
-  "X-Forwarded-Host",
-  "X-Forwarded-Proto",
-  "X-Request-Id",
-  "X-Requested-With",
-];
+const STANDARD_HEADERS_DICT = {
+    Accept: [
+        "*/*",
+        "application/json",
+        "application/xml",
+        "application/xhtml+xml",
+        "text/html",
+        "text/plain",
+        "text/css",
+        "text/javascript",
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "multipart/form-data"
+    ],
+
+    "Accept-Charset": [
+        "utf-8",
+        "iso-8859-1",
+        "*"
+    ],
+
+    "Accept-Encoding": [
+        "gzip",
+        "deflate",
+        "br",
+        "compress",
+        "identity",
+        "*"
+    ],
+
+    "Accept-Language": [
+        "en-US",
+        "en",
+        "fr",
+        "de",
+        "es",
+        "zh-CN",
+        "ja",
+        "*"
+    ],
+
+    Authorization: [
+        "Basic <base64(username:password)>",
+        "Bearer <token>",
+        "Digest <credentials>",
+        "Negotiate <token>",
+        "OAuth <token>",
+        "AWS4-HMAC-SHA256 Credential=<credential>, SignedHeaders=<headers>, Signature=<signature>"
+    ],
+
+    "Cache-Control": [
+        "no-cache",
+        "no-store",
+        "max-age=<seconds>",
+        "max-stale=<seconds>",
+        "min-fresh=<seconds>",
+        "must-revalidate",
+        "proxy-revalidate",
+        "public",
+        "private",
+        "immutable",
+        "only-if-cached"
+    ],
+
+    Connection: [
+        "keep-alive",
+        "close",
+        "Upgrade"
+    ],
+
+    "Content-Encoding": [
+        "gzip",
+        "compress",
+        "deflate",
+        "br",
+        "identity"
+    ],
+
+    "Content-Length": [
+        "<number>"
+    ],
+
+    "Content-MD5": [
+        "<base64-md5>"
+    ],
+
+    "Content-Type": [
+        "application/json",
+        "application/xml",
+        "application/x-www-form-urlencoded",
+        "multipart/form-data",
+        "text/plain",
+        "text/html",
+        "text/css",
+        "text/csv",
+        "application/octet-stream",
+        "image/png",
+        "image/jpeg"
+    ],
+
+    Cookie: [
+        "<name>=<value>",
+        "<name>=<value>; <name2>=<value2>"
+    ],
+
+    Date: [
+        "Tue, 15 Nov 1994 08:12:31 GMT"
+    ],
+
+    DNT: [
+        "0",
+        "1"
+    ],
+
+    Expect: [
+        "100-continue"
+    ],
+
+    Forwarded: [
+        "for=<client-ip>",
+        "for=<client-ip>;proto=https",
+        "for=<client-ip>;host=<host>",
+        "by=<proxy-id>"
+    ],
+
+    From: [
+        "<email@example.com>"
+    ],
+
+    Host: [
+        "<hostname>",
+        "<hostname>:<port>"
+    ],
+
+    "If-Match": [
+        "\"<etag>\"",
+        "*"
+    ],
+
+    "If-Modified-Since": [
+        "Tue, 15 Nov 1994 08:12:31 GMT"
+    ],
+
+    "If-None-Match": [
+        "\"<etag>\"",
+        "*"
+    ],
+
+    "If-Range": [
+        "\"<etag>\"",
+        "Tue, 15 Nov 1994 08:12:31 GMT"
+    ],
+
+    "If-Unmodified-Since": [
+        "Tue, 15 Nov 1994 08:12:31 GMT"
+    ],
+
+    "Max-Forwards": [
+        "<number>"
+    ],
+
+    Origin: [
+        "https://example.com",
+        "null"
+    ],
+
+    Pragma: [
+        "no-cache"
+    ],
+
+    "Proxy-Authorization": [
+        "Basic <base64(username:password)>",
+        "Bearer <token>",
+        "Digest <credentials>",
+        "Negotiate <token>"
+    ],
+
+    Range: [
+        "bytes=0-499",
+        "bytes=500-999",
+        "bytes=-500",
+        "bytes=9500-"
+    ],
+
+    Referer: [
+        "https://example.com/page"
+    ],
+
+    TE: [
+        "trailers",
+        "compress",
+        "deflate",
+        "gzip"
+    ],
+
+    Trailer: [
+        "Content-MD5",
+        "ETag"
+    ],
+
+    "Transfer-Encoding": [
+        "chunked",
+        "compress",
+        "deflate",
+        "gzip",
+        "identity"
+    ],
+
+    Upgrade: [
+        "websocket",
+        "h2c",
+        "TLS/1.0"
+    ],
+
+    "User-Agent": [
+        "Mozilla/5.0",
+        "wurl/<version>",
+        "PostmanRuntime/<version>",
+        "python-requests/<version>",
+        "Go/<version>"
+    ],
+
+    Via: [
+        "1.1 vegur",
+        "1.0 proxy",
+        "HTTP/1.1 proxy.example.com"
+    ],
+
+    Warning: [
+        "110 Response is stale",
+        "111 Revalidation failed",
+        "199 Miscellaneous warning"
+    ],
+
+    "X-Api-Key": [],
+
+    "X-Auth-Token": [
+        "<token>"
+    ],
+
+    "X-Csrf-Token": [
+        "<token>"
+    ],
+
+    "X-Forwarded-For": [
+        "<client-ip>",
+        "<client-ip>, <proxy-ip>"
+    ],
+
+    "X-Forwarded-Host": [
+        "<hostname>"
+    ],
+
+    "X-Forwarded-Proto": [
+        "http",
+        "https"
+    ],
+
+    "X-Request-Id": [
+        "<uuid>"
+    ],
+
+    "X-Requested-With": [
+        "XMLHttpRequest"
+    ]
+};
 
 /** Lazily create + cache the shared autocomplete dropdown in the document. */
 let _hdrAcDropdown     = null;   // the floating listbox div
 let _hdrAcActiveInput  = null;   // which input currently owns the dropdown
 let _hdrAcActiveIdx    = -1;     // keyboard-focused item index (-1 = none)
 let _hdrAcBlurTimer    = null;   // pending blur-hide timer (cancelled on re-focus)
+let _hdrAcOnSelect     = null;   // optional callback(headerName) fired when a name item is confirmed
+
+// ── Header-value suggestions dropdown ─────────────────────────────────────────
+let _hdrValDropdown    = null;   // the floating value listbox div
+let _hdrValActiveEl    = null;   // which valueEditor.element currently owns the dropdown
+let _hdrValActiveIdx   = -1;     // keyboard-focused item index (-1 = none)
+let _hdrValBlurTimer   = null;   // pending blur-hide timer
+let _hdrValOnSelect    = null;   // callback(selectedValue) fired when a value is picked
 
 function _ensureHdrDropdown() {
   if (_hdrAcDropdown) return _hdrAcDropdown;
@@ -84,15 +313,19 @@ function _ensureHdrDropdown() {
   return _hdrAcDropdown;
 }
 
-function _showHdrDropdown(input) {
+function _showHdrDropdown(input, onSelect) {
   // Cancel any pending blur-hide so rapid blur→focus doesn't flash the dropdown
   if (_hdrAcBlurTimer !== null) { clearTimeout(_hdrAcBlurTimer); _hdrAcBlurTimer = null; }
 
+  // Store the on-select callback so the keyboard-accept path can fire it too.
+  _hdrAcOnSelect = onSelect ?? null;
+
   const dl     = _ensureHdrDropdown();
   const query  = input.value.toLowerCase().trim();
+  const allHeaders = Object.keys(STANDARD_HEADERS_DICT);
   const matches = query
-    ? STANDARD_HEADERS.filter(h => h.toLowerCase().includes(query))
-    : STANDARD_HEADERS;
+    ? allHeaders.filter(h => h.toLowerCase().includes(query))
+    : allHeaders;
 
   if (matches.length === 0) { _hideHdrDropdown(); return; }
 
@@ -114,6 +347,7 @@ function _showHdrDropdown(input) {
       input.dispatchEvent(new Event("input", { bubbles: true }));
       _hideHdrDropdown();
       input.focus();
+      _hdrAcOnSelect?.(h);
     });
     dl.appendChild(item);
   });
@@ -163,7 +397,119 @@ function _hdrDropdownAccept(input) {
   input.value = active.textContent;
   input.dispatchEvent(new Event("input", { bubbles: true }));
   _hideHdrDropdown();
+  _hdrAcOnSelect?.(input.value);
   return true;
+}
+
+// ── Header-value suggestions dropdown ─────────────────────────────────────────
+
+/** Lazily create the value-suggestions dropdown div and attach global dismiss. */
+function _ensureHdrValDropdown() {
+  if (_hdrValDropdown) return _hdrValDropdown;
+  _hdrValDropdown = document.createElement("div");
+  _hdrValDropdown.className = "hdr-autocomplete hdr-val-autocomplete";
+  _hdrValDropdown.setAttribute("role", "listbox");
+  _hdrValDropdown.setAttribute("aria-label", "Header value suggestions");
+  document.body.appendChild(_hdrValDropdown);
+
+  // Dismiss when the user clicks outside both the anchor element and the dropdown.
+  document.addEventListener("mousedown", (e) => {
+    if (
+      _hdrValActiveEl &&
+      !_hdrValActiveEl.contains(e.target) &&
+      !_hdrValDropdown.contains(e.target)
+    ) {
+      _hideHdrValDropdown();
+    }
+  }, true);
+
+  return _hdrValDropdown;
+}
+
+/**
+ * Populate and show the value-suggestions dropdown below `anchorEl`.
+ *
+ * @param {HTMLElement} anchorEl  The value editor element to anchor below.
+ * @param {string[]}    values    Candidate values from STANDARD_HEADERS_DICT.
+ * @param {Function}    onSelect  Called with the chosen value string.
+ */
+function _showHdrValDropdown(anchorEl, values, onSelect) {
+  if (_hdrValBlurTimer !== null) { clearTimeout(_hdrValBlurTimer); _hdrValBlurTimer = null; }
+  if (!values || values.length === 0) { _hideHdrValDropdown(); return; }
+
+  _hdrValOnSelect = onSelect ?? null;
+
+  const dl = _ensureHdrValDropdown();
+  dl.innerHTML     = "";
+  _hdrValActiveIdx = -1;
+
+  values.forEach((v, i) => {
+    const item = document.createElement("div");
+    item.className = "hdr-autocomplete__item";
+    item.setAttribute("role", "option");
+    item.setAttribute("aria-selected", "false");
+    item.dataset.idx = String(i);
+    item.textContent = v;
+
+    item.addEventListener("mousedown", (e) => {
+      e.preventDefault(); // keep focus on the value editor
+      _hideHdrValDropdown();
+      _hdrValOnSelect?.(v);
+      anchorEl.focus();
+    });
+    dl.appendChild(item);
+  });
+
+  const rect = anchorEl.getBoundingClientRect();
+  dl.style.left  = `${rect.left + window.scrollX}px`;
+  dl.style.top   = `${rect.bottom + window.scrollY + 2}px`;
+  // At least as wide as the anchor, or 220 px — values can be long.
+  dl.style.width = `${Math.max(rect.width, 220)}px`;
+  dl.classList.add("hdr-autocomplete--visible");
+  _hdrValActiveEl = anchorEl;
+}
+
+function _hideHdrValDropdown() {
+  _hdrValBlurTimer = null;
+  if (_hdrValDropdown) {
+    _hdrValDropdown.classList.remove("hdr-autocomplete--visible");
+    _hdrValDropdown.innerHTML = "";
+  }
+  _hdrValActiveEl  = null;
+  _hdrValActiveIdx = -1;
+}
+
+/** Move keyboard focus within the value dropdown; wraps around. */
+function _hdrValDropdownNavigate(dir) {
+  if (!_hdrValDropdown) return;
+  const items = [..._hdrValDropdown.querySelectorAll(".hdr-autocomplete__item")];
+  if (!items.length) return;
+
+  items[_hdrValActiveIdx]?.classList.remove("hdr-autocomplete__item--active");
+  items[_hdrValActiveIdx]?.setAttribute("aria-selected", "false");
+
+  _hdrValActiveIdx = (_hdrValActiveIdx + dir + items.length) % items.length;
+
+  const active = items[_hdrValActiveIdx];
+  active.classList.add("hdr-autocomplete__item--active");
+  active.setAttribute("aria-selected", "true");
+  active.scrollIntoView({ block: "nearest" });
+}
+
+/** Accept the currently keyboard-focused value item, if any. */
+function _hdrValDropdownAccept() {
+  if (!_hdrValDropdown || _hdrValActiveIdx < 0) return false;
+  const items = _hdrValDropdown.querySelectorAll(".hdr-autocomplete__item");
+  const active = items[_hdrValActiveIdx];
+  if (!active) return false;
+  _hideHdrValDropdown();
+  _hdrValOnSelect?.(active.textContent);
+  return true;
+}
+
+/** Returns true if the value-suggestions dropdown is currently visible. */
+function _hdrValDropdownVisible() {
+  return !!_hdrValDropdown?.classList.contains("hdr-autocomplete--visible");
 }
 
 const HTTP_METHODS = [
@@ -1844,6 +2190,12 @@ export class RequestEditor {
       this.#dispatchHeadersUpdated();
     });
 
+    // ── Forward references for the value-dropdown callbacks ───────────────
+    // Both are assigned after valueEditor is created (below) so the closures
+    // can safely reference valueEditor without a TDZ error.
+    let _onValueSelected = null;
+    let _onNameConfirmed = null;
+
     // ── Header name combo box ─────────────────────────────────────────────
     const headerInput = document.createElement("input");
     headerInput.type        = "text";
@@ -1853,12 +2205,14 @@ export class RequestEditor {
     headerInput.setAttribute("aria-label",    "Header name");
     headerInput.setAttribute("autocomplete",  "off");
     headerInput.addEventListener("focus", () => {
-      if (this.#headerSuggestionsEnabled) _showHdrDropdown(headerInput);
+      if (this.#headerSuggestionsEnabled)
+        _showHdrDropdown(headerInput, (name) => _onNameConfirmed?.(name));
     });
     headerInput.addEventListener("input", () => {
       header.name = headerInput.value;
       this.#dispatchHeadersUpdated();
-      if (this.#headerSuggestionsEnabled) _showHdrDropdown(headerInput);
+      if (this.#headerSuggestionsEnabled)
+        _showHdrDropdown(headerInput, (name) => _onNameConfirmed?.(name));
     });
     headerInput.addEventListener("blur", () => {
       // Store the timer ID so focus can cancel it if the user clicks back quickly
@@ -1868,6 +2222,12 @@ export class RequestEditor {
       if (e.key === "ArrowDown")  { e.preventDefault(); _hdrDropdownNavigate(+1); return; }
       if (e.key === "ArrowUp")    { e.preventDefault(); _hdrDropdownNavigate(-1); return; }
       if (e.key === "Escape")     { _hideHdrDropdown(); return; }
+      if (e.key === " " && e.ctrlKey) {
+        // Ctrl+Space: open the name-suggestions dropdown even when listHeaders is off.
+        e.preventDefault();
+        _showHdrDropdown(headerInput, (name) => _onNameConfirmed?.(name, { force: true }));
+        return;
+      }
       if (e.key === "Enter") {
         e.preventDefault();
         if (!_hdrDropdownAccept(headerInput)) this.#addHeader();
@@ -1883,11 +2243,69 @@ export class RequestEditor {
       onInput: (v) => {
         header.value = v;
         this.#dispatchHeadersUpdated();
+        // Re-open value suggestions when the user types a trailing comma,
+        // allowing them to build a comma-separated multi-value header.
+        if (this.#headerSuggestionsEnabled && v.trimEnd().endsWith(",")) {
+          _onNameConfirmed?.(headerInput.value);
+        }
       },
       onEnter: () => this.#addHeader(),
     });
     valueEditor.setValue(header.value);
     this.#headerPillEditors.push(valueEditor);
+
+    // ── Post-creation: wire value-dropdown callbacks ──────────────────────
+    // _onValueSelected: inserts the picked value, appending after a trailing
+    // comma if one is already present (allows multi-value headers).
+    _onValueSelected = (picked) => {
+      const current = valueEditor.getValue().trimEnd();
+      const newVal  = current.endsWith(",")
+        ? `${current} ${picked}`
+        : current === "" ? picked : `${current}, ${picked}`;
+      valueEditor.setValue(newVal);
+      header.value = newVal;
+      this.#dispatchHeadersUpdated();
+      // Re-open the dropdown so the user can keep appending values
+      // (they will naturally see it because the value now ends with something
+      // that is NOT a comma, so it won't auto-reopen — that's intentional).
+      valueEditor.focus();
+    };
+
+    // _onNameConfirmed: called when a header name is finalised (click or kbd).
+    // Looks up the dict entry and, if values exist, shows the value dropdown.
+    _onNameConfirmed = (name, { force = false } = {}) => {
+      if (!this.#headerSuggestionsEnabled && !force) return;
+      const values = STANDARD_HEADERS_DICT[name] ?? [];
+      if (values.length === 0) { _hideHdrValDropdown(); return; }
+      _showHdrValDropdown(valueEditor.element, values, _onValueSelected);
+    };
+
+    // Dismiss value dropdown when the value editor loses focus (with a short
+    // delay so mousedown on a dropdown item can fire first).
+    valueEditor.element.addEventListener("blur", () => {
+      _hdrValBlurTimer = setTimeout(_hideHdrValDropdown, 150);
+    });
+
+    // Keyboard navigation for the value dropdown (capture phase so we intercept
+    // before VariablePillEditor's own bubble-phase keydown handler).
+    valueEditor.element.addEventListener("keydown", (e) => {
+      // Ctrl+Space: open value suggestions regardless of the listHeaders setting.
+      if (e.key === " " && e.ctrlKey) {
+        e.preventDefault();
+        _onNameConfirmed?.(headerInput.value, { force: true });
+        return;
+      }
+      if (!_hdrValDropdownVisible()) return;
+      if (e.key === "ArrowDown") { e.preventDefault(); _hdrValDropdownNavigate(+1); return; }
+      if (e.key === "ArrowUp")   { e.preventDefault(); _hdrValDropdownNavigate(-1); return; }
+      if (e.key === "Escape")    { e.preventDefault(); _hideHdrValDropdown(); return; }
+      if (e.key === "Enter" && _hdrValActiveIdx >= 0) {
+        // Prevent VariablePillEditor's Enter handler from adding a new header row.
+        e.preventDefault();
+        e.stopPropagation();
+        _hdrValDropdownAccept();
+      }
+    }, true /* capture — fires before VariablePillEditor's bubble-phase listener */);
 
     // ── Delete button ────────────────────────────────────────────────────
     const deleteBtn = document.createElement("button");

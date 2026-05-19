@@ -10,6 +10,8 @@ const net          = require("net");
 const { spawn }    = require("child_process");
 const { URL }      = require("url");
 
+const { Stores }   = require("./store/stores");
+
 const isDev = process.argv.includes("--dev");
 
 // devPort is resolved asynchronously inside app.whenReady().
@@ -26,83 +28,147 @@ let _mainWin           = null;   // set once createWindow() runs
 let _htmlPreviewView   = null;   // WebContentsView instance, created lazily
 let _htmlPreviewAdded  = false;  // whether the view is currently a child of contentView
 
-// ─── Collections IPC ──────────────────────────────────────────────────────────
+// ─── Storage layer ─────────────────────────────────────────────────────────────
+// The Stores factory is created lazily on first IPC call (after app is ready)
+// so that app.getPath('userData') is available.
+//
+// New filesystem layout (under the platform user-data directory):
+//   collections/
+//     index.json                         ← manifest (environments, settings)
+//     <collId>/
+//       metadata.json                    ← name + variables
+//       tree.json                        ← lightweight nav tree
+//       requests/<reqId>.json            ← one file per request
+//       history/<reqId>/<histId>.json    ← execution metadata (no body)
+//       responses/<reqId>/<histId>.json  ← full response payload (lazy)
+
+let _stores = null;
+
+/**
+ * Return the shared Stores factory, creating it on first call.
+ * Safe to call from any ipcMain handler.
+ * @returns {Stores}
+ */
+function getStores() {
+  if (!_stores) {
+    _stores = new Stores(app.getPath("userData"));
+  }
+  return _stores;
+}
+
+/**
+ * Wrap a store call so errors are logged and a safe fallback is returned
+ * instead of triggering an unhandled rejection in the renderer.
+ *
+ * @param {string}   channel   IPC channel name (for log context)
+ * @param {Function} fn        Synchronous store function
+ * @param {*}        fallback  Value returned on error
+ */
+function safeCall(channel, fn, fallback = null) {
+  try {
+    return fn();
+  } catch (err) {
+    console.error(`[main] ${channel} error:`, err.message);
+    return fallback;
+  }
+}
+
+// ─── Store IPC ────────────────────────────────────────────────────────────────
 // Register handlers before app.whenReady() so they are ready the moment the
 // renderer process makes its first invoke() call.
-(function initCollectionsIPC() {
-  // Electron resolves app.getPath('userData') to the correct platform directory:
-  //   macOS:   ~/Library/Application Support/wurl
-  //   Linux:   ~/.config/wurl
-  //   Windows: %APPDATA%\wurl
-  const dataFile = () => path.join(app.getPath("userData"), "collections.json");
-  const envFile  = (id) => path.join(app.getPath("userData"), `${id}.json`);
+(function initStoreIPC() {
+  // ── Manifest (global environments list + settings) ──────────────────────────
 
-  /**
-   * Return the full stored manifest, or safe defaults on first run / error.
-   * Shape v2: { version, environments, activeEnvironmentId, settings }
-   * Shape v1 (legacy): { version, collections, settings }  — migration done in renderer
-   */
-  ipcMain.handle("collections:read", async () => {
-    const file = dataFile();
-    try {
-      if (!fs.existsSync(file)) return { version: 2, environments: [], activeEnvironmentId: null, settings: {} };
-      const raw    = fs.readFileSync(file, "utf8");
-      const parsed = JSON.parse(raw);
-      // Return as-is; the renderer detects version and migrates if needed
-      return parsed;
-    } catch (err) {
-      console.error("[main] collections:read error:", err.message);
-      return { version: 2, environments: [], activeEnvironmentId: null, settings: {} };
-    }
-  });
+  ipcMain.handle("store:manifest:get", () =>
+    safeCall("store:manifest:get",
+      () => getStores().collectionStore().getManifest(),
+      { version: 2, environments: [], activeEnvironmentId: null, settings: {} },
+    ),
+  );
 
-  /**
-   * Atomically overwrite the stored manifest file.
-   */
-  ipcMain.handle("collections:write", async (_event, doc) => {
-    const file = dataFile();
-    try {
-      fs.mkdirSync(path.dirname(file), { recursive: true });
-      const payload = JSON.stringify(doc, null, 2);
-      fs.writeFileSync(file, payload, "utf8");
-    } catch (err) {
-      console.error("[main] collections:write error:", err.message);
-    }
-  });
+  ipcMain.handle("store:manifest:save", (_event, data) =>
+    safeCall("store:manifest:save",
+      () => { getStores().collectionStore().saveManifest(data); },
+    ),
+  );
 
-  /**
-   * Load a per-environment collections file: <userData>/<envId>.json
-   * Returns { version, collections } or safe defaults on missing / error.
-   */
-  ipcMain.handle("env:read", async (_event, envId) => {
-    const file = envFile(envId);
-    try {
-      if (!fs.existsSync(file)) return { version: 1, collections: [] };
-      const raw    = fs.readFileSync(file, "utf8");
-      const parsed = JSON.parse(raw);
-      return {
-        version:     parsed.version     ?? 1,
-        collections: Array.isArray(parsed.collections) ? parsed.collections : [],
-      };
-    } catch (err) {
-      console.error("[main] env:read error:", err.message);
-      return { version: 1, collections: [] };
-    }
-  });
+  // ── Environment blob (assembles / decomposes per-file layout) ───────────────
+  // Used by data-store.js to keep the same high-level collections API.
 
-  /**
-   * Atomically overwrite a per-environment collections file.
-   */
-  ipcMain.handle("env:write", async (_event, envId, doc) => {
-    const file = envFile(envId);
-    try {
-      fs.mkdirSync(path.dirname(file), { recursive: true });
-      const payload = JSON.stringify({ version: 1, ...doc }, null, 2);
-      fs.writeFileSync(file, payload, "utf8");
-    } catch (err) {
-      console.error("[main] env:write error:", err.message);
-    }
-  });
+  ipcMain.handle("store:env:get", (_event, id) =>
+    safeCall("store:env:get",
+      () => getStores().environmentStore().getEnvironment(id),
+      { version: 1, collections: [] },
+    ),
+  );
+
+  ipcMain.handle("store:env:save", (_event, id, data) =>
+    safeCall("store:env:save",
+      () => { getStores().environmentStore().saveEnvironment(id, data); },
+    ),
+  );
+
+  // ── Collection navigation tree ──────────────────────────────────────────────
+
+  ipcMain.handle("store:tree:get", (_event, collectionId) =>
+    safeCall("store:tree:get",
+      () => getStores().treeStore().getTree(collectionId),
+      { children: [] },
+    ),
+  );
+
+  ipcMain.handle("store:tree:save", (_event, collectionId, tree) =>
+    safeCall("store:tree:save",
+      () => { getStores().treeStore().saveTree(collectionId, tree); },
+    ),
+  );
+
+  // ── Granular request CRUD ───────────────────────────────────────────────────
+
+  ipcMain.handle("store:requests:get", (_event, id) =>
+    safeCall("store:requests:get",
+      () => getStores().requestStore().getRequest(id),
+    ),
+  );
+
+  ipcMain.handle("store:requests:create", (_event, collectionId, req) =>
+    safeCall("store:requests:create",
+      () => getStores().requestStore().createRequest(collectionId, req),
+    ),
+  );
+
+  ipcMain.handle("store:requests:update", (_event, id, patch) =>
+    safeCall("store:requests:update",
+      () => getStores().requestStore().updateRequest(id, patch),
+    ),
+  );
+
+  ipcMain.handle("store:requests:delete", (_event, id) =>
+    safeCall("store:requests:delete",
+      () => { getStores().requestStore().deleteRequest(id); },
+    ),
+  );
+
+  // ── Request execution history ───────────────────────────────────────────────
+
+  ipcMain.handle("store:history:list", (_event, requestId, options) =>
+    safeCall("store:history:list",
+      () => getStores().historyStore().listHistory(requestId, options ?? {}),
+      { items: [], nextCursor: "" },
+    ),
+  );
+
+  ipcMain.handle("store:history:add", (_event, requestId, entry, response) =>
+    safeCall("store:history:add",
+      () => getStores().historyStore().addHistory(requestId, entry, response),
+    ),
+  );
+
+  ipcMain.handle("store:history:response:get", (_event, requestId, historyId) =>
+    safeCall("store:history:response:get",
+      () => getStores().historyStore().getHistoryResponse(requestId, historyId),
+    ),
+  );
 })();
 
 // ─── HTTP Execute IPC ─────────────────────────────────────────────────────────
