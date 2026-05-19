@@ -117,6 +117,22 @@ export class ResponseViewer {
       this.#showError(e.detail),
     );
 
+    // Cmd/Ctrl+A while focus is inside the response viewer → select only the
+    // body text, not the whole page.
+    this.#el.addEventListener("keydown", (e) => {
+      const selectAll = e.key === "a" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
+      if (!selectAll) return;
+      const pre = this.#bodyPane?.querySelector(".res-body-pre");
+      if (!pre) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const range = document.createRange();
+      range.selectNodeContents(pre);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+
     // Hide the Electron HTML preview whenever any popup/menu/dialog opens so the
     // native WebContentsView (which renders above all web content) does not cover it.
     // Re-show it with the correct bounds once the popup is dismissed.
@@ -339,6 +355,8 @@ export class ResponseViewer {
     // ── Text rendering (JSON / YAML / XML / other / HTML-raw) ─────────────
     const pre = document.createElement("pre");
     pre.className = "res-body-pre";
+    // Make focusable so keyboard events (e.g. Cmd/Ctrl+A) bubble up to the viewer.
+    pre.tabIndex = 0;
 
     /** @type {string|null} Prism language id, or null for plain text */
     let prismLang = null;
