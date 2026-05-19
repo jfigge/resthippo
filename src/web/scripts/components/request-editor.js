@@ -543,8 +543,9 @@ function _ensureScopeDropdown() {
 /**
  * Show / refresh the scope suggestion dropdown below `input`.
  * `onSelect(picked, currentWord)` is called when the user picks an item.
+ * `scopeList` defaults to DEFAULT_SCOPES but can be overridden with OIDC-discovered scopes.
  */
-function _showScopeDropdown(input, onSelect) {
+function _showScopeDropdown(input, onSelect, scopeList = DEFAULT_SCOPES) {
   if (_scopeBlurTimer !== null) { clearTimeout(_scopeBlurTimer); _scopeBlurTimer = null; }
 
   const dl         = _ensureScopeDropdown();
@@ -558,7 +559,7 @@ function _showScopeDropdown(input, onSelect) {
   const selected   = new Set(fullVal.split(/\s+/).filter(s => s && s !== currentWord));
 
   // Suggestions: match current word prefix, not already selected
-  const matches    = DEFAULT_SCOPES.filter(s =>
+  const matches    = scopeList.filter(s =>
     s.toLowerCase().startsWith(currentWord.toLowerCase()) && !selected.has(s)
   );
 
@@ -649,6 +650,56 @@ const TABS = [
 //  { id: "settings", label: "Settings" },
 ];
 
+// ── Backend-routed HTTP helper ─────────────────────────────────────────────────
+/**
+ * Perform a GET request through the same backend routing used for normal
+ * wurl requests, bypassing the renderer's CORS enforcement.
+ *
+ * • Electron  → window.wurl.http.execute  (IPC → main process Node.js http)
+ * • Dev-server → POST /api/execute        (Go server makes the outgoing call)
+ *
+ * Resolves with the parsed JSON body on success.
+ * Rejects with an Error whose message describes the problem on failure.
+ *
+ * @param {string} url
+ * @returns {Promise<object>}
+ */
+async function _fetchJson(url) {
+  const desc = { method: "GET", url, followRedirects: true, verifySsl: true };
+
+  let result;
+  if (typeof window.wurl?.http?.execute === "function") {
+    // ── Electron path ──────────────────────────────────────────────────────
+    result = await window.wurl.http.execute(desc);
+  } else {
+    // ── Go dev-server path ─────────────────────────────────────────────────
+    const res = await fetch("/api/execute", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(desc),
+    });
+    result = await res.json();
+  }
+
+  if (result?.error) {
+    const msg = typeof result.error === "object"
+      ? result.error.message ?? JSON.stringify(result.error)
+      : result.error;
+    throw new Error(msg);
+  }
+
+  const status = result?.status ?? 0;
+  if (status < 200 || status >= 300) {
+    throw new Error(`Server returned HTTP ${status} ${result?.statusText ?? ""}`.trimEnd());
+  }
+
+  try {
+    return JSON.parse(result.body ?? "");
+  } catch {
+    throw new Error("Response was not valid JSON");
+  }
+}
+
 export class RequestEditor {
   /** @type {HTMLElement} */
   #el;
@@ -697,10 +748,13 @@ export class RequestEditor {
     resource:       "",
     origin:         "",
     responseType:   "access_token",  // implicit only: "access_token" | "id_token" | "both"
+    discoveredIssuer: "",             // last issuer URL used for discovery — pre-fills dialog
+    discoveredScopes: null,           // string[] from last successful discovery, or null = DEFAULT_SCOPES
   };
   #authAwsIam    = { accessKeyId: "", secretAccessKey: "", region: "", service: "", sessionToken: "" };
   #authContentEl = null;
   #authTypeBarEl = null;
+  #discoverBtnEl = null;
 
   // OAuth 2.0 advanced-fields toggle — persisted in app settings
   #oauth2Advanced = false;
@@ -979,6 +1033,7 @@ export class RequestEditor {
     typeSelect.value = this.#authType;
     typeSelect.addEventListener("change", () => {
       this.#authType = typeSelect.value;
+      if (this.#discoverBtnEl) this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
       this.#renderAuthContent();
       this.#dispatchAuthUpdated();
     });
@@ -989,6 +1044,19 @@ export class RequestEditor {
     const spacer = document.createElement("span");
     spacer.style.flex = "1";
     typeBar.appendChild(spacer);
+
+    // ── Discover button — shown only for OAuth 2.0 ────────────────────────
+    const discoverBtn = document.createElement("button");
+    discoverBtn.type      = "button";
+    discoverBtn.className = "params-delete-all-btn auth-discover-btn";
+    discoverBtn.textContent = "Discover";
+    discoverBtn.title = "Discover OAuth 2.0 endpoints from an OpenID Connect issuer URL";
+    discoverBtn.hidden = this.#authType !== "oauth2";
+    this.#discoverBtnEl = discoverBtn;
+    discoverBtn.addEventListener("click", () => {
+      this.#showIssuerDialog();
+    });
+    typeBar.appendChild(discoverBtn);
 
     const enabledLabel = document.createElement("label");
     enabledLabel.className = "params-toolbar-toggle-label";
@@ -1085,13 +1153,14 @@ export class RequestEditor {
     form.className = "auth-form";
 
     // ── Grant Type ────────────────────────────────────────────────────────
+    const allGrantTypes = [
+      { value: "authorization_code", label: "Authorization Code" },
+      { value: "client_credentials", label: "Client Credentials"  },
+      { value: "password",           label: "Resource Owner Password" },
+      { value: "implicit",           label: "Implicit"              },
+    ];
     form.appendChild(this.#buildAuthFieldSelect("Grant Type", {
-      options:  [
-        { value: "authorization_code", label: "Authorization Code" },
-        { value: "client_credentials", label: "Client Credentials"  },
-        { value: "password",           label: "Resource Owner Password" },
-        { value: "implicit",           label: "Implicit"              },
-      ],
+      options:  allGrantTypes,
       value:    this.#authOAuth2.grantType,
       ariaLabel: "Grant type",
       onInput:  (v) => {
@@ -1103,11 +1172,13 @@ export class RequestEditor {
 
     // ── Client Type (authorization_code only) — between Grant Type and Client ID
     if (this.#authOAuth2.grantType === "authorization_code") {
+      // Omit PKCE option if the server explicitly does not support it
+      const clientTypeOptions = [
+        { value: "confidential", label: "Confidential Client"  },
+        { value: "public", label: "Public Client (PKCE)"       }
+      ];
       form.appendChild(this.#buildAuthFieldSelect("Client Type", {
-        options: [
-          { value: "confidential", label: "Confidential Client"  },
-          { value: "public",       label: "Public Client (PKCE)" },
-        ],
+        options: clientTypeOptions,
         value:    this.#authOAuth2.clientType ?? "confidential",
         ariaLabel: "Client type",
         onInput:  (v) => {
@@ -1171,8 +1242,9 @@ export class RequestEditor {
 
     // ── Scope (combo-box with suggestions) ────────────────────────────────
     form.appendChild(this.#buildAuthScopeField({
-      value:   this.#authOAuth2.scope,
-      onInput: (v) => { this.#authOAuth2.scope = v; this.#dispatchAuthUpdated(); },
+      value:     this.#authOAuth2.scope,
+      onInput:   (v) => { this.#authOAuth2.scope = v; this.#dispatchAuthUpdated(); },
+      scopeList: this.#authOAuth2.discoveredScopes ?? DEFAULT_SCOPES,
     }));
 
     // ── Advanced toggle (matches every other app toggle) ──────────────────────
@@ -1433,15 +1505,15 @@ export class RequestEditor {
 
     /**
      * Build the Scope field: a free-text input with a suggestive dropdown.
-     * - On focus / input: shows matching scopes from DEFAULT_SCOPES not already
-     *   present in the value.
+     * - On focus / input: shows matching scopes from scopeList (OIDC-discovered or
+     *   DEFAULT_SCOPES fallback) not already present in the value.
      * - Typing a space re-opens the dropdown so the user can pick the next scope.
      * - Arrow keys navigate, Enter / click selects, Escape dismisses.
      * - The user can always type freely; the dropdown is advisory only.
      *
-     * @param {{ value?: string, onInput?: (v:string)=>void }} opts
+     * @param {{ value?: string, onInput?: (v:string)=>void, scopeList?: string[] }} opts
      */
-    #buildAuthScopeField({ value = "", onInput } = {}) {
+    #buildAuthScopeField({ value = "", onInput, scopeList = DEFAULT_SCOPES } = {}) {
     const wrapper = document.createElement("div");
     wrapper.className = "auth-field";
 
@@ -1469,14 +1541,14 @@ export class RequestEditor {
       input.value     = `${prefix}${picked} `;
       onInput?.(input.value.trim());
       // Re-open immediately so the user can pick another scope
-      _showScopeDropdown(input, onSelect);
+      _showScopeDropdown(input, onSelect, scopeList);
     };
 
-    input.addEventListener("focus", () => _showScopeDropdown(input, onSelect));
+    input.addEventListener("focus", () => _showScopeDropdown(input, onSelect, scopeList));
 
     input.addEventListener("input", () => {
       onInput?.(input.value.trim());
-      _showScopeDropdown(input, onSelect);
+      _showScopeDropdown(input, onSelect, scopeList);
     });
 
     input.addEventListener("blur", () => {
@@ -1546,6 +1618,190 @@ export class RequestEditor {
       },
       bubbles: true,
     }));
+    }
+
+    // ── Issuer URL dialog ─────────────────────────────────────────────────────
+    /**
+     * Show a dialog that prompts the user for an OpenID Connect issuer URL.
+     * Fetches the well-known discovery document inline and displays any error
+     * inside the dialog so the user can correct the URL and try again.
+     *
+     * Dismiss paths:
+     *   • Escape key, clicking outside (mask), ✕ button, or Cancel → close with no action
+     *   • Enter key or "Discover" button → fetch; on success apply config; on failure show inline error
+     */
+    #showIssuerDialog() {
+    const dlg = document.createElement("div");
+    dlg.className = "popup popup-discover-issuer";
+    dlg.setAttribute("role", "dialog");
+    dlg.setAttribute("aria-modal", "true");
+    dlg.setAttribute("aria-label", "Discover OpenID Configuration");
+
+    dlg.innerHTML = `
+      <div class="popup-header">
+        <span class="popup-title">Discover OpenID Configuration</span>
+        <button class="popup-close" aria-label="Close" data-action="close" title="Close">✕</button>
+      </div>
+      <div class="popup-body discover-dialog-body">
+        <p class="discover-dialog-desc">
+          Enter the issuer URL to fetch the OpenID Connect discovery document
+          (<code>.well-known/openid-configuration</code>). Supported endpoints,
+          grant types, PKCE support, and available scopes will be applied automatically.
+        </p>
+        <label class="discover-dialog-label" for="discover-issuer-input">Issuer URL</label>
+        <input
+          id="discover-issuer-input"
+          type="url"
+          class="discover-dialog-input"
+          placeholder="https://login.example.com"
+          autocomplete="off"
+          spellcheck="false"
+          aria-label="Issuer URL"
+          value="${(this.#authOAuth2.discoveredIssuer ?? "").replace(/"/g, '&quot;')}"
+        />
+        <p class="discover-dialog-error" aria-live="polite" hidden></p>
+      </div>
+      <div class="popup-footer">
+        <button class="popup-btn popup-btn--secondary" data-action="cancel">Cancel</button>
+        <button class="popup-btn popup-btn--primary"   data-action="discover">Discover</button>
+      </div>
+    `;
+
+    const urlInput   = dlg.querySelector("#discover-issuer-input");
+    const errorEl    = dlg.querySelector(".discover-dialog-error");
+    const discoverEl = dlg.querySelector("[data-action='discover']");
+
+    const dismiss = () => {
+      document.removeEventListener("keydown", onDocKey);
+      PopupManager.close();
+    };
+
+    const showError = (msg) => {
+      errorEl.innerHTML = msg;
+      errorEl.hidden    = false;
+      discoverEl.disabled    = false;
+      discoverEl.textContent = "Discover";
+      urlInput.focus();
+    };
+
+    const doDiscover = async () => {
+      const raw = urlInput.value.trim();
+      if (!raw) { showError("Please enter an issuer URL."); return; }
+
+      // Capture which request started the discovery — used to guard
+      // against applying results to a different request if the user
+      // switched selections while the fetch was in flight.
+      const targetNodeId = this.#currentNodeId;
+
+      errorEl.hidden         = true;
+      discoverEl.disabled    = true;
+      discoverEl.textContent = "Fetching…";
+
+      const base         = raw.replace(/\/+$/, "");
+      const discoveryUrl = `${base}/.well-known/openid-configuration`;
+
+      let config;
+      try {
+        config = await _fetchJson(discoveryUrl);
+      } catch (err) {
+        showError(`Could not fetch <code>${discoveryUrl}</code><br>${err.message}`);
+        // Clear any previously stored discovery data so stale scopes/issuer
+        // from a prior successful lookup don't linger after a failed re-discover.
+        if (this.#currentNodeId === targetNodeId) {
+          this.#authOAuth2.discoveredIssuer = "";
+          this.#authOAuth2.discoveredScopes = null;
+          this.#renderAuthContent();
+          this.#dispatchAuthUpdated();
+        }
+        return;
+      }
+
+      dismiss();
+      this.#applyOidcDiscovery(base, config, targetNodeId);
+    };
+
+    function onDocKey(e) {
+      if (e.key === "Escape") { e.preventDefault(); dismiss(); }
+    }
+    document.addEventListener("keydown", onDocKey);
+
+    dlg.querySelector("[data-action='close']" ).addEventListener("click", dismiss);
+    dlg.querySelector("[data-action='cancel']").addEventListener("click", dismiss);
+    discoverEl.addEventListener("click", doDiscover);
+
+    urlInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); doDiscover(); }
+    });
+
+    PopupManager.open({
+      element:     dlg,
+      onMaskClick: dismiss,
+    });
+
+    // Focus the input and place cursor at end
+    requestAnimationFrame(() => {
+      urlInput.focus();
+      urlInput.setSelectionRange(urlInput.value.length, urlInput.value.length);
+    });
+    }
+
+    // ── OIDC Discovery ────────────────────────────────────────────────────────
+    /**
+     * Apply a pre-fetched OpenID Connect discovery document directly to the
+     * auth form fields.  Nothing is persisted beyond the normal field values
+     * (authUrl, accessTokenUrl, grantType, clientType) that are already saved
+     * as part of the request.
+     *
+     * The `targetNodeId` guard ensures results are only applied if the user
+     * hasn't switched to a different request while the fetch was in flight.
+     *
+     * @param {string} _issuerBase   The normalised issuer URL
+     * @param {object} config        The parsed discovery document
+     * @param {string} targetNodeId  The node ID that initiated the discovery
+     */
+    #applyOidcDiscovery(_issuerBase, config, targetNodeId) {
+
+    // Guard: if the user switched to a different request during the async
+    // fetch, do not apply the results to the now-active request.
+    if (this.#currentNodeId !== targetNodeId) return;
+
+    // ── Remember the issuer URL so the dialog pre-fills next time ──────────
+    this.#authOAuth2.discoveredIssuer = _issuerBase;
+
+    // ── Scopes — replace autocomplete suggestions with discovered list ─────
+    this.#authOAuth2.discoveredScopes =
+      Array.isArray(config.scopes_supported) && config.scopes_supported.length > 0
+        ? config.scopes_supported
+        : null;
+
+    // ── Endpoints ──────────────────────────────────────────────────────────
+    if (config.authorization_endpoint) {
+      this.#authOAuth2.authUrl = config.authorization_endpoint;
+    }
+    if (config.token_endpoint) {
+      this.#authOAuth2.accessTokenUrl = config.token_endpoint;
+    }
+
+    // ── Grant type — switch away from unsupported types ────────────────────
+    const ALL_GRANT_VALUES = ["authorization_code", "client_credentials", "password", "implicit"];
+    if (Array.isArray(config.grant_types_supported) && config.grant_types_supported.length > 0) {
+      const serverSupported = new Set(config.grant_types_supported);
+      if (!serverSupported.has(this.#authOAuth2.grantType)) {
+        const first = ALL_GRANT_VALUES.find(g => serverSupported.has(g));
+        if (first) this.#authOAuth2.grantType = first;
+      }
+    }
+
+    // ── PKCE — revert to confidential if server doesn't support it ─────────
+    const pkceOk = Array.isArray(config.code_challenge_methods_supported) &&
+                   config.code_challenge_methods_supported.length > 0;
+    if (!pkceOk && this.#authOAuth2.clientType === "public") {
+      this.#authOAuth2.clientType = "confidential";
+    }
+
+    // ── Re-render and save ─────────────────────────────────────────────────
+    this.#renderAuthContent();
+    this.#dispatchAuthUpdated();
     }
 
     // ── Body editor ──────────────────────────────────────────────────────────
@@ -3687,25 +3943,29 @@ export class RequestEditor {
     if (node.authBasic)  this.#authBasic  = { ...this.#authBasic,  ...node.authBasic  };
     if (node.authBearer) this.#authBearer = { ...this.#authBearer, ...node.authBearer };
     if (node.authOAuth2) {
-      // Merge saved fields — default advanced fields to empty string / known defaults
+      // Merge saved fields — default advanced fields to empty string / known defaults.
+      // OIDC discovery fields are restored from the persisted node data so previously
+      // discovered configurations survive a request reload.
       this.#authOAuth2 = {
-        grantType:      "client_credentials",
-        clientType:     "confidential",
-        clientId:       "",
-        clientSecret:   "",
-        accessTokenUrl: "",
-        authUrl:        "",
-        scope:          "",
-        token:          "",
-        state:          "",
-        credentials:    "header",
-        headerPrefix:   "",
-        audience:       "",
-        resource:       "",
-        origin:         "",
-        responseType:   "access_token",
-        username:       "",
-        password:       "",
+        grantType:           "client_credentials",
+        clientType:          "confidential",
+        clientId:            "",
+        clientSecret:        "",
+        accessTokenUrl:      "",
+        authUrl:             "",
+        scope:               "",
+        token:               "",
+        state:               "",
+        credentials:         "header",
+        headerPrefix:        "",
+        audience:            "",
+        resource:            "",
+        origin:              "",
+        responseType:        "access_token",
+        username:            "",
+        password:            "",
+        discoveredIssuer:    "",
+        discoveredScopes:    null,
         ...node.authOAuth2,
       };
     }
@@ -3715,6 +3975,8 @@ export class RequestEditor {
     const authEnabledCheck = this.#el.querySelector("#auth-enabled-check");
     if (authEnabledCheck) authEnabledCheck.checked = this.#authEnabled;
     this.#authContentEl?.classList.toggle("auth-content--disabled", !this.#authEnabled);
+    // Sync Discover button visibility to match the (possibly restored) auth type
+    if (this.#discoverBtnEl) this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
     this.#renderAuthContent();
 
     // Notes

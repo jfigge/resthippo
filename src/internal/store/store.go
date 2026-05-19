@@ -217,6 +217,12 @@ type AuthOAuth2 struct {
 	Scope          string `json:"scope"`
 	Token          string `json:"token"`
 
+	// Issuer URL last used for OIDC discovery — pre-fills the Discover dialog.
+	DiscoveredIssuer  string   `json:"discoveredIssuer,omitempty"`
+	// Scopes returned by the last successful OIDC discovery — used as autocomplete
+	// suggestions in the Scope field instead of the built-in defaults.
+	DiscoveredScopes []string `json:"discoveredScopes,omitempty"`
+
 	// Advanced fields (shown when the Advanced toggle is enabled).
 	// Not all fields apply to every grant type; unused ones are simply ignored.
 	State        string `json:"state,omitempty"`

@@ -22,7 +22,7 @@ import { VariablesPopup } from "./components/variables-popup.js";
 import {
   loadAll, saveCollections, saveSettings, saveManifest,
   loadEnvCollections, saveEnvCollections, setActiveEnvironment,
-  saveEnvVariables,
+  saveEnvVariables, deleteRequest,
 } from "./data-store.js";
 import { buildFolderChain } from "./components/variable-resolver.js";
 
@@ -392,6 +392,15 @@ function initEventBus() {
   // Auto-save whenever the tree is mutated (add / remove collection or request)
   window.addEventListener("wurl:collections-changed", (e) => {
     saveCollections(e.detail);
+  });
+
+  // Delete the backing request file(s) when a node is removed from the tree.
+  // Fired by tree-view after #deleteNode; ids contains every request under the
+  // deleted node (a single request, or all requests in a deleted folder/collection).
+  window.addEventListener("wurl:requests-deleted", (e) => {
+    for (const id of e.detail.ids) {
+      deleteRequest(id);
+    }
   });
 
   // Persist settings immediately whenever any control in the popup changes

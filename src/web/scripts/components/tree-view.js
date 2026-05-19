@@ -424,11 +424,40 @@ export class TreeView {
 
   /** Remove the node with `nodeId` from the tree at any nesting depth. */
   #deleteNode(nodeId) {
+    // Collect all request IDs that live under the deleted node so the
+    // caller (app.js) can remove the backing files from the backend.
+    const deleted = this.#findNode(this.#items, nodeId);
+    const requestIds = deleted ? this.#collectRequestIds(deleted) : [];
+
     this.#items = this.#removeNode(this.#items, nodeId);
     if (this.#activeCollectionId === nodeId) this.#activeCollectionId = null;
     this.#syncButtonState();
     this.#rerender();
     this.#emitChange();
+
+    if (requestIds.length > 0) {
+      window.dispatchEvent(new CustomEvent("wurl:requests-deleted", {
+        detail:  { ids: requestIds },
+        bubbles: true,
+      }));
+    }
+  }
+
+  /**
+   * Recursively collect all request IDs under `node` (inclusive if it is
+   * itself a request, or all descendant requests if it is a folder/collection).
+   * @param {object} node
+   * @returns {string[]}
+   */
+  #collectRequestIds(node) {
+    if (node.type === "request") return [node.id];
+    const ids = [];
+    if (Array.isArray(node.children)) {
+      for (const child of node.children) {
+        ids.push(...this.#collectRequestIds(child));
+      }
+    }
+    return ids;
   }
 
   /**

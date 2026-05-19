@@ -1234,6 +1234,109 @@
   line-height: 1.5;
 }
 
+/* ── Discover button (in auth params-toolbar) ────────────────────────────── */
+
+.auth-discover-btn {
+  height: 24px;
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+  margin-right: var(--space-2);
+}
+
+.auth-discover-btn:hover {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  border-color: var(--color-accent);
+}
+
+/* ── Discover-issuer dialog (.popup-discover-issuer) ─────────────────────── */
+
+.popup-discover-issuer {
+  min-width: 420px;
+  max-width: 560px;
+  z-index: 102;
+}
+
+.discover-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.discover-dialog-desc {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+  line-height: 1.55;
+}
+
+.discover-dialog-desc code {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-xs);
+  background: var(--color-surface-1);
+  padding: 1px 4px;
+  border-radius: var(--radius-xs, 3px);
+  color: var(--color-text);
+}
+
+.discover-dialog-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-subtext);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.discover-dialog-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 var(--space-2);
+  background: var(--color-surface-0);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-sm);
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.discover-dialog-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.discover-dialog-input::placeholder {
+  color: var(--color-overlay-0);
+}
+
+.discover-dialog-error {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-red) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-red) 40%, transparent);
+  color: var(--color-red);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.discover-dialog-error code {
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    RESPONSE VIEWER
    ═══════════════════════════════════════════════════════════════════════════ */
