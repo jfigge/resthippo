@@ -512,6 +512,124 @@ function _hdrValDropdownVisible() {
   return !!_hdrValDropdown?.classList.contains("hdr-autocomplete--visible");
 }
 
+// ── Scope suggestions dropdown ────────────────────────────────────────────────
+// Reuses the same .hdr-autocomplete CSS classes as the header dropdowns.
+// The list is populated from DEFAULT_SCOPES; the user can always type freely.
+
+const DEFAULT_SCOPES = ["openid", "email", "profile"];
+
+let _scopeDropdown  = null;
+let _scopeActiveEl  = null;
+let _scopeActiveIdx = -1;
+let _scopeBlurTimer = null;
+
+function _ensureScopeDropdown() {
+  if (_scopeDropdown) return _scopeDropdown;
+  _scopeDropdown = document.createElement("div");
+  _scopeDropdown.className = "hdr-autocomplete scope-autocomplete";
+  _scopeDropdown.setAttribute("role", "listbox");
+  _scopeDropdown.setAttribute("aria-label", "Scope suggestions");
+  document.body.appendChild(_scopeDropdown);
+
+  document.addEventListener("mousedown", (e) => {
+    if (_scopeActiveEl && !_scopeActiveEl.contains(e.target) && !_scopeDropdown.contains(e.target)) {
+      _hideScopeDropdown();
+    }
+  }, true);
+
+  return _scopeDropdown;
+}
+
+/**
+ * Show / refresh the scope suggestion dropdown below `input`.
+ * `onSelect(picked, currentWord)` is called when the user picks an item.
+ */
+function _showScopeDropdown(input, onSelect) {
+  if (_scopeBlurTimer !== null) { clearTimeout(_scopeBlurTimer); _scopeBlurTimer = null; }
+
+  const dl         = _ensureScopeDropdown();
+  const fullVal    = input.value;
+
+  // The "current word" is the token after the last space
+  const lastSpace  = fullVal.lastIndexOf(" ");
+  const currentWord = lastSpace === -1 ? fullVal : fullVal.slice(lastSpace + 1);
+
+  // Scopes the user has already fully typed (everything except the current partial word)
+  const selected   = new Set(fullVal.split(/\s+/).filter(s => s && s !== currentWord));
+
+  // Suggestions: match current word prefix, not already selected
+  const matches    = DEFAULT_SCOPES.filter(s =>
+    s.toLowerCase().startsWith(currentWord.toLowerCase()) && !selected.has(s)
+  );
+
+  if (matches.length === 0) { _hideScopeDropdown(); return; }
+
+  dl.innerHTML    = "";
+  _scopeActiveIdx = -1;
+
+  matches.forEach((s) => {
+    const item = document.createElement("div");
+    item.className = "hdr-autocomplete__item";
+    item.setAttribute("role", "option");
+    item.setAttribute("aria-selected", "false");
+    item.textContent = s;
+
+    item.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      _hideScopeDropdown();
+      onSelect(s, currentWord);
+      input.focus();
+    });
+    dl.appendChild(item);
+  });
+
+  const rect      = input.getBoundingClientRect();
+  dl.style.left   = `${rect.left + window.scrollX}px`;
+  dl.style.top    = `${rect.bottom + window.scrollY + 2}px`;
+  dl.style.width  = `${rect.width}px`;
+  dl.classList.add("hdr-autocomplete--visible");
+  _scopeActiveEl  = input;
+}
+
+function _hideScopeDropdown() {
+  _scopeBlurTimer = null;
+  if (_scopeDropdown) {
+    _scopeDropdown.classList.remove("hdr-autocomplete--visible");
+    _scopeDropdown.innerHTML = "";
+  }
+  _scopeActiveEl  = null;
+  _scopeActiveIdx = -1;
+}
+
+function _scopeDropdownNavigate(dir) {
+  if (!_scopeDropdown) return;
+  const items = [..._scopeDropdown.querySelectorAll(".hdr-autocomplete__item")];
+  if (!items.length) return;
+
+  items[_scopeActiveIdx]?.classList.remove("hdr-autocomplete__item--active");
+  items[_scopeActiveIdx]?.setAttribute("aria-selected", "false");
+
+  _scopeActiveIdx = (_scopeActiveIdx + dir + items.length) % items.length;
+
+  const active = items[_scopeActiveIdx];
+  active.classList.add("hdr-autocomplete__item--active");
+  active.setAttribute("aria-selected", "true");
+  active.scrollIntoView({ block: "nearest" });
+}
+
+function _scopeDropdownAccept(input, onSelect) {
+  if (!_scopeDropdown || _scopeActiveIdx < 0) return false;
+  const items  = _scopeDropdown.querySelectorAll(".hdr-autocomplete__item");
+  const active = items[_scopeActiveIdx];
+  if (!active) return false;
+  const fullVal    = input.value;
+  const lastSpace  = fullVal.lastIndexOf(" ");
+  const currentWord = lastSpace === -1 ? fullVal : fullVal.slice(lastSpace + 1);
+  _hideScopeDropdown();
+  onSelect(active.textContent, currentWord);
+  return true;
+}
+
 const HTTP_METHODS = [
   "GET",
   "POST",
@@ -562,10 +680,30 @@ export class RequestEditor {
   #authEnabled   = true;
   #authBasic     = { username: "", password: "" };
   #authBearer    = { token: "" };
-  #authOAuth2    = { grantType: "client_credentials", clientId: "", clientSecret: "", accessTokenUrl: "", authUrl: "", scope: "", token: "" };
+  #authOAuth2    = {
+    grantType:      "client_credentials",
+    clientType:     "confidential",      // authorization_code only: "confidential" | "public"
+    clientId:       "",
+    clientSecret:   "",
+    accessTokenUrl: "",
+    authUrl:        "",
+    scope:          "",
+    token:          "",
+    // Advanced fields
+    state:          "",
+    credentials:    "header",        // "header" | "body"
+    headerPrefix:   "",
+    audience:       "",
+    resource:       "",
+    origin:         "",
+    responseType:   "access_token",  // implicit only: "access_token" | "id_token" | "both"
+  };
   #authAwsIam    = { accessKeyId: "", secretAccessKey: "", region: "", service: "", sessionToken: "" };
   #authContentEl = null;
   #authTypeBarEl = null;
+
+  // OAuth 2.0 advanced-fields toggle — persisted in app settings
+  #oauth2Advanced = false;
 
   // Notes state
   #notes   = "";
@@ -946,40 +1084,52 @@ export class RequestEditor {
     const form = document.createElement("div");
     form.className = "auth-form";
 
-    // Grant Type select
-    const grantWrapper = document.createElement("div");
-    grantWrapper.className = "auth-field";
-    const grantLabel = document.createElement("label");
-    grantLabel.className = "auth-field__label";
-    grantLabel.textContent = "Grant Type";
-    const grantSelect = document.createElement("select");
-    grantSelect.className = "auth-field__input auth-field__select";
-    grantSelect.setAttribute("aria-label", "Grant type");
-    grantSelect.innerHTML = `
-      <option value="authorization_code">Authorization Code</option>
-      <option value="client_credentials">Client Credentials</option>
-      <option value="password">Resource Owner Password</option>
-      <option value="implicit">Implicit</option>
-    `;
-    grantSelect.value = this.#authOAuth2.grantType;
-    grantSelect.addEventListener("change", () => {
-      this.#authOAuth2.grantType = grantSelect.value;
-      this.#renderAuthContent();
-      this.#dispatchAuthUpdated();
-    });
-    grantWrapper.appendChild(grantLabel);
-    grantWrapper.appendChild(grantSelect);
-    form.appendChild(grantWrapper);
+    // ── Grant Type ────────────────────────────────────────────────────────
+    form.appendChild(this.#buildAuthFieldSelect("Grant Type", {
+      options:  [
+        { value: "authorization_code", label: "Authorization Code" },
+        { value: "client_credentials", label: "Client Credentials"  },
+        { value: "password",           label: "Resource Owner Password" },
+        { value: "implicit",           label: "Implicit"              },
+      ],
+      value:    this.#authOAuth2.grantType,
+      ariaLabel: "Grant type",
+      onInput:  (v) => {
+        this.#authOAuth2.grantType = v;
+        this.#renderAuthContent();
+        this.#dispatchAuthUpdated();
+      },
+    }));
 
-    // Client ID
+    // ── Client Type (authorization_code only) — between Grant Type and Client ID
+    if (this.#authOAuth2.grantType === "authorization_code") {
+      form.appendChild(this.#buildAuthFieldSelect("Client Type", {
+        options: [
+          { value: "confidential", label: "Confidential Client"  },
+          { value: "public",       label: "Public Client (PKCE)" },
+        ],
+        value:    this.#authOAuth2.clientType ?? "confidential",
+        ariaLabel: "Client type",
+        onInput:  (v) => {
+          this.#authOAuth2.clientType = v;
+          this.#renderAuthContent();
+          this.#dispatchAuthUpdated();
+        },
+      }));
+    }
+
+    // ── Client ID (all grant types) ────────────────────────────────────────
     form.appendChild(this.#buildAuthField("Client ID", "text", {
       placeholder: "Client ID",
       value:       this.#authOAuth2.clientId,
       onInput:     (v) => { this.#authOAuth2.clientId = v; this.#dispatchAuthUpdated(); },
     }));
 
-    // Client Secret (hidden for implicit)
-    if (this.#authOAuth2.grantType !== "implicit") {
+    // ── Client Secret — hidden for implicit; also hidden when Public Client is selected
+    const isPublicClient =
+      this.#authOAuth2.grantType === "authorization_code" &&
+      this.#authOAuth2.clientType === "public";
+    if (this.#authOAuth2.grantType !== "implicit" && !isPublicClient) {
       form.appendChild(this.#buildAuthFieldPassword("Client Secret", {
         placeholder: "Client Secret",
         value:       this.#authOAuth2.clientSecret,
@@ -987,7 +1137,7 @@ export class RequestEditor {
       }));
     }
 
-    // Access Token URL (hidden for implicit)
+    // ── Access Token URL (not shown for implicit) ──────────────────────────
     if (this.#authOAuth2.grantType !== "implicit") {
       form.appendChild(this.#buildAuthField("Access Token URL", "url", {
         placeholder: "https://example.com/oauth/token",
@@ -996,7 +1146,7 @@ export class RequestEditor {
       }));
     }
 
-    // Auth URL (shown for authorization_code and implicit)
+    // ── Auth URL (authorization_code and implicit only) ────────────────────
     if (["authorization_code", "implicit"].includes(this.#authOAuth2.grantType)) {
       form.appendChild(this.#buildAuthField("Auth URL", "url", {
         placeholder: "https://example.com/oauth/authorize",
@@ -1005,15 +1155,128 @@ export class RequestEditor {
       }));
     }
 
-    // Scope
-    form.appendChild(this.#buildAuthField("Scope", "text", {
-      placeholder: "openid profile email",
-      value:       this.#authOAuth2.scope,
-      onInput:     (v) => { this.#authOAuth2.scope = v; this.#dispatchAuthUpdated(); },
-      hint:        "Space-separated list of requested scopes",
+    // ── Username / Password (resource owner password only) ─────────────────
+    if (this.#authOAuth2.grantType === "password") {
+      form.appendChild(this.#buildAuthField("Username", "text", {
+        placeholder: "Username",
+        value:       this.#authOAuth2.username ?? "",
+        onInput:     (v) => { this.#authOAuth2.username = v; this.#dispatchAuthUpdated(); },
+      }));
+      form.appendChild(this.#buildAuthFieldPassword("Password", {
+        placeholder: "Password",
+        value:       this.#authOAuth2.password ?? "",
+        onInput:     (v) => { this.#authOAuth2.password = v; this.#dispatchAuthUpdated(); },
+      }));
+    }
+
+    // ── Scope (combo-box with suggestions) ────────────────────────────────
+    form.appendChild(this.#buildAuthScopeField({
+      value:   this.#authOAuth2.scope,
+      onInput: (v) => { this.#authOAuth2.scope = v; this.#dispatchAuthUpdated(); },
     }));
 
-    // Current access token display
+    // ── Advanced toggle (matches every other app toggle) ──────────────────────
+    const advRow = document.createElement("div");
+    advRow.className = "auth-field--advanced-toggle";
+
+    const advLabel = document.createElement("label");
+    advLabel.className = "params-toolbar-toggle-label";
+
+    const advCheck = document.createElement("input");
+    advCheck.type      = "checkbox";
+    advCheck.id        = "oauth2-advanced-toggle";
+    advCheck.className = "params-toolbar-toggle";
+    advCheck.checked   = this.#oauth2Advanced;
+    advCheck.setAttribute("aria-label", "Show advanced OAuth 2.0 options");
+    advCheck.addEventListener("change", () => {
+      this.#oauth2Advanced = advCheck.checked;
+      window.dispatchEvent(new CustomEvent("wurl:editor-setting-changed", {
+        detail: { oauth2Advanced: this.#oauth2Advanced },
+        bubbles: true,
+      }));
+      this.#renderAuthContent();
+    });
+
+    advLabel.appendChild(advCheck);
+    advLabel.append(" Advanced");
+    advRow.appendChild(advLabel);
+    form.appendChild(advRow);
+
+    // ── Advanced fields (only when toggle is on) ───────────────────────────
+    if (this.#oauth2Advanced) {
+      const grant = this.#authOAuth2.grantType;
+
+      // Response Type — implicit only
+      if (grant === "implicit") {
+        form.appendChild(this.#buildAuthFieldSelect("Response Type", {
+          options: [
+            { value: "access_token", label: "Access token" },
+            { value: "id_token",     label: "Id token"     },
+            { value: "both",         label: "Both"         },
+          ],
+          value:    this.#authOAuth2.responseType ?? "access_token",
+          ariaLabel: "Response type",
+          onInput:  (v) => { this.#authOAuth2.responseType = v; this.#dispatchAuthUpdated(); },
+        }));
+      }
+
+      // State — authorization_code, implicit
+      if (["authorization_code", "implicit"].includes(grant)) {
+        form.appendChild(this.#buildAuthField("State", "text", {
+          placeholder: "Random string for CSRF protection",
+          value:       this.#authOAuth2.state ?? "",
+          onInput:     (v) => { this.#authOAuth2.state = v; this.#dispatchAuthUpdated(); },
+        }));
+      }
+
+      // Credentials — authorization_code, password, client_credentials
+      if (["authorization_code", "password", "client_credentials"].includes(grant)) {
+        form.appendChild(this.#buildAuthFieldSelect("Credentials", {
+          options: [
+            { value: "header", label: "As basic auth header" },
+            { value: "body",   label: "In request body"      },
+          ],
+          value:    this.#authOAuth2.credentials ?? "header",
+          ariaLabel: "Credentials transmission method",
+          onInput:  (v) => { this.#authOAuth2.credentials = v; this.#dispatchAuthUpdated(); },
+        }));
+      }
+
+      // Audience — all grant types
+      form.appendChild(this.#buildAuthField("Audience", "text", {
+        placeholder: "https://api.example.com",
+        value:       this.#authOAuth2.audience ?? "",
+        onInput:     (v) => { this.#authOAuth2.audience = v; this.#dispatchAuthUpdated(); },
+      }));
+
+      // Resource — authorization_code, client_credentials
+      if (["authorization_code", "client_credentials"].includes(grant)) {
+        form.appendChild(this.#buildAuthField("Resource", "text", {
+          placeholder: "https://resource.example.com",
+          value:       this.#authOAuth2.resource ?? "",
+          onInput:     (v) => { this.#authOAuth2.resource = v; this.#dispatchAuthUpdated(); },
+        }));
+      }
+
+      // Origin — authorization_code only
+      if (grant === "authorization_code") {
+        form.appendChild(this.#buildAuthField("Origin", "text", {
+          placeholder: "https://app.example.com",
+          value:       this.#authOAuth2.origin ?? "",
+          onInput:     (v) => { this.#authOAuth2.origin = v; this.#dispatchAuthUpdated(); },
+        }));
+      }
+
+      // Header Prefix — all grant types, kept last so its hint text sits at the bottom
+      form.appendChild(this.#buildAuthField("Header Prefix", "text", {
+        placeholder: "Bearer",
+        value:       this.#authOAuth2.headerPrefix ?? "",
+        onInput:     (v) => { this.#authOAuth2.headerPrefix = v; this.#dispatchAuthUpdated(); },
+        hint:        "Overrides the default 'Bearer' token prefix in the Authorization header",
+      }));
+    }
+
+    // ── Current access token display ───────────────────────────────────────
     if (this.#authOAuth2.token) {
       const tokenSection = document.createElement("div");
       tokenSection.className = "auth-section-title";
@@ -1100,6 +1363,9 @@ export class RequestEditor {
     input.className   = "auth-field__input";
     input.placeholder = placeholder;
     input.value       = value;
+    // Generate a descriptive name so password managers don't mistake these for
+    // login credentials.  The "wurl-auth-" prefix makes the purpose unambiguous.
+    input.name = `wurl-auth-${label.toLowerCase().replace(/\s+/g, "-")}`;
     input.setAttribute("autocomplete", "off");
     input.setAttribute("aria-label", label);
     if (onInput) input.addEventListener("input", () => onInput(input.value));
@@ -1138,7 +1404,11 @@ export class RequestEditor {
     input.className   = "auth-field__input";
     input.placeholder = placeholder;
     input.value       = value;
-    input.setAttribute("autocomplete", "off");
+    // Descriptive name prevents password managers from treating this as a login
+    // credential field.  "new-password" is the only autocomplete value Chrome
+    // reliably respects to suppress the save-credentials popup for non-login fields.
+    input.name = `wurl-auth-${label.toLowerCase().replace(/\s+/g, "-")}`;
+    input.setAttribute("autocomplete", "new-password");
     input.setAttribute("aria-label", label);
     if (onInput) input.addEventListener("input", () => onInput(input.value));
 
@@ -1158,6 +1428,107 @@ export class RequestEditor {
     wrapper.appendChild(lbl);
     wrapper.appendChild(inputWrap);
 
+    return wrapper;
+    }
+
+    /**
+     * Build the Scope field: a free-text input with a suggestive dropdown.
+     * - On focus / input: shows matching scopes from DEFAULT_SCOPES not already
+     *   present in the value.
+     * - Typing a space re-opens the dropdown so the user can pick the next scope.
+     * - Arrow keys navigate, Enter / click selects, Escape dismisses.
+     * - The user can always type freely; the dropdown is advisory only.
+     *
+     * @param {{ value?: string, onInput?: (v:string)=>void }} opts
+     */
+    #buildAuthScopeField({ value = "", onInput } = {}) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "auth-field";
+
+    const lbl = document.createElement("label");
+    lbl.className = "auth-field__label";
+    lbl.textContent = "Scope";
+
+    const input = document.createElement("input");
+    input.type        = "text";
+    input.className   = "auth-field__input";
+    input.placeholder = "openid email profile";
+    input.value       = value;
+    input.name        = "wurl-auth-scope";
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("aria-label",        "Scope");
+    input.setAttribute("aria-autocomplete", "list");
+    input.setAttribute("aria-haspopup",     "listbox");
+
+    // Called when a suggestion is picked — replaces the current partial word
+    // with the selected scope and appends a trailing space for the next token.
+    const onSelect = (picked, _currentWord) => {
+      const full      = input.value;
+      const lastSpace = full.lastIndexOf(" ");
+      const prefix    = lastSpace === -1 ? "" : full.slice(0, lastSpace + 1);
+      input.value     = `${prefix}${picked} `;
+      onInput?.(input.value.trim());
+      // Re-open immediately so the user can pick another scope
+      _showScopeDropdown(input, onSelect);
+    };
+
+    input.addEventListener("focus", () => _showScopeDropdown(input, onSelect));
+
+    input.addEventListener("input", () => {
+      onInput?.(input.value.trim());
+      _showScopeDropdown(input, onSelect);
+    });
+
+    input.addEventListener("blur", () => {
+      _scopeBlurTimer = setTimeout(_hideScopeDropdown, 150);
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown") { e.preventDefault(); _scopeDropdownNavigate(+1); return; }
+      if (e.key === "ArrowUp")   { e.preventDefault(); _scopeDropdownNavigate(-1); return; }
+      if (e.key === "Escape")    { _hideScopeDropdown(); return; }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        _scopeDropdownAccept(input, onSelect);
+      }
+    });
+
+    const hint = document.createElement("span");
+    hint.className   = "auth-field__hint";
+    hint.textContent = "Space-separated list of requested scopes — type or pick from the list";
+
+    wrapper.appendChild(lbl);
+    wrapper.appendChild(input);
+    wrapper.appendChild(hint);
+    return wrapper;
+    }
+
+    /**
+     * Build a labeled <select> row for use inside an auth-form.
+     * @param {string} label
+     * @param {{ options: {value:string,label:string}[], value?, ariaLabel?, onInput? }} opts
+     */
+    #buildAuthFieldSelect(label, { options = [], value = "", ariaLabel, onInput } = {}) {    const wrapper = document.createElement("div");
+    wrapper.className = "auth-field";
+
+    const lbl = document.createElement("label");
+    lbl.className = "auth-field__label";
+    lbl.textContent = label;
+
+    const sel = document.createElement("select");
+    sel.className = "auth-field__input auth-field__select";
+    if (ariaLabel) sel.setAttribute("aria-label", ariaLabel);
+    options.forEach(({ value: v, label: l }) => {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = l;
+      sel.appendChild(opt);
+    });
+    sel.value = value;
+    if (onInput) sel.addEventListener("change", () => onInput(sel.value));
+
+    wrapper.appendChild(lbl);
+    wrapper.appendChild(sel);
     return wrapper;
     }
 
@@ -3225,6 +3596,15 @@ export class RequestEditor {
       this.#removeHeaders = !!settings.removeHeaders;
       this.#applyBodyFormHeaderRow();
     }
+    if (settings.oauth2Advanced != null) {
+      const changed = !!settings.oauth2Advanced !== this.#oauth2Advanced;
+      this.#oauth2Advanced = !!settings.oauth2Advanced;
+      // Sync the toggle inside the Auth pane if it is currently rendered
+      const toggle = this.#el.querySelector("#oauth2-advanced-toggle");
+      if (toggle) toggle.checked = this.#oauth2Advanced;
+      // Re-render OAuth2 form only if the type is currently showing
+      if (changed && this.#authType === "oauth2") this.#renderAuthContent();
+    }
   }
 
   /** Show/hide the body-form column-label row to match the removeHeaders setting. */
@@ -3306,7 +3686,29 @@ export class RequestEditor {
     this.#authEnabled = node.authEnabled ?? true;
     if (node.authBasic)  this.#authBasic  = { ...this.#authBasic,  ...node.authBasic  };
     if (node.authBearer) this.#authBearer = { ...this.#authBearer, ...node.authBearer };
-    if (node.authOAuth2) this.#authOAuth2 = { ...this.#authOAuth2, ...node.authOAuth2 };
+    if (node.authOAuth2) {
+      // Merge saved fields — default advanced fields to empty string / known defaults
+      this.#authOAuth2 = {
+        grantType:      "client_credentials",
+        clientType:     "confidential",
+        clientId:       "",
+        clientSecret:   "",
+        accessTokenUrl: "",
+        authUrl:        "",
+        scope:          "",
+        token:          "",
+        state:          "",
+        credentials:    "header",
+        headerPrefix:   "",
+        audience:       "",
+        resource:       "",
+        origin:         "",
+        responseType:   "access_token",
+        username:       "",
+        password:       "",
+        ...node.authOAuth2,
+      };
+    }
     if (node.authAwsIam) this.#authAwsIam = { ...this.#authAwsIam, ...node.authAwsIam };
     const authSel = this.#el.querySelector("#auth-type-select");
     if (authSel) authSel.value = this.#authType;

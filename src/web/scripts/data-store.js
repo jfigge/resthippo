@@ -60,6 +60,7 @@ export const DEFAULT_SETTINGS = {
   varsBulkEditor:    true,
   selectedRequestId: null,
   responseBodyRenderMode: "preview",
+  oauth2Advanced:    false,
 };
 
 // ── In-memory caches ──────────────────────────────────────────────────────────

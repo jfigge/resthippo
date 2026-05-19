@@ -209,12 +209,23 @@ type AuthBearer struct {
 // AuthOAuth2 holds OAuth 2.0 authentication configuration.
 type AuthOAuth2 struct {
 	GrantType      string `json:"grantType"`
+	ClientType     string `json:"clientType,omitempty"`  // "confidential" | "public" (authorization_code only)
 	ClientID       string `json:"clientId"`
 	ClientSecret   string `json:"clientSecret"`
 	AccessTokenURL string `json:"accessTokenUrl"`
 	AuthURL        string `json:"authUrl"`
 	Scope          string `json:"scope"`
 	Token          string `json:"token"`
+
+	// Advanced fields (shown when the Advanced toggle is enabled).
+	// Not all fields apply to every grant type; unused ones are simply ignored.
+	State        string `json:"state,omitempty"`
+	Credentials  string `json:"credentials,omitempty"`  // "header" | "body"
+	HeaderPrefix string `json:"headerPrefix,omitempty"`
+	Audience     string `json:"audience,omitempty"`
+	Resource     string `json:"resource,omitempty"`
+	Origin       string `json:"origin,omitempty"`
+	ResponseType string `json:"responseType,omitempty"` // implicit: "access_token" | "id_token" | "both"
 }
 
 // AuthAwsIam holds AWS IAM authentication configuration.

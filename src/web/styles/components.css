@@ -1199,6 +1199,21 @@
   margin-top: var(--space-1);
 }
 
+/* ── Advanced toggle row ─────────────────────────────────────────────────── */
+
+/*
+ * Thin top-border separator above the Advanced toggle so it visually
+ * separates the standard fields from the advanced section toggle.
+ * The toggle itself is a plain params-toolbar-toggle-label / params-toolbar-toggle
+ * and gets its pill appearance from the universal input[type="checkbox"] rule.
+ */
+.auth-field--advanced-toggle {
+  padding: var(--space-2) 0 var(--space-1);
+  border-top: 1px solid var(--color-surface-2);
+  margin-top: var(--space-2);
+}
+
+
 /* Token display box */
 .auth-token-display {
   display: flex;
