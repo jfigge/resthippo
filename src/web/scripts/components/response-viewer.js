@@ -103,9 +103,12 @@ export class ResponseViewer {
   // Find-in-response search bar state
   #searchBar     = null;   // the bar element
   #searchInput   = null;   // text input
+  #prevBtn       = null;   // navigate to previous match
+  #nextBtn       = null;   // navigate to next match
   #caseBtn       = null;   // Cc toggle button
   #regexBtn      = null;   // .* toggle button
   #searchMatches = [];     // current <mark> elements
+  #searchCurrent = -1;     // index of the active (focused) match
 
   constructor() {
     this.#el = document.createElement("div");
@@ -292,6 +295,30 @@ export class ResponseViewer {
     const actions = document.createElement("div");
     actions.className = "res-search-actions";
 
+    // Previous-match button (up arrow)
+    const prevBtn = document.createElement("button");
+    prevBtn.className = "res-search-btn res-search-nav-btn";
+    prevBtn.title = "Previous match (Shift+Enter)";
+    prevBtn.setAttribute("aria-label", "Previous match");
+    prevBtn.disabled = true;
+    prevBtn.innerHTML =
+      `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+         <polyline points="18 15 12 9 6 15"/>
+       </svg>`;
+
+    // Next-match button (down arrow)
+    const nextBtn = document.createElement("button");
+    nextBtn.className = "res-search-btn res-search-nav-btn";
+    nextBtn.title = "Next match (Enter)";
+    nextBtn.setAttribute("aria-label", "Next match");
+    nextBtn.disabled = true;
+    nextBtn.innerHTML =
+      `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+         <polyline points="6 9 12 15 18 9"/>
+       </svg>`;
+
     // Case-sensitivity toggle
     const caseBtn = document.createElement("button");
     caseBtn.className = "res-search-btn";
@@ -315,6 +342,8 @@ export class ResponseViewer {
     closeBtn.setAttribute("aria-label", "Close search");
     closeBtn.textContent = "✕";
 
+    actions.appendChild(prevBtn);
+    actions.appendChild(nextBtn);
     actions.appendChild(caseBtn);
     actions.appendChild(regexBtn);
     actions.appendChild(closeBtn);
@@ -327,12 +356,20 @@ export class ResponseViewer {
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        this.#runSearch();
+        // If results are already applied, Enter/Shift+Enter navigates; otherwise run.
+        if (this.#searchMatches.length > 0) {
+          this.#goToMatch(this.#searchCurrent + (e.shiftKey ? -1 : 1));
+        } else {
+          this.#runSearch();
+        }
       } else if (e.key === "Escape") {
         e.preventDefault();
         this.#closeSearch();
       }
     });
+
+    prevBtn.addEventListener("click", () => this.#goToMatch(this.#searchCurrent - 1));
+    nextBtn.addEventListener("click", () => this.#goToMatch(this.#searchCurrent + 1));
 
     caseBtn.addEventListener("click", () => {
       const active = caseBtn.classList.toggle("res-search-btn--active");
@@ -350,6 +387,8 @@ export class ResponseViewer {
 
     this.#searchBar   = bar;
     this.#searchInput = input;
+    this.#prevBtn     = prevBtn;
+    this.#nextBtn     = nextBtn;
     this.#caseBtn     = caseBtn;
     this.#regexBtn    = regexBtn;
 
@@ -372,9 +411,38 @@ export class ResponseViewer {
   }
 
   /**
+   * Navigate to the match at `index`, wrapping at both ends.
+   * Removes the current-highlight class from the old match, adds it to the
+   * new one, and scrolls it into view.
+   */
+  #goToMatch(index) {
+    const count = this.#searchMatches.length;
+    if (count === 0) return;
+
+    // Remove current-highlight from the previous active match
+    if (this.#searchCurrent >= 0 && this.#searchCurrent < count) {
+      this.#searchMatches[this.#searchCurrent].classList.remove("res-search-highlight--current");
+    }
+
+    // Wrap around
+    this.#searchCurrent = ((index % count) + count) % count;
+
+    const mark = this.#searchMatches[this.#searchCurrent];
+    mark.classList.add("res-search-highlight--current");
+    mark.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
+  /** Enable or disable the prev/next nav buttons based on whether matches exist. */
+  #updateNavButtons() {
+    const has = this.#searchMatches.length > 0;
+    if (this.#prevBtn) this.#prevBtn.disabled = !has;
+    if (this.#nextBtn) this.#nextBtn.disabled = !has;
+  }
+
+  /**
    * Run the current search query against the visible body text, wrapping
    * each match in a <mark class="res-search-highlight"> element.
-   * Scrolls the first match into view.
+   * Navigates to and highlights the first match.
    */
   #runSearch() {
     const query = this.#searchInput?.value ?? "";
@@ -400,9 +468,10 @@ export class ResponseViewer {
     }
 
     this.#searchMatches = this.#highlightMatches(pre, pattern);
+    this.#updateNavButtons();
 
     if (this.#searchMatches.length > 0) {
-      this.#searchMatches[0].scrollIntoView({ block: "nearest", behavior: "smooth" });
+      this.#goToMatch(0);
     }
   }
 
@@ -465,6 +534,8 @@ export class ResponseViewer {
       });
     }
     this.#searchMatches = [];
+    this.#searchCurrent = -1;
+    this.#updateNavButtons();
   }
 
   #emptyState() {

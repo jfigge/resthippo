@@ -1519,6 +1519,20 @@
   border-radius: 2px;
 }
 
+/* The currently-active (navigated-to) match — stronger, accent colour */
+.res-search-highlight--current {
+  background-color: var(--color-accent);
+  color: var(--color-crust);
+  border-radius: 2px;
+}
+
+/* Disabled state for prev/next nav buttons */
+.res-search-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* ── Console tab — verbose request/response log ────────────────────────────  */
 .res-console-pre {
   margin: 0;
