@@ -144,7 +144,7 @@ vendor-yaml:
 	@echo "--------------------------------"
 
 vendor-prism:
-	@echo "Bundling Prism.js vendor file (core + markup/JSON/YAML languages)..."
+	@echo "Bundling Prism.js vendor file..."
 	@cd ${SRC_DIR}; npm run vendor-prism
 	@echo "--------------------------------"
 

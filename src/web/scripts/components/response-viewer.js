@@ -334,7 +334,10 @@ export class ResponseViewer {
    */
   #renderBodyPane(response) {
     const pane       = this.#bodyPane;
-    const ct         = response.headers?.["Content-Type"] ?? "";
+    // Node.js (Electron) lowercases all header names; browsers may preserve
+    // title-case.  Search case-insensitively so both environments work.
+    const hdrs       = response.headers ?? {};
+    const ct         = (Object.entries(hdrs).find(([k]) => k.toLowerCase() === "content-type")?.[1]) ?? "";
     const category   = classifyContentType(ct);
     const isElectron = window.wurl?.isElectron === true;
 
