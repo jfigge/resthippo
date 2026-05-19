@@ -12,10 +12,6 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 // ─── Main → Renderer push events ─────────────────────────────────────────────
-// Forward IPC push messages from the main process to the renderer by
-// re-dispatching them as standard window CustomEvents.  contextBridge cannot
-// expose ipcRenderer.on() directly, so we listen here in the privileged
-// preload context and relay the payload via window.dispatchEvent.
 ipcRenderer.on("wurl:ui-font-change", (_event, direction) => {
   window.dispatchEvent(
     new CustomEvent("wurl:ui-font-change", { detail: direction })
@@ -33,44 +29,103 @@ contextBridge.exposeInMainWorld("wurl", {
   /** Platform string: 'darwin' | 'win32' | 'linux' */
   platform: process.platform,
 
-
   /**
-   * Data persistence — manifest backed by collections.json; per-environment
-   * collections backed by <envId>.json files; all in the platform user-data dir.
+   * Storage layer — exposes the new per-file storage architecture through IPC.
    *
-   * Manifest shape (v2):
-   *   { version, environments: [{id,name}], activeEnvironmentId, settings }
-   *
+   * All methods return Promises.  Storage is located in the platform user-data dir:
    *   macOS:   ~/Library/Application Support/wurl/
    *   Linux:   ~/.config/wurl/
    *   Windows: %APPDATA%\wurl\
+   *
+   * Layout:
+   *   collections/
+   *     index.json                         ← manifest (environments, settings)
+   *     <collId>/
+   *       metadata.json                    ← name, variables
+   *       tree.json                        ← lightweight nav tree
+   *       requests/<reqId>.json            ← per-request files
+   *       history/<reqId>/<histId>.json    ← execution metadata
+   *       responses/<reqId>/<histId>.json  ← full response payloads (lazy)
    */
-  collections: {
-    /** @returns {Promise<object>} manifest document */
-    load: () => ipcRenderer.invoke("collections:read"),
+  store: {
+    /**
+     * Global manifest: environments list + application settings.
+     * Shape: { version: 2, environments: [{id, name}], activeEnvironmentId, settings }
+     */
+    manifest: {
+      /** @returns {Promise<object>} */
+      get:  ()     => ipcRenderer.invoke("store:manifest:get"),
+      /** @param {object} data @returns {Promise<void>} */
+      save: (data) => ipcRenderer.invoke("store:manifest:save", data),
+    },
 
     /**
-     * Persist the full manifest document.
-     * @param {object} doc
-     * @returns {Promise<void>}
+     * Per-environment blob — assembles { version, collections[], variables }
+     * from the new per-file layout for backward-compatible renderer access.
      */
-    save: (doc) => ipcRenderer.invoke("collections:write", doc),
-  },
-
-  /**
-   * Per-environment collections persistence.
-   * Each environment's collections live in <userData>/<envId>.json
-   */
-  env: {
-    /** @returns {Promise<{ version: number, collections: object[] }>} */
-    load: (envId) => ipcRenderer.invoke("env:read", envId),
+    env: {
+      /** @param {string} id @returns {Promise<{ version, collections, variables }>} */
+      get:  (id)       => ipcRenderer.invoke("store:env:get", id),
+      /** @param {string} id @param {object} data @returns {Promise<void>} */
+      save: (id, data) => ipcRenderer.invoke("store:env:save", id, data),
+    },
 
     /**
-     * @param {string} envId
-     * @param {{ version: number, collections: object[] }} doc
-     * @returns {Promise<void>}
+     * Lightweight navigation tree (folder hierarchy + requestRef IDs).
+     * Never contains full request bodies.
      */
-    save: (envId, doc) => ipcRenderer.invoke("env:write", envId, doc),
+    tree: {
+      /** @param {string} collectionId @returns {Promise<{ children: object[] }>} */
+      get:  (collectionId)       => ipcRenderer.invoke("store:tree:get", collectionId),
+      /** @param {string} collectionId @param {{ children: object[] }} tree @returns {Promise<void>} */
+      save: (collectionId, tree) => ipcRenderer.invoke("store:tree:save", collectionId, tree),
+    },
+
+    /**
+     * Granular per-request CRUD.
+     * Requests are located by ID; no collection context is needed for reads.
+     */
+    requests: {
+      /** @param {string} id @returns {Promise<object|null>} */
+      get:    (id)                => ipcRenderer.invoke("store:requests:get", id),
+      /** @param {string} collectionId @param {object} data @returns {Promise<object>} */
+      create: (collectionId, data) => ipcRenderer.invoke("store:requests:create", collectionId, data),
+      /** @param {string} id @param {object} patch @returns {Promise<object>} */
+      update: (id, patch)          => ipcRenderer.invoke("store:requests:update", id, patch),
+      /** @param {string} id @returns {Promise<void>} */
+      delete: (id)                 => ipcRenderer.invoke("store:requests:delete", id),
+    },
+
+    /**
+     * Request execution history with lazy-loaded response payloads.
+     */
+    history: {
+      /**
+       * List history newest-first with cursor pagination.
+       * @param {string} requestId
+       * @param {{ limit?: number, cursor?: string }} [options]
+       * @returns {Promise<{ items: object[], nextCursor: string }>}
+       */
+      list: (requestId, options) =>
+        ipcRenderer.invoke("store:history:list", requestId, options),
+      /**
+       * Record a new execution.
+       * @param {string} requestId
+       * @param {object} entry     Execution metadata
+       * @param {object} [response] Full response payload
+       * @returns {Promise<object>}
+       */
+      add: (requestId, entry, response) =>
+        ipcRenderer.invoke("store:history:add", requestId, entry, response),
+      /**
+       * Lazy-load the full response payload for one history entry.
+       * @param {string} requestId
+       * @param {string} historyId
+       * @returns {Promise<object|null>}
+       */
+      getResponse: (requestId, historyId) =>
+        ipcRenderer.invoke("store:history:response:get", requestId, historyId),
+    },
   },
 
   /**
@@ -78,12 +133,8 @@ contextBridge.exposeInMainWorld("wurl", {
    * (Node.js) process using Node's built-in http/https modules, completely
    * bypassing Chromium's networking stack and its CORS enforcement.
    *
-   * Descriptor shape:
-   *   { method, url, headers, body?, bodyFilePath?,
-   *     timeout?, followRedirects?, verifySsl? }
-   *
-   * Result shape:
-   *   { status, statusText, headers, cookies, body, elapsed, size, consoleLog, error? }
+   * Descriptor: { method, url, headers, body?, bodyFilePath?, timeout?, followRedirects?, verifySsl? }
+   * Result:     { status, statusText, headers, cookies, body, elapsed, size, consoleLog, error? }
    */
   http: {
     execute: (descriptor) => ipcRenderer.invoke("http:execute", descriptor),
@@ -96,15 +147,10 @@ contextBridge.exposeInMainWorld("wurl", {
    * Bounds shape: { x, y, width, height }  (integer pixels, viewport-relative)
    */
   htmlPreview: {
-    /** Create/reuse the overlay view, set bounds, and navigate to `url`. */
-    loadUrl:  (url, bounds) => ipcRenderer.invoke("htmlPreview:loadUrl",  url, bounds),
-    /** Update the overlay view's bounds (used by ResizeObserver). */
-    resize:   (bounds)      => ipcRenderer.invoke("htmlPreview:resize",   bounds),
-    /** Re-attach and optionally reposition the overlay after it was hidden. */
-    show:     (bounds)      => ipcRenderer.invoke("htmlPreview:show",     bounds),
-    /** Detach the overlay from the window without destroying it. */
-    hide:     ()            => ipcRenderer.invoke("htmlPreview:hide"),
-    /** Fully destroy the overlay and release its WebContents. */
-    destroy:  ()            => ipcRenderer.invoke("htmlPreview:destroy"),
+    loadUrl: (url, bounds) => ipcRenderer.invoke("htmlPreview:loadUrl",  url, bounds),
+    resize:  (bounds)      => ipcRenderer.invoke("htmlPreview:resize",   bounds),
+    show:    (bounds)      => ipcRenderer.invoke("htmlPreview:show",     bounds),
+    hide:    ()            => ipcRenderer.invoke("htmlPreview:hide"),
+    destroy: ()            => ipcRenderer.invoke("htmlPreview:destroy"),
   },
 });
