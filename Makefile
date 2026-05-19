@@ -143,6 +143,11 @@ vendor-yaml:
 	@cd ${SRC_DIR}; npm run vendor-yaml
 	@echo "--------------------------------"
 
+vendor-prism:
+	@echo "Bundling Prism.js vendor file (core + markup/JSON/YAML languages)..."
+	@cd ${SRC_DIR}; npm run vendor-prism
+	@echo "--------------------------------"
+
 # ─── Distribution packages ────────────────────────────────────────────────────
 dist:
 	@echo "Building full distribution packages..."
@@ -189,6 +194,7 @@ help:
 	@echo "    dist-linux    Build Linux installer"
 	@echo "    dist-win      Build Windows installer"
 	@echo "    vendor-yaml   Bundle yaml npm pkg → web/scripts/vendor/yaml.js"
+	@echo "    vendor-prism  Bundle Prism.js → web/scripts/vendor/prism.js"
 	@echo "    fmt           Format JS/CSS/HTML (prettier) and Go (gofmt)"
 	@echo "    lint          Lint JS (eslint) and Go (golangci-lint / go vet)"
 	@echo "    clean         Remove build and dist directories"
@@ -205,5 +211,6 @@ help:
         build build-server build-electron build-mac build-linux build-win \
         dist dist-mac dist-linux dist-win \
         vendor-yaml \
+        vendor-prism \
         clean help
 

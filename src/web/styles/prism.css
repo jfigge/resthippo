@@ -1,0 +1,143 @@
+/* prism.css — Syntax-highlighting token colours for Prism.js
+ *
+ * All colours reference the app's CSS custom properties so the theme adapts
+ * automatically to every colour palette (Mocha, Latte, Grey, etc.).
+ *
+ * The <pre> / <code> typography (font-family, font-size, line-height,
+ * white-space, word-break) is still owned by .res-body-pre so it stays in
+ * sync with the rest of the response viewer.
+ */
+
+/* ── Base token reset ──────────────────────────────────────────────────────── */
+
+/* Remove any background Prism adds by default */
+code[class*="language-"],
+pre[class*="language-"] {
+  background: none;
+  color: var(--color-text);
+}
+
+/* ── Token colours ─────────────────────────────────────────────────────────── */
+
+/* Comments, CDATA, DOCTYPE — muted / italicised */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: var(--color-overlay-1);
+  font-style: italic;
+}
+
+/* Punctuation (braces, brackets, colons, commas) */
+.token.punctuation {
+  color: var(--color-subtext);
+}
+
+/* Namespace qualifier */
+.token.namespace {
+  opacity: 0.7;
+}
+
+/* --- JSON / general values ------------------------------------------------- */
+
+/* Property names / keys */
+.token.property {
+  color: var(--color-accent);
+}
+
+/* Boolean literals (true / false) */
+.token.boolean {
+  color: var(--color-warning);
+}
+
+/* Numeric literals */
+.token.number {
+  color: var(--color-warning);
+}
+
+/* null / undefined */
+.token.null.keyword {
+  color: var(--color-overlay-1);
+}
+
+/* String values */
+.token.string {
+  color: var(--color-success);
+}
+
+/* --- XML / HTML tokens ----------------------------------------------------- */
+
+/* Tag names (<foo>, </foo>) */
+.token.tag {
+  color: var(--color-error);
+}
+
+/* Attribute names */
+.token.attr-name {
+  color: var(--color-accent-dim);
+}
+
+/* Attribute values */
+.token.attr-value,
+.token.attr-value .token.punctuation {
+  color: var(--color-success);
+}
+
+/* <!-- comments --> */
+.token.comment {
+  color: var(--color-overlay-1);
+  font-style: italic;
+}
+
+/* --- YAML tokens ----------------------------------------------------------- */
+
+/* Keys */
+.token.atrule,
+.token.keyword {
+  color: var(--color-accent);
+}
+
+/* Anchors & aliases (&foo, *foo) */
+.token.important,
+.token.variable {
+  color: var(--color-warning);
+  font-weight: 700;
+}
+
+/* --- Shared miscellaneous -------------------------------------------------- */
+
+.token.operator,
+.token.entity,
+.token.url {
+  color: var(--color-subtext);
+}
+
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: var(--color-error);
+}
+
+.token.selector,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: var(--color-success);
+}
+
+.token.regex {
+  color: var(--color-info);
+}
+
+.token.bold {
+  font-weight: 700;
+}
+
+.token.italic {
+  font-style: italic;
+}
+
+.token.entity {
+  cursor: help;
+}
+

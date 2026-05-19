@@ -12,7 +12,8 @@
     "build:win": "../node_modules/.bin/electron-builder --win",
     "fmt": "../node_modules/.bin/prettier --write \"web/**/*.{js,css,html}\" \"app/**/*.js\"",
     "lint": "../node_modules/.bin/eslint \"src/web/scripts/**/*.js\" \"src/app/**/*.js\"",
-    "vendor-yaml": "esbuild node_modules/yaml/browser/dist/index.js --bundle --format=esm --outfile=web/scripts/vendor/yaml.js"
+    "vendor-yaml": "esbuild node_modules/yaml/browser/dist/index.js --bundle --format=esm --outfile=web/scripts/vendor/yaml.js",
+    "vendor-prism": "esbuild web/scripts/vendor/prism-entry.js --bundle --format=esm --outfile=web/scripts/vendor/prism.js"
   },
   "devDependencies": {
     "electron": "^42.1.0",
@@ -21,6 +22,7 @@
     "eslint": "^9.39.4",
     "globals": "^16.1.0",
     "prettier": "^3.3.3",
+    "prismjs": "^1.30.0",
     "yaml": "^2.9.0"
   },
   "build": {

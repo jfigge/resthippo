@@ -8,6 +8,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from "../vendor/yaml.j
 import { VariablePillEditor } from "./variable-pill-editor.js";
 import { resolveString, collectTemplateVariables } from "./variable-resolver.js";
 import { PopupManager } from "../popup-manager.js";
+import Prism from "../vendor/prism.js";
 
 
 // Standard HTTP request headers offered in the header-name combo box.
@@ -1138,12 +1139,41 @@ export class RequestEditor {
     // ── Text editor (JSON / YAML / XML / Plain Text) ──────────────────────────
     #renderBodyText(el, type, canPrettify) {
     const ta = document.createElement("textarea");
-    ta.className = "body-text-editor";
+    ta.className = canPrettify
+      ? "body-text-editor body-text-editor--overlay"
+      : "body-text-editor";
     ta.value     = this.#bodyText;
     ta.placeholder = `Enter ${type === "text" ? "plain text" : type.toUpperCase()} body here…`;
     ta.spellcheck  = false;
     ta.setAttribute("aria-label", `${type} body`);
-    el.appendChild(ta);
+
+    // For JSON / YAML / XML: wrap textarea + syntax-highlight overlay
+    let codeEl = null;
+    if (canPrettify) {
+      const wrap = document.createElement("div");
+      wrap.className = "body-editor-wrap";
+
+      const pre = document.createElement("pre");
+      pre.className = "body-editor-pre";
+      pre.setAttribute("aria-hidden", "true");
+      codeEl = document.createElement("code");
+      codeEl.className = `language-${type === "yaml" ? "yaml" : type === "xml" ? "markup" : "json"}`;
+      pre.appendChild(codeEl);
+      wrap.appendChild(pre);
+      wrap.appendChild(ta);
+      el.appendChild(wrap);
+
+      // Keep scroll positions in sync
+      ta.addEventListener("scroll", () => {
+        pre.scrollTop  = ta.scrollTop;
+        pre.scrollLeft = ta.scrollLeft;
+      });
+
+      // Initial highlight
+      this.#syncHighlight(ta, codeEl, type);
+    } else {
+      el.appendChild(ta);
+    }
 
     // ── Inline validation (JSON / YAML / XML) ─────────────────────────────
     const canValidate = canPrettify && type !== "text";
@@ -1181,6 +1211,7 @@ export class RequestEditor {
       this.#bodyText = ta.value;
       this.#dispatchBodyUpdated();
       if (canValidate) scheduleValidation();
+      if (codeEl) this.#syncHighlight(ta, codeEl, type);
     });
 
     // Inject badge + Prettify button into the type selector bar
@@ -1203,6 +1234,7 @@ export class RequestEditor {
         ta.value = prettified;
         this.#bodyText = prettified;
         this.#dispatchBodyUpdated();
+        if (codeEl) this.#syncHighlight(ta, codeEl, type);
         // Immediate re-validate after prettifying (no debounce needed)
         if (canValidate) {
           applyValidity(ta.value.trim()
@@ -1262,6 +1294,35 @@ export class RequestEditor {
       }
     } catch { /* invalid — return unchanged */ }
     return text;
+    }
+
+    /**
+     * Synchronise the Prism syntax-highlight overlay with the textarea content.
+     * @param {HTMLTextAreaElement} ta
+     * @param {HTMLElement}         codeEl  — the <code> element inside the overlay <pre>
+     * @param {string}              type    — "json" | "yaml" | "xml"
+     */
+    #syncHighlight(ta, codeEl, type) {
+    const text = ta.value;
+    if (!text) {
+      codeEl.innerHTML = "";
+      return;
+    }
+    const lang = type === "yaml" ? "yaml" : type === "xml" ? "markup" : "json";
+    try {
+      // Prism.highlight returns an HTML string with token spans.
+      // We append a trailing newline so the pre always has the same height as
+      // the textarea (a trailing \n in a <pre> is ignored by the browser).
+      codeEl.innerHTML = Prism.highlight(text, Prism.languages[lang] ?? Prism.languages.plaintext, lang) + "\n";
+    } catch {
+      // If Prism doesn't have the grammar fall back to escaped plain text
+      codeEl.textContent = text;
+    }
+    // Keep the pre's scroll position in sync with the textarea
+    if (codeEl.parentElement) {
+      codeEl.parentElement.scrollTop  = ta.scrollTop;
+      codeEl.parentElement.scrollLeft = ta.scrollLeft;
+    }
     }
 
     // ── File picker ───────────────────────────────────────────────────────────

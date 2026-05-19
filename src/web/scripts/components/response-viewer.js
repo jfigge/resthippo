@@ -3,8 +3,8 @@
  *
  * Displays the result of a wurl:send-request in one of three views:
  *
- *  1. JSON / YAML / XML  — raw text or pretty-printed depending on renderMode
- *  2. HTML               — raw text (raw mode) or live browser preview (preview mode)
+ *  1. JSON / YAML / XML  — raw text or pretty-printed + syntax-highlighted depending on renderMode
+ *  2. HTML               — raw text with syntax highlighting (raw mode) or live browser preview (preview mode)
  *                          • Electron: WebContentsView that loads the request URL
  *                          • Dev/browser: <iframe src=requestUrl> placeholder
  *  3. Everything else    — raw text only (renderMode toggle is a no-op)
@@ -13,6 +13,7 @@
 "use strict";
 
 import { PopupManager } from "../popup-manager.js";
+import Prism from "../vendor/prism.js";
 
 const TABS = [
   { id: "body",     label: "Body"     },
@@ -339,12 +340,35 @@ export class ResponseViewer {
     const pre = document.createElement("pre");
     pre.className = "res-body-pre";
 
+    /** @type {string|null} Prism language id, or null for plain text */
+    let prismLang = null;
+    let displayText;
+
     if (this.#renderMode === "preview" && (category === "json" || category === "yaml" || category === "xml")) {
-      // Pretty-print structured formats
-      pre.textContent = this.#prettyBody(response.body, category);
+      // Pretty-print structured formats and syntax-highlight them
+      displayText = this.#prettyBody(response.body, category);
+      prismLang   = category === "xml" ? "markup" : category;
+    } else if (category === "html" && this.#renderMode === "raw") {
+      // Raw HTML source — highlight as markup
+      displayText = response.body;
+      prismLang   = "markup";
     } else {
-      // raw mode, HTML-raw, or unrecognised type — show verbatim
-      pre.textContent = response.body;
+      // raw mode for JSON/YAML/XML, or unrecognised type — show verbatim
+      displayText = response.body;
+    }
+
+    if (prismLang) {
+      const grammar = Prism.languages[prismLang];
+      const code = document.createElement("code");
+      code.className = `language-${prismLang}`;
+      if (grammar) {
+        code.innerHTML = Prism.highlight(displayText, grammar, prismLang);
+      } else {
+        code.textContent = displayText;
+      }
+      pre.appendChild(code);
+    } else {
+      pre.textContent = displayText;
     }
 
     pane.appendChild(pre);

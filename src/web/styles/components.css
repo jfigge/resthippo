@@ -540,36 +540,53 @@
 
 .body-text-editor::placeholder { color: var(--color-overlay-0); font-style: italic; }
 
-/* Validation badge — sits in the type-selector bar between the select and Prettify */
-.body-validate-badge {
-  display: none; /* hidden when neutral; shown below via data-state */
-  align-items: center;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
+/* ── Syntax-highlighting overlay for JSON / YAML / XML body editors ─────── */
+
+/*
+ * Wrapper that stacks a <pre> highlight layer behind the <textarea>.
+ * It takes the place of the textarea in the flex column (flex:1 fills height).
+ */
+.body-editor-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/*
+ * The <pre><code> highlight layer — sits behind the textarea, never receives
+ * pointer events, and is kept pixel-aligned by sharing the same font metrics.
+ */
+.body-editor-pre {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
   font-family: var(--font-mono), monospace;
-  padding: 2px var(--space-2);
-  border-radius: 10px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  letter-spacing: 0.03em;
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow: hidden;          /* scroll is driven by the textarea */
+  pointer-events: none;
+  user-select: none;
+  box-sizing: border-box;
+  background: var(--color-base);
+  color: var(--color-text);  /* fallback for any un-tokenised text */
 }
 
-.body-validate-badge[data-state="valid"],
-.body-validate-badge[data-state="invalid"] {
-  display: inline-flex;
-}
-
-.body-validate-badge[data-state="valid"] {
-  color: var(--color-warning);
-  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
-}
-
-.body-validate-badge[data-state="invalid"] {
-  color: var(--color-error);
-  background: color-mix(in srgb, var(--color-error) 14%, transparent);
+/*
+ * Transparent textarea — sits on top of the pre, handles all editing.
+ * caret-color keeps the cursor visible even though the text is invisible.
+ */
+.body-text-editor--overlay {
+  flex: 1;
+  position: relative;
+  z-index: 1;
+  color: transparent;
+  caret-color: var(--color-text);
+  background: transparent;
+  overflow: auto;
 }
 
 /* ── File drop zone ─────────────────────────────────────────────────────── */
