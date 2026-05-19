@@ -527,6 +527,7 @@ const TABS = [
   { id: "headers",  label: "Headers"  },
   { id: "body",     label: "Body"     },
   { id: "auth",     label: "Auth"     },
+  { id: "notes",    label: "Notes"    },
 //  { id: "settings", label: "Settings" },
 ];
 
@@ -565,6 +566,10 @@ export class RequestEditor {
   #authAwsIam    = { accessKeyId: "", secretAccessKey: "", region: "", service: "", sessionToken: "" };
   #authContentEl = null;
   #authTypeBarEl = null;
+
+  // Notes state
+  #notes   = "";
+  #notesEl = null;   // the <textarea> inside the Notes tab pane
 
   // Body state
   #bodyType      = "no-body";
@@ -765,6 +770,7 @@ export class RequestEditor {
     if (tabId === "headers")  return this.#buildHeadersEditor();
     if (tabId === "body")     return this.#buildBodyEditor();
     if (tabId === "auth")     return this.#buildAuthEditor();
+    if (tabId === "notes")    return this.#buildNotesEditor();
 
     // Placeholder for other tabs
     const placeholder = document.createElement("div");
@@ -775,6 +781,36 @@ export class RequestEditor {
       `<span class="placeholder-icon">${icons[tabId]}</span>` +
       `<span>${labels[tabId]} — coming soon</span>`;
     return placeholder;
+    }
+
+    // ── Notes editor ──────────────────────────────────────────────────────────
+    #buildNotesEditor() {
+    const container = document.createElement("div");
+    container.className = "params-editor notes-editor";
+
+    const ta = document.createElement("textarea");
+    ta.className   = "body-text-editor notes-textarea";
+    ta.placeholder = "Add freeform notes about this request…";
+    ta.spellcheck  = true;
+    ta.value       = this.#notes;
+    ta.setAttribute("aria-label", "Request notes");
+
+    ta.addEventListener("input", () => {
+      this.#notes = ta.value;
+      this.#dispatchNotesUpdated();
+    });
+
+    this.#notesEl = ta;
+    container.appendChild(ta);
+    return container;
+    }
+
+    #dispatchNotesUpdated() {
+    if (!this.#currentNodeId) return;
+    window.dispatchEvent(new CustomEvent("wurl:request-updated", {
+      detail: { id: this.#currentNodeId, notes: this.#notes },
+      bubbles: true,
+    }));
     }
 
     // ── Auth editor ───────────────────────────────────────────────────────────
@@ -3278,5 +3314,9 @@ export class RequestEditor {
     if (authEnabledCheck) authEnabledCheck.checked = this.#authEnabled;
     this.#authContentEl?.classList.toggle("auth-content--disabled", !this.#authEnabled);
     this.#renderAuthContent();
+
+    // Notes
+    this.#notes = node.notes ?? "";
+    if (this.#notesEl) this.#notesEl.value = this.#notes;
   }
 }

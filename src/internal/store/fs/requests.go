@@ -210,6 +210,9 @@ func applyRequestPatch(m map[string]interface{}, p store.RequestPatch) {
 	if p.AfterResponseScript != nil {
 		m["afterResponseScript"] = *p.AfterResponseScript
 	}
+	if p.Notes != nil {
+		m["notes"] = *p.Notes
+	}
 }
 
 // DeleteRequest removes the request file and the corresponding requestRef

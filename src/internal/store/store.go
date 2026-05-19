@@ -255,6 +255,9 @@ type Request struct {
 	// Pre/post scripts
 	PreRequestScript    string `json:"preRequestScript,omitempty"`
 	AfterResponseScript string `json:"afterResponseScript,omitempty"`
+
+	// Freeform notes visible in the Notes tab of the request editor.
+	Notes string `json:"notes,omitempty"`
 }
 
 // RequestPatch carries the fields for a partial update on an existing request.
@@ -287,6 +290,9 @@ type RequestPatch struct {
 	// Scripts
 	PreRequestScript    *string `json:"preRequestScript,omitempty"`
 	AfterResponseScript *string `json:"afterResponseScript,omitempty"`
+
+	// Freeform notes
+	Notes *string `json:"notes,omitempty"`
 }
 
 // CollectionMeta is a lightweight descriptor used when listing collections

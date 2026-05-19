@@ -968,6 +968,7 @@
 /* Enabled checkbox */
 .params-checkbox {
   justify-self: center;
+  height: 11px;
   /* Dimensions / cursor / accent-color handled by universal slider rule. */
 }
 
@@ -2357,3 +2358,26 @@ input[type="checkbox"]:disabled {
   color: var(--color-error);
   font-weight: 700;
 }
+
+/* ── Notes tab ────────────────────────────────────────────────────────────── */
+
+/*
+ * The notes editor wraps a single <textarea> and should fill the whole tab pane
+ * without a toolbar, just like the plain-text body editor.
+ */
+.notes-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Override the mono font from .body-text-editor — notes are prose, not code. */
+.notes-textarea.body-text-editor {
+  font-family: var(--font-sans);
+  font-size:   var(--font-size-base);
+  line-height: 1.7;
+  white-space: pre-wrap;  /* preserve line-breaks, wrap long lines */
+}
+
