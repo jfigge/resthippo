@@ -2468,6 +2468,19 @@ input[type="checkbox"]:disabled {
   background-color: color-mix(in srgb, var(--color-error) 28%, transparent);
 }
 
+/* Function pill — accent (blue) hue */
+.function-pill {
+  color:            var(--color-accent);
+  background-color: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border:           1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  font-family:      var(--font-sans);
+  font-style:       italic;
+}
+
+.function-pill:hover {
+  background-color: color-mix(in srgb, var(--color-accent) 28%, transparent);
+}
+
 /* ── Variable-warning dialog (.popup-var-warn) ─────────────────────────────── */
 
 .popup-var-warn {
@@ -2561,10 +2574,9 @@ input[type="checkbox"]:disabled {
 
 .pill-editor-type-label {
   flex-shrink: 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   color: var(--color-subtext);
   min-width: 64px;
-  text-align: right;
 }
 
 .pill-editor-input {
@@ -2609,6 +2621,160 @@ input[type="checkbox"]:disabled {
 .pill-editor-preview--undefined {
   color: var(--color-overlay-0);
   font-style: italic;
+}
+
+/* Function-type popup extensions */
+.pill-editor-func-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+
+.pill-editor-func-name {
+  font-family: var(--font-mono);
+  font-size:   var(--font-size-sm);
+  font-weight: 600;
+  color:       var(--color-accent);
+}
+
+.pill-editor-func-label {
+  font-size: var(--font-size-sm);
+  color:     var(--color-subtext);
+}
+
+.pill-editor-params {
+  display:        flex;
+  flex-direction: column;
+  gap:            var(--space-2);
+}
+
+.pill-editor-param-row {
+  display:     flex;
+  align-items: center;
+  gap:         var(--space-3);
+}
+
+.pill-editor-param-label {
+  flex-shrink: 0;
+  font-size:   var(--font-size-sm);
+  color:       var(--color-subtext);
+  min-width:   80px;
+  text-align:  right;
+}
+
+.pill-editor-param-row .pill-editor-param-input {
+  flex:      1;
+  min-width: 0;
+}
+
+.pill-editor-no-params {
+  font-size:  var(--font-size-sm);
+  color:      var(--color-subtext);
+  font-style: italic;
+  margin:     0;
+  padding:    var(--space-1) 0;
+}
+
+/* Variable suggestions list in pill editor popup */
+.pill-editor-var-suggestions {
+  max-height:          200px;
+  overflow-y:          auto;
+  border:              1px solid var(--color-border);
+  border-radius:       var(--radius-sm);
+  overscroll-behavior: contain;
+  outline:             none;
+}
+
+.pill-editor-var-item {
+  padding:     4px var(--space-3);
+  font-family: var(--font-mono);
+  font-size:   var(--font-size-sm);
+  cursor:      pointer;
+  user-select: none;
+}
+
+.pill-editor-var-item:hover,
+.pill-editor-var-item--active {
+  background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color:            var(--color-accent);
+}
+
+.pill-editor-var-empty {
+  padding:    var(--space-3);
+  font-size:  var(--font-size-sm);
+  color:      var(--color-subtext);
+  font-style: italic;
+  text-align: center;
+}
+
+/* ── Pill picker (.pill-picker) ───────────────────────────────────────────── */
+
+.pill-picker {
+  position:         fixed;
+  z-index:          var(--z-popup, 900);
+  width:            320px;
+  max-height:       260px;
+  overflow-y:       auto;
+  background:       var(--color-surface-1);
+  border:           1px solid var(--color-border);
+  border-radius:    var(--radius-md);
+  box-shadow:       var(--shadow-lg);
+  padding:          var(--space-1) 0;
+  overscroll-behavior: contain;
+}
+
+.pill-picker__section {
+  padding:       var(--space-1) var(--space-3);
+  font-size:     var(--font-size-xs);
+  font-weight:   600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color:         var(--color-subtext);
+  pointer-events: none;
+  user-select:   none;
+}
+
+.pill-picker__item {
+  display:      flex;
+  align-items:  baseline;
+  gap:          var(--space-2);
+  padding:      4px var(--space-3) 4px var(--space-5);
+  cursor:       pointer;
+  user-select:  none;
+}
+
+.pill-picker__item--active {
+  background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.pill-picker__item-name {
+  font-family:  var(--font-mono);
+  font-size:    var(--font-size-xs);
+  color:        var(--color-text);
+  flex-shrink:  0;
+}
+
+.pill-picker__item--active .pill-picker__item-name {
+  color: var(--color-accent);
+}
+
+.pill-picker__item-desc {
+  font-size:     var(--font-size-xs);
+  color:         var(--color-subtext);
+  white-space:   nowrap;
+  overflow:      hidden;
+  text-overflow: ellipsis;
+  flex:          1;
+  min-width:     0;
+}
+
+.pill-picker__empty {
+  padding:    var(--space-3);
+  font-size:  var(--font-size-sm);
+  color:      var(--color-subtext);
+  font-style: italic;
+  text-align: center;
 }
 
 /* ── Notes tab ────────────────────────────────────────────────────────────── */

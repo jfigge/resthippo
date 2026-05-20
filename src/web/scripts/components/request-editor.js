@@ -6,7 +6,7 @@
 
 import { parse as parseYaml, stringify as stringifyYaml } from "../vendor/yaml.js";
 import { VariablePillEditor } from "./variable-pill-editor.js";
-import { resolveString, collectTemplateVariables } from "./variable-resolver.js";
+import { resolveString, resolveStringAsync, collectTemplateVariables } from "./variable-resolver.js";
 import { PopupManager } from "../popup-manager.js";
 import Prism from "../vendor/prism.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
@@ -818,8 +818,10 @@ export class RequestEditor {
   #removeHeaders = false;
 
   // ── Variable pill editor support ───────────────────────────────────────────
-  /** Current variable resolution context: { envVariables, folderChain } */
+  /** Current variable resolution context: { envVariables, folderChain, … } */
   #variableContext = null;
+  /** Callback returning request items for function popup request-picker params. */
+  #getItems = () => [];
 
   /** Pill editor for the URL bar (single instance, never replaced). */
   #urlPillEditor       = null;
@@ -871,8 +873,9 @@ export class RequestEditor {
       ariaLabel:   "Request URL",
       className:   "req-url-input",
       getContext:  () => this.#variableContext,
+      getItems:    () => this.#getItems(),
       onInput: (v) => {
-        this.#url = v;
+        this.#url = v.trim();
         this.#dispatchRequestUpdated();
         this.#updateUrlPreview();
       },
@@ -2171,12 +2174,14 @@ export class RequestEditor {
     });
 
     // Name pill editor
-    const getCtx = () => this.#variableContext;
+    const getCtx  = () => this.#variableContext;
+    const getItms = () => this.#getItems();
     const nameEditor = new VariablePillEditor({
       placeholder: "Name",
       ariaLabel:   "Field name",
       className:   "params-name",
       getContext:  getCtx,
+      getItems:    getItms,
       onInput: (v) => { row.name = v; this.#dispatchBodyUpdated(); },
       onEnter: () => {
         rows.push({ id: crypto.randomUUID(), name: "", value: "", enabled: true });
@@ -2193,6 +2198,7 @@ export class RequestEditor {
       ariaLabel:   "Field value",
       className:   "params-value",
       getContext:  getCtx,
+      getItems:    getItms,
       onInput: (v) => { row.value = v; this.#dispatchBodyUpdated(); },
       onEnter: () => {
         rows.push({ id: crypto.randomUUID(), name: "", value: "", enabled: true });
@@ -3027,6 +3033,7 @@ export class RequestEditor {
       ariaLabel:   "Header value",
       className:   "params-value",
       getContext:  () => this.#variableContext,
+      getItems:    () => this.#getItems(),
       onInput: (v) => {
         header.value = v;
         this.#dispatchHeadersUpdated();
@@ -3340,12 +3347,14 @@ export class RequestEditor {
     });
 
     // ── Name pill editor ─────────────────────────────────────────────────
-    const getCtx = () => this.#variableContext;
+    const getCtx  = () => this.#variableContext;
+    const getItms = () => this.#getItems();
     const nameEditor = new VariablePillEditor({
       placeholder: "Name",
       ariaLabel:   "Parameter name",
       className:   "params-name",
       getContext:  getCtx,
+      getItems:    getItms,
       onInput: (v) => {
         param.name = v;
         this.#updateUrlPreview();
@@ -3362,6 +3371,7 @@ export class RequestEditor {
       ariaLabel:   "Parameter value",
       className:   "params-value",
       getContext:  getCtx,
+      getItems:    getItms,
       onInput: (v) => {
         param.value = v;
         this.#updateUrlPreview();
@@ -3748,7 +3758,7 @@ export class RequestEditor {
     // the actual HTTP request (and cURL output) use concrete values, not
     // template placeholders.
     const ctx = this.#variableContext;
-    const rv  = (s) => resolveString(s, ctx);
+    const rv  = (s) => resolveStringAsync(s, ctx);
 
     // ── Variable pre-flight check ─────────────────────────────────────────
     // Before sending, collect every {{varName}} token from all request fields
@@ -3770,30 +3780,31 @@ export class RequestEditor {
     }
 
 
-    const baseUrl = rv(rawUrl);
+    const baseUrl = await rv(rawUrl);
 
     // ── 1. URL — append enabled, non-blank query parameters ──────────────
     const enabledParams = this.#params.filter(p => p.enabled && p.name.trim());
     let finalUrl = baseUrl;
     if (enabledParams.length) {
-      const qs = enabledParams
-        .map(p => `${encodeURIComponent(rv(p.name))}=${encodeURIComponent(rv(p.value))}`)
-        .join("&");
+      const qs = (await Promise.all(
+        enabledParams.map(async p =>
+          `${encodeURIComponent(await rv(p.name))}=${encodeURIComponent(await rv(p.value))}`)
+      )).join("&");
       finalUrl += (baseUrl.includes("?") ? "&" : "?") + qs;
     }
 
     // ── 2. Headers — start with all enabled, non-blank request headers ────
     const headers = {};
-    this.#headers
-      .filter(h => h.enabled && h.name.trim())
-      .forEach(h => { headers[rv(h.name).trim()] = rv(h.value); });
+    for (const h of this.#headers.filter(h => h.enabled && h.name.trim())) {
+      headers[(await rv(h.name)).trim()] = await rv(h.value);
+    }
 
     // ── 3. Auth — inject Authorization (or other) headers if enabled ──────
     if (this.#authEnabled && this.#authType !== "none") {
       switch (this.#authType) {
         case "basic": {
-          const username = rv(this.#authBasic.username ?? "");
-          const password = rv(this.#authBasic.password ?? "");
+          const username = await rv(this.#authBasic.username ?? "");
+          const password = await rv(this.#authBasic.password ?? "");
           if (username || password) {
             headers["Authorization"] = `Basic ${btoa(`${username}:${password}`)}`;
           }
@@ -3801,7 +3812,7 @@ export class RequestEditor {
         }
         case "bearer":
           if (this.#authBearer.token)
-            headers["Authorization"] = `Bearer ${rv(this.#authBearer.token)}`;
+            headers["Authorization"] = `Bearer ${await rv(this.#authBearer.token)}`;
           break;
         case "oauth2": {
           // ── User-supplied Authorization header wins ──────────────────────
@@ -3891,9 +3902,9 @@ export class RequestEditor {
           const boundary = `----WurlBoundary${Date.now()}`;
           const enabled  = this.#bodyFormRows.filter(r => r.enabled && r.name.trim());
           if (enabled.length > 0) {
-            const parts = enabled.map(r =>
-              `--${boundary}\r\nContent-Disposition: form-data; name="${rv(r.name)}"\r\n\r\n${rv(r.value)}`
-            ).join("\r\n");
+            const parts = (await Promise.all(enabled.map(async r =>
+              `--${boundary}\r\nContent-Disposition: form-data; name="${await rv(r.name)}"\r\n\r\n${await rv(r.value)}`)
+            )).join("\r\n");
             body = `${parts}\r\n--${boundary}--`;
             if (!headers["Content-Type"])
               headers["Content-Type"] = `multipart/form-data; boundary=${boundary}`;
@@ -3902,9 +3913,9 @@ export class RequestEditor {
         }
         case "form-urlencoded": {
           const sp = new URLSearchParams();
-          this.#bodyFormRows
-            .filter(r => r.enabled && r.name.trim())
-            .forEach(r => sp.append(rv(r.name), rv(r.value)));
+          for (const r of this.#bodyFormRows.filter(r => r.enabled && r.name.trim())) {
+            sp.append(await rv(r.name), await rv(r.value));
+          }
           body = sp.toString();
           if (!headers["Content-Type"])
             headers["Content-Type"] = "application/x-www-form-urlencoded";
@@ -3912,28 +3923,28 @@ export class RequestEditor {
         }
         case "json":
           if (this.#bodyText.trim()) {
-            body = rv(this.#bodyText);
+            body = await rv(this.#bodyText);
             if (!headers["Content-Type"])
               headers["Content-Type"] = "application/json";
           }
           break;
         case "yaml":
           if (this.#bodyText.trim()) {
-            body = rv(this.#bodyText);
+            body = await rv(this.#bodyText);
             if (!headers["Content-Type"])
               headers["Content-Type"] = "application/x-yaml";
           }
           break;
         case "xml":
           if (this.#bodyText.trim()) {
-            body = rv(this.#bodyText);
+            body = await rv(this.#bodyText);
             if (!headers["Content-Type"])
               headers["Content-Type"] = "application/xml";
           }
           break;
         case "text":
           if (this.#bodyText.trim()) {
-            body = rv(this.#bodyText);
+            body = await rv(this.#bodyText);
             if (!headers["Content-Type"])
               headers["Content-Type"] = "text/plain";
           }
@@ -4014,6 +4025,11 @@ export class RequestEditor {
     for (const editor of allEditors) {
       editor.revalidate();
     }
+  }
+
+  /** Set the callback used by function-pill popups to populate request-picker params. */
+  setGetItems(fn) {
+    this.#getItems = fn ?? (() => []);
   }
 
   /**

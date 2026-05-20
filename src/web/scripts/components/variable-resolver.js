@@ -9,6 +9,60 @@
 
 "use strict";
 
+import { logicMap } from "./function-logic-map.js";
+
+/**
+ * Return true when `content` (the text inside {{…}}) is a function call.
+ * @param {string} content
+ */
+export function isFunctionCall(content) {
+  return /^[a-zA-Z_][a-zA-Z0-9_]*\s*\(/.test(content.trim());
+}
+
+/**
+ * Parse a function-call token into name + positional string args.
+ * Handles quoted string literals and bare identifiers as args.
+ * Nested {{…}} tokens inside args are NOT supported in this implementation.
+ *
+ * @param {string} content  e.g. `now("ISO")` or `uuid()`
+ * @returns {{ name: string, rawArgs: string[] } | null}
+ */
+export function parseFunctionCall(content) {
+  const trimmed = content.trim();
+  const parenIdx = trimmed.indexOf("(");
+  if (parenIdx === -1) return null;
+
+  const name = trimmed.slice(0, parenIdx).trim();
+  if (!name || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) return null;
+
+  const closeIdx = trimmed.lastIndexOf(")");
+  if (closeIdx === -1 || closeIdx < parenIdx) return null;
+
+  const argsStr = trimmed.slice(parenIdx + 1, closeIdx).trim();
+  if (!argsStr) return { name, rawArgs: [] };
+
+  // Split by comma, respecting double-quoted strings
+  const rawArgs = [];
+  let current = "";
+  let inQuote  = false;
+  for (const ch of argsStr) {
+    if (ch === '"') {
+      inQuote  = !inQuote;
+      current += ch;
+    } else if (ch === "," && !inQuote) {
+      const arg = current.trim();
+      rawArgs.push(arg.startsWith('"') && arg.endsWith('"') ? arg.slice(1, -1) : arg);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  const last = current.trim();
+  if (last) rawArgs.push(last.startsWith('"') && last.endsWith('"') ? last.slice(1, -1) : last);
+
+  return { name, rawArgs };
+}
+
 /**
  * Resolve a variable name against the provided context.
  * Folder-chain variables take priority over environment variables.
@@ -85,13 +139,50 @@ export function serializeEditor(el) {
     } else if (child.nodeType === Node.ELEMENT_NODE) {
       if (child.dataset && child.dataset.variable !== undefined) {
         out += `{{${child.dataset.variable}}}`;
+      } else if (child.dataset && child.dataset.function !== undefined) {
+        // Function pill — title holds the full {{funcName(args)}} token
+        out += child.title.replace(/ — double-click to edit$/, "");
       } else if (child.tagName !== "BR") {
-        // Nested element (shouldn't happen in normal usage) — recurse
         out += serializeEditor(child);
       }
     }
   }
   return out;
+}
+
+/**
+ * Async version of resolveString that also evaluates function calls.
+ * Function handlers may return Promises (backend-delegated functions).
+ *
+ * @param {string} template
+ * @param {object | null} context
+ * @returns {Promise<string>}
+ */
+export async function resolveStringAsync(template, context) {
+  if (!template) return template ?? "";
+
+  const tokens = tokenize(template);
+  const parts  = await Promise.all(tokens.map(async (token) => {
+    if (token.type === "text") return token.content;
+
+    const content = token.content.trim();
+    if (isFunctionCall(content)) {
+      const parsed = parseFunctionCall(content);
+      if (!parsed) return `{{${token.content}}}`;
+      const handler = logicMap[parsed.name];
+      if (!handler) return `{{${token.content}}}`;
+      try {
+        return String(await handler(parsed.rawArgs, context));
+      } catch (e) {
+        return `[error: ${e.message}]`;
+      }
+    }
+
+    const { found, value } = resolveVariable(content, context);
+    return found ? String(value ?? "") : `{{${content}}}`;
+  }));
+
+  return parts.join("");
 }
 
 /**
@@ -115,6 +206,7 @@ export function collectTemplateVariables(templates, context) {
     while ((match = re.exec(tpl)) !== null) {
       const name = match[1].trim();
       if (!name || seen.has(name)) continue;
+      if (isFunctionCall(name)) continue; // function pills resolve at send time, not here
       const { found, value } = resolveVariable(name, context);
       seen.set(name, { name, found, value: found ? String(value) : null });
     }

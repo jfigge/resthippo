@@ -711,6 +711,51 @@ function safeCall(channel, fn, fallback = null) {
       _htmlPreviewView = null;
     }
   });
+
+  // ── Function evaluation ───────────────────────────────────────────────────
+  ipcMain.handle("functions:invoke", async (_event, fn, args) => {
+    const crypto = require("crypto");
+    try {
+      switch (fn) {
+        case "jq": {
+          // Simple dot-path evaluation in Node (mirrors the JS client-side helper).
+          // Complex queries fall through to the error path; the renderer handles them
+          // with its own simpleJq() first and only calls here for full jq.
+          const { json, query } = args;
+          let val = JSON.parse(json);
+          const q = (query ?? ".").trim();
+          if (q === ".") {
+            return { result: typeof val === "string" ? val : JSON.stringify(val) };
+          }
+          if (/^(\.[a-zA-Z_][a-zA-Z0-9_]*|\.\[\d+\])+$/.test(q)) {
+            for (const seg of q.match(/\.[a-zA-Z_][a-zA-Z0-9_]*|\.\[\d+\]/g) ?? []) {
+              val = seg.startsWith(".[")
+                ? val?.[parseInt(seg.slice(2, -1), 10)]
+                : val?.[seg.slice(1)];
+            }
+            if (val == null) return { result: "" };
+            return { result: typeof val === "string" ? val : JSON.stringify(val) };
+          }
+          return { error: "complex jq queries require the dev server" };
+        }
+        case "hmac": {
+          const { algo, key, message } = args;
+          const alg = algo === "SHA512" ? "sha512" : "sha256";
+          const mac = crypto.createHmac(alg, key ?? "").update(message ?? "").digest("hex");
+          return { result: mac };
+        }
+        case "hash": {
+          const { algo, value } = args;
+          const alg = algo === "SHA512" ? "sha512" : "sha256";
+          return { result: crypto.createHash(alg).update(value ?? "").digest("hex") };
+        }
+        default:
+          return { error: `unknown function: ${fn}` };
+      }
+    } catch (err) {
+      return { error: err.message ?? String(err) };
+    }
+  });
 })();
 
 // ─── Dev-server port helpers ──────────────────────────────────────────────────

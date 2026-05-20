@@ -5,40 +5,82 @@ import { resolveVariable } from "./variable-resolver.js";
 
 const TYPE_LABELS = {
   variable: "Variable",
+  function: "Function",
 };
 
-const VAR_RE = /^\{\{([^{}]+)\}\}$/;
-
 /**
- * PillEditorPopup — modal editor for inline variable (and future function) pills.
+ * PillEditorPopup — modal editor for variable and function pills.
  *
  * Open via the static factory:
- *   PillEditorPopup.open({ type, rawValue, getContext, onCommit, sections });
+ *   PillEditorPopup.open({ type, rawValue, getContext, onCommit });
+ *   PillEditorPopup.open({ type: "function", funcName, funcDef, rawArgs, getContext,
+ *                          getItems, getPreview, onCommit });
  *
- * Config shape:
- *   type       — "variable" (other types TBD, e.g. "function")
+ * Config shape (variable):
+ *   type       — "variable"
  *   rawValue   — current pill value, e.g. "{{token}}"
- *   getContext — () => { envVariables, folderChain }  for live preview resolution
- *   onCommit   — (newRawValue: string) => void  called on Done/Enter; not called on Cancel
- *   sections   — Array<{ html: string }>  extra DOM sections inserted above the divider
- *                (reserved for function parameter editors — see FUNCTION_PILLS_DESIGN.md)
+ *   getContext — () => { envVariables, folderChain }
+ *   onCommit   — (newRawValue: string) => void  — called with "{{name}}"
+ *
+ * Config shape (function):
+ *   type       — "function"
+ *   funcName   — string, e.g. "now"
+ *   funcDef    — registry entry: { label, category, params[] }
+ *   rawArgs    — string[], current arg values (already unquoted)
+ *   getContext — () => context object (passed to getPreview)
+ *   getItems   — () => Array<{id, name}> for request-picker params
+ *   getPreview — async (args: string[]) => string  for live preview
+ *   onCommit   — (newRawToken: string) => void
  */
 export class PillEditorPopup {
   #el;
   #type;
   #getContext;
   #onCommit;
-  #inputEl        = null;
-  #errorEl        = null;
-  #previewValueEl = null;
+  #funcName        = null;
+  #funcDef         = null;
+  #getPreview      = null;
+  #suggestionsEl   = null;   // variable type only
+  #varNames        = [];     // variable type: all available names
+  #selectedVarName = "";     // variable type: currently selected name
+  #paramEls        = [];     // function type: one element per param
+  #errorEl         = null;
+  #previewValueEl  = null;
 
-  constructor({ type = "variable", rawValue = "", getContext = () => null, onCommit = null, sections = [] } = {}) {
+  constructor({
+    type       = "variable",
+    rawValue   = "",
+    getContext = () => null,
+    onCommit   = null,
+    funcName   = null,
+    funcDef    = null,
+    rawArgs    = [],
+    getItems   = () => [],
+    getPreview = null,
+  } = {}) {
     this.#type       = type;
     this.#getContext = getContext;
     this.#onCommit   = onCommit;
-    this.#el         = this.#build({ type, rawValue, sections });
-    this.#inputEl    = this.#el.querySelector(".pill-editor-input");
-    this.#errorEl    = this.#el.querySelector(".pill-editor-error");
+    this.#funcName   = funcName;
+    this.#funcDef    = funcDef;
+    this.#getPreview = getPreview;
+
+    if (type === "variable") {
+      this.#varNames = this.#collectVarNames(getContext());
+    }
+
+    const varName = type === "variable" ? this.#extractVarName(rawValue) : "";
+    if (type === "variable") this.#selectedVarName = varName;
+    this.#el = this.#build({ type, varName, funcName, funcDef, rawArgs, getItems });
+
+    if (type === "variable") {
+      this.#suggestionsEl = this.#el.querySelector(".pill-editor-var-suggestions");
+      this.#renderSuggestions();
+    } else if (type === "function") {
+      this.#paramEls = [...this.#el.querySelectorAll(".pill-editor-param-input")];
+    }
+
+    this.#errorEl        = this.#el.querySelector(".pill-editor-error");
     this.#previewValueEl = this.#el.querySelector(".pill-editor-preview-value");
     this.#bindEvents();
     this.#updatePreview();
@@ -46,15 +88,16 @@ export class PillEditorPopup {
 
   get element() { return this.#el; }
 
-  /** Factory — build, open via PopupManager, and focus the input. */
+  /** Factory — build, open via PopupManager, and focus the first interactive field. */
   static open(config) {
     const popup = new PillEditorPopup(config);
     PopupManager.open(popup);
     requestAnimationFrame(() => {
-      const input = popup.#inputEl;
-      if (input) {
-        input.focus();
-        input.select();
+      if (popup.#type === "function") {
+        const target = popup.#paramEls[0];
+        if (target) { target.focus(); if (target.tagName === "INPUT") target.select(); }
+      } else if (popup.#type === "variable") {
+        popup.#suggestionsEl?.focus();
       }
     });
   }
@@ -66,7 +109,7 @@ export class PillEditorPopup {
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
-  #build({ type, rawValue, sections }) {
+  #build({ type, varName, funcName, funcDef, rawArgs, getItems }) {
     const label = TYPE_LABELS[type] ?? type;
     const el    = document.createElement("div");
     el.className = "popup pill-editor-popup";
@@ -74,7 +117,9 @@ export class PillEditorPopup {
     el.setAttribute("aria-modal", "true");
     el.setAttribute("aria-label", `${label} editor`);
 
-    const sectionsHtml = sections.map(s => s.html ?? "").join("");
+    const bodyHtml = type === "function"
+      ? this.#functionBodyHtml(funcName, funcDef, rawArgs, getItems)
+      : this.#variableBodyHtml(varName);
 
     el.innerHTML = `
       <div class="popup-header">
@@ -82,18 +127,7 @@ export class PillEditorPopup {
         <button class="popup-close" aria-label="Close" title="Close">✕</button>
       </div>
       <div class="popup-body pill-editor-body">
-        <div class="pill-editor-field-row">
-          <span class="pill-editor-type-label">${this.#esc(label)}</span>
-          <input
-            class="pill-editor-input settings-input"
-            type="text"
-            value="${this.#esc(rawValue)}"
-            spellcheck="false"
-            autocomplete="off"
-          />
-        </div>
-        <div class="pill-editor-error" role="alert" aria-live="polite"></div>
-        ${sectionsHtml}
+        ${bodyHtml}
         <hr class="pill-editor-divider" />
         <div class="pill-editor-preview">
           <span class="pill-editor-preview-label">Live Preview</span>
@@ -108,23 +142,155 @@ export class PillEditorPopup {
     return el;
   }
 
+  #variableBodyHtml(_varName) {
+    return `
+      <div class="pill-editor-error" role="alert" aria-live="polite"></div>
+      <span class="pill-editor-type-label">Select Variable</span>
+      <div class="pill-editor-var-suggestions" role="listbox" aria-label="Available variables" tabindex="0"></div>
+    `;
+  }
+
+  #functionBodyHtml(funcName, funcDef, rawArgs, getItems) {
+    const items = getItems ? getItems() : [];
+
+    let paramsHtml;
+    if (!funcDef?.params?.length) {
+      paramsHtml = `<p class="pill-editor-no-params">This function has no parameters.</p>`;
+    } else {
+      paramsHtml = `<div class="pill-editor-params">${
+        funcDef.params.map((p, i) => {
+          const val = rawArgs[i] ?? p.default ?? "";
+          let inputHtml;
+
+          if (p.type === "enum") {
+            const opts = (p.options ?? []).map(o =>
+              `<option value="${this.#esc(o)}"${o === val ? " selected" : ""}>${this.#esc(o)}</option>`
+            ).join("");
+            inputHtml = `<select class="pill-editor-param-input settings-input" data-param-idx="${i}">${opts}</select>`;
+
+          } else if (p.type === "request-picker") {
+            const opts = items.map(item =>
+              `<option value="${this.#esc(item.name)}"${item.name === val ? " selected" : ""}>${this.#esc(item.name)}</option>`
+            ).join("");
+            inputHtml = `<select class="pill-editor-param-input settings-input" data-param-idx="${i}">` +
+              `<option value="">— select request —</option>${opts}</select>`;
+
+          } else {
+            const ph = p.placeholder ? ` placeholder="${this.#esc(p.placeholder)}"` : "";
+            inputHtml = `<input class="pill-editor-param-input settings-input" type="text"` +
+              ` value="${this.#esc(val)}" autocomplete="off" spellcheck="false"` +
+              ` data-param-idx="${i}"${ph} />`;
+          }
+
+          return `
+            <div class="pill-editor-param-row">
+              <label class="pill-editor-param-label">${this.#esc(p.label)}</label>
+              ${inputHtml}
+            </div>`;
+        }).join("")
+      }</div>`;
+    }
+
+    return `
+      <div class="pill-editor-func-header">
+        <span class="pill-editor-func-name">${this.#esc(funcName ?? "")}</span>
+        <span class="pill-editor-func-label">${this.#esc(funcDef?.label ?? "")}</span>
+      </div>
+      ${paramsHtml}
+      <div class="pill-editor-error" role="alert" aria-live="polite"></div>
+    `;
+  }
+
+  // ── Variable suggestions ───────────────────────────────────────────────────
+
+  #renderSuggestions() {
+    if (!this.#suggestionsEl) return;
+
+    if (!this.#varNames.length) {
+      this.#suggestionsEl.innerHTML =
+        `<div class="pill-editor-var-empty">No variables defined</div>`;
+      return;
+    }
+
+    this.#suggestionsEl.innerHTML = "";
+    for (const name of this.#varNames) {
+      const item = document.createElement("div");
+      item.className = "pill-editor-var-item";
+      item.setAttribute("role", "option");
+      item.dataset.varName = name;
+      item.textContent = name;
+      if (name === this.#selectedVarName) {
+        item.classList.add("pill-editor-var-item--active");
+        item.setAttribute("aria-selected", "true");
+      }
+      item.addEventListener("click", () => this.#selectVar(name));
+      this.#suggestionsEl.appendChild(item);
+    }
+
+    this.#scrollActiveIntoView();
+  }
+
+  #selectVar(name) {
+    this.#selectedVarName = name;
+    this.#clearError();
+    this.#updatePreview();
+    for (const el of this.#suggestionsEl.querySelectorAll(".pill-editor-var-item")) {
+      const active = el.dataset.varName === name;
+      el.classList.toggle("pill-editor-var-item--active", active);
+      el.setAttribute("aria-selected", String(active));
+    }
+    this.#scrollActiveIntoView();
+  }
+
+  #scrollActiveIntoView() {
+    const active = this.#suggestionsEl?.querySelector(".pill-editor-var-item--active");
+    active?.scrollIntoView({ block: "nearest" });
+  }
+
+  #collectVarNames(ctx) {
+    const seen = new Set();
+    if (ctx?.folderChain) {
+      for (const folder of ctx.folderChain) {
+        if (folder?.variables) Object.keys(folder.variables).sort().forEach(k => seen.add(k));
+      }
+    }
+    if (ctx?.envVariables) Object.keys(ctx.envVariables).sort().forEach(k => seen.add(k));
+    return [...seen];
+  }
+
+  #extractVarName(rawValue) {
+    const m = /^\{\{([^{}]+)\}\}$/.exec(rawValue ?? "");
+    return m ? m[1] : (rawValue ?? "").replace(/^\{\{|\}\}$/g, "");
+  }
+
   // ── Events ─────────────────────────────────────────────────────────────────
 
   #bindEvents() {
-    this.#inputEl.addEventListener("input", () => {
-      this.#clearError();
-      this.#updatePreview();
-    });
-
-    this.#inputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        this.#tryCommit();
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        PopupManager.close();
+    if (this.#type === "variable" && this.#suggestionsEl) {
+      this.#suggestionsEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); this.#tryCommit(); return; }
+        if (e.key === "Escape") { e.preventDefault(); PopupManager.close(); return; }
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          const idx  = this.#varNames.indexOf(this.#selectedVarName);
+          const next = e.key === "ArrowDown"
+            ? Math.min(idx + 1, this.#varNames.length - 1)
+            : Math.max(idx - 1, 0);
+          if (this.#varNames[next] !== undefined) this.#selectVar(this.#varNames[next]);
+        }
+      });
+    } else if (this.#type === "function") {
+      for (const el of this.#paramEls) {
+        el.addEventListener("input", () => {
+          this.#clearError();
+          this.#updatePreview();
+        });
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); this.#tryCommit(); }
+          else if (e.key === "Escape") { e.preventDefault(); PopupManager.close(); }
+        });
       }
-    });
+    }
 
     this.#el.querySelector(".popup-close").addEventListener("click", () => PopupManager.close());
     this.#el.querySelector(".js-cancel").addEventListener("click",  () => PopupManager.close());
@@ -134,34 +300,51 @@ export class PillEditorPopup {
   // ── Commit ─────────────────────────────────────────────────────────────────
 
   #tryCommit() {
-    const raw = this.#inputEl.value.trim();
-
     if (this.#type === "variable") {
-      if (!VAR_RE.test(raw)) {
-        this.#showError("Must be in the form {{variableName}}");
-        this.#inputEl.focus();
+      const name = this.#selectedVarName;
+      if (!name) {
+        this.#showError("Select a variable");
         return;
       }
-    }
+      PopupManager.close();
+      this.#onCommit?.(`{{${name}}}`);
 
-    PopupManager.close();
-    this.#onCommit?.(raw);
+    } else if (this.#type === "function") {
+      const args     = this.#getParamArgs();
+      const rawToken = this.#buildFuncToken(this.#funcName, args);
+      PopupManager.close();
+      this.#onCommit?.(rawToken);
+    }
+  }
+
+  #getParamArgs() {
+    return this.#paramEls.map(el => el.value);
+  }
+
+  #buildFuncToken(name, args) {
+    if (!args.length) return `{{${name}()}}`;
+    const argStrs = args.map(a => `"${String(a).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(", ");
+    return `{{${name}(${argStrs})}}`;
   }
 
   // ── Live preview ───────────────────────────────────────────────────────────
 
-  #updatePreview() {
+  async #updatePreview() {
     if (!this.#previewValueEl) return;
-    const raw = this.#inputEl.value.trim();
 
     if (this.#type === "variable") {
-      const match = VAR_RE.exec(raw);
-      if (!match) {
-        this.#setPreview(null);
-        return;
-      }
-      const { found, value } = resolveVariable(match[1], this.#getContext());
+      const name = this.#selectedVarName;
+      if (!name) { this.#setPreview(null); return; }
+      const { found, value } = resolveVariable(name, this.#getContext());
       this.#setPreview(found ? String(value ?? "") : null);
+
+    } else if (this.#type === "function" && this.#getPreview) {
+      try {
+        const result = await this.#getPreview(this.#getParamArgs());
+        this.#setPreview(result != null ? String(result) : null);
+      } catch {
+        this.#setPreview(null);
+      }
     } else {
       this.#setPreview(null);
     }

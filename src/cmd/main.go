@@ -85,6 +85,9 @@ func main() {
 	mux.HandleFunc("POST /api/requests/{id}/history", handler.AddHistory(ss.HistoryStore()))
 	mux.HandleFunc("GET /api/requests/{id}/history/{historyId}/response", handler.GetHistoryResponse(ss.HistoryStore()))
 
+	// ── Function evaluation ────────────────────────────────────────────────────
+	mux.HandleFunc("POST /api/functions/invoke", handler.Functions())
+
 	// ── Static file server (must be registered last) ─────────────────────────
 	noCache := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

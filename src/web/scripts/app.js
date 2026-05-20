@@ -25,6 +25,7 @@ import {
   saveEnvVariables, deleteRequest,
 } from "./data-store.js";
 import { buildFolderChain } from "./components/variable-resolver.js";
+import { setPickerDebounceMs } from "./components/variable-pill-editor.js";
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
@@ -88,6 +89,8 @@ function initComponents() {
   panelNav.mount(treeView);
   panelRequest.mount(requestEditor);
   panelResponse.mount(responseViewer);
+
+  requestEditor.setGetItems(() => getAllRequests(treeView?.getItems() ?? []));
 }
 
 // ─── Splitters ────────────────────────────────────────────────────────────────
@@ -378,6 +381,7 @@ function initEventBus() {
   // When a request is selected in the tree, load it into the editor
   window.addEventListener("wurl:request-selected", (e) => {
     const node = e.detail;
+    _selectedNode = node;
     // Set variable context BEFORE load() so pill editors render with correct validation
     _refreshEditorVariableContext(node.id);
     requestEditor.load(node);
@@ -393,9 +397,21 @@ function initEventBus() {
   window.addEventListener("wurl:request-execute", (e) => {
     if (!requestEditor) return;
     const node = e.detail;
+    _selectedNode = node;
     _refreshEditorVariableContext(node.id);
     requestEditor.load(node);
     requestEditor.element.querySelector(".req-send-btn")?.click();
+  });
+
+  // Cache response data so function pills like response() / responseHeader() can resolve
+  window.addEventListener("wurl:response-received", (e) => {
+    const name = _selectedNode?.name;
+    if (!name) return;
+    const { body = "", headers = {}, status = 0 } = e.detail;
+    _responseCache[name]   = body;
+    _responseHeaders[name] = headers;
+    _responseStatus[name]  = status;
+    _refreshEditorVariableContext();
   });
 
   // Auto-save whenever the tree is mutated (add / remove collection or request)
@@ -649,9 +665,15 @@ function initEventBus() {
       env => env.id === currentEnvs.activeEnvironmentId,
     );
     const envVariables = activeEnv?.variables ?? {};
+    const node = _selectedNode ?? (id && treeView ? _findNodeById(treeView.getItems(), id) : null);
     requestEditor.setVariableContext({
       envVariables,
       folderChain,
+      envName:         activeEnv?.name     ?? "",
+      requestName:     node?.name          ?? "",
+      responseCache:   _responseCache,
+      responseHeaders: _responseHeaders,
+      responseStatus:  _responseStatus,
     });
     // Also feed the active environment variables to the tree-view so that
     // "Generate cURL" resolves variables the same way the Send button does.
@@ -686,6 +708,12 @@ function initEventBus() {
   let _cancelCurrentRequest  = false;
   // Snapshot of the most-recently-started request (used in cancel error detail)
   let _lastRequestSnapshot   = null;
+  // Currently selected tree node (request or folder), for context functions
+  let _selectedNode          = null;
+  // Response caches keyed by request name — fed into variable context for function pills
+  let _responseCache   = {};
+  let _responseHeaders = {};
+  let _responseStatus  = {};
 
   window.addEventListener("wurl:cancel-request", () => {
     _cancelCurrentRequest = true;
@@ -1059,6 +1087,7 @@ function applySettings(settings) {
   if (responseViewer) responseViewer.applySettings(settings);
   if (varsPopup) varsPopup.applySettings(settings);
   if (treeView) treeView.setDoubleClickExecute(settings.doubleClickExecute ?? false);
+  setPickerDebounceMs(settings.pickerDebounceMs ?? 200);
 
   // Remove headers — hide/show all .panel-header elements, app-header, and nav settings bar
   if (settings.removeHeaders !== undefined) {
@@ -1085,4 +1114,31 @@ function applySettings(settings) {
       navBar.setAttribute("aria-hidden", String(!remove));
     }
   }
+}
+
+/** Walk the item tree and collect all request nodes as { id, name } pairs. */
+function getAllRequests(items) {
+  const result = [];
+  function walk(nodes) {
+    for (const node of nodes) {
+      if (node.type === "request") {
+        result.push({ id: node.id, name: node.name ?? "" });
+      }
+      if (Array.isArray(node.children)) walk(node.children);
+    }
+  }
+  walk(items);
+  return result;
+}
+
+/** Find a node by id anywhere in the tree (returns null if not found). */
+function _findNodeById(items, id) {
+  for (const node of items) {
+    if (node.id === id) return node;
+    if (Array.isArray(node.children)) {
+      const found = _findNodeById(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
 }

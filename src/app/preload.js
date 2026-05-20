@@ -185,4 +185,8 @@ contextBridge.exposeInMainWorld("wurl", {
     hide:    ()            => ipcRenderer.invoke("htmlPreview:hide"),
     destroy: ()            => ipcRenderer.invoke("htmlPreview:destroy"),
   },
+
+  functions: {
+    invoke: (fn, args) => ipcRenderer.invoke("functions:invoke", fn, args),
+  },
 });
