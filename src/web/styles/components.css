@@ -2438,7 +2438,7 @@ input[type="checkbox"]:disabled {
   font-weight: 500;
   line-height: 18px;
   white-space: nowrap;
-  cursor: default;
+  cursor: pointer;
   user-select: all;
   vertical-align: middle;
   flex-shrink: 0;
@@ -2538,6 +2538,77 @@ input[type="checkbox"]:disabled {
 .var-warn-value--unknown {
   color: var(--color-error);
   font-weight: 700;
+}
+
+/* ── Pill editor popup (.pill-editor-popup) ──────────────────────────────── */
+
+.pill-editor-popup {
+  min-width: 360px;
+  max-width: 520px;
+}
+
+.pill-editor-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.pill-editor-field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.pill-editor-type-label {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+  min-width: 64px;
+  text-align: right;
+}
+
+.pill-editor-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.pill-editor-error {
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+  min-height: 1em;
+  padding-left: calc(64px + var(--space-3)); /* align under the input */
+}
+
+.pill-editor-divider {
+  border: none;
+  border-top: 1px solid var(--color-surface-2);
+  margin: 0;
+}
+
+.pill-editor-preview {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.pill-editor-preview-label {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+  min-width: 64px;
+  text-align: right;
+}
+
+.pill-editor-preview-value {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+.pill-editor-preview--undefined {
+  color: var(--color-overlay-0);
+  font-style: italic;
 }
 
 /* ── Notes tab ────────────────────────────────────────────────────────────── */

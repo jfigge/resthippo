@@ -20,6 +20,7 @@
  */
 "use strict";
 import { resolveVariable, tokenize, serializeEditor } from "./variable-resolver.js";
+import { PillEditorPopup } from "./pill-editor-popup.js";
 export class VariablePillEditor {
   #el;
   #placeholder;
@@ -104,12 +105,35 @@ export class VariablePillEditor {
     span.contentEditable  = "false";
     span.dataset.variable = name;
     span.textContent      = name;
-    span.title            = `{{${name}}}`;
+    span.title            = `{{${name}}} — double-click to edit`;
     const { found } = resolveVariable(name, ctx);
     span.className = [
       "variable-pill",
       found ? "variable-pill--known" : "variable-pill--unknown",
     ].join(" ");
+
+    span.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      PillEditorPopup.open({
+        type:       "variable",
+        rawValue:   `{{${span.dataset.variable}}}`,
+        getContext: this.#getContext,
+        onCommit:   (newRaw) => {
+          const match = /^\{\{([^{}]+)\}\}$/.exec(newRaw);
+          if (!match) return;
+          const newName = match[1];
+          span.dataset.variable = newName;
+          span.textContent      = newName;
+          span.title            = `{{${newName}}} — double-click to edit`;
+          const { found: nowFound } = resolveVariable(newName, this.#getContext());
+          span.classList.toggle("variable-pill--known",   nowFound);
+          span.classList.toggle("variable-pill--unknown", !nowFound);
+          this.#emitChange();
+        },
+      });
+    });
+
     return span;
   }
   #scanAndConvertAll() {
