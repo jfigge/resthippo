@@ -803,11 +803,73 @@ async function startDevServer(port) {
 const APP_ICON_PATH = path.join(__dirname, "..", "web", "wurl-logo.png");
 const appIcon = nativeImage.createFromPath(APP_ICON_PATH);
 
+// ─── Window state persistence ─────────────────────────────────────────────────
+// Window size is stored in a dedicated file (window-state.json) inside the
+// platform user-data directory.  Using a separate file — instead of the shared
+// manifest/settings JSON — prevents read-write races with the renderer's own
+// settings saves.
+//
+// Only the "normal" (non-minimised, non-maximised, non-fullscreen) size is
+// saved so the window always opens at a sensible restored size.
+
+const _WINDOW_STATE_DEFAULTS = { width: 1280, height: 820 };
+
+/** Full path to the window state file (resolved after app.whenReady). */
+let _windowStatePath = null;
+
+/** Pending debounce timer for the resize handler. */
+let _windowSaveTimer = null;
+
+/**
+ * Read the persisted window size from disk.
+ * Falls back to defaults when the file is absent, corrupted, or contains
+ * values outside the minimum window bounds.
+ *
+ * Must be called after app.whenReady() so app.getPath() is available.
+ *
+ * @returns {{ width: number, height: number }}
+ */
+function loadWindowState() {
+  _windowStatePath = path.join(app.getPath("userData"), "window-state.json");
+  try {
+    const raw    = JSON.parse(fs.readFileSync(_windowStatePath, "utf8"));
+    const width  = Number.isFinite(raw.width)  && raw.width  >= 800 ? Math.round(raw.width)  : _WINDOW_STATE_DEFAULTS.width;
+    const height = Number.isFinite(raw.height) && raw.height >= 560 ? Math.round(raw.height) : _WINDOW_STATE_DEFAULTS.height;
+    return { width, height };
+  } catch {
+    return { ..._WINDOW_STATE_DEFAULTS };
+  }
+}
+
+/**
+ * Write the current outer window size to disk.
+ * Skips saving when the window is in a transient state (minimised, maximised,
+ * fullscreen) so those states don't override the last normal size.
+ *
+ * @param {Electron.BrowserWindow} win
+ */
+function saveWindowState(win) {
+  if (
+    !win || win.isDestroyed() ||
+    win.isMinimized() || win.isMaximized() || win.isFullScreen()
+  ) return;
+
+  const [width, height] = win.getSize();
+  try {
+    fs.writeFileSync(_windowStatePath, JSON.stringify({ width, height }), "utf8");
+  } catch (err) {
+    console.error("[main] Failed to save window state:", err.message);
+  }
+}
+
 // ─── Window creation ──────────────────────────────────────────────────────────
-function createWindow() {
+/**
+ * @param {{ width: number, height: number }} [savedState]
+ */
+function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
   const win = new BrowserWindow({
-    width: 1280,
-    height: 820,
+    width:  savedState.width,
+    height: savedState.height,
     // Minimum enforced so splitter drag minimums (nav≥160, res≥160, request≥200)
     // are always achievable without the window becoming unusably cramped.
     //   landscape  : 160 + 4 + 200 + 4 + 160 = 528 px minimum columns
@@ -858,6 +920,18 @@ function createWindow() {
     _mainWin          = null;
     _htmlPreviewView  = null;
     _htmlPreviewAdded = false;
+  });
+
+  // ── Persist window size across sessions ────────────────────────────────────
+  // Save on every resize (debounced) and also on close so the very last size
+  // is captured even if the debounce timer hasn't fired yet.
+  win.on("resize", () => {
+    clearTimeout(_windowSaveTimer);
+    _windowSaveTimer = setTimeout(() => saveWindowState(win), 500);
+  });
+  win.on("close", () => {
+    clearTimeout(_windowSaveTimer);
+    saveWindowState(win);
   });
 
   return win;
@@ -972,11 +1046,12 @@ app.whenReady().then(async () => {
   }
 
   buildMenu();
-  createWindow();
+  const savedState = loadWindowState();
+  createWindow(savedState);
 
   // macOS: re-open a window when the dock icon is clicked with no open windows.
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(loadWindowState());
   });
 });
 

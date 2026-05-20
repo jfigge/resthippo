@@ -1234,6 +1234,14 @@
   line-height: 1.5;
 }
 
+/* Stacked button column on the right side of the token display */
+.auth-token-btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
 /* ── Get Token button row ────────────────────────────────────────────────── */
 
 .auth-get-token-row {
@@ -1290,8 +1298,6 @@
 /* ── Clear Session button ────────────────────────────────────────────────── */
 
 .auth-clear-session-btn {
-  display: block;
-  margin-top: var(--space-2);
   height: 24px;
   padding: 0 var(--space-3);
   font-size: var(--font-size-xs);

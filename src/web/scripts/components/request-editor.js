@@ -1376,6 +1376,11 @@ export class RequestEditor {
       const tokenValue = document.createElement("span");
       tokenValue.className = "auth-token-value";
       tokenValue.textContent = this.#authOAuth2.token;
+
+      // ── Button column: Clear Token + Clear Session stacked ─────────────
+      const tokenBtnGroup = document.createElement("div");
+      tokenBtnGroup.className = "auth-token-btn-group";
+
       const clearBtn = document.createElement("button");
       clearBtn.type = "button";
       clearBtn.className = "body-file-reset-btn";
@@ -1389,25 +1394,7 @@ export class RequestEditor {
         this.#renderAuthContent();
         this.#dispatchAuthUpdated();
       });
-      tokenDisplay.appendChild(tokenValue);
-      tokenDisplay.appendChild(clearBtn);
-      form.appendChild(tokenDisplay);
 
-      // Expiry info (if available)
-      if (this.#authOAuth2.expiresAt) {
-        const expiryEl = document.createElement("div");
-        expiryEl.className = "auth-field__hint";
-        const remaining = Math.max(0, Math.floor((this.#authOAuth2.expiresAt - Date.now()) / 1000));
-        if (remaining > 0) {
-          expiryEl.textContent = `Expires in ~${remaining}s`;
-        } else {
-          expiryEl.textContent = "⚠ Token may be expired";
-          expiryEl.style.color = "var(--color-error, #f38ba8)";
-        }
-        form.appendChild(expiryEl);
-      }
-
-      // ── Clear Session button ───────────────────────────────────────────
       const clearSessionBtn = document.createElement("button");
       clearSessionBtn.type      = "button";
       clearSessionBtn.className = "body-file-reset-btn auth-clear-session-btn";
@@ -1436,7 +1423,27 @@ export class RequestEditor {
         this.#renderAuthContent();
         this.#dispatchAuthUpdated();
       });
-      form.appendChild(clearSessionBtn);
+
+      tokenBtnGroup.appendChild(clearBtn);
+      tokenBtnGroup.appendChild(clearSessionBtn);
+
+      tokenDisplay.appendChild(tokenValue);
+      tokenDisplay.appendChild(tokenBtnGroup);
+      form.appendChild(tokenDisplay);
+
+      // Expiry info (if available)
+      if (this.#authOAuth2.expiresAt) {
+        const expiryEl = document.createElement("div");
+        expiryEl.className = "auth-field__hint";
+        const remaining = Math.max(0, Math.floor((this.#authOAuth2.expiresAt - Date.now()) / 1000));
+        if (remaining > 0) {
+          expiryEl.textContent = `Expires in ~${remaining}s`;
+        } else {
+          expiryEl.textContent = "⚠ Token may be expired";
+          expiryEl.style.color = "var(--color-error, #f38ba8)";
+        }
+        form.appendChild(expiryEl);
+      }
     }
 
     // ── Get Token button ───────────────────────────────────────────────────
