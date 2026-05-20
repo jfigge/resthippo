@@ -393,6 +393,9 @@ export class TreeView {
 
     input.addEventListener("blur", commit, { once: true });
     input.addEventListener("keydown", (e) => {
+      // Stop propagation so row-level keydown handlers (which preventDefault on
+      // Space and Enter) don't interfere with typing inside the rename input.
+      e.stopPropagation();
       if (e.key === "Enter") {
         e.preventDefault();
         input.blur(); // triggers blur → commit
