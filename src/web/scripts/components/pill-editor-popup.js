@@ -144,7 +144,6 @@ export class PillEditorPopup {
 
   #variableBodyHtml(_varName) {
     return `
-      <div class="pill-editor-error" role="alert" aria-live="polite"></div>
       <span class="pill-editor-type-label">Select Variable</span>
       <div class="pill-editor-var-suggestions" role="listbox" aria-label="Available variables" tabindex="0"></div>
     `;
@@ -232,7 +231,6 @@ export class PillEditorPopup {
 
   #selectVar(name) {
     this.#selectedVarName = name;
-    this.#clearError();
     this.#updatePreview();
     for (const el of this.#suggestionsEl.querySelectorAll(".pill-editor-var-item")) {
       const active = el.dataset.varName === name;
@@ -301,13 +299,8 @@ export class PillEditorPopup {
 
   #tryCommit() {
     if (this.#type === "variable") {
-      const name = this.#selectedVarName;
-      if (!name) {
-        this.#showError("Select a variable");
-        return;
-      }
       PopupManager.close();
-      this.#onCommit?.(`{{${name}}}`);
+      this.#onCommit?.(`{{${this.#selectedVarName}}}`);
 
     } else if (this.#type === "function") {
       const args     = this.#getParamArgs();
@@ -361,11 +354,6 @@ export class PillEditorPopup {
   }
 
   // ── Error ──────────────────────────────────────────────────────────────────
-
-  #showError(msg) {
-    if (!this.#errorEl) return;
-    this.#errorEl.textContent = msg;
-  }
 
   #clearError() {
     if (!this.#errorEl) return;

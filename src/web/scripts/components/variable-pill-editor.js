@@ -79,6 +79,7 @@ export class VariablePillEditor {
     el.setAttribute("aria-label", ariaLabel || placeholder);
     el.addEventListener("input",   () => this.#onEditorInput());
     el.addEventListener("keydown", (e) => this.#onKeyDown(e));
+    el.addEventListener("copy",    (e) => this.#onCopy(e));
     el.addEventListener("paste",   (e) => this.#onPaste(e));
     el.addEventListener("drop",    (e) => this.#onDrop(e));
     el.addEventListener("blur",    () => this.#closePicker());
@@ -547,9 +548,68 @@ export class VariablePillEditor {
         return;
       }
     }
+
+    // Arrow navigation: ZWS guard nodes are invisible but still occupy cursor
+    // positions, causing an extra keypress to cross them.  When the cursor is
+    // inside a ZWS-only guard node adjacent to a pill, skip it in one step.
+    if (e.key === "ArrowLeft" && range.collapsed) {
+      const { startContainer, startOffset } = range;
+      if (
+        startOffset > 0 &&
+        startContainer.nodeType === Node.TEXT_NODE &&
+        this.#el.contains(startContainer) &&
+        startContainer.textContent.replace(/​/g, "") === "" &&
+        startContainer.previousSibling?.classList?.contains("variable-pill")
+      ) {
+        e.preventDefault();
+        const pill     = startContainer.previousSibling;
+        const prevPrev = pill.previousSibling;
+        const nr       = document.createRange();
+        if (prevPrev?.nodeType === Node.TEXT_NODE) {
+          nr.setStart(prevPrev, prevPrev.textContent.length);
+        } else {
+          nr.setStart(this.#el, [...this.#el.childNodes].indexOf(pill));
+        }
+        nr.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(nr);
+        return;
+      }
+    }
+
+    if (e.key === "ArrowRight" && range.collapsed) {
+      const { startContainer, startOffset } = range;
+      if (
+        startOffset < startContainer.textContent.length &&
+        startContainer.nodeType === Node.TEXT_NODE &&
+        this.#el.contains(startContainer) &&
+        startContainer.textContent.replace(/​/g, "") === "" &&
+        startContainer.nextSibling?.classList?.contains("variable-pill")
+      ) {
+        e.preventDefault();
+        const pill     = startContainer.nextSibling;
+        const nextNext = pill.nextSibling;
+        const nr       = document.createRange();
+        if (nextNext?.nodeType === Node.TEXT_NODE) {
+          nr.setStart(nextNext, 0);
+        } else {
+          nr.setStart(this.#el, [...this.#el.childNodes].indexOf(pill) + 1);
+        }
+        nr.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(nr);
+        return;
+      }
+    }
   }
 
-  // ── Paste / drop ──────────────────────────────────────────────────────────
+  // ── Copy / paste / drop ───────────────────────────────────────────────────
+
+  #onCopy(e) {
+    e.preventDefault();
+    const text = window.getSelection()?.toString() ?? "";
+    e.clipboardData.setData("text/plain", text.replace(/​/g, ""));
+  }
 
   #onPaste(e) {
     e.preventDefault();

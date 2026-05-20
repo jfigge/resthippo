@@ -6,7 +6,7 @@
 
 import { parse as parseYaml, stringify as stringifyYaml } from "../vendor/yaml.js";
 import { VariablePillEditor } from "./variable-pill-editor.js";
-import { resolveString, resolveStringAsync, collectTemplateVariables } from "./variable-resolver.js";
+import { resolveString, resolveStringAsync, collectTemplateVariables, tokenize } from "./variable-resolver.js";
 import { PopupManager } from "../popup-manager.js";
 import Prism from "../vendor/prism.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
@@ -3293,22 +3293,41 @@ export class RequestEditor {
   }
 
   /** Assemble the URL string with enabled query parameters appended. */
-  #buildPreviewUrl() {
-    const base    = this.#url ?? "";
+  async #buildPreviewUrl() {
+    const ctx = this.#variableContext;
+
+    // Resolve each {{…}} token in the URL individually and percent-encode the
+    // resolved value so special chars (spaces, commas, …) don't corrupt the URL,
+    // while leaving the literal URL structure (://, /, ?, =, &) untouched.
+    const urlParts = await Promise.all(
+      tokenize(this.#url ?? "").map(async tok => {
+        if (tok.type === "text") return tok.content;
+        const raw      = `{{${tok.content}}}`;
+        const resolved = await resolveStringAsync(raw, ctx);
+        return resolved === raw ? raw : encodeURIComponent(resolved);
+      })
+    );
+    const base = urlParts.join("");
+
     const enabled = this.#params.filter(p => p.enabled && p.name.trim());
     if (!enabled.length) return base;
-    const qs = enabled
-      .map(p => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`)
-      .join("&");
+    const pairs = await Promise.all(
+      enabled.map(async p => {
+        const name  = await resolveStringAsync(p.name,  ctx);
+        const value = await resolveStringAsync(p.value, ctx);
+        return `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
+      })
+    );
+    const qs = pairs.join("&");
     return base + (base.includes("?") ? "&" : "?") + qs;
   }
 
   /** Refresh the preview bar's visibility and text content. */
-  #updateUrlPreview() {
+  async #updateUrlPreview() {
     if (!this.#urlPreviewEl) return;
     this.#urlPreviewEl.classList.toggle("params-url-preview--hidden", !this.#urlPreviewEnabled);
     if (this.#urlPreviewInputEl) {
-      this.#urlPreviewInputEl.value = this.#buildPreviewUrl();
+      this.#urlPreviewInputEl.value = await this.#buildPreviewUrl();
     }
   }
 

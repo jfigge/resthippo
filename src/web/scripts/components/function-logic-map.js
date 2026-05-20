@@ -1,0 +1,77 @@
+"use strict";
+
+import { invokeBackend } from "./function-backend.js";
+
+// Simple dot-path jq evaluator for the common REST subset.
+// Handles: .field  .field.nested  .[0]  .
+// Delegates anything else to the backend.
+function _simpleJq(jsonStr, query) {
+  const q = query.trim();
+  if (q === ".") {
+    const data = JSON.parse(jsonStr);
+    return typeof data === "string" ? data : JSON.stringify(data);
+  }
+  if (!/^(\.[a-zA-Z_][a-zA-Z0-9_]*|\.\[\d+\])+$/.test(q)) {
+    return null; // not a simple query — caller falls back to backend
+  }
+  let val = JSON.parse(jsonStr);
+  for (const seg of q.match(/\.[a-zA-Z_][a-zA-Z0-9_]*|\.\[\d+\]/g) ?? []) {
+    if (seg.startsWith(".[")) {
+      val = val?.[parseInt(seg.slice(2, -1), 10)];
+    } else {
+      val = val?.[seg.slice(1)];
+    }
+  }
+  if (val === undefined || val === null) return "";
+  if (typeof val === "string") return val;
+  return JSON.stringify(val);
+}
+
+export const logicMap = {
+  // ── built-in (synchronous) ──────────────────────────────────────────────
+  uuid: (_args, _ctx) => crypto.randomUUID(),
+
+  now: ([fmt = "ISO"], _ctx) => {
+    const d = new Date();
+    if (fmt === "Unix")    return String(Math.floor(d.getTime() / 1000));
+    if (fmt === "UnixMs")  return String(d.getTime());
+    if (fmt === "RFC2822") return d.toUTCString();
+    return d.toISOString();
+  },
+
+  base64encode: ([v = ""], _ctx) => btoa(String(v)),
+  base64decode: ([v = ""], _ctx) => atob(String(v)),
+  urlEncode:    ([v = ""], _ctx) => encodeURIComponent(String(v)),
+  urlDecode:    ([v = ""], _ctx) => decodeURIComponent(String(v)),
+
+  randomInt: ([min = "0", max = "100"], _ctx) => {
+    const lo = Number(min);
+    const hi = Number(max);
+    return String(Math.floor(Math.random() * (hi - lo + 1)) + lo);
+  },
+
+  // ── context (synchronous — reads from ctx) ──────────────────────────────
+  folderName:  ([depth = "0"], ctx) => ctx?.folderChain?.[Number(depth)]?.name ?? "",
+  envName:     (_args, ctx)         => ctx?.envName     ?? "",
+  requestName: (_args, ctx)         => ctx?.requestName ?? "",
+
+  // ── request-output (synchronous — reads from response cache) ────────────
+  response:       ([name = ""], ctx) => ctx?.responseCache?.[name]                         ?? "",
+  responseHeader: ([req = "", hdr = ""], ctx) => ctx?.responseHeaders?.[req]?.[hdr.toLowerCase()] ?? "",
+  responseStatus: ([name = ""], ctx) => ctx?.responseStatus?.[name]                        ?? "",
+
+  // ── backend (async — delegated to Go / Node IPC) ────────────────────────
+  jq: ([jsonStr = "", query = "."], _ctx) => {
+    try {
+      const simple = _simpleJq(jsonStr, query);
+      if (simple !== null) return simple;
+    } catch { /* fall through to backend */ }
+    return invokeBackend("jq", { json: jsonStr, query });
+  },
+
+  hmac: ([algo = "SHA256", key = "", message = ""], _ctx) =>
+    invokeBackend("hmac", { algo, key, message }),
+
+  hash: ([algo = "SHA256", value = ""], _ctx) =>
+    invokeBackend("hash", { algo, value }),
+};
