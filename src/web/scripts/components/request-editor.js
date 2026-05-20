@@ -1397,7 +1397,7 @@ export class RequestEditor {
 
       const clearSessionBtn = document.createElement("button");
       clearSessionBtn.type      = "button";
-      clearSessionBtn.className = "body-file-reset-btn auth-clear-session-btn";
+      clearSessionBtn.className = "body-file-reset-btn";
       clearSessionBtn.textContent = "Clear Session";
       clearSessionBtn.title =
         "Clear stored token and — in Electron — erase all session cookies and browser storage " +
@@ -3853,7 +3853,11 @@ export class RequestEditor {
           }
 
           // ── Inject bearer token ──────────────────────────────────────────
-          const _prefix = this.#authOAuth2.headerPrefix?.trim() || "Bearer";
+          // Read the prefix from the live DOM input (name="wurl-auth-header-prefix")
+          // first — this covers any value typed but not yet committed to state —
+          // then fall back to the in-memory state, then to the "Bearer" default.
+          const _prefixEl = this.#el.querySelector('[name="wurl-auth-header-prefix"]');
+          const _prefix   = (_prefixEl?.value?.trim() || this.#authOAuth2.headerPrefix?.trim()) || "Bearer";
           headers["Authorization"] = `${_prefix} ${_oauthResult.accessToken}`;
 
           // Keep local auth state in sync (token display + expiry badge).
