@@ -1,3 +1,5 @@
+
+
 /**
  * auth/flows/implicit.js
  *
@@ -55,8 +57,10 @@ export async function implicitFlow(config) {
     state,
   };
 
-  if (config.scope?.trim())  authParams.scope  = config.scope.trim();
-  if (config.nonce?.trim())  authParams.nonce  = config.nonce.trim();
+  if (config.scope?.trim())    authParams.scope    = config.scope.trim();
+  if (config.nonce?.trim())    authParams.nonce    = config.nonce.trim();
+  if (config.audience?.trim()) authParams.audience = config.audience.trim();
+  if (config.resource?.trim()) authParams.resource = config.resource.trim();
 
   // Advanced / extra params
   if (config.extraParams && typeof config.extraParams === "object") {

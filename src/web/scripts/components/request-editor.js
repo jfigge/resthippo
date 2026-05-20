@@ -1298,7 +1298,17 @@ export class RequestEditor {
         }));
       }
 
-      // State — authorization_code, implicit
+        // Redirect URI — authorization_code and implicit
+        if (["authorization_code", "implicit"].includes(grant)) {
+            form.appendChild(this.#buildAuthField("Redirect URI", "url", {
+                placeholder: "http://localhost:7777/oauth/callback",
+                value:       this.#authOAuth2.redirectUri ?? "",
+                onInput:     (v) => { this.#authOAuth2.redirectUri = v; this.#dispatchAuthUpdated(); },
+                hint:        "Callback URL registered with your OAuth provider (intercepted by Electron)",
+            }));
+        }
+
+        // State — authorization_code, implicit
       if (["authorization_code", "implicit"].includes(grant)) {
         form.appendChild(this.#buildAuthField("State", "text", {
           placeholder: "Random string for CSRF protection",
@@ -1342,16 +1352,6 @@ export class RequestEditor {
           placeholder: "https://app.example.com",
           value:       this.#authOAuth2.origin ?? "",
           onInput:     (v) => { this.#authOAuth2.origin = v; this.#dispatchAuthUpdated(); },
-        }));
-      }
-
-      // Redirect URI — authorization_code and implicit
-      if (["authorization_code", "implicit"].includes(grant)) {
-        form.appendChild(this.#buildAuthField("Redirect URI", "url", {
-          placeholder: "http://localhost:7777/oauth/callback",
-          value:       this.#authOAuth2.redirectUri ?? "",
-          onInput:     (v) => { this.#authOAuth2.redirectUri = v; this.#dispatchAuthUpdated(); },
-          hint:        "Callback URL registered with your OAuth provider (intercepted by Electron)",
         }));
       }
 
