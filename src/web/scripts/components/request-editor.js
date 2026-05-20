@@ -1727,6 +1727,9 @@ export class RequestEditor {
 
     #dispatchAuthUpdated() {
     if (!this.#currentNodeId) return;
+    // Exclude runtime-only token fields — acquired tokens must not be persisted.
+    // eslint-disable-next-line no-unused-vars
+    const { token: _t, refreshToken: _rt, expiresAt: _ea, ...oauth2Persisted } = this.#authOAuth2;
     window.dispatchEvent(new CustomEvent("wurl:request-updated", {
       detail: {
         id:          this.#currentNodeId,
@@ -1734,7 +1737,7 @@ export class RequestEditor {
         authType:    this.#authType,
         authBasic:   { ...this.#authBasic },
         authBearer:  { ...this.#authBearer },
-        authOAuth2:  { ...this.#authOAuth2 },
+        authOAuth2:  oauth2Persisted,
         authAwsIam:  { ...this.#authAwsIam },
       },
       bubbles: true,
@@ -4131,6 +4134,10 @@ export class RequestEditor {
       // Merge saved fields — default advanced fields to empty string / known defaults.
       // OIDC discovery fields are restored from the persisted node data so previously
       // discovered configurations survive a request reload.
+      // Runtime-only token fields (token, refreshToken, expiresAt) are intentionally
+      // excluded from the spread so previously-persisted tokens are never restored.
+      // eslint-disable-next-line no-unused-vars
+      const { token: _t, refreshToken: _rt, expiresAt: _ea, ...savedOAuth2 } = node.authOAuth2;
       this.#authOAuth2 = {
         grantType:           "client_credentials",
         clientType:          "confidential",
@@ -4154,7 +4161,7 @@ export class RequestEditor {
         password:            "",
         discoveredIssuer:    "",
         discoveredScopes:    null,
-        ...node.authOAuth2,
+        ...savedOAuth2,
       };
     }
     if (node.authAwsIam) this.#authAwsIam = { ...this.#authAwsIam, ...node.authAwsIam };
