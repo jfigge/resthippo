@@ -1406,6 +1406,37 @@ export class RequestEditor {
         }
         form.appendChild(expiryEl);
       }
+
+      // ── Clear Session button ───────────────────────────────────────────
+      const clearSessionBtn = document.createElement("button");
+      clearSessionBtn.type      = "button";
+      clearSessionBtn.className = "body-file-reset-btn auth-clear-session-btn";
+      clearSessionBtn.textContent = "Clear Session";
+      clearSessionBtn.title =
+        "Clear stored token and — in Electron — erase all session cookies and browser storage " +
+        "so the next login flow starts fresh.";
+      clearSessionBtn.addEventListener("click", async () => {
+        // Clear token state and executor cache
+        this.#authOAuth2.token        = "";
+        this.#authOAuth2.refreshToken = "";
+        this.#authOAuth2.expiresAt    = null;
+        oauthExecutor.clearToken(this.#authOAuth2);
+
+        // Clear Electron session (cookies, localStorage, cache, …)
+        if (typeof window.wurl?.oauth?.clearSession === "function") {
+          clearSessionBtn.disabled    = true;
+          clearSessionBtn.textContent = "Clearing…";
+          try {
+            await window.wurl.oauth.clearSession();
+          } catch (err) {
+            console.warn("[oauth] clearSession failed:", err.message);
+          }
+        }
+
+        this.#renderAuthContent();
+        this.#dispatchAuthUpdated();
+      });
+      form.appendChild(clearSessionBtn);
     }
 
     // ── Get Token button ───────────────────────────────────────────────────
@@ -3688,7 +3719,7 @@ export class RequestEditor {
     }
 
   // ── Send ─────────────────────────────────────────────────────────────────
-  #sendRequest(force = false) {
+  async #sendRequest(force = false) {
     const rawUrl = this.#urlPillEditor.getValue().trim();
     if (!rawUrl) { this.#urlPillEditor.focus(); return; }
 
@@ -3763,18 +3794,67 @@ export class RequestEditor {
             headers["Authorization"] = `Bearer ${rv(this.#authBearer.token)}`;
           break;
         case "oauth2": {
-          // Use the stored token if present; the user can click "Get Token" to
-          // acquire one before sending.  Auto-acquire is intentionally not done
-          // here because flows like Authorization Code require a popup window
-          // which cannot safely run inline during a request dispatch.  The
-          // executor *will* use cached tokens and attempt a silent refresh for
-          // flows that don't require user interaction (client_credentials,
-          // password, refresh_token).
-          const oauthToken = this.#authOAuth2.token ?? "";
-          if (oauthToken) {
-            const prefix = this.#authOAuth2.headerPrefix?.trim() || "Bearer";
-            headers["Authorization"] = `${prefix} ${rv(oauthToken)}`;
+          // ── User-supplied Authorization header wins ──────────────────────
+          // If the user explicitly added a non-blank Authorization header in
+          // the Headers tab, respect that value and skip all token acquisition.
+          const _userAuthKey = Object.keys(headers).find(
+            (k) => k.toLowerCase() === "authorization",
+          );
+          if (_userAuthKey && headers[_userAuthKey]?.trim()) break;
+
+          // ── Signal loading while the OAuth flow runs ─────────────────────
+          // This turns the Send button into "Stop" immediately so the user
+          // can cancel a long-running popup before the request fires.
+          window.dispatchEvent(new CustomEvent("wurl:request-loading"));
+
+          // ── Acquire token (cache → refresh → full flow) ──────────────────
+          let _oauthResult;
+          try {
+            _oauthResult = await oauthExecutor.acquireToken({ ...this.#authOAuth2 });
+          } catch (err) {
+            window.dispatchEvent(new CustomEvent("wurl:request-error", {
+              detail: {
+                request:    { method: this.#method, url: finalUrl, headers: {}, body: null },
+                name:       "OAuthError",
+                message:    err?.message ?? String(err),
+                hint:       "OAuth token acquisition failed before the request could be sent.",
+                elapsed:    0,
+                consoleLog: [`* OAuth error: ${err?.message ?? err}`],
+              },
+            }));
+            return;
           }
+
+          // ── Guard: user clicked Stop while the popup / token request was in flight ──
+          if (!this._requestInFlight) return;
+
+          // ── Handle flow failure ──────────────────────────────────────────
+          if (!_oauthResult.success || !_oauthResult.accessToken) {
+            const _errCode = _oauthResult.error?.code ?? "OAuthError";
+            const _errMsg  = _oauthResult.error?.description ?? _errCode;
+            window.dispatchEvent(new CustomEvent("wurl:request-error", {
+              detail: {
+                request:    { method: this.#method, url: finalUrl, headers: {}, body: null },
+                name:       _errCode,
+                message:    _errMsg,
+                hint:       "OAuth token acquisition failed. Check your OAuth configuration in the Auth tab.",
+                elapsed:    0,
+                consoleLog: [`* OAuth ${_errCode}: ${_errMsg}`],
+              },
+            }));
+            return;
+          }
+
+          // ── Inject bearer token ──────────────────────────────────────────
+          const _prefix = this.#authOAuth2.headerPrefix?.trim() || "Bearer";
+          headers["Authorization"] = `${_prefix} ${_oauthResult.accessToken}`;
+
+          // Keep local auth state in sync (token display + expiry badge).
+          this.#authOAuth2.token        = _oauthResult.accessToken;
+          this.#authOAuth2.refreshToken = _oauthResult.refreshToken ?? this.#authOAuth2.refreshToken ?? "";
+          this.#authOAuth2.expiresAt    = _oauthResult.expiresAt    ?? this.#authOAuth2.expiresAt;
+          this.#renderAuthContent();
+          this.#dispatchAuthUpdated();
           break;
         }
         // aws-iam: Signature v4 requires request-time signing — not yet implemented

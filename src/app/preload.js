@@ -163,6 +163,13 @@ contextBridge.exposeInMainWorld("wurl", {
   oauth: {
     openPopup: (authUrl, redirectUri, title) =>
       ipcRenderer.invoke("oauth:open-popup", { authUrl, redirectUri, title }),
+    /**
+     * Clear all Electron session storage (cookies, localStorage, cache, …)
+     * so the next OAuth login flow starts with a completely fresh browser session.
+     * No-op in dev-server / plain-browser context.
+     * @returns {Promise<void>}
+     */
+    clearSession: () => ipcRenderer.invoke("oauth:clear-session"),
   },
 
   /**

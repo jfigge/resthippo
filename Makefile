@@ -119,7 +119,7 @@ build-server: build-setup
     		-o ../../${APP_NAME} ./cmd
 	@echo "--------------------------------"
 
-build-electron: build-mac build-linux build-win
+build-electron: build-mac # build-linux build-win
 	@rm -rf ${DIST_DIR} || true
 	@mkdir -p ${DIST_DIR}
 	@mv ${BUILD_DIR}/src/dist/* ${DIST_DIR}/ || true

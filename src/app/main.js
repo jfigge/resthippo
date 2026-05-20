@@ -1,7 +1,7 @@
 // main.js — Electron main process for wurl
 "use strict";
 
-const { app, BrowserWindow, WebContentsView, ipcMain, shell, Menu, nativeImage } = require("electron");
+const { app, BrowserWindow, WebContentsView, ipcMain, shell, Menu, nativeImage, session } = require("electron");
 const fs           = require("fs");
 const path         = require("path");
 const http         = require("http");
@@ -577,6 +577,35 @@ function safeCall(channel, fn, fallback = null) {
         _finish({ url: null, cancelled: true });
       });
     });
+  });
+
+  /**
+   * Clear the default Electron session's storage data and cache.
+   *
+   * Erases all cookies, localStorage, sessionStorage, IndexedDB entries, and
+   * the network cache that may be holding an authenticated IdP session.  After
+   * calling this, the next OAuth authorization-code / implicit flow will present
+   * a fresh login page rather than silently re-using a cached session.
+   */
+  ipcMain.handle("oauth:clear-session", async () => {
+    try {
+      await session.defaultSession.clearStorageData({
+        storages: [
+          "cookies",
+          "sessionstorage",
+          "localstorage",
+          "indexdb",
+          "shadercache",
+          "websql",
+          "serviceworkers",
+          "cachestorage",
+        ],
+      });
+      await session.defaultSession.clearCache();
+      console.log("[oauth] Session cleared");
+    } catch (err) {
+      console.error("[oauth] clearSession error:", err.message);
+    }
   });
 })();
 
