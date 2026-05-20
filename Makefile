@@ -74,7 +74,7 @@ lint-go:
 	@echo --------------------------------
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-go test-js
+test: test-go test-js test-oauth
 
 test-go:
 	@echo "Running Go tests..."
@@ -84,6 +84,11 @@ test-go:
 test-js:
 	@echo "Running JavaScript store tests..."
 	@node --test $(APP_DIR)/store/tests/stores.test.js
+	@echo "--------------------------------"
+
+test-oauth:
+	@echo "Running OAuth 2.0 unit tests..."
+	@node --experimental-vm-modules $(WEB_DIR)/scripts/auth/tests/oauth.test.js
 	@echo "--------------------------------"
 
 # ─── Development ──────────────────────────────────────────────────────────────
@@ -180,6 +185,8 @@ dist-win:
 	@echo "Building Windows distribution..."
 	@npx electron-builder --win --publish never
 
+
+
 # ─── Clean ────────────────────────────────────────────────────────────────────
 clean:
 	@echo "Cleaning build artifacts..."
@@ -210,7 +217,10 @@ help:
 	@echo "    vendor-prism  Bundle Prism.js → web/scripts/vendor/prism.js"
 	@echo "    fmt           Format JS/CSS/HTML (prettier) and Go (gofmt)"
 	@echo "    lint          Lint JS (eslint) and Go (golangci-lint / go vet)"
-	@echo "    test          Run all Go + JavaScript tests"
+	@echo "    test          Run all Go + JavaScript + OAuth tests"
+	@echo "    test-go       Run Go tests only"
+	@echo "    test-js       Run JavaScript store tests only"
+	@echo "    test-oauth    Run OAuth 2.0 unit tests only"
 	@echo "    clean         Remove build and dist directories"
 	@echo "    version       Print version string"
 	@echo "    info          Print full build information"
@@ -221,11 +231,10 @@ help:
         install \
         fmt fmt-js fmt-go \
         lint lint-js lint-go \
-        test test-go test-js \
+        test test-go test-js test-oauth \
         dev dev-server dev-electron \
         build build-server build-electron build-mac build-linux build-win \
         dist dist-mac dist-linux dist-win \
         vendor-yaml \
         vendor-prism \
         clean help
-

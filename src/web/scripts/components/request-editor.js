@@ -9,6 +9,7 @@ import { VariablePillEditor } from "./variable-pill-editor.js";
 import { resolveString, collectTemplateVariables } from "./variable-resolver.js";
 import { PopupManager } from "../popup-manager.js";
 import Prism from "../vendor/prism.js";
+import { oauthExecutor } from "../auth/oauth-executor.js";
 
 
 // Standard HTTP request headers offered in the header-name combo box.
@@ -740,6 +741,8 @@ export class RequestEditor {
     authUrl:        "",
     scope:          "",
     token:          "",
+    refreshToken:   "",                  // stored refresh token
+    expiresAt:      null,                // ms timestamp when stored token expires (null = unknown)
     // Advanced fields
     state:          "",
     credentials:    "header",        // "header" | "body"
@@ -747,7 +750,10 @@ export class RequestEditor {
     audience:       "",
     resource:       "",
     origin:         "",
+    redirectUri:    "",                  // OAuth redirect URI (default handled by executor)
     responseType:   "access_token",  // implicit only: "access_token" | "id_token" | "both"
+    username:       "",              // resource owner password only
+    password:       "",              // resource owner password only
     discoveredIssuer: "",             // last issuer URL used for discovery — pre-fills dialog
     discoveredScopes: null,           // string[] from last successful discovery, or null = DEFAULT_SCOPES
   };
@@ -1339,6 +1345,16 @@ export class RequestEditor {
         }));
       }
 
+      // Redirect URI — authorization_code and implicit
+      if (["authorization_code", "implicit"].includes(grant)) {
+        form.appendChild(this.#buildAuthField("Redirect URI", "url", {
+          placeholder: "http://localhost:7777/oauth/callback",
+          value:       this.#authOAuth2.redirectUri ?? "",
+          onInput:     (v) => { this.#authOAuth2.redirectUri = v; this.#dispatchAuthUpdated(); },
+          hint:        "Callback URL registered with your OAuth provider (intercepted by Electron)",
+        }));
+      }
+
       // Header Prefix — all grant types, kept last so its hint text sits at the bottom
       form.appendChild(this.#buildAuthField("Header Prefix", "text", {
         placeholder: "Bearer",
@@ -1365,14 +1381,81 @@ export class RequestEditor {
       clearBtn.className = "body-file-reset-btn";
       clearBtn.textContent = "Clear Token";
       clearBtn.addEventListener("click", () => {
-        this.#authOAuth2.token = "";
+        this.#authOAuth2.token       = "";
+        this.#authOAuth2.refreshToken = "";
+        this.#authOAuth2.expiresAt    = null;
+        // Also clear from executor cache
+        oauthExecutor.clearToken(this.#authOAuth2);
         this.#renderAuthContent();
         this.#dispatchAuthUpdated();
       });
       tokenDisplay.appendChild(tokenValue);
       tokenDisplay.appendChild(clearBtn);
       form.appendChild(tokenDisplay);
+
+      // Expiry info (if available)
+      if (this.#authOAuth2.expiresAt) {
+        const expiryEl = document.createElement("div");
+        expiryEl.className = "auth-field__hint";
+        const remaining = Math.max(0, Math.floor((this.#authOAuth2.expiresAt - Date.now()) / 1000));
+        if (remaining > 0) {
+          expiryEl.textContent = `Expires in ~${remaining}s`;
+        } else {
+          expiryEl.textContent = "⚠ Token may be expired";
+          expiryEl.style.color = "var(--color-error, #f38ba8)";
+        }
+        form.appendChild(expiryEl);
+      }
     }
+
+    // ── Get Token button ───────────────────────────────────────────────────
+    const getTokenRow = document.createElement("div");
+    getTokenRow.className = "auth-get-token-row";
+
+    const getTokenBtn = document.createElement("button");
+    getTokenBtn.type      = "button";
+    getTokenBtn.className = "params-delete-all-btn auth-get-token-btn";
+    getTokenBtn.textContent = this.#authOAuth2.token ? "Refresh Token" : "Get Token";
+    getTokenBtn.title = "Acquire an OAuth 2.0 access token using the configured settings";
+
+    const tokenStatusEl = document.createElement("span");
+    tokenStatusEl.className = "auth-token-status";
+
+    getTokenBtn.addEventListener("click", async () => {
+      getTokenBtn.disabled    = true;
+      getTokenBtn.textContent = "Fetching…";
+      tokenStatusEl.textContent = "";
+      tokenStatusEl.className = "auth-token-status";
+
+      try {
+        const result = await oauthExecutor.forceRefresh({ ...this.#authOAuth2 });
+
+        if (result.success && result.accessToken) {
+          this.#authOAuth2.token        = result.accessToken;
+          this.#authOAuth2.refreshToken = result.refreshToken ?? "";
+          this.#authOAuth2.expiresAt    = result.expiresAt    ?? null;
+          tokenStatusEl.textContent = "✓ Token acquired";
+          tokenStatusEl.className   = "auth-token-status auth-token-status--ok";
+        } else {
+          const msg = result.error?.description ?? result.error?.code ?? "Unknown error";
+          tokenStatusEl.textContent = `✗ ${msg}`;
+          tokenStatusEl.className   = "auth-token-status auth-token-status--error";
+        }
+      } catch (err) {
+        tokenStatusEl.textContent = `✗ ${err.message}`;
+        tokenStatusEl.className   = "auth-token-status auth-token-status--error";
+      } finally {
+        getTokenBtn.disabled    = false;
+        getTokenBtn.textContent = this.#authOAuth2.token ? "Refresh Token" : "Get Token";
+      }
+
+      this.#renderAuthContent();
+      this.#dispatchAuthUpdated();
+    });
+
+    getTokenRow.appendChild(getTokenBtn);
+    getTokenRow.appendChild(tokenStatusEl);
+    form.appendChild(getTokenRow);
 
     el.appendChild(form);
     }
@@ -3679,10 +3762,21 @@ export class RequestEditor {
           if (this.#authBearer.token)
             headers["Authorization"] = `Bearer ${rv(this.#authBearer.token)}`;
           break;
-        case "oauth2":
-          if (this.#authOAuth2.token)
-            headers["Authorization"] = `Bearer ${rv(this.#authOAuth2.token)}`;
+        case "oauth2": {
+          // Use the stored token if present; the user can click "Get Token" to
+          // acquire one before sending.  Auto-acquire is intentionally not done
+          // here because flows like Authorization Code require a popup window
+          // which cannot safely run inline during a request dispatch.  The
+          // executor *will* use cached tokens and attempt a silent refresh for
+          // flows that don't require user interaction (client_credentials,
+          // password, refresh_token).
+          const oauthToken = this.#authOAuth2.token ?? "";
+          if (oauthToken) {
+            const prefix = this.#authOAuth2.headerPrefix?.trim() || "Bearer";
+            headers["Authorization"] = `${prefix} ${rv(oauthToken)}`;
+          }
           break;
+        }
         // aws-iam: Signature v4 requires request-time signing — not yet implemented
       }
     }
@@ -3955,12 +4049,15 @@ export class RequestEditor {
         authUrl:             "",
         scope:               "",
         token:               "",
+        refreshToken:        "",
+        expiresAt:           null,
         state:               "",
         credentials:         "header",
         headerPrefix:        "",
         audience:            "",
         resource:            "",
         origin:              "",
+        redirectUri:         "",
         responseType:        "access_token",
         username:            "",
         password:            "",

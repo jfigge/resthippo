@@ -1,0 +1,140 @@
+/**
+ * auth/types/oauth-types.js
+ *
+ * OAuth 2.0 / OpenID Connect type helpers for JavaScript.
+ * Provides factory functions, constants, and JSDoc type definitions.
+ */
+
+"use strict";
+
+// ── Grant type constants ─────────────────────────────────────────────────────
+
+/** RFC 6749 grant type string constants. */
+export const GrantType = Object.freeze({
+  CLIENT_CREDENTIALS: "client_credentials",
+  AUTHORIZATION_CODE: "authorization_code",
+  PASSWORD:           "password",
+  IMPLICIT:           "implicit",
+  REFRESH_TOKEN:      "refresh_token",
+  DEVICE_CODE:        "urn:ietf:params:oauth:grant-type:device_code",
+});
+
+/** How client credentials are transmitted to the token endpoint. */
+export const CredentialsMethod = Object.freeze({
+  HEADER: "header",  // Authorization: Basic base64(id:secret)
+  BODY:   "body",    // client_id / client_secret in request body
+});
+
+// ── OAuthResult factory ──────────────────────────────────────────────────────
+
+/**
+ * Create a normalised OAuthResult object.
+ *
+ * Shape:
+ * @typedef {object} OAuthResult
+ * @property {boolean}                  success       - Whether the flow succeeded
+ * @property {string|null}              accessToken   - Opaque access token (do not log)
+ * @property {string|null}              refreshToken  - Refresh token, if issued (do not log)
+ * @property {string|null}              idToken       - ID token (OpenID Connect), if present
+ * @property {number|null}              expiresIn     - Lifetime in seconds from the server
+ * @property {number|null}              expiresAt     - Absolute expiry as Date.now() + expiresIn*1000
+ * @property {string}                   tokenType     - Usually "Bearer"
+ * @property {string|null}              scope         - Space-separated granted scopes
+ * @property {import('./oauth-errors').OAuthError|null} error - Structured error when success=false
+ *
+ * @param {Partial<OAuthResult> & { success: boolean }} data
+ * @returns {OAuthResult}
+ */
+export function createOAuthResult(data) {
+  return {
+    success:      data.success      ?? false,
+    accessToken:  data.accessToken  ?? null,
+    refreshToken: data.refreshToken ?? null,
+    idToken:      data.idToken      ?? null,
+    expiresIn:    data.expiresIn    ?? null,
+    expiresAt:    data.expiresAt    ?? null,
+    tokenType:    data.tokenType    ?? "Bearer",
+    scope:        data.scope        ?? null,
+    error:        data.error        ?? null,
+  };
+}
+
+/**
+ * Build an OAuthResult from a successful token endpoint JSON response body.
+ *
+ * @param {object} body - Parsed JSON from the token endpoint
+ * @returns {OAuthResult}
+ */
+export function oauthResultFromTokenResponse(body) {
+  const expiresIn = body.expires_in != null ? Number(body.expires_in) : null;
+  const expiresAt = expiresIn != null ? Date.now() + expiresIn * 1_000 : null;
+
+  return createOAuthResult({
+    success:      true,
+    accessToken:  body.access_token  ?? null,
+    refreshToken: body.refresh_token ?? null,
+    idToken:      body.id_token      ?? null,
+    expiresIn,
+    expiresAt,
+    tokenType:    body.token_type ?? "Bearer",
+    scope:        body.scope      ?? null,
+  });
+}
+
+/**
+ * Build a failed OAuthResult directly from an OAuthError.
+ *
+ * @param {import('./oauth-errors').OAuthError} error
+ * @returns {OAuthResult}
+ */
+export function oauthResultFromError(error) {
+  return createOAuthResult({ success: false, error });
+}
+
+// ── OAuth config schema ──────────────────────────────────────────────────────
+
+/**
+ * Validate that a config object has the minimum required fields for the
+ * chosen grant type.  Returns the first validation error message or null.
+ *
+ * @param {object} config - authOAuth2 state from the request editor
+ * @returns {string|null}
+ */
+export function validateOAuthConfig(config) {
+  const g = config?.grantType;
+
+  if (!g) return "Grant type is required.";
+
+  if (g !== GrantType.IMPLICIT) {
+    if (!config.accessTokenUrl?.trim())
+      return "Access Token URL is required.";
+  }
+
+  switch (g) {
+    case GrantType.CLIENT_CREDENTIALS:
+      if (!config.clientId?.trim()) return "Client ID is required.";
+      break;
+
+    case GrantType.AUTHORIZATION_CODE:
+      if (!config.clientId?.trim())  return "Client ID is required.";
+      if (!config.authUrl?.trim())   return "Auth URL is required.";
+      break;
+
+    case GrantType.PASSWORD:
+      if (!config.clientId?.trim())  return "Client ID is required.";
+      if (!config.username?.trim())  return "Username is required.";
+      if (!config.password?.trim())  return "Password is required.";
+      break;
+
+    case GrantType.IMPLICIT:
+      if (!config.authUrl?.trim())   return "Auth URL is required.";
+      if (!config.clientId?.trim())  return "Client ID is required.";
+      break;
+
+    default:
+      return `Unsupported grant type: ${g}`;
+  }
+
+  return null; // valid
+}
+

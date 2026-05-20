@@ -1234,6 +1234,59 @@
   line-height: 1.5;
 }
 
+/* ── Get Token button row ────────────────────────────────────────────────── */
+
+.auth-get-token-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0 var(--space-2);
+  border-top: 1px solid var(--color-surface-2);
+  margin-top: var(--space-2);
+}
+
+.auth-get-token-btn {
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.auth-get-token-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  border-color: var(--color-accent);
+}
+
+.auth-get-token-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.auth-token-status {
+  font-size: var(--font-size-xs);
+  color: var(--color-subtext);
+}
+
+.auth-token-status--ok {
+  color: var(--color-success, #a6e3a1);
+}
+
+.auth-token-status--error {
+  color: var(--color-error, #f38ba8);
+}
+
 /* ── Discover button (in auth params-toolbar) ────────────────────────────── */
 
 .auth-discover-btn {
@@ -1285,7 +1338,7 @@
   font-size: var(--font-size-xs);
   background: var(--color-surface-1);
   padding: 1px 4px;
-  border-radius: var(--radius-xs, 3px);
+  border-radius: var(--radius-sm, 3px);
   color: var(--color-text);
 }
 
@@ -1325,9 +1378,9 @@
   margin-top: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-red) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-red) 40%, transparent);
-  color: var(--color-red);
+  background: color-mix(in srgb, var(--color-error) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-error) 40%, transparent);
+  color: var(--color-error);
   font-size: var(--font-size-sm);
   line-height: 1.5;
 }

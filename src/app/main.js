@@ -465,6 +465,121 @@ function safeCall(channel, fn, fallback = null) {
   });
 })();
 
+// ─── OAuth 2.0 Popup IPC ─────────────────────────────────────────────────────
+// Opens a BrowserWindow popup for OAuth authorization code / implicit flows.
+// The popup navigates to the IdP login page; when the IdP redirects back to
+// the registered redirect_uri the navigation is intercepted, the callback URL
+// is extracted, and the window is closed automatically.
+//
+// Returns: { url: string, cancelled: boolean }
+//   url       – the full callback URL (includes code= / token= etc.)
+//   cancelled – true when the user closes the window without completing login
+(function initOAuthIPC() {
+  /**
+   * Test whether a navigation URL matches the registered redirect URI.
+   * Handles both http:// and https:// redirect URIs.
+   *
+   * @param {string} navUrl      URL being navigated to
+   * @param {string} redirectUri Registered redirect URI
+   * @returns {boolean}
+   */
+  function _matchesRedirect(navUrl, redirectUri) {
+    if (!navUrl || !redirectUri) return false;
+    try {
+      const nav      = new URL(navUrl);
+      const redirect = new URL(redirectUri);
+      // urn: schemes (urn:ietf:wg:oauth:2.0:oob) cannot be matched via URL navigation
+      if (redirect.protocol === "urn:") return false;
+      const sameOrigin =
+        nav.protocol.toLowerCase() === redirect.protocol.toLowerCase() &&
+        nav.hostname.toLowerCase()  === redirect.hostname.toLowerCase() &&
+        nav.port                    === redirect.port;
+      const samePath =
+        nav.pathname === redirect.pathname ||
+        (redirect.pathname === "/" && (nav.pathname === "" || nav.pathname === "/"));
+      return sameOrigin && samePath;
+    } catch {
+      // Fallback for unusual URI schemes
+      return navUrl.startsWith(redirectUri);
+    }
+  }
+
+  ipcMain.handle("oauth:open-popup", (_event, { authUrl, redirectUri, title }) => {
+    return new Promise((resolve) => {
+      const popup = new BrowserWindow({
+        width:  860,
+        height: 720,
+        title:  title || "OAuth Authorization",
+        parent: _mainWin || undefined,
+        modal:  false,
+        webPreferences: {
+          contextIsolation: true,
+          nodeIntegration:  false,
+          sandbox:          true,
+          webSecurity:      true,
+        },
+        autoHideMenuBar: true,
+      });
+
+      let _resolved = false;
+
+      /**
+       * Resolve the pending promise and close the popup exactly once.
+       * @param {{ url: string|null, cancelled: boolean }} result
+       */
+      function _finish(result) {
+        if (_resolved) return;
+        _resolved = true;
+        try {
+          if (!popup.isDestroyed()) {
+            popup.webContents.stop();
+            popup.close();
+          }
+        } catch (_e) { /* already destroyed */ }
+        resolve(result);
+      }
+
+      // ── Intercept any navigation to the redirect URI (fires BEFORE request) ──
+      popup.webContents.on("will-navigate", (e, url) => {
+        if (_matchesRedirect(url, redirectUri)) {
+          e.preventDefault();
+          _finish({ url, cancelled: false });
+        }
+      });
+
+      // ── Intercept server-initiated redirects (3xx) ─────────────────────────
+      popup.webContents.on("will-redirect", (e, url) => {
+        if (_matchesRedirect(url, redirectUri)) {
+          e.preventDefault();
+          _finish({ url, cancelled: false });
+        }
+      });
+
+      // ── Catch successful navigations (e.g. custom protocol handlers) ───────
+      popup.webContents.on("did-navigate",         (_e, url) => { if (_matchesRedirect(url, redirectUri)) _finish({ url, cancelled: false }); });
+      popup.webContents.on("did-navigate-in-page", (_e, url) => { if (_matchesRedirect(url, redirectUri)) _finish({ url, cancelled: false }); });
+
+      // ── Catch failed loads — e.g. http://localhost redirect with no listener ─
+      // The browser will fail to connect to the localhost redirect, but the URL
+      // still contains the authorization code we need.
+      popup.webContents.on("did-fail-load", (_e, _code, _desc, validatedUrl) => {
+        if (_matchesRedirect(validatedUrl, redirectUri)) {
+          _finish({ url: validatedUrl, cancelled: false });
+        }
+      });
+
+      // ── User closed the window before completing login ─────────────────────
+      popup.on("closed", () => _finish({ url: null, cancelled: true }));
+
+      // ── Load the authorization URL ─────────────────────────────────────────
+      popup.loadURL(authUrl).catch((err) => {
+        console.error("[oauth:popup] loadURL error:", err.message);
+        _finish({ url: null, cancelled: true });
+      });
+    });
+  });
+})();
+
 // ─── HTML Preview IPC ─────────────────────────────────────────────────────────
 // Creates/manages a WebContentsView that overlays the response body pane and
 // loads the last request URL so the user sees a live browser preview.

@@ -209,7 +209,7 @@ type AuthBearer struct {
 // AuthOAuth2 holds OAuth 2.0 authentication configuration.
 type AuthOAuth2 struct {
 	GrantType      string `json:"grantType"`
-	ClientType     string `json:"clientType,omitempty"`  // "confidential" | "public" (authorization_code only)
+	ClientType     string `json:"clientType,omitempty"` // "confidential" | "public" (authorization_code only)
 	ClientID       string `json:"clientId"`
 	ClientSecret   string `json:"clientSecret"`
 	AccessTokenURL string `json:"accessTokenUrl"`
@@ -218,7 +218,7 @@ type AuthOAuth2 struct {
 	Token          string `json:"token"`
 
 	// Issuer URL last used for OIDC discovery — pre-fills the Discover dialog.
-	DiscoveredIssuer  string   `json:"discoveredIssuer,omitempty"`
+	DiscoveredIssuer string `json:"discoveredIssuer,omitempty"`
 	// Scopes returned by the last successful OIDC discovery — used as autocomplete
 	// suggestions in the Scope field instead of the built-in defaults.
 	DiscoveredScopes []string `json:"discoveredScopes,omitempty"`
@@ -226,7 +226,7 @@ type AuthOAuth2 struct {
 	// Advanced fields (shown when the Advanced toggle is enabled).
 	// Not all fields apply to every grant type; unused ones are simply ignored.
 	State        string `json:"state,omitempty"`
-	Credentials  string `json:"credentials,omitempty"`  // "header" | "body"
+	Credentials  string `json:"credentials,omitempty"` // "header" | "body"
 	HeaderPrefix string `json:"headerPrefix,omitempty"`
 	Audience     string `json:"audience,omitempty"`
 	Resource     string `json:"resource,omitempty"`

@@ -141,6 +141,31 @@ contextBridge.exposeInMainWorld("wurl", {
   },
 
   /**
+   * OAuth 2.0 popup authorization — opens a BrowserWindow that navigates to
+   * the IdP login page, intercepts the redirect callback, and returns the
+   * full callback URL that contains the authorization code / token.
+   *
+   * MUST only be called for flows that require a browser-based login page
+   * (Authorization Code, Implicit).  Machine-to-machine flows (Client
+   * Credentials, Resource Owner Password) call the token endpoint directly
+   * via window.wurl.http.execute and do not need a popup.
+   *
+   * Parameters:
+   *   authUrl     {string} — Full authorization URL (with all query params)
+   *   redirectUri {string} — The redirect_uri registered with the OAuth server
+   *   title       {string} — Optional window title
+   *
+   * Returns:
+   *   { url: string|null, cancelled: boolean }
+   *     url       — callback URL (with code= / token= in query / fragment)
+   *     cancelled — true when the user closed the window without completing
+   */
+  oauth: {
+    openPopup: (authUrl, redirectUri, title) =>
+      ipcRenderer.invoke("oauth:open-popup", { authUrl, redirectUri, title }),
+  },
+
+  /**
    * HTML response live-preview — overlays a WebContentsView on the response body
    * pane and loads the original request URL so the page renders natively.
    *
