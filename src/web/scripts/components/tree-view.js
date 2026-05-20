@@ -61,6 +61,15 @@ export class TreeView {
   /** @type {Function|null} — document-level dragover handler, cleaned up on dragend */
   #docDragOverHandler = null;
 
+  /** @type {Set<string>} — IDs of folders that are currently collapsed */
+  #collapsedIds = new Set();
+
+  /** @type {string|null} — localStorage key for persisting collapsed state, namespaced by env */
+  #storageKey = null;
+
+  /** @type {boolean} — when true, double-clicking a request loads and executes it */
+  #doubleClickExecute = false;
+
   /**
    * @param {object}   [opts]
    * @param {object[]} [opts.items]  - Initial tree data
@@ -140,6 +149,24 @@ export class TreeView {
    */
   setEnvVariables(vars) {
     this.#envVariables = (vars && typeof vars === "object") ? vars : {};
+  }
+
+  /**
+   * Set the localStorage namespace key for persisting folder collapsed state.
+   * Call this before setItems() whenever the active environment changes.
+   * @param {string|null} key
+   */
+  setStorageKey(key) {
+    this.#storageKey = key ?? null;
+    this.#collapsedIds = new Set(this.#loadCollapsedState());
+  }
+
+  /**
+   * Enable or disable the double-click-to-execute behaviour for request rows.
+   * @param {boolean} enabled
+   */
+  setDoubleClickExecute(enabled) {
+    this.#doubleClickExecute = !!enabled;
   }
 
   // ── Toolbar ─────────────────────────────────────────────────────────────
@@ -344,9 +371,13 @@ export class TreeView {
       method: "GET",
       url: "",
     };
+    this.#collapsedIds.delete(collectionId);
+    this.#saveCollapsedState();
     this.#items = this.#insertChild(this.#items, collectionId, request);
     this.#rerender();
     this.#emitChange();
+    const li = this.#el.querySelector(`[data-id="${CSS.escape(request.id)}"]`);
+    if (li) this.#selectRequest(request, li);
   }
 
   /** Add a nested folder (collection) inside the collection identified by `collectionId`. */
@@ -357,9 +388,16 @@ export class TreeView {
       name: "New Folder",
       children: [],
     };
+    this.#collapsedIds.delete(collectionId);
+    this.#saveCollapsedState();
     this.#items = this.#insertChild(this.#items, collectionId, folder);
     this.#rerender();
     this.#emitChange();
+    const li = this.#el.querySelector(`[data-id="${CSS.escape(folder.id)}"]`);
+    if (li) {
+      this.#activeCollectionId = folder.id;
+      this.#setActiveRow(li);
+    }
   }
 
   /**
@@ -896,11 +934,12 @@ export class TreeView {
     li.dataset.id = node.id ?? "";
 
     if (node.type === "collection") {
+      const isExpanded = !this.#collapsedIds.has(node.id);
       li.classList.add("tree-node--collection");
-      li.setAttribute("aria-expanded", "true");
+      li.setAttribute("aria-expanded", String(isExpanded));
       li.innerHTML = `
         <div class="tree-node__row" tabindex="0">
-          <span class="tree-node__icon">${ICON_FOLDER_OPEN}</span>
+          <span class="tree-node__icon">${isExpanded ? ICON_FOLDER_OPEN : ICON_FOLDER_CLOSED}</span>
           <span class="tree-node__label">${this.#escape(node.name)}</span>
         </div>
       `;
@@ -915,6 +954,12 @@ export class TreeView {
         li.setAttribute("aria-expanded", String(!expanded));
         iconEl.innerHTML = expanded ? ICON_FOLDER_CLOSED : ICON_FOLDER_OPEN;
         childList.style.display = expanded ? "none" : "";
+        if (expanded) {
+          this.#collapsedIds.add(node.id);
+        } else {
+          this.#collapsedIds.delete(node.id);
+        }
+        this.#saveCollapsedState();
       };
 
       // Single click anywhere on the row → select / highlight the row only (no toggle).
@@ -964,6 +1009,7 @@ export class TreeView {
       const childList = document.createElement("ul");
       childList.className = "tree-list tree-list--nested";
       childList.setAttribute("role", "group");
+      if (!isExpanded) childList.style.display = "none";
       (node.children ?? []).forEach((child) => {
         childList.appendChild(this.#createNode(child, node.id));
       });
@@ -991,6 +1037,16 @@ export class TreeView {
           if (parentCollectionId) this.#activeCollectionId = parentCollectionId;
           this.#selectRequest(node, li);
         }
+      });
+
+      // Double-click: execute the request if the setting is enabled.
+      // The preceding click already selected/loaded it, so just fire the execute event.
+      row.addEventListener("dblclick", () => {
+        if (!this.#doubleClickExecute) return;
+        window.dispatchEvent(new CustomEvent("wurl:request-execute", {
+          detail: this.#findNode(this.#items, node.id) ?? node,
+          bubbles: true,
+        }));
       });
 
       // Right-click: select the request then show context menu
@@ -1058,6 +1114,24 @@ export class TreeView {
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  #saveCollapsedState() {
+    if (!this.#storageKey) return;
+    try {
+      localStorage.setItem(
+        `wurl:collapsed:${this.#storageKey}`,
+        JSON.stringify([...this.#collapsedIds]),
+      );
+    } catch (_) { /* quota exceeded or private browsing — ignore */ }
+  }
+
+  #loadCollapsedState() {
+    if (!this.#storageKey) return [];
+    try {
+      const raw = localStorage.getItem(`wurl:collapsed:${this.#storageKey}`);
+      return raw ? JSON.parse(raw) : [];
+    } catch (_) { return []; }
   }
 
   // ── Drag-to-reorder ─────────────────────────────────────────────────────
@@ -1337,8 +1411,8 @@ export class TreeView {
   /**
    * Programmatically select a request node by ID, as if the user clicked it.
    * Used to restore the last-selected request on page/app reload.
-   * Collections always start expanded, so the node's <li> is always in the DOM
-   * immediately after setItems() is called.
+   * Note: if the request lives inside a collapsed folder it will not be visible,
+   * but its <li> is still in the DOM and can be selected.
    *
    * @param {string} id
    * @returns {boolean} true if the node was found and selected

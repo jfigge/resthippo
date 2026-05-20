@@ -122,6 +122,15 @@ export class SettingsPopup {
           </div>
 
           <div class="settings-row settings-row--toggle">
+            <label class="settings-label" for="setting-dblclick-execute">Double-click requests to execute</label>
+            <input
+              class="settings-toggle"
+              id="setting-dblclick-execute"
+              type="checkbox"
+            />
+          </div>
+
+          <div class="settings-row settings-row--toggle">
             <label class="settings-label" for="setting-verify-ssl">Verify SSL certificates</label>
             <input
               class="settings-toggle"
@@ -220,8 +229,9 @@ export class SettingsPopup {
       fontSize:        parseInt(this.#el.querySelector("#setting-font-size").value, 10),
       removeHeaders:   this.#el.querySelector("#setting-remove-headers").checked,
       timeout:         parseInt(this.#el.querySelector("#setting-timeout").value, 10),
-      followRedirects: this.#el.querySelector("#setting-follow-redirects").checked,
-      verifySsl:       this.#el.querySelector("#setting-verify-ssl").checked,
+      followRedirects:    this.#el.querySelector("#setting-follow-redirects").checked,
+      doubleClickExecute: this.#el.querySelector("#setting-dblclick-execute").checked,
+      verifySsl:          this.#el.querySelector("#setting-verify-ssl").checked,
       proxyEnabled:    this.#el.querySelector("#setting-proxy-enabled").checked,
       proxyUrl:        this.#el.querySelector("#setting-proxy-url").value.trim(),
     };
@@ -275,6 +285,9 @@ export class SettingsPopup {
     }
     if (settings.followRedirects !== undefined) {
       this.#el.querySelector("#setting-follow-redirects").checked = settings.followRedirects;
+    }
+    if (settings.doubleClickExecute !== undefined) {
+      this.#el.querySelector("#setting-dblclick-execute").checked = settings.doubleClickExecute;
     }
     if (settings.verifySsl !== undefined) {
       this.#el.querySelector("#setting-verify-ssl").checked = settings.verifySsl;

@@ -187,6 +187,10 @@ dist-win:
 
 
 
+# ─── Launch ───────────────────────────────────────────────────────────────────
+launch: all
+	@open dist/mac-arm64/wurl.app
+
 # ─── Clean ────────────────────────────────────────────────────────────────────
 clean:
 	@echo "Cleaning build artifacts..."
@@ -224,6 +228,7 @@ help:
 	@echo "    clean         Remove build and dist directories"
 	@echo "    version       Print version string"
 	@echo "    info          Print full build information"
+	@echo "    launch        build and launch the mac electron app"
 	@echo ""
 
 # ─── Phony ────────────────────────────────────────────────────────────────────
@@ -237,4 +242,4 @@ help:
         dist dist-mac dist-linux dist-win \
         vendor-yaml \
         vendor-prism \
-        clean help
+        clean help launch

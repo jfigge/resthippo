@@ -389,6 +389,15 @@ function initEventBus() {
     }
   });
 
+  // Double-click-to-execute: load the request then click the send button
+  window.addEventListener("wurl:request-execute", (e) => {
+    if (!requestEditor) return;
+    const node = e.detail;
+    _refreshEditorVariableContext(node.id);
+    requestEditor.load(node);
+    requestEditor.element.querySelector(".req-send-btn")?.click();
+  });
+
   // Auto-save whenever the tree is mutated (add / remove collection or request)
   window.addEventListener("wurl:collections-changed", (e) => {
     saveCollections(e.detail);
@@ -440,6 +449,7 @@ function initEventBus() {
 
     // Load new env's collections
     const { collections, variables } = await loadEnvCollections(id);
+    treeView.setStorageKey(id);
     treeView.setItems(collections);
 
     // Attach variables to the env entry in memory
@@ -476,6 +486,7 @@ function initEventBus() {
     currentSettings = { ...currentSettings, selectedRequestId: null };
     saveSettings(currentSettings);
 
+    treeView.setStorageKey(newEnv.id);
     treeView.setItems([]);
     setNavPanelTitle(newEnv.name);
     envPopup.update(currentEnvs);
@@ -515,6 +526,7 @@ function initEventBus() {
     currentSettings = { ...currentSettings, selectedRequestId: null };
     saveSettings(currentSettings);
 
+    treeView.setStorageKey(newEnv.id);
     treeView.setItems(cloned);
     setNavPanelTitle(newEnv.name);
     envPopup.update(currentEnvs);
@@ -552,6 +564,7 @@ function initEventBus() {
       setActiveEnvironment(activeId);
       currentSettings = { ...currentSettings, selectedRequestId: null };
       saveSettings(currentSettings);
+      treeView.setStorageKey(activeId);
       treeView.setItems(collections);
       setNavPanelTitle(_envName(environments, activeId));
       // Attach variables in memory
@@ -860,6 +873,7 @@ function initEventBus() {
 async function initCollections() {
   const { collections, settings, environments, activeEnvironmentId, variables } = await loadAll();
 
+  treeView.setStorageKey(activeEnvironmentId);
   treeView.setItems(collections);
   currentSettings = settings;
   settingsPopup.load(settings);
@@ -1044,6 +1058,7 @@ function applySettings(settings) {
   if (requestEditor) requestEditor.applySettings(settings);
   if (responseViewer) responseViewer.applySettings(settings);
   if (varsPopup) varsPopup.applySettings(settings);
+  if (treeView) treeView.setDoubleClickExecute(settings.doubleClickExecute ?? false);
 
   // Remove headers — hide/show all .panel-header elements, app-header, and nav settings bar
   if (settings.removeHeaders !== undefined) {
