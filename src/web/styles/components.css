@@ -2432,7 +2432,7 @@ input[type="checkbox"]:disabled {
 /*
  * Base pill — shown inside either a .pill-editor or as a read-only preview.
  * contenteditable="false" on the span ensures the caret cannot enter it.
- * user-select: all makes click+drag select the whole pill atomically.
+ * user-select: none prevents the pill label from being visually highlighted on click.
  */
 .variable-pill {
   display: inline-flex;
@@ -2445,7 +2445,7 @@ input[type="checkbox"]:disabled {
   line-height: 18px;
   white-space: nowrap;
   cursor: pointer;
-  user-select: all;
+  user-select: none;
   vertical-align: middle;
   flex-shrink: 0;
   /* Prevent drag-initiating from the pill itself */
