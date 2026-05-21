@@ -111,8 +111,8 @@ const SPLITTER_MIN_RES    = 160;
 const SPLITTER_MIN_ROWRES = 120;
 
 let splitterSizes = {
-  nav:    240,
-  res:    340,
+  nav:    300,
+  res:    500,
   rowRes: 320,
 };
 
