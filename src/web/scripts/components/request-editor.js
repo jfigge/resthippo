@@ -4047,6 +4047,7 @@ export class RequestEditor {
     for (const editor of allEditors) {
       editor.revalidate();
     }
+    this.#updateUrlPreview();
   }
 
   /** Set the callback used by function-pill popups to populate request-picker params. */
