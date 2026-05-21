@@ -23,9 +23,57 @@ import {
   loadAll, saveCollections, saveSettings, saveManifest,
   loadEnvCollections, saveEnvCollections, setActiveEnvironment,
   saveEnvVariables, deleteRequest,
+  listHistory, addHistory, getHistoryResponse, deleteHistory,
 } from "./data-store.js";
 import { buildFolderChain } from "./components/variable-resolver.js";
 import { setPickerDebounceMs } from "./components/variable-pill-editor.js";
+
+// ─── History state ────────────────────────────────────────────────────────────
+// Per-request in-memory execution history. Keyed by request node ID.
+// Each entry: { id, requestNode, requestUrl, response, timestamp }
+const _requestHistory = new Map();
+// Tracks which request IDs have been fully loaded from persistent storage.
+const _historyLoaded  = new Set();
+let _maxHistory = 5;        // updated from settings at startup and on change
+let _skipNextHistory = false; // set true when replaying a history entry
+
+/**
+ * Load persisted history for one request from storage and populate
+ * _requestHistory.  Respects _maxHistory so only the most recent entries
+ * are kept in memory.  Silently produces an empty array on failure.
+ *
+ * @param {string} requestId
+ */
+async function _loadRequestHistory(requestId) {
+  try {
+    const { items } = await listHistory(requestId, { limit: _maxHistory });
+    const entries = await Promise.all(items.map(async (meta) => {
+      const payload = await getHistoryResponse(requestId, meta.id).catch(() => null);
+      return {
+        id:          meta.id,
+        requestNode: meta.requestNode,
+        requestUrl:  meta.requestUrl ?? "",
+        response: {
+          request:    payload?.request    ?? {},
+          error:      payload?.error      ?? null,
+          status:     meta.status     ?? 0,
+          statusText: meta.statusText ?? "",
+          elapsed:    meta.elapsed    ?? 0,
+          size:       meta.size       ?? 0,
+          headers:    payload?.headers    ?? {},
+          cookies:    payload?.cookies    ?? [],
+          body:       payload?.body       ?? "",
+          consoleLog: payload?.consoleLog ?? [],
+        },
+        timestamp: meta.timestamp ?? Date.now(),
+      };
+    }));
+    _requestHistory.set(requestId, entries);
+  } catch (err) {
+    console.warn(`[app] _loadRequestHistory(${requestId}) failed:`, err.message);
+    _requestHistory.set(requestId, []);
+  }
+}
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
@@ -107,8 +155,8 @@ function initComponents() {
  *   nav    ≥ 160     request ≥ 200 (1fr, unconstrained here)
  *   res    ≥ 160     rowRes  ≥ 120
  */
-const SPLITTER_MIN_NAV    = 160;
-const SPLITTER_MIN_RES    = 160;
+const SPLITTER_MIN_NAV    = 100;
+const SPLITTER_MIN_RES    = 100;
 const SPLITTER_MIN_ROWRES = 120;
 
 let splitterSizes = {
@@ -381,7 +429,7 @@ function _buildEnvCtxMenu() {
 // ─── Event bus ────────────────────────────────────────────────────────────────
 function initEventBus() {
   // When a request is selected in the tree, load it into the editor
-  window.addEventListener("wurl:request-selected", (e) => {
+  window.addEventListener("wurl:request-selected", async (e) => {
     const node = e.detail;
     _selectedNode = node;
     // Set variable context BEFORE load() so pill editors render with correct validation
@@ -392,6 +440,22 @@ function initEventBus() {
     if (id) {
       currentSettings = { ...currentSettings, selectedRequestId: id };
       saveSettings(currentSettings);
+    }
+    // Update the timeline pane with this request's history.
+    // If history has not yet been loaded from storage, load it first.
+    if (!id) {
+      _dispatchTimelineUpdate(null, true);
+      return;
+    }
+    if (_historyLoaded.has(id)) {
+      _dispatchTimelineUpdate(id, true);
+    } else {
+      // Clear the display immediately, then populate after loading from storage.
+      _dispatchTimelineUpdate(null, true);
+      await _loadRequestHistory(id);
+      _historyLoaded.add(id);
+      // Guard against a second selection arriving while we were loading.
+      if (_selectedNode?.id === id) _dispatchTimelineUpdate(id, true);
     }
   });
 
@@ -406,7 +470,11 @@ function initEventBus() {
   });
 
   // Cache response data so function pills like response() / responseHeader() can resolve
-  window.addEventListener("wurl:response-received", (e) => {
+  window.addEventListener("wurl:response-received", async (e) => {
+    // Capture and reset the skip flag immediately so it is never left stale.
+    const skipHistory = _skipNextHistory;
+    _skipNextHistory = false;
+
     const node = _selectedNode;
     const name = node?.name;
     if (!name) return;
@@ -415,6 +483,112 @@ function initEventBus() {
     _responseHeaders[name] = headers;
     _responseStatus[name]  = status;
     _refreshEditorVariableContext(node.id);
+
+    // Record in per-request history only for real (non-replay) executions.
+    // When replaying a historical entry, do NOT push to history and do NOT
+    // re-render the timeline (which would clear the user's current selection).
+    if (!skipHistory && _maxHistory > 0 && node?.id) {
+      const histId  = crypto.randomUUID();
+      const nowMs   = Date.now();
+      const reqUrl  = _lastRequestSnapshot?.url ?? "";
+      const reqNode = JSON.parse(JSON.stringify(node));
+      const resp    = {
+        request:    e.detail.request    ?? {},
+        status:     e.detail.status     ?? 0,
+        statusText: e.detail.statusText ?? "",
+        headers:    e.detail.headers    ?? {},
+        cookies:    e.detail.cookies    ?? [],
+        body:       e.detail.body       ?? "",
+        elapsed:    e.detail.elapsed    ?? 0,
+        size:       e.detail.size       ?? 0,
+        consoleLog: e.detail.consoleLog ?? [],
+      };
+
+      // Ensure history is loaded from storage before prepending the new entry,
+      // so the in-memory list is complete and purging works correctly.
+      if (!_historyLoaded.has(node.id)) {
+        await _loadRequestHistory(node.id);
+        _historyLoaded.add(node.id);
+      }
+
+      const entries = _requestHistory.get(node.id) ?? [];
+      entries.unshift({ id: histId, requestNode: reqNode, requestUrl: reqUrl, response: resp, timestamp: nowMs });
+
+      // Persist to storage (fire-and-forget).
+      addHistory(node.id,
+        { id: histId, timestamp: nowMs, status: resp.status, statusText: resp.statusText,
+          elapsed: resp.elapsed, size: resp.size, requestUrl: reqUrl, requestNode: reqNode },
+        { headers: resp.headers, cookies: resp.cookies, body: resp.body, consoleLog: resp.consoleLog },
+      );
+
+      // Purge entries beyond the limit from both memory and storage.
+      while (entries.length > _maxHistory) {
+        const old = entries.pop();
+        if (old?.id) deleteHistory(node.id, old.id);
+      }
+
+      _requestHistory.set(node.id, entries);
+      _dispatchTimelineUpdate(node.id);
+    }
+  });
+
+  // Record network-level failures (ENOTFOUND, ETIMEDOUT, etc.) in the timeline.
+  // Cancellations and "no URL" guards are excluded — only genuine request attempts
+  // that reached the network layer are recorded.
+  window.addEventListener("wurl:request-error", async (e) => {
+    const skipHistory = _skipNextHistory;
+    _skipNextHistory  = false;
+
+    if (skipHistory) return;
+    if (_cancelCurrentRequest) return;
+    if (e.detail?.name === "AbortError") return;
+    if (!_lastRequestSnapshot) return;
+
+    const node = _selectedNode;
+    if (!node?.id || _maxHistory <= 0) return;
+
+    const histId  = crypto.randomUUID();
+    const nowMs   = Date.now();
+    const reqUrl  = _lastRequestSnapshot.url ?? "";
+    const reqNode = JSON.parse(JSON.stringify(node));
+    const resp    = {
+      request:    e.detail.request    ?? {},
+      error: {
+        name:    e.detail.name    ?? "Error",
+        message: e.detail.message ?? "",
+        hint:    e.detail.hint    ?? "",
+      },
+      status:     0,
+      statusText: e.detail.name    ?? "Error",
+      headers:    {},
+      cookies:    [],
+      body:       "",
+      elapsed:    e.detail.elapsed    ?? 0,
+      size:       0,
+      consoleLog: e.detail.consoleLog ?? [],
+    };
+
+    if (!_historyLoaded.has(node.id)) {
+      await _loadRequestHistory(node.id);
+      _historyLoaded.add(node.id);
+    }
+
+    const entries = _requestHistory.get(node.id) ?? [];
+    entries.unshift({ id: histId, requestNode: reqNode, requestUrl: reqUrl, response: resp, timestamp: nowMs });
+
+    addHistory(node.id,
+      { id: histId, timestamp: nowMs, status: 0, statusText: resp.statusText,
+        elapsed: resp.elapsed, size: 0, requestUrl: reqUrl, requestNode: reqNode },
+      { request: resp.request, error: resp.error, headers: {}, cookies: [], body: "", consoleLog: resp.consoleLog },
+    );
+
+    while (entries.length > _maxHistory) {
+      const old = entries.pop();
+      if (old?.id) deleteHistory(node.id, old.id);
+    }
+
+    _requestHistory.set(node.id, entries);
+    _dispatchTimelineUpdate(node.id);
   });
 
   // Auto-save whenever the tree is mutated (add / remove collection or request)
@@ -428,14 +602,58 @@ function initEventBus() {
   window.addEventListener("wurl:requests-deleted", (e) => {
     for (const id of e.detail.ids) {
       deleteRequest(id);
+      _requestHistory.delete(id);
+      _historyLoaded.delete(id);
     }
   });
 
-  // Persist settings immediately whenever any control in the popup changes
+  // Persist settings immediately whenever any control in the popup changes.
+  // Merge into currentSettings so fields not emitted by the popup (splitters,
+  // selectedRequestId, historyCount) are not silently dropped on each save.
   window.addEventListener("wurl:settings-changed", (e) => {
-    currentSettings = e.detail;
+    currentSettings = { ...currentSettings, ...e.detail };
     applySettings(currentSettings);
     saveSettings(currentSettings);
+    if (e.detail.historyCount !== undefined) {
+      _maxHistory = e.detail.historyCount;
+    }
+  });
+
+  // Trim all per-request histories to the new max (fired only on settings Close click)
+  window.addEventListener("wurl:history-trim", (e) => {
+    _maxHistory = Math.max(0, Math.min(10, e.detail?.historyCount ?? _maxHistory));
+    for (const [id, entries] of _requestHistory.entries()) {
+      while (entries.length > _maxHistory) {
+        const old = entries.pop();
+        if (old?.id) deleteHistory(id, old.id);
+      }
+      if (_maxHistory === 0) _requestHistory.delete(id);
+    }
+    _dispatchTimelineUpdate(_selectedNode?.id);
+  });
+
+  // Replay a historical entry: restore the request editor state and display the
+  // saved response without actually re-running the request.
+  window.addEventListener("wurl:timeline-select", (e) => {
+    const { requestNode, requestUrl = "", response } = e.detail;
+    requestEditor.load(requestNode);
+    _skipNextHistory = true;
+    if (response?.error) {
+      window.dispatchEvent(new CustomEvent("wurl:request-error", {
+        detail: {
+          request:    response.request    ?? { url: requestUrl },
+          name:       response.error.name    ?? "Error",
+          message:    response.error.message ?? "",
+          hint:       response.error.hint    ?? "",
+          elapsed:    response.elapsed    ?? 0,
+          consoleLog: response.consoleLog ?? [],
+        },
+      }));
+    } else {
+      window.dispatchEvent(new CustomEvent("wurl:response-received", {
+        detail: { ...response, request: { url: requestUrl } },
+      }));
+    }
   });
 
   // When the request editor fires a preference change (e.g. List Headers toggle),
@@ -908,6 +1126,7 @@ async function initCollections() {
   treeView.setStorageKey(activeEnvironmentId);
   treeView.setItems(collections);
   currentSettings = settings;
+  _maxHistory = settings.historyCount ?? 5;
   settingsPopup.load(settings);
   applySettings(settings);
 
@@ -1040,6 +1259,19 @@ function installZoomHandlers() {
     else if (direction === "out")   changeFontByStep(-1);
     else if (direction === "reset") resetFont();
   });
+}
+
+/**
+ * Dispatch wurl:timeline-update with the history entries for the given request ID.
+ * @param {string|null}  requestId
+ * @param {boolean}      [isRequestSwitch] – true when triggered by a request selection;
+ *                                           the response-viewer uses this to update the body tab.
+ */
+function _dispatchTimelineUpdate(requestId, isRequestSwitch = false) {
+  const entries = requestId ? (_requestHistory.get(requestId) ?? []) : [];
+  window.dispatchEvent(new CustomEvent("wurl:timeline-update", {
+    detail: { entries: [...entries], isRequestSwitch },
+  }));
 }
 
 /** Deep-clone a tree node, assigning fresh UUIDs throughout. */

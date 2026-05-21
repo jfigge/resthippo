@@ -169,6 +169,12 @@ function safeCall(channel, fn, fallback = null) {
       () => getStores().historyStore().getHistoryResponse(requestId, historyId),
     ),
   );
+
+  ipcMain.handle("store:history:delete", (_event, requestId, historyId) =>
+    safeCall("store:history:delete",
+      () => getStores().historyStore().deleteHistory(requestId, historyId),
+    ),
+  );
 })();
 
 // ─── HTTP Execute IPC ─────────────────────────────────────────────────────────

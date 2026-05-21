@@ -50,6 +50,7 @@ export class VariablePillEditor {
   #pickerTimer          = null;
   #pickerInst           = null;
   #pickerOutsideHandler = null;
+  #isFocused            = false;
 
   constructor({
     placeholder = "",
@@ -82,7 +83,11 @@ export class VariablePillEditor {
     el.addEventListener("copy",    (e) => this.#onCopy(e));
     el.addEventListener("paste",   (e) => this.#onPaste(e));
     el.addEventListener("drop",    (e) => this.#onDrop(e));
-    el.addEventListener("blur",    () => this.#closePicker());
+    el.addEventListener("focus",   () => { this.#isFocused = true; });
+    el.addEventListener("blur",    () => { this.#isFocused = false; this.#closePicker(); });
+    document.addEventListener("selectionchange", () => {
+      if (this.#isFocused) this.#scrollToSelectionEnd();
+    });
     this.#el = el;
   }
 
@@ -425,6 +430,37 @@ export class VariablePillEditor {
     }
   }
 
+  #scrollToSelectionEnd() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const { focusNode, focusOffset } = sel;
+    if (!focusNode || !this.#el.contains(focusNode)) return;
+
+    let caretLeft, caretRight;
+    if (focusNode.nodeType === Node.TEXT_NODE) {
+      const r = document.createRange();
+      r.setStart(focusNode, focusOffset);
+      r.collapse(true);
+      const rects = r.getClientRects();
+      if (!rects.length) return;
+      caretLeft  = rects[0].left;
+      caretRight = rects[0].right;
+    } else {
+      const child = focusNode.childNodes[focusOffset];
+      const rect  = child ? child.getBoundingClientRect() : focusNode.getBoundingClientRect();
+      caretLeft  = rect.left;
+      caretRight = rect.right;
+    }
+
+    const er  = this.#el.getBoundingClientRect();
+    const PAD = 4;
+    if (caretRight > er.right - PAD) {
+      this.#el.scrollLeft += caretRight - er.right + PAD;
+    } else if (caretLeft < er.left + PAD) {
+      this.#el.scrollLeft -= er.left + PAD - caretLeft;
+    }
+  }
+
   #getPickerVariables() {
     const ctx  = this.#getContext();
     const seen = new Set();
@@ -606,8 +642,26 @@ export class VariablePillEditor {
 
   #onCopy(e) {
     e.preventDefault();
-    const text = window.getSelection()?.toString() ?? "";
-    e.clipboardData.setData("text/plain", text.replace(/\u200B/g, ""));
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) { e.clipboardData.setData("text/plain", ""); return; }
+    const frag = sel.getRangeAt(0).cloneContents();
+    e.clipboardData.setData("text/plain", this.#rawTextFromFragment(frag));
+  }
+
+  #rawTextFromFragment(node) {
+    let out = "";
+    for (const child of node.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        out += child.textContent.replace(/\u200B/g, "");
+      } else if (child.classList?.contains("variable-pill")) {
+        out += child.dataset.function !== undefined
+          ? this.#buildRawToken(child.dataset.function, JSON.parse(child.dataset.fnArgs ?? "[]"))
+          : `{{${child.dataset.variable}}}`;
+      } else {
+        out += this.#rawTextFromFragment(child);
+      }
+    }
+    return out;
   }
 
   #onPaste(e) {

@@ -39,6 +39,7 @@
  *     listHistory(requestId, options?)       → { items, nextCursor }
  *     addHistory(requestId, entry, response?)→ stored entry
  *     getHistoryResponse(requestId, histId)  → response payload
+ *     deleteHistory(requestId, histId)       → void
  */
 
 "use strict";
@@ -61,6 +62,7 @@ export const DEFAULT_SETTINGS = {
   selectedRequestId: null,
   responseBodyRenderMode: "preview",
   oauth2Advanced:    false,
+  historyCount:      5,
 };
 
 // ── In-memory caches ──────────────────────────────────────────────────────────
@@ -528,5 +530,27 @@ export async function getHistoryResponse(requestId, historyId) {
   } catch (err) {
     console.warn(`[data-store] getHistoryResponse(${requestId}, ${historyId}) failed:`, err.message);
     return null;
+  }
+}
+
+/**
+ * Permanently delete a single history entry and its response payload.
+ *
+ * @param {string} requestId
+ * @param {string} historyId
+ * @returns {Promise<void>}
+ */
+export async function deleteHistory(requestId, historyId) {
+  try {
+    if (isElectron()) {
+      await window.wurl.store.history.delete(requestId, historyId);
+      return;
+    }
+    await fetch(
+      `/api/requests/${encodeURIComponent(requestId)}/history/${encodeURIComponent(historyId)}`,
+      { method: "DELETE" },
+    );
+  } catch (err) {
+    console.warn(`[data-store] deleteHistory(${requestId}, ${historyId}) failed:`, err.message);
   }
 }

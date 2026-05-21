@@ -1758,6 +1758,85 @@
   color: var(--color-warning);
 }
 
+/* ── Timeline tab ──────────────────────────────────────────────────────────  */
+
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) 0;
+}
+
+.timeline-item {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) var(--space-3);
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-surface-0);
+  cursor: pointer;
+  color: var(--color-subtext);
+  transition: background-color var(--transition-fast);
+}
+
+.timeline-timestamp {
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+  margin-bottom: var(--space-1);
+}
+
+.timeline-record {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: calc(var(--font-size-sm) * 0.85);
+  margin-left: var(--space-3);
+}
+
+.timeline-item:hover {
+  background: var(--color-surface-0);
+  color: var(--color-text);
+}
+
+.timeline-item--selected {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-text);
+}
+
+.timeline-item--selected:hover {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.timeline-badge {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-1);
+  flex-shrink: 0;
+  min-width: 3ch;
+  text-align: center;
+}
+
+.timeline-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-meta {
+  display: flex;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    POPUP OVERLAY / MASK
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -2718,14 +2797,14 @@ input[type="checkbox"]:disabled {
 
 .pill-picker {
   position:         fixed;
-  z-index:          var(--z-popup, 900);
+  z-index:          900;
   width:            320px;
   max-height:       260px;
   overflow-y:       auto;
   background:       var(--color-surface-1);
   border:           1px solid var(--color-border);
   border-radius:    var(--radius-md);
-  box-shadow:       var(--shadow-lg);
+  box-shadow:       var(--space-1);
   padding:          var(--space-1) 0;
   overscroll-behavior: contain;
 }

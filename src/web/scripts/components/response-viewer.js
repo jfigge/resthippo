@@ -96,6 +96,7 @@ export class ResponseViewer {
   // HTML-preview state
   #htmlPreviewActive  = false;  // true while an HTML preview is live
   #popupDepth         = 0;      // count of currently open popups (prevents re-show during rapid open/close)
+  #snapshotPending    = false;  // true while capture() is in-flight; cleared on popup-closed to cancel
   #previewSnapshot    = null;   // <img> standing in for the hidden WebContentsView during a popup
   #iframeEl           = null;   // dev-mode <iframe> element
   #resizeObserver     = null;   // observes body pane for Electron overlay
@@ -111,6 +112,11 @@ export class ResponseViewer {
   #regexBtn      = null;   // .* toggle button
   #searchMatches = [];     // current <mark> elements
   #searchCurrent = -1;     // index of the active (focused) match
+
+  // Timeline state
+  #timelineEntries      = [];   // current list of HistoryEntry objects (newest first)
+  #timelineSelected     = -1;   // index of the selected entry (-1 = none)
+  #timestampTimer       = null; // setInterval handle for live timestamp updates
 
   constructor() {
     this.#el = document.createElement("div");
@@ -129,6 +135,27 @@ export class ResponseViewer {
     window.addEventListener("wurl:request-error", (e) =>
       this.#showError(e.detail),
     );
+
+    // Update the timeline tab whenever history changes.
+    // When isRequestSwitch is true the dispatch comes after the history load
+    // is complete (sync from memory or after async storage fetch), so it is
+    // safe to update the body display here rather than racing on a microtask.
+    window.addEventListener("wurl:timeline-update", (e) => {
+      this.#timelineEntries  = e.detail?.entries ?? [];
+      this.#timelineSelected = -1;
+      this.#renderTimeline();
+      if (e.detail?.isRequestSwitch) {
+        const entry = this.#timelineEntries[0];
+        if (entry?.response?.error) {
+          this.#showError({ ...entry.response.error,
+            elapsed: entry.response.elapsed, consoleLog: entry.response.consoleLog });
+        } else if (entry?.response) {
+          this.#showResponse(entry.response, entry.requestUrl);
+        } else {
+          this.#clearToEmpty();
+        }
+      }
+    });
 
     // Keyboard shortcuts while focus is inside the response viewer
     this.#el.addEventListener("keydown", (e) => {
@@ -163,24 +190,31 @@ export class ResponseViewer {
     // and discard the snapshot once the popup is dismissed.
     window.addEventListener("wurl:popup-opened", async () => {
       this.#popupDepth++;
-      if (this.#htmlPreviewActive && window.wurl?.isElectron) {
-        // Only capture on the first popup; nested popups (e.g. confirmClose) reuse it.
-        if (this.#popupDepth === 1) {
-          const dataUrl = await window.wurl.htmlPreview.capture().catch(() => null);
-          if (dataUrl && this.#htmlPreviewActive) {
-            this.#showPreviewSnapshot(dataUrl);
-          }
+      if (!this.#htmlPreviewActive || !window.wurl?.isElectron) return;
+      // Only capture on the first popup; nested popups reuse the existing snapshot.
+      if (this.#popupDepth === 1) {
+        this.#snapshotPending = true;
+        const dataUrl = await window.wurl.htmlPreview.capture().catch(() => null);
+        // If the popup was dismissed while capture was in-flight, #snapshotPending
+        // will have been cleared — discard the result and do not hide the live view.
+        if (!this.#snapshotPending) return;
+        this.#snapshotPending = false;
+        if (dataUrl && this.#htmlPreviewActive) {
+          this.#showPreviewSnapshot(dataUrl);
         }
-        window.wurl.htmlPreview.hide().catch(() => {});
       }
+      window.wurl.htmlPreview.hide().catch(() => {});
     });
     window.addEventListener("wurl:popup-closed", () => {
       this.#popupDepth = Math.max(0, this.#popupDepth - 1);
+      // Cancel any capture still in-flight and remove the snapshot immediately —
+      // the image must disappear as soon as the last popup is dismissed.
+      this.#snapshotPending = false;
+      if (this.#popupDepth === 0) this.#removePreviewSnapshot();
       if (!this.#htmlPreviewActive || !window.wurl?.isElectron) return;
-      if (this.#activeTab !== "body") return;   // body tab is not visible — stay hidden
+      if (this.#activeTab !== "body") return;   // body tab not visible — stay hidden
       requestAnimationFrame(() => {
         if (!this.#htmlPreviewActive || this.#popupDepth > 0) return;
-        this.#removePreviewSnapshot();
         window.wurl.htmlPreview.show(this.#computePreviewBounds()).catch(() => {});
       });
     });
@@ -931,6 +965,16 @@ export class ResponseViewer {
     if (this.#iframeEl) {
       this.#iframeEl.style.display = tabId === "body" ? "" : "none";
     }
+
+    // Lazy timeline: drop DOM when leaving, rebuild when entering.
+    if (prevTab === "timeline" && tabId !== "timeline") {
+      this.#stopTimestampUpdater();
+      const pane = this._tabContent.querySelector("#res-tab-timeline");
+      if (pane) pane.innerHTML = "";
+    } else if (tabId === "timeline" && prevTab !== "timeline") {
+      this.#renderTimeline();
+      this.#startTimestampUpdater();
+    }
   }
 
   // ── Response states ───────────────────────────────────────────────────────
@@ -992,6 +1036,22 @@ export class ResponseViewer {
     this.#renderConsole(log);
   }
 
+  /** Reset the viewer to its initial empty state (no response loaded). */
+  #clearToEmpty() {
+    this.#lastResponse = null;
+    this.#destroyHtmlPreview();
+    this.#clearHighlights();
+    this.#setStatus("", "", "", "");
+    this._statusBar.querySelector(".res-status-badge").className = "res-status-badge";
+    this.#bodyPane.innerHTML = "";
+    this.#bodyPane.appendChild(this.#emptyState());
+    const headersPane = this._tabContent.querySelector("#res-tab-headers");
+    if (headersPane) headersPane.innerHTML = "";
+    const cookiesPane = this._tabContent.querySelector("#res-tab-cookies");
+    if (cookiesPane) cookiesPane.innerHTML = "";
+    this.#renderConsole([]);
+  }
+
   /**
    * @param {object} response
    * @param {object}   response.request    - original request {method, url, headers, body}
@@ -1004,7 +1064,7 @@ export class ResponseViewer {
    * @param {number}   response.size      - bytes
    * @param {string[]} response.consoleLog
    */
-  #showResponse(response) {
+  #showResponse(response, requestUrl) {
     const {
       request    = {},
       status     = 0,
@@ -1017,10 +1077,11 @@ export class ResponseViewer {
       consoleLog = [],
     } = response;
 
-    // Cache for re-rendering when the mode is changed.
-    // Store the original request URL so HTML preview can load it.
+    // Cache the raw response for re-rendering when the mode changes.
+    // requestUrl comes from the caller (history path) or falls back to the
+    // request snapshot embedded in live wurl:response-received events.
     this.#lastResponse = {
-      requestUrl: request.url ?? "",
+      requestUrl: requestUrl ?? request.url ?? "",
       status, statusText, headers, cookies, body, elapsed, size, consoleLog,
     };
 
@@ -1094,6 +1155,88 @@ export class ResponseViewer {
     this.#renderConsole(consoleLog);
   }
 
+  // ── Timeline rendering ────────────────────────────────────────────────────
+
+  /** Re-render the timeline pane from the cached #timelineEntries array. */
+  #renderTimeline() {
+    if (this.#activeTab !== "timeline") return;
+
+    const pane = this._tabContent?.querySelector("#res-tab-timeline");
+    if (!pane) return;
+    pane.innerHTML = "";
+
+    if (!this.#timelineEntries.length) {
+      const empty = document.createElement("div");
+      empty.className = "panel-placeholder";
+      empty.innerHTML =
+        '<span class="placeholder-icon">🕓</span>' +
+        "<span>No history yet — send a request to record an entry</span>";
+      pane.appendChild(empty);
+      return;
+    }
+
+    const list = document.createElement("div");
+    list.className = "timeline-list";
+
+    this.#timelineEntries.forEach((entry, idx) => {
+      const { status = 0, statusText = "", elapsed = 0, size = 0 } = entry.response ?? {};
+      const item = document.createElement("button");
+      item.className = "timeline-item";
+      item.setAttribute("type", "button");
+      if (idx === this.#timelineSelected) item.classList.add("timeline-item--selected");
+
+      const ts = document.createElement("span");
+      ts.className = "timeline-timestamp";
+      ts.textContent = this.#formatTimestamp(entry.timestamp);
+
+      const record = document.createElement("div");
+      record.className = "timeline-record";
+
+      const badge = document.createElement("span");
+      badge.className = `timeline-badge ${this.#statusClass(status)}`;
+      badge.textContent = status || "ERR";
+
+      const text = document.createElement("span");
+      text.className = "timeline-text";
+      text.textContent = statusText || (status ? "" : "Error");
+
+      const meta = document.createElement("span");
+      meta.className = "timeline-meta";
+
+      const time = document.createElement("span");
+      time.className = "timeline-time";
+      time.textContent = elapsed ? `${elapsed} ms` : "";
+
+      const sizeEl = document.createElement("span");
+      sizeEl.className = "timeline-size";
+      sizeEl.textContent = size ? this.#formatSize(size) : "";
+
+      meta.appendChild(time);
+      meta.appendChild(sizeEl);
+      record.appendChild(badge);
+      record.appendChild(text);
+      record.appendChild(meta);
+      item.appendChild(ts);
+      item.appendChild(record);
+
+      item.addEventListener("click", () => {
+        this.#timelineSelected = idx;
+        this.#renderTimeline();
+        window.dispatchEvent(new CustomEvent("wurl:timeline-select", {
+          detail: {
+            requestNode: entry.requestNode,
+            requestUrl:  entry.requestUrl ?? "",
+            response:    entry.response,
+          },
+        }));
+      });
+
+      list.appendChild(item);
+    });
+
+    pane.appendChild(list);
+  }
+
   // ── Console rendering ─────────────────────────────────────────────────────
   /**
    * Render the verbose console log lines into the Console tab pane.
@@ -1142,7 +1285,85 @@ export class ResponseViewer {
     pane.appendChild(pre);
   }
 
+  // ── Timestamp updater ─────────────────────────────────────────────────────
+
+  #startTimestampUpdater() {
+    this.#stopTimestampUpdater();
+    this.#timestampTimer = setInterval(() => this.#updateTimestampLabels(), 10_000);
+  }
+
+  #stopTimestampUpdater() {
+    if (this.#timestampTimer !== null) {
+      clearInterval(this.#timestampTimer);
+      this.#timestampTimer = null;
+    }
+  }
+
+  #updateTimestampLabels() {
+    const pane = this._tabContent?.querySelector("#res-tab-timeline");
+    if (!pane) return;
+    pane.querySelectorAll(".timeline-item").forEach((item, idx) => {
+      const entry = this.#timelineEntries[idx];
+      if (!entry) return;
+      const tsEl = item.querySelector(".timeline-timestamp");
+      if (tsEl) tsEl.textContent = this.#formatTimestamp(entry.timestamp);
+    });
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  #formatTimestamp(ts) {
+    if (!ts) return "";
+    const delta = Date.now() - ts;
+    const secs  = delta / 1000;
+    const mins  = secs / 60;
+
+    if (secs < 10)  return "Just now";
+    if (mins < 1)   return "Less than a minute ago";
+    if (mins < 5)   return "Within the last 5 minutes";
+    if (mins < 30)  return "Within the last half hour";
+    if (mins < 60)  return "Within the last hour";
+
+    const then     = new Date(ts);
+    const todayMid = new Date();
+    todayMid.setHours(0, 0, 0, 0);
+    const thenMid  = new Date(then);
+    thenMid.setHours(0, 0, 0, 0);
+    const daysDiff = Math.round((todayMid - thenMid) / 86400000);
+
+    if (daysDiff === 0) return "Today";
+    if (daysDiff === 1) return "Yesterday";
+
+    // Start of the current calendar week (Sunday = day 0)
+    const weekStart = new Date(todayMid);
+    weekStart.setDate(todayMid.getDate() - todayMid.getDay());
+    if (thenMid >= weekStart) return "This week";
+
+    const lastWeekStart = new Date(weekStart);
+    lastWeekStart.setDate(weekStart.getDate() - 7);
+    if (thenMid >= lastWeekStart) return "Last Week";
+
+    // Full format: "On Monday, June 12th, at 12:45 pm"
+    const DAYS   = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    const MONTHS = ["January","February","March","April","May","June",
+                    "July","August","September","October","November","December"];
+    const d = then.getDate();
+    const ordinal = (n) => {
+      if (n >= 11 && n <= 13) return "th";
+      switch (n % 10) {
+        case 1: return "st";
+        case 2: return "nd";
+        case 3: return "rd";
+        default: return "th";
+      }
+    };
+    const h    = then.getHours();
+    const h12  = h % 12 || 12;
+    const m    = String(then.getMinutes()).padStart(2, "0");
+    const ampm = h < 12 ? "am" : "pm";
+    return `On ${DAYS[then.getDay()]}, ${MONTHS[then.getMonth()]} ${d}${ordinal(d)}, at ${h12}:${m} ${ampm}`;
+  }
+
   #setStatus(code, text, time, size) {
     this._statusBar.querySelector(".res-status-badge").textContent = code;
     this._statusBar.querySelector(".res-status-text").textContent  = text;

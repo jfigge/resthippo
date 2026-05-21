@@ -154,6 +154,27 @@ class HistoryStore {
     }
     return data;
   }
+
+  // ── Delete ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Permanently delete a history entry and its response payload.
+   * Silently ignores missing files.
+   *
+   * @param {string} requestId
+   * @param {string} historyId
+   */
+  deleteHistory(requestId, historyId) {
+    validateID(requestId, "requestId");
+    validateID(historyId,  "historyId");
+    const collId = this._resolver.resolve(requestId);
+
+    const respPath  = this._paths.responsePath(collId, requestId, historyId);
+    const entryPath = this._paths.historyEntryPath(collId, requestId, historyId);
+
+    try { fs.unlinkSync(respPath);  } catch { /* missing response file is fine */ }
+    try { fs.unlinkSync(entryPath); } catch { /* missing entry file is fine */    }
+  }
 }
 
 module.exports = { HistoryStore };

@@ -22,6 +22,9 @@ export class SettingsPopup {
   /** @type {HTMLElement} */
   #el;
 
+  // historyCount value at the time the popup was opened — used to revert on X/Escape.
+  #openHistoryCount = 5;
+
   constructor() {
     this.#el = this.#build();
     this.#bindEvents();
@@ -172,6 +175,27 @@ export class SettingsPopup {
             />
           </div>
         </div>
+
+        <!-- History ──────────────────────────────────────────────────── -->
+        <div class="settings-section">
+          <h3 class="settings-section-title">History</h3>
+
+          <div class="settings-row">
+            <label class="settings-label" for="setting-history-count">Timeline entries</label>
+            <select class="settings-select" id="setting-history-count">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div class="popup-footer">
@@ -188,7 +212,10 @@ export class SettingsPopup {
     // Auto-save on every user interaction — no explicit Save needed.
     // Use "input" for text/number inputs (fires on every keystroke) and
     // "change" for selects and checkboxes (which have no meaningful "input").
+    // historyCount is intentionally excluded: it is only committed when the
+    // user clicks Close (not X or Escape), so it needs deferred handling.
     this.#el.querySelectorAll("select").forEach((control) => {
+      if (control.id === "setting-history-count") return;
       control.addEventListener("change", () => this.#emitChange());
     });
     this.#el.querySelectorAll("input[type='checkbox']").forEach((control) => {
@@ -202,13 +229,30 @@ export class SettingsPopup {
     const removeHeadersCb = this.#el.querySelector("#setting-remove-headers");
     removeHeadersCb.addEventListener("change", () => this.#updateRemoveHeadersTitle());
 
-    // Close button (top-right ✕)
+    // Escape key — same behavior as the X button: revert and close.
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && this.#el.isConnected) {
+        e.stopPropagation();
+        this.#revertHistoryCount();
+        PopupManager.close();
+      }
+    });
+
+    // X button (top-right ✕) — revert historyCount to the value at open time,
+    // then close without committing the pending history count.
     this.#el.querySelector(".popup-close").addEventListener("click", () => {
+      this.#revertHistoryCount();
       PopupManager.close();
     });
 
-    // Close button (footer)
+    // Close button (footer) — commit historyCount and trigger history trimming.
     this.#el.querySelector(".js-close").addEventListener("click", () => {
+      const historyCount = this.#readHistoryCount();
+      this.#emitChange(historyCount);
+      window.dispatchEvent(new CustomEvent("wurl:history-trim", {
+        detail: { historyCount },
+        bubbles: true,
+      }));
       PopupManager.close();
     });
   }
@@ -231,18 +275,32 @@ export class SettingsPopup {
 
   /**
    * Read current control values and dispatch "wurl:settings-changed".
-   * app.js listens and persists to storage immediately.
+   * Pass an explicit historyCount to include it (only done from the Close button).
+   * @param {number} [historyCount]
    */
-  #emitChange() {
+  #emitChange(historyCount) {
+    const detail = this.#readValues();
+    if (historyCount !== undefined) detail.historyCount = historyCount;
     window.dispatchEvent(
       new CustomEvent("wurl:settings-changed", {
-        detail: this.#readValues(),
+        detail,
         bubbles: true,
       }),
     );
   }
 
-  /** Collect all setting values into a plain object. */
+  /** Read the historyCount select value as a number. */
+  #readHistoryCount() {
+    return parseInt(this.#el.querySelector("#setting-history-count").value, 10) || 0;
+  }
+
+  /** Reset the historyCount control to the value it had when the popup was opened. */
+  #revertHistoryCount() {
+    const ctrl = this.#el.querySelector("#setting-history-count");
+    if (ctrl) ctrl.value = String(this.#openHistoryCount);
+  }
+
+  /** Collect all setting values into a plain object (historyCount excluded — deferred). */
   #readValues() {
     return {
       theme:           this.#el.querySelector("#setting-theme").value,
@@ -260,8 +318,9 @@ export class SettingsPopup {
 
   // ── PopupManager protocol ──────────────────────────────────────────────────
 
-  /** Called by PopupManager when the user clicks the overlay mask. */
+  /** Called by PopupManager when the user clicks the overlay mask — same as X: revert. */
   onMaskClick() {
+    this.#revertHistoryCount();
     PopupManager.close();
   }
 
@@ -273,6 +332,7 @@ export class SettingsPopup {
    * @param {object} [settings]
    */
   open(settings = {}) {
+    this.#openHistoryCount = settings.historyCount ?? 5;
     this.#applyValues(settings);
     PopupManager.open(this);
   }
@@ -321,6 +381,9 @@ export class SettingsPopup {
     }
     if (settings.proxyUrl !== undefined) {
       this.#el.querySelector("#setting-proxy-url").value = settings.proxyUrl;
+    }
+    if (settings.historyCount !== undefined) {
+      this.#el.querySelector("#setting-history-count").value = String(settings.historyCount);
     }
   }
 }

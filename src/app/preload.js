@@ -125,6 +125,14 @@ contextBridge.exposeInMainWorld("wurl", {
        */
       getResponse: (requestId, historyId) =>
         ipcRenderer.invoke("store:history:response:get", requestId, historyId),
+      /**
+       * Delete a history entry and its response payload.
+       * @param {string} requestId
+       * @param {string} historyId
+       * @returns {Promise<void>}
+       */
+      delete: (requestId, historyId) =>
+        ipcRenderer.invoke("store:history:delete", requestId, historyId),
     },
   },
 
