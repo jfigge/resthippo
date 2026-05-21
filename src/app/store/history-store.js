@@ -71,7 +71,11 @@ class HistoryStore {
     }
 
     // Sort newest-first by timestamp (ISO strings compare lexicographically).
-    entries.sort((a, b) => (b.timestamp ?? "") > (a.timestamp ?? "") ? 1 : -1);
+    entries.sort((a, b) => {
+      const ta = a.timestamp ?? "";
+      const tb = b.timestamp ?? "";
+      return tb > ta ? 1 : tb < ta ? -1 : 0;
+    });
 
     // Apply cursor: skip everything up to and including the cursor entry.
     let startIdx = 0;

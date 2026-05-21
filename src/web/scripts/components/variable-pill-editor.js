@@ -294,7 +294,6 @@ export class VariablePillEditor {
 
     for (const child of [...this.#el.childNodes]) {
       if (child.nodeType !== Node.TEXT_NODE) continue;
-      if (!this.#el.contains(child)) continue;
 
       const text    = child.textContent;
       const matches = [...text.matchAll(VAR_RE)];
@@ -625,6 +624,7 @@ export class VariablePillEditor {
     const dropRange = document.caretRangeFromPoint?.(e.clientX, e.clientY);
     if (dropRange) {
       const sel = window.getSelection();
+      if (!sel) { this.#insertTextAtCaret(text); return; }
       sel.removeAllRanges();
       sel.addRange(dropRange);
     }

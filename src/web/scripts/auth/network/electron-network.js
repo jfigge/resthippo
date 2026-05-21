@@ -97,18 +97,21 @@ export async function postTokenRequest(url, params, opts = {}) {
   }
 
   // Network-level failure (no HTTP response)
-  if (result.error && (!result.status || result.status === 0)) {
+  if (result.error && (result.status == null || result.status === 0)) {
     throw fromNetworkError(result.error);
   }
 
   // Parse the response body as JSON
+  if (!result.body) {
+    throw new Error(`Token endpoint returned an empty body (HTTP ${result.status})`);
+  }
   let parsed;
   try {
-    parsed = JSON.parse(result.body ?? "");
+    parsed = JSON.parse(result.body);
   } catch {
     throw new OAuthError(
       OAuthErrorCode.MALFORMED_RESPONSE,
-      `Token endpoint returned non-JSON (HTTP ${result.status}): ${(result.body ?? "").slice(0, 200)}`,
+      `Token endpoint returned non-JSON (HTTP ${result.status}): ${result.body.slice(0, 200)}`,
       result.status,
     );
   }
@@ -146,7 +149,7 @@ export async function fetchJson(url, opts = {}) {
     throw fromNetworkError(err);
   }
 
-  if (result.error && (!result.status || result.status === 0)) {
+  if (result.error && (result.status == null || result.status === 0)) {
     throw fromNetworkError(result.error);
   }
 

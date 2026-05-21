@@ -29,12 +29,12 @@ function ensureDir(dir) {
  */
 function atomicWrite(filePath, data) {
   ensureDir(path.dirname(filePath));
-  const tmp = filePath + ".tmp";
+  const tmpPath = filePath + "." + randomUUID() + ".tmp";
   try {
-    fs.writeFileSync(tmp, data, "utf8");
-    fs.renameSync(tmp, filePath);
+    fs.writeFileSync(tmpPath, data, "utf8");
+    fs.renameSync(tmpPath, filePath);
   } catch (err) {
-    try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
     throw err;
   }
 }

@@ -318,6 +318,12 @@ export class TreeView {
           document.addEventListener("keydown", onEsc, true);
           document.addEventListener("mousedown", onOutside, true);
           cleanupConfirm = restore;
+
+          const onMenuClose = () => {
+            restore();
+            window.removeEventListener("wurl:popup-closed", onMenuClose);
+          };
+          window.addEventListener("wurl:popup-closed", onMenuClose);
         });
       } else {
         btn.addEventListener("click", () => {
@@ -1159,7 +1165,9 @@ export class TreeView {
       // Required by Firefox to start the drag
       e.dataTransfer.setData("text/plain", node.id);
 
+      const capturedDragId = node.id;
       requestAnimationFrame(() => {
+        if (this.#dragId !== capturedDragId || !li.parentElement) return;
         this.#dragInsideTreeView = true;
         // Reset phantom metadata
         this.#dragPhantomEl.dataset.targetId  = "";
@@ -1343,12 +1351,7 @@ export class TreeView {
     this.#items = this.#patchNodeFields(this.#items, id, fields);
 
     // 2. Attempt surgical DOM update
-    let li = null;
-    try {
-      li = this.#el.querySelector(`[data-id="${CSS.escape(id)}"]`);
-    } catch (_) {
-      li = this.#el.querySelector(`[data-id="${id}"]`);
-    }
+    const li = this.#el.querySelector(`[data-id="${CSS.escape(id)}"]`);
 
     if (li) {
       if (fields.method != null) {
@@ -1422,12 +1425,7 @@ export class TreeView {
     const node = this.#findNode(this.#items, id);
     if (!node || node.type !== "request") return false;
 
-    let li;
-    try {
-      li = this.#el.querySelector(`[data-id="${CSS.escape(id)}"]`);
-    } catch (_) {
-      li = this.#el.querySelector(`[data-id="${id}"]`);
-    }
+    const li = this.#el.querySelector(`[data-id="${CSS.escape(id)}"]`);
     if (!li) return false;
 
     this.#selectRequest(node, li);

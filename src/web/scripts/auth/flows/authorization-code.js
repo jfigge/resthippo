@@ -136,7 +136,7 @@ export async function authorizationCodeFlow(config) {
     client_id:    config.clientId.trim(),
   };
 
-  if (isPkce && codeVerifier) {
+  if (isPkce) {
     tokenParams.code_verifier = codeVerifier;
   }
 

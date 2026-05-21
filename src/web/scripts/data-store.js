@@ -294,9 +294,16 @@ export async function loadEnvCollections(envId) {
  * @param {object}   [variables]
  */
 export async function saveEnvCollections(envId, collections, variables) {
-  const vars = variables !== undefined
-    ? variables
-    : (envId === _activeEnvId ? _activeEnvVariables : {});
+  let vars;
+  if (variables !== undefined) {
+    vars = variables;
+  } else if (envId === _activeEnvId) {
+    vars = _activeEnvVariables;
+  } else {
+    // Load existing variables from disk so they are not silently discarded
+    const existing = await _loadEnvFile(envId);
+    vars = existing?.variables ?? {};
+  }
   if (envId === _activeEnvId) {
     _activeEnvCollections = collections;
   }

@@ -64,6 +64,7 @@ function initPanels() {
  */
 function adaptExistingPanel(id) {
   const el = document.getElementById(id);
+  if (!el) throw new Error(`Panel element #${id} not found`);
   const body = el.querySelector(".panel-body");
   return {
     id,
@@ -136,8 +137,9 @@ function saveSplitterPositions() {
 }
 
 /** Returns the #app-main element (cached after first call). */
+let _appMain = null;
 function getAppMain() {
-  return document.getElementById("app-main");
+  return (_appMain ??= document.getElementById("app-main"));
 }
 
 function initSplitters() {
@@ -405,13 +407,14 @@ function initEventBus() {
 
   // Cache response data so function pills like response() / responseHeader() can resolve
   window.addEventListener("wurl:response-received", (e) => {
-    const name = _selectedNode?.name;
+    const node = _selectedNode;
+    const name = node?.name;
     if (!name) return;
     const { body = "", headers = {}, status = 0 } = e.detail;
     _responseCache[name]   = body;
     _responseHeaders[name] = headers;
     _responseStatus[name]  = status;
-    _refreshEditorVariableContext();
+    _refreshEditorVariableContext(node.id);
   });
 
   // Auto-save whenever the tree is mutated (add / remove collection or request)

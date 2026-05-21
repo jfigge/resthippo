@@ -112,10 +112,10 @@ export class PillPicker {
     for (const { name, funcDef } of functions) {
       const cat = funcDef.category ?? "built-in";
       if (!SECTION_ORDER.includes(cat)) continue;
-      const sig = funcDef.params.length
+      const sig = funcDef.params?.length
         ? `${name}(${funcDef.params.map(p => p.label).join(", ")})`
         : `${name}()`;
-      if (!sig.toLowerCase().includes(q) && !funcDef.label.toLowerCase().includes(q)) continue;
+      if (!sig.toLowerCase().includes(q) && !(funcDef.label ?? "").toLowerCase().includes(q)) continue;
       (byCategory[cat] = byCategory[cat] ?? []).push({ name, funcDef, sig });
     }
 
@@ -183,7 +183,7 @@ export class PillPicker {
 
     el.addEventListener("mousemove", () => {
       const idx = parseInt(el.dataset.idx, 10);
-      if (!isNaN(idx)) this.#setActive(idx);
+      if (!isNaN(idx) && idx !== this.#activeIdx) this.#setActive(idx);
     });
 
     return el;
@@ -197,7 +197,7 @@ export class PillPicker {
   }
 
   #buildToken(name, funcDef) {
-    if (!funcDef.params.length) return `{{${name}()}}`;
+    if (!funcDef.params?.length) return `{{${name}()}}`;
     const argStrs = funcDef.params.map(p => `"${p.default ?? ""}"`).join(", ");
     return `{{${name}(${argStrs})}}`;
   }

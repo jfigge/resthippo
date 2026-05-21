@@ -121,6 +121,20 @@ export function normaliseRedirectUri(uri) {
 }
 
 /**
+ * Return the effective port string for a URL, substituting the scheme default
+ * when `URL.port` is empty (i.e. the port is implicit).
+ *
+ * @param {URL} url
+ * @returns {string}
+ */
+function effectivePort(url) {
+  if (url.port !== "") return url.port;
+  if (url.protocol === "https:") return "443";
+  if (url.protocol === "http:")  return "80";
+  return "";
+}
+
+/**
  * Test whether a given URL starts with the registered redirect URI.
  * Comparison is case-sensitive for the path and case-insensitive for the host.
  *
@@ -139,7 +153,7 @@ export function matchesRedirectUri(urlToCheck, registeredRedirectUri) {
 
     const sameOrigin   = check.protocol.toLowerCase() === redirect.protocol.toLowerCase()
                       && check.hostname.toLowerCase()  === redirect.hostname.toLowerCase()
-                      && check.port                    === redirect.port;
+                      && effectivePort(check)          === effectivePort(redirect);
     const samePath     = check.pathname === redirect.pathname
                       || (redirect.pathname === "/" && check.pathname === "");
     return sameOrigin && samePath;

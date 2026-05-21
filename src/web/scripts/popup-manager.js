@@ -19,8 +19,20 @@
 
 // ── Private state ─────────────────────────────────────────────────────────────
 
+/** HTML-escape helper — prevents XSS when inserting caller-supplied strings into innerHTML. */
+function _esc(s) {
+  return String(s ?? "")
+    .replace(/&/g,  "&amp;")
+    .replace(/</g,  "&lt;")
+    .replace(/>/g,  "&gt;")
+    .replace(/"/g,  "&quot;");
+}
+
 /** @type {{ element: HTMLElement, onMaskClick?: () => void } | null} */
 let _activePopup = null;
+
+/** Cleanup function registered by the most recent confirmClose() call; called by _closeConfirmIfOpen. */
+let _confirmCleanup = null;
 
 /** @type {HTMLElement | null} */
 let _maskEl = null;
@@ -70,6 +82,8 @@ function _hideMask() {
  */
 function _closeConfirmIfOpen() {
   if (!_confirmOpen || !_confirmEl) return;
+  _confirmCleanup?.();
+  _confirmCleanup = null;
   _confirmOpen = false;
   _confirmEl.classList.remove("popup--visible");
   const onEnd = () => {
@@ -84,7 +98,7 @@ function _closeConfirmIfOpen() {
 
 window.addEventListener("resize", () => {
   if (_confirmOpen) _closeConfirmIfOpen();
-  if (_activePopup)  PopupManager.close();
+  if (_activePopup && !_confirmOpen) PopupManager.close();
 });
 
 // ── Private helpers ───────────────────────────────────────────────────────────
@@ -307,17 +321,17 @@ export const PopupManager = {
     const { dlg, dismiss } = _showOneShotDialog({
       cssClass:  "popup-confirm",
       role:      "alertdialog",
-      ariaLabel: title,
+      ariaLabel: _esc(title),
       innerHTML: `
         <div class="popup-header">
-          <span class="popup-title">${title}</span>
+          <span class="popup-title">${_esc(title)}</span>
         </div>
         <div class="popup-body popup-confirm-body">
-          <p>${message}</p>
+          <p>${_esc(message)}</p>
         </div>
         <div class="popup-footer">
           <button class="popup-btn popup-btn--secondary" data-action="cancel">Cancel</button>
-          <button class="popup-btn ${confirmClass}"      data-action="confirm">${confirmLabel}</button>
+          <button class="popup-btn ${confirmClass}"      data-action="confirm">${_esc(confirmLabel)}</button>
         </div>
       `,
       focusSel: "[data-action='cancel']",
@@ -378,6 +392,7 @@ export const PopupManager = {
 
     keepBtn.addEventListener("click", onKeep);
     discardBtn.addEventListener("click", onDiscard);
+    _confirmCleanup = cleanup;
 
     // Focus the safe "Keep editing" button by default
     requestAnimationFrame(() => keepBtn.focus());
@@ -401,20 +416,13 @@ export const PopupManager = {
    * }} opts
    */
   warnVariables({ variables = [], actionLabel = "Send Anyway", onAction } = {}) {
-    // Minimal HTML entity escaper — avoids XSS from variable names / values
-    const esc = (s) => String(s ?? "")
-      .replace(/&/g,  "&amp;")
-      .replace(/</g,  "&lt;")
-      .replace(/>/g,  "&gt;")
-      .replace(/"/g,  "&quot;");
-
     const itemsHtml = variables.map(v => {
       const valueCell = v.found
-        ? `<span class="var-warn-value var-warn-value--known">${esc(v.value)}</span>`
+        ? `<span class="var-warn-value var-warn-value--known">${_esc(v.value)}</span>`
         : `<span class="var-warn-value var-warn-value--unknown">?</span>`;
       return `
         <li class="var-warn-item">
-          <span class="var-warn-name">{{${esc(v.name)}}}</span>
+          <span class="var-warn-name">{{${_esc(v.name)}}}</span>
           <span class="var-warn-arrow">→</span>
           ${valueCell}
         </li>`;
@@ -456,13 +464,13 @@ export const PopupManager = {
     const { dlg, dismiss } = _showOneShotDialog({
       cssClass:  "popup-notify",
       role:      "dialog",
-      ariaLabel: title,
+      ariaLabel: _esc(title),
       innerHTML: `
         <div class="popup-header">
-          <span class="popup-title">${title}</span>
+          <span class="popup-title">${_esc(title)}</span>
         </div>
         <div class="popup-body popup-notify-body">
-          ${message ? `<p>${message}</p>` : ""}
+          ${message ? `<p>${_esc(message)}</p>` : ""}
         </div>
         <div class="popup-footer">
           <button class="popup-btn popup-btn--primary" data-action="ok">OK</button>

@@ -6,6 +6,7 @@ import { invokeBackend } from "./function-backend.js";
 // Handles: .field  .field.nested  .[0]  .
 // Delegates anything else to the backend.
 function _simpleJq(jsonStr, query) {
+  if (!jsonStr.trim()) return "";
   const q = query.trim();
   if (q === ".") {
     const data = JSON.parse(jsonStr);
@@ -39,7 +40,7 @@ export const logicMap = {
     return d.toISOString();
   },
 
-  base64encode: ([v = ""], _ctx) => btoa(String(v)),
+  base64encode: ([v = ""], _ctx) => btoa(unescape(encodeURIComponent(String(v)))),
   base64decode: ([v = ""], _ctx) => atob(String(v)),
   urlEncode:    ([v = ""], _ctx) => encodeURIComponent(String(v)),
   urlDecode:    ([v = ""], _ctx) => decodeURIComponent(String(v)),
@@ -51,7 +52,7 @@ export const logicMap = {
   },
 
   // ── context (synchronous — reads from ctx) ──────────────────────────────
-  folderName:  ([depth = "0"], ctx) => ctx?.folderChain?.[Number(depth)]?.name ?? "",
+  folderName:  ([depth = "0"], ctx) => { const d = parseInt(depth, 10); if (isNaN(d)) return ""; return ctx?.folderChain?.[d]?.name ?? ""; },
   envName:     (_args, ctx)         => ctx?.envName     ?? "",
   requestName: (_args, ctx)         => ctx?.requestName ?? "",
 

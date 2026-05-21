@@ -71,6 +71,9 @@ export class EnvironmentPopup {
    */
   #pendingAction = null;
 
+  /** @type {number|null} — handle returned by setTimeout for the error-class removal */
+  #nameErrorTimer = null;
+
   constructor() {
     this.#el = this.#build();
   }
@@ -266,6 +269,8 @@ export class EnvironmentPopup {
       newBtn.disabled = true;
       requestAnimationFrame(() => { input.focus(); input.select(); });
     } else {
+      clearTimeout(this.#nameErrorTimer);
+      this.#nameErrorTimer = null;
       row.classList.remove("env-name-input-row--visible");
       input.value       = "";
       okBtn.textContent = "Add";
@@ -317,9 +322,10 @@ export class EnvironmentPopup {
     if (isDuplicate) {
       input.classList.add("env-name-input--error");
       input.title = "An environment with this name already exists.";
-      setTimeout(() => {
+      this.#nameErrorTimer = setTimeout(() => {
         input.classList.remove("env-name-input--error");
         input.title = "";
+        this.#nameErrorTimer = null;
       }, 1500);
       return;
     }

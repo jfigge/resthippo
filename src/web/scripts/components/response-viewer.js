@@ -95,6 +95,7 @@ export class ResponseViewer {
 
   // HTML-preview state
   #htmlPreviewActive  = false;  // true while an HTML preview is live
+  #popupDepth         = 0;      // count of currently open popups (prevents re-show during rapid open/close)
   #iframeEl           = null;   // dev-mode <iframe> element
   #resizeObserver     = null;   // observes body pane for Electron overlay
   #winResizeHandler   = null;   // window resize listener for Electron overlay
@@ -158,15 +159,17 @@ export class ResponseViewer {
     // native WebContentsView (which renders above all web content) does not cover it.
     // Re-show it with the correct bounds once the popup is dismissed.
     window.addEventListener("wurl:popup-opened", () => {
+      this.#popupDepth++;
       if (this.#htmlPreviewActive && window.wurl?.isElectron) {
         window.wurl.htmlPreview.hide().catch(() => {});
       }
     });
     window.addEventListener("wurl:popup-closed", () => {
+      this.#popupDepth = Math.max(0, this.#popupDepth - 1);
       if (!this.#htmlPreviewActive || !window.wurl?.isElectron) return;
       if (this.#activeTab !== "body") return;   // body tab is not visible — stay hidden
       requestAnimationFrame(() => {
-        if (!this.#htmlPreviewActive) return;
+        if (!this.#htmlPreviewActive || this.#popupDepth > 0) return;
         window.wurl.htmlPreview.show(this.#computePreviewBounds()).catch(() => {});
       });
     });
@@ -630,7 +633,8 @@ export class ResponseViewer {
     const category   = classifyContentType(ct);
     const isElectron = window.wurl?.isElectron === true;
 
-    // Always tear down any existing HTML preview before re-rendering.
+    // Always tear down any existing HTML preview and highlights before re-rendering.
+    this.#clearHighlights();
     this.#destroyHtmlPreview();
     pane.innerHTML = "";
 

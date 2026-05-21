@@ -22,6 +22,12 @@ const TTL_MS = 10 * 60 * 1_000;
  * @returns {string} 64-hex-character random value
  */
 export function generateState() {
+  // Prune expired entries so _pending does not accumulate indefinitely.
+  const now = Date.now();
+  for (const [k, v] of _pending) {
+    if (now - v.createdAt > TTL_MS) _pending.delete(k);
+  }
+
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
   const state = Array.from(bytes)

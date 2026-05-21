@@ -46,7 +46,6 @@ export async function implicitFlow(config) {
   switch (config.responseType) {
     case "id_token": responseType = "id_token";       break;
     case "both":     responseType = "token id_token"; break;
-    default:         responseType = "token";           break;
   }
 
   // ── Build authorization URL ───────────────────────────────────────────────
@@ -104,7 +103,8 @@ export async function implicitFlow(config) {
     );
   }
 
-  const expiresIn = parts.expiresIn != null ? Number(parts.expiresIn) : null;
+  const n = Number(parts.expiresIn);
+  const expiresIn = Number.isFinite(n) ? n : null;
   const expiresAt = expiresIn != null ? Date.now() + expiresIn * 1_000 : null;
 
   return createOAuthResult({

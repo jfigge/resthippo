@@ -102,7 +102,9 @@ class Resolver {
 
       for (const file of files) {
         if (!file.endsWith(".json")) continue;
-        this._cache.set(file.slice(0, -5), collId);
+        const reqId = file.slice(0, -5);
+        if (reqId.length === 0) continue;
+        this._cache.set(reqId, collId);
       }
     }
   }

@@ -715,6 +715,7 @@ export class RequestEditor {
   #urlPreviewEnabled = true; // toggled by "Show URL" checkbox
   #urlPreviewEl      = null; // the preview bar element
   #urlPreviewInputEl = null; // the read-only input inside it
+  #urlPreviewSeq     = 0;    // generation counter — guards against stale async results
   // Drag state
   #dragSrcId         = null; // id of the param being dragged
   #dragInsideList    = false;
@@ -1423,6 +1424,7 @@ export class RequestEditor {
           }
         }
 
+        if (!this.#authContentEl?.contains(clearSessionBtn)) return;
         this.#renderAuthContent();
         this.#dispatchAuthUpdated();
       });
@@ -1803,6 +1805,7 @@ export class RequestEditor {
       PopupManager.close();
     };
 
+    const escHtml = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const showError = (msg) => {
       errorEl.innerHTML = msg;
       errorEl.hidden    = false;
@@ -1831,7 +1834,7 @@ export class RequestEditor {
       try {
         config = await _fetchJson(discoveryUrl);
       } catch (err) {
-        showError(`Could not fetch <code>${discoveryUrl}</code><br>${err.message}`);
+        showError(`Could not fetch <code>${escHtml(discoveryUrl)}</code><br>${escHtml(err.message)}`);
         // Clear any previously stored discovery data so stale scopes/issuer
         // from a prior successful lookup don't linger after a failed re-discover.
         if (this.#currentNodeId === targetNodeId) {
@@ -2224,6 +2227,7 @@ export class RequestEditor {
 
     // Drag events
     div.addEventListener("dragstart", (e) => {
+      if (this.#bfDragSrcId) this.#finalizeBfDrag();
       this.#bfDragSrcId  = row.id;
       this.#bfDropHandled = false;
       e.dataTransfer.effectAllowed = "move";
@@ -3325,9 +3329,11 @@ export class RequestEditor {
   /** Refresh the preview bar's visibility and text content. */
   async #updateUrlPreview() {
     if (!this.#urlPreviewEl) return;
+    const seq = ++this.#urlPreviewSeq;
     this.#urlPreviewEl.classList.toggle("params-url-preview--hidden", !this.#urlPreviewEnabled);
     if (this.#urlPreviewInputEl) {
-      this.#urlPreviewInputEl.value = await this.#buildPreviewUrl();
+      const url = await this.#buildPreviewUrl();
+      if (seq === this.#urlPreviewSeq) this.#urlPreviewInputEl.value = url;
     }
   }
 

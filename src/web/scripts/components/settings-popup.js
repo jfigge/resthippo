@@ -185,10 +185,17 @@ export class SettingsPopup {
   // ── Events ─────────────────────────────────────────────────────────────────
 
   #bindEvents() {
-    // Auto-save on every user interaction — no explicit Save needed
-    this.#el.querySelectorAll("select, input").forEach((control) => {
+    // Auto-save on every user interaction — no explicit Save needed.
+    // Use "input" for text/number inputs (fires on every keystroke) and
+    // "change" for selects and checkboxes (which have no meaningful "input").
+    this.#el.querySelectorAll("select").forEach((control) => {
       control.addEventListener("change", () => this.#emitChange());
-      control.addEventListener("input",  () => this.#emitChange());
+    });
+    this.#el.querySelectorAll("input[type='checkbox']").forEach((control) => {
+      control.addEventListener("change", () => this.#emitChange());
+    });
+    this.#el.querySelectorAll("input[type='text'], input[type='number'], input[type='url']").forEach((control) => {
+      control.addEventListener("input", () => this.#emitChange());
     });
 
     // Update the "Remove headers" tooltip whenever the checkbox is toggled
@@ -239,13 +246,13 @@ export class SettingsPopup {
   #readValues() {
     return {
       theme:           this.#el.querySelector("#setting-theme").value,
-      fontSize:        parseInt(this.#el.querySelector("#setting-font-size").value, 10),
+      fontSize:        parseInt(this.#el.querySelector("#setting-font-size").value, 10) || 0,
       removeHeaders:   this.#el.querySelector("#setting-remove-headers").checked,
-      timeout:         parseInt(this.#el.querySelector("#setting-timeout").value, 10),
+      timeout:         parseInt(this.#el.querySelector("#setting-timeout").value, 10) || 0,
       followRedirects:    this.#el.querySelector("#setting-follow-redirects").checked,
       doubleClickExecute: this.#el.querySelector("#setting-dblclick-execute").checked,
       verifySsl:          this.#el.querySelector("#setting-verify-ssl").checked,
-      pickerDebounceMs: parseInt(this.#el.querySelector("#setting-picker-debounce").value, 10),
+      pickerDebounceMs: parseInt(this.#el.querySelector("#setting-picker-debounce").value, 10) || 0,
       proxyEnabled:    this.#el.querySelector("#setting-proxy-enabled").checked,
       proxyUrl:        this.#el.querySelector("#setting-proxy-url").value.trim(),
     };

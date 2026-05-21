@@ -140,8 +140,14 @@ export function serializeEditor(el) {
       if (child.dataset && child.dataset.variable !== undefined) {
         out += `{{${child.dataset.variable}}}`;
       } else if (child.dataset && child.dataset.function !== undefined) {
-        // Function pill — title holds the full {{funcName(args)}} token
-        out += child.title.replace(/ — double-click to edit$/, "");
+        const name    = child.dataset.function;
+        const rawArgs = JSON.parse(child.dataset.fnArgs ?? "[]");
+        if (!rawArgs.length) {
+          out += `{{${name}()}}`;
+        } else {
+          const argStrs = rawArgs.map(a => `"${String(a).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(", ");
+          out += `{{${name}(${argStrs})}}`;
+        }
       } else if (child.tagName !== "BR") {
         out += serializeEditor(child);
       }

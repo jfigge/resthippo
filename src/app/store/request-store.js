@@ -126,9 +126,12 @@ class RequestStore {
     const collId  = this._resolver.resolve(id);
     const reqPath = this._paths.requestPath(collId, id);
 
-    if (!fs.existsSync(reqPath)) throw notFoundError(`request not found: ${id}`);
-
-    fs.unlinkSync(reqPath);
+    try {
+      fs.unlinkSync(reqPath);
+    } catch (err) {
+      if (err.code === "ENOENT") throw notFoundError(`request not found: ${id}`);
+      throw err;
+    }
 
     // Best-effort: keep the tree consistent (file is already gone, so not critical).
     try { this._removeFromTree(collId, id); } catch { /* ignore */ }

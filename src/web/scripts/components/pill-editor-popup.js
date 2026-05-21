@@ -46,6 +46,7 @@ export class PillEditorPopup {
   #paramEls        = [];     // function type: one element per param
   #errorEl         = null;
   #previewValueEl  = null;
+  #previewSeq      = 0;      // monotonic counter — guards against stale async preview results
 
   constructor({
     type       = "variable",
@@ -119,7 +120,7 @@ export class PillEditorPopup {
 
     const bodyHtml = type === "function"
       ? this.#functionBodyHtml(funcName, funcDef, rawArgs, getItems)
-      : this.#variableBodyHtml(varName);
+      : this.#variableBodyHtml();
 
     el.innerHTML = `
       <div class="popup-header">
@@ -142,7 +143,7 @@ export class PillEditorPopup {
     return el;
   }
 
-  #variableBodyHtml(_varName) {
+  #variableBodyHtml() {
     return `
       <span class="pill-editor-type-label">Select Variable</span>
       <div class="pill-editor-var-suggestions" role="listbox" aria-label="Available variables" tabindex="0"></div>
@@ -324,19 +325,20 @@ export class PillEditorPopup {
 
   async #updatePreview() {
     if (!this.#previewValueEl) return;
+    const seq = ++this.#previewSeq;
 
     if (this.#type === "variable") {
       const name = this.#selectedVarName;
       if (!name) { this.#setPreview(null); return; }
       const { found, value } = resolveVariable(name, this.#getContext());
-      this.#setPreview(found ? String(value ?? "") : null);
+      if (seq === this.#previewSeq) this.#setPreview(found ? String(value ?? "") : null);
 
     } else if (this.#type === "function" && this.#getPreview) {
       try {
         const result = await this.#getPreview(this.#getParamArgs());
-        this.#setPreview(result != null ? String(result) : null);
+        if (seq === this.#previewSeq) this.#setPreview(result != null ? String(result) : null);
       } catch {
-        this.#setPreview(null);
+        if (seq === this.#previewSeq) this.#setPreview(null);
       }
     } else {
       this.#setPreview(null);

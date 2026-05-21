@@ -31,6 +31,8 @@ export class VariablesPopup {
   /** @type {HTMLButtonElement} */ #resetBtn;
   /** @type {HTMLButtonElement} */ #closeHeaderBtn;
   /** @type {HTMLButtonElement} */ #closeFooterBtn;
+  /** @type {HTMLElement} */       #hintEl;
+  /** @type {HTMLButtonElement} */ #addBtnEl;
 
   /** @type {string|null} */ #envId = null;
 
@@ -181,6 +183,8 @@ export class VariablesPopup {
     this.#resetBtn       = el.querySelector(".vars-reset-btn");
     this.#closeHeaderBtn = el.querySelector(".popup-close");
     this.#closeFooterBtn = el.querySelector(".vars-close-btn");
+    this.#hintEl         = el.querySelector(".vars-hint");
+    this.#addBtnEl       = el.querySelector(".vars-add-btn");
 
     this.#closeHeaderBtn.addEventListener("click", () => this.#doClose());
     this.#closeFooterBtn.addEventListener("click", () => this.#doClose());
@@ -201,7 +205,7 @@ export class VariablesPopup {
 
     // List-level drag events (fires even when cursor is over the phantom)
     this.#kvListEl.addEventListener("dragover", (e) => {
-      if (!this.#dragSrcId) return;
+      if (!this.#dragSrcId) { this.#phantom?.remove(); return; }
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       if (!this.#kvListEl.contains(this.#phantom)) {
@@ -217,7 +221,7 @@ export class VariablesPopup {
       const phIdx    = children.indexOf(this.#phantom);
       if (phIdx === -1) { this.#finalizeDrag(); return; }
       const rowEls   = children.filter(c => c.classList.contains("vars-kv-row"));
-      const insertAt = rowEls.filter((_r, i) => children.indexOf(rowEls[i]) < phIdx).length;
+      const insertAt = rowEls.filter(r => children.indexOf(r) < phIdx).length;
       const srcIdx   = this.#rows.findIndex(r => r.id === this.#dragSrcId);
       if (srcIdx !== -1) {
         const [moved] = this.#rows.splice(srcIdx, 1);
@@ -243,10 +247,8 @@ export class VariablesPopup {
     const bulk = this.#isBulkMode;
     this.#textareaEl.style.display = bulk ? "" : "none";
     this.#kvWrapEl.style.display   = bulk ? "none" : "";
-    const hint = this.#el.querySelector(".vars-hint");
-    if (hint) hint.style.display   = bulk ? "" : "none";
-    const addBtn = this.#el.querySelector(".vars-add-btn");
-    if (addBtn) addBtn.style.display = bulk ? "none" : "";
+    if (this.#hintEl)   this.#hintEl.style.display   = bulk ? "" : "none";
+    if (this.#addBtnEl) this.#addBtnEl.style.display = bulk ? "none" : "";
   }
 
   #handleBulkToggle() {
@@ -388,6 +390,7 @@ export class VariablesPopup {
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", row.id);
       requestAnimationFrame(() => {
+        if (!this.#dragSrcId) return; // dragend already fired — skip hide
         el.parentElement?.insertBefore(this.#phantom, el);
         el.style.display = "none";
       });

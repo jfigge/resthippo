@@ -7,7 +7,7 @@
  */
 export async function invokeBackend(fn, args) {
   if (window.wurl?.isElectron === true) {
-    const result = await window.wurl.functions.invoke(fn, args);
+    const result = await window.wurl.functions?.invoke(fn, args);
     if (result.error) throw new Error(result.error);
     return result.result ?? "";
   }
@@ -17,6 +17,7 @@ export async function invokeBackend(fn, args) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ fn, args }),
   });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const result = await response.json();
   if (result.error) throw new Error(result.error);
   return result.result ?? "";

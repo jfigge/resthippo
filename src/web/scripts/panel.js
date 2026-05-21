@@ -51,7 +51,7 @@ export class Panel {
   #children = [];
 
   constructor({ id, title, flow = "column", content, classes = [] } = {}) {
-    this.id = id || `panel-${Math.random().toString(36).slice(2, 8)}`;
+    this.id = id || `panel-${crypto.randomUUID()}`;
     this.title = title;
     this.flow = flow;
 
