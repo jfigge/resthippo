@@ -113,9 +113,9 @@ class HistoryStore {
     validateID(requestId, "requestId");
     const collId = this._resolver.resolve(requestId);
 
-    if (!entry.id)        entry = { ...entry, id: newUUID() };
-    if (!entry.timestamp) entry = { ...entry, timestamp: new Date().toISOString() };
-    entry = { ...entry, requestId };
+    const id        = entry.id        || newUUID();
+    const timestamp = entry.timestamp || new Date().toISOString();
+    entry = { ...entry, id, timestamp, requestId };
     validateID(entry.id, "historyId");
 
     // Write response first (so the entry never references a missing response).

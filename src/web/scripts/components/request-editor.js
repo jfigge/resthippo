@@ -2247,7 +2247,7 @@ export class RequestEditor {
         if (!inside && this.#bfDragInside) {
           this.#bfDragInside = false;
           this.#bfPhantom?.remove();
-          this.#bfListEl?.querySelector(`[data-id="${this.#bfDragSrcId}"]`)?.style?.removeProperty("display");
+          this.#bfListEl?.querySelector(`[data-id="${this.#bfDragSrcId}"]`)?.style.removeProperty("display");
         } else if (inside && !this.#bfDragInside) {
           this.#bfDragInside = true;
         }
@@ -2914,7 +2914,7 @@ export class RequestEditor {
       enabled: true,
     });
     this.#renderHeadersList();
-    const rows = this.#headersListEl.querySelectorAll(".params-row");
+    const rows = this.#headersListEl?.querySelectorAll(".params-row") ?? [];
     if (rows.length) rows[rows.length - 1].querySelector(".params-name")?.focus();
     this.#dispatchHeadersUpdated();
     }
@@ -3134,7 +3134,7 @@ export class RequestEditor {
       });
 
       this.#hdrDocDragOverHandler = (ev) => {
-        if (!this.#hdrDragSrcId) return;
+        if (!this.#hdrDragSrcId || !this.#headersListEl) return;
         const inside = this.#headersListEl.contains(ev.target);
         if (!inside && this.#hdrDragInsideList) {
           this.#hdrDragInsideList = false;
@@ -3204,8 +3204,7 @@ export class RequestEditor {
       enabled: true,
     });
     this.#renderParamsList();
-    // Focus the new row's name input
-    const rows = this.#paramsListEl.querySelectorAll(".params-row");
+    const rows = this.#paramsListEl?.querySelectorAll(".params-row") ?? [];
     if (rows.length) rows[rows.length - 1].querySelector(".params-name")?.focus();
     this.#dispatchParamsUpdated();
   }
@@ -3431,7 +3430,7 @@ export class RequestEditor {
       });
 
       this.#docDragOverHandler = (ev) => {
-        if (!this.#dragSrcId) return;
+        if (!this.#dragSrcId || !this.#paramsListEl) return;
         const inside = this.#paramsListEl.contains(ev.target);
         if (!inside && this.#dragInsideList) {
           this.#dragInsideList = false;

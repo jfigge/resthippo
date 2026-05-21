@@ -618,7 +618,7 @@ function initEventBus() {
    * The `envId` field doubles as a folder-node ID when it doesn't match any
    * environment — in that case the variables are stored on the tree node.
    */
-  window.addEventListener("wurl:vars-save", (e) => {
+  window.addEventListener("wurl:vars-save", async (e) => {
     const { envId, variables } = e.detail;
 
     const isEnv = currentEnvs.environments.some(env => env.id === envId);
@@ -636,7 +636,7 @@ function initEventBus() {
       // It's a folder node — patch the tree and persist collections
       if (treeView) {
         treeView.updateNode(envId, { variables }, { silent: true });
-        saveCollections(treeView.getItems());
+        await saveCollections(treeView.getItems());
       }
     }
 

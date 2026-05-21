@@ -799,7 +799,7 @@ export class ResponseViewer {
     pane.style.overflow = "hidden";
 
     const iframe = document.createElement("iframe");
-    iframe.src = url;
+    iframe.src = url ?? "about:blank";
     iframe.setAttribute("title", "HTML response preview");
     iframe.style.cssText =
       "position:absolute;inset:0;width:100%;height:100%;border:none;background:#fff;";

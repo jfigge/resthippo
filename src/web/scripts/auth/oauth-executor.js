@@ -70,7 +70,7 @@ class OAuthExecutor {
 
     // ── Attempt refresh if we have a stored refresh token ─────────────────
     if (cached?.refreshToken) {
-      const refreshResult = await refreshTokenFlow(config, expired.refreshToken);
+      const refreshResult = await refreshTokenFlow(config, cached.refreshToken);
       if (refreshResult.success) {
         tokenStore.set(cacheKey, refreshResult);
         return refreshResult;
