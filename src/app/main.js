@@ -1,7 +1,7 @@
 // main.js — Electron main process for wurl
 "use strict";
 
-const { app, BrowserWindow, WebContentsView, ipcMain, shell, Menu, nativeImage, session } = require("electron");
+const { app, BrowserWindow, WebContentsView, ipcMain, shell, Menu, dialog, nativeImage, session } = require("electron");
 const fs           = require("fs");
 const path         = require("path");
 const http         = require("http");
@@ -1045,13 +1045,47 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
   return win;
 }
 
+// ─── About dialog ─────────────────────────────────────────────────────────────
+function readRevisionInfo() {
+  try {
+    const raw = fs.readFileSync(path.join(__dirname, "..", "REVISION_INFO.txt"), "utf8");
+    return Object.fromEntries(
+      raw.trim().split("\n").map(l => l.split("=").map(s => s.trim())),
+    );
+  } catch {
+    return null;
+  }
+}
+
+function showAboutDialog() {
+  const rev = readRevisionInfo();
+  const buildLines = rev
+    ? [`Version:  ${rev.VERSION ?? "—"}`, `Branch:   ${rev.BRANCH ?? "—"}`, `Commit:   ${rev.COMMIT ?? "—"}`]
+    : ["Version:  dev build"];
+
+  dialog.showMessageBox(_mainWin ?? undefined, {
+    title:   "About wurl",
+    message: "wurl",
+    detail: [
+      "Web URL REST API Client",
+      "A desktop HTTP testing tool",
+      "",
+      ...buildLines,
+      "",
+      "Created by Jason, coded by Claude",
+    ].join("\n"),
+    buttons: ["OK"],
+    icon: appIcon,
+  });
+}
+
 // ─── Application menu ─────────────────────────────────────────────────────────
 function buildMenu() {
   const template = [
     {
       label: "wurl",
       submenu: [
-        { role: "about" },
+        { label: "About wurl", click: showAboutDialog },
         { type: "separator" },
         { role: "services" },
         { type: "separator" },
