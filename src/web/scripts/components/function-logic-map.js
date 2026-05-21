@@ -41,13 +41,14 @@ export const logicMap = {
   },
 
   base64encode: ([v = ""], _ctx) => btoa(unescape(encodeURIComponent(String(v)))),
-  base64decode: ([v = ""], _ctx) => atob(String(v)),
+  base64decode: ([v = ""], _ctx) => { try { return atob(String(v)); } catch { return ""; } },
   urlEncode:    ([v = ""], _ctx) => encodeURIComponent(String(v)),
-  urlDecode:    ([v = ""], _ctx) => decodeURIComponent(String(v)),
+  urlDecode:    ([v = ""], _ctx) => { try { return decodeURIComponent(String(v)); } catch { return String(v); } },
 
   randomInt: ([min = "0", max = "100"], _ctx) => {
     const lo = Number(min);
     const hi = Number(max);
+    if (isNaN(lo) || isNaN(hi)) return "";
     return String(Math.floor(Math.random() * (hi - lo + 1)) + lo);
   },
 

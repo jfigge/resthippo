@@ -104,23 +104,6 @@ export function extractImplicitToken(callbackUrl) {
 }
 
 /**
- * Normalise a redirect URI: ensure it has no trailing slashes except for
- * bare-origin forms (e.g. "http://localhost/").
- *
- * @param {string} uri
- * @returns {string}
- */
-export function normaliseRedirectUri(uri) {
-  try {
-    const u = new URL(uri);
-    if (u.pathname === "/") return u.origin + "/";
-    return u.origin + u.pathname.replace(/\/+$/, "") + u.search + u.hash;
-  } catch {
-    return uri;
-  }
-}
-
-/**
  * Return the effective port string for a URL, substituting the scheme default
  * when `URL.port` is empty (i.e. the port is implicit).
  *

@@ -814,9 +814,12 @@ export class RequestEditor {
   #bodyFormKvWrapEl    = null;
   #bodyFormAddBtnEl    = null;
   #bodyFormDelAllBtnEl = null;
+  _bodyFormDeleteAllCleanup = null;
 
   // Global "Remove Headers" setting — applied to body-form column label row
   #removeHeaders = false;
+
+  #requestInFlight = false;
 
   // ── Variable pill editor support ───────────────────────────────────────────
   /** Current variable resolution context: { envVariables, folderChain, … } */
@@ -890,7 +893,7 @@ export class RequestEditor {
     sendBtn.textContent = "Send";
     sendBtn.setAttribute("aria-label", "Send request");
     sendBtn.addEventListener("click", () => {
-      if (this._requestInFlight) {
+      if (this.#requestInFlight) {
         window.dispatchEvent(new CustomEvent("wurl:cancel-request"));
       } else {
         this.#sendRequest();
@@ -898,15 +901,14 @@ export class RequestEditor {
     });
 
     // Track in-flight state to toggle the button
-    this._requestInFlight = false;
     window.addEventListener("wurl:request-loading", () => {
-      this._requestInFlight = true;
+      this.#requestInFlight = true;
       sendBtn.textContent = "Stop";
       sendBtn.setAttribute("aria-label", "Stop request");
       sendBtn.classList.add("req-send-btn--cancel");
     });
     const resetSendBtn = () => {
-      this._requestInFlight = false;
+      this.#requestInFlight = false;
       sendBtn.textContent = "Send";
       sendBtn.setAttribute("aria-label", "Send request");
       sendBtn.classList.remove("req-send-btn--cancel");
@@ -1465,6 +1467,7 @@ export class RequestEditor {
     tokenStatusEl.className = "auth-token-status";
 
     getTokenBtn.addEventListener("click", async () => {
+      const tokenNodeId = this.#currentNodeId;
       getTokenBtn.disabled    = true;
       getTokenBtn.textContent = "Fetching…";
       tokenStatusEl.textContent = "";
@@ -1472,6 +1475,7 @@ export class RequestEditor {
 
       try {
         const result = await oauthExecutor.forceRefresh({ ...this.#authOAuth2 });
+        if (this.#currentNodeId !== tokenNodeId) return;
 
         if (result.success && result.accessToken) {
           this.#authOAuth2.token        = result.accessToken;
@@ -3158,7 +3162,7 @@ export class RequestEditor {
 
       const sibling = after ? row.nextSibling : row;
       if (ph.nextSibling !== sibling && ph !== sibling) {
-        row.parentElement?.insertBefore(ph, after ? row.nextSibling : row);
+        row.parentElement?.insertBefore(ph, sibling);
       }
     });
 
@@ -3278,12 +3282,6 @@ export class RequestEditor {
       navigator.clipboard.writeText(text).then(() => {
         copyBtn.textContent = "Copied!";
         setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
-      }).catch(() => {
-        // Fallback: select + execCommand for environments without Clipboard API
-        input.removeAttribute("readonly");
-        input.select();
-        document.execCommand("copy");
-        input.setAttribute("readonly", "");
       });
     });
 
@@ -3461,7 +3459,7 @@ export class RequestEditor {
 
       const sibling = after ? row.nextSibling : row;
       if (ph.nextSibling !== sibling && ph !== sibling) {
-        row.parentElement?.insertBefore(ph, after ? row.nextSibling : row);
+        row.parentElement?.insertBefore(ph, sibling);
       }
     });
 
@@ -3872,7 +3870,7 @@ export class RequestEditor {
           }
 
           // ── Guard: user clicked Stop while the popup / token request was in flight ──
-          if (!this._requestInFlight) return;
+          if (!this.#requestInFlight) return;
 
           // ── Handle flow failure ──────────────────────────────────────────
           if (!_oauthResult.success || !_oauthResult.accessToken) {

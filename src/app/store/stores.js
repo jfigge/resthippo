@@ -31,35 +31,31 @@ class Stores {
   constructor(dataDir) {
     this._paths    = new Paths(dataDir);
     this._resolver = new Resolver(this._paths);
+
+    this._collectionStore  = new CollectionStore(this._paths);
+    this._environmentStore = new EnvironmentStore(this._paths, this._resolver);
+    this._treeStore        = new TreeStore(this._paths, this._resolver);
+    this._requestStore     = new RequestStore(this._paths, this._resolver);
+    this._historyStore     = new HistoryStore(this._paths, this._resolver);
   }
 
   /** Manifest store — GET/PUT global environments + settings. */
-  collectionStore() {
-    return new CollectionStore(this._paths);
-  }
+  collectionStore()  { return this._collectionStore;  }
 
   /**
    * Legacy environment-blob store — assembles / decomposes the old monolithic
    * per-environment JSON so the renderer data-store API stays unchanged.
    */
-  environmentStore() {
-    return new EnvironmentStore(this._paths, this._resolver);
-  }
+  environmentStore() { return this._environmentStore; }
 
   /** Lightweight navigation tree store. */
-  treeStore() {
-    return new TreeStore(this._paths, this._resolver);
-  }
+  treeStore()        { return this._treeStore;        }
 
   /** Granular per-request CRUD store. */
-  requestStore() {
-    return new RequestStore(this._paths, this._resolver);
-  }
+  requestStore()     { return this._requestStore;     }
 
   /** Execution history store (metadata + lazy-loaded response payloads). */
-  historyStore() {
-    return new HistoryStore(this._paths, this._resolver);
-  }
+  historyStore()     { return this._historyStore;     }
 }
 
 module.exports = { Stores };

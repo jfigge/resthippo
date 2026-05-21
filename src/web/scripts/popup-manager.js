@@ -92,13 +92,15 @@ function _closeConfirmIfOpen() {
   };
   _confirmEl.addEventListener("transitionend", onEnd);
   setTimeout(() => {
-    if (_confirmEl && _confirmEl.parentNode) _confirmEl.parentNode.removeChild(_confirmEl);
+    if (!_confirmEl) return;
+    _confirmEl.removeEventListener("transitionend", onEnd);
+    if (_confirmEl.parentNode) _confirmEl.parentNode.removeChild(_confirmEl);
   }, 400);
 }
 
 window.addEventListener("resize", () => {
-  if (_confirmOpen) _closeConfirmIfOpen();
-  if (_activePopup && !_confirmOpen) PopupManager.close();
+  _closeConfirmIfOpen();
+  if (_activePopup) PopupManager.close();
 });
 
 // ── Private helpers ───────────────────────────────────────────────────────────
@@ -349,6 +351,7 @@ export const PopupManager = {
    * @param {() => void} onConfirm  Called when the user chooses to discard changes
    */
   confirmClose(onConfirm) {
+    if (_confirmOpen) _closeConfirmIfOpen();
     _ensureMask();
     _ensureConfirm();
 
@@ -371,6 +374,11 @@ export const PopupManager = {
         if (_confirmEl.parentNode) _confirmEl.parentNode.removeChild(_confirmEl);
       };
       _confirmEl.addEventListener("transitionend", onEnd);
+      setTimeout(() => {
+        if (!_confirmEl) return;
+        _confirmEl.removeEventListener("transitionend", onEnd);
+        if (_confirmEl.parentNode) _confirmEl.parentNode.removeChild(_confirmEl);
+      }, 400);
 
       keepBtn.removeEventListener("click", onKeep);
       discardBtn.removeEventListener("click", onDiscard);
@@ -442,7 +450,7 @@ export const PopupManager = {
         </div>
         <div class="popup-footer">
           <button class="popup-btn popup-btn--secondary" data-action="cancel">Cancel</button>
-          <button class="popup-btn popup-btn--warning"   data-action="proceed">${esc(actionLabel)}</button>
+          <button class="popup-btn popup-btn--warning"   data-action="proceed">${_esc(actionLabel)}</button>
         </div>
       `,
       focusSel: "[data-action='cancel']",

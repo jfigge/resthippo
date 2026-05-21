@@ -496,7 +496,7 @@ export class ResponseViewer {
     for (const textNode of textNodes) {
       const text = textNode.textContent;
       regex.lastIndex = 0;
-      if (!regex.test(text)) { regex.lastIndex = 0; continue; }
+      if (!regex.test(text)) continue;
       regex.lastIndex = 0;
 
       const frag = document.createDocumentFragment();

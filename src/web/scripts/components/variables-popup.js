@@ -327,7 +327,6 @@ export class VariablesPopup {
   // ── KV row rendering ────────────────────────────────────────────────────────
 
   #renderRows() {
-    if (!this.#kvListEl) return;
     this.#kvListEl.innerHTML = "";
     if (this.#rows.length === 0) {
       const empty = document.createElement("div");

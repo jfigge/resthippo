@@ -119,7 +119,7 @@ let splitterSizes = {
 
 /** Push current splitter sizes into the CSS grid on #app-main. */
 function applyGridVars() {
-  const appMain = document.getElementById("app-main");
+  const appMain = getAppMain();
   appMain.style.setProperty("--col-nav",  `${splitterSizes.nav}px`);
   appMain.style.setProperty("--col-res",  `${splitterSizes.res}px`);
   appMain.style.setProperty("--row-res",  `${splitterSizes.rowRes}px`);
@@ -453,7 +453,7 @@ function initEventBus() {
     if (id === currentEnvs.activeEnvironmentId) return;
 
     // Persist the current env's collections before switching
-    if (treeView) saveEnvCollections(currentEnvs.activeEnvironmentId, treeView.getItems());
+    if (treeView) await saveEnvCollections(currentEnvs.activeEnvironmentId, treeView.getItems());
 
     // Update in-memory active env
     setActiveEnvironment(id);
@@ -463,6 +463,7 @@ function initEventBus() {
     await saveManifest({ environments: currentEnvs.environments, activeEnvironmentId: id });
 
     // Clear selected request (it belongs to the previous env)
+    _selectedNode = null;
     currentSettings = { ...currentSettings, selectedRequestId: null };
     saveSettings(currentSettings);
 
@@ -496,7 +497,7 @@ function initEventBus() {
     await saveEnvCollections(newEnv.id, []);
 
     // Switch to the new env
-    if (treeView) saveEnvCollections(currentEnvs.activeEnvironmentId, treeView.getItems());
+    if (treeView) await saveEnvCollections(currentEnvs.activeEnvironmentId, treeView.getItems());
     setActiveEnvironment(newEnv.id);
     currentEnvs = { environments, activeEnvironmentId: newEnv.id };
 
@@ -534,7 +535,7 @@ function initEventBus() {
 
     // Save cloned collections + variables and switch to the new env
     await saveEnvCollections(newEnv.id, cloned, clonedVariables);
-    if (treeView) saveEnvCollections(currentEnvs.activeEnvironmentId, treeView.getItems());
+    if (treeView) await saveEnvCollections(currentEnvs.activeEnvironmentId, treeView.getItems());
 
     const environments = [...currentEnvs.environments, { ...newEnv, variables: clonedVariables }];
     setActiveEnvironment(newEnv.id);

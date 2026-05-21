@@ -48,7 +48,6 @@ export class Panel {
   #el;
   #headerEl;
   #bodyEl;
-  #children = [];
 
   constructor({ id, title, flow = "column", content, classes = [] } = {}) {
     this.id = id || `panel-${crypto.randomUUID()}`;
@@ -107,7 +106,6 @@ export class Panel {
    */
   divide({ flow, panels } = {}) {
     const group = new PanelGroup({ container: this.#bodyEl, flow, panels });
-    this.#children.push(group);
     return group;
   }
 

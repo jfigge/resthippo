@@ -322,6 +322,7 @@ export class EnvironmentPopup {
     if (isDuplicate) {
       input.classList.add("env-name-input--error");
       input.title = "An environment with this name already exists.";
+      clearTimeout(this.#nameErrorTimer);
       this.#nameErrorTimer = setTimeout(() => {
         input.classList.remove("env-name-input--error");
         input.title = "";

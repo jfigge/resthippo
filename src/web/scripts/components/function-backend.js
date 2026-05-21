@@ -8,6 +8,7 @@
 export async function invokeBackend(fn, args) {
   if (window.wurl?.isElectron === true) {
     const result = await window.wurl.functions?.invoke(fn, args);
+    if (!result) throw new Error("IPC unavailable");
     if (result.error) throw new Error(result.error);
     return result.result ?? "";
   }

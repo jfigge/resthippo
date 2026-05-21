@@ -53,24 +53,23 @@ class OAuthExecutor {
 
     const cacheKey = tokenStore.keyFor(config);
 
-    // ── Return cached token if still valid ────────────────────────────────
-    if (tokenStore.isValid(cacheKey)) {
-      const entry = tokenStore.get(cacheKey);
+    // ── Return cached token if still valid (or use for refresh token) ────────
+    const cached = tokenStore.get(cacheKey);
+    if (cached?.isValid?.()) {
       return createOAuthResult({
         success:      true,
-        accessToken:  entry.accessToken,
-        refreshToken: entry.refreshToken,
-        idToken:      entry.idToken,
-        expiresAt:    entry.expiresAt,
-        expiresIn:    entry.expiresIn,
-        tokenType:    entry.tokenType,
-        scope:        entry.scope,
+        accessToken:  cached.accessToken,
+        refreshToken: cached.refreshToken,
+        idToken:      cached.idToken,
+        expiresAt:    cached.expiresAt,
+        expiresIn:    cached.expiresIn,
+        tokenType:    cached.tokenType,
+        scope:        cached.scope,
       });
     }
 
     // ── Attempt refresh if we have a stored refresh token ─────────────────
-    const expired = tokenStore.get(cacheKey);
-    if (expired?.refreshToken) {
+    if (cached?.refreshToken) {
       const refreshResult = await refreshTokenFlow(config, expired.refreshToken);
       if (refreshResult.success) {
         tokenStore.set(cacheKey, refreshResult);

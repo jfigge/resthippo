@@ -33,7 +33,7 @@ export function generateState() {
   const state = Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
-  _pending.set(state, { createdAt: Date.now() });
+  _pending.set(state, { createdAt: now });
   return state;
 }
 

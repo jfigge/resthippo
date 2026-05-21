@@ -557,7 +557,7 @@ export class VariablePillEditor {
         startOffset > 0 &&
         startContainer.nodeType === Node.TEXT_NODE &&
         this.#el.contains(startContainer) &&
-        startContainer.textContent.replace(/​/g, "") === "" &&
+        startContainer.textContent.replace(/\u200B/g, "") === "" &&
         startContainer.previousSibling?.classList?.contains("variable-pill")
       ) {
         e.preventDefault();
@@ -582,7 +582,7 @@ export class VariablePillEditor {
         startOffset < startContainer.textContent.length &&
         startContainer.nodeType === Node.TEXT_NODE &&
         this.#el.contains(startContainer) &&
-        startContainer.textContent.replace(/​/g, "") === "" &&
+        startContainer.textContent.replace(/\u200B/g, "") === "" &&
         startContainer.nextSibling?.classList?.contains("variable-pill")
       ) {
         e.preventDefault();
@@ -607,7 +607,7 @@ export class VariablePillEditor {
   #onCopy(e) {
     e.preventDefault();
     const text = window.getSelection()?.toString() ?? "";
-    e.clipboardData.setData("text/plain", text.replace(/​/g, ""));
+    e.clipboardData.setData("text/plain", text.replace(/\u200B/g, ""));
   }
 
   #onPaste(e) {
@@ -692,7 +692,7 @@ export class VariablePillEditor {
   }
 
   #syncEmpty() {
-    const text     = this.#el.textContent.replace(/​/g, "");
+    const text     = this.#el.textContent.replace(/\u200B/g, "");
     const hasText  = text.trim() !== "";
     const hasPills = this.#el.querySelector(".variable-pill") !== null;
     this.#el.dataset.empty = String(!hasText && !hasPills);
@@ -712,7 +712,7 @@ export class VariablePillEditor {
    * U+200B, so it is invisible to the rest of the application.
    */
   #ensureEdgePadding() {
-    const ZWS = "​";
+    const ZWS = "\u200B";
 
     if (!this.#el.firstChild) {
       this.#el.appendChild(document.createTextNode(""));

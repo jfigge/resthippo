@@ -116,6 +116,7 @@ class HistoryStore {
     if (!entry.id)        entry = { ...entry, id: newUUID() };
     if (!entry.timestamp) entry = { ...entry, timestamp: new Date().toISOString() };
     entry = { ...entry, requestId };
+    validateID(entry.id, "historyId");
 
     // Write response first (so the entry never references a missing response).
     if (response) {

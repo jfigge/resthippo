@@ -45,15 +45,15 @@ export async function passwordFlow(config) {
 
   // ── Client authentication ─────────────────────────────────────────────────
   const headers    = {};
+  const clientId   = config.clientId.trim();
   const credMethod = config.credentials ?? "header";
 
+  params.client_id = clientId;
   if (credMethod === "body") {
-    params.client_id = config.clientId.trim();
     if (config.clientSecret?.trim()) params.client_secret = config.clientSecret.trim();
   } else {
-    params.client_id = config.clientId.trim();
     if (config.clientSecret?.trim()) {
-      const encoded = btoa(`${config.clientId.trim()}:${config.clientSecret.trim()}`);
+      const encoded = btoa(`${clientId}:${config.clientSecret.trim()}`);
       headers["Authorization"] = `Basic ${encoded}`;
     }
   }

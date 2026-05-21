@@ -145,13 +145,4 @@ export function stateMismatchError() {
   );
 }
 
-/**
- * Create a malformed response error.
- *
- * @param {string} detail
- * @returns {OAuthError}
- */
-export function malformedResponseError(detail) {
-  return new OAuthError(OAuthErrorCode.MALFORMED_RESPONSE, detail);
-}
 

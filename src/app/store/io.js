@@ -93,25 +93,7 @@ function validateID(id, label = "id") {
   }
 }
 
-/**
- * Compute a safe absolute path for `id` inside `baseDir`.
- * Throws if `id` would escape `baseDir` (path traversal attempt).
- *
- * @param {string} baseDir
- * @param {string} id
- * @returns {string}
- */
-function safePath(baseDir, id) {
-  validateID(id);
-  const resolved = path.resolve(baseDir, id);
-  if (!resolved.startsWith(path.resolve(baseDir) + path.sep) &&
-      resolved !== path.resolve(baseDir)) {
-    const err = new Error(`path traversal attempt: ${id}`);
-    err.code  = "INVALID_ID";
-    throw err;
-  }
-  return resolved;
-}
+
 
 // ── UUID ──────────────────────────────────────────────────────────────────────
 
@@ -139,7 +121,6 @@ module.exports = {
   writeJSON,
   readJSON,
   validateID,
-  safePath,
   newUUID,
   notFoundError,
 };

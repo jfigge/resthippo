@@ -151,8 +151,6 @@ export class PillEditorPopup {
   }
 
   #functionBodyHtml(funcName, funcDef, rawArgs, getItems) {
-    const items = getItems ? getItems() : [];
-
     let paramsHtml;
     if (!funcDef?.params?.length) {
       paramsHtml = `<p class="pill-editor-no-params">This function has no parameters.</p>`;
@@ -169,6 +167,7 @@ export class PillEditorPopup {
             inputHtml = `<select class="pill-editor-param-input settings-input" data-param-idx="${i}">${opts}</select>`;
 
           } else if (p.type === "request-picker") {
+            const items = getItems ? getItems() : [];
             const opts = items.map(item =>
               `<option value="${this.#esc(item.name)}"${item.name === val ? " selected" : ""}>${this.#esc(item.name)}</option>`
             ).join("");
@@ -300,6 +299,7 @@ export class PillEditorPopup {
 
   #tryCommit() {
     if (this.#type === "variable") {
+      if (!this.#selectedVarName) return;
       PopupManager.close();
       this.#onCommit?.(`{{${this.#selectedVarName}}}`);
 

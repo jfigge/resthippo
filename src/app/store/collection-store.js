@@ -23,6 +23,7 @@ class CollectionStore {
    */
   constructor(paths) {
     this._paths = paths;
+    ensureDir(this._paths.collectionsDir());
   }
 
   /**
@@ -32,7 +33,6 @@ class CollectionStore {
    * @returns {object}
    */
   getManifest() {
-    ensureDir(this._paths.collectionsDir());
     const data = readJSON(this._paths.manifestPath());
     return data ?? { ...DEFAULT_MANIFEST };
   }

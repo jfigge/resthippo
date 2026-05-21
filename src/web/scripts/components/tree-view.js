@@ -320,6 +320,7 @@ export class TreeView {
           cleanupConfirm = restore;
 
           const onMenuClose = () => {
+            if (el.isConnected) return;
             restore();
             window.removeEventListener("wurl:popup-closed", onMenuClose);
           };
@@ -883,7 +884,7 @@ export class TreeView {
 
     if (node.type === "collection") {
       const requests = this.#collectRequests(node.children ?? []);
-      return requests.map((r) => this.#buildCurl(r)).join("\n\n");
+      return requests.map((r) => this.#buildCurl(r)).filter(Boolean).join("\n\n");
     }
     return "";
   }

@@ -26,11 +26,18 @@ export function generateCodeVerifier(length = 64) {
   if (length < 43 || length > 128) {
     throw new RangeError("PKCE code verifier length must be between 43 and 128 characters.");
   }
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes)
-    .map((b) => VERIFIER_CHARS[b % VERIFIER_CHARS.length])
-    .join("");
+  const alphabet = VERIFIER_CHARS.length;
+  const limit    = Math.floor(256 / alphabet) * alphabet; // rejection threshold
+  const result   = [];
+  while (result.length < length) {
+    const batch = new Uint8Array(Math.ceil((length - result.length) * 1.1 + 8));
+    crypto.getRandomValues(batch);
+    for (const b of batch) {
+      if (b < limit) result.push(VERIFIER_CHARS[b % alphabet]);
+      if (result.length === length) break;
+    }
+  }
+  return result.join("");
 }
 
 /**

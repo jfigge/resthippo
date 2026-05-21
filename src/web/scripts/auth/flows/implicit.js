@@ -84,6 +84,7 @@ export async function implicitFlow(config) {
 
   // CSRF state check
   if (!validateState(parts.state)) {
+    discardState(state);
     return oauthResultFromError(stateMismatchError());
   }
 

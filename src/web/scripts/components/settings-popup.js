@@ -246,13 +246,13 @@ export class SettingsPopup {
   #readValues() {
     return {
       theme:           this.#el.querySelector("#setting-theme").value,
-      fontSize:        parseInt(this.#el.querySelector("#setting-font-size").value, 10) || 0,
+      fontSize:        parseInt(this.#el.querySelector("#setting-font-size").value, 10) || 13,
       removeHeaders:   this.#el.querySelector("#setting-remove-headers").checked,
       timeout:         parseInt(this.#el.querySelector("#setting-timeout").value, 10) || 0,
       followRedirects:    this.#el.querySelector("#setting-follow-redirects").checked,
       doubleClickExecute: this.#el.querySelector("#setting-dblclick-execute").checked,
       verifySsl:          this.#el.querySelector("#setting-verify-ssl").checked,
-      pickerDebounceMs: parseInt(this.#el.querySelector("#setting-picker-debounce").value, 10) || 0,
+      pickerDebounceMs: parseInt(this.#el.querySelector("#setting-picker-debounce").value, 10) || 200,
       proxyEnabled:    this.#el.querySelector("#setting-proxy-enabled").checked,
       proxyUrl:        this.#el.querySelector("#setting-proxy-url").value.trim(),
     };

@@ -111,7 +111,7 @@ export class PillPicker {
     const byCategory = {};
     for (const { name, funcDef } of functions) {
       const cat = funcDef.category ?? "built-in";
-      if (!SECTION_ORDER.includes(cat)) continue;
+      if (!SECTION_ORDER.includes(cat)) { console.warn(`PillPicker: unknown function category "${cat}" for "${name}"`); continue; }
       const sig = funcDef.params?.length
         ? `${name}(${funcDef.params.map(p => p.label).join(", ")})`
         : `${name}()`;
@@ -178,7 +178,6 @@ export class PillPicker {
     el.addEventListener("mousedown", (e) => {
       e.preventDefault(); // keep editor focus
       this.#onSelect?.(item);
-      this.#onClose?.();
     });
 
     el.addEventListener("mousemove", () => {

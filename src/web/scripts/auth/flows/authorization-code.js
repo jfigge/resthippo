@@ -42,8 +42,10 @@ export async function authorizationCodeFlow(config) {
   if (!config.authUrl?.trim())        return oauthResultFromError(configurationError("Auth URL is required."));
   if (!config.accessTokenUrl?.trim()) return oauthResultFromError(configurationError("Access Token URL is required."));
 
-  const isPkce      = config.clientType === "public";
-  const redirectUri = config.redirectUri?.trim() || DEFAULT_REDIRECT_URI;
+  const clientId        = config.clientId.trim();
+  const accessTokenUrl  = config.accessTokenUrl.trim();
+  const isPkce          = config.clientType === "public";
+  const redirectUri     = config.redirectUri?.trim() || DEFAULT_REDIRECT_URI;
 
   // ── CSRF state ────────────────────────────────────────────────────────────
   const state = generateState();
@@ -60,7 +62,7 @@ export async function authorizationCodeFlow(config) {
   // ── Build authorization URL ───────────────────────────────────────────────
   const authParams = {
     response_type: "code",
-    client_id:     config.clientId.trim(),
+    client_id:     clientId,
     redirect_uri:  redirectUri,
     state,
   };
@@ -109,6 +111,7 @@ export async function authorizationCodeFlow(config) {
 
   // CSRF state check
   if (!validateState(returnedState)) {
+    discardState(state);
     return oauthResultFromError(stateMismatchError());
   }
 
@@ -133,7 +136,7 @@ export async function authorizationCodeFlow(config) {
     grant_type:   "authorization_code",
     code,
     redirect_uri: redirectUri,
-    client_id:    config.clientId.trim(),
+    client_id:    clientId,
   };
 
   if (isPkce) {
@@ -157,14 +160,14 @@ export async function authorizationCodeFlow(config) {
     if (credMethod === "body") {
       tokenParams.client_secret = config.clientSecret?.trim() ?? "";
     } else if (config.clientSecret?.trim()) {
-      const encoded = btoa(`${config.clientId.trim()}:${config.clientSecret.trim()}`);
+      const encoded = btoa(`${clientId}:${config.clientSecret.trim()}`);
       tokenHeaders["Authorization"] = `Basic ${encoded}`;
     }
   }
 
   let response;
   try {
-    response = await postTokenRequest(config.accessTokenUrl.trim(), tokenParams, {
+    response = await postTokenRequest(accessTokenUrl, tokenParams, {
       headers:  tokenHeaders,
       verifySsl: config.verifySsl !== false,
       timeout:   config.timeout   ?? 30_000,

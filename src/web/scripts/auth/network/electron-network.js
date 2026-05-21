@@ -111,7 +111,7 @@ export async function postTokenRequest(url, params, opts = {}) {
   } catch {
     throw new OAuthError(
       OAuthErrorCode.MALFORMED_RESPONSE,
-      `Token endpoint returned non-JSON (HTTP ${result.status}): ${result.body.slice(0, 200)}`,
+      `Token endpoint returned non-JSON (HTTP ${result.status}): ${String(result.body).slice(0, 200)}`,
       result.status,
     );
   }
@@ -123,52 +123,4 @@ export async function postTokenRequest(url, params, opts = {}) {
   };
 }
 
-// ── JSON GET (for discovery docs etc.) ──────────────────────────────────────
-
-/**
- * GET a URL and parse the response as JSON, routed through the backend layer.
- *
- * @param {string}  url
- * @param {object}  [opts]
- * @param {boolean} [opts.verifySsl]
- * @param {number}  [opts.timeout]
- * @returns {Promise<object>}
- */
-export async function fetchJson(url, opts = {}) {
-  let result;
-  try {
-    result = await executeRequest({
-      method:          "GET",
-      url,
-      headers:         { "Accept": "application/json" },
-      timeout:         opts.timeout  ?? 30_000,
-      verifySsl:       opts.verifySsl !== false,
-      followRedirects: true,
-    });
-  } catch (err) {
-    throw fromNetworkError(err);
-  }
-
-  if (result.error && (result.status == null || result.status === 0)) {
-    throw fromNetworkError(result.error);
-  }
-
-  if (result.status < 200 || result.status >= 300) {
-    throw new OAuthError(
-      OAuthErrorCode.NETWORK_ERROR,
-      `Server returned HTTP ${result.status} ${result.statusText ?? ""}`.trimEnd(),
-      result.status,
-    );
-  }
-
-  try {
-    return JSON.parse(result.body ?? "");
-  } catch {
-    throw new OAuthError(
-      OAuthErrorCode.MALFORMED_RESPONSE,
-      "Response was not valid JSON",
-      result.status,
-    );
-  }
-}
 

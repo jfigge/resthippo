@@ -92,6 +92,7 @@ class TokenStore {
     const parts = [
       config.grantType      ?? "",
       config.clientId       ?? "",
+      config.authUrl        ?? "",
       config.accessTokenUrl ?? "",
       config.scope          ?? "",
     ];
