@@ -12,7 +12,8 @@ const { URL }      = require("url");
 
 const { Stores }   = require("./store/stores");
 
-const isDev = process.argv.includes("--dev");
+const isDev   = process.argv.includes("--dev");
+const isDebug = process.argv.includes("--hot-reload");
 
 // devPort is resolved asynchronously inside app.whenReady().
 // It is declared here so createWindow() can close over the final value.
@@ -865,6 +866,45 @@ async function startDevServer(port) {
   console.log(`[dev-server] ready on port ${port}`);
 }
 
+// ─── Hot-reload (debug mode) ──────────────────────────────────────────────────
+// Watches web/ for renderer changes (reload) and app/ for main-process changes
+// (full relaunch). Uses only Node built-ins — no extra npm packages required.
+function startHotReload(win) {
+  const webDir = path.join(__dirname, "..", "web");
+  const appDir = __dirname;
+
+  let rendererTimer = null;
+  let mainTimer     = null;
+
+  // web/ changes → reload the renderer (CSS, JS, HTML)
+  const webWatcher = fs.watch(webDir, { recursive: true }, (_event, filename) => {
+    if (!filename) return;
+    clearTimeout(rendererTimer);
+    rendererTimer = setTimeout(() => {
+      if (win && !win.isDestroyed()) {
+        console.log(`[hot-reload] renderer ← ${filename}`);
+        win.webContents.reload();
+      }
+    }, 150);
+  });
+
+  // app/ changes → relaunch the whole process (modules are cached by require())
+  const appWatcher = fs.watch(appDir, { recursive: true }, (_event, filename) => {
+    if (!filename) return;
+    clearTimeout(mainTimer);
+    mainTimer = setTimeout(() => {
+      console.log(`[hot-reload] main-process ← ${filename} — relaunching`);
+      app.relaunch();
+      app.exit(0);
+    }, 500);
+  });
+
+  app.on("will-quit", () => {
+    webWatcher.close();
+    appWatcher.close();
+  });
+}
+
 // ─── App icon ─────────────────────────────────────────────────────────────────
 // Resolved once at startup; used for both the BrowserWindow and the macOS dock.
 const APP_ICON_PATH = path.join(__dirname, "..", "web", "wurl-logo.png");
@@ -966,8 +1006,9 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
     win.loadURL(`http://localhost:${devPort}`);
     win.webContents.openDevTools({ mode: "detach" });
   } else {
-    // Production: load bundled web assets
+    // Production / debug: load bundled web assets from disk
     win.loadFile(path.join(__dirname, "..", "web", "index.html"));
+    if (isDebug) win.webContents.openDevTools({ mode: "detach" });
   }
 
   // Disable Chromium's built-in visual zoom (pinch / ctrl+wheel) so the app
@@ -1114,7 +1155,8 @@ app.whenReady().then(async () => {
 
   buildMenu();
   const savedState = loadWindowState();
-  createWindow(savedState);
+  const win = createWindow(savedState);
+  if (isDebug) startHotReload(win);
 
   // macOS: re-open a window when the dock icon is clicked with no open windows.
   app.on("activate", () => {
