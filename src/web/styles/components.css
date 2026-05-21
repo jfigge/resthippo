@@ -413,7 +413,11 @@
   flex: 1;
   /* Align text/pills vertically */
   align-items: center;
-  /* Single-line feel — allow pills to wrap only when necessary */
+  /* Single-line — override params-input's wrap/break defaults */
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
   overflow: hidden;
 }
 
@@ -2382,16 +2386,18 @@ input[type="checkbox"]:disabled {
   height: auto;
   min-height: 24px;
   /* Center content vertically when there is only one line */
-  display: flex;
-  flex-wrap: wrap;
+  /* display: flex;*/
+  /* flex-wrap: wrap; */
   align-items: center;
   gap: 2px;
   /* Prevent the browser from adding its own outline on contenteditable */
   outline: none;
   /* Inherit the mono font already set on .params-input */
+/*
   white-space: pre-wrap;
   word-break: break-all;
   overflow-wrap: anywhere;
+ */
   cursor: text;
   /* Remove resize handle (contenteditable doesn't have one, but be safe) */
   resize: none;
