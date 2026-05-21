@@ -183,6 +183,7 @@ contextBridge.exposeInMainWorld("wurl", {
     resize:  (bounds)      => ipcRenderer.invoke("htmlPreview:resize",   bounds),
     show:    (bounds)      => ipcRenderer.invoke("htmlPreview:show",     bounds),
     hide:    ()            => ipcRenderer.invoke("htmlPreview:hide"),
+    capture: ()            => ipcRenderer.invoke("htmlPreview:capture"),
     destroy: ()            => ipcRenderer.invoke("htmlPreview:destroy"),
   },
 

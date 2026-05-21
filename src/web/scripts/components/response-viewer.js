@@ -96,6 +96,7 @@ export class ResponseViewer {
   // HTML-preview state
   #htmlPreviewActive  = false;  // true while an HTML preview is live
   #popupDepth         = 0;      // count of currently open popups (prevents re-show during rapid open/close)
+  #previewSnapshot    = null;   // <img> standing in for the hidden WebContentsView during a popup
   #iframeEl           = null;   // dev-mode <iframe> element
   #resizeObserver     = null;   // observes body pane for Electron overlay
   #winResizeHandler   = null;   // window resize listener for Electron overlay
@@ -157,10 +158,19 @@ export class ResponseViewer {
 
     // Hide the Electron HTML preview whenever any popup/menu/dialog opens so the
     // native WebContentsView (which renders above all web content) does not cover it.
-    // Re-show it with the correct bounds once the popup is dismissed.
-    window.addEventListener("wurl:popup-opened", () => {
+    // Before hiding, capture a screenshot and display it as a static stand-in so the
+    // preview area does not go blank while the popup is open. Re-show the live view
+    // and discard the snapshot once the popup is dismissed.
+    window.addEventListener("wurl:popup-opened", async () => {
       this.#popupDepth++;
       if (this.#htmlPreviewActive && window.wurl?.isElectron) {
+        // Only capture on the first popup; nested popups (e.g. confirmClose) reuse it.
+        if (this.#popupDepth === 1) {
+          const dataUrl = await window.wurl.htmlPreview.capture().catch(() => null);
+          if (dataUrl && this.#htmlPreviewActive) {
+            this.#showPreviewSnapshot(dataUrl);
+          }
+        }
         window.wurl.htmlPreview.hide().catch(() => {});
       }
     });
@@ -170,6 +180,7 @@ export class ResponseViewer {
       if (this.#activeTab !== "body") return;   // body tab is not visible — stay hidden
       requestAnimationFrame(() => {
         if (!this.#htmlPreviewActive || this.#popupDepth > 0) return;
+        this.#removePreviewSnapshot();
         window.wurl.htmlPreview.show(this.#computePreviewBounds()).catch(() => {});
       });
     });
@@ -717,6 +728,25 @@ export class ResponseViewer {
       width:  Math.max(1, Math.round(r.width)),
       height: Math.max(1, Math.round(r.height)),
     };
+  }
+
+  #showPreviewSnapshot(dataUrl) {
+    this.#removePreviewSnapshot();
+    const r   = this.#bodyPane.getBoundingClientRect();
+    const img = document.createElement("img");
+    img.src              = dataUrl;
+    img.style.cssText    = `position:fixed;left:${r.left}px;top:${r.top}px;` +
+                           `width:${r.width}px;height:${r.height}px;` +
+                           `pointer-events:none;z-index:0;`;
+    document.body.appendChild(img);
+    this.#previewSnapshot = img;
+  }
+
+  #removePreviewSnapshot() {
+    if (this.#previewSnapshot) {
+      this.#previewSnapshot.remove();
+      this.#previewSnapshot = null;
+    }
   }
 
   /**

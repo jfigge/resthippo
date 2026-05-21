@@ -696,6 +696,22 @@ function safeCall(channel, fn, fallback = null) {
   });
 
   /**
+   * Capture the current pixel content of the preview view as a PNG data URL.
+   * Called just before hiding the view for a popup so a static snapshot can
+   * stand in while the popup is open.
+   */
+  ipcMain.handle("htmlPreview:capture", async (_event) => {
+    if (!_htmlPreviewView || !_htmlPreviewAdded) return null;
+    try {
+      const image = await _htmlPreviewView.webContents.capturePage();
+      return image.toDataURL();
+    } catch (err) {
+      console.error("[htmlPreview] capturePage error:", err.message);
+      return null;
+    }
+  });
+
+  /**
    * Destroy the preview view entirely (called when the response changes or the
    * user switches to raw mode).
    */
