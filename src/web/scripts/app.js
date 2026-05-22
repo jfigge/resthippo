@@ -37,6 +37,75 @@ let _maxHistory = 5;        // updated from settings at startup and on change
 let _skipNextHistory = false; // set true when replaying a history entry
 
 /**
+ * Serialize a request node into the history snapshot format.
+ * Params/headers/body-form rows are stored as bulk-edit strings so the data
+ * is human-readable and round-trips cleanly through the bulk editors.
+ * @param {object} node
+ * @returns {object} snapshot
+ */
+function _buildSnapshot(node) {
+  const params  = Array.isArray(node.params)  ? node.params  : [];
+  const headers = Array.isArray(node.headers) ? node.headers : [];
+
+  const paramsBulk  = params .map(p => `${p.enabled ? "" : "# "}${p.name}=${p.value}`).join("\n");
+  const headersBulk = headers.map(h => `${h.enabled ? "" : "# "}${h.name}: ${h.value}`).join("\n");
+
+  const authType    = node.authType    ?? "none";
+  const authEnabled = node.authEnabled ?? true;
+  let   authBulk    = "";
+  if (authType === "basic") {
+    const b = node.authBasic ?? {};
+    authBulk = `username: ${b.username ?? ""}\npassword: ${b.password ?? ""}`;
+  } else if (authType === "bearer") {
+    authBulk = `token: ${node.authBearer?.token ?? ""}`;
+  } else if (authType === "oauth2") {
+    const o = node.authOAuth2 ?? {};
+    const lines = [];
+    if (o.grantType)       lines.push(`grantType: ${o.grantType}`);
+    if (o.clientId)        lines.push(`clientId: ${o.clientId}`);
+    if (o.clientSecret)    lines.push(`clientSecret: ${o.clientSecret}`);
+    if (o.accessTokenUrl)  lines.push(`accessTokenUrl: ${o.accessTokenUrl}`);
+    if (o.authUrl)         lines.push(`authUrl: ${o.authUrl}`);
+    if (o.scope)           lines.push(`scope: ${o.scope}`);
+    authBulk = lines.join("\n");
+  } else if (authType === "aws-iam") {
+    const a = node.authAwsIam ?? {};
+    const lines = [];
+    if (a.accessKeyId)     lines.push(`accessKeyId: ${a.accessKeyId}`);
+    if (a.secretAccessKey) lines.push(`secretAccessKey: ${a.secretAccessKey}`);
+    if (a.region)          lines.push(`region: ${a.region}`);
+    if (a.service)         lines.push(`service: ${a.service}`);
+    if (a.sessionToken)    lines.push(`sessionToken: ${a.sessionToken}`);
+    authBulk = lines.join("\n");
+  }
+
+  const bodyType = node.bodyType ?? "no-body";
+  let   bodyContent = "";
+  if (bodyType === "form-data" || bodyType === "form-urlencoded") {
+    const rows = Array.isArray(node.bodyFormRows) ? node.bodyFormRows : [];
+    bodyContent = rows.map(r => `${r.enabled ? "" : "# "}${r.name}=${r.value}`).join("\n");
+  } else if (bodyType === "file") {
+    bodyContent = node.bodyFilePath ?? "";
+  } else {
+    bodyContent = node.bodyText ?? "";
+  }
+
+  return {
+    id:          node.id,
+    method:      node.method ?? "GET",
+    url:         node.url    ?? "",
+    params:      paramsBulk,
+    headers:     headersBulk,
+    authType,
+    authEnabled,
+    auth:        authBulk,
+    bodyType,
+    body:        bodyContent,
+    notes:       node.notes  ?? "",
+  };
+}
+
+/**
  * Load persisted history for one request from storage and populate
  * _requestHistory.  Respects _maxHistory so only the most recent entries
  * are kept in memory.  Silently produces an empty array on failure.
@@ -76,9 +145,19 @@ async function _loadRequestHistory(requestId) {
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
-  // Suppress the browser's native context menu everywhere — the app provides
-  // its own custom context menus on tree nodes.
-  document.addEventListener("contextmenu", (e) => e.preventDefault());
+  // Suppress the browser's native context menu everywhere. For editable text
+  // fields, show a Cut/Copy/Paste/Select All menu via the main process instead.
+  document.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    const t = e.target;
+    const isEditable =
+      (t.tagName === "INPUT" && !["checkbox", "radio", "range", "color", "file", "button", "submit", "reset", "image"].includes(t.type)) ||
+      t.tagName === "TEXTAREA" ||
+      t.isContentEditable;
+    if (isEditable) {
+      window.wurl.ui.editContextMenu(e.clientX, e.clientY);
+    }
+  });
 
   // Set --font-ui to the OS-native context-menu typeface so custom menus
   // feel native. Each major OS uses a distinct system font for its menus.
@@ -519,7 +598,7 @@ function initEventBus() {
       const histId  = crypto.randomUUID();
       const nowMs   = Date.now();
       const reqUrl  = _lastRequestSnapshot?.url ?? "";
-      const reqNode = JSON.parse(JSON.stringify(node));
+      const reqNode = _buildSnapshot(node);
       const resp    = {
         request:    e.detail.request    ?? {},
         status:     e.detail.status     ?? 0,
@@ -664,7 +743,13 @@ function initEventBus() {
   // saved response without actually re-running the request.
   window.addEventListener("wurl:timeline-select", (e) => {
     const { requestNode, requestUrl = "", response } = e.detail;
-    requestEditor.load(requestNode);
+    const restoredNode = requestEditor.loadSnapshot(requestNode);
+    if (restoredNode?.id) {
+      const { id, ...nodeFields } = restoredNode;
+      treeView.updateNode(id, nodeFields, { silent: true });
+      _selectedNode = { ..._selectedNode, id, ...nodeFields };
+      _scheduleRequestSave();
+    }
     _skipNextHistory = true;
     if (response?.error) {
       window.dispatchEvent(new CustomEvent("wurl:request-error", {
@@ -949,6 +1034,12 @@ function initEventBus() {
       treeView.updateNode(id, fields, { silent: true });
       // Debounced write so keystrokes batch into a single save
       _scheduleRequestSave();
+      // Mirror the patch onto _selectedNode so history captures the latest
+      // editor state. updateNode() creates a new object in the tree, so
+      // _selectedNode would otherwise remain stale until the next selection.
+      if (_selectedNode?.id === id) {
+        _selectedNode = { ..._selectedNode, ...fields };
+      }
     }
   });
 

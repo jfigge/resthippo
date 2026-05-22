@@ -216,5 +216,9 @@ contextBridge.exposeInMainWorld("wurl", {
      */
     contextMenu: ({ items, x, y } = {}) =>
       ipcRenderer.invoke("ui:context-menu:show", { items, x, y }),
+
+    /** Show a Cut / Copy / Paste / Select All menu for the focused text input. */
+    editContextMenu: (x, y) =>
+      ipcRenderer.invoke("ui:edit-context-menu", { x, y }),
   },
 });

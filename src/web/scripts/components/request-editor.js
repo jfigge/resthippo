@@ -4221,4 +4221,76 @@ export class RequestEditor {
     this.#notes = node.notes ?? "";
     if (this.#notesEl) this.#notesEl.value = this.#notes;
   }
+
+  /**
+   * Restore the request editor from a history snapshot (bulk-edit string format).
+   * Converts the serialized strings back into structured arrays/objects and
+   * delegates to load().
+   * @param {object} snapshot
+   */
+  loadSnapshot(snapshot) {
+    if (!snapshot) return;
+
+    const node = {
+      id:          snapshot.id,
+      method:      snapshot.method      ?? "GET",
+      url:         snapshot.url         ?? "",
+      params:      this.#textToKvRows(snapshot.params   ?? ""),
+      headers:     this.#textToHeaderRows(snapshot.headers ?? ""),
+      authType:    snapshot.authType    ?? "none",
+      authEnabled: snapshot.authEnabled ?? true,
+      bodyType:    snapshot.bodyType    ?? "no-body",
+      notes:       snapshot.notes       ?? "",
+    };
+
+    const kv = this.#parseBulkKVColon(snapshot.auth ?? "");
+    if (node.authType === "basic") {
+      node.authBasic  = { username: kv.username ?? "", password: kv.password ?? "" };
+    } else if (node.authType === "bearer") {
+      node.authBearer = { token: kv.token ?? "" };
+    } else if (node.authType === "oauth2") {
+      node.authOAuth2 = {
+        grantType:      kv.grantType      ?? "client_credentials",
+        clientId:       kv.clientId       ?? "",
+        clientSecret:   kv.clientSecret   ?? "",
+        accessTokenUrl: kv.accessTokenUrl ?? "",
+        authUrl:        kv.authUrl        ?? "",
+        scope:          kv.scope          ?? "",
+      };
+    } else if (node.authType === "aws-iam") {
+      node.authAwsIam = {
+        accessKeyId:     kv.accessKeyId     ?? "",
+        secretAccessKey: kv.secretAccessKey ?? "",
+        region:          kv.region          ?? "",
+        service:         kv.service         ?? "",
+        sessionToken:    kv.sessionToken    ?? "",
+      };
+    }
+
+    if (node.bodyType === "form-data" || node.bodyType === "form-urlencoded") {
+      node.bodyFormRows = this.#textToKvRows(snapshot.body ?? "");
+    } else if (node.bodyType === "file") {
+      node.bodyFilePath = snapshot.body ?? "";
+    } else {
+      node.bodyText = snapshot.body ?? "";
+    }
+
+    this.load(node);
+    return node;
+  }
+
+  /** Parse  key: value  lines into a plain object (used by loadSnapshot). */
+  #parseBulkKVColon(text) {
+    const out = {};
+    for (const line of text.split("\n")) {
+      const t = line.trim();
+      if (!t) continue;
+      const colon = t.indexOf(":");
+      if (colon === -1) continue;
+      const key   = t.slice(0, colon).trim();
+      const value = t.slice(colon + 1).trim();
+      if (key) out[key] = value;
+    }
+    return out;
+  }
 }

@@ -1,7 +1,7 @@
 // main.js — Electron main process for wurl
 "use strict";
 
-const { app, BrowserWindow, WebContentsView, ipcMain, shell, Menu, dialog, nativeImage, session } = require("electron");
+const { app, BrowserWindow, WebContentsView, ipcMain, shell, Menu, dialog, nativeImage, session, screen } = require("electron");
 const fs           = require("fs");
 const path         = require("path");
 const http         = require("http");
@@ -653,6 +653,28 @@ function safeCall(channel, fn, fallback = null) {
   });
 })();
 
+// ─── Edit context menu IPC ────────────────────────────────────────────────────
+// Pops a Cut / Copy / Paste / Select All menu for text input fields.
+// Called from the renderer's contextmenu handler when the target is editable.
+(function initEditContextMenuIPC() {
+  ipcMain.handle("ui:edit-context-menu", (event, { x, y } = {}) => {
+    const win  = BrowserWindow.fromWebContents(event.sender) ?? _mainWin ?? undefined;
+    const menu = Menu.buildFromTemplate([
+      { label: "Cut",        role: "cut"       },
+      { label: "Copy",       role: "copy"      },
+      { label: "Paste",      role: "paste"     },
+      { type: "separator" },
+      { label: "Select All", role: "selectAll" },
+    ]);
+    const popupOpts = { window: win };
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      popupOpts.x = Math.round(x);
+      popupOpts.y = Math.round(y);
+    }
+    menu.popup(popupOpts);
+  });
+})();
+
 // ─── HTML Preview IPC ─────────────────────────────────────────────────────────
 // Creates/manages a WebContentsView that overlays the response body pane and
 // loads the last request URL so the user sees a live browser preview.
@@ -962,7 +984,7 @@ if (process.platform === "darwin" && app.dock) {
 // Only the "normal" (non-minimised, non-maximised, non-fullscreen) size is
 // saved so the window always opens at a sensible restored size.
 
-const _WINDOW_STATE_DEFAULTS = { width: 1280, height: 820 };
+const _WINDOW_STATE_DEFAULTS = { width: 1280, height: 820, x: undefined, y: undefined };
 
 /** Full path to the window state file (resolved after app.whenReady). */
 let _windowStatePath = null;
@@ -971,13 +993,27 @@ let _windowStatePath = null;
 let _windowSaveTimer = null;
 
 /**
- * Read the persisted window size from disk.
- * Falls back to defaults when the file is absent, corrupted, or contains
- * values outside the minimum window bounds.
+ * Returns true if the point (x, y) falls within any connected display,
+ * giving at least a 32 px margin so a sliver of the title bar is always
+ * reachable even when the window is partially off-screen.
+ */
+function _isPositionOnScreen(x, y) {
+  const MARGIN = 32;
+  return screen.getAllDisplays().some(({ bounds: b }) =>
+    x >= b.x - MARGIN && x < b.x + b.width  - MARGIN &&
+    y >= b.y - MARGIN && y < b.y + b.height - MARGIN,
+  );
+}
+
+/**
+ * Read the persisted window size and position from disk.
+ * Falls back to defaults when the file is absent, corrupted, contains
+ * values outside the minimum window bounds, or the saved position is
+ * entirely off-screen.
  *
- * Must be called after app.whenReady() so app.getPath() is available.
+ * Must be called after app.whenReady() so app.getPath() and screen are available.
  *
- * @returns {{ width: number, height: number }}
+ * @returns {{ width: number, height: number, x: number|undefined, y: number|undefined }}
  */
 function loadWindowState() {
   _windowStatePath = path.join(app.getPath("userData"), "window-state.json");
@@ -985,7 +1021,11 @@ function loadWindowState() {
     const raw    = JSON.parse(fs.readFileSync(_windowStatePath, "utf8"));
     const width  = Number.isFinite(raw.width)  && raw.width  >= 800 ? Math.round(raw.width)  : _WINDOW_STATE_DEFAULTS.width;
     const height = Number.isFinite(raw.height) && raw.height >= 560 ? Math.round(raw.height) : _WINDOW_STATE_DEFAULTS.height;
-    return { width, height };
+    const hasPos = Number.isFinite(raw.x) && Number.isFinite(raw.y);
+    if (hasPos && _isPositionOnScreen(Math.round(raw.x), Math.round(raw.y))) {
+      return { width, height, x: Math.round(raw.x), y: Math.round(raw.y) };
+    }
+    return { width, height, x: undefined, y: undefined };
   } catch {
     return { ..._WINDOW_STATE_DEFAULTS };
   }
@@ -1005,8 +1045,9 @@ function saveWindowState(win) {
   ) return;
 
   const [width, height] = win.getSize();
+  const [x, y]          = win.getPosition();
   try {
-    fs.writeFileSync(_windowStatePath, JSON.stringify({ width, height }), "utf8");
+    fs.writeFileSync(_windowStatePath, JSON.stringify({ width, height, x, y }), "utf8");
   } catch (err) {
     console.error("[main] Failed to save window state:", err.message);
   }
@@ -1017,9 +1058,13 @@ function saveWindowState(win) {
  * @param {{ width: number, height: number }} [savedState]
  */
 function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
+  const posOpts = (savedState.x !== undefined && savedState.y !== undefined)
+    ? { x: savedState.x, y: savedState.y }
+    : {};
   const win = new BrowserWindow({
     width:  savedState.width,
     height: savedState.height,
+    ...posOpts,
     // Minimum enforced so splitter drag minimums (nav≥160, res≥160, request≥200)
     // are always achievable without the window becoming unusably cramped.
     //   landscape  : 160 + 4 + 200 + 4 + 160 = 528 px minimum columns
@@ -1077,6 +1122,10 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
   // Save on every resize (debounced) and also on close so the very last size
   // is captured even if the debounce timer hasn't fired yet.
   win.on("resize", () => {
+    clearTimeout(_windowSaveTimer);
+    _windowSaveTimer = setTimeout(() => saveWindowState(win), 500);
+  });
+  win.on("move", () => {
     clearTimeout(_windowSaveTimer);
     _windowSaveTimer = setTimeout(() => saveWindowState(win), 500);
   });

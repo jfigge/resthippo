@@ -84,6 +84,9 @@ function prettyXml(xml) {
 // ── ResponseViewer class ──────────────────────────────────────────────────────
 
 export class ResponseViewer {
+  static #SVG_COPY  = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+  static #SVG_CHECK = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+
   /** @type {HTMLElement} */
   #el;
   #activeTab      = "body";
@@ -124,6 +127,9 @@ export class ResponseViewer {
   #timelineEntries      = [];   // current list of HistoryEntry objects (newest first)
   #timelineSelected     = -1;   // index of the selected entry (-1 = none)
   #timestampTimer       = null; // setInterval handle for live timestamp updates
+  #tooltipEl            = null; // singleton hover tooltip for timeline entries
+  #tooltipTimer         = null; // setTimeout handle for hint delay
+  #tooltipCursor        = { x: 0, y: 0 }; // last known cursor position
 
   constructor() {
     this.#el = document.createElement("div");
@@ -1267,7 +1273,6 @@ export class ResponseViewer {
       item.appendChild(record);
 
       item.addEventListener("click", () => {
-        if (this.#activeTab !== "body") this.#switchTab("body");
         this.#timelineSelected = idx;
         this.#renderTimeline();
         window.dispatchEvent(new CustomEvent("wurl:timeline-select", {
@@ -1279,10 +1284,177 @@ export class ResponseViewer {
         }));
       });
 
+      item.addEventListener("mouseenter", (e) => {
+        this.#tooltipCursor = { x: e.clientX, y: e.clientY };
+        this.#tooltipTimer  = setTimeout(() => this.#showTooltip(entry), 600);
+      });
+      item.addEventListener("mousemove", (e) => {
+        this.#tooltipCursor = { x: e.clientX, y: e.clientY };
+      });
+      item.addEventListener("mouseleave", () => {
+        clearTimeout(this.#tooltipTimer);
+        if (this.#tooltipEl && !this.#tooltipEl.hidden) {
+          this.#tooltipTimer = setTimeout(() => this.#hideTooltip(), 120);
+        } else {
+          this.#tooltipTimer = null;
+        }
+      });
+
       list.appendChild(item);
     });
 
     pane.appendChild(list);
+  }
+
+  // ── Timeline entry tooltip ────────────────────────────────────────────────
+
+  /** Lazily create (once) the singleton tooltip element appended to <body>. */
+  #ensureTooltip() {
+    if (this.#tooltipEl) return;
+    const el = document.createElement("div");
+    el.className = "timeline-tooltip";
+    el.hidden = true;
+    el.addEventListener("mouseenter", () => {
+      clearTimeout(this.#tooltipTimer);
+      this.#tooltipTimer = null;
+    });
+    el.addEventListener("mouseleave", () => this.#hideTooltip());
+    document.body.appendChild(el);
+    this.#tooltipEl = el;
+  }
+
+  #showTooltip(entry) {
+    this.#ensureTooltip();
+    const el       = this.#tooltipEl;
+    const snapshot = entry.requestNode ?? {};
+
+    el.innerHTML = "";
+
+    // Method — no copy
+    this.#appendTTSection(el, "Method");
+    this.#appendTTValue(el, snapshot.method ?? "GET");
+
+    // URL — copy if present
+    const url = (snapshot.url ?? "").trim();
+    this.#appendTTSection(el, "URL", url || null);
+    this.#appendTTValue(el, url || "(none)");
+
+    // Parameters (already bulk-edit format)
+    const paramsBulk = (snapshot.params ?? "").trim();
+    this.#appendTTSection(el, "Parameters", paramsBulk || null);
+    if (!paramsBulk) {
+      this.#appendTTNone(el);
+    } else {
+      this.#appendTTBulkLines(el, paramsBulk);
+    }
+
+    // Headers (already bulk-edit format)
+    const headersBulk = (snapshot.headers ?? "").trim();
+    this.#appendTTSection(el, "Headers", headersBulk || null);
+    if (!headersBulk) {
+      this.#appendTTNone(el);
+    } else {
+      this.#appendTTBulkLines(el, headersBulk);
+    }
+
+    // Auth
+    const authCopy = this.#buildAuthCopyText(snapshot);
+    this.#appendTTSection(el, "Auth", authCopy);
+    this.#appendTTAuth(el, snapshot);
+
+    // Position near cursor — measure after content is set
+    el.hidden = false;
+    const { x, y } = this.#tooltipCursor;
+    const tw  = el.offsetWidth;
+    const th  = el.offsetHeight;
+    const gap = 14;
+    let   left = x + gap;
+    let   top  = y + gap;
+    if (left + tw > window.innerWidth  - 8) left = x - tw - gap;
+    if (top  + th > window.innerHeight - 8) top  = y - th - gap;
+    left = Math.max(left, 8);
+    top  = Math.max(top,  8);
+    el.style.left = `${left}px`;
+    el.style.top  = `${top}px`;
+  }
+
+  #buildAuthCopyText(snapshot) {
+    const type = snapshot.authType ?? "none";
+    const bulk = (snapshot.auth ?? "").trim();
+    if (type === "none") return null;
+    const lines = [`type: ${type}`];
+    if (bulk) lines.push(...bulk.split("\n").filter(l => l.trim()));
+    return lines.join("\n");
+  }
+
+  #hideTooltip() {
+    if (this.#tooltipEl) this.#tooltipEl.hidden = true;
+  }
+
+  #appendTTSection(parent, label, copyText = null) {
+    const row = document.createElement("div");
+    row.className = "timeline-tooltip__section";
+    const lbl = document.createElement("span");
+    lbl.textContent = label;
+    row.appendChild(lbl);
+    if (copyText) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "timeline-tooltip__copy-btn";
+      btn.title = `Copy ${label.toLowerCase()} to clipboard`;
+      btn.innerHTML = ResponseViewer.#SVG_COPY;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(copyText).then(() => {
+          btn.innerHTML = ResponseViewer.#SVG_CHECK;
+          btn.classList.add("timeline-tooltip__copy-btn--copied");
+          setTimeout(() => {
+            btn.innerHTML = ResponseViewer.#SVG_COPY;
+            btn.classList.remove("timeline-tooltip__copy-btn--copied");
+          }, 1500);
+        });
+      });
+      row.appendChild(btn);
+    }
+    parent.appendChild(row);
+  }
+
+  #appendTTValue(parent, text) {
+    const el = document.createElement("div");
+    el.className = "timeline-tooltip__value";
+    el.textContent = text;
+    parent.appendChild(el);
+  }
+
+  #appendTTNone(parent) {
+    const el = document.createElement("div");
+    el.className = "timeline-tooltip__none";
+    el.textContent = "none";
+    parent.appendChild(el);
+  }
+
+  #appendTTAuth(parent, snapshot) {
+    const type = snapshot.authType ?? "none";
+    if (type === "none") { this.#appendTTNone(parent); return; }
+    this.#appendTTLine(parent, `type: ${type}`);
+    const bulk = (snapshot.auth ?? "").trim();
+    if (bulk) this.#appendTTBulkLines(parent, bulk);
+  }
+
+  /** Render each non-empty line of a bulk-format string as an indented row. */
+  #appendTTBulkLines(parent, bulk) {
+    for (const line of bulk.split("\n")) {
+      const t = line.trim();
+      if (!t) continue;
+      this.#appendTTLine(parent, t, !t.startsWith("# "));
+    }
+  }
+
+  #appendTTLine(parent, text, enabled = true) {
+    const el = document.createElement("div");
+    el.className = "timeline-tooltip__kv" + (enabled ? "" : " timeline-tooltip__kv--disabled");
+    el.textContent = text;
+    parent.appendChild(el);
   }
 
   // ── Console rendering ─────────────────────────────────────────────────────
