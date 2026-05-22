@@ -50,8 +50,7 @@ export class VariablePillEditor {
   #pickerTimer          = null;
   #pickerInst           = null;
   #pickerOutsideHandler = null;
-  #pillMenuEl           = null;
-  #pillMenuHandler      = null;
+
   #isFocused            = false;
 
   constructor({
@@ -755,50 +754,16 @@ export class VariablePillEditor {
 
   // ── Pill context menu ─────────────────────────────────────────────────────
 
-  #showPillContextMenu(x, y, onEdit, onDelete) {
-    this.#closePillMenu();
-
-    const menu = document.createElement("div");
-    menu.className = "pill-context-menu";
-    menu.setAttribute("role", "menu");
-    menu.addEventListener("mousedown", (e) => e.preventDefault()); // keep editor focus
-
-    for (const [label, action] of [["Edit", onEdit], ["Delete", onDelete]]) {
-      const item = document.createElement("div");
-      item.className   = "pill-context-menu__item";
-      item.setAttribute("role", "menuitem");
-      item.textContent = label;
-      item.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        this.#closePillMenu();
-        action();
-      });
-      menu.appendChild(item);
-    }
-
-    const W  = window.innerWidth;
-    const H  = window.innerHeight;
-    const MW = 120;
-    const MH = 64;
-    const left = Math.max(4, Math.min(x, W - MW - 4));
-    const top  = (y + MH > H - 4) ? Math.max(4, y - MH - 4) : y;
-    menu.style.cssText = `left:${left}px; top:${top}px;`;
-
-    document.body.appendChild(menu);
-    this.#pillMenuEl = menu;
-
-    this.#pillMenuHandler = (e) => {
-      if (!menu.contains(e.target)) this.#closePillMenu();
-    };
-    document.addEventListener("mousedown", this.#pillMenuHandler, { capture: true });
-  }
-
-  #closePillMenu() {
-    if (this.#pillMenuEl) { this.#pillMenuEl.remove(); this.#pillMenuEl = null; }
-    if (this.#pillMenuHandler) {
-      document.removeEventListener("mousedown", this.#pillMenuHandler, { capture: true });
-      this.#pillMenuHandler = null;
-    }
+  async #showPillContextMenu(x, y, onEdit, onDelete) {
+    const clicked = await window.wurl.ui.contextMenu({
+      items: [
+        { id: "edit",   label: "Edit"   },
+        { id: "delete", label: "Delete" },
+      ],
+      x, y,
+    });
+    if (clicked === "edit")   onEdit();
+    if (clicked === "delete") onDelete();
   }
 
   #emitChange() {
