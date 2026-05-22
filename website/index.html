@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="wurl — A fast, beautiful REST API client for macOS, Windows, and Linux. Variable interpolation, OAuth 2.0, request history, and more." />
+  <title>wurl — REST API Client</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #1e1e2e;
+      --mantle:    #181825;
+      --crust:     #11111b;
+      --surface-0: #313244;
+      --surface-1: #45475a;
+      --surface-2: #585b70;
+      --overlay-0: #6c7086;
+      --text:      #cdd6f4;
+      --subtext:   #a6adc8;
+      --accent:    #89b4fa;
+      --accent2:   #74c7ec;
+      --green:     #a6e3a1;
+      --peach:     #fab387;
+      --mauve:     #cba6f7;
+      --red:       #f38ba8;
+      --yellow:    #f9e2af;
+      --teal:      #94e2d5;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* ── Nav ───────────────────────────────────────────────────────────────── */
+
+    nav {
+      background: var(--mantle);
+      border-bottom: 1px solid var(--surface-0);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 58px;
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #1e1e2e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border: 1px solid var(--surface-1);
+    }
+
+    .nav-wordmark {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .nav-link {
+      color: var(--subtext);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.15s;
+    }
+
+    .nav-link:hover { color: var(--text); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+      line-height: 1;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--crust);
+    }
+    .btn-primary:hover {
+      background: #9fc3fb;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(137, 180, 250, 0.3);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--subtext);
+      border: 1px solid var(--surface-1);
+    }
+    .btn-ghost:hover {
+      background: var(--surface-0);
+      color: var(--text);
+    }
+
+    /* ── Hero ──────────────────────────────────────────────────────────────── */
+
+    .hero {
+      text-align: center;
+      padding: 96px 2rem 72px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      color: var(--accent);
+      border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+      border-radius: 100px;
+      padding: 5px 14px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.8rem, 6vw, 4.5rem);
+      font-weight: 900;
+      letter-spacing: -2px;
+      line-height: 1.1;
+      margin-bottom: 24px;
+    }
+
+    .hero h1 .accent { color: var(--accent); }
+
+    .hero-desc {
+      font-size: 1.15rem;
+      color: var(--subtext);
+      max-width: 560px;
+      margin: 0 auto 44px;
+      line-height: 1.75;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .hero-actions .btn {
+      padding: 13px 28px;
+      font-size: 0.975rem;
+    }
+
+    .hero-platforms {
+      font-size: 0.78rem;
+      color: var(--overlay-0);
+    }
+
+    /* ── App mock ──────────────────────────────────────────────────────────── */
+
+    .mock-wrap {
+      max-width: 980px;
+      margin: 56px auto 0;
+      padding: 0 2rem;
+    }
+
+    .app-window {
+      background: var(--mantle);
+      border: 1px solid var(--surface-0);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 40px 100px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    .titlebar {
+      background: var(--crust);
+      padding: 11px 16px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid var(--surface-0);
+    }
+
+    .tb-dots {
+      display: flex;
+      gap: 7px;
+      flex-shrink: 0;
+    }
+
+    .tb-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .tb-dot-r { background: #ff5f57; }
+    .tb-dot-y { background: #febc2e; }
+    .tb-dot-g { background: #28c840; }
+
+    .tb-title {
+      flex: 1;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--overlay-0);
+      pointer-events: none;
+    }
+
+    .app-layout {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      height: 340px;
+    }
+
+    .sidebar {
+      background: var(--mantle);
+      border-right: 1px solid var(--surface-0);
+      padding: 8px;
+      overflow: hidden;
+    }
+
+    .sidebar-section {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--overlay-0);
+      padding: 10px 6px 6px;
+    }
+
+    .tree-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 6px;
+      border-radius: 5px;
+      font-size: 0.74rem;
+      color: var(--subtext);
+      cursor: default;
+      margin-bottom: 1px;
+    }
+
+    .tree-item.sel {
+      background: var(--surface-0);
+      color: var(--text);
+    }
+
+    .mb { font-size: 0.6rem; font-weight: 700; padding: 1px 4px; border-radius: 3px; flex-shrink: 0; }
+    .mb-get    { background: color-mix(in srgb,#a6e3a1 18%,transparent); color:#a6e3a1; }
+    .mb-post   { background: color-mix(in srgb,#fab387 18%,transparent); color:#fab387; }
+    .mb-put    { background: color-mix(in srgb,#89b4fa 18%,transparent); color:#89b4fa; }
+    .mb-delete { background: color-mix(in srgb,#f38ba8 18%,transparent); color:#f38ba8; }
+    .mb-patch  { background: color-mix(in srgb,#cba6f7 18%,transparent); color:#cba6f7; }
+
+    .main-panel {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    .url-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--surface-0);
+      background: var(--mantle);
+    }
+
+    .url-method {
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 4px 8px;
+      border-radius: 5px;
+      background: color-mix(in srgb,#a6e3a1 18%,transparent);
+      color: #a6e3a1;
+      flex-shrink: 0;
+    }
+
+    .url-field {
+      flex: 1;
+      background: var(--surface-0);
+      border: 1px solid var(--surface-1);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 0.77rem;
+      color: var(--text);
+      font-family: "Cascadia Code", "JetBrains Mono", "Fira Code", monospace;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    .url-text { color: var(--subtext); }
+
+    .url-pill {
+      display: inline-flex;
+      align-items: center;
+      background: color-mix(in srgb,#89b4fa 22%,transparent);
+      color: var(--accent);
+      border-radius: 4px;
+      padding: 0 5px;
+      font-size: 0.72rem;
+      margin: 0 1px;
+    }
+
+    .send-btn {
+      background: var(--accent);
+      color: var(--crust);
+      border: none;
+      border-radius: 6px;
+      padding: 5px 14px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .response-area {
+      flex: 1;
+      padding: 14px 16px;
+      overflow: hidden;
+      font-family: "Cascadia Code", "JetBrains Mono", "Fira Code", monospace;
+      font-size: 0.73rem;
+      line-height: 1.65;
+    }
+
+    .res-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .status-chip {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: color-mix(in srgb,#a6e3a1 18%,transparent);
+      color: #a6e3a1;
+    }
+
+    .timing-chip {
+      font-size: 0.68rem;
+      color: var(--overlay-0);
+    }
+
+    .j-p { color: var(--text); }
+    .j-k { color: var(--accent); }
+    .j-s { color: var(--green); }
+    .j-n { color: var(--peach); }
+    .j-b { color: var(--mauve); }
+
+    /* ── Sections ──────────────────────────────────────────────────────────── */
+
+    .section {
+      padding: 88px 2rem;
+    }
+
+    .section-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: clamp(1.8rem, 3vw, 2.6rem);
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 14px;
+    }
+
+    .section-body {
+      color: var(--subtext);
+      font-size: 1.05rem;
+      max-width: 520px;
+      line-height: 1.75;
+    }
+
+    /* ── Features ──────────────────────────────────────────────────────────── */
+
+    .features-section {
+      background: var(--mantle);
+      border-top: 1px solid var(--surface-0);
+      border-bottom: 1px solid var(--surface-0);
+    }
+
+    .feature-grid {
+      margin-top: 52px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 20px;
+    }
+
+    .feature-card {
+      background: var(--bg);
+      border: 1px solid var(--surface-0);
+      border-radius: 14px;
+      padding: 24px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .feature-card:hover {
+      border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+      transform: translateY(-2px);
+    }
+
+    .feature-icon {
+      width: 42px;
+      height: 42px;
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      color: var(--accent);
+    }
+
+    .feature-card h3 {
+      font-size: 0.975rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      font-size: 0.855rem;
+      color: var(--subtext);
+      line-height: 1.65;
+    }
+
+    /* ── Downloads ─────────────────────────────────────────────────────────── */
+
+    .downloads-section {
+      background: var(--crust);
+      border-top: 1px solid var(--surface-0);
+    }
+
+    .os-grid {
+      margin-top: 52px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .os-card {
+      background: var(--mantle);
+      border: 1px solid var(--surface-0);
+      border-radius: 16px;
+      padding: 28px;
+    }
+
+    .os-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding-bottom: 20px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--surface-0);
+    }
+
+    .os-icon { width: 44px; height: 44px; flex-shrink: 0; }
+
+    .os-name { font-size: 1.05rem; font-weight: 700; }
+    .os-req  { font-size: 0.78rem; color: var(--overlay-0); margin-top: 2px; }
+
+    .dl-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .dl-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      background: var(--bg);
+      border: 1px solid var(--surface-0);
+      border-radius: 10px;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color 0.15s, background 0.15s, transform 0.15s;
+    }
+
+    .dl-row:hover {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 6%, var(--bg));
+      transform: translateX(3px);
+      color: var(--accent);
+    }
+
+    .dl-row:hover .dl-meta { color: color-mix(in srgb, var(--accent) 60%, transparent); }
+
+    .dl-icon { color: var(--accent); flex-shrink: 0; display: flex; }
+
+    .dl-info { flex: 1; }
+    .dl-label { font-size: 0.875rem; font-weight: 600; line-height: 1.3; }
+    .dl-meta  { font-size: 0.75rem; color: var(--overlay-0); }
+
+    .dl-arch {
+      font-size: 0.67rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--surface-0);
+      color: var(--subtext);
+      flex-shrink: 0;
+    }
+
+    .dl-sep {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--overlay-0);
+      padding: 6px 2px 2px;
+    }
+
+    /* ── Footer ────────────────────────────────────────────────────────────── */
+
+    footer {
+      background: var(--crust);
+      border-top: 1px solid var(--surface-0);
+      padding: 48px 2rem;
+      text-align: center;
+    }
+
+    .footer-inner { max-width: 700px; margin: 0 auto; }
+
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .footer-name { font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+
+    .ver-tag {
+      display: inline-block;
+      background: var(--surface-0);
+      color: var(--subtext);
+      border-radius: 4px;
+      padding: 2px 9px;
+      font-family: monospace;
+      font-size: 0.78rem;
+      margin-bottom: 14px;
+    }
+
+    footer p { color: var(--overlay-0); font-size: 0.83rem; line-height: 1.8; }
+
+    /* ── Responsive ────────────────────────────────────────────────────────── */
+
+    @media (max-width: 640px) {
+      nav { padding: 0 1rem; }
+      .nav-right .nav-link { display: none; }
+      .hero { padding: 64px 1rem 48px; }
+      .mock-wrap { display: none; }
+      .section { padding: 64px 1rem; }
+      .os-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 420px) {
+      .app-layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ──────────────────────────────────────────────────────────── -->
+<nav>
+  <a class="nav-logo" href="#">
+    <div class="logo-mark">
+      <svg width="20" height="20" viewBox="0 0 32 32">
+        <text x="16" y="25" font-family="'Segoe UI',system-ui,sans-serif" font-size="24" font-weight="800"
+              fill="#89b4fa" text-anchor="middle">W</text>
+      </svg>
+    </div>
+    <span class="nav-wordmark">wurl</span>
+  </a>
+  <div class="nav-right">
+    <a class="nav-link" href="#features">Features</a>
+    <a class="nav-link" href="#downloads">Downloads</a>
+    <a class="btn btn-primary" href="#downloads">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download
+    </a>
+  </div>
+</nav>
+
+<!-- ── Hero ────────────────────────────────────────────────────────────────── -->
+<div class="hero">
+  <div class="hero-badge">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+    v0.1.0 — Now Available
+  </div>
+  <h1>The REST API client<br>you actually <span class="accent">want to use</span></h1>
+  <p class="hero-desc">
+    A fast, beautiful desktop tool for designing, testing, and exploring HTTP APIs.
+    Variable interpolation, OAuth&nbsp;2.0, request history, and more — all offline.
+  </p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="#downloads">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download Free
+    </a>
+    <a class="btn btn-ghost" href="https://github.com/jfigge/wurl">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
+      </svg>
+      View on GitHub
+    </a>
+  </div>
+  <p class="hero-platforms">macOS · Windows · Linux &nbsp;·&nbsp; Free &amp; open source</p>
+</div>
+
+<!-- ── App mock ──────────────────────────────────────────────────────────────── -->
+<div class="mock-wrap">
+  <div class="app-window">
+    <div class="titlebar">
+      <div class="tb-dots">
+        <div class="tb-dot tb-dot-r"></div>
+        <div class="tb-dot tb-dot-y"></div>
+        <div class="tb-dot tb-dot-g"></div>
+      </div>
+      <div class="tb-title">wurl — Petstore API</div>
+    </div>
+    <div class="app-layout">
+      <div class="sidebar">
+        <div class="sidebar-section">Petstore API</div>
+        <div class="tree-item"><span class="mb mb-get">GET</span> List Pets</div>
+        <div class="tree-item sel"><span class="mb mb-get">GET</span> Get Pet</div>
+        <div class="tree-item"><span class="mb mb-post">POST</span> Create Pet</div>
+        <div class="tree-item"><span class="mb mb-put">PUT</span> Update Pet</div>
+        <div class="tree-item"><span class="mb mb-delete">DEL</span> Delete Pet</div>
+        <div class="sidebar-section" style="margin-top:8px">Auth Service</div>
+        <div class="tree-item"><span class="mb mb-post">POST</span> Get Token</div>
+        <div class="tree-item"><span class="mb mb-patch">PAT</span> Refresh</div>
+      </div>
+      <div class="main-panel">
+        <div class="url-bar">
+          <span class="url-method">GET</span>
+          <div class="url-field">
+            <span class="url-text">https://</span><span class="url-pill">{{base_url}}</span><span class="url-text">/pets/</span><span class="url-pill">{{pet_id}}</span>
+          </div>
+          <button class="send-btn">Send</button>
+        </div>
+        <div class="response-area">
+          <div class="res-meta">
+            <span class="status-chip">200 OK</span>
+            <span class="timing-chip">142 ms &nbsp;·&nbsp; 1.2 KB</span>
+          </div>
+          <div>
+<span class="j-p">{</span><br>
+&nbsp;&nbsp;<span class="j-k">"id"</span><span class="j-p">:</span> <span class="j-n">42</span><span class="j-p">,</span><br>
+&nbsp;&nbsp;<span class="j-k">"name"</span><span class="j-p">:</span> <span class="j-s">"Pixel"</span><span class="j-p">,</span><br>
+&nbsp;&nbsp;<span class="j-k">"species"</span><span class="j-p">:</span> <span class="j-s">"cat"</span><span class="j-p">,</span><br>
+&nbsp;&nbsp;<span class="j-k">"vaccinated"</span><span class="j-p">:</span> <span class="j-b">true</span><span class="j-p">,</span><br>
+&nbsp;&nbsp;<span class="j-k">"owner"</span><span class="j-p">:</span> <span class="j-p">{</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="j-k">"id"</span><span class="j-p">:</span> <span class="j-n">7</span><span class="j-p">,</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="j-k">"name"</span><span class="j-p">:</span> <span class="j-s">"Jason Figge"</span><br>
+&nbsp;&nbsp;<span class="j-p">}</span><br>
+<span class="j-p">}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Features ─────────────────────────────────────────────────────────────── -->
+<section class="section features-section" id="features">
+  <div class="section-inner">
+    <p class="section-tag">Features</p>
+    <h2 class="section-title">Everything you need, nothing you don't</h2>
+    <p class="section-body">Built for developers who spend real time in API tooling. Fast startup, keyboard-friendly, and fully offline.</p>
+
+    <div class="feature-grid">
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+          </svg>
+        </div>
+        <h3>Variable Interpolation</h3>
+        <p>Embed <code style="font-size:0.8em;background:var(--surface-0);padding:1px 5px;border-radius:3px;color:var(--accent)">{{variables}}</code> directly in URLs, headers, and body. Pills render inline — click to edit, right-click to delete.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h3>Full Auth Support</h3>
+        <p>Basic, Bearer token, OAuth 2.0 with PKCE, and AWS IAM Signature v4 — all built in. No plugins needed.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <h3>Request History &amp; Timeline</h3>
+        <p>Every execution is captured. Rewind to any past response, compare timings, and restore the exact request that produced it.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          </svg>
+        </div>
+        <h3>Multiple Environments</h3>
+        <p>Switch between dev, staging, and production collections in one click. Each environment has its own variables and request trees.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </div>
+        <h3>Rich Body Types</h3>
+        <p>JSON, raw text, form-data, URL-encoded, and file upload. Bulk-edit params and headers as plain text or row-by-row in the KV editor.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+          </svg>
+        </div>
+        <h3>Response Viewer</h3>
+        <p>Syntax-highlighted JSON, HTML preview, raw text, and header inspection. Styled and raw modes, with one-click copy for any section.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Downloads ────────────────────────────────────────────────────────────── -->
+<section class="section downloads-section" id="downloads">
+  <div class="section-inner">
+    <p class="section-tag">Downloads</p>
+    <h2 class="section-title">Available for every desktop</h2>
+    <p class="section-body">Version 0.1.0 — free to download and use. No account required.</p>
+
+    <div class="os-grid">
+
+      <!-- macOS -->
+      <div class="os-card">
+        <div class="os-header">
+          <div class="os-icon">
+            <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M29.5 6C27.2 6 24.9 7.4 23.4 9.2c-1.3 1.6-2.3 3.9-1.9 6.2 2.5.1 5-1.3 6.6-3.2 1.4-1.7 2.3-4 1.4-6.2z" fill="#cdd6f4"/>
+              <path d="M32.8 16c-3.3-.2-6.1 1.9-7.7 1.9-1.6 0-4-1.8-6.6-1.7C14.8 16.3 11 18.7 9 22.7c-4.1 7 -1.1 17.4 2.9 23.1 1.9 2.8 4.2 5.9 7.2 5.8 2.9-.1 4-1.9 7.4-1.9 3.4 0 4.4 1.9 7.4 1.8 3.1-.1 5.1-2.8 7-5.6 2.2-3.2 3.1-6.3 3.2-6.4-.1 0-6.1-2.3-6.2-9.3-.1-5.8 4.7-8.6 4.9-8.7-2.7-4-6.8-4.4-8-4.5z" fill="#cdd6f4"/>
+            </svg>
+          </div>
+          <div>
+            <div class="os-name">macOS</div>
+            <div class="os-req">macOS 12 Monterey or later</div>
+          </div>
+        </div>
+        <div class="dl-list">
+          <div class="dl-sep">Apple Silicon (M1 / M2 / M3)</div>
+          <a class="dl-row" href="#">
+            <span class="dl-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </span>
+            <div class="dl-info">
+              <div class="dl-label">Disk Image</div>
+              <div class="dl-meta">wurl-0.1.0-arm64.dmg</div>
+            </div>
+            <span class="dl-arch">arm64</span>
+          </a>
+          <a class="dl-row" href="#">
+            <span class="dl-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </span>
+            <div class="dl-info">
+              <div class="dl-label">ZIP Archive</div>
+              <div class="dl-meta">wurl-0.1.0-arm64-mac.zip</div>
+            </div>
+            <span class="dl-arch">arm64</span>
+          </a>
+          <div class="dl-sep">Intel</div>
+          <a class="dl-row" href="#">
+            <span class="dl-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </span>
+            <div class="dl-info">
+              <div class="dl-label">Disk Image</div>
+              <div class="dl-meta">wurl-0.1.0-x64.dmg</div>
+            </div>
+            <span class="dl-arch">x64</span>
+          </a>
+          <a class="dl-row" href="#">
+            <span class="dl-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </span>
+            <div class="dl-info">
+              <div class="dl-label">ZIP Archive</div>
+              <div class="dl-meta">wurl-0.1.0-x64-mac.zip</div>
+            </div>
+            <span class="dl-arch">x64</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Windows -->
+      <div class="os-card">
+        <div class="os-header">
+          <div class="os-icon">
+            <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="6"  y="6"  width="15" height="15" rx="2" fill="#89b4fa"/>
+              <rect x="23" y="6"  width="15" height="15" rx="2" fill="#89b4fa"/>
+              <rect x="6"  y="23" width="15" height="15" rx="2" fill="#89b4fa"/>
+              <rect x="23" y="23" width="15" height="15" rx="2" fill="#89b4fa"/>
+            </svg>
+          </div>
+          <div>
+            <div class="os-name">Windows</div>
+            <div class="os-req">Windows 10 / 11, 64-bit</div>
+          </div>
+        </div>
+        <div class="dl-list">
+          <div class="dl-sep">64-bit</div>
+          <a class="dl-row" href="#">
+            <span class="dl-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </span>
+            <div class="dl-info">
+              <div class="dl-label">Installer</div>
+              <div class="dl-meta">wurl-0.1.0-x64-setup.exe</div>
+            </div>
+            <span class="dl-arch">x64</span>
+          </a>
+          <a class="dl-row" href="#">
+            <span class="dl-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </span>
+            <div class="dl-info">
+              <div class="dl-label">Portable</div>
+              <div class="dl-meta">wurl-0.1.0-x64-portable.exe &nbsp;·&nbsp; No install needed</div>
+            </div>
+            <span class="dl-arch">x64</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Linux -->
+      <div class="os-card">
+        <div class="os-header">
+          <div class="os-icon">
+            <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Tux-simplified -->
+              <ellipse cx="22" cy="14" rx="8" ry="9" fill="#cdd6f4"/>
+              <ellipse cx="22" cy="30" rx="10" ry="8" fill="#cdd6f4"/>
+              <ellipse cx="22" cy="29" rx="7" ry="6" fill="#1e1e2e"/>
+              <circle cx="19" cy="13" r="1.5" fill="#1e1e2e"/>
+              <circle cx="25" cy="13" r="1.5" fill="#1e1e2e"/>
+              <ellipse cx="22" cy="17" rx="3" ry="2" fill="#fab387"/>
+              <line x1="12" y1="35" x2="16" y2="38" stroke="#cdd6f4" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="32" y1="35" x2="28" y2="38" stroke="#cdd6f4" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <div class="os-name">Linux</div>
+            <div class="os-req">64-bit · glibc 2.28+</div>
+          </div>
+        </div>
+        <div class="dl-list">
+          <div class="dl-sep">64-bit</div>
+          <a class="dl-row" href="#">
+            <span class="dl-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </span>
+            <div class="dl-info">
+              <div class="dl-label">AppImage</div>
+              <div class="dl-meta">wurl-0.1.0-x64.AppImage &nbsp;·&nbsp; Run anywhere</div>
+            </div>
+            <span class="dl-arch">x64</span>
+          </a>
+          <a class="dl-row" href="#">
+            <span class="dl-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </span>
+            <div class="dl-info">
+              <div class="dl-label">Debian Package</div>
+              <div class="dl-meta">wurl-0.1.0-amd64.deb &nbsp;·&nbsp; Ubuntu / Debian</div>
+            </div>
+            <span class="dl-arch">x64</span>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ───────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">
+      <div class="logo-mark">
+        <svg width="20" height="20" viewBox="0 0 32 32">
+          <text x="16" y="25" font-family="'Segoe UI',system-ui,sans-serif" font-size="24" font-weight="800"
+                fill="#89b4fa" text-anchor="middle">W</text>
+        </svg>
+      </div>
+      <span class="footer-name">wurl</span>
+    </div>
+    <div class="ver-tag">v0.1.0</div>
+    <p>Copyright &copy; 2026 Jason Figge. Released under the MIT License.<br>
+    Built with Electron &amp; Vanilla JS. No telemetry, no accounts, fully offline.</p>
+  </div>
+</footer>
+
+</body>
+</html>
