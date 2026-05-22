@@ -35,6 +35,23 @@ import { registry        } from "./function-registry.js";
 import { logicMap        } from "./function-logic-map.js";
 
 let _pickerDebounceMs = 200;
+
+/**
+ * Given two serialized editor values, returns the character offset in `to`
+ * that marks the end of the changed region — i.e. where the cursor should land
+ * after an undo (to=prev) or redo (to=next).
+ */
+function _histDiffCursor(from, to) {
+  let prefix = 0;
+  const minLen = Math.min(from.length, to.length);
+  while (prefix < minLen && from[prefix] === to[prefix]) prefix++;
+  let fromEnd = from.length, toEnd = to.length;
+  while (fromEnd > prefix && toEnd > prefix && from[fromEnd - 1] === to[toEnd - 1]) {
+    fromEnd--;
+    toEnd--;
+  }
+  return toEnd;
+}
 export function setPickerDebounceMs(ms) {
   _pickerDebounceMs = typeof ms === "number" && ms >= 0 ? ms : 200;
 }
@@ -52,6 +69,12 @@ export class VariablePillEditor {
   #pickerOutsideHandler = null;
 
   #isFocused            = false;
+
+  // ── Undo / redo ────────────────────────────────────────────────────────────
+  #history    = [];   // committed serialized-value snapshots
+  #histIdx    = -1;   // pointer into #history; -1 = empty
+  #histTimer  = null; // debounce handle (500 ms inactivity → commit)
+  #histPaused = false; // true while restoring a snapshot
 
   constructor({
     placeholder = "",
@@ -104,6 +127,12 @@ export class VariablePillEditor {
     this.#lastValue = normalized;
     this.#renderFromText(normalized);
     this.#syncEmpty();
+    if (!this.#histPaused) {
+      clearTimeout(this.#histTimer);
+      this.#histTimer = null;
+      this.#history   = [normalized];
+      this.#histIdx   = 0;
+    }
   }
 
   focus() {
@@ -343,10 +372,7 @@ export class VariablePillEditor {
 
   #onEditorInput() {
     this.#tryConvertAtCaret();
-    const val       = serializeEditor(this.#el);
-    this.#lastValue = val;
-    this.#syncEmpty();
-    this.#onInput?.(val);
+    this.#emitChange();
     this.#schedulePicker();
   }
 
@@ -553,6 +579,20 @@ export class VariablePillEditor {
   // ── Key handling ──────────────────────────────────────────────────────────
 
   #onKeyDown(e) {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        this.#closePicker();
+        this.#undo();
+        return;
+      }
+      if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        this.#redo();
+        return;
+      }
+    }
+
     if (this.#pickerInst) {
       if (e.key === "ArrowDown") { e.preventDefault(); this.#pickerInst.selectNext(); return; }
       if (e.key === "ArrowUp")   { e.preventDefault(); this.#pickerInst.selectPrev(); return; }
@@ -598,56 +638,118 @@ export class VariablePillEditor {
       }
     }
 
-    // Arrow navigation: ZWS guard nodes are invisible but still occupy cursor
-    // positions, causing an extra keypress to cross them.  When the cursor is
-    // inside a ZWS-only guard node adjacent to a pill, skip it in one step.
+    // ZWS guard nodes (\u200B) are invisible but count as cursor positions.
+    // The handlers below ensure every ArrowLeft / ArrowRight either:
+    //   (a) escapes a ZWS-only node the caret is already inside, or
+    //   (b) skips a ZWS-only node the caret is about to enter (look-ahead).
+    // Both cases also skip an immediately adjacent pill so the user never
+    // needs more than one keystroke to cross an invisible guard.
     if (e.key === "ArrowLeft" && range.collapsed) {
       const { startContainer, startOffset } = range;
-      if (
-        startOffset > 0 &&
-        startContainer.nodeType === Node.TEXT_NODE &&
-        this.#el.contains(startContainer) &&
-        startContainer.textContent.replace(/\u200B/g, "") === "" &&
-        startContainer.previousSibling?.classList?.contains("variable-pill")
-      ) {
-        e.preventDefault();
-        const pill     = startContainer.previousSibling;
-        const prevPrev = pill.previousSibling;
-        const nr       = document.createRange();
-        if (prevPrev?.nodeType === Node.TEXT_NODE) {
-          nr.setStart(prevPrev, prevPrev.textContent.length);
-        } else {
-          nr.setStart(this.#el, [...this.#el.childNodes].indexOf(pill));
+      if (startContainer.nodeType === Node.TEXT_NODE && this.#el.contains(startContainer)) {
+
+        // (a) Already inside a ZWS-only node \u2014 escape leftward past any adjacent pill.
+        if (startContainer.textContent.replace(/\u200B/g, "") === "") {
+          e.preventDefault();
+          const prevPill = startContainer.previousSibling?.classList?.contains("variable-pill")
+            ? startContainer.previousSibling : null;
+          const anchor   = prevPill ? prevPill.previousSibling : startContainer.previousSibling;
+          const nr       = document.createRange();
+          if (anchor?.nodeType === Node.TEXT_NODE) {
+            nr.setStart(anchor, anchor.textContent.length);
+          } else if (anchor) {
+            nr.setStart(this.#el, [...this.#el.childNodes].indexOf(anchor) + 1);
+          } else {
+            nr.setStart(this.#el, 0);
+          }
+          nr.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(nr);
+          return;
         }
-        nr.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(nr);
-        return;
+
+        // (b) At the start of real text whose previous pill is backed by a ZWS guard \u2014
+        //     the browser would skip the pill and drop into the ZWS; pre-empt that.
+        if (startOffset === 0) {
+          const prevPill = startContainer.previousSibling?.classList?.contains("variable-pill")
+            ? startContainer.previousSibling : null;
+          if (prevPill) {
+            const guardNode = prevPill.previousSibling;
+            if (guardNode?.nodeType === Node.TEXT_NODE && guardNode.textContent.replace(/\u200B/g, "") === "") {
+              e.preventDefault();
+              const anchor = guardNode.previousSibling;
+              const nr     = document.createRange();
+              if (anchor?.nodeType === Node.TEXT_NODE) {
+                nr.setStart(anchor, anchor.textContent.length);
+              } else {
+                nr.setStart(this.#el, 0);
+              }
+              nr.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(nr);
+              return;
+            }
+          }
+        }
       }
     }
 
     if (e.key === "ArrowRight" && range.collapsed) {
       const { startContainer, startOffset } = range;
-      if (
-        startOffset < startContainer.textContent.length &&
-        startContainer.nodeType === Node.TEXT_NODE &&
-        this.#el.contains(startContainer) &&
-        startContainer.textContent.replace(/\u200B/g, "") === "" &&
-        startContainer.nextSibling?.classList?.contains("variable-pill")
-      ) {
-        e.preventDefault();
-        const pill     = startContainer.nextSibling;
-        const nextNext = pill.nextSibling;
-        const nr       = document.createRange();
-        if (nextNext?.nodeType === Node.TEXT_NODE) {
-          nr.setStart(nextNext, 0);
-        } else {
-          nr.setStart(this.#el, [...this.#el.childNodes].indexOf(pill) + 1);
+      if (startContainer.nodeType === Node.TEXT_NODE && this.#el.contains(startContainer)) {
+
+        // (a) Already inside a ZWS-only node \u2014 escape rightward past any adjacent pill.
+        if (startContainer.textContent.replace(/\u200B/g, "") === "") {
+          e.preventDefault();
+          const nextPill = startContainer.nextSibling?.classList?.contains("variable-pill")
+            ? startContainer.nextSibling : null;
+          const anchor   = nextPill ? nextPill.nextSibling : startContainer.nextSibling;
+          const nr       = document.createRange();
+          if (anchor?.nodeType === Node.TEXT_NODE) {
+            nr.setStart(anchor, 0);
+          } else if (anchor) {
+            nr.setStart(this.#el, [...this.#el.childNodes].indexOf(anchor));
+          } else {
+            // No real content to the right \u2014 move to the absolute end.
+            const last = this.#el.lastChild;
+            if (last?.nodeType === Node.TEXT_NODE) {
+              nr.setStart(last, last.textContent.length);
+            } else if (last) {
+              nr.setStartAfter(last);
+            } else {
+              nr.setStart(this.#el, 0);
+            }
+          }
+          nr.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(nr);
+          return;
         }
-        nr.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(nr);
-        return;
+
+        // (b) At the end of real text whose next pill is followed by a ZWS guard \u2014
+        //     the browser would skip the pill and drop into the ZWS; pre-empt that.
+        if (startOffset === startContainer.textContent.length) {
+          const nextPill = startContainer.nextSibling?.classList?.contains("variable-pill")
+            ? startContainer.nextSibling : null;
+          if (nextPill) {
+            const guardNode = nextPill.nextSibling;
+            if (guardNode?.nodeType === Node.TEXT_NODE && guardNode.textContent.replace(/\u200B/g, "") === "") {
+              e.preventDefault();
+              const anchor = guardNode.nextSibling;
+              const nr     = document.createRange();
+              if (anchor?.nodeType === Node.TEXT_NODE) {
+                nr.setStart(anchor, 0);
+              } else {
+                // Guard is last child \u2014 end of editor.
+                nr.setStart(guardNode, guardNode.textContent.length);
+              }
+              nr.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(nr);
+              return;
+            }
+          }
+        }
       }
     }
   }
@@ -771,6 +873,123 @@ export class VariablePillEditor {
     this.#lastValue = val;
     this.#syncEmpty();
     this.#onInput?.(val);
+    this.#scheduleHistory();
+  }
+
+  // ── Undo / redo ────────────────────────────────────────────────────────────
+
+  #scheduleHistory() {
+    if (this.#histPaused) return;
+    clearTimeout(this.#histTimer);
+    this.#histTimer = setTimeout(() => {
+      this.#histTimer = null;
+      this.#commitHistory();
+    }, 500);
+  }
+
+  #commitHistory() {
+    clearTimeout(this.#histTimer);
+    this.#histTimer = null;
+    if (this.#histPaused) return;
+    const val = serializeEditor(this.#el);
+    if (val === this.#history[this.#histIdx]) return;
+    this.#history  = this.#history.slice(0, this.#histIdx + 1);
+    this.#history.push(val);
+    if (this.#history.length > 200) this.#history.shift();
+    else this.#histIdx++;
+  }
+
+  #undo() {
+    this.#commitHistory(); // flush any in-flight debounce first
+    if (this.#histIdx <= 0) return;
+    this.#histIdx--;
+    this.#applyHistory();
+  }
+
+  #redo() {
+    if (this.#histIdx >= this.#history.length - 1) return;
+    this.#histIdx++;
+    this.#applyHistory();
+  }
+
+  #applyHistory() {
+    const val = this.#history[this.#histIdx];
+    if (val === undefined) return;
+    const caretPos   = _histDiffCursor(this.#lastValue, val);
+    this.#histPaused = true;
+    this.#lastValue  = val;
+    this.#renderFromText(val);
+    this.#syncEmpty();
+    this.#histPaused = false;
+    this.#onInput?.(val);
+    if (this.#isFocused) this.#placeCaret(caretPos);
+  }
+
+  /**
+   * Place the caret at `offset` characters into the serialized editor value.
+   * Walks child nodes, counting non-ZWS text chars and pill token lengths,
+   * until the target position is consumed.
+   */
+  #placeCaret(offset) {
+    const sel = window.getSelection();
+    if (!sel) return;
+
+    let rem = Math.max(0, offset);
+
+    for (const node of this.#el.childNodes) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const raw  = node.textContent;
+        const text = raw.replace(/\u200B/g, "");
+        if (rem <= text.length) {
+          // Advance rawIdx past exactly `rem` non-ZWS characters
+          let rawIdx = 0, count = 0;
+          while (count < rem && rawIdx < raw.length) {
+            if (raw[rawIdx] !== "\u200B") count++;
+            rawIdx++;
+          }
+          const range = document.createRange();
+          range.setStart(node, rawIdx);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          return;
+        }
+        rem -= text.length;
+      } else if (node.classList?.contains("variable-pill")) {
+        const serialized = node.dataset.function !== undefined
+          ? this.#buildRawToken(node.dataset.function, JSON.parse(node.dataset.fnArgs ?? "[]"))
+          : `{{${node.dataset.variable}}}`;
+        if (rem < serialized.length) {
+          // Cursor lands inside a pill (atomic) — snap to just after it
+          const after = node.nextSibling;
+          const range = document.createRange();
+          if (after?.nodeType === Node.TEXT_NODE) {
+            range.setStart(after, 0);
+          } else {
+            range.setStartAfter(node);
+          }
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          return;
+        }
+        rem -= serialized.length;
+      }
+    }
+
+    // Fallback: end of last child
+    const last = this.#el.lastChild;
+    if (last) {
+      const range = document.createRange();
+      if (last.nodeType === Node.TEXT_NODE) {
+        range.setStart(last, last.textContent.length);
+      } else {
+        range.setStartAfter(last);
+      }
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
   }
 
   #syncEmpty() {
