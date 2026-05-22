@@ -13,6 +13,7 @@
 
 import { PopupManager } from "./popup-manager.js";
 import { getLayoutMode } from "./panel.js";
+import { LayoutPicker } from "./components/layout-picker.js";
 import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
 import { ResponseViewer } from "./components/response-viewer.js";
@@ -201,6 +202,40 @@ function getAppMain() {
   return (_appMain ??= document.getElementById("app-main"));
 }
 
+// ─── Manual layout ────────────────────────────────────────────────────────────
+
+/** Current pinned layout (1–4). Always set; default matches DEFAULT_SETTINGS. */
+let _currentLayout = 1;
+
+/**
+ * Map the manual layout number to the splitter-mode string used throughout
+ * initSplitters. Layout 1 = landscape (all columns), layout 4 = portrait
+ * (all rows), layouts 2 & 3 = between (mixed).
+ */
+function getEffectiveSplitterMode() {
+  if (_currentLayout === 1) return "landscape";
+  if (_currentLayout === 4) return "portrait";
+  return "between";
+}
+
+/** Splitter instances — promoted to module scope so applyLayout can call setFlow. */
+let _splitter1 = null;
+let _splitter2 = null;
+
+/**
+ * Apply a panel layout: sets data-layout on #app-main, re-applies grid
+ * variables, and updates splitter direction classes.
+ * @param {number} layout  1–4
+ */
+function applyLayout(layout) {
+  _currentLayout = layout;
+  getAppMain().dataset.layout = String(layout);
+  applyGridVars();
+  const mode = getEffectiveSplitterMode();
+  _splitter1?.setFlow(mode === "portrait" ? "column" : "row");
+  _splitter2?.setFlow(mode === "landscape" ? "row" : "column");
+}
+
 function initSplitters() {
   const spl1El = document.getElementById("splitter-1");
   const spl2El = document.getElementById("splitter-2");
@@ -208,14 +243,13 @@ function initSplitters() {
   applyGridVars();
 
   // Splitter 1 — always resizes the nav panel (--col-nav).
-  // Flow: horizontal in landscape/between, vertical in portrait (nav height).
-  // Dragging right/down grows nav → delta is positive → no inversion needed.
-  const splitter1 = makeSplitter(spl1El, {
-    getFlow: () => (getLayoutMode() === "portrait" ? "column" : "row"),
+  // Flow: horizontal when nav is a column (layouts 1–3), vertical when stacked (layout 4).
+  _splitter1 = makeSplitter(spl1El, {
+    getFlow: () => (getEffectiveSplitterMode() === "portrait" ? "column" : "row"),
     getSize: () => splitterSizes.nav,
     setSize: (v) => {
       const appMain = getAppMain();
-      const max = getLayoutMode() === "portrait"
+      const max = getEffectiveSplitterMode() === "portrait"
         ? appMain.clientHeight * 0.5
         : appMain.clientWidth  * 0.5;
       splitterSizes.nav = Math.min(max, Math.max(SPLITTER_MIN_NAV, v));
@@ -226,20 +260,15 @@ function initSplitters() {
   });
 
   // Splitter 2 — resizes the response panel.
-  // landscape  → changes --col-res   (horizontal drag)
-  // between    → changes --row-res   (vertical drag)
-  // portrait   → changes --row-res   (vertical drag)
-  //
-  // Inversion: the response panel is to the RIGHT of / BELOW the splitter.
-  // Dragging the splitter right/down moves away from the response panel, so
-  // the panel should SHRINK → negate the delta.
-  const splitter2 = makeSplitter(spl2El, {
-    getFlow: () => (getLayoutMode() === "landscape" ? "row" : "column"),
+  // layout 1 (landscape) → horizontal drag → changes --col-res
+  // layouts 2/3/4        → vertical drag   → changes --row-res
+  _splitter2 = makeSplitter(spl2El, {
+    getFlow: () => (getEffectiveSplitterMode() === "landscape" ? "row" : "column"),
     getSize: () =>
-      getLayoutMode() === "landscape" ? splitterSizes.res : splitterSizes.rowRes,
+      getEffectiveSplitterMode() === "landscape" ? splitterSizes.res : splitterSizes.rowRes,
     setSize: (v) => {
       const appMain = getAppMain();
-      if (getLayoutMode() === "landscape") {
+      if (getEffectiveSplitterMode() === "landscape") {
         const max = appMain.clientWidth * 0.5;
         splitterSizes.res    = Math.min(max, Math.max(SPLITTER_MIN_RES,    v));
       } else {
@@ -252,11 +281,14 @@ function initSplitters() {
     invert: true,
   });
 
-  // Sync splitter class (--h / --v) whenever layout mode changes.
+  // Sync splitter direction classes on window resize. When a manual layout is
+  // pinned getEffectiveSplitterMode() ignores the viewport, so the flows stay
+  // stable; when the window is very small the CSS can still flex but the JS
+  // splitter direction is always authoritative.
   const observer = new ResizeObserver(() => {
-    const mode = getLayoutMode();
-    splitter1.setFlow(mode === "portrait" ? "column" : "row");
-    splitter2.setFlow(mode === "landscape" ? "row" : "column");
+    const mode = getEffectiveSplitterMode();
+    _splitter1.setFlow(mode === "portrait" ? "column" : "row");
+    _splitter2.setFlow(mode === "landscape" ? "row" : "column");
   });
   observer.observe(document.getElementById("app-main"));
 }
@@ -346,6 +378,13 @@ function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false
 const settingsPopup = new SettingsPopup();
 const envPopup      = new EnvironmentPopup();
 const varsPopup     = new VariablesPopup();
+const layoutPicker  = new LayoutPicker({
+  onSelect: (layout) => {
+    applyLayout(layout);
+    currentSettings = { ...currentSettings, layout };
+    saveSettings(currentSettings);
+  },
+});
 let currentSettings = {};
 
 /** Live environment state — kept in sync with data-store. */
@@ -363,6 +402,10 @@ function initHeader() {
   document.getElementById("btn-settings-nav").addEventListener("click", () => {
     settingsPopup.open(currentSettings);
   });
+
+  // Layout picker — header bar + remove-headers bar
+  layoutPicker.bindTrigger(document.getElementById("btn-layout"));
+  layoutPicker.bindTrigger(document.getElementById("btn-layout-nav"));
 
   // Environment buttons (panel header + bottom bar)
   document.getElementById("btn-environment").addEventListener("click", () => {
@@ -1314,6 +1357,11 @@ function applySettings(settings) {
   // even when fontSize was changed by a zoom gesture rather than the popup.
   if (settings.fontSize !== undefined && settingsPopup) {
     settingsPopup.load({ fontSize: settings.fontSize });
+  }
+  // Panel layout — apply the pinned layout and sync the picker button state
+  if (settings.layout != null) {
+    applyLayout(settings.layout);
+    layoutPicker.load(settings.layout);
   }
   // Splitter positions — restore saved pixel values into the grid variables
   if (settings.splitterNav    != null) splitterSizes.nav    = settings.splitterNav;

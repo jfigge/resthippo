@@ -263,6 +263,73 @@
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════════════
+   MANUAL LAYOUT OVERRIDES  data-layout="1|2|3|4" on #app-main
+   Beats all media-query rules (higher specificity: ID + attr vs. plain ID).
+   grid-area assignments for child panels are unchanged in every layout, so
+   only the grid template needs to be re-declared here.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Layout 1 — three columns: [nav | spl-1 | request | spl-2 | response] */
+#app-main[data-layout="1"] {
+  grid-template-columns:
+    var(--col-nav)
+    var(--splitter-size)
+    1fr
+    var(--splitter-size)
+    var(--col-res);
+  grid-template-rows:   1fr;
+  grid-template-areas:  "nav spl-1 request spl-2 response";
+}
+#app-main[data-layout="1"] #splitter-1,
+#app-main[data-layout="1"] #splitter-2 { cursor: col-resize; }
+
+/* Layout 2 — nav full-height left; request top-right / response bottom-right */
+#app-main[data-layout="2"] {
+  grid-template-columns: var(--col-nav) var(--splitter-size) 1fr;
+  grid-template-rows:    1fr var(--splitter-size) var(--row-res);
+  grid-template-areas:
+    "nav spl-1 request"
+    "nav spl-1 spl-2"
+    "nav spl-1 response";
+}
+#app-main[data-layout="2"] #splitter-1 { cursor: col-resize; }
+#app-main[data-layout="2"] #splitter-2 { cursor: row-resize; }
+
+/* Layout 3 — nav + request top; response full width bottom */
+#app-main[data-layout="3"] {
+  grid-template-columns: var(--col-nav) var(--splitter-size) 1fr;
+  grid-template-rows:    1fr var(--splitter-size) var(--row-res);
+  grid-template-areas:
+    "nav    spl-1    request"
+    "spl-2  spl-2    spl-2"
+    "response response response";
+}
+#app-main[data-layout="3"] #splitter-1 { cursor: col-resize; }
+#app-main[data-layout="3"] #splitter-2 { cursor: row-resize; }
+
+/* Layout 4 — all three panels stacked top to bottom */
+#app-main[data-layout="4"] {
+  grid-template-columns: 1fr;
+  grid-template-rows:
+    var(--col-nav)
+    var(--splitter-size)
+    1fr
+    var(--splitter-size)
+    var(--row-res);
+  grid-template-areas:
+    "nav"
+    "spl-1"
+    "request"
+    "spl-2"
+    "response";
+}
+#app-main[data-layout="4"] #splitter-1,
+#app-main[data-layout="4"] #splitter-2 { cursor: row-resize; }
+
+/* Push layout picker to the trailing edge of the remove-headers bar */
+.nav-settings-bar .layout-picker__trigger { margin-left: auto; }
+
 /* ── Per-panel defaults ────────────────────────────────────────────────────── */
 #panel-nav {
   background-color: var(--color-mantle);
