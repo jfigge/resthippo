@@ -439,28 +439,43 @@
 .req-send-btn {
   height: 30px;
   padding: 0 var(--space-4);
-  background: var(--color-accent);
-  color: var(--color-crust);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
-  font-weight: 700;
+  color: var(--color-accent);
+  font-family: var(--font-mono);
   font-size: var(--font-size-sm);
-  transition: opacity var(--transition-fast);
+  font-weight: 700;
+  cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .req-send-btn:hover {
-  opacity: 0.85;
+  background: var(--color-surface-2);
 }
 .req-send-btn:active {
-  opacity: 0.7;
+  background: var(--color-surface-2);
+  opacity: 0.8;
 }
 
+/* Colour-code the Send button to match the selected HTTP method */
+.req-send-btn[data-method="get"]     { color: var(--color-method-get); }
+.req-send-btn[data-method="post"]    { color: var(--color-method-post); }
+.req-send-btn[data-method="put"]     { color: var(--color-method-put); }
+.req-send-btn[data-method="patch"]   { color: var(--color-method-patch); }
+.req-send-btn[data-method="delete"]  { color: var(--color-method-delete); }
+.req-send-btn[data-method="head"]    { color: var(--color-method-head); }
+.req-send-btn[data-method="options"] { color: var(--color-method-options); }
+
 .req-send-btn--cancel {
-  background: var(--color-warning, #f9e2af);
+  color: var(--color-warning);
 }
 .req-send-btn--cancel:hover {
-  opacity: 0.85;
+  background: var(--color-surface-2);
 }
 
 /* Tab strip */
@@ -1487,6 +1502,28 @@
 .res-tab-btn--active {
   color: var(--color-accent);
   border-bottom-color: var(--color-accent);
+}
+
+/* Body tab — render mode indicators */
+.res-tab-btn--styled-mode {
+  color: var(--color-accent);   /* fallback when no method set */
+  font-weight: 700;
+  font-style: italic;
+}
+
+/* Method-specific colours for the Body tab in Styled mode */
+.res-tab-btn--styled-mode[data-method="get"]     { color: var(--color-method-get); }
+.res-tab-btn--styled-mode[data-method="post"]    { color: var(--color-method-post); }
+.res-tab-btn--styled-mode[data-method="put"]     { color: var(--color-method-put); }
+.res-tab-btn--styled-mode[data-method="patch"]   { color: var(--color-method-patch); }
+.res-tab-btn--styled-mode[data-method="delete"]  { color: var(--color-method-delete); }
+.res-tab-btn--styled-mode[data-method="head"]    { color: var(--color-method-head); }
+.res-tab-btn--styled-mode[data-method="options"] { color: var(--color-method-options); }
+
+.res-tab-btn--raw-mode {
+  color: var(--color-text) !important;
+  font-weight: normal;
+  font-style: normal;
 }
 
 /* Tab content */

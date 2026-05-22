@@ -868,6 +868,7 @@ export class RequestEditor {
     methodSel.addEventListener("change", () => {
       this.#method = methodSel.value;
       methodSel.dataset.method = this.#method.toLowerCase();
+      if (this._sendBtn) this._sendBtn.dataset.method = this.#method.toLowerCase();
       this.#dispatchRequestUpdated();
     });
 
@@ -890,6 +891,7 @@ export class RequestEditor {
     // Send / Cancel button
     const sendBtn = document.createElement("button");
     sendBtn.className = "req-send-btn";
+    sendBtn.dataset.method = this.#method.toLowerCase();
     sendBtn.textContent = "Send";
     sendBtn.setAttribute("aria-label", "Send request");
     sendBtn.addEventListener("click", () => {
@@ -922,6 +924,7 @@ export class RequestEditor {
     this.#el.appendChild(bar);
 
     this._methodSel = methodSel;
+    this._sendBtn   = sendBtn;
     // Keep _urlInput as a compatibility shim pointing at the editor's element
     // so any external code that reads _urlInput.focus() still works.
     this._urlInput  = urlEditor.element;
@@ -4112,6 +4115,7 @@ export class RequestEditor {
       this.#method = node.method;
       this._methodSel.value = node.method;
       this._methodSel.dataset.method = node.method.toLowerCase();
+      this._sendBtn.dataset.method   = node.method.toLowerCase();
     }
 
     const url = node.url ?? "";

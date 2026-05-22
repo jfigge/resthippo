@@ -16,6 +16,7 @@ import Prism from "../vendor/prism.js";
 
 const TABS = [
   { id: "body",     label: "Body"     },
+  { id: "preview",  label: "Preview"  },   // shown only for HTML responses
   { id: "headers",  label: "Headers"  },
   { id: "cookies",  label: "Cookies"  },
   { id: "console",  label: "Console"  },
@@ -85,12 +86,19 @@ function prettyXml(xml) {
 export class ResponseViewer {
   /** @type {HTMLElement} */
   #el;
-  #activeTab    = "body";
-  #renderMode   = "preview";   // "preview" | "raw"
-  #lastResponse = null;        // cached so mode changes can re-render
+  #activeTab      = "body";
+  #renderMode     = "styled";   // "styled" | "raw"
+  #lastResponse   = null;       // cached so mode changes can re-render
 
-  // Cached reference to the body pane element (set once in #renderTabContent)
-  #bodyPane = null;
+  // Cached pane references (set once in #renderTabContent)
+  #bodyPane    = null;
+  #previewPane = null;
+
+  // Whether the current response has an HTML content-type (drives Preview tab visibility)
+  #isHtmlResponse = false;
+
+  // HTTP method of the currently loaded request (drives Body tab colour in Styled mode)
+  #currentMethod = "get";
 
   // HTML-preview state
   #htmlPreviewActive  = false;  // true while an HTML preview is live
@@ -126,6 +134,14 @@ export class ResponseViewer {
     this.#renderTabContent();
     this.#renderSearchBar();   // inserted between tab-strip and tab-content
 
+    // Track the active request's method so the Body tab colour stays in sync.
+    window.addEventListener("wurl:request-selected", (e) => {
+      if (e.detail?.method) this.#setCurrentMethod(e.detail.method);
+    });
+    window.addEventListener("wurl:request-updated", (e) => {
+      if (e.detail?.method) this.#setCurrentMethod(e.detail.method);
+    });
+
     // Listen for responses
     window.addEventListener("wurl:response-received", (e) =>
       this.#showResponse(e.detail),
@@ -144,6 +160,7 @@ export class ResponseViewer {
       this.#timelineSelected = -1;
       this.#renderTimeline();
       if (e.detail?.isRequestSwitch) {
+        if (this.#activeTab !== "body") this.#switchTab("body");
         const entry = this.#timelineEntries[0];
         if (entry?.response?.error) {
           this.#showError({ ...entry.response.error,
@@ -211,7 +228,7 @@ export class ResponseViewer {
       this.#snapshotPending = false;
       if (this.#popupDepth === 0) this.#removePreviewSnapshot();
       if (!this.#htmlPreviewActive || !window.wurl?.isElectron) return;
-      if (this.#activeTab !== "body") return;   // body tab not visible — stay hidden
+      if (this.#activeTab !== "preview") return;   // preview tab not visible — stay hidden
       requestAnimationFrame(() => {
         if (!this.#htmlPreviewActive || this.#popupDepth > 0) return;
         window.wurl.htmlPreview.show(this.#computePreviewBounds()).catch(() => {});
@@ -225,8 +242,11 @@ export class ResponseViewer {
    */
   applySettings(settings) {
     if (settings.responseBodyRenderMode) {
-      this.#renderMode = settings.responseBodyRenderMode;
-      this.#updateBodyTabLabel();
+      const mode = settings.responseBodyRenderMode === "preview"
+        ? "styled"
+        : settings.responseBodyRenderMode;
+      this.#renderMode = mode;
+      this.#updateBodyTabStyle();
     }
   }
 
@@ -270,7 +290,9 @@ export class ResponseViewer {
       if (tab.id === this.#activeTab) btn.classList.add("res-tab-btn--active");
 
       if (tab.id === "body") {
-        btn.textContent = this.#bodyTabLabel();
+        btn.textContent = "Body";
+        btn.dataset.method = this.#currentMethod;
+        btn.classList.add(this.#renderMode === "raw" ? "res-tab-btn--raw-mode" : "res-tab-btn--styled-mode");
         // Right-click on the Body tab → render-mode context menu
         btn.addEventListener("contextmenu", (e) => {
           e.preventDefault();
@@ -279,6 +301,7 @@ export class ResponseViewer {
         });
       } else {
         btn.textContent = tab.label;
+        if (tab.id === "preview") btn.hidden = true;
       }
 
       btn.addEventListener("click", () => this.#switchTab(tab.id));
@@ -303,8 +326,9 @@ export class ResponseViewer {
       content.appendChild(pane);
     });
 
-    // Cache a direct reference to the body pane for use by HTML preview
-    this.#bodyPane = content.querySelector("#res-tab-body");
+    // Cache direct references to the body and preview panes
+    this.#bodyPane    = content.querySelector("#res-tab-body");
+    this.#previewPane = content.querySelector("#res-tab-preview");
 
     // Initial empty state in body pane
     this.#bodyPane.appendChild(this.#emptyState());
@@ -605,21 +629,26 @@ export class ResponseViewer {
 
   // ── Body context menu ─────────────────────────────────────────────────────
 
-  /** Returns the label text for the Body tab given the current render mode. */
-  #bodyTabLabel() {
-    return this.#renderMode === "raw" ? "Body: Raw" : "Body: Preview";
+  /** Sync the Body tab button styling to the current render mode. */
+  #updateBodyTabStyle() {
+    const btn = this._tabStrip?.querySelector('[data-tab="body"]');
+    if (!btn) return;
+    btn.classList.toggle("res-tab-btn--styled-mode", this.#renderMode !== "raw");
+    btn.classList.toggle("res-tab-btn--raw-mode",    this.#renderMode === "raw");
+    btn.dataset.method = this.#currentMethod;
   }
 
-  /** Sync the Body tab button text to the current render mode. */
-  #updateBodyTabLabel() {
+  /** Update the tracked HTTP method and refresh the Body tab colour. */
+  #setCurrentMethod(method) {
+    this.#currentMethod = method.toLowerCase();
     const btn = this._tabStrip?.querySelector('[data-tab="body"]');
-    if (btn) btn.textContent = this.#bodyTabLabel();
+    if (btn) btn.dataset.method = this.#currentMethod;
   }
 
   async #showBodyContextMenu(x, y) {
     const items = [
-      { id: "preview", label: "Preview", type: "checkbox", checked: this.#renderMode === "preview" },
-      { id: "raw",     label: "Raw",     type: "checkbox", checked: this.#renderMode === "raw"     },
+      { id: "styled", label: "Styled", type: "checkbox", checked: this.#renderMode !== "raw" },
+      { id: "raw",    label: "Raw",    type: "checkbox", checked: this.#renderMode === "raw" },
     ];
     const clickedId = await window.wurl.ui.contextMenu({ items, x, y });
     if (clickedId) this.#setRenderMode(clickedId);
@@ -628,7 +657,7 @@ export class ResponseViewer {
   #setRenderMode(mode) {
     if (this.#renderMode === mode) return;
     this.#renderMode = mode;
-    this.#updateBodyTabLabel();
+    this.#updateBodyTabStyle();
     // Persist the choice via the shared editor-setting channel
     window.dispatchEvent(new CustomEvent("wurl:editor-setting-changed", {
       detail: { responseBodyRenderMode: mode },
@@ -648,49 +677,46 @@ export class ResponseViewer {
    * @param {object} response  - cached response object (includes requestUrl)
    */
   #renderBodyPane(response) {
-    const pane       = this.#bodyPane;
+    const pane = this.#bodyPane;
     // Node.js (Electron) lowercases all header names; browsers may preserve
     // title-case.  Search case-insensitively so both environments work.
-    const hdrs       = response.headers ?? {};
-    const ct         = (Object.entries(hdrs).find(([k]) => k.toLowerCase() === "content-type")?.[1]) ?? "";
-    const category   = classifyContentType(ct);
-    const isElectron = window.wurl?.isElectron === true;
+    const hdrs     = response.headers ?? {};
+    const ct       = (Object.entries(hdrs).find(([k]) => k.toLowerCase() === "content-type")?.[1]) ?? "";
+    const category = classifyContentType(ct);
 
-    // Always tear down any existing HTML preview and highlights before re-rendering.
     this.#clearHighlights();
-    this.#destroyHtmlPreview();
     pane.innerHTML = "";
 
-    // ── HTML content type ─────────────────────────────────────────────────
-    if (category === "html" && this.#renderMode === "preview") {
-      if (isElectron) {
-        this.#activateElectronHtmlPreview(response.requestUrl, pane);
-      } else {
-        this.#activateDevHtmlPreview(response.requestUrl, pane);
-      }
-      return;
-    }
+    // ── Text rendering ────────────────────────────────────────────────────
+    // Styled: syntax-highlight all recognised types.
+    // Raw:    verbatim plain text for every type.
+    // HTML preview (iframe / WebContentsView) is handled by the Preview tab.
 
-    // ── Text rendering (JSON / YAML / XML / other / HTML-raw) ─────────────
     const pre = document.createElement("pre");
     pre.className = "res-body-pre";
-    // Make focusable so keyboard events (e.g. Cmd/Ctrl+A) bubble up to the viewer.
     pre.tabIndex = 0;
 
-    /** @type {string|null} Prism language id, or null for plain text */
     let prismLang = null;
     let displayText;
 
-    if (this.#renderMode === "preview" && (category === "json" || category === "yaml" || category === "xml")) {
-      // Pretty-print structured formats and syntax-highlight them
-      displayText = this.#prettyBody(response.body, category);
-      prismLang   = category === "xml" ? "markup" : category;
-    } else if (category === "html" && this.#renderMode === "raw") {
-      // Raw HTML source — highlight as markup
-      displayText = response.body;
-      prismLang   = "markup";
+    if (this.#renderMode !== "raw") {
+      if (category === "json") {
+        displayText = this.#prettyBody(response.body, "json");
+        prismLang   = "json";
+      } else if (category === "yaml") {
+        displayText = response.body;
+        prismLang   = "yaml";
+      } else if (category === "xml") {
+        displayText = this.#prettyBody(response.body, "xml");
+        prismLang   = "markup";
+      } else if (category === "html") {
+        displayText = response.body;
+        prismLang   = "markup";
+      } else {
+        displayText = response.body;
+      }
     } else {
-      // raw mode for JSON/YAML/XML, or unrecognised type — show verbatim
+      // Raw — verbatim for all types
       displayText = response.body;
     }
 
@@ -733,7 +759,7 @@ export class ResponseViewer {
    * @returns {{ x: number, y: number, width: number, height: number }}
    */
   #computePreviewBounds() {
-    const r = this.#bodyPane.getBoundingClientRect();
+    const r = this.#previewPane.getBoundingClientRect();
     return {
       x:      Math.round(r.left),
       y:      Math.round(r.top),
@@ -744,7 +770,7 @@ export class ResponseViewer {
 
   #showPreviewSnapshot(dataUrl) {
     this.#removePreviewSnapshot();
-    const r   = this.#bodyPane.getBoundingClientRect();
+    const r   = this.#previewPane.getBoundingClientRect();
     const img = document.createElement("img");
     img.src              = dataUrl;
     img.style.cssText    = `position:fixed;left:${r.left}px;top:${r.top}px;` +
@@ -769,7 +795,8 @@ export class ResponseViewer {
    * @param {string}      url   - original request URL to load
    * @param {HTMLElement} pane  - body pane element (used only for the loading placeholder)
    */
-  #activateElectronHtmlPreview(url, pane) {
+  #activateElectronHtmlPreview(url) {
+    const pane = this.#previewPane;
     this.#htmlPreviewActive = true;
 
     // Show a lightweight loading indicator inside the pane while the URL loads.
@@ -833,7 +860,8 @@ export class ResponseViewer {
    * @param {string}      url   - original request URL
    * @param {HTMLElement} pane  - body pane element
    */
-  #activateDevHtmlPreview(url, pane) {
+  #activateDevHtmlPreview(url) {
+    const pane = this.#previewPane;
     this.#htmlPreviewActive = true;
 
     // Pane must be the stacking context for the absolutely-positioned iframe.
@@ -879,11 +907,28 @@ export class ResponseViewer {
     if (this.#iframeEl) {
       this.#iframeEl.remove();
       this.#iframeEl = null;
+      if (this.#previewPane) {
+        this.#previewPane.style.position = "";
+        this.#previewPane.style.overflow = "";
+      }
     }
 
     // Destroy the Electron WebContentsView.
     if (window.wurl?.htmlPreview?.destroy) {
       window.wurl.htmlPreview.destroy().catch(() => {});
+    }
+  }
+
+  /**
+   * Show or hide the Preview tab.  When hidden while the Preview tab is active,
+   * automatically switches to the Body tab.
+   * @param {boolean} visible
+   */
+  #setPreviewTabVisible(visible) {
+    const btn = this._tabStrip?.querySelector('[data-tab="preview"]');
+    if (btn) btn.hidden = !visible;
+    if (!visible && this.#activeTab === "preview") {
+      this.#switchTab("body");
     }
   }
 
@@ -925,23 +970,37 @@ export class ResponseViewer {
       pane.hidden = pane.id !== `res-tab-${tabId}`;
     });
 
-    // When running in Electron with an HTML preview active, hide/show the
-    // WebContentsView overlay depending on whether the body tab is visible.
-    if (this.#htmlPreviewActive && window.wurl?.htmlPreview) {
-      if (tabId !== "body" && prevTab === "body") {
-        // Leaving the body tab — detach the overlay
-        window.wurl.htmlPreview.hide().catch(() => {});
-      } else if (tabId === "body" && prevTab !== "body") {
-        // Returning to the body tab — re-attach and reposition the overlay
-        requestAnimationFrame(() => {
-          window.wurl.htmlPreview.show(this.#computePreviewBounds()).catch(() => {});
-        });
+    // ── HTML preview — lives on the Preview tab ───────────────────────────
+    if (tabId === "preview" && prevTab !== "preview") {
+      // Entering Preview tab
+      if (this.#isHtmlResponse && this.#lastResponse) {
+        if (this.#htmlPreviewActive) {
+          // Preview was previously activated and hidden — re-show it.
+          if (window.wurl?.isElectron) {
+            requestAnimationFrame(() => {
+              if (this.#htmlPreviewActive && this.#activeTab === "preview") {
+                window.wurl.htmlPreview.show(this.#computePreviewBounds()).catch(() => {});
+              }
+            });
+          }
+          if (this.#iframeEl) this.#iframeEl.style.display = "";
+        } else {
+          // First time on this response — activate.
+          if (window.wurl?.isElectron === true) {
+            this.#activateElectronHtmlPreview(this.#lastResponse.requestUrl);
+          } else {
+            this.#activateDevHtmlPreview(this.#lastResponse.requestUrl);
+          }
+        }
       }
-    }
-
-    // Dev-mode iframe: simply show/hide it via CSS.
-    if (this.#iframeEl) {
-      this.#iframeEl.style.display = tabId === "body" ? "" : "none";
+    } else if (prevTab === "preview" && tabId !== "preview") {
+      // Leaving Preview tab — hide the overlay/iframe but keep it alive.
+      if (this.#htmlPreviewActive) {
+        if (window.wurl?.isElectron) {
+          window.wurl.htmlPreview.hide().catch(() => {});
+        }
+        if (this.#iframeEl) this.#iframeEl.style.display = "none";
+      }
     }
 
     // Lazy timeline: drop DOM when leaving, rebuild when entering.
@@ -977,6 +1036,7 @@ export class ResponseViewer {
   #showError(detail) {
     this.#lastResponse = null;
     this.#destroyHtmlPreview();
+    this.#setPreviewTabVisible(false);
     this.#clearHighlights();
     const hasStatus  = detail?.status && detail.status > 0;
     const statusCode = hasStatus ? String(detail.status) : "ERR";
@@ -1018,6 +1078,7 @@ export class ResponseViewer {
   #clearToEmpty() {
     this.#lastResponse = null;
     this.#destroyHtmlPreview();
+    this.#setPreviewTabVisible(false);
     this.#clearHighlights();
     this.#setStatus("", "", "", "");
     this._statusBar.querySelector(".res-status-badge").className = "res-status-badge";
@@ -1062,6 +1123,14 @@ export class ResponseViewer {
       requestUrl: requestUrl ?? request.url ?? "",
       status, statusText, headers, cookies, body, elapsed, size, consoleLog,
     };
+
+    // Sync method colour from the request that produced this response.
+    if (request.method) this.#setCurrentMethod(request.method);
+
+    // Show the Preview tab only for HTML responses.
+    const ct = (Object.entries(headers).find(([k]) => k.toLowerCase() === "content-type")?.[1]) ?? "";
+    this.#isHtmlResponse = classifyContentType(ct) === "html";
+    this.#setPreviewTabVisible(this.#isHtmlResponse);
 
     // Status bar
     const statusClass = this.#statusClass(status);
@@ -1198,6 +1267,7 @@ export class ResponseViewer {
       item.appendChild(record);
 
       item.addEventListener("click", () => {
+        if (this.#activeTab !== "body") this.#switchTab("body");
         this.#timelineSelected = idx;
         this.#renderTimeline();
         window.dispatchEvent(new CustomEvent("wurl:timeline-select", {

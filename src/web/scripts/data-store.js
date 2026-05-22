@@ -57,7 +57,7 @@ const DEFAULT_SETTINGS = {
   showUrlPreview:    true,
   varsBulkEditor:    true,
   selectedRequestId: null,
-  responseBodyRenderMode: "preview",
+  responseBodyRenderMode: "styled",
   oauth2Advanced:    false,
   historyCount:      5,
 };
