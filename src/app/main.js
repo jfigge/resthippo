@@ -947,6 +947,12 @@ function startHotReload(win) {
 const APP_ICON_PATH = path.join(__dirname, "..", "web", "wurl-logo.png");
 const appIcon = nativeImage.createFromPath(APP_ICON_PATH);
 
+// Set the dock icon synchronously before whenReady() — in Electron 14+ this is
+// safe and eliminates the brief Electron-default-icon flash during launch.
+if (process.platform === "darwin" && app.dock) {
+  app.dock.setIcon(appIcon);
+}
+
 // ─── Window state persistence ─────────────────────────────────────────────────
 // Window size is stored in a dedicated file (window-state.json) inside the
 // platform user-data directory.  Using a separate file — instead of the shared
@@ -1206,11 +1212,6 @@ app.on("will-quit", () => {
 });
 
 app.whenReady().then(async () => {
-  // Set the macOS dock icon (no-op on Windows/Linux).
-  if (process.platform === "darwin" && app.dock) {
-    app.dock.setIcon(appIcon);
-  }
-
   // In dev mode: resolve the port, spawning the Go server if needed.
   if (isDev) {
     if (process.env.SERVER_PORT) {
