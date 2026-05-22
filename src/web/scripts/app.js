@@ -1133,6 +1133,9 @@ function initEventBus() {
       timeout:         currentSettings.timeout         ?? 30000,
       followRedirects: currentSettings.followRedirects ?? true,
       verifySsl:       currentSettings.verifySsl       ?? true,
+      awsIam:          descriptor.awsIam ?? null,
+      proxy:           currentSettings.proxyEnabled && currentSettings.proxyUrl
+                         ? currentSettings.proxyUrl : null,
     };
 
     // ── Choose execution path ────────────────────────────────────────────────

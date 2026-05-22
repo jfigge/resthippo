@@ -3825,6 +3825,7 @@ export class RequestEditor {
     }
 
     // ── 3. Auth — inject Authorization (or other) headers if enabled ──────
+    let awsIam = null;
     if (this.#authEnabled && this.#authType !== "none") {
       switch (this.#authType) {
         case "basic": {
@@ -3907,7 +3908,16 @@ export class RequestEditor {
           this.#dispatchAuthUpdated();
           break;
         }
-        // aws-iam: Signature v4 requires request-time signing — not yet implemented
+        case "aws-iam": {
+          awsIam = {
+            accessKeyId:     await rv(this.#authAwsIam.accessKeyId     ?? ""),
+            secretAccessKey: await rv(this.#authAwsIam.secretAccessKey ?? ""),
+            region:          await rv(this.#authAwsIam.region          ?? ""),
+            service:         await rv(this.#authAwsIam.service         ?? ""),
+            sessionToken:    await rv(this.#authAwsIam.sessionToken    ?? ""),
+          };
+          break;
+        }
       }
     }
 
@@ -3990,7 +4000,7 @@ export class RequestEditor {
     }
 
     window.dispatchEvent(new CustomEvent("wurl:send-request", {
-      detail: { method: this.#method, url: finalUrl, headers, body, bodyFilePath },
+      detail: { method: this.#method, url: finalUrl, headers, body, bodyFilePath, awsIam },
       bubbles: true,
     }));
   }

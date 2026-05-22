@@ -11,6 +11,8 @@ const { spawn }    = require("child_process");
 const { URL }      = require("url");
 
 const { Stores }   = require("./store/stores");
+const aws4         = require("aws4");
+const { HttpsProxyAgent } = require("https-proxy-agent");
 
 const isDev   = process.argv.includes("--dev");
 const isDebug = process.argv.includes("--hot-reload");
@@ -203,6 +205,8 @@ function safeCall(channel, fn, fallback = null) {
       followRedirects = true,
       verifySsl       = true,
       maxRedirects    = 10,
+      awsIam          = null,
+      proxy           = null,
     } = desc;
 
     return new Promise((resolve) => {
@@ -246,6 +250,23 @@ function safeCall(channel, fn, fallback = null) {
         }
       }
 
+      // ── AWS SigV4 signing ─────────────────────────────────────────────────
+      if (awsIam?.accessKeyId && awsIam?.secretAccessKey) {
+        const signOpts = {
+          host:    parsed.hostname + (parsed.port ? `:${parsed.port}` : ""),
+          path:    parsed.pathname + parsed.search,
+          method:  effectiveMethod,
+          headers: { ...reqHeaders },
+          service: awsIam.service  || undefined,
+          region:  awsIam.region   || undefined,
+          body:    bodyBuffer ? bodyBuffer.toString("utf8") : undefined,
+        };
+        const creds = { accessKeyId: awsIam.accessKeyId, secretAccessKey: awsIam.secretAccessKey };
+        if (awsIam.sessionToken) creds.sessionToken = awsIam.sessionToken;
+        aws4.sign(signOpts, creds);
+        Object.assign(reqHeaders, signOpts.headers);
+      }
+
       // ── Outgoing request log ──────────────────────────────────────────────
       const httpVersion = isHttps ? "HTTP/2" : "HTTP/1.1";
       consoleLog.push(`> ${effectiveMethod} ${parsed.pathname}${parsed.search} ${httpVersion}`);
@@ -271,6 +292,7 @@ function safeCall(channel, fn, fallback = null) {
         headers: reqHeaders,
         timeout,
         rejectUnauthorized: verifySsl,
+        ...(proxy ? { agent: new HttpsProxyAgent(proxy) } : {}),
       };
 
       const req = lib.request(options, (res) => {
