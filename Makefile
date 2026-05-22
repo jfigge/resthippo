@@ -12,6 +12,7 @@ BUILD_TIME      ?= $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
 WORKSPACE       ?= $(realpath $(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
 BUILD_DIR       ?= $(WORKSPACE)/build
 DIST_DIR        ?= $(WORKSPACE)/dist
+DATA_DIR        ?= $(WORKSPACE)/data
 SRC_DIR         ?= $(WORKSPACE)/src
 WEB_DIR         ?= $(WORKSPACE)/src/web
 APP_DIR         ?= $(WORKSPACE)/src/app
@@ -63,7 +64,8 @@ test-oauth:
 # ─── Development ──────────────────────────────────────────────────────────────
 debug:
 	@echo "Starting Electron in debug mode (hot-reload)..."
-	@cd $(SRC_DIR) && npx electron app/main.js --hot-reload
+	@cd $(SRC_DIR) && npx electron app/main.js --hot-reload --user-data-dir=$(DATA_DIR)
+	@echo "--------------------------------"
 
 # ─── Build ────────────────────────────────────────────────────────────────────
 build: build-mac # build-linux build-win

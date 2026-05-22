@@ -81,6 +81,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   // its own custom context menus on tree nodes.
   document.addEventListener("contextmenu", (e) => e.preventDefault());
 
+  // Set --font-ui to the OS-native context-menu typeface so custom menus
+  // feel native. Each major OS uses a distinct system font for its menus.
+  const PLATFORM_UI_FONTS = {
+    "darwin": '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+    "win32":  '"Segoe UI Variable", "Segoe UI", sans-serif',
+    "linux":  'system-ui, "Ubuntu", "Cantarell", sans-serif',
+  };
+  const platform  = window.wurl?.platform ?? "linux";
+  const uiFont    = PLATFORM_UI_FONTS[platform] ?? PLATFORM_UI_FONTS.linux;
+  document.documentElement.style.setProperty("--font-ui", uiFont);
+
   initPanels();
   initComponents();
   initSplitters();
@@ -1274,6 +1285,16 @@ function _deepCloneWithNewIds(node) {  const clone = { ...node, id: crypto.rando
  * Extend this function whenever a new setting needs to affect the DOM.
  * @param {object} settings
  */
+// Font stacks keyed by the fontFamily setting value.
+const FONT_STACKS = {
+  "inter":   '"Inter", "Segoe UI", system-ui, -apple-system, sans-serif',
+  "system":  'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  "sf-pro":  '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+  "segoe":   '"Segoe UI", system-ui, sans-serif',
+  "ubuntu":  '"Ubuntu", "Cantarell", system-ui, sans-serif',
+  "roboto":  '"Roboto", "Helvetica Neue", system-ui, sans-serif',
+};
+
 function applySettings(settings) {
   // Theme — stored as a data attribute so CSS [data-theme="latte"] etc. applies
   if (settings.theme) {
@@ -1283,6 +1304,11 @@ function applySettings(settings) {
   // are defined as calc(base ± Npx) in theme.css so the whole UI scales.
   if (settings.fontSize) {
     document.documentElement.style.setProperty("--font-size-base", `${settings.fontSize}px`);
+  }
+  // UI font — sets --font-sans so the whole app uses the chosen typeface.
+  if (settings.fontFamily) {
+    const stack = FONT_STACKS[settings.fontFamily] ?? FONT_STACKS.inter;
+    document.documentElement.style.setProperty("--font-sans", stack);
   }
   // Keep the settings-popup select in sync so it reflects the current value
   // even when fontSize was changed by a zoom gesture rather than the popup.

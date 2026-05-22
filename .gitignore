@@ -8,21 +8,12 @@ src/node_modules/
 src/npm-debug.log*
 .npm
 
-# ── Go ────────────────────────────────────────────────────────────────────────
-*.exe
-*.test
-*.out
-wurlapi
-wurl
-
 # ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store
 .AppleDouble
 .LSOverride
 
 # ── Editor / IDE ──────────────────────────────────────────────────────────────
-.idea/
-*.iml
 *.swp
 .vscode/
 
@@ -31,3 +22,4 @@ wurl
 
 # ── Data and local test files ─────────────────────────────────────────────────
 data/collections.json
+CLAUDE.md

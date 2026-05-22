@@ -89,6 +89,18 @@ export class SettingsPopup {
             </select>
           </div>
 
+          <div class="settings-row">
+            <label class="settings-label" for="setting-font-family">UI font</label>
+            <select class="settings-select" id="setting-font-family">
+              <option value="inter">Inter</option>
+              <option value="system">System Default</option>
+              <option value="sf-pro">SF Pro (macOS)</option>
+              <option value="segoe">Segoe UI (Windows)</option>
+              <option value="ubuntu">Ubuntu (Linux)</option>
+              <option value="roboto">Roboto</option>
+            </select>
+          </div>
+
           <div class="settings-row settings-row--toggle" id="setting-remove-headers-row">
             <label class="settings-label" for="setting-remove-headers">Remove headers</label>
             <input
@@ -305,6 +317,7 @@ export class SettingsPopup {
     return {
       theme:           this.#el.querySelector("#setting-theme").value,
       fontSize:        parseInt(this.#el.querySelector("#setting-font-size").value, 10) || 13,
+      fontFamily:      this.#el.querySelector("#setting-font-family").value,
       removeHeaders:   this.#el.querySelector("#setting-remove-headers").checked,
       timeout:         parseInt(this.#el.querySelector("#setting-timeout").value, 10) || 0,
       followRedirects:    this.#el.querySelector("#setting-follow-redirects").checked,
@@ -355,6 +368,9 @@ export class SettingsPopup {
     }
     if (settings.fontSize !== undefined) {
       this.#el.querySelector("#setting-font-size").value = String(settings.fontSize);
+    }
+    if (settings.fontFamily !== undefined) {
+      this.#el.querySelector("#setting-font-family").value = settings.fontFamily;
     }
     if (settings.removeHeaders !== undefined) {
       this.#el.querySelector("#setting-remove-headers").checked = settings.removeHeaders;

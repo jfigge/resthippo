@@ -48,6 +48,7 @@
 export const DEFAULT_SETTINGS = {
   theme:           "mocha",
   fontSize:        13,
+  fontFamily:      "inter",
   timeout:         30000,
   followRedirects: true,
   verifySsl:       true,

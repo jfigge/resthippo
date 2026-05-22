@@ -50,6 +50,8 @@ export class VariablePillEditor {
   #pickerTimer          = null;
   #pickerInst           = null;
   #pickerOutsideHandler = null;
+  #pillMenuEl           = null;
+  #pillMenuHandler      = null;
   #isFocused            = false;
 
   constructor({
@@ -210,33 +212,37 @@ export class VariablePillEditor {
     span.contentEditable  = "false";
     span.dataset.variable = name;
     span.textContent      = name;
-    span.title            = `{{${name}}} — double-click to edit`;
+    span.title            = `{{${name}}}`;
     const { found } = resolveVariable(name, ctx);
     span.className = [
       "variable-pill",
       found ? "variable-pill--known" : "variable-pill--unknown",
     ].join(" ");
 
-    span.addEventListener("dblclick", (e) => {
+    span.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      PillEditorPopup.open({
-        type:       "variable",
-        rawValue:   `{{${span.dataset.variable}}}`,
-        getContext: this.#getContext,
-        onCommit:   (newRaw) => {
-          const match = /^\{\{([^{}]+)\}\}$/.exec(newRaw);
-          if (!match) return;
-          const newName = match[1];
-          span.dataset.variable = newName;
-          span.textContent      = newName;
-          span.title            = `{{${newName}}} — double-click to edit`;
-          const { found: f } = resolveVariable(newName, this.#getContext());
-          span.classList.toggle("variable-pill--known",   f);
-          span.classList.toggle("variable-pill--unknown", !f);
-          this.#emitChange();
-        },
-      });
+      this.#showPillContextMenu(
+        e.clientX, e.clientY,
+        () => PillEditorPopup.open({
+          type:       "variable",
+          rawValue:   `{{${span.dataset.variable}}}`,
+          getContext: this.#getContext,
+          onCommit:   (newRaw) => {
+            const match = /^\{\{([^{}]+)\}\}$/.exec(newRaw);
+            if (!match) return;
+            const newName = match[1];
+            span.dataset.variable = newName;
+            span.textContent      = newName;
+            span.title            = `{{${newName}}}`;
+            const { found: f } = resolveVariable(newName, this.#getContext());
+            span.classList.toggle("variable-pill--known",   f);
+            span.classList.toggle("variable-pill--unknown", !f);
+            this.#emitChange();
+          },
+        }),
+        () => { span.remove(); this.#emitChange(); },
+      );
     });
 
     return span;
@@ -251,35 +257,41 @@ export class VariablePillEditor {
     span.dataset.function = name;
     span.dataset.fnArgs   = JSON.stringify(rawArgs);
     span.textContent      = funcDef?.label ?? name;
-    span.title            = `${rawToken} — double-click to edit`;
+    span.title            = rawToken;
     span.className        = "variable-pill function-pill";
 
-    span.addEventListener("dblclick", (e) => {
+    span.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const currentArgs = JSON.parse(span.dataset.fnArgs ?? "[]");
-      PillEditorPopup.open({
-        type:       "function",
-        funcName:   span.dataset.function,
-        funcDef:    registry[span.dataset.function],
-        rawArgs:    currentArgs,
-        getContext: this.#getContext,
-        getItems:   this.#getItems,
-        getPreview: async (args) => {
-          const fn = logicMap[span.dataset.function];
-          if (!fn) return null;
-          return String(await fn(args, this.#getContext()));
+      this.#showPillContextMenu(
+        e.clientX, e.clientY,
+        () => {
+          const currentArgs = JSON.parse(span.dataset.fnArgs ?? "[]");
+          PillEditorPopup.open({
+            type:       "function",
+            funcName:   span.dataset.function,
+            funcDef:    registry[span.dataset.function],
+            rawArgs:    currentArgs,
+            getContext: this.#getContext,
+            getItems:   this.#getItems,
+            getPreview: async (args) => {
+              const fn = logicMap[span.dataset.function];
+              if (!fn) return null;
+              return String(await fn(args, this.#getContext()));
+            },
+            onCommit: (newRawToken) => {
+              const m = /^\{\{([^{}]+)\}\}$/.exec(newRawToken);
+              if (!m) return;
+              const parsed = parseFunctionCall(m[1]);
+              if (!parsed) return;
+              span.dataset.fnArgs = JSON.stringify(parsed.rawArgs);
+              span.title          = newRawToken;
+              this.#emitChange();
+            },
+          });
         },
-        onCommit: (newRawToken) => {
-          const m = /^\{\{([^{}]+)\}\}$/.exec(newRawToken);
-          if (!m) return;
-          const parsed = parseFunctionCall(m[1]);
-          if (!parsed) return;
-          span.dataset.fnArgs = JSON.stringify(parsed.rawArgs);
-          span.title          = `${newRawToken} — double-click to edit`;
-          this.#emitChange();
-        },
-      });
+        () => { span.remove(); this.#emitChange(); },
+      );
     });
 
     return span;
@@ -740,6 +752,54 @@ export class VariablePillEditor {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  // ── Pill context menu ─────────────────────────────────────────────────────
+
+  #showPillContextMenu(x, y, onEdit, onDelete) {
+    this.#closePillMenu();
+
+    const menu = document.createElement("div");
+    menu.className = "pill-context-menu";
+    menu.setAttribute("role", "menu");
+    menu.addEventListener("mousedown", (e) => e.preventDefault()); // keep editor focus
+
+    for (const [label, action] of [["Edit", onEdit], ["Delete", onDelete]]) {
+      const item = document.createElement("div");
+      item.className   = "pill-context-menu__item";
+      item.setAttribute("role", "menuitem");
+      item.textContent = label;
+      item.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        this.#closePillMenu();
+        action();
+      });
+      menu.appendChild(item);
+    }
+
+    const W  = window.innerWidth;
+    const H  = window.innerHeight;
+    const MW = 120;
+    const MH = 64;
+    const left = Math.max(4, Math.min(x, W - MW - 4));
+    const top  = (y + MH > H - 4) ? Math.max(4, y - MH - 4) : y;
+    menu.style.cssText = `left:${left}px; top:${top}px;`;
+
+    document.body.appendChild(menu);
+    this.#pillMenuEl = menu;
+
+    this.#pillMenuHandler = (e) => {
+      if (!menu.contains(e.target)) this.#closePillMenu();
+    };
+    document.addEventListener("mousedown", this.#pillMenuHandler, { capture: true });
+  }
+
+  #closePillMenu() {
+    if (this.#pillMenuEl) { this.#pillMenuEl.remove(); this.#pillMenuEl = null; }
+    if (this.#pillMenuHandler) {
+      document.removeEventListener("mousedown", this.#pillMenuHandler, { capture: true });
+      this.#pillMenuHandler = null;
+    }
+  }
 
   #emitChange() {
     const val       = serializeEditor(this.#el);
