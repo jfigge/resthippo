@@ -198,4 +198,23 @@ contextBridge.exposeInMainWorld("wurl", {
   functions: {
     invoke: (fn, args) => ipcRenderer.invoke("functions:invoke", fn, args),
   },
+
+  /**
+   * UI bridges to native chrome that the renderer cannot create itself.
+   */
+  ui: {
+    /**
+     * Show a native OS context menu at (x, y) and resolve with the id of the
+     * clicked item, or null if the menu was dismissed.
+     *
+     * @param {{
+     *   items: Array<{ id?: string, label?: string, type?: "separator", enabled?: boolean }>,
+     *   x?: number,
+     *   y?: number,
+     * }} options
+     * @returns {Promise<string|null>}
+     */
+    contextMenu: ({ items, x, y } = {}) =>
+      ipcRenderer.invoke("ui:context-menu:show", { items, x, y }),
+  },
 });

@@ -62,7 +62,7 @@ test-oauth:
 
 # ─── Development ──────────────────────────────────────────────────────────────
 debug:
-	@echo "Starting Electron in debug mode (hot-reload, no Go server)..."
+	@echo "Starting Electron in debug mode (hot-reload)..."
 	@cd $(SRC_DIR) && npx electron app/main.js --hot-reload
 
 # ─── Build ────────────────────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ dist-win:
 
 # ─── Launch ───────────────────────────────────────────────────────────────────
 launch: all
-	@open dist/mac-arm64/wurl.app
+	@open build/src/dist/mac-arm64/wurl.app
 
 # ─── Clean ────────────────────────────────────────────────────────────────────
 clean:

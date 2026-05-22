@@ -12,7 +12,6 @@
 
 "use strict";
 
-import { PopupManager } from "../popup-manager.js";
 import Prism from "../vendor/prism.js";
 
 const TABS = [
@@ -276,7 +275,7 @@ export class ResponseViewer {
         btn.addEventListener("contextmenu", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          PopupManager.openMenu(this.#buildBodyContextMenu(), e.clientX, e.clientY);
+          this.#showBodyContextMenu(e.clientX, e.clientY);
         });
       } else {
         btn.textContent = tab.label;
@@ -617,34 +616,13 @@ export class ResponseViewer {
     if (btn) btn.textContent = this.#bodyTabLabel();
   }
 
-  #buildBodyContextMenu() {
-    const menu = document.createElement("div");
-    menu.className = "tree-ctxmenu";
-    menu.setAttribute("role", "menu");
-    menu.addEventListener("contextmenu", (e) => e.preventDefault());
-
-    [
-      { label: "Preview", mode: "preview" },
-      { label: "Raw",     mode: "raw"     },
-    ].forEach(({ label, mode }) => {
-      const btn = document.createElement("button");
-      btn.className = "tree-ctxmenu__item res-body-menu-item";
-      btn.setAttribute("role", "menuitem");
-
-      const tick = document.createElement("span");
-      tick.className = "res-body-menu-tick";
-      tick.textContent = this.#renderMode === mode ? "✓" : "";
-
-      btn.appendChild(tick);
-      btn.appendChild(document.createTextNode(label));
-      btn.addEventListener("click", () => {
-        PopupManager.close();
-        this.#setRenderMode(mode);
-      });
-      menu.appendChild(btn);
-    });
-
-    return menu;
+  async #showBodyContextMenu(x, y) {
+    const items = [
+      { id: "preview", label: "Preview", type: "checkbox", checked: this.#renderMode === "preview" },
+      { id: "raw",     label: "Raw",     type: "checkbox", checked: this.#renderMode === "raw"     },
+    ];
+    const clickedId = await window.wurl.ui.contextMenu({ items, x, y });
+    if (clickedId) this.#setRenderMode(clickedId);
   }
 
   #setRenderMode(mode) {

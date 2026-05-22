@@ -616,6 +616,43 @@ function safeCall(channel, fn, fallback = null) {
   });
 })();
 
+// ─── Native context menu IPC ──────────────────────────────────────────────────
+// Pops a real OS context menu at (x, y) within the calling window and resolves
+// with the id of the clicked item — or null if the menu was dismissed.
+//
+// Items shape: [{ id, label, type?: "separator", enabled?: boolean }]
+(function initContextMenuIPC() {
+  ipcMain.handle("ui:context-menu:show", (event, { items, x, y } = {}) => {
+    return new Promise((resolve) => {
+      let resultId = null;
+
+      const template = (items ?? []).map((item) => {
+        if (item?.type === "separator") return { type: "separator" };
+        const entry = {
+          label:   String(item.label ?? ""),
+          enabled: item.enabled !== false,
+          click:   () => { resultId = item.id ?? null; },
+        };
+        if (item.type === "checkbox" || item.type === "radio") {
+          entry.type    = item.type;
+          entry.checked = !!item.checked;
+        }
+        return entry;
+      });
+
+      const menu = Menu.buildFromTemplate(template);
+      const win  = BrowserWindow.fromWebContents(event.sender) ?? _mainWin ?? undefined;
+
+      const popupOpts = { window: win, callback: () => resolve(resultId) };
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        popupOpts.x = Math.round(x);
+        popupOpts.y = Math.round(y);
+      }
+      menu.popup(popupOpts);
+    });
+  });
+})();
+
 // ─── HTML Preview IPC ─────────────────────────────────────────────────────────
 // Creates/manages a WebContentsView that overlays the response body pane and
 // loads the last request URL so the user sees a live browser preview.

@@ -361,11 +361,11 @@ function initHeader() {
     envPopup.open(currentEnvs);
   });
 
-  // Right-click on the environment label or either environment icon → context menu
+  // Right-click on the environment label or either environment icon → OS context menu
   const _openEnvCtxMenu = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    PopupManager.openMenu(_buildEnvCtxMenu(), e.clientX, e.clientY);
+    _showEnvContextMenu(e.clientX, e.clientY);
   };
 
   document.querySelector("#panel-nav .panel-title").addEventListener("contextmenu", _openEnvCtxMenu);
@@ -373,57 +373,34 @@ function initHeader() {
   document.getElementById("btn-environment-nav").addEventListener("contextmenu", _openEnvCtxMenu);
 }
 
-/** Build the environment context-menu element. */
-function _buildEnvCtxMenu() {
-  const menu = document.createElement("div");
-  menu.className = "tree-ctxmenu";
-  menu.setAttribute("role", "menu");
-  menu.addEventListener("contextmenu", (e) => e.preventDefault());
-
-  const items = [
-    {
-      label: "Rename",
-      action: () => {
-        envPopup.openWithRename(currentEnvs);
-      },
+/** Open the native OS context menu for the active environment. */
+async function _showEnvContextMenu(x, y) {
+  const actions = {
+    "rename":    () => envPopup.openWithRename(currentEnvs),
+    "variables": () => {
+      const activeEnv = currentEnvs.environments.find(
+        e => e.id === currentEnvs.activeEnvironmentId,
+      );
+      if (!activeEnv) return;
+      varsPopup.open({
+        envId:      activeEnv.id,
+        envName:    activeEnv.name,
+        variables:  activeEnv.variables ?? {},
+        bulkEditor: currentSettings.varsBulkEditor ?? true,
+      });
     },
-    "separator",
-    {
-      label: "Variables",
-      action: () => {
-        const activeEnv = currentEnvs.environments.find(
-          e => e.id === currentEnvs.activeEnvironmentId,
-        );
-        if (!activeEnv) return;
-        varsPopup.open({
-          envId:      activeEnv.id,
-          envName:    activeEnv.name,
-          variables:  activeEnv.variables ?? {},
-          bulkEditor: currentSettings.varsBulkEditor ?? true,
-        });
-      },
-    },
-  ];
+  };
 
-  items.forEach((item) => {
-    if (item === "separator") {
-      const sep = document.createElement("div");
-      sep.className = "tree-ctxmenu__separator";
-      menu.appendChild(sep);
-      return;
-    }
-    const btn = document.createElement("button");
-    btn.className = "tree-ctxmenu__item";
-    btn.setAttribute("role", "menuitem");
-    btn.textContent = item.label;
-    btn.addEventListener("click", () => {
-      PopupManager.close();
-      item.action();
-    });
-    menu.appendChild(btn);
+  const clickedId = await window.wurl.ui.contextMenu({
+    items: [
+      { id: "rename",    label: "Rename"    },
+      { type: "separator" },
+      { id: "variables", label: "Variables" },
+    ],
+    x, y,
   });
 
-  return menu;
+  if (clickedId) actions[clickedId]?.();
 }
 
 // ─── Event bus ────────────────────────────────────────────────────────────────

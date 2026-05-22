@@ -40,9 +40,6 @@ export class TreeView {
   /** @type {HTMLButtonElement} — kept to toggle disabled state */
   #btnNewRequest = null;
 
-  /** @type {HTMLElement} — reused context-menu element */
-  #ctxMenuEl = null;
-
   /** @type {string|null} — id of the node currently being dragged */
   #dragId = null;
 
@@ -78,8 +75,6 @@ export class TreeView {
     this.#el = document.createElement("div");
     this.#el.className = "tree-view";
     this.#el.setAttribute("role", "tree");
-
-    this.#ctxMenuEl = this.#createCtxMenuEl();
 
     // Create the phantom drop-target placeholder (shared, moved around the DOM)
     this.#dragPhantomEl = document.createElement("li");
@@ -207,136 +202,97 @@ export class TreeView {
 
   // ── Context menu ────────────────────────────────────────────────────────
 
-  /** Create the shared context-menu DOM element (populated on each open). */
-  #createCtxMenuEl() {
-    const el = document.createElement("div");
-    el.className = "tree-ctxmenu";
-    el.setAttribute("role", "menu");
-    // Prevent the row's contextmenu from firing inside the menu itself
-    el.addEventListener("contextmenu", (e) => e.preventDefault());
-    return el;
-  }
-
   /**
-   * Populate and open the context menu for a node.
+   * Populate and open a native OS context menu for a node.
+   *
+   * Danger items use a two-click confirm: the first click closes the menu and
+   * re-pops it with the danger entry relabeled "Confirm?"; a second click on
+   * that entry runs the action. Any other choice, dismissal, or Escape
+   * cancels and restores the original labels on the next open.
+   *
    * @param {object}      node
    * @param {string|null} parentCollectionId
    * @param {number}      x  clientX of the contextmenu event
    * @param {number}      y  clientY of the contextmenu event
    */
-  #showContextMenu(node, parentCollectionId, x, y) {
-    const el = this.#ctxMenuEl;
-    el.innerHTML = "";
+  async #showContextMenu(node, parentCollectionId, x, y) {
+    // Action map keyed by id — callbacks can't be sent across IPC, so the
+    // native menu returns an id and the dispatch happens here.
+    const actions = node.type === "collection"
+      ? {
+          "add-request": () => this.#addRequestTo(node.id),
+          "add-folder":  () => this.#addFolderTo(node.id),
+          "rename":      () => this.#renameNode(node.id),
+          "duplicate":   () => this.#duplicateNode(node.id),
+          "variables":   () => {
+            const liveNode = this.#findNode(this.#items, node.id) ?? node;
+            window.dispatchEvent(new CustomEvent("wurl:folder-vars-open", {
+              detail: { nodeId: liveNode.id, folderName: liveNode.name, variables: liveNode.variables ?? {} },
+              bubbles: true,
+            }));
+          },
+          "delete":      () => this.#deleteNode(node.id),
+        }
+      : {
+          "rename":       () => this.#renameNode(node.id),
+          "duplicate":    () => this.#duplicateNode(node.id),
+          "generate-curl":() => this.#generateCurl(node),
+          "delete":       () => this.#deleteNode(node.id),
+        };
 
-    const menuItems =
-      node.type === "collection"
-        ? [
-            { label: "Add Request", action: () => this.#addRequestTo(node.id) },
-            { label: "Add Folder",  action: () => this.#addFolderTo(node.id)  },
-            "separator",
-            { label: "Rename",      action: () => this.#renameNode(node.id)   },
-            "separator",
-            { label: "Duplicate",     action: () => this.#duplicateNode(node.id) },
-            "separator",
-            {
-              label: "Variables",
-              action: () => {
-                const liveNode = this.#findNode(this.#items, node.id) ?? node;
-                window.dispatchEvent(new CustomEvent("wurl:folder-vars-open", {
-                  detail: { nodeId: liveNode.id, folderName: liveNode.name, variables: liveNode.variables ?? {} },
-                  bubbles: true,
-                }));
-              },
-            },
-            "separator",
-            { label: "Delete", danger: true, action: () => this.#deleteNode(node.id) },
-          ]
-        : [
-            { label: "Rename",      action: () => this.#renameNode(node.id)   },
-            "separator",
-            { label: "Duplicate",     action: () => this.#duplicateNode(node.id) },
-            { label: "Generate cURL", action: () => this.#generateCurl(node)     },
-            "separator",
-            { label: "Delete", danger: true, action: () => this.#deleteNode(node.id) },
-          ];
+    const baseItems = node.type === "collection"
+      ? [
+          { id: "add-request", label: "Add Request" },
+          { id: "add-folder",  label: "Add Folder"  },
+          { type: "separator" },
+          { id: "rename",      label: "Rename"      },
+          { type: "separator" },
+          { id: "duplicate",   label: "Duplicate"   },
+          { type: "separator" },
+          { id: "variables",   label: "Variables"   },
+          { type: "separator" },
+          { id: "delete",      label: "Delete", danger: true },
+        ]
+      : [
+          { id: "rename",       label: "Rename"        },
+          { type: "separator" },
+          { id: "duplicate",    label: "Duplicate"     },
+          { id: "generate-curl",label: "Generate cURL" },
+          { type: "separator" },
+          { id: "delete",       label: "Delete", danger: true },
+        ];
 
-    menuItems.forEach((item) => {
-      if (item === "separator") {
-        const sep = document.createElement("div");
-        sep.className = "tree-ctxmenu__separator";
-        el.appendChild(sep);
+    // Loop so a danger click can re-open the menu with the entry relabeled to
+    // "Confirm?". A second click on that entry confirms; any other choice
+    // runs the chosen action; dismiss cancels.
+    let confirmingId = null;
+    while (true) {
+      const items = baseItems.map((it) =>
+        it.id === confirmingId ? { ...it, label: "Confirm?", danger: false } : it
+      );
+
+      const clickedId = await window.wurl.ui.contextMenu({
+        items: items.map(({ id, label, type, enabled }) => ({ id, label, type, enabled })),
+        x, y,
+      });
+
+      if (!clickedId) return; // dismissed
+
+      if (clickedId === confirmingId) {
+        // The relabeled item was confirmed — run the original danger action.
+        actions[clickedId]?.();
         return;
       }
-      const btn = document.createElement("button");
-      btn.className = "tree-ctxmenu__item";
-      if (item.danger) btn.classList.add("tree-ctxmenu__item--danger");
-      btn.setAttribute("role", "menuitem");
-      btn.textContent = item.label;
 
-      if (item.danger) {
-        // First click → enter "Confirm?" state; second click → execute + close.
-        // Escape or clicking outside the button cancels the confirm state.
-        let cleanupConfirm = null;
-
-        btn.addEventListener("click", () => {
-          if (cleanupConfirm) {
-            // Already confirming — second click executes the action.
-            cleanupConfirm();
-            PopupManager.close();
-            item.action();
-            return;
-          }
-
-          // Enter confirm state.
-          btn.textContent = "Confirm?";
-          btn.classList.remove("tree-ctxmenu__item--danger");
-          btn.classList.add("tree-ctxmenu__item--confirming");
-
-          const restore = () => {
-            btn.textContent = item.label;
-            btn.classList.remove("tree-ctxmenu__item--confirming");
-            btn.classList.add("tree-ctxmenu__item--danger");
-            document.removeEventListener("keydown", onEsc, true);
-            document.removeEventListener("mousedown", onOutside, true);
-            cleanupConfirm = null;
-          };
-
-          const onEsc = (e) => {
-            if (e.key === "Escape") {
-              restore();
-              PopupManager.close();
-            }
-          };
-
-          // Clicking anywhere outside this button (including other menu items
-          // or the mask) cancels the confirm state. The mask/outside-click
-          // handler in PopupManager will separately close the menu if needed.
-          const onOutside = (e) => {
-            if (!btn.contains(e.target)) restore();
-          };
-
-          document.addEventListener("keydown", onEsc, true);
-          document.addEventListener("mousedown", onOutside, true);
-          cleanupConfirm = restore;
-
-          const onMenuClose = () => {
-            if (el.isConnected) return;
-            restore();
-            window.removeEventListener("wurl:popup-closed", onMenuClose);
-          };
-          window.addEventListener("wurl:popup-closed", onMenuClose);
-        });
-      } else {
-        btn.addEventListener("click", () => {
-          PopupManager.close();
-          item.action();
-        });
+      const isDanger = baseItems.find((it) => it.id === clickedId)?.danger;
+      if (isDanger) {
+        confirmingId = clickedId;
+        continue;
       }
 
-      el.appendChild(btn);
-    });
-
-    PopupManager.openMenu(el, x, y);
+      actions[clickedId]?.();
+      return;
+    }
   }
 
   // ── Mutations — toolbar ─────────────────────────────────────────────────
@@ -1080,7 +1036,12 @@ export class TreeView {
   }
 
   #selectRequest(node, li) {
+    // Skip re-loading the request (and its history/timeline) when the row is
+    // already active — clicking or right-clicking the current selection
+    // should not trigger another wurl:request-selected dispatch.
+    const alreadyActive = li.classList.contains("tree-node--active");
     this.#setActiveRow(li);
+    if (alreadyActive) return;
 
     // Always read the live node from #items so we get the latest field values.
     // The click-handler closure captures the node object at render time; if
