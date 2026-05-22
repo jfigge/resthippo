@@ -67,6 +67,9 @@ export class TreeView {
   /** @type {boolean} — when true, double-clicking a request loads and executes it */
   #doubleClickExecute = false;
 
+  /** @type {string} — current filter query (lowercased) */
+  #filterText = "";
+
   /**
    * @param {object}   [opts]
    * @param {object[]} [opts.items]  - Initial tree data
@@ -193,6 +196,11 @@ export class TreeView {
     search.type = "search";
     search.placeholder = "Filter…";
     search.setAttribute("aria-label", "Filter requests");
+
+    search.addEventListener("input", () => {
+      this.#filterText = search.value.trim().toLowerCase();
+      this.#applyFilter();
+    });
 
     bar.appendChild(btnNewCollection);
     bar.appendChild(this.#btnNewRequest);
@@ -864,6 +872,7 @@ export class TreeView {
     const existing = this.#el.querySelector(".tree-list");
     if (existing) existing.remove();
     this.#renderTree(this.#items);
+    if (this.#filterText) this.#applyFilter();
   }
 
   #renderTree(items) {
@@ -1026,6 +1035,73 @@ export class TreeView {
     }
 
     return li;
+  }
+
+  #applyFilter() {
+    const q = this.#filterText;
+
+    // Strip any existing <mark> highlights from all labels
+    this.#el.querySelectorAll(".tree-node__label").forEach((el) => {
+      el.textContent = el.textContent;
+    });
+
+    if (!q) {
+      this.#el.querySelectorAll(".tree-node").forEach((li) => {
+        li.style.display = "";
+      });
+      this.#el.querySelectorAll(".tree-node--collection").forEach((li) => {
+        const childList = li.querySelector(":scope > .tree-list--nested");
+        if (childList) {
+          childList.style.display = this.#collapsedIds.has(li.dataset.id) ? "none" : "";
+        }
+      });
+      return;
+    }
+
+    const applyNode = (li) => {
+      const labelEl = li.querySelector(":scope > .tree-node__row > .tree-node__label");
+      const name = labelEl?.textContent ?? "";
+      const matches = name.toLowerCase().includes(q);
+
+      if (li.classList.contains("tree-node--collection")) {
+        const childList = li.querySelector(":scope > .tree-list--nested");
+        let anyChildMatch = false;
+        childList?.querySelectorAll(":scope > .tree-node").forEach((child) => {
+          if (applyNode(child)) anyChildMatch = true;
+        });
+
+        if (matches || anyChildMatch) {
+          li.style.display = "";
+          if (matches && labelEl) labelEl.innerHTML = this.#highlightMatch(name, q);
+          if (childList && anyChildMatch) childList.style.display = "";
+          return true;
+        }
+        li.style.display = "none";
+        return false;
+      }
+
+      // Request node
+      if (matches) {
+        li.style.display = "";
+        if (labelEl) labelEl.innerHTML = this.#highlightMatch(name, q);
+        return true;
+      }
+      li.style.display = "none";
+      return false;
+    };
+
+    this.#el.querySelectorAll(".tree-list:not(.tree-list--nested) > .tree-node").forEach((li) => {
+      applyNode(li);
+    });
+  }
+
+  #highlightMatch(text, query) {
+    const idx = text.toLowerCase().indexOf(query);
+    if (idx === -1) return this.#escape(text);
+    const before = this.#escape(text.slice(0, idx));
+    const match  = this.#escape(text.slice(idx, idx + query.length));
+    const after  = this.#escape(text.slice(idx + query.length));
+    return `${before}<mark class="tree-highlight">${match}</mark>${after}`;
   }
 
   #setActiveRow(li) {

@@ -114,6 +114,12 @@
   white-space: nowrap;
 }
 
+mark.tree-highlight {
+  background: transparent;
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
 /* Info column (label + url subtitle) for request rows */
 .tree-node__info {
   flex: 1;
