@@ -408,6 +408,7 @@ export class VariablePillEditor {
       onClose:   () => this.#closePicker(),
     });
     document.body.appendChild(this.#pickerInst.element);
+    window.dispatchEvent(new CustomEvent("wurl:popup-opened"));
 
     this.#pickerOutsideHandler = (e) => {
       if (
@@ -423,11 +424,13 @@ export class VariablePillEditor {
 
   #closePicker() {
     if (this.#pickerTimer !== null) { clearTimeout(this.#pickerTimer); this.#pickerTimer = null; }
+    const wasOpen = !!this.#pickerInst;
     if (this.#pickerInst) { this.#pickerInst.destroy(); this.#pickerInst = null; }
     if (this.#pickerOutsideHandler) {
       document.removeEventListener("mousedown", this.#pickerOutsideHandler, { capture: true });
       this.#pickerOutsideHandler = null;
     }
+    if (wasOpen) window.dispatchEvent(new CustomEvent("wurl:popup-closed"));
   }
 
   #scrollToSelectionEnd() {
