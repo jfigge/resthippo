@@ -29,12 +29,7 @@
  *     setActiveEnvironment(envId)
  *     saveEnvVariables(envId, variables)
  *
- *   Granular (request, tree, history):
- *     getCollectionTree(collectionId)        → { children }
- *     saveCollectionTree(collectionId, tree)
- *     getRequest(id)                         → request object
- *     createRequest(collectionId, data)      → saved request
- *     updateRequest(id, patch)               → updated request
+ *   Granular (request + history):
  *     deleteRequest(id)
  *     listHistory(requestId, options?)       → { items, nextCursor }
  *     addHistory(requestId, entry, response?)→ stored entry
@@ -45,7 +40,7 @@
 "use strict";
 
 /** Canonical default settings — merged over whatever is stored on disk. */
-export const DEFAULT_SETTINGS = {
+const DEFAULT_SETTINGS = {
   theme:           "mocha",
   fontSize:        13,
   fontFamily:      "inter",
@@ -337,115 +332,6 @@ export async function saveEnvVariables(envId, variables) {
   } else {
     const { collections } = await _loadEnvFile(envId);
     await _saveEnvFile(envId, collections, variables);
-  }
-}
-
-// ── Public: granular collection tree API ──────────────────────────────────────
-
-/**
- * Load the lightweight navigation tree for a collection.
- * Never loads request bodies — only folder structure + requestRef IDs.
- *
- * @param {string} collectionId
- * @returns {Promise<{ children: object[] }>}
- */
-export async function getCollectionTree(collectionId) {
-  try {
-    if (isElectron()) return await window.wurl.store.tree.get(collectionId);
-    const res = await fetch(`/api/collections/${encodeURIComponent(collectionId)}/tree`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.warn(`[data-store] getCollectionTree(${collectionId}) failed:`, err.message);
-    return { children: [] };
-  }
-}
-
-/**
- * Replace the navigation tree for a collection.
- *
- * @param {string}              collectionId
- * @param {{ children: object[] }} tree
- * @returns {Promise<void>}
- */
-export async function saveCollectionTree(collectionId, tree) {
-  try {
-    if (isElectron()) {
-      await window.wurl.store.tree.save(collectionId, tree);
-      return;
-    }
-    await fetch(`/api/collections/${encodeURIComponent(collectionId)}/tree`, {
-      method:  "PUT",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(tree),
-    });
-  } catch (err) {
-    console.warn(`[data-store] saveCollectionTree(${collectionId}) failed:`, err.message);
-  }
-}
-
-// ── Public: granular request API ──────────────────────────────────────────────
-
-/**
- * Retrieve a single request by ID.
- * @param {string} id
- * @returns {Promise<object|null>}
- */
-export async function getRequest(id) {
-  try {
-    if (isElectron()) return await window.wurl.store.requests.get(id);
-    const res = await fetch(`/api/requests/${encodeURIComponent(id)}`);
-    if (res.status === 404) return null;
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.warn(`[data-store] getRequest(${id}) failed:`, err.message);
-    return null;
-  }
-}
-
-/**
- * Create a new request under `collectionId`.
- * @param {string} collectionId
- * @param {object} data  Request definition (id optional)
- * @returns {Promise<object|null>}  Saved request with id assigned
- */
-export async function createRequest(collectionId, data) {
-  try {
-    if (isElectron()) return await window.wurl.store.requests.create(collectionId, data);
-    const res = await fetch("/api/requests", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ ...data, collectionId }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.warn("[data-store] createRequest failed:", err.message);
-    return null;
-  }
-}
-
-/**
- * Apply a partial update to an existing request.
- * Only fields present in `patch` are updated.
- * @param {string} id
- * @param {object} patch
- * @returns {Promise<object|null>}
- */
-export async function updateRequest(id, patch) {
-  try {
-    if (isElectron()) return await window.wurl.store.requests.update(id, patch);
-    const res = await fetch(`/api/requests/${encodeURIComponent(id)}`, {
-      method:  "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(patch),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.warn(`[data-store] updateRequest(${id}) failed:`, err.message);
-    return null;
   }
 }
 

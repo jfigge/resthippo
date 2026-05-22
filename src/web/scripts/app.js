@@ -11,8 +11,6 @@
 
 "use strict";
 
-import { PopupManager } from "./popup-manager.js";
-import { getLayoutMode } from "./panel.js";
 import { LayoutPicker } from "./components/layout-picker.js";
 import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
@@ -371,7 +369,6 @@ function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false
 // ─── Header ───────────────────────────────────────────────────────────────────
 /**
  * Wire up header icon buttons.
- * Each button opens a dedicated popup instance via the PopupManager.
  * currentSettings is kept in sync here so the popup always opens with the
  * latest values.
  */
