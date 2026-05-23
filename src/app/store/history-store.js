@@ -175,6 +175,91 @@ class HistoryStore {
     try { fs.unlinkSync(respPath);  } catch { /* missing response file is fine */ }
     try { fs.unlinkSync(entryPath); } catch { /* missing entry file is fine */    }
   }
+
+  // ── Trim ────────────────────────────────────────────────────────────────────
+
+  /**
+   * Delete the oldest history entries (and their response payloads) for a single
+   * request, keeping at most `max` entries.  Skips silently if the directory
+   * does not exist or cannot be read.
+   *
+   * @param {string} collId
+   * @param {string} reqId
+   * @param {number} max
+   */
+  _trimRequest(collId, reqId, max) {
+    const histDir = this._paths.historyDir(collId, reqId);
+    if (!fs.existsSync(histDir)) return;
+
+    let files;
+    try {
+      files = fs.readdirSync(histDir).filter(f => f.endsWith(".json"));
+    } catch {
+      return;
+    }
+
+    const entries = [];
+    for (const file of files) {
+      const data = readJSON(path.join(histDir, file));
+      if (data?.id) entries.push(data);
+    }
+
+    // Sort newest-first — matches listHistory order so we drop the same entries.
+    entries.sort((a, b) => {
+      const ta = a.timestamp ?? "";
+      const tb = b.timestamp ?? "";
+      return tb > ta ? 1 : tb < ta ? -1 : 0;
+    });
+
+    for (let i = max; i < entries.length; i++) {
+      const e = entries[i];
+      try { fs.unlinkSync(this._paths.responsePath(collId, reqId, e.id));      } catch { /* ok */ }
+      try { fs.unlinkSync(this._paths.historyEntryPath(collId, reqId, e.id));  } catch { /* ok */ }
+    }
+  }
+
+  /**
+   * Trim history across every request in every collection to at most maxEntries.
+   * Sweeps all on-disk history directories — covers requests whose history has
+   * never been loaded into the renderer's in-memory map.
+   *
+   * @param {number} maxEntries  Maximum entries to retain per request (0 = delete all)
+   */
+  trimAllHistory(maxEntries) {
+    const max = Math.max(0, maxEntries);
+    const collectionsDir = this._paths.collectionsDir();
+    if (!fs.existsSync(collectionsDir)) return;
+
+    let collIds;
+    try {
+      collIds = fs.readdirSync(collectionsDir).filter(name => {
+        try { return fs.statSync(path.join(collectionsDir, name)).isDirectory(); } catch { return false; }
+      });
+    } catch {
+      return;
+    }
+
+    for (const collId of collIds) {
+      const historyBase = path.join(this._paths.collectionDir(collId), "history");
+      if (!fs.existsSync(historyBase)) continue;
+
+      let reqIds;
+      try {
+        reqIds = fs.readdirSync(historyBase);
+      } catch {
+        continue;
+      }
+
+      for (const reqId of reqIds) {
+        try {
+          if (!fs.statSync(path.join(historyBase, reqId)).isDirectory()) continue;
+        } catch {
+          continue;
+        }
+        this._trimRequest(collId, reqId, max);
+      }
+    }
+  }
 }
 
 module.exports = { HistoryStore };

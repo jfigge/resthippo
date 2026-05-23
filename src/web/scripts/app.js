@@ -22,7 +22,7 @@ import {
   loadAll, saveCollections, saveSettings, saveManifest,
   loadEnvCollections, saveEnvCollections, setActiveEnvironment,
   saveEnvVariables, deleteRequest,
-  listHistory, addHistory, getHistoryResponse, deleteHistory,
+  listHistory, addHistory, getHistoryResponse, deleteHistory, trimHistory,
 } from "./data-store.js";
 import { buildFolderChain } from "./components/variable-resolver.js";
 import { setPickerDebounceMs } from "./components/variable-pill-editor.js";
@@ -758,6 +758,8 @@ function initEventBus() {
       }
       if (_maxHistory === 0) _requestHistory.delete(id);
     }
+    // Sweep on-disk history for requests not yet loaded into _requestHistory.
+    trimHistory(_maxHistory).catch(console.error);
     _dispatchTimelineUpdate(_selectedNode?.id);
   });
 

@@ -442,3 +442,22 @@ export async function deleteHistory(requestId, historyId) {
     console.warn(`[data-store] deleteHistory(${requestId}, ${historyId}) failed:`, err.message);
   }
 }
+
+/**
+ * Trim all persisted history across every request to at most maxEntries per request.
+ * Covers requests whose history has never been loaded into the renderer's memory.
+ *
+ * @param {number} maxEntries
+ * @returns {Promise<void>}
+ */
+export async function trimHistory(maxEntries) {
+  try {
+    if (isElectron()) {
+      await window.wurl.store.history.trim(maxEntries);
+      return;
+    }
+    // No Go dev-server equivalent — history trimming is a main-process concern.
+  } catch (err) {
+    console.warn(`[data-store] trimHistory(${maxEntries}) failed:`, err.message);
+  }
+}
