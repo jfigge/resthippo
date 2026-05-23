@@ -18,6 +18,10 @@ ipcRenderer.on("wurl:ui-font-change", (_event, direction) => {
   );
 });
 
+ipcRenderer.on("menu:import", () => {
+  window.dispatchEvent(new CustomEvent("wurl:import-requested"));
+});
+
 contextBridge.exposeInMainWorld("wurl", {
   /**
    * Explicit sentinel that the renderer uses to detect the Electron environment.
@@ -197,6 +201,28 @@ contextBridge.exposeInMainWorld("wurl", {
 
   functions: {
     invoke: (fn, args) => ipcRenderer.invoke("functions:invoke", fn, args),
+  },
+
+  /**
+   * Collection import — opens a native file dialog and returns the file content.
+   * Returns null when the user cancels without selecting a file.
+   *
+   * @returns {Promise<{ filename: string, content: string }|null>}
+   */
+  import: {
+    openFile: () => ipcRenderer.invoke("import:open-file"),
+  },
+
+  /**
+   * Collection export — opens a native save dialog and writes the given content.
+   * Returns true on success, false if the user cancelled.
+   *
+   * @param {string} filename  Suggested filename (e.g. "My_Collection.json")
+   * @param {string} content   File content to write
+   * @returns {Promise<boolean>}
+   */
+  export: {
+    saveFile: (filename, content) => ipcRenderer.invoke("export:save-file", { filename, content }),
   },
 
   /**

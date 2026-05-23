@@ -1159,6 +1159,28 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
   return win;
 }
 
+// ─── Import / Export IPC ──────────────────────────────────────────────────────
+ipcMain.handle("export:save-file", async (_event, { filename, content }) => {
+  const result = await dialog.showSaveDialog(_mainWin ?? undefined, {
+    defaultPath: filename,
+    filters: [{ name: "JSON", extensions: ["json"] }],
+  });
+  if (result.canceled || !result.filePath) return false;
+  await fs.promises.writeFile(result.filePath, content, "utf-8");
+  return true;
+});
+
+ipcMain.handle("import:open-file", async () => {
+  const result = await dialog.showOpenDialog(_mainWin ?? undefined, {
+    title: "Import Collection",
+    filters: [{ name: "API Collections", extensions: ["json", "yaml", "yml"] }],
+    properties: ["openFile"],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  const content = await fs.promises.readFile(result.filePaths[0], "utf-8");
+  return { filename: path.basename(result.filePaths[0]), content };
+});
+
 // ─── About dialog ─────────────────────────────────────────────────────────────
 function readRevisionInfo() {
   try {
@@ -1198,6 +1220,7 @@ function buildMenu() {
   const template = [
     {
       label: "wurl",
+      // keep wurl app menu first on macOS
       submenu: [
         { label: "About wurl", click: showAboutDialog },
         { type: "separator" },
@@ -1208,6 +1231,19 @@ function buildMenu() {
         { role: "unhide" },
         { type: "separator" },
         { role: "quit" },
+      ],
+    },
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "Import Collection…",
+          accelerator: "CmdOrCtrl+Shift+I",
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:import");
+          },
+        },
       ],
     },
     {

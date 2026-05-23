@@ -26,6 +26,9 @@ import {
 } from "./data-store.js";
 import { buildFolderChain } from "./components/variable-resolver.js";
 import { setPickerDebounceMs } from "./components/variable-pill-editor.js";
+import { parseImport }    from "./import/index.js";
+import { exportToPostman } from "./export/postman.js";
+import { PopupManager } from "./popup-manager.js";
 
 // ─── History state ────────────────────────────────────────────────────────────
 // Per-request in-memory execution history. Keyed by request node ID.
@@ -702,6 +705,14 @@ function initEventBus() {
   window.addEventListener("wurl:collections-changed", (e) => {
     saveCollections(e.detail);
   });
+
+  // Import a collection from an external file (Postman / Insomnia / OpenAPI).
+  // Triggered by the toolbar button in tree-view or the File > Import menu item.
+  window.addEventListener("wurl:import-requested", () => handleImport());
+
+  // Export a collection to a Postman v2.1 JSON file.
+  // Triggered by "Export Collection…" in the collection context menu.
+  window.addEventListener("wurl:export-collection", (e) => handleExport(e.detail.collection));
 
   // Delete the backing request file(s) when a node is removed from the tree.
   // Fired by tree-view after #deleteNode; ids contains every request under the
@@ -1519,4 +1530,99 @@ function _findNodeById(items, id) {
     }
   }
   return null;
+}
+
+/** Count all request nodes recursively in a collection tree. */
+function _countRequests(node) {
+  if (node.type === "request") return 1;
+  return (node.children ?? []).reduce((sum, child) => sum + _countRequests(child), 0);
+}
+
+/**
+ * Handle "Import Collection" — open a file picker, parse the file, and inject
+ * the resulting collection into the current active environment.
+ *
+ * Supports Postman v2.x, Insomnia v3/v4, OpenAPI 3.x, and Swagger 2.0.
+ */
+/**
+ * Export a collection to a Postman v2.1 JSON file via the native save dialog.
+ * @param {object} collection  Wurl collection node
+ */
+async function handleExport(collection) {
+  if (!window.wurl?.export?.saveFile) {
+    PopupManager.notify({ title: "Export", message: "Export is only available in the desktop app." });
+    return;
+  }
+
+  let variables = {};
+  try {
+    const env = await loadEnvCollections(currentEnvs.activeEnvironmentId);
+    variables = env.variables ?? {};
+  } catch { /* non-fatal — export without env variables */ }
+
+  const content  = exportToPostman(collection, variables);
+  const safeName = (collection.name ?? "collection").replace(/[^a-z0-9_-]/gi, "_");
+
+  try {
+    const saved = await window.wurl.export.saveFile(`${safeName}.json`, content);
+    if (saved) {
+      PopupManager.notify({
+        title:   "Export Successful",
+        message: `"${collection.name}" exported as Postman v2.1.`,
+      });
+    }
+  } catch (err) {
+    PopupManager.notify({ title: "Export Failed", message: String(err.message ?? err) });
+  }
+}
+
+async function handleImport() {
+  if (!window.wurl?.import?.openFile) {
+    PopupManager.notify({ title: "Import", message: "Import is only available in the desktop app." });
+    return;
+  }
+
+  let file;
+  try {
+    file = await window.wurl.import.openFile();
+  } catch (err) {
+    PopupManager.notify({ title: "Import Failed", message: String(err.message ?? err) });
+    return;
+  }
+  if (!file) return; // user cancelled the file dialog
+
+  let parsed;
+  try {
+    parsed = parseImport(file.content);
+  } catch (err) {
+    PopupManager.notify({ title: "Import Failed", message: String(err.message ?? err) });
+    return;
+  }
+
+  const { collection, variables } = parsed;
+  const activeId  = currentEnvs.activeEnvironmentId;
+  const newItems  = [...(treeView?.getItems() ?? []), collection];
+
+  if (treeView) treeView.setItems(newItems);
+
+  try {
+    if (variables && Object.keys(variables).length > 0) {
+      // Merge import variables with existing ones — existing values take precedence.
+      const { variables: current } = await loadEnvCollections(activeId);
+      const merged = { ...variables, ...current };
+      await saveEnvCollections(activeId, newItems, merged);
+      if (treeView) treeView.setEnvVariables(merged);
+    } else {
+      await saveEnvCollections(activeId, newItems);
+    }
+  } catch (err) {
+    PopupManager.notify({ title: "Import Warning", message: `Collection imported but could not be saved: ${err.message}` });
+    return;
+  }
+
+  const count = _countRequests(collection);
+  PopupManager.notify({
+    title:   "Import Successful",
+    message: `"${collection.name}" imported with ${count} request${count !== 1 ? "s" : ""}.`,
+  });
 }
