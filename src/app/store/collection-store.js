@@ -8,6 +8,7 @@
 "use strict";
 
 const { readJSON, writeJSON, ensureDir } = require("./io");
+const { encryptSettings, decryptSettings } = require("./crypto");
 
 /** Default manifest returned on first run (no file yet). */
 const DEFAULT_MANIFEST = Object.freeze({
@@ -34,17 +35,23 @@ class CollectionStore {
    */
   getManifest() {
     const data = readJSON(this._paths.manifestPath());
-    return data ?? { ...DEFAULT_MANIFEST };
+    const manifest = data ?? { ...DEFAULT_MANIFEST };
+    if (manifest.settings) manifest.settings = decryptSettings(manifest.settings);
+    return manifest;
   }
 
   /**
    * Atomically persist the global manifest.
+   * Settings secrets (e.g. proxyUrl) are encrypted before writing.
    *
    * @param {object} data
    */
   saveManifest(data) {
     ensureDir(this._paths.collectionsDir());
-    writeJSON(this._paths.manifestPath(), data);
+    const toWrite = data.settings
+      ? { ...data, settings: encryptSettings(data.settings) }
+      : data;
+    writeJSON(this._paths.manifestPath(), toWrite);
   }
 }
 

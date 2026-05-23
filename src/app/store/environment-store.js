@@ -20,6 +20,7 @@
 "use strict";
 
 const { readJSON, writeJSON, ensureDir, validateID } = require("./io");
+const { encryptRequest, decryptRequest } = require("./crypto");
 
 class EnvironmentStore {
   /**
@@ -85,10 +86,10 @@ class EnvironmentStore {
     // Write tree (no request bodies).
     writeJSON(this._paths.treePath(id), { children: treeNodes });
 
-    // Write individual request files.
+    // Write individual request files (encrypt secrets before persisting).
     for (const [reqId, reqData] of Object.entries(reqFiles)) {
       try { validateID(reqId, "requestId"); } catch { continue; }
-      writeJSON(this._paths.requestPath(id, reqId), reqData);
+      writeJSON(this._paths.requestPath(id, reqId), encryptRequest(reqData));
     }
 
     // Invalidate resolver so it rescans for new request→collection mappings.
@@ -116,7 +117,7 @@ class EnvironmentStore {
     for (const node of nodes) {
       if (node.type === "requestRef") {
         const req = readJSON(this._paths.requestPath(collId, node.id));
-        if (req !== null) result.push(req);
+        if (req !== null) result.push(decryptRequest(req));
       } else if (node.type === "folder") {
         result.push({
           id:        node.id,

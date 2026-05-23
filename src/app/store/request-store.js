@@ -13,6 +13,7 @@
 
 const fs = require("fs");
 const { readJSON, writeJSON, ensureDir, validateID, newUUID, notFoundError } = require("./io");
+const { encryptRequest, decryptRequest } = require("./crypto");
 
 // ── Fields that PATCH may update ──────────────────────────────────────────────
 const PATCHABLE_FIELDS = [
@@ -47,7 +48,7 @@ class RequestStore {
     const collId = this._resolver.resolve(id); // throws NOT_FOUND if unknown
     const data   = readJSON(this._paths.requestPath(collId, id));
     if (data === null) throw notFoundError(`request not found: ${id}`);
-    return data;
+    return decryptRequest(data);
   }
 
   // ── Create ──────────────────────────────────────────────────────────────────
@@ -68,7 +69,7 @@ class RequestStore {
     req = { ...req, type: "request" };
 
     ensureDir(this._paths.requestsDir(collectionId));
-    writeJSON(this._paths.requestPath(collectionId, req.id), req);
+    writeJSON(this._paths.requestPath(collectionId, req.id), encryptRequest(req));
 
     try {
       this._appendToTree(collectionId, collectionId, req.id);
@@ -101,14 +102,16 @@ class RequestStore {
     const existing = readJSON(reqPath);
     if (existing === null) throw notFoundError(`request not found: ${id}`);
 
-    const updated = { ...existing };
+    // Decrypt before merging so the patch (plaintext from the renderer) is
+    // applied to plaintext values; then re-encrypt the merged result for storage.
+    const updated = { ...decryptRequest(existing) };
     for (const field of PATCHABLE_FIELDS) {
       if (patch[field] !== undefined) {
         updated[field] = patch[field];
       }
     }
 
-    writeJSON(reqPath, updated);
+    writeJSON(reqPath, encryptRequest(updated));
     return updated;
   }
 
