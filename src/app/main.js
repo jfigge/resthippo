@@ -268,7 +268,9 @@ function safeCall(channel, fn, fallback = null) {
       }
 
       // ── Outgoing request log ──────────────────────────────────────────────
-      const httpVersion = isHttps ? "HTTP/2" : "HTTP/1.1";
+      // Node's https module speaks HTTP/1.1 by default; ALPN-negotiated HTTP/2
+      // would require the http2 module, which this layer does not use.
+      const httpVersion = "HTTP/1.1";
       consoleLog.push(`> ${effectiveMethod} ${parsed.pathname}${parsed.search} ${httpVersion}`);
       consoleLog.push(`> Host: ${parsed.hostname}${parsed.port ? `:${parsed.port}` : ""}`);
       Object.entries(reqHeaders).forEach(([k, v]) => consoleLog.push(`> ${k}: ${v}`));
@@ -340,7 +342,6 @@ function safeCall(channel, fn, fallback = null) {
           const newMethod = (code === 303 || ([301, 302].includes(code) && effectiveMethod === "POST"))
             ? "GET" : effectiveMethod;
 
-          consoleLog.push(`* Connection to host ${parsed.hostname} left intact`);
           consoleLog.push(`* Issue another request to this URL: '${redirectUrl}'`);
           if (newMethod !== effectiveMethod) {
             consoleLog.push(`* Switch to ${newMethod}`);
@@ -372,7 +373,7 @@ function safeCall(channel, fn, fallback = null) {
           });
           consoleLog.push("<");
           consoleLog.push("");
-          consoleLog.push(`* Received ${size} B chunk`);
+          consoleLog.push(`* Received ${size} B total`);
           consoleLog.push(`* Connection to host ${parsed.hostname} left intact`);
 
           resolve({

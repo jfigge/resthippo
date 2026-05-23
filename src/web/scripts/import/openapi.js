@@ -4,7 +4,14 @@ const HTTP_METHODS = ["get", "post", "put", "patch", "delete", "head", "options"
 
 function resolveBaseUrl(spec) {
   if (spec.servers?.length > 0) {
-    const url = spec.servers[0].url ?? "";
+    const server = spec.servers[0];
+    let   url    = server.url ?? "";
+    const vars   = server.variables ?? {};
+    // OpenAPI 3 server URLs may contain {name} placeholders bound to
+    // server.variables[name].default. Substitute them so the imported request
+    // does not carry literal "{var}" segments that look like wurl template
+    // refs but never resolve.
+    url = url.replace(/\{([^}]+)\}/g, (m, name) => vars[name]?.default ?? m);
     return url.endsWith("/") ? url.slice(0, -1) : url;
   }
   if (spec.host) {
@@ -46,24 +53,43 @@ function buildAuth(spec, security) {
   }
   if (scheme.type === "oauth2") {
     const flows = scheme.flows ?? {};
-    const flow  = flows.clientCredentials ?? flows.authorizationCode ?? Object.values(flows)[0] ?? {};
+    // OpenAPI 3 declares one entry per supported flow under `flows`:
+    // clientCredentials, authorizationCode, password, implicit. Previously this
+    // hard-coded grantType=client_credentials even when only e.g. an
+    // authorization-code flow was declared, silently breaking the resulting
+    // request. Pair grantType with whichever flow object we actually read.
+    let flow, grantType;
+    if      (flows.clientCredentials) { flow = flows.clientCredentials; grantType = "client_credentials"; }
+    else if (flows.authorizationCode) { flow = flows.authorizationCode; grantType = "authorization_code"; }
+    else if (flows.password)          { flow = flows.password;          grantType = "password";           }
+    else if (flows.implicit)          { flow = flows.implicit;          grantType = "implicit";           }
+    else                              { flow = {};                      grantType = "client_credentials"; }
     return {
       authEnabled: true,
       authType:    "oauth2",
       authOAuth2: {
-        grantType:      "client_credentials",
+        grantType,
         clientId:       "",
         clientSecret:   "",
-        accessTokenUrl: flow.tokenUrl           ?? "",
-        authUrl:        flow.authorizationUrl   ?? "",
+        accessTokenUrl: flow.tokenUrl         ?? "",
+        authUrl:        flow.authorizationUrl ?? "",
         scope:          "",
       },
     };
   }
-  if (scheme.type === "apiKey" && scheme.in === "header") {
-    return {
-      _extraHeaders: [{ enabled: true, name: scheme.name ?? "X-API-Key", value: "" }],
-    };
+  if (scheme.type === "apiKey") {
+    const name = scheme.name ?? "X-API-Key";
+    if (scheme.in === "header") {
+      return { _extraHeaders: [{ enabled: true, name, value: "" }] };
+    }
+    if (scheme.in === "query") {
+      return { _extraParams: [{ enabled: true, name, value: "" }] };
+    }
+    if (scheme.in === "cookie") {
+      // wurl has no first-class cookie auth field, so surface the value as a
+      // Cookie header the user can edit. Spec expects e.g. "Cookie: foo=bar".
+      return { _extraHeaders: [{ enabled: true, name: "Cookie", value: `${name}=` }] };
+    }
   }
   return {};
 }
@@ -132,9 +158,11 @@ export function parseOpenApi(spec) {
       const security   = operation.security ?? globalSec;
       const authResult = buildAuth(spec, security);
 
-      // apiKey-as-header goes into headers, not auth
+      // apiKey-as-header goes into headers; apiKey-as-query goes into params.
       const extraHeaders = authResult._extraHeaders ?? [];
+      const extraParams  = authResult._extraParams  ?? [];
       delete authResult._extraHeaders;
+      delete authResult._extraParams;
 
       const bodyResult = buildBody(spec, operation, isV3);
 
@@ -144,7 +172,7 @@ export function parseOpenApi(spec) {
         name:     operation.operationId ?? operation.summary ?? `${method.toUpperCase()} ${path}`,
         method:   method.toUpperCase(),
         url:      toWurlUrl(baseUrl, path),
-        params:   queryParams,
+        params:   [...queryParams, ...extraParams],
         headers:  [...headerParams, ...extraHeaders],
         notes:    operation.description ?? operation.summary ?? "",
         bodyType: "no-body",

@@ -6,7 +6,7 @@
  *   collections/
  *     index.json                         ← global manifest (environments, settings)
  *     <collectionId>/
- *       metadata.json                    ← collection name, variables, timestamps
+ *       metadata.json                    ← collection id + env-level variables
  *       tree.json                        ← lightweight nav tree (no request bodies)
  *       requests/
  *         <requestId>.json               ← one file per request
@@ -49,7 +49,7 @@ class Paths {
     return path.join(this.collectionsDir(), collId);
   }
 
-  /** Collection metadata: name, variables, timestamps. */
+  /** Collection metadata: id + env-level variables. */
   metadataPath(collId) {
     return path.join(this.collectionDir(collId), "metadata.json");
   }

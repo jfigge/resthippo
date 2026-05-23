@@ -118,8 +118,10 @@ function effectivePort(url) {
 }
 
 /**
- * Test whether a given URL starts with the registered redirect URI.
- * Comparison is case-sensitive for the path and case-insensitive for the host.
+ * Test whether a given URL matches the registered redirect URI.
+ * Comparison: case-insensitive scheme + host, exact-match pathname, exact
+ * effective port (with default port resolution). Query/fragment are ignored.
+ * Falls back to a literal prefix match if either URL fails to parse.
  *
  * @param {string} urlToCheck
  * @param {string} registeredRedirectUri

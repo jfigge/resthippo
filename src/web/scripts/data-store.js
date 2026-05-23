@@ -378,7 +378,7 @@ export async function listHistory(requestId, options = {}) {
  * Record a new execution in the request's history.
  *
  * @param {string} requestId
- * @param {{ status, durationMs, responseSize, timestamp?, id? }} entry  Lightweight metadata
+ * @param {{ status, statusText?, elapsed, size, requestUrl?, requestNode?, timestamp?, id? }} entry  Lightweight metadata
  * @param {{ headers, body, contentType? }}                        [response]  Full payload
  * @returns {Promise<object|null>}  Stored entry
  */

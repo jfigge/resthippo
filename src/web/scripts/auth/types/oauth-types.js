@@ -66,8 +66,12 @@ export function createOAuthResult(data) {
  * @returns {OAuthResult}
  */
 export function oauthResultFromTokenResponse(body) {
-  const expiresIn = body.expires_in != null ? Number(body.expires_in) : null;
-  const expiresAt = expiresIn != null ? Date.now() + expiresIn * 1_000 : null;
+  // Guard against non-numeric expires_in values (e.g. "abc" or "") which would
+  // produce NaN and propagate into expiresAt, defeating the TokenEntry expiry
+  // check (NaN comparisons return false → token treated as never-expiring).
+  const parsedExpires = body.expires_in != null ? Number(body.expires_in) : null;
+  const expiresIn     = Number.isFinite(parsedExpires) ? parsedExpires : null;
+  const expiresAt     = expiresIn != null ? Date.now() + expiresIn * 1_000 : null;
 
   return createOAuthResult({
     success:      true,

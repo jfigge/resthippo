@@ -6,7 +6,7 @@
 
 import { parse as parseYaml, stringify as stringifyYaml } from "../vendor/yaml.js";
 import { VariablePillEditor } from "./variable-pill-editor.js";
-import { resolveString, resolveStringAsync, collectTemplateVariables, tokenize } from "./variable-resolver.js";
+import { resolveStringAsync, collectTemplateVariables, tokenize } from "./variable-resolver.js";
 import { PopupManager } from "../popup-manager.js";
 import Prism from "../vendor/prism.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
@@ -651,7 +651,6 @@ const TABS = [
   { id: "body",     label: "Body"     },
   { id: "auth",     label: "Auth"     },
   { id: "notes",    label: "Notes"    },
-//  { id: "settings", label: "Settings" },
 ];
 
 // ── Backend-routed HTTP helper ─────────────────────────────────────────────────
@@ -985,16 +984,7 @@ export class RequestEditor {
     if (tabId === "body")     return this.#buildBodyEditor();
     if (tabId === "auth")     return this.#buildAuthEditor();
     if (tabId === "notes")    return this.#buildNotesEditor();
-
-    // Placeholder for other tabs
-    const placeholder = document.createElement("div");
-    placeholder.className = "panel-placeholder";
-    const icons  = { settings: "⚙️" };
-    const labels = { settings: "Request settings" };
-    placeholder.innerHTML =
-      `<span class="placeholder-icon">${icons[tabId]}</span>` +
-      `<span>${labels[tabId]} — coming soon</span>`;
-    return placeholder;
+    return document.createElement("div");
     }
 
     // ── Notes editor ──────────────────────────────────────────────────────────
@@ -2158,7 +2148,10 @@ export class RequestEditor {
     const el = this.#bodyContentEl;
     if (!el) return;
     el.innerHTML = "";
-    // Discard stale pill editor references for form rows
+    // Tear down stale pill editors before discarding their references — each
+    // attaches a document-level selectionchange listener that would otherwise
+    // outlive the DOM and accumulate on every re-render.
+    for (const ed of this.#bodyFormPillEditors) ed.destroy?.();
     this.#bodyFormPillEditors = [];
     // Remove any Prettify button / validation badge left over from a previous text type
     this.#bodyTypeBarEl?.querySelector(".body-prettify-btn")?.remove();
@@ -3099,7 +3092,10 @@ export class RequestEditor {
 
     #renderHeadersList() {
     if (!this.#headersListEl) return;
-    // Discard stale pill editor references
+    // Tear down stale pill editors before discarding their references — each
+    // one holds a document-level selectionchange listener that would otherwise
+    // outlive the DOM row it was attached to.
+    for (const ed of this.#headerPillEditors) ed.destroy?.();
     this.#headerPillEditors = [];
 
     // In bulk mode just keep the textarea in sync
@@ -3389,7 +3385,10 @@ export class RequestEditor {
 
   #renderParamsList() {
     if (!this.#paramsListEl) return;
-    // Discard stale pill editor references
+    // Tear down stale pill editors before discarding their references — each
+    // one holds a document-level selectionchange listener that would otherwise
+    // outlive the DOM row it was attached to.
+    for (const ed of this.#paramPillEditors) ed.destroy?.();
     this.#paramPillEditors = [];
 
     // In bulk mode just keep the textarea in sync and update the URL preview
@@ -3861,7 +3860,9 @@ export class RequestEditor {
     this.#bodyFormBulkMode = nowBulk;
     this.#applyBodyFormBulkMode();
     if (!nowBulk) {
-      // Discard stale pill editors before rebuilding the KV list
+      // Tear down stale pill editors before rebuilding the KV list — each one
+      // holds a document-level selectionchange listener that must be detached.
+      for (const ed of this.#bodyFormPillEditors) ed.destroy?.();
       this.#bodyFormPillEditors = [];
       // Re-render the KV list so it reflects any edits made in bulk mode
       if (this.#bfListEl) {

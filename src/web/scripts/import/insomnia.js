@@ -1,7 +1,10 @@
 "use strict";
 
 function parseAuth(auth) {
-  if (!auth || !auth.type || auth.type === "none") {
+  // Insomnia stores a disabled auth as `{ type, disabled: true, … }` rather
+  // than changing `type` — treat it as no-auth so the imported request behaves
+  // the way the user saw it in Insomnia.
+  if (!auth || !auth.type || auth.type === "none" || auth.disabled === true) {
     return { authEnabled: false, authType: "none" };
   }
 
@@ -94,7 +97,9 @@ export function parseInsomnia(data) {
   const baseEnv = envs.find(e => e.name === "Base Environment") ?? envs[0];
   if (baseEnv?.data && typeof baseEnv.data === "object") {
     for (const [k, v] of Object.entries(baseEnv.data)) {
-      variables[k] = typeof v === "string" ? v : String(v);
+      // String() on an object yields "[object Object]"; JSON.stringify keeps
+      // the structure recoverable when the user references the variable.
+      variables[k] = typeof v === "string" ? v : JSON.stringify(v);
     }
   }
 

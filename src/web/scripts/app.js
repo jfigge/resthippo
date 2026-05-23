@@ -1316,7 +1316,7 @@ function setNavPanelTitle(name) {
  */
 function installZoomHandlers() {
   // These values must stay in sync with the <option> elements in settings-popup.js.
-  const FONT_SIZES     = [9, 11, 12, 13, 14, 16, 18,20];
+  const FONT_SIZES     = [9, 11, 12, 13, 14, 16, 18, 20];
   const DEFAULT_FONT   = 13; // matches DEFAULT_SETTINGS.fontSize in data-store.js
 
   /**
@@ -1549,12 +1549,6 @@ function _countRequests(node) {
   return (node.children ?? []).reduce((sum, child) => sum + _countRequests(child), 0);
 }
 
-/**
- * Handle "Import Collection" — open a file picker, parse the file, and inject
- * the resulting collection into the current active environment.
- *
- * Supports Postman v2.x, Insomnia v3/v4, OpenAPI 3.x, and Swagger 2.0.
- */
 /**
  * Export a collection to a Postman v2.1 JSON file via the native save dialog.
  * @param {object} collection  Wurl collection node

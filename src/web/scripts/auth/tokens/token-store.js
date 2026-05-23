@@ -16,8 +16,24 @@
 
 "use strict";
 
-/** How many seconds before expiry we consider a token "about to expire" and proactively refresh it. */
+/** How many milliseconds before expiry we consider a token "about to expire" and proactively refresh it. */
 const EXPIRY_BUFFER_MS = 60_000; // 60 s
+
+/**
+ * Non-cryptographic, non-reversible fingerprint for inclusion in cache keys.
+ * djb2 — chosen because the keyspace is small (a few cache entries per session)
+ * and we only need collision resistance among a user's own credentials, not
+ * adversarial pre-image resistance. Returning a hex digest keeps the key safe
+ * to surface via `keys()` for diagnostics.
+ */
+function fingerprint(value) {
+  if (value === "") return "";
+  let h = 5381;
+  for (let i = 0; i < value.length; i++) {
+    h = ((h << 5) + h + value.charCodeAt(i)) | 0;
+  }
+  return (h >>> 0).toString(16);
+}
 
 // ── TokenEntry ───────────────────────────────────────────────────────────────
 
@@ -85,6 +101,12 @@ class TokenStore {
   /**
    * Derive a stable cache key from an OAuth config object.
    *
+   * The key incorporates every field that can produce a *different* token from
+   * the IdP, so distinct configurations never collide on the same cached entry.
+   * The clientSecret is included via a non-reversible fingerprint — its raw
+   * value is never embedded in the key (which may be surfaced by `keys()` for
+   * diagnostics).
+   *
    * @param {object} config - authOAuth2 state
    * @returns {string}
    */
@@ -92,9 +114,13 @@ class TokenStore {
     const parts = [
       config.grantType      ?? "",
       config.clientId       ?? "",
+      fingerprint(config.clientSecret ?? ""),
       config.authUrl        ?? "",
       config.accessTokenUrl ?? "",
       config.scope          ?? "",
+      config.username       ?? "",
+      config.audience       ?? "",
+      config.resource       ?? "",
     ];
     return parts.join("|");
   }
@@ -102,11 +128,16 @@ class TokenStore {
   /**
    * Store a successful OAuthResult under the given key.
    *
+   * Caches when either an access token or an id_token is present — the OIDC
+   * implicit flow with `response_type=id_token` returns no access token but
+   * the id_token is still a useful credential for OIDC clients.
+   *
    * @param {string}                              key
    * @param {import('../types/oauth-types').OAuthResult} result
    */
   set(key, result) {
-    if (!result?.success || !result.accessToken) return;
+    if (!result?.success) return;
+    if (!result.accessToken && !result.idToken) return;
     this.#cache.set(key, new TokenEntry(result));
   }
 

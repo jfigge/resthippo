@@ -12,7 +12,7 @@
 
 "use strict";
 
-import { fromNetworkError, fromTokenErrorResponse, OAuthError, OAuthErrorCode } from "../types/oauth-errors.js";
+import { fromNetworkError, OAuthError, OAuthErrorCode } from "../types/oauth-errors.js";
 
 // ── Low-level execute ────────────────────────────────────────────────────────
 

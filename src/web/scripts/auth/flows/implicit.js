@@ -18,6 +18,7 @@
 
 import { openOAuthPopup, DEFAULT_REDIRECT_URI } from "../popup/callback-interceptor.js";
 import { generateState, validateState, discardState } from "../utils/state.js";
+import { generateNonce, validateNonce, discardNonce, decodeIdTokenPayload } from "../utils/nonce.js";
 import { buildUrl, extractImplicitToken }              from "../utils/url.js";
 import { oauthResultFromError, createOAuthResult }     from "../types/oauth-types.js";
 import {
@@ -48,6 +49,16 @@ export async function implicitFlow(config) {
     case "both":     responseType = "token id_token"; break;
   }
 
+  // ── OIDC nonce (replay protection for id_token) ───────────────────────────
+  // Per OIDC Core §3.2.2.1, when an id_token is requested the client MUST send
+  // a nonce and verify the echoed claim. A user-provided value is honoured
+  // (advanced override) but otherwise we generate a fresh cryptographic nonce.
+  const wantsIdToken = responseType.includes("id_token");
+  let nonce = null;
+  if (wantsIdToken) {
+    nonce = config.nonce?.trim() || generateNonce();
+  }
+
   // ── Build authorization URL ───────────────────────────────────────────────
   const authParams = {
     response_type: responseType,
@@ -57,7 +68,7 @@ export async function implicitFlow(config) {
   };
 
   if (config.scope?.trim())    authParams.scope    = config.scope.trim();
-  if (config.nonce?.trim())    authParams.nonce    = config.nonce.trim();
+  if (nonce)                   authParams.nonce    = nonce;
   if (config.audience?.trim()) authParams.audience = config.audience.trim();
   if (config.resource?.trim()) authParams.resource = config.resource.trim();
 
@@ -76,6 +87,7 @@ export async function implicitFlow(config) {
     callbackUrl = await openOAuthPopup(authUrl, redirectUri, "OAuth 2.0 — Implicit");
   } catch (err) {
     discardState(state);
+    if (nonce) discardNonce(nonce);
     return oauthResultFromError(err instanceof OAuthError ? err : popupCancelledError(err?.message));
   }
 
@@ -85,11 +97,13 @@ export async function implicitFlow(config) {
   // CSRF state check
   if (!validateState(parts.state)) {
     discardState(state);
+    if (nonce) discardNonce(nonce);
     return oauthResultFromError(stateMismatchError());
   }
 
   // Server-side error
   if (parts.error) {
+    if (nonce) discardNonce(nonce);
     return oauthResultFromError(
       new OAuthError(
         Object.values(OAuthErrorCode).includes(parts.error) ? parts.error : OAuthErrorCode.UNKNOWN,
@@ -99,9 +113,30 @@ export async function implicitFlow(config) {
   }
 
   if (!parts.accessToken && !parts.idToken) {
+    if (nonce) discardNonce(nonce);
     return oauthResultFromError(
       new OAuthError(OAuthErrorCode.MALFORMED_RESPONSE, "No access_token or id_token in callback."),
     );
+  }
+
+  // ── OIDC nonce verification ──────────────────────────────────────────────
+  // If we sent a nonce, the id_token's `nonce` claim must match it. A missing
+  // id_token when one was requested, or a missing/mismatched claim, is a
+  // potential replay attack.
+  if (nonce) {
+    if (!parts.idToken) {
+      discardNonce(nonce);
+      return oauthResultFromError(
+        new OAuthError(OAuthErrorCode.MALFORMED_RESPONSE, "id_token was requested but not returned."),
+      );
+    }
+    const payload = decodeIdTokenPayload(parts.idToken);
+    if (!payload || !validateNonce(payload.nonce)) {
+      discardNonce(nonce);
+      return oauthResultFromError(
+        new OAuthError(OAuthErrorCode.MALFORMED_RESPONSE, "id_token nonce mismatch."),
+      );
+    }
   }
 
   const n = Number(parts.expiresIn);

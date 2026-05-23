@@ -25,6 +25,23 @@ export class SettingsPopup {
   // historyCount value at the time the popup was opened — used to revert on X/Escape.
   #openHistoryCount = 5;
 
+  // Stable handler references so we can attach on open() and detach on close.
+  // A one-shot document-level keydown was previously registered in the
+  // constructor and never removed — harmless for a singleton popup, but it
+  // fired app-wide for the entire process lifetime. Scoping it to the open
+  // window also avoids racing other Escape handlers when the popup is hidden.
+  #onKeyDown = (e) => {
+    if (e.key === "Escape" && this.#el.isConnected) {
+      e.stopPropagation();
+      this.#revertHistoryCount();
+      PopupManager.close();
+    }
+  };
+
+  #onPopupClosed = () => {
+    document.removeEventListener("keydown", this.#onKeyDown);
+  };
+
   constructor() {
     this.#el = this.#build();
     this.#bindEvents();
@@ -241,14 +258,8 @@ export class SettingsPopup {
     const removeHeadersCb = this.#el.querySelector("#setting-remove-headers");
     removeHeadersCb.addEventListener("change", () => this.#updateRemoveHeadersTitle());
 
-    // Escape key — same behavior as the X button: revert and close.
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && this.#el.isConnected) {
-        e.stopPropagation();
-        this.#revertHistoryCount();
-        PopupManager.close();
-      }
-    });
+    // Escape handling lives in #onKeyDown, attached on open() and detached
+    // when PopupManager dispatches "wurl:popup-closed". See class fields above.
 
     // X button (top-right ✕) — revert historyCount to the value at open time,
     // then close without committing the pending history count.
@@ -348,6 +359,12 @@ export class SettingsPopup {
     this.#openHistoryCount = settings.historyCount ?? 5;
     this.#applyValues(settings);
     PopupManager.open(this);
+    // Scope the Escape handler to the open lifecycle. PopupManager.close()
+    // dispatches "wurl:popup-closed" via _hideMask(), which fires for every
+    // close path (X button, Close button, Escape, and mask click), so this
+    // one once-listener covers them all.
+    document.addEventListener("keydown", this.#onKeyDown);
+    window.addEventListener("wurl:popup-closed", this.#onPopupClosed, { once: true });
   }
 
   /**

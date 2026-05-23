@@ -70,6 +70,13 @@ export class VariablePillEditor {
 
   #isFocused            = false;
 
+  // Stable reference so we can detach the document-level selectionchange
+  // listener in destroy(). Without removal each new editor leaks its listener,
+  // and there are several per request — they pile up as the user navigates.
+  #onSelectionChange    = () => {
+    if (this.#isFocused) this.#scrollToSelectionEnd();
+  };
+
   // ── Undo / redo ────────────────────────────────────────────────────────────
   #history    = [];   // committed serialized-value snapshots
   #histIdx    = -1;   // pointer into #history; -1 = empty
@@ -109,13 +116,23 @@ export class VariablePillEditor {
     el.addEventListener("drop",    (e) => this.#onDrop(e));
     el.addEventListener("focus",   () => { this.#isFocused = true; });
     el.addEventListener("blur",    () => { this.#isFocused = false; this.#closePicker(); });
-    document.addEventListener("selectionchange", () => {
-      if (this.#isFocused) this.#scrollToSelectionEnd();
-    });
+    document.addEventListener("selectionchange", this.#onSelectionChange);
     this.#el = el;
   }
 
   get element() { return this.#el; }
+
+  /**
+   * Detach document-level listeners and clear pending timers.  Callers must
+   * invoke this before discarding an editor — otherwise the selectionchange
+   * listener keeps the instance reachable forever.
+   */
+  destroy() {
+    document.removeEventListener("selectionchange", this.#onSelectionChange);
+    if (this.#histTimer)   { clearTimeout(this.#histTimer);   this.#histTimer   = null; }
+    if (this.#pickerTimer) { clearTimeout(this.#pickerTimer); this.#pickerTimer = null; }
+    this.#closePicker();
+  }
 
   getValue() {
     return serializeEditor(this.#el);

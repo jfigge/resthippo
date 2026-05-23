@@ -72,7 +72,7 @@ export class PillEditorPopup {
 
     const varName = type === "variable" ? this.#extractVarName(rawValue) : "";
     if (type === "variable") this.#selectedVarName = varName;
-    this.#el = this.#build({ type, varName, funcName, funcDef, rawArgs, getItems });
+    this.#el = this.#build({ type, funcName, funcDef, rawArgs, getItems });
 
     if (type === "variable") {
       this.#suggestionsEl = this.#el.querySelector(".pill-editor-var-suggestions");
@@ -110,7 +110,7 @@ export class PillEditorPopup {
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
-  #build({ type, varName, funcName, funcDef, rawArgs, getItems }) {
+  #build({ type, funcName, funcDef, rawArgs, getItems }) {
     const label = TYPE_LABELS[type] ?? type;
     const el    = document.createElement("div");
     el.className = "popup pill-editor-popup";

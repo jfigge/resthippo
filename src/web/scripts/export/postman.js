@@ -71,7 +71,10 @@ function exportBody(node) {
     };
   }
   if (type === "file") {
-    return { mode: "file", src: node.bodyFilePath ?? null };
+    // Postman v2.1 schema: file payload lives under body.file.src, not body.src.
+    // Earlier shapes were accepted by some tools but Postman itself drops the
+    // top-level field silently on round-trip, losing the attachment.
+    return { mode: "file", file: { src: node.bodyFilePath ?? null } };
   }
   return undefined;
 }
@@ -120,7 +123,10 @@ export function exportToPostman(collection, variables = {}) {
   return JSON.stringify(
     {
       info: {
-        _postman_id: crypto.randomUUID(),
+        // Prefer the wurl collection id so re-exports of the same collection
+        // produce a stable `_postman_id`. Falling back to randomUUID still gives
+        // Postman a unique value when the source has none.
+        _postman_id: collection.id ?? crypto.randomUUID(),
         name:        collection.name ?? "Exported Collection",
         schema:      "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
       },

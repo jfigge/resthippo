@@ -120,13 +120,11 @@ export class VariablesPopup {
   // ── Build ───────────────────────────────────────────────────────────────────
 
   /**
-   * Apply (or clear) the "Remove headers" style to the popup's header bar and
-   * the KV-mode column-label row.  Idempotent — safe to call any number of times.
+   * Apply (or clear) the "Remove headers" style to the KV-mode column-label
+   * row ("Name" / "Value"). Idempotent — safe to call any number of times.
    */
   #applyRemoveHeaders() {
     const display = this.#removeHeaders ? "none" : "";
-    // Popup title-bar (contains the "Variables — Env" label + close button)
-    // KV-mode column labels ("Name" / "Value")
     const kvHeader = this.#el.querySelector(".vars-kv-header");
     if (kvHeader) kvHeader.style.display = display;
   }

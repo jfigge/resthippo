@@ -27,10 +27,13 @@ export async function passwordFlow(config) {
   if (!config.password?.trim())       return oauthResultFromError(configurationError("Password is required."));
 
   // ── Build parameters ──────────────────────────────────────────────────────
+  // Passwords are sent verbatim — trimming would silently corrupt secrets that
+  // legitimately contain leading or trailing whitespace. Existence is checked
+  // above against the trimmed value, which still rejects all-whitespace input.
   const params = {
     grant_type: "password",
     username:   config.username.trim(),
-    password:   config.password.trim(), // intentionally not logged
+    password:   config.password, // intentionally not logged, not trimmed
   };
 
   if (config.scope?.trim())    params.scope    = config.scope.trim();

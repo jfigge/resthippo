@@ -17,7 +17,7 @@
  *   const result = await oauthExecutor.acquireToken(authOAuth2Config);
  *
  *   // Inject bearer header into an outgoing request descriptor
- *   const descriptor = oauthExecutor.injectBearerToken(requestDescriptor, result);
+ *   const descriptor = oauthExecutor.injectBearerToken(requestDescriptor, result.accessToken);
  */
 
 "use strict";

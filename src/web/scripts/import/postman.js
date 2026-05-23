@@ -11,7 +11,23 @@ function parseUrl(url) {
 }
 
 function parseQueryFromUrl(url) {
-  if (!url || typeof url !== "object") return [];
+  if (!url) return [];
+  // Postman URLs come in two shapes: a bare string ("https://api.example.com?x=1")
+  // or a structured object with a separate `query` array. The structured form
+  // already separates query params; the string form does not, so parse it here
+  // — otherwise string-form URLs lose all their query params on import.
+  if (typeof url === "string") {
+    try {
+      // Provide a base so relative or template-prefixed URLs still parse.
+      const parsed = new URL(url, "http://_/");
+      return [...parsed.searchParams.entries()].map(([name, value]) => ({
+        enabled: true, name, value,
+      }));
+    } catch {
+      return [];
+    }
+  }
+  if (typeof url !== "object") return [];
   return (url.query ?? []).map(q => ({
     enabled: !q.disabled,
     name:    q.key   ?? "",
