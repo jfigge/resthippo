@@ -765,9 +765,10 @@ export class RequestEditor {
   #authContentEl  = null;
   #authTypeBarEl  = null;
   #discoverBtnEl  = null;
-  #authBulkEl     = null;   // the label wrapping the Bulk Editor checkbox
-  #authBulkCheckEl = null;  // the checkbox input itself
-  #authBulkMode   = false;  // true while bulk textarea is shown
+  #authBulkEl      = null;   // the label wrapping the Bulk Editor checkbox
+  #authBulkCheckEl = null;   // the checkbox input itself
+  #authBulkMode    = false;  // true while bulk textarea is shown
+  #authEnabledLabelEl = null; // the label wrapping the Enabled checkbox
 
   // OAuth 2.0 advanced-fields toggle — persisted in app settings
   #oauth2Advanced = false;
@@ -1054,8 +1055,9 @@ export class RequestEditor {
     typeSelect.value = this.#authType;
     typeSelect.addEventListener("change", () => {
       this.#authType = typeSelect.value;
-      if (this.#discoverBtnEl) this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
-      if (this.#authBulkEl)    this.#authBulkEl.classList.toggle("is-hidden", this.#authType === "none");
+      if (this.#discoverBtnEl)      this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
+      if (this.#authBulkEl)         this.#authBulkEl.classList.toggle("is-hidden", this.#authType === "none");
+      if (this.#authEnabledLabelEl) this.#authEnabledLabelEl.classList.toggle("is-hidden", this.#authType === "none");
       this.#renderAuthContent();
       this.#dispatchAuthUpdated();
     });
@@ -1116,6 +1118,8 @@ export class RequestEditor {
 
     enabledLabel.appendChild(enabledCheck);
     enabledLabel.append(" Enabled");
+    enabledLabel.classList.toggle("is-hidden", this.#authType === "none");
+    this.#authEnabledLabelEl = enabledLabel;
     typeBar.appendChild(enabledLabel);
 
     container.appendChild(typeBar);
@@ -4372,9 +4376,10 @@ export class RequestEditor {
     const authEnabledCheck = this.#el.querySelector("#auth-enabled-check");
     if (authEnabledCheck) authEnabledCheck.checked = this.#authEnabled;
     this.#authContentEl?.classList.toggle("auth-content--disabled", !this.#authEnabled);
-    // Sync Discover button and bulk-edit toggle visibility to match the restored auth type
-    if (this.#discoverBtnEl) this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
-    if (this.#authBulkEl)    this.#authBulkEl.classList.toggle("is-hidden", this.#authType === "none");
+    // Sync Discover button, bulk-edit toggle, and enabled toggle visibility to match the restored auth type
+    if (this.#discoverBtnEl)      this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
+    if (this.#authBulkEl)         this.#authBulkEl.classList.toggle("is-hidden", this.#authType === "none");
+    if (this.#authEnabledLabelEl) this.#authEnabledLabelEl.classList.toggle("is-hidden", this.#authType === "none");
     this.#renderAuthContent();
 
     // Notes

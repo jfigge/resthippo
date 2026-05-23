@@ -1183,14 +1183,19 @@ ipcMain.handle("import:open-file", async () => {
 
 // ─── About dialog ─────────────────────────────────────────────────────────────
 function readRevisionInfo() {
-  try {
-    const raw = fs.readFileSync(path.join(__dirname, "..", "REVISION_INFO.txt"), "utf8");
-    return Object.fromEntries(
-      raw.trim().split("\n").map(l => l.split("=").map(s => s.trim())),
-    );
-  } catch {
-    return null;
+  const candidates = [
+    path.join(__dirname, "..", "REVISION_INFO.txt"),                          // packaged / build/src/
+    path.join(__dirname, "..", "..", "build", "src", "REVISION_INFO.txt"),    // make debug (runs from src/)
+  ];
+  for (const p of candidates) {
+    try {
+      const raw = fs.readFileSync(p, "utf8");
+      return Object.fromEntries(
+        raw.trim().split("\n").map(l => l.split("=").map(s => s.trim())),
+      );
+    } catch { /* try next */ }
   }
+  return null;
 }
 
 function showAboutDialog() {

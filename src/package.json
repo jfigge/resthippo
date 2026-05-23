@@ -36,7 +36,8 @@
     "files": [
       "app/**/*",
       "web/**/*",
-      "package.json"
+      "package.json",
+      "REVISION_INFO.txt"
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
