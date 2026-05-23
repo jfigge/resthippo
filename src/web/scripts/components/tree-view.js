@@ -181,16 +181,6 @@ export class TreeView {
     btnNewCollection.innerHTML = `<span class="icon">📁</span>`;
     btnNewCollection.addEventListener("click", () => this.#addCollection());
 
-    // Import Collection button
-    const btnImport = document.createElement("button");
-    btnImport.className = "icon-btn";
-    btnImport.title = "Import Collection";
-    btnImport.setAttribute("aria-label", "Import Collection");
-    btnImport.innerHTML = `<span class="icon">📥</span>`;
-    btnImport.addEventListener("click", () =>
-      window.dispatchEvent(new CustomEvent("wurl:import-requested")),
-    );
-
     // New Request button — disabled until at least one collection exists
     this.#btnNewRequest = document.createElement("button");
     this.#btnNewRequest.className = "icon-btn";
@@ -215,7 +205,6 @@ export class TreeView {
     bar.appendChild(btnNewCollection);
     bar.appendChild(this.#btnNewRequest);
     bar.appendChild(search);
-    bar.appendChild(btnImport);
     this.#el.appendChild(bar);
   }
 

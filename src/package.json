@@ -29,9 +29,9 @@
     "appId": "dev.wurl.app",
     "productName": "wurl",
     "copyright": "Copyright © 2026",
+    "icon": "web/wurl-logo.png",
     "directories": {
-      "output": "dist",
-      "buildResources": "build-resources"
+      "output": "dist"
     },
     "files": [
       "app/**/*",
