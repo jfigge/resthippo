@@ -565,6 +565,10 @@ mark.tree-highlight {
 
 .body-text-editor::placeholder { color: var(--color-overlay-0); font-style: italic; }
 
+.body-validate-badge {
+  padding-left: var(--space-3);
+}
+
 /* ── Syntax-highlighting overlay for JSON / YAML / XML body editors ─────── */
 
 /*
@@ -885,6 +889,16 @@ mark.tree-highlight {
   height: 28px;
 }
 .params-toolbar-toggle-label.is-hidden {
+  display: none;
+}
+
+.body-form-toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+}
+.body-form-toolbar-group.is-hidden {
   display: none;
 }
 

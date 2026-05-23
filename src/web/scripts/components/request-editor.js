@@ -815,11 +815,13 @@ export class RequestEditor {
   #listHdrLabelEl     = null;   // "List Headers" toggle label
 
   // Body form bulk editor
-  #bodyFormBulkMode    = false;
-  #bodyFormBulkEl      = null;
-  #bodyFormKvWrapEl    = null;
-  #bodyFormAddBtnEl    = null;
-  #bodyFormDelAllBtnEl = null;
+  #bodyFormBulkMode       = false;
+  #bodyFormBulkEl         = null;
+  #bodyFormBulkCheckEl    = null;
+  #bodyFormKvWrapEl       = null;
+  #bodyFormAddBtnEl       = null;
+  #bodyFormDelAllBtnEl    = null;
+  #bodyFormToolbarGroupEl = null;
   _bodyFormDeleteAllCleanup = null;
 
   // Global "Remove Headers" setting — applied to body-form column label row
@@ -2131,6 +2133,55 @@ export class RequestEditor {
     });
 
     typeBar.appendChild(typeSelect);
+
+    // ── Form toolbar (Bulk Editor toggle + Add + Delete All) ─────────────
+    // Appended to typeBar; shown only when body type is form-data or form-urlencoded
+    const formToolbarGroup = document.createElement("span");
+    formToolbarGroup.className = "body-form-toolbar-group is-hidden";
+    this.#bodyFormToolbarGroupEl = formToolbarGroup;
+
+    const bfBulkLabel = document.createElement("label");
+    bfBulkLabel.className = "params-toolbar-toggle-label";
+    bfBulkLabel.title = "Toggle between bulk text editor and key/value row editor";
+    const bfBulkCheck = document.createElement("input");
+    bfBulkCheck.type      = "checkbox";
+    bfBulkCheck.className = "params-toolbar-toggle";
+    bfBulkCheck.checked   = this.#bodyFormBulkMode;
+    bfBulkCheck.addEventListener("change", () => this.#handleBodyFormBulkToggle(bfBulkCheck.checked));
+    bfBulkLabel.appendChild(bfBulkCheck);
+    bfBulkLabel.append(" Bulk Editor");
+    this.#bodyFormBulkCheckEl = bfBulkCheck;
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "icon-btn params-toolbar-btn";
+    addBtn.title = "Add field";
+    addBtn.setAttribute("aria-label", "Add field");
+    addBtn.innerHTML = `<span class="icon">＋</span>`;
+    addBtn.addEventListener("click", () => {
+      this.#bodyFormRows.push({ id: crypto.randomUUID(), name: "", value: "", enabled: true });
+      this.#renderBodyContent();
+      this.#dispatchBodyUpdated();
+    });
+
+    const delAllBtn = document.createElement("button");
+    delAllBtn.className = "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
+    delAllBtn.title = "Delete all fields";
+    delAllBtn.textContent = "Delete All";
+
+    this._bodyFormDeleteAllCleanup = this.#wireDeleteAllConfirm(
+      delAllBtn,
+      () => this.#bodyFormRows.length,
+      () => { this.#bodyFormRows = []; this.#renderBodyContent(); this.#dispatchBodyUpdated(); },
+    );
+
+    this.#bodyFormAddBtnEl    = addBtn;
+    this.#bodyFormDelAllBtnEl = delAllBtn;
+
+    formToolbarGroup.appendChild(bfBulkLabel);
+    formToolbarGroup.appendChild(addBtn);
+    formToolbarGroup.appendChild(delAllBtn);
+    typeBar.appendChild(formToolbarGroup);
+
     container.appendChild(typeBar);
 
     // ── Content area ─────────────────────────────────────────────────────
@@ -2161,8 +2212,16 @@ export class RequestEditor {
     this.#bfDragSrcId = null;
     // Cancel any in-progress delete-all confirm before the UI is rebuilt
     this._bodyFormDeleteAllCleanup?.();
+    // Show / hide the form toolbar based on body type
+    const isFormType = this.#bodyType === "form-data" || this.#bodyType === "form-urlencoded";
+    if (this.#bodyFormToolbarGroupEl) {
+      this.#bodyFormToolbarGroupEl.classList.toggle("is-hidden", !isFormType);
+      if (isFormType && this.#bodyFormBulkCheckEl) {
+        this.#bodyFormBulkCheckEl.checked = this.#bodyFormBulkMode;
+      }
+    }
     // Reset body form bulk refs (will be reassigned by #renderBodyForm if applicable)
-    this.#bodyFormBulkEl = this.#bodyFormKvWrapEl = this.#bodyFormAddBtnEl = this.#bodyFormDelAllBtnEl = null;
+    this.#bodyFormBulkEl = this.#bodyFormKvWrapEl = null;
 
     switch (this.#bodyType) {
       case "no-body":         return this.#renderBodyNone(el);
@@ -2187,54 +2246,6 @@ export class RequestEditor {
     // ── Form key-value editor (form-data / form-urlencoded) ───────────────────
     #renderBodyForm(el, type) {
     const rows = this.#bodyFormRows;
-
-    // Toolbar
-    const toolbar = document.createElement("div");
-    toolbar.className = "params-toolbar";
-
-    const addBtn = document.createElement("button");
-    addBtn.className = "icon-btn params-toolbar-btn";
-    addBtn.title = "Add field";
-    addBtn.setAttribute("aria-label", "Add field");
-    addBtn.innerHTML = `<span class="icon">＋</span>`;
-    addBtn.addEventListener("click", () => {
-      rows.push({ id: crypto.randomUUID(), name: "", value: "", enabled: true });
-      this.#renderBodyContent();
-      this.#dispatchBodyUpdated();
-    });
-
-    const delAllBtn = document.createElement("button");
-    delAllBtn.className = "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
-    delAllBtn.title = "Delete all fields";
-    delAllBtn.textContent = "Delete All";
-
-    // Inline confirm: first click → "Confirm?"; second click → delete all.
-    // Escape or clicking outside the button cancels.
-    this._bodyFormDeleteAllCleanup = this.#wireDeleteAllConfirm(
-      delAllBtn,
-      () => this.#bodyFormRows.length,
-      () => { this.#bodyFormRows = []; this.#renderBodyContent(); this.#dispatchBodyUpdated(); },
-    );
-
-    this.#bodyFormAddBtnEl    = addBtn;
-    this.#bodyFormDelAllBtnEl = delAllBtn;
-
-    // ── Bulk Editor toggle — leftmost ─────────────────────────────────────
-    const bfBulkLabel = document.createElement("label");
-    bfBulkLabel.className = "params-toolbar-toggle-label";
-    bfBulkLabel.title = "Toggle between bulk text editor and key/value row editor";
-    const bfBulkCheck = document.createElement("input");
-    bfBulkCheck.type      = "checkbox";
-    bfBulkCheck.className = "params-toolbar-toggle";
-    bfBulkCheck.checked   = this.#bodyFormBulkMode;
-    bfBulkCheck.addEventListener("change", () => this.#handleBodyFormBulkToggle(bfBulkCheck.checked));
-    bfBulkLabel.appendChild(bfBulkCheck);
-    bfBulkLabel.append(" Bulk Editor");
-    toolbar.appendChild(bfBulkLabel);
-
-    toolbar.appendChild(addBtn);
-    toolbar.appendChild(delAllBtn);
-    el.appendChild(toolbar);
 
     // ── Bulk mode textarea ────────────────────────────────────────────────
     const bfBulkTa = document.createElement("textarea");
@@ -2543,7 +2554,7 @@ export class RequestEditor {
         // Immediate re-validate after prettifying (no debounce needed)
         if (canValidate) {
           applyValidity(ta.value.trim()
-            ? (this.#validate(type, ta.value) ? "valid" : "invalid")
+            ? (this.#validate(type, ta.value) ? " valid" : " xinvalid")
             : null);
         }
       });

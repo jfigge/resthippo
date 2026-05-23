@@ -1099,7 +1099,7 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
     //   landscape  : 160 + 4 + 200 + 4 + 160 = 528 px minimum columns
     //   height     : 44 header + 500 content   = 544 px
     minWidth: 800,
-    minHeight: 560,
+    minHeight: 400,
     title: "wurl",
     icon: appIcon,
     backgroundColor: "#1e1e2e",
