@@ -18,7 +18,6 @@ const STANDARD_HEADERS_DICT = {
     Accept: [
         "*/*",
         "application/json",
-        "application/xml",
         "application/xhtml+xml",
         "text/html",
         "text/plain",
@@ -519,6 +518,10 @@ function _hdrValDropdownVisible() {
 
 const DEFAULT_SCOPES = ["openid", "email", "profile"];
 
+const OAUTH2_ADVANCED_KEYS = new Set([
+  "responseType", "state", "credentials", "audience", "resource", "origin", "headerPrefix",
+]);
+
 let _scopeDropdown  = null;
 let _scopeActiveEl  = null;
 let _scopeActiveIdx = -1;
@@ -759,9 +762,12 @@ export class RequestEditor {
     discoveredScopes: null,           // string[] from last successful discovery, or null = DEFAULT_SCOPES
   };
   #authAwsIam    = { accessKeyId: "", secretAccessKey: "", region: "", service: "", sessionToken: "" };
-  #authContentEl = null;
-  #authTypeBarEl = null;
-  #discoverBtnEl = null;
+  #authContentEl  = null;
+  #authTypeBarEl  = null;
+  #discoverBtnEl  = null;
+  #authBulkEl     = null;   // the label wrapping the Bulk Editor checkbox
+  #authBulkCheckEl = null;  // the checkbox input itself
+  #authBulkMode   = false;  // true while bulk textarea is shown
 
   // OAuth 2.0 advanced-fields toggle — persisted in app settings
   #oauth2Advanced = false;
@@ -1049,11 +1055,31 @@ export class RequestEditor {
     typeSelect.addEventListener("change", () => {
       this.#authType = typeSelect.value;
       if (this.#discoverBtnEl) this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
+      if (this.#authBulkEl)    this.#authBulkEl.classList.toggle("is-hidden", this.#authType === "none");
       this.#renderAuthContent();
       this.#dispatchAuthUpdated();
     });
 
     typeBar.appendChild(typeSelect);
+
+    // ── Bulk Editor toggle — shown for all auth types except None ─────────
+    const bulkLabel = document.createElement("label");
+    bulkLabel.className = "params-toolbar-toggle-label";
+    bulkLabel.title     = "Toggle bulk text editor";
+    const bulkCheck = document.createElement("input");
+    bulkCheck.type      = "checkbox";
+    bulkCheck.className = "params-toolbar-toggle";
+    bulkCheck.checked   = this.#authBulkMode;
+    bulkCheck.addEventListener("change", () => {
+      this.#authBulkMode = bulkCheck.checked;
+      this.#renderAuthContent();
+    });
+    bulkLabel.appendChild(bulkCheck);
+    bulkLabel.append(" Bulk Editor");
+    bulkLabel.classList.toggle("is-hidden", this.#authType === "none");
+    this.#authBulkEl     = bulkLabel;
+    this.#authBulkCheckEl = bulkCheck;
+    typeBar.appendChild(bulkLabel);
 
     // ── Enabled toggle — floated right ────────────────────────────────────
     const spacer = document.createElement("span");
@@ -1105,11 +1131,14 @@ export class RequestEditor {
     return container;
     }
 
-    /** Re-render the auth content area to match #authType. */
+    /** Re-render the auth content area to match #authType / #authBulkMode. */
     #renderAuthContent() {
     const el = this.#authContentEl;
     if (!el) return;
     el.innerHTML = "";
+    if (this.#authBulkMode && this.#authType !== "none") {
+      return this.#renderAuthBulkEditor(el);
+    }
     switch (this.#authType) {
       case "none":    return this.#renderAuthNone(el);
       case "basic":   return this.#renderAuthBasic(el);
@@ -1117,6 +1146,139 @@ export class RequestEditor {
       case "oauth2":  return this.#renderAuthOAuth2(el);
       case "aws-iam": return this.#renderAuthAwsIam(el);
     }
+    }
+
+    // ── Bulk editor ───────────────────────────────────────────────────────────
+
+    /**
+     * Return the ordered list of { key, value } pairs for the current auth type,
+     * mirroring exactly what the form fields expose (including grant-type-dependent
+     * OAuth 2.0 fields and advanced fields when the advanced toggle is on).
+     */
+    #getAuthFields() {
+      switch (this.#authType) {
+        case "basic":
+          return [
+            { key: "username", value: this.#authBasic.username },
+            { key: "password", value: this.#authBasic.password },
+          ];
+
+        case "bearer":
+          return [{ key: "token", value: this.#authBearer.token }];
+
+        case "aws-iam":
+          return [
+            { key: "accessKeyId",     value: this.#authAwsIam.accessKeyId     },
+            { key: "secretAccessKey", value: this.#authAwsIam.secretAccessKey },
+            { key: "region",          value: this.#authAwsIam.region          },
+            { key: "service",         value: this.#authAwsIam.service         },
+            { key: "sessionToken",    value: this.#authAwsIam.sessionToken    },
+          ];
+
+        case "oauth2": {
+          const g         = this.#authOAuth2.grantType ?? "client_credentials";
+          const isPublic  = g === "authorization_code" && this.#authOAuth2.clientType === "public";
+          const fields    = [{ key: "grantType", value: g }];
+
+          if (g === "authorization_code") {
+            fields.push({ key: "clientType", value: this.#authOAuth2.clientType ?? "confidential" });
+          }
+          fields.push({ key: "clientId", value: this.#authOAuth2.clientId });
+          if (g !== "implicit" && !isPublic) {
+            fields.push({ key: "clientSecret", value: this.#authOAuth2.clientSecret });
+          }
+          if (g !== "implicit") {
+            fields.push({ key: "accessTokenUrl", value: this.#authOAuth2.accessTokenUrl });
+          }
+          if (["authorization_code", "implicit"].includes(g)) {
+            fields.push({ key: "authUrl", value: this.#authOAuth2.authUrl });
+          }
+          if (["authorization_code", "implicit"].includes(g)) {
+            fields.push({ key: "redirectUri", value: this.#authOAuth2.redirectUri ?? "" });
+          }
+          if (g === "password") {
+            fields.push({ key: "username", value: this.#authOAuth2.username ?? "" });
+            fields.push({ key: "password", value: this.#authOAuth2.password ?? "" });
+          }
+          fields.push({ key: "scope", value: this.#authOAuth2.scope });
+
+          if (this.#oauth2Advanced) {
+            if (g === "implicit") {
+              fields.push({ key: "responseType", value: this.#authOAuth2.responseType ?? "access_token" });
+            }
+            if (["authorization_code", "implicit"].includes(g)) {
+              fields.push({ key: "state", value: this.#authOAuth2.state ?? "" });
+            }
+            if (["authorization_code", "password", "client_credentials"].includes(g)) {
+              fields.push({ key: "credentials", value: this.#authOAuth2.credentials ?? "header" });
+            }
+            fields.push({ key: "audience", value: this.#authOAuth2.audience ?? "" });
+            if (["authorization_code", "client_credentials"].includes(g)) {
+              fields.push({ key: "resource", value: this.#authOAuth2.resource ?? "" });
+            }
+            if (g === "authorization_code") {
+              fields.push({ key: "origin", value: this.#authOAuth2.origin ?? "" });
+            }
+            fields.push({ key: "headerPrefix", value: this.#authOAuth2.headerPrefix ?? "" });
+          }
+          return fields;
+        }
+
+        default:
+          return [];
+      }
+    }
+
+    /** Render the bulk-edit textarea, pre-populated from the current auth state. */
+    #renderAuthBulkEditor(el) {
+      const ta = document.createElement("textarea");
+      ta.className  = "body-text-editor auth-bulk-textarea";
+      ta.spellcheck = false;
+      ta.value      = this.#getAuthFields().map(({ key, value }) => `${key}: ${value}`).join("\n");
+
+      ta.addEventListener("input", () => this.#updateAuthFromText(ta.value));
+
+      el.appendChild(ta);
+    }
+
+    /**
+     * Parse bulk-editor text and sync values into the auth model.
+     * Lines that don't match a known key for the current auth type are silently
+     * skipped — the unrecognised text stays in the textarea but has no effect.
+     * @param {string} text
+     */
+    #updateAuthFromText(text) {
+      const validKeys = new Set(this.#getAuthFields().map(f => f.key));
+      if (this.#authType === "oauth2") {
+        for (const k of OAUTH2_ADVANCED_KEYS) validKeys.add(k);
+      }
+
+      for (const raw of text.split("\n")) {
+        const colon = raw.indexOf(":");
+        if (colon === -1) continue;
+        const key   = raw.slice(0, colon).trim();
+        const value = raw.slice(colon + 1);         // preserve leading space the user typed
+        const v     = value.startsWith(" ") ? value.slice(1) : value.trimStart();
+
+        if (!validKeys.has(key)) continue;
+
+        switch (this.#authType) {
+          case "basic":
+            if (key === "username") this.#authBasic.username = v;
+            if (key === "password") this.#authBasic.password = v;
+            break;
+          case "bearer":
+            if (key === "token")    this.#authBearer.token   = v;
+            break;
+          case "aws-iam":
+            if (key in this.#authAwsIam) this.#authAwsIam[key] = v;
+            break;
+          case "oauth2":
+            this.#authOAuth2[key] = v;
+            break;
+        }
+      }
+      this.#dispatchAuthUpdated();
     }
 
     // ── None ──────────────────────────────────────────────────────────────────
@@ -1241,6 +1403,16 @@ export class RequestEditor {
       }));
     }
 
+    // ── Redirect URI (authorization_code and implicit only) ───────────────
+    if (["authorization_code", "implicit"].includes(this.#authOAuth2.grantType)) {
+      form.appendChild(this.#buildAuthField("Redirect URI", "url", {
+        placeholder: "http://localhost:7777/oauth/callback",
+        value:       this.#authOAuth2.redirectUri ?? "",
+        onInput:     (v) => { this.#authOAuth2.redirectUri = v; this.#dispatchAuthUpdated(); },
+        hint:        "Callback URL registered with your OAuth provider (intercepted by Electron)",
+      }));
+    }
+
     // ── Username / Password (resource owner password only) ─────────────────
     if (this.#authOAuth2.grantType === "password") {
       form.appendChild(this.#buildAuthField("Username", "text", {
@@ -1277,10 +1449,6 @@ export class RequestEditor {
     advCheck.setAttribute("aria-label", "Show advanced OAuth 2.0 options");
     advCheck.addEventListener("change", () => {
       this.#oauth2Advanced = advCheck.checked;
-      window.dispatchEvent(new CustomEvent("wurl:editor-setting-changed", {
-        detail: { oauth2Advanced: this.#oauth2Advanced },
-        bubbles: true,
-      }));
       this.#renderAuthContent();
     });
 
@@ -1307,17 +1475,7 @@ export class RequestEditor {
         }));
       }
 
-        // Redirect URI — authorization_code and implicit
-        if (["authorization_code", "implicit"].includes(grant)) {
-            form.appendChild(this.#buildAuthField("Redirect URI", "url", {
-                placeholder: "http://localhost:7777/oauth/callback",
-                value:       this.#authOAuth2.redirectUri ?? "",
-                onInput:     (v) => { this.#authOAuth2.redirectUri = v; this.#dispatchAuthUpdated(); },
-                hint:        "Callback URL registered with your OAuth provider (intercepted by Electron)",
-            }));
-        }
-
-        // State — authorization_code, implicit
+      // State — authorization_code, implicit
       if (["authorization_code", "implicit"].includes(grant)) {
         form.appendChild(this.#buildAuthField("State", "text", {
           placeholder: "Random string for CSRF protection",
@@ -4092,15 +4250,6 @@ export class RequestEditor {
       this.#removeHeaders = !!settings.removeHeaders;
       this.#applyBodyFormHeaderRow();
     }
-    if (settings.oauth2Advanced != null) {
-      const changed = !!settings.oauth2Advanced !== this.#oauth2Advanced;
-      this.#oauth2Advanced = !!settings.oauth2Advanced;
-      // Sync the toggle inside the Auth pane if it is currently rendered
-      const toggle = this.#el.querySelector("#oauth2-advanced-toggle");
-      if (toggle) toggle.checked = this.#oauth2Advanced;
-      // Re-render OAuth2 form only if the type is currently showing
-      if (changed && this.#authType === "oauth2") this.#renderAuthContent();
-    }
   }
 
   /** Show/hide the body-form column-label row to match the removeHeaders setting. */
@@ -4223,8 +4372,9 @@ export class RequestEditor {
     const authEnabledCheck = this.#el.querySelector("#auth-enabled-check");
     if (authEnabledCheck) authEnabledCheck.checked = this.#authEnabled;
     this.#authContentEl?.classList.toggle("auth-content--disabled", !this.#authEnabled);
-    // Sync Discover button visibility to match the (possibly restored) auth type
+    // Sync Discover button and bulk-edit toggle visibility to match the restored auth type
     if (this.#discoverBtnEl) this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
+    if (this.#authBulkEl)    this.#authBulkEl.classList.toggle("is-hidden", this.#authType === "none");
     this.#renderAuthContent();
 
     // Notes
@@ -4261,11 +4411,22 @@ export class RequestEditor {
     } else if (node.authType === "oauth2") {
       node.authOAuth2 = {
         grantType:      kv.grantType      ?? "client_credentials",
+        clientType:     kv.clientType     ?? "confidential",
         clientId:       kv.clientId       ?? "",
         clientSecret:   kv.clientSecret   ?? "",
         accessTokenUrl: kv.accessTokenUrl ?? "",
         authUrl:        kv.authUrl        ?? "",
+        username:       kv.username       ?? "",
+        password:       kv.password       ?? "",
         scope:          kv.scope          ?? "",
+        responseType:   kv.responseType   ?? "",
+        redirectUri:    kv.redirectUri    ?? "",
+        state:          kv.state          ?? "",
+        credentials:    kv.credentials    ?? "",
+        audience:       kv.audience       ?? "",
+        resource:       kv.resource       ?? "",
+        origin:         kv.origin         ?? "",
+        headerPrefix:   kv.headerPrefix   ?? "",
       };
     } else if (node.authType === "aws-iam") {
       node.authAwsIam = {

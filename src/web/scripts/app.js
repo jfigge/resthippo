@@ -65,11 +65,22 @@ function _buildSnapshot(node) {
     const o = node.authOAuth2 ?? {};
     const lines = [];
     if (o.grantType)       lines.push(`grantType: ${o.grantType}`);
+    if (o.clientType)      lines.push(`clientType: ${o.clientType}`);
     if (o.clientId)        lines.push(`clientId: ${o.clientId}`);
     if (o.clientSecret)    lines.push(`clientSecret: ${o.clientSecret}`);
     if (o.accessTokenUrl)  lines.push(`accessTokenUrl: ${o.accessTokenUrl}`);
     if (o.authUrl)         lines.push(`authUrl: ${o.authUrl}`);
+    if (o.username)        lines.push(`username: ${o.username}`);
+    if (o.password)        lines.push(`password: ${o.password}`);
     if (o.scope)           lines.push(`scope: ${o.scope}`);
+    if (o.responseType)    lines.push(`responseType: ${o.responseType}`);
+    if (o.redirectUri)     lines.push(`redirectUri: ${o.redirectUri}`);
+    if (o.state)           lines.push(`state: ${o.state}`);
+    if (o.credentials)     lines.push(`credentials: ${o.credentials}`);
+    if (o.audience)        lines.push(`audience: ${o.audience}`);
+    if (o.resource)        lines.push(`resource: ${o.resource}`);
+    if (o.origin)          lines.push(`origin: ${o.origin}`);
+    if (o.headerPrefix)    lines.push(`headerPrefix: ${o.headerPrefix}`);
     authBulk = lines.join("\n");
   } else if (authType === "aws-iam") {
     const a = node.authAwsIam ?? {};

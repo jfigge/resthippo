@@ -884,6 +884,9 @@ mark.tree-highlight {
   padding: 0 var(--space-1);
   height: 28px;
 }
+.params-toolbar-toggle-label.is-hidden {
+  display: none;
+}
 
 .params-toolbar-toggle-label:hover {
   color: var(--color-text);

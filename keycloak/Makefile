@@ -28,13 +28,13 @@ KC_SERVER := http://localhost:8080
 .PHONY: help
 help:
 	@echo "Available targets:"
-	@echo "  make start               - Start Keycloak in dev mode"
-	@echo "  make wait                - Wait until Keycloak is healthy"
-	@echo "  make bootstrap           - Configure realm, users, and clients"
-	@echo "  make print-config        - Print OAuth/OpenID configuration details"
-	@echo "  make stop                - Stop and remove Keycloak container"
-	@echo "  make reset               - Stop container and delete volumes"
-	@echo "  make all                 - Start + configure + print details"
+	@echo "  make start            - Start Keycloak in dev mode"
+	@echo "  make wait             - Wait until Keycloak is healthy"
+	@echo "  make bootstrap        - Configure realm, users, and clients"
+	@echo "  make creds.           - Print OAuth/OpenID configuration details"
+	@echo "  make stop             - Stop and remove Keycloak container"
+	@echo "  make reset            - Stop container and delete volumes"
+	@echo "  make all              - Start + configure + creds"
 
 # -----------------------------------------------------------------------------
 # Start Keycloak
@@ -160,8 +160,8 @@ bootstrap: wait
 # -----------------------------------------------------------------------------
 # Print configuration and curl examples
 # -----------------------------------------------------------------------------
-.PHONY: print-config
-print-config:
+.PHONY: creds
+creds:
 	@echo ""
 	@echo "============================================================"
 	@echo "Keycloak Developer Environment"
@@ -235,7 +235,7 @@ print-config:
 # Composite target
 # -----------------------------------------------------------------------------
 .PHONY: all
-all: start bootstrap print-config
+all: start bootstrap creds
 
 # -----------------------------------------------------------------------------
 # Stop and remove container
