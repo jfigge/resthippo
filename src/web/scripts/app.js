@@ -634,10 +634,11 @@ function initEventBus() {
     // Set variable context BEFORE load() so pill editors render with correct validation
     _refreshEditorVariableContext(node.id);
     requestEditor.load(node);
-    // Persist the selected node ID so it can be restored on reload
+    // Persist the selected node ID per-collection so it can be restored on reload
     const id = node?.id;
     if (id) {
-      currentSettings = { ...currentSettings, selectedRequestId: id };
+      const selectedRequestIds = { ...(currentSettings.selectedRequestIds ?? {}), [currentColls.activeCollectionId]: id };
+      currentSettings = { ...currentSettings, selectedRequestIds };
       saveSettings(currentSettings);
     }
     // Update the timeline pane with this request's history.
@@ -816,7 +817,7 @@ function initEventBus() {
 
   // Persist settings immediately whenever any control in the popup changes.
   // Merge into currentSettings so fields not emitted by the popup (splitters,
-  // selectedRequestId, historyCount) are not silently dropped on each save.
+  // selectedRequestIds, historyCount) are not silently dropped on each save.
   window.addEventListener("wurl:settings-changed", (e) => {
     currentSettings = { ...currentSettings, ...e.detail };
     applySettings(currentSettings);
@@ -895,15 +896,17 @@ function initEventBus() {
     // Persist manifest
     await saveManifest({ collections: currentColls.collections, activeCollectionId: id });
 
-    // Clear selected request (it belongs to the previous collection)
-    _selectedNode = null;
-    currentSettings = { ...currentSettings, selectedRequestId: null };
-    saveSettings(currentSettings);
-
     // Load new collection's items
     const { items, variables } = await loadCollectionData(id);
     treeView.setStorageKey(id);
     treeView.setItems(items);
+
+    // Restore previously selected request for this collection, or clear if none
+    const savedId = currentSettings.selectedRequestIds?.[id];
+    if (!savedId || !treeView.selectById(savedId)) {
+      _selectedNode = null;
+      _clearRequestEditor();
+    }
 
     // Attach variables to the collection entry in memory
     currentColls = {
@@ -936,11 +939,10 @@ function initEventBus() {
 
     await saveManifest({ collections, activeCollectionId: newColl.id });
 
-    currentSettings = { ...currentSettings, selectedRequestId: null };
-    saveSettings(currentSettings);
-
     treeView.setStorageKey(newColl.id);
     treeView.setItems([]);
+    _selectedNode = null;
+    _clearRequestEditor();
     setNavPanelTitle(newColl.name);
     envPopup.update(envPopupState());
   });
@@ -976,11 +978,10 @@ function initEventBus() {
 
     await saveManifest({ collections, activeCollectionId: newColl.id });
 
-    currentSettings = { ...currentSettings, selectedRequestId: null };
-    saveSettings(currentSettings);
-
     treeView.setStorageKey(newColl.id);
     treeView.setItems(cloned);
+    _selectedNode = null;
+    _clearRequestEditor();
     setNavPanelTitle(newColl.name);
     envPopup.update(envPopupState());
   });
@@ -1015,10 +1016,13 @@ function initEventBus() {
       activeId = collections[0].id;
       const { items, variables } = await loadCollectionData(activeId);
       setActiveCollection(activeId);
-      currentSettings = { ...currentSettings, selectedRequestId: null };
-      saveSettings(currentSettings);
       treeView.setStorageKey(activeId);
       treeView.setItems(items);
+      const savedId = currentSettings.selectedRequestIds?.[activeId];
+      if (!savedId || !treeView.selectById(savedId)) {
+        _selectedNode = null;
+        _clearRequestEditor();
+      }
       setNavPanelTitle(_collName(collections, activeId));
       // Attach variables in memory
       collections = collections.map(coll =>
@@ -1074,7 +1078,7 @@ function initEventBus() {
     }
 
     // Revalidate pill editors in the request panel for the updated context
-    _refreshEditorVariableContext(currentSettings.selectedRequestId);
+    _refreshEditorVariableContext(currentSettings.selectedRequestIds?.[currentColls.activeCollectionId]);
   });
 
   /** Persist the Bulk Editor toggle preference into settings. */
@@ -1090,11 +1094,11 @@ function initEventBus() {
    * request editor so its pill editors can validate {{variables}}.
    *
    * @param {string|null} [nodeId]  — the selected request/folder node ID;
-   *   defaults to currentSettings.selectedRequestId.
+   *   defaults to the active collection's selectedRequestId.
    */
   function _refreshEditorVariableContext(nodeId) {
     if (!requestEditor) return;
-    const id = nodeId ?? currentSettings.selectedRequestId ?? null;
+    const id = nodeId ?? currentSettings.selectedRequestIds?.[currentColls.activeCollectionId] ?? null;
     const folderChain = (treeView && id)
       ? buildFolderChain(treeView.getItems(), id)
       : [];
@@ -1361,9 +1365,10 @@ async function initCollections() {
   currentColls = { collections: collsWithVars, activeCollectionId };
   setNavPanelTitle(_collName(collections, activeCollectionId));
 
-  // Restore the previously selected request (if any)
-  if (settings.selectedRequestId) {
-    treeView.selectById(settings.selectedRequestId);
+  // Restore the previously selected request for this collection (or clear if none)
+  const savedId = settings.selectedRequestIds?.[activeCollectionId];
+  if (!savedId || !treeView.selectById(savedId)) {
+    _clearRequestEditor();
   }
 }
 
@@ -1491,6 +1496,13 @@ function installZoomHandlers() {
  * @param {boolean}      [isRequestSwitch] – true when triggered by a request selection;
  *                                           the response-viewer uses this to update the body tab.
  */
+function _clearRequestEditor() {
+  if (requestEditor) {
+    requestEditor.load({ id: null, method: "GET", url: "", params: [], headers: [], bodyType: "no-body", name: "" });
+  }
+  _dispatchTimelineUpdate(null, true);
+}
+
 function _dispatchTimelineUpdate(requestId, isRequestSwitch = false) {
   const entries = requestId ? (_requestHistory.get(requestId) ?? []) : [];
   window.dispatchEvent(new CustomEvent("wurl:timeline-update", {

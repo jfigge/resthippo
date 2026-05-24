@@ -56,7 +56,7 @@ const DEFAULT_SETTINGS = {
   listHeaders:       true,
   showUrlPreview:    true,
   varsBulkEditor:    true,
-  selectedRequestId: null,
+  selectedRequestIds: {},
   responseBodyRenderMode: "styled",
   oauth2Advanced:    false,
   historyCount:      5,
