@@ -99,30 +99,4 @@ export const registry = {
       { name: "requestName", label: "Request", type: "request-picker", default: "" },
     ],
   },
-
-  jq: {
-    label: "JQ extract",
-    category: "backend",
-    params: [
-      { name: "json", label: "JSON", type: "string", default: "" },
-      { name: "query", label: "Query", type: "string", default: ".", placeholder: ".data.token" },
-    ],
-  },
-  hmac: {
-    label: "HMAC",
-    category: "backend",
-    params: [
-      { name: "algo", label: "Algorithm", type: "enum", default: "SHA256", options: ["SHA256", "SHA512"] },
-      { name: "key", label: "Key", type: "string", default: "" },
-      { name: "message", label: "Message", type: "string", default: "" },
-    ],
-  },
-  hash: {
-    label: "Hash",
-    category: "backend",
-    params: [
-      { name: "algo", label: "Algorithm", type: "enum", default: "SHA256", options: ["SHA256", "SHA512"] },
-      { name: "value", label: "Value", type: "string", default: "" },
-    ],
-  },
 };
