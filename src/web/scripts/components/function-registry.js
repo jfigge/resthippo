@@ -74,6 +74,7 @@ export const registry = {
     category: "request-output",
     params: [
       { name: "requestName", label: "Request", type: "request-picker", default: "" },
+      { name: "query", label: "Query", type: "string", default: ".", placeholder: ".data.token" },
     ],
   },
   responseHeader: {

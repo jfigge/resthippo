@@ -58,7 +58,15 @@ export const logicMap = {
   requestName: (_args, ctx)         => ctx?.requestName ?? "",
 
   // ── request-output (synchronous — reads from response cache) ────────────
-  response:       ([name = ""], ctx) => ctx?.responseCache?.[name]                         ?? "",
+  response: ([name = "", query = "."], ctx) => {
+    const body = ctx?.responseCache?.[name] ?? "";
+    if (!query || query === ".") return body;
+    try {
+      const simple = _simpleJq(body, query);
+      if (simple !== null) return simple;
+    } catch { /* fall through to backend */ }
+    return invokeBackend("jq", { json: body, query });
+  },
   responseHeader: ([req = "", hdr = ""], ctx) => ctx?.responseHeaders?.[req]?.[hdr.toLowerCase()] ?? "",
   responseStatus: ([name = ""], ctx) => ctx?.responseStatus?.[name]                        ?? "",
 
