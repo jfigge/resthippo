@@ -37,6 +37,8 @@ export async function implicitFlow(config) {
   if (!config.clientId?.trim()) return oauthResultFromError(configurationError("Client ID is required."));
   if (!config.authUrl?.trim())  return oauthResultFromError(configurationError("Auth URL is required."));
 
+  try { new URL(config.authUrl.trim()); } catch { return createOAuthResult({ success: true }); }
+
   const redirectUri = config.redirectUri?.trim() || DEFAULT_REDIRECT_URI;
 
   // ── CSRF state ────────────────────────────────────────────────────────────

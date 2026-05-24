@@ -37,6 +37,9 @@ export class TreeView {
    */
   #activeCollectionId = null;
 
+  /** @type {string|null} — id of the currently selected request node */
+  #selectedId = null;
+
   /** @type {HTMLButtonElement} — kept to toggle disabled state */
   #btnNewRequest = null;
 
@@ -332,8 +335,12 @@ export class TreeView {
    * If no collection exists the button is disabled, so this is a no-op guard.
    */
   #addRequest() {
+    // Prefer the parent folder of the currently selected request so the new
+    // request lands as a sibling. Fall back to the last-active collection.
     const targetId =
-      this.#activeCollectionId ?? this.#items.find((n) => n.type === "collection")?.id;
+      (this.#selectedId ? this.#findParentId(this.#items, this.#selectedId) : undefined)
+      ?? this.#activeCollectionId
+      ?? this.#items.find((n) => n.type === "collection")?.id;
     if (!targetId) return;
     this.#addRequestTo(targetId);
   }
@@ -579,6 +586,18 @@ export class TreeView {
    * Recursively insert `child` under the node with `parentId`.
    * Supports arbitrary nesting (folders within folders).
    */
+  /** Return the id of the direct parent of `targetId`, or null if at the root level. */
+  #findParentId(nodes, targetId, parentId = null) {
+    for (const node of nodes) {
+      if (node.id === targetId) return parentId;
+      if (Array.isArray(node.children)) {
+        const found = this.#findParentId(node.children, targetId, node.id);
+        if (found !== undefined) return found;
+      }
+    }
+    return undefined;
+  }
+
   #insertChild(nodes, parentId, child) {
     return nodes.map((node) => {
       if (node.id === parentId) {
@@ -1123,6 +1142,7 @@ export class TreeView {
     // already active — clicking or right-clicking the current selection
     // should not trigger another wurl:request-selected dispatch.
     const alreadyActive = li.classList.contains("tree-node--active");
+    this.#selectedId = node.id;
     this.#setActiveRow(li);
     if (alreadyActive) return;
 

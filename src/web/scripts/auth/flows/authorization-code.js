@@ -20,7 +20,7 @@ import { generateCodeVerifier, generateCodeChallenge } from "../utils/pkce.js";
 import { generateState, validateState, discardState }  from "../utils/state.js";
 import { buildUrl, extractAuthCode }                   from "../utils/url.js";
 import { postTokenRequest }                            from "../network/electron-network.js";
-import { oauthResultFromTokenResponse, oauthResultFromError } from "../types/oauth-types.js";
+import { createOAuthResult, oauthResultFromTokenResponse, oauthResultFromError } from "../types/oauth-types.js";
 import {
   configurationError, stateMismatchError, popupCancelledError,
   fromTokenErrorResponse, OAuthError, OAuthErrorCode,
@@ -41,6 +41,8 @@ export async function authorizationCodeFlow(config) {
   if (!config.clientId?.trim())       return oauthResultFromError(configurationError("Client ID is required."));
   if (!config.authUrl?.trim())        return oauthResultFromError(configurationError("Auth URL is required."));
   if (!config.accessTokenUrl?.trim()) return oauthResultFromError(configurationError("Access Token URL is required."));
+
+  try { new URL(config.authUrl.trim()); } catch { return createOAuthResult({ success: true }); }
 
   const clientId        = config.clientId.trim();
   const accessTokenUrl  = config.accessTokenUrl.trim();

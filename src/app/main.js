@@ -548,6 +548,7 @@ function safeCall(channel, fn, fallback = null) {
         title:  title || "OAuth Authorization",
         parent: _mainWin || undefined,
         modal:  false,
+        show:   false,
         webPreferences: {
           contextIsolation: true,
           nodeIntegration:  false,
@@ -556,6 +557,11 @@ function safeCall(channel, fn, fallback = null) {
         },
         autoHideMenuBar: true,
       });
+
+      // Only reveal the window once the page is actually painted — if the auth
+      // server immediately redirects (e.g. SSO session already active) the flow
+      // resolves before this fires and the window is never shown.
+      popup.once("ready-to-show", () => { if (!_resolved) popup.show(); });
 
       let _resolved = false;
 

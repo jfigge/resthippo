@@ -4328,6 +4328,8 @@ export class RequestEditor {
       this.#bodyFormRows = node.bodyFormData.map(r => ({ id: r.id ?? crypto.randomUUID(), name: r.name ?? "", value: r.value ?? "", enabled: r.enabled ?? true }));
     } else if (Array.isArray(node.bodyFormUrlEncoded)) {
       this.#bodyFormRows = node.bodyFormUrlEncoded.map(r => ({ id: r.id ?? crypto.randomUUID(), name: r.name ?? "", value: r.value ?? "", enabled: r.enabled ?? true }));
+    } else {
+      this.#bodyFormRows = [];
     }
     // Text body — new unified format first, then legacy per-type dict
     if (node.bodyText != null) {
@@ -4336,8 +4338,11 @@ export class RequestEditor {
       // Legacy: prefer the text stored for the current body type, then the first non-empty entry
       const bt = node.bodyTexts;
       this.#bodyText = bt[this.#bodyType] ?? bt.json ?? bt.yaml ?? bt.xml ?? bt.text ?? "";
+    } else {
+      this.#bodyText = "";
     }
-    if (node.bodyFilePath != null) this.#bodyFilePath = node.bodyFilePath;
+    this.#bodyFilePath  = node.bodyFilePath ?? "";
+    this.#bodyFileObject = null;
     // Sync the select element if the body tab has been built
     const sel = this.#el.querySelector(".body-type-select");
     if (sel) sel.value = this.#bodyType;
@@ -4346,16 +4351,16 @@ export class RequestEditor {
     // Auth
     this.#authType    = node.authType    ?? "none";
     this.#authEnabled = node.authEnabled ?? true;
-    if (node.authBasic)  this.#authBasic  = { ...this.#authBasic,  ...node.authBasic  };
-    if (node.authBearer) this.#authBearer = { ...this.#authBearer, ...node.authBearer };
-    if (node.authOAuth2) {
-      // Merge saved fields — default advanced fields to empty string / known defaults.
-      // OIDC discovery fields are restored from the persisted node data so previously
-      // discovered configurations survive a request reload.
-      // Runtime-only token fields (token, refreshToken, expiresAt) are intentionally
-      // excluded from the spread so previously-persisted tokens are never restored.
+    this.#authBasic  = { username: "", password: "",                                          ...(node.authBasic  ?? {}) };
+    this.#authBearer = { token: "",                                                            ...(node.authBearer ?? {}) };
+    // Merge saved fields — default advanced fields to empty string / known defaults.
+    // OIDC discovery fields are restored from the persisted node data so previously
+    // discovered configurations survive a request reload.
+    // Runtime-only token fields (token, refreshToken, expiresAt) are intentionally
+    // excluded from the spread so previously-persisted tokens are never restored.
+    {
       // eslint-disable-next-line no-unused-vars
-      const { token: _t, refreshToken: _rt, expiresAt: _ea, ...savedOAuth2 } = node.authOAuth2;
+      const { token: _t, refreshToken: _rt, expiresAt: _ea, ...savedOAuth2 } = node.authOAuth2 ?? {};
       this.#authOAuth2 = {
         grantType:           "client_credentials",
         clientType:          "confidential",
@@ -4382,7 +4387,7 @@ export class RequestEditor {
         ...savedOAuth2,
       };
     }
-    if (node.authAwsIam) this.#authAwsIam = { ...this.#authAwsIam, ...node.authAwsIam };
+    this.#authAwsIam = { accessKeyId: "", secretAccessKey: "", region: "", service: "", sessionToken: "", ...(node.authAwsIam ?? {}) };
     const authSel = this.#el.querySelector("#auth-type-select");
     if (authSel) authSel.value = this.#authType;
     const authEnabledCheck = this.#el.querySelector("#auth-enabled-check");
