@@ -43,7 +43,7 @@ contextBridge.exposeInMainWorld("wurl", {
    *
    * Layout:
    *   collections/
-   *     index.json                         ← manifest (environments, settings)
+   *     index.json                         ← manifest (collections, settings)
    *     <collId>/
    *       metadata.json                    ← name, variables
    *       tree.json                        ← lightweight nav tree
@@ -53,8 +53,8 @@ contextBridge.exposeInMainWorld("wurl", {
    */
   store: {
     /**
-     * Global manifest: environments list + application settings.
-     * Shape: { version: 2, environments: [{id, name}], activeEnvironmentId, settings }
+     * Global manifest: collections list + application settings.
+     * Shape: { version: 2, collections: [{id, name}], activeCollectionId, settings }
      */
     manifest: {
       /** @returns {Promise<object>} */
@@ -64,7 +64,7 @@ contextBridge.exposeInMainWorld("wurl", {
     },
 
     /**
-     * Per-environment blob — assembles { version, collections[], variables }
+     * Per-collection blob — assembles { version, collections[], variables }
      * from the new per-file layout for backward-compatible renderer access.
      */
     env: {

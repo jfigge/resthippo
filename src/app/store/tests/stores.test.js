@@ -19,7 +19,7 @@ const { Stores }           = require("../stores");
 const { Paths }            = require("../paths");
 const { Resolver }         = require("../resolver");
 const { CollectionStore }  = require("../collection-store");
-const { EnvironmentStore } = require("../environment-store");
+const { CollectionsStore} = require("../collections-store");
 const { TreeStore }        = require("../tree-store");
 const { RequestStore }     = require("../request-store");
 const { HistoryStore }     = require("../history-store");
@@ -65,21 +65,21 @@ describe("CollectionStore", () => {
   test("getManifest returns default on first run", () => {
     const manifest = store.getManifest();
     assert.equal(manifest.version, 2);
-    assert.deepEqual(manifest.environments, []);
-    assert.equal(manifest.activeEnvironmentId, null);
+    assert.deepEqual(manifest.collections, []);
+    assert.equal(manifest.activeCollectionId, null);
   });
 
   test("saveManifest then getManifest round-trips correctly", () => {
     const data = {
-      version:             2,
-      environments:        [{ id: "env-1", name: "Dev" }],
-      activeEnvironmentId: "env-1",
-      settings:            { theme: "mocha", fontSize: 14 },
+      version:           2,
+      collections:       [{ id: "env-1", name: "Dev" }],
+      activeCollectionId: "env-1",
+      settings:          { theme: "mocha", fontSize: 14 },
     };
     store.saveManifest(data);
     const loaded = store.getManifest();
-    assert.deepEqual(loaded.environments, data.environments);
-    assert.equal(loaded.activeEnvironmentId, "env-1");
+    assert.deepEqual(loaded.collections, data.collections);
+    assert.equal(loaded.activeCollectionId, "env-1");
     assert.equal(loaded.settings.theme, "mocha");
   });
 
@@ -88,16 +88,16 @@ describe("CollectionStore", () => {
     const nested = makeTmpDir();
     rmTmpDir(nested); // remove so it doesn't exist pre-write
     const s = new Stores(nested).collectionStore();
-    assert.doesNotThrow(() => s.saveManifest({ version: 2, environments: [] }));
+    assert.doesNotThrow(() => s.saveManifest({ version: 2, collections: [] }));
     rmTmpDir(nested);
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EnvironmentStore
+// CollectionsStore
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("EnvironmentStore", () => {
+describe("CollectionsStore", () => {
   let tmpDir;
   let ss;
   let store;
@@ -105,18 +105,18 @@ describe("EnvironmentStore", () => {
   beforeEach(() => {
     tmpDir = makeTmpDir();
     ss     = new Stores(tmpDir);
-    store  = ss.environmentStore();
+    store  = ss.collectionsStore();
   });
 
   afterEach(() => rmTmpDir(tmpDir));
 
-  test("getEnvironment returns minimal default on first run", () => {
-    const env = store.getEnvironment("env-abc");
+  test("getCollections returns minimal default on first run", () => {
+    const env = store.getCollections("env-abc");
     assert.equal(env.version,   1);
     assert.deepEqual(env.collections, []);
   });
 
-  test("saveEnvironment then getEnvironment round-trips nested structure", () => {
+  test("saveCollections then getCollections round-trips nested structure", () => {
     const req = makeRequest({ id: "r1", name: "First", method: "POST" });
     const data = {
       version:  1,
@@ -130,8 +130,8 @@ describe("EnvironmentStore", () => {
       }],
     };
 
-    store.saveEnvironment("env-x", data);
-    const loaded = store.getEnvironment("env-x");
+    store.saveCollections("env-x", data);
+    const loaded = store.getCollections("env-x");
 
     assert.equal(loaded.version,  1);
     assert.equal(loaded.variables.baseUrl, "https://api.example.com");
@@ -142,10 +142,10 @@ describe("EnvironmentStore", () => {
     assert.equal(loaded.collections[0].children[0].method, "POST");
   });
 
-  test("saveEnvironment writes individual request files", () => {
+  test("saveCollections writes individual request files", () => {
     const p  = new Paths(tmpDir);
     const req = makeRequest({ id: "req-file-test" });
-    store.saveEnvironment("env-y", {
+    store.saveCollections("env-y", {
       version: 1,
       collections: [{ id: "c1", type: "collection", name: "C1", children: [req] }],
     });
@@ -156,12 +156,12 @@ describe("EnvironmentStore", () => {
     assert.equal(stored.id, "req-file-test");
   });
 
-  test("saveEnvironment invalidates the resolver cache", () => {
+  test("saveCollections invalidates the resolver cache", () => {
     const resolver = new Resolver(new Paths(tmpDir));
-    const envStore = new EnvironmentStore(new Paths(tmpDir), resolver);
+    const envStore = new CollectionsStore(new Paths(tmpDir), resolver);
 
     const req = makeRequest({ id: "req-cache" });
-    envStore.saveEnvironment("env-z", {
+    envStore.saveCollections("env-z", {
       version: 1,
       collections: [{ id: "c1", type: "collection", name: "C", children: [req] }],
     });
@@ -183,8 +183,8 @@ describe("EnvironmentStore", () => {
         }],
       }],
     };
-    store.saveEnvironment("env-nested", data);
-    const loaded = store.getEnvironment("env-nested");
+    store.saveCollections("env-nested", data);
+    const loaded = store.getCollections("env-nested");
     assert.equal(loaded.collections[0].variables.a, "1");
     assert.equal(loaded.collections[0].children[0].variables.b, "2");
   });
@@ -204,7 +204,7 @@ describe("TreeStore", () => {
     tmpDir    = makeTmpDir();
     ss        = new Stores(tmpDir);
     treeStore = ss.treeStore();
-    envStore  = ss.environmentStore();
+    envStore  = ss.collectionsStore();
   });
 
   afterEach(() => rmTmpDir(tmpDir));
@@ -216,7 +216,7 @@ describe("TreeStore", () => {
 
   test("saveTree then getTree round-trips correctly", () => {
     // Seed a request file so the ref is valid.
-    envStore.saveEnvironment("col-t1", {
+    envStore.saveCollections("col-t1", {
       version: 1,
       collections: [{
         id: "folder-1", type: "collection", name: "Folder",
@@ -262,10 +262,10 @@ describe("RequestStore", () => {
     tmpDir   = makeTmpDir();
     ss       = new Stores(tmpDir);
     reqStore = ss.requestStore();
-    envStore = ss.environmentStore();
+    envStore = ss.collectionsStore();
 
     // Seed an empty collection so the resolver knows about it.
-    envStore.saveEnvironment(COL, { version: 1, collections: [] });
+    envStore.saveCollections(COL, { version: 1, collections: [] });
   });
 
   afterEach(() => rmTmpDir(tmpDir));
@@ -377,11 +377,11 @@ describe("HistoryStore", () => {
     tmpDir    = makeTmpDir();
     ss        = new Stores(tmpDir);
     histStore = ss.historyStore();
-    envStore  = ss.environmentStore();
+    envStore  = ss.collectionsStore();
     reqStore  = ss.requestStore();
 
     // Seed collection + request so resolver knows about them.
-    envStore.saveEnvironment(COL, { version: 1, collections: [] });
+    envStore.saveCollections(COL, { version: 1, collections: [] });
     reqStore.createRequest(COL, makeRequest({ id: REQ }));
   });
 
@@ -494,9 +494,9 @@ describe("Resolver", () => {
     );
   });
 
-  test("rebuilds cache from disk (created via EnvironmentStore)", () => {
+  test("rebuilds cache from disk (created via CollectionsStore)", () => {
     const req = makeRequest({ id: "req-resolve" });
-    ss.environmentStore().saveEnvironment("col-resolve", {
+    ss.collectionsStore().saveCollections("col-resolve", {
       version: 1,
       collections: [{ id: "f1", type: "collection", name: "F1", children: [req] }],
     });
@@ -516,7 +516,7 @@ describe("Resolver", () => {
   test("invalidate() triggers full rebuild on next resolve()", () => {
     // Seed data on disk
     const req = makeRequest({ id: "req-invalidate" });
-    ss.environmentStore().saveEnvironment("col-inv", {
+    ss.collectionsStore().saveCollections("col-inv", {
       version: 1,
       collections: [{ id: "f1", type: "collection", name: "F", children: [req] }],
     });
@@ -538,7 +538,7 @@ describe("Stores factory", () => {
       const ss = new Stores(tmpDir);
       // Smoke test: all factory methods return the right types
       assert.ok(ss.collectionStore().getManifest,    "collectionStore");
-      assert.ok(ss.environmentStore().getEnvironment, "environmentStore");
+      assert.ok(ss.collectionsStore().getCollections, "collectionsStore");
       assert.ok(ss.treeStore().getTree,               "treeStore");
       assert.ok(ss.requestStore().getRequest,         "requestStore");
       assert.ok(ss.historyStore().listHistory,        "historyStore");
@@ -551,7 +551,7 @@ describe("Stores factory", () => {
     const tmpDir = makeTmpDir();
     try {
       const ss = new Stores(tmpDir);
-      ss.environmentStore().saveEnvironment("col-shared", { version: 1, collections: [] });
+      ss.collectionsStore().saveCollections("col-shared", { version: 1, collections: [] });
       const req = ss.requestStore().createRequest("col-shared", makeRequest({ id: "req-shared" }));
 
       // HistoryStore uses the same resolver, so it should locate the collection.

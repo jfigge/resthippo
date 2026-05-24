@@ -2,7 +2,7 @@
  * stores.js — Factory that wires all filesystem store implementations together.
  *
  * All stores share a single Paths instance and a single Resolver cache so that
- * cache invalidations made by one store (e.g. EnvironmentStore.saveEnvironment)
+ * cache invalidations made by one store (e.g. CollectionsStore.saveCollections)
  * are immediately visible to others (e.g. RequestStore.getRequest).
  *
  * Usage:
@@ -19,7 +19,7 @@
 const { Paths }            = require("./paths");
 const { Resolver }         = require("./resolver");
 const { CollectionStore }  = require("./collection-store");
-const { EnvironmentStore } = require("./environment-store");
+const { CollectionsStore} = require("./collections-store");
 const { TreeStore }        = require("./tree-store");
 const { RequestStore }     = require("./request-store");
 const { HistoryStore }     = require("./history-store");
@@ -33,20 +33,20 @@ class Stores {
     this._resolver = new Resolver(this._paths);
 
     this._collectionStore  = new CollectionStore(this._paths);
-    this._environmentStore = new EnvironmentStore(this._paths, this._resolver);
+    this._collectionsStore = new CollectionsStore(this._paths, this._resolver);
     this._treeStore        = new TreeStore(this._paths, this._resolver);
     this._requestStore     = new RequestStore(this._paths, this._resolver);
     this._historyStore     = new HistoryStore(this._paths, this._resolver);
   }
 
-  /** Manifest store — GET/PUT global environments + settings. */
+  /** Manifest store — GET/PUT global collections + settings. */
   collectionStore()  { return this._collectionStore;  }
 
   /**
-   * Legacy environment-blob store — assembles / decomposes the old monolithic
-   * per-environment JSON so the renderer data-store API stays unchanged.
+   * Legacy collection-blob store — assembles / decomposes the old monolithic
+   * per-collection JSON so the renderer data-store API stays unchanged.
    */
-  environmentStore() { return this._environmentStore; }
+  collectionsStore() { return this._collectionsStore; }
 
   /** Lightweight navigation tree store. */
   treeStore()        { return this._treeStore;        }

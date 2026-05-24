@@ -59,7 +59,7 @@ export const registry = {
     ],
   },
   envName: {
-    label: "Environment name",
+    label: "Collection name",
     category: "context",
     params: [],
   },

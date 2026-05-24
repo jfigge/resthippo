@@ -16,12 +16,12 @@ import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
 import { ResponseViewer } from "./components/response-viewer.js";
 import { SettingsPopup } from "./components/settings-popup.js";
-import { EnvironmentPopup } from "./components/environment-popup.js";
+import { CollectionsPopup } from "./components/collections-popup.js";
 import { VariablesPopup } from "./components/variables-popup.js";
 import {
   loadAll, saveCollections, saveSettings, saveManifest,
-  loadEnvCollections, saveEnvCollections, setActiveEnvironment,
-  saveEnvVariables, deleteRequest,
+  loadCollectionData, saveCollectionData, setActiveCollection,
+  saveCollectionVariables, deleteRequest,
   listHistory, addHistory, getHistoryResponse, deleteHistory, trimHistory,
 } from "./data-store.js";
 import { buildFolderChain } from "./components/variable-resolver.js";
@@ -337,8 +337,8 @@ function buildCtrlGroup() {
   group.className = "header-ctrl-group";
   group.innerHTML = `
     <span class="ctrl-divider" aria-hidden="true"></span>
-    <button class="header-icon-btn" id="btn-environment-ctrl"
-        title="Environments" aria-label="Open environments">
+    <button class="header-icon-btn" id="btn-collection-ctrl"
+        title="Collections" aria-label="Open Collections">
       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
            fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -530,7 +530,7 @@ function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false
  * latest values.
  */
 const settingsPopup = new SettingsPopup();
-const envPopup      = new EnvironmentPopup();
+const envPopup      = new CollectionsPopup();
 const varsPopup     = new VariablesPopup();
 const layoutPicker  = new LayoutPicker({
   onSelect: (layout) => {
@@ -541,11 +541,17 @@ const layoutPicker  = new LayoutPicker({
 });
 let currentSettings = {};
 
-/** Live environment state — kept in sync with data-store. */
-let currentEnvs = {
-  environments:        [],
-  activeEnvironmentId: null,
+/** Live collection state — kept in sync with data-store. */
+let currentColls = {
+  collections:        [],
+  activeCollectionId: null,
 };
+
+/** Map currentColls to the shape CollectionsPopup expects. */
+const envPopupState = () => ({
+  collections:        currentColls.collections,
+  activeCollectionId: currentColls.activeCollectionId,
+});
 
 function initHeader() {
   document.getElementById("btn-settings").addEventListener("click", () => {
@@ -561,47 +567,47 @@ function initHeader() {
   layoutPicker.bindTrigger(document.getElementById("btn-layout"));
   layoutPicker.bindTrigger(document.getElementById("btn-layout-nav"));
 
-  // Environment buttons (panel header + bottom bar)
-  document.getElementById("btn-environment").addEventListener("click", () => {
-    envPopup.open(currentEnvs);
+  // Collection buttons (panel header + bottom bar)
+  document.getElementById("btn-collection").addEventListener("click", () => {
+    envPopup.open(envPopupState());
   });
-  document.getElementById("btn-environment-nav").addEventListener("click", () => {
-    envPopup.open(currentEnvs);
+  document.getElementById("btn-collection-nav").addEventListener("click", () => {
+    envPopup.open(envPopupState());
   });
 
-  // Right-click on the environment label or either environment icon → OS context menu
-  const _openEnvCtxMenu = (e) => {
+  // Right-click on the collection label or either collection icon → OS context menu
+  const _openCollCtxMenu = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    _showEnvContextMenu(e.clientX, e.clientY);
+    _showCollContextMenu(e.clientX, e.clientY);
   };
 
-  document.querySelector("#panel-nav .panel-title").addEventListener("contextmenu", _openEnvCtxMenu);
-  document.getElementById("btn-environment").addEventListener("contextmenu", _openEnvCtxMenu);
-  document.getElementById("btn-environment-nav").addEventListener("contextmenu", _openEnvCtxMenu);
+  document.querySelector("#panel-nav .panel-title").addEventListener("contextmenu", _openCollCtxMenu);
+  document.getElementById("btn-collection").addEventListener("contextmenu", _openCollCtxMenu);
+  document.getElementById("btn-collection-nav").addEventListener("contextmenu", _openCollCtxMenu);
 
   // Floating ctrl-group — injected into the layout-appropriate container when
   // "Remove headers" is active, replacing the fixed nav-settings-bar.
   _ctrlGroup = buildCtrlGroup();
   layoutPicker.bindTrigger(_ctrlGroup.querySelector("#btn-layout-ctrl"));
-  _ctrlGroup.querySelector("#btn-environment-ctrl").addEventListener("click", () => envPopup.open(currentEnvs));
+  _ctrlGroup.querySelector("#btn-collection-ctrl").addEventListener("click", () => envPopup.open(envPopupState()));
   _ctrlGroup.querySelector("#btn-settings-ctrl").addEventListener("click", () => settingsPopup.open(currentSettings));
-  _ctrlGroup.querySelector("#btn-environment-ctrl").addEventListener("contextmenu", _openEnvCtxMenu);
+  _ctrlGroup.querySelector("#btn-collection-ctrl").addEventListener("contextmenu", _openCollCtxMenu);
 }
 
-/** Open the native OS context menu for the active environment. */
-async function _showEnvContextMenu(x, y) {
+/** Open the native OS context menu for the active collection. */
+async function _showCollContextMenu(x, y) {
   const actions = {
-    "rename":    () => envPopup.openWithRename(currentEnvs),
+    "rename":    () => envPopup.openWithRename(envPopupState()),
     "variables": () => {
-      const activeEnv = currentEnvs.environments.find(
-        e => e.id === currentEnvs.activeEnvironmentId,
+      const activeColl = currentColls.collections.find(
+        c => c.id === currentColls.activeCollectionId,
       );
-      if (!activeEnv) return;
+      if (!activeColl) return;
       varsPopup.open({
-        envId:      activeEnv.id,
-        envName:    activeEnv.name,
-        variables:  activeEnv.variables ?? {},
+        envId:      activeColl.id,
+        envName:    activeColl.name,
+        variables:  activeColl.variables ?? {},
         bulkEditor: currentSettings.varsBulkEditor ?? true,
       });
     },
@@ -872,159 +878,159 @@ function initEventBus() {
     saveSettings(currentSettings);
   });
 
-  // ── Environment events ───────────────────────────────────────────────────
+  // ── Collection events ────────────────────────────────────────────────────
 
-  /** Switch the active environment: save current collections, load new ones. */
-  window.addEventListener("wurl:env-select", async (e) => {
+  /** Switch the active collection: save current items, load new ones. */
+  window.addEventListener("wurl:coll-select", async (e) => {
     const { id } = e.detail;
-    if (id === currentEnvs.activeEnvironmentId) return;
+    if (id === currentColls.activeCollectionId) return;
 
-    // Persist the current env's collections before switching
-    if (treeView) await saveEnvCollections(currentEnvs.activeEnvironmentId, treeView.getItems());
+    // Persist the current collection's items before switching
+    if (treeView) await saveCollectionData(currentColls.activeCollectionId, treeView.getItems());
 
-    // Update in-memory active env
-    setActiveEnvironment(id);
-    currentEnvs = { ...currentEnvs, activeEnvironmentId: id };
+    // Update in-memory active collection
+    setActiveCollection(id);
+    currentColls = { ...currentColls, activeCollectionId: id };
 
     // Persist manifest
-    await saveManifest({ environments: currentEnvs.environments, activeEnvironmentId: id });
+    await saveManifest({ collections: currentColls.collections, activeCollectionId: id });
 
-    // Clear selected request (it belongs to the previous env)
+    // Clear selected request (it belongs to the previous collection)
     _selectedNode = null;
     currentSettings = { ...currentSettings, selectedRequestId: null };
     saveSettings(currentSettings);
 
-    // Load new env's collections
-    const { collections, variables } = await loadEnvCollections(id);
+    // Load new collection's items
+    const { items, variables } = await loadCollectionData(id);
     treeView.setStorageKey(id);
-    treeView.setItems(collections);
+    treeView.setItems(items);
 
-    // Attach variables to the env entry in memory
-    currentEnvs = {
-      ...currentEnvs,
-      environments: currentEnvs.environments.map(env =>
-        env.id === id ? { ...env, variables: variables ?? {} } : env,
+    // Attach variables to the collection entry in memory
+    currentColls = {
+      ...currentColls,
+      collections: currentColls.collections.map(coll =>
+        coll.id === id ? { ...coll, variables: variables ?? {} } : coll,
       ),
     };
 
     // Update UI
-    setNavPanelTitle(_envName(currentEnvs.environments, id));
-    envPopup.update(currentEnvs);
-    // Refresh pill editor variable context for the new environment
+    setNavPanelTitle(_collName(currentColls.collections, id));
+    envPopup.update(envPopupState());
+    // Refresh pill editor variable context for the new collection
     _refreshEditorVariableContext();
   });
 
-  /** Add a new (empty) environment and switch to it. */
-  window.addEventListener("wurl:env-add", async (e) => {
+  /** Add a new (empty) collection and switch to it. */
+  window.addEventListener("wurl:coll-add", async (e) => {
     const { name } = e.detail;
-    const newEnv   = { id: crypto.randomUUID(), name };
-    const environments = [...currentEnvs.environments, newEnv];
+    const newColl  = { id: crypto.randomUUID(), name };
+    const collections = [...currentColls.collections, newColl];
 
-    // Save empty collections for the new env
-    await saveEnvCollections(newEnv.id, []);
+    // Save empty items for the new collection
+    await saveCollectionData(newColl.id, []);
 
-    // Switch to the new env
-    if (treeView) await saveEnvCollections(currentEnvs.activeEnvironmentId, treeView.getItems());
-    setActiveEnvironment(newEnv.id);
-    currentEnvs = { environments, activeEnvironmentId: newEnv.id };
+    // Switch to the new collection
+    if (treeView) await saveCollectionData(currentColls.activeCollectionId, treeView.getItems());
+    setActiveCollection(newColl.id);
+    currentColls = { collections, activeCollectionId: newColl.id };
 
-    await saveManifest({ environments, activeEnvironmentId: newEnv.id });
+    await saveManifest({ collections, activeCollectionId: newColl.id });
 
     currentSettings = { ...currentSettings, selectedRequestId: null };
     saveSettings(currentSettings);
 
-    treeView.setStorageKey(newEnv.id);
+    treeView.setStorageKey(newColl.id);
     treeView.setItems([]);
-    setNavPanelTitle(newEnv.name);
-    envPopup.update(currentEnvs);
+    setNavPanelTitle(newColl.name);
+    envPopup.update(envPopupState());
   });
 
-  /** Clone an environment: deep-copy its collections with new UUIDs, then switch. */
-  window.addEventListener("wurl:env-clone", async (e) => {
+  /** Clone a collection: deep-copy its items with new UUIDs, then switch. */
+  window.addEventListener("wurl:coll-clone", async (e) => {
     const { sourceId, name } = e.detail;
-    const newEnv = { id: crypto.randomUUID(), name };
+    const newColl = { id: crypto.randomUUID(), name };
 
-    // Load source collections (if source is currently active, use the live tree)
-    let sourceCollections;
+    // Load source items (if source is currently active, use the live tree)
+    let sourceItems;
     let sourceVariables;
-    if (sourceId === currentEnvs.activeEnvironmentId) {
-      sourceCollections = treeView ? treeView.getItems() : [];
-      sourceVariables   = currentEnvs.environments.find(e => e.id === sourceId)?.variables ?? {};
+    if (sourceId === currentColls.activeCollectionId) {
+      sourceItems     = treeView ? treeView.getItems() : [];
+      sourceVariables = currentColls.collections.find(c => c.id === sourceId)?.variables ?? {};
     } else {
-      const loaded      = await loadEnvCollections(sourceId);
-      sourceCollections = loaded.collections;
-      sourceVariables   = loaded.variables ?? {};
+      const loaded    = await loadCollectionData(sourceId);
+      sourceItems     = loaded.items;
+      sourceVariables = loaded.variables ?? {};
     }
 
-    // Deep-clone collections with new UUIDs; copy variables directly
-    const cloned         = sourceCollections.map(_deepCloneWithNewIds);
+    // Deep-clone items with new UUIDs; copy variables directly
+    const cloned          = sourceItems.map(_deepCloneWithNewIds);
     const clonedVariables = { ...sourceVariables };
 
-    // Save cloned collections + variables and switch to the new env
-    await saveEnvCollections(newEnv.id, cloned, clonedVariables);
-    if (treeView) await saveEnvCollections(currentEnvs.activeEnvironmentId, treeView.getItems());
+    // Save cloned items + variables and switch to the new collection
+    await saveCollectionData(newColl.id, cloned, clonedVariables);
+    if (treeView) await saveCollectionData(currentColls.activeCollectionId, treeView.getItems());
 
-    const environments = [...currentEnvs.environments, { ...newEnv, variables: clonedVariables }];
-    setActiveEnvironment(newEnv.id);
-    currentEnvs = { environments, activeEnvironmentId: newEnv.id };
+    const collections = [...currentColls.collections, { ...newColl, variables: clonedVariables }];
+    setActiveCollection(newColl.id);
+    currentColls = { collections, activeCollectionId: newColl.id };
 
-    await saveManifest({ environments, activeEnvironmentId: newEnv.id });
+    await saveManifest({ collections, activeCollectionId: newColl.id });
 
     currentSettings = { ...currentSettings, selectedRequestId: null };
     saveSettings(currentSettings);
 
-    treeView.setStorageKey(newEnv.id);
+    treeView.setStorageKey(newColl.id);
     treeView.setItems(cloned);
-    setNavPanelTitle(newEnv.name);
-    envPopup.update(currentEnvs);
+    setNavPanelTitle(newColl.name);
+    envPopup.update(envPopupState());
   });
 
-  /** Rename an environment — updates its display name everywhere without touching its collections. */
-  window.addEventListener("wurl:env-rename", async (e) => {
+  /** Rename a collection — updates its display name everywhere without touching its items. */
+  window.addEventListener("wurl:coll-rename", async (e) => {
     const { id, name } = e.detail;
-    const environments = currentEnvs.environments.map(env =>
-      env.id === id ? { ...env, name } : env,
+    const collections = currentColls.collections.map(coll =>
+      coll.id === id ? { ...coll, name } : coll,
     );
-    currentEnvs = { ...currentEnvs, environments };
+    currentColls = { ...currentColls, collections };
 
     // Persist the manifest with the new name
-    await saveManifest({ environments, activeEnvironmentId: currentEnvs.activeEnvironmentId });
+    await saveManifest({ collections, activeCollectionId: currentColls.activeCollectionId });
 
-    // If the renamed env is active, update the nav panel title
-    if (id === currentEnvs.activeEnvironmentId) setNavPanelTitle(name);
+    // If the renamed collection is active, update the nav panel title
+    if (id === currentColls.activeCollectionId) setNavPanelTitle(name);
 
-    envPopup.update(currentEnvs);
+    envPopup.update(envPopupState());
   });
 
-  /** Delete an environment (must always leave at least 1). */
-  window.addEventListener("wurl:env-delete", async (e) => {
+  /** Delete a collection (must always leave at least 1). */
+  window.addEventListener("wurl:coll-delete", async (e) => {
     const { id } = e.detail;
-    if (currentEnvs.environments.length <= 1) return; // guard
+    if (currentColls.collections.length <= 1) return; // guard
 
-    let environments = currentEnvs.environments.filter(env => env.id !== id);
-    let activeId = currentEnvs.activeEnvironmentId;
+    let collections = currentColls.collections.filter(coll => coll.id !== id);
+    let activeId = currentColls.activeCollectionId;
 
-    // If we're deleting the active env, switch to the first remaining one
+    // If we're deleting the active collection, switch to the first remaining one
     if (id === activeId) {
-      activeId = environments[0].id;
-      const { collections, variables } = await loadEnvCollections(activeId);
-      setActiveEnvironment(activeId);
+      activeId = collections[0].id;
+      const { items, variables } = await loadCollectionData(activeId);
+      setActiveCollection(activeId);
       currentSettings = { ...currentSettings, selectedRequestId: null };
       saveSettings(currentSettings);
       treeView.setStorageKey(activeId);
-      treeView.setItems(collections);
-      setNavPanelTitle(_envName(environments, activeId));
+      treeView.setItems(items);
+      setNavPanelTitle(_collName(collections, activeId));
       // Attach variables in memory
-      environments = environments.map(env =>
-        env.id === activeId ? { ...env, variables: variables ?? {} } : env,
+      collections = collections.map(coll =>
+        coll.id === activeId ? { ...coll, variables: variables ?? {} } : coll,
       );
     } else {
-      setActiveEnvironment(activeId);
+      setActiveCollection(activeId);
     }
 
-    currentEnvs = { environments, activeEnvironmentId: activeId };
-    await saveManifest({ environments, activeEnvironmentId: activeId });
-    envPopup.update(currentEnvs);
+    currentColls = { collections, activeCollectionId: activeId };
+    await saveManifest({ collections, activeCollectionId: activeId });
+    envPopup.update(envPopupState());
   });
 
   // ── Variable events ──────────────────────────────────────────────────────
@@ -1043,22 +1049,22 @@ function initEventBus() {
   /**
    * Persist variables and keep in-memory state in sync.
    * The `envId` field doubles as a folder-node ID when it doesn't match any
-   * environment — in that case the variables are stored on the tree node.
+   * collection — in that case the variables are stored on the tree node.
    */
   window.addEventListener("wurl:vars-save", async (e) => {
     const { envId, variables } = e.detail;
 
-    const isEnv = currentEnvs.environments.some(env => env.id === envId);
+    const isColl = currentColls.collections.some(coll => coll.id === envId);
 
-    if (isEnv) {
-      // Update in-memory environment state
-      currentEnvs = {
-        ...currentEnvs,
-        environments: currentEnvs.environments.map(env =>
-          env.id === envId ? { ...env, variables } : env,
+    if (isColl) {
+      // Update in-memory collection state
+      currentColls = {
+        ...currentColls,
+        collections: currentColls.collections.map(coll =>
+          coll.id === envId ? { ...coll, variables } : coll,
         ),
       };
-      saveEnvVariables(envId, variables);
+      saveCollectionVariables(envId, variables);
     } else {
       // It's a folder node — patch the tree and persist collections
       if (treeView) {
@@ -1092,21 +1098,21 @@ function initEventBus() {
     const folderChain = (treeView && id)
       ? buildFolderChain(treeView.getItems(), id)
       : [];
-    const activeEnv = currentEnvs.environments.find(
-      env => env.id === currentEnvs.activeEnvironmentId,
+    const activeColl = currentColls.collections.find(
+      coll => coll.id === currentColls.activeCollectionId,
     );
-    const envVariables = activeEnv?.variables ?? {};
+    const envVariables = activeColl?.variables ?? {};
     const node = _selectedNode ?? (id && treeView ? _findNodeById(treeView.getItems(), id) : null);
     requestEditor.setVariableContext({
       envVariables,
       folderChain,
-      envName:         activeEnv?.name     ?? "",
+      envName:         activeColl?.name    ?? "",
       requestName:     node?.name          ?? "",
       responseCache:   _responseCache,
       responseHeaders: _responseHeaders,
       responseStatus:  _responseStatus,
     });
-    // Also feed the active environment variables to the tree-view so that
+    // Also feed the active collection variables to the tree-view so that
     // "Generate cURL" resolves variables the same way the Send button does.
     if (treeView) treeView.setEnvVariables(envVariables);
   }
@@ -1339,21 +1345,21 @@ function initEventBus() {
  * In Electron     → reads via ipcMain from the platform userData directory
  */
 async function initCollections() {
-  const { collections, settings, environments, activeEnvironmentId, variables } = await loadAll();
+  const { items, settings, collections, activeCollectionId, variables } = await loadAll();
 
-  treeView.setStorageKey(activeEnvironmentId);
-  treeView.setItems(collections);
+  treeView.setStorageKey(activeCollectionId);
+  treeView.setItems(items);
   currentSettings = settings;
   _maxHistory = settings.historyCount ?? 5;
   settingsPopup.load(settings);
   applySettings(settings);
 
-  // Seed environment state — attach loaded variables to the active env object
-  const envsWithVars = environments.map(env =>
-    env.id === activeEnvironmentId ? { ...env, variables: variables ?? {} } : env,
+  // Seed collection state — attach loaded variables to the active collection object
+  const collsWithVars = collections.map(coll =>
+    coll.id === activeCollectionId ? { ...coll, variables: variables ?? {} } : coll,
   );
-  currentEnvs = { environments: envsWithVars, activeEnvironmentId };
-  setNavPanelTitle(_envName(environments, activeEnvironmentId));
+  currentColls = { collections: collsWithVars, activeCollectionId };
+  setNavPanelTitle(_collName(collections, activeCollectionId));
 
   // Restore the previously selected request (if any)
   if (settings.selectedRequestId) {
@@ -1361,9 +1367,9 @@ async function initCollections() {
   }
 }
 
-/** Return the name of an environment by id, falling back to a default. */
-function _envName(environments, id) {
-  return environments.find(e => e.id === id)?.name ?? "Collections";
+/** Return the name of a collection by id, falling back to a default. */
+function _collName(collections, id) {
+  return collections.find(c => c.id === id)?.name ?? "Collections";
 }
 
 /** Update the nav panel's title text. */
@@ -1631,9 +1637,9 @@ async function handleExport(collection) {
 
   let variables = {};
   try {
-    const env = await loadEnvCollections(currentEnvs.activeEnvironmentId);
-    variables = env.variables ?? {};
-  } catch { /* non-fatal — export without env variables */ }
+    const data = await loadCollectionData(currentColls.activeCollectionId);
+    variables = data.variables ?? {};
+  } catch { /* non-fatal — export without collection variables */ }
 
   const content  = exportToPostman(collection, variables);
   const safeName = (collection.name ?? "collection").replace(/[^a-z0-9_-]/gi, "_");
@@ -1675,7 +1681,7 @@ async function handleImport() {
   }
 
   const { collection, variables } = parsed;
-  const activeId  = currentEnvs.activeEnvironmentId;
+  const activeId  = currentColls.activeCollectionId;
   const newItems  = [...(treeView?.getItems() ?? []), collection];
 
   if (treeView) treeView.setItems(newItems);
@@ -1683,12 +1689,12 @@ async function handleImport() {
   try {
     if (variables && Object.keys(variables).length > 0) {
       // Merge import variables with existing ones — existing values take precedence.
-      const { variables: current } = await loadEnvCollections(activeId);
+      const { variables: current } = await loadCollectionData(activeId);
       const merged = { ...variables, ...current };
-      await saveEnvCollections(activeId, newItems, merged);
+      await saveCollectionData(activeId, newItems, merged);
       if (treeView) treeView.setEnvVariables(merged);
     } else {
-      await saveEnvCollections(activeId, newItems);
+      await saveCollectionData(activeId, newItems);
     }
   } catch (err) {
     PopupManager.notify({ title: "Import Warning", message: `Collection imported but could not be saved: ${err.message}` });

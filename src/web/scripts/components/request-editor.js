@@ -4218,7 +4218,7 @@ export class RequestEditor {
 
   /**
    * Update the variable resolution context used by all active pill editors.
-   * Call this whenever the selected request, environment, or folder variables
+   * Call this whenever the selected request, collection, or folder variables
    * change so that pills are re-validated immediately.
    *
    * @param {{ envVariables?: object, folderChain?: object[] } | null} context

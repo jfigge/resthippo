@@ -43,7 +43,7 @@ export class TreeView {
   /** @type {string|null} — id of the node currently being dragged */
   #dragId = null;
 
-  /** @type {object} — active environment variables used for variable resolution in cURL generation */
+  /** @type {object} — active collection variables used for variable resolution in cURL generation */
   #envVariables = {};
 
   /** @type {boolean} — true while the drag cursor is inside the treeview */
@@ -140,8 +140,8 @@ export class TreeView {
   }
 
   /**
-   * Update the active environment variables used when generating cURL commands.
-   * Call this whenever the active environment or its variables change.
+   * Update the active collection variables used when generating cURL commands.
+   * Call this whenever the active collection or its variables change.
    *
    * @param {object} vars  — plain { name: value } map of resolved env variables
    */
@@ -151,7 +151,7 @@ export class TreeView {
 
   /**
    * Set the localStorage namespace key for persisting folder collapsed state.
-   * Call this before setItems() whenever the active environment changes.
+   * Call this before setItems() whenever the active collection changes.
    * @param {string|null} key
    */
   setStorageKey(key) {

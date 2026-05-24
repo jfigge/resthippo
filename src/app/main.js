@@ -37,7 +37,7 @@ let _htmlPreviewAdded  = false;  // whether the view is currently a child of con
 //
 // New filesystem layout (under the platform user-data directory):
 //   collections/
-//     index.json                         ← manifest (environments, settings)
+//     index.json                         ← manifest (collections, settings)
 //     <collId>/
 //       metadata.json                    ← name + variables
 //       tree.json                        ← lightweight nav tree
@@ -80,12 +80,12 @@ function safeCall(channel, fn, fallback = null) {
 // Register handlers before app.whenReady() so they are ready the moment the
 // renderer process makes its first invoke() call.
 (function initStoreIPC() {
-  // ── Manifest (global environments list + settings) ──────────────────────────
+  // ── Manifest (global collections list + settings) ───────────────────────────
 
   ipcMain.handle("store:manifest:get", () =>
     safeCall("store:manifest:get",
       () => getStores().collectionStore().getManifest(),
-      { version: 2, environments: [], activeEnvironmentId: null, settings: {} },
+      { version: 2, collections: [], activeCollectionId: null, settings: {} },
     ),
   );
 
@@ -95,19 +95,19 @@ function safeCall(channel, fn, fallback = null) {
     ),
   );
 
-  // ── Environment blob (assembles / decomposes per-file layout) ───────────────
+  // ── Collection blob (assembles / decomposes per-file layout) ────────────────
   // Used by data-store.js to keep the same high-level collections API.
 
   ipcMain.handle("store:env:get", (_event, id) =>
     safeCall("store:env:get",
-      () => getStores().environmentStore().getEnvironment(id),
+      () => getStores().collectionsStore().getCollections(id),
       { version: 1, collections: [] },
     ),
   );
 
   ipcMain.handle("store:env:save", (_event, id, data) =>
     safeCall("store:env:save",
-      () => { getStores().environmentStore().saveEnvironment(id, data); },
+      () => { getStores().collectionsStore().saveCollections(id, data); },
     ),
   );
 

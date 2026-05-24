@@ -6,7 +6,7 @@
  * Renders a method-picker-style trigger button that opens a fixed-position
  * dropdown showing the four available panel arrangements.  Two trigger buttons
  * can be bound to the same picker instance (header bar + remove-headers bar),
- * matching the pattern used for the environment popup.
+ * matching the pattern used for the collections popup.
  *
  * Usage:
  *   import { LayoutPicker } from "./components/layout-picker.js";

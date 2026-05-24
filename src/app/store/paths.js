@@ -4,9 +4,9 @@
  * Layout (rooted at `dataDir`):
  *
  *   collections/
- *     index.json                         ← global manifest (environments, settings)
+ *     index.json                         ← global manifest (collections, settings)
  *     <collectionId>/
- *       metadata.json                    ← collection id + env-level variables
+ *       metadata.json                    ← collection id + collection-level variables
  *       tree.json                        ← lightweight nav tree (no request bodies)
  *       requests/
  *         <requestId>.json               ← one file per request
@@ -17,8 +17,7 @@
  *         <requestId>/
  *           <historyId>.json             ← full response payload (lazy-loaded)
  *
- * Note: "collectionId" in this layout corresponds to the "environmentId" in the
- * legacy API surface — the two concepts are the same entity.
+ * Note: "collectionId" was previously called "environmentId" in the legacy API surface.
  */
 "use strict";
 
@@ -38,7 +37,7 @@ class Paths {
     return path.join(this.dataDir, "collections");
   }
 
-  /** Global manifest: environments list + settings. */
+  /** Global manifest: collections list + settings. */
   manifestPath() {
     return path.join(this.collectionsDir(), "index.json");
   }

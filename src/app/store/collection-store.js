@@ -1,9 +1,9 @@
 /**
  * collection-store.js — Manages the global collections manifest.
  *
- * The manifest (collections/index.json) stores the environments list,
- * the active environment ID, and global application settings.
- * It does not contain request data or environment-level variables.
+ * The manifest (collections/index.json) stores the collections list,
+ * the active collection ID, and global application settings.
+ * It does not contain request data or collection-level variables.
  */
 "use strict";
 
@@ -12,10 +12,10 @@ const { encryptSettings, decryptSettings } = require("./crypto");
 
 /** Default manifest returned on first run (no file yet). */
 const DEFAULT_MANIFEST = Object.freeze({
-  version:             2,
-  environments:        [],
-  activeEnvironmentId: null,
-  settings:            {},
+  version:           2,
+  collections:       [],
+  activeCollectionId: null,
+  settings:          {},
 });
 
 class CollectionStore {

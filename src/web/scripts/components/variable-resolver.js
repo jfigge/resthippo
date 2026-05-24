@@ -65,11 +65,11 @@ export function parseFunctionCall(content) {
 
 /**
  * Resolve a variable name against the provided context.
- * Folder-chain variables take priority over environment variables.
+ * Folder-chain variables take priority over collection variables.
  *
  * @param {string} name
  * @param {{ envVariables?: object, folderChain?: object[] } | null} context
- * @returns {{ found: boolean, value: any, source: 'folder' | 'environment' | null }}
+ * @returns {{ found: boolean, value: any, source: 'folder' | 'collection' | null }}
  */
 export function resolveVariable(name, context) {
   if (!name || !context) return { found: false, value: undefined, source: null };
@@ -84,10 +84,10 @@ export function resolveVariable(name, context) {
     }
   }
 
-  // 2. Fall back to environment variables
+  // 2. Fall back to collection variables
   const envVars = context.envVariables ?? {};
   if (Object.prototype.hasOwnProperty.call(envVars, name)) {
-    return { found: true, value: envVars[name], source: "environment" };
+    return { found: true, value: envVars[name], source: "collection" };
   }
 
   return { found: false, value: undefined, source: null };

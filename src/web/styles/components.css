@@ -2244,14 +2244,14 @@ mark.tree-highlight {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ENVIRONMENT POPUP
+   COLLECTION POPUP
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.env-popup {
+.coll-popup {
   width: 380px;
 }
 
-.env-popup-body {
+.coll-popup-body {
   padding: var(--space-2) 0;
   min-height: 80px;
   max-height: 400px;
@@ -2259,7 +2259,7 @@ mark.tree-highlight {
 }
 
 /* ── Name input row (hidden by default, shown when adding/cloning) ─────────── */
-.env-name-input-row {
+.coll-name-input-row {
   display: none;
   align-items: center;
   gap: var(--space-2);
@@ -2269,11 +2269,11 @@ mark.tree-highlight {
   margin-bottom: var(--space-1);
 }
 
-.env-name-input-row--visible {
+.coll-name-input-row--visible {
   display: flex;
 }
 
-.env-name-input {
+.coll-name-input {
   flex: 1;
   height: 30px;
   padding: 0 var(--space-2);
@@ -2286,29 +2286,29 @@ mark.tree-highlight {
   box-sizing: border-box;
 }
 
-.env-name-input:focus {
+.coll-name-input:focus {
   outline: none;
   border-color: var(--color-accent);
   background: var(--color-base);
 }
 
-.env-name-input::placeholder {
+.coll-name-input::placeholder {
   color: var(--color-overlay-0);
   font-style: italic;
 }
 
-.env-name-input--error {
+.coll-name-input--error {
   border-color: var(--color-error) !important;
 }
 
-/* ── Environment list ──────────────────────────────────────────────────────── */
-.env-list {
+/* ── Collection list ──────────────────────────────────────────────────────── */
+.coll-list {
   list-style: none;
   padding: var(--space-1) 0;
   margin: 0;
 }
 
-.env-list-item {
+.coll-list-item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -2318,15 +2318,15 @@ mark.tree-highlight {
   transition: background-color var(--transition-fast);
 }
 
-.env-list-item:hover {
+.coll-list-item:hover {
   background-color: var(--color-surface-1);
 }
 
-.env-list-item--active {
+.coll-list-item--active {
   background-color: var(--color-surface-0);
 }
 
-.env-list-item__check {
+.coll-list-item__check {
   width: 18px;
   flex-shrink: 0;
   display: flex;
@@ -2335,7 +2335,7 @@ mark.tree-highlight {
   color: var(--color-accent);
 }
 
-.env-list-item__name {
+.coll-list-item__name {
   flex: 1;
   text-align: left;
   font-size: var(--font-size-sm);
@@ -2350,16 +2350,16 @@ mark.tree-highlight {
   min-width: 0;
 }
 
-.env-list-item--active .env-list-item__name {
+.coll-list-item--active .coll-list-item__name {
   color: var(--color-accent);
   font-weight: 600;
 }
 
-.env-list-item__name:hover {
+.coll-list-item__name:hover {
   text-decoration: underline;
 }
 
-.env-list-item__actions {
+.coll-list-item__actions {
   display: flex;
   gap: var(--space-1);
   flex-shrink: 0;
@@ -2368,12 +2368,12 @@ mark.tree-highlight {
   transition: opacity var(--transition-fast);
 }
 
-.env-list-item:hover .env-list-item__actions,
-.env-list-item--active .env-list-item__actions {
+.coll-list-item:hover .coll-list-item__actions,
+.coll-list-item--active .coll-list-item__actions {
   opacity: 1;
 }
 
-.env-action-btn {
+.coll-action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2390,17 +2390,17 @@ mark.tree-highlight {
   flex-shrink: 0;
 }
 
-.env-action-btn:hover {
+.coll-action-btn:hover {
   background-color: var(--color-surface-2);
   color: var(--color-text);
 }
 
-.env-action-btn--danger:hover {
+.coll-action-btn--danger:hover {
   background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
   color: var(--color-error);
 }
 
-.env-action-btn:disabled {
+.coll-action-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
   pointer-events: none;

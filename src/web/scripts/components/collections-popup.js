@@ -1,23 +1,23 @@
 /**
- * environment-popup.js — Environment selector popup
+ * collections-popup.js — collections selector popup
  *
  * Allows the user to:
- *   • View all environments (the active one is marked with a checkmark)
- *   • Select an environment (switches the active tree-view data)
- *   • Add a new environment (empty collections)
- *   • Clone an environment (deep-copies all collections under a new name)
- *   • Delete an environment (disabled when only 1 remains)
+ *   • View all collections (the active one is marked with a checkmark)
+ *   • Select a collection (switches the active tree-view data)
+ *   • Add a new collection (empty collections)
+ *   • Clone a collection (deep-copies all collections under a new name)
+ *   • Delete a collection (disabled when only 1 remains)
  *
  * The popup stays open across operations so the user can make multiple
  * changes.  Each action dispatches a custom event on window; app.js
  * handles the state mutation and calls popup.update() to refresh the list.
  *
  * Events dispatched:
- *   wurl:env-select  { id }                    — switch active environment
- *   wurl:env-add     { name }                  — create new empty environment
- *   wurl:env-clone   { sourceId, name }         — clone an environment
- *   wurl:env-rename  { id, name }              — rename an environment
- *   wurl:env-delete  { id }                    — delete an environment
+ *   wurl:coll-select  { id }                    — switch active collection
+ *   wurl:coll-add     { name }                  — create new empty collection
+ *   wurl:coll-clone   { sourceId, name }        — clone a collection
+ *   wurl:coll-rename  { id, name }              — rename a collection
+ *   wurl:coll-delete  { id }                    — delete a collection
  */
 
 "use strict";
@@ -53,14 +53,14 @@ const ICON_DELETE = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
   <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
 </svg>`;
 
-// ── EnvironmentPopup class ────────────────────────────────────────────────────
+// ── CollectionsPopup class ────────────────────────────────────────────────────
 
-export class EnvironmentPopup {
+export class CollectionsPopup {
   /** @type {HTMLElement} */
   #el;
 
   /** @type {{id: string, name: string}[]} */
-  #environments = [];
+  #collections = [];
 
   /** @type {string|null} */
   #activeId = null;
@@ -86,24 +86,24 @@ export class EnvironmentPopup {
   // ── Public API ─────────────────────────────────────────────────────────────
 
   /**
-   * Open the popup and immediately begin renaming the specified environment.
+   * Open the popup and immediately begin renaming the specified collection.
    * Used by external callers (e.g. the nav-panel context menu).
-   * @param {{ environments: object[], activeEnvironmentId: string }} state
-   * @param {string} envId  — the environment to rename (defaults to active)
+   * @param {{ collections: object[], activeCollectionId: string }} state
+   * @param {string} collectionId  — the collection to rename (defaults to active)
    */
-  openWithRename({ environments, activeEnvironmentId }, envId = activeEnvironmentId) {
-    this.open({ environments, activeEnvironmentId });
-    const env = this.#environments.find(e => e.id === envId);
-    if (env) this.#startRename(env);
+  openWithRename({ collections, activeCollectionId }, collectionId = activeCollectionId) {
+    this.open({ collections, activeCollectionId });
+    const coll = this.#collections.find(e => e.id === collectionId);
+    if (coll) this.#startRename(coll);
   }
 
   /**
    * Open the popup, seeded with the current app state.
-   * @param {{ environments: object[], activeEnvironmentId: string }} state
+   * @param {{ collections: object[], activeCollectionId: string }} state
    */
-  open({ environments, activeEnvironmentId }) {
-    this.#environments = environments.map(e => ({ ...e }));
-    this.#activeId     = activeEnvironmentId;
+  open({ collections, activeCollectionId }) {
+    this.#collections = collections.map(e => ({ ...e }));
+    this.#activeId     = activeCollectionId;
     this.#pendingAction = null;
     this.#renderList();
     this.#setNameInputVisible(false);
@@ -112,12 +112,12 @@ export class EnvironmentPopup {
 
   /**
    * Refresh the list without closing the popup.
-   * Called by app.js after any environment mutation.
-   * @param {{ environments: object[], activeEnvironmentId: string }} state
+   * Called by app.js after any collection mutation.
+   * @param {{ collections: object[], activeCollectionId: string }} state
    */
-  update({ environments, activeEnvironmentId }) {
-    this.#environments  = environments.map(e => ({ ...e }));
-    this.#activeId      = activeEnvironmentId;
+  update({ collections, activeCollectionId }) {
+    this.#collections  = collections.map(e => ({ ...e }));
+    this.#activeId      = activeCollectionId;
     this.#pendingAction = null;
     this.#renderList();
     this.#setNameInputVisible(false);
@@ -132,32 +132,32 @@ export class EnvironmentPopup {
 
   #build() {
     const el = document.createElement("div");
-    el.className = "popup env-popup";
+    el.className = "popup coll-popup";
     el.setAttribute("role", "dialog");
     el.setAttribute("aria-modal", "true");
-    el.setAttribute("aria-label", "Environments");
+    el.setAttribute("aria-label", "Collections");
 
     el.innerHTML = `
       <div class="popup-header">
-        <span class="popup-title">Environments</span>
-        <button class="popup-close" aria-label="Close environments" title="Close">✕</button>
+        <span class="popup-title">Collections</span>
+        <button class="popup-close" aria-label="Close collections" title="Close">✕</button>
       </div>
-      <div class="popup-body env-popup-body">
-        <div class="env-name-input-row">
+      <div class="popup-body coll-popup-body">
+        <div class="coll-name-input-row">
           <input
-            class="env-name-input"
+            class="coll-name-input"
             type="text"
-            placeholder="Environment name…"
+            placeholder="Collection name…"
             autocomplete="off"
             spellcheck="false"
           />
-          <button class="popup-btn popup-btn--primary env-name-ok" disabled>Add</button>
-          <button class="popup-btn popup-btn--secondary env-name-cancel">Cancel</button>
+          <button class="popup-btn popup-btn--primary coll-name-ok" disabled>Add</button>
+          <button class="popup-btn popup-btn--secondary coll-name-cancel">Cancel</button>
         </div>
-        <ul class="env-list" role="listbox" aria-label="Environments"></ul>
+        <ul class="coll-list" role="listbox" aria-label="Collections"></ul>
       </div>
       <div class="popup-footer">
-        <button class="popup-btn popup-btn--secondary env-new-btn">+ New Environment</button>
+        <button class="popup-btn popup-btn--secondary coll-new-btn">+ New Collection</button>
         <button class="popup-btn popup-btn--primary js-close">Close</button>
       </div>
     `;
@@ -166,13 +166,13 @@ export class EnvironmentPopup {
     el.querySelector(".popup-close").addEventListener("click", () => PopupManager.close());
     // Footer close
     el.querySelector(".js-close").addEventListener("click", () => PopupManager.close());
-    // New environment
-    el.querySelector(".env-new-btn").addEventListener("click", () => this.#startAdd());
+    // New collection
+    el.querySelector(".coll-new-btn").addEventListener("click", () => this.#startAdd());
 
     // Name-input controls
-    const nameInput  = el.querySelector(".env-name-input");
-    const nameOkBtn  = el.querySelector(".env-name-ok");
-    const cancelBtn  = el.querySelector(".env-name-cancel");
+    const nameInput  = el.querySelector(".coll-name-input");
+    const nameOkBtn  = el.querySelector(".coll-name-ok");
+    const cancelBtn  = el.querySelector(".coll-name-cancel");
 
     nameInput.addEventListener("input", () => {
       nameOkBtn.disabled = !nameInput.value.trim();
@@ -190,55 +190,55 @@ export class EnvironmentPopup {
   // ── List rendering ─────────────────────────────────────────────────────────
 
   #renderList() {
-    const ul    = this.#el.querySelector(".env-list");
+    const ul    = this.#el.querySelector(".coll-list");
     ul.innerHTML = "";
-    const count = this.#environments.length;
+    const count = this.#collections.length;
 
-    this.#environments.forEach(env => {
-      const isActive = env.id === this.#activeId;
+    this.#collections.forEach(collection => {
+      const isActive = collection.id === this.#activeId;
 
       const li = document.createElement("li");
-      li.className = "env-list-item" + (isActive ? " env-list-item--active" : "");
+      li.className = "coll-list-item" + (isActive ? " coll-list-item--active" : "");
       li.setAttribute("role", "option");
       li.setAttribute("aria-selected", String(isActive));
 
       // Checkmark column
       const check = document.createElement("span");
-      check.className = "env-list-item__check";
+      check.className = "coll-list-item__check";
       check.innerHTML = isActive ? ICON_CHECK : "";
 
-      // Name button (clicking selects the environment)
+      // Name button (clicking selects the collection)
       const nameBtn = document.createElement("button");
-      nameBtn.className = "env-list-item__name";
-      nameBtn.textContent = env.name;
-      nameBtn.setAttribute("aria-label", `Select ${env.name}`);
-      nameBtn.addEventListener("click", () => this.#selectEnv(env.id));
+      nameBtn.className = "coll-list-item__name";
+      nameBtn.textContent = collection.name;
+      nameBtn.setAttribute("aria-label", `Select ${collection.name}`);
+      nameBtn.addEventListener("click", () => this.#selectColl(collection.id));
 
       // Action buttons
       const actions = document.createElement("div");
-      actions.className = "env-list-item__actions";
+      actions.className = "coll-list-item__actions";
 
       const cloneBtn = document.createElement("button");
-      cloneBtn.className  = "env-action-btn";
-      cloneBtn.title      = "Clone environment";
+      cloneBtn.className  = "coll-action-btn";
+      cloneBtn.title      = "Clone collection";
       cloneBtn.innerHTML  = ICON_CLONE;
-      cloneBtn.setAttribute("aria-label", `Clone ${env.name}`);
-      cloneBtn.addEventListener("click", () => this.#startClone(env));
+      cloneBtn.setAttribute("aria-label", `Clone ${collection.name}`);
+      cloneBtn.addEventListener("click", () => this.#startClone(collection));
 
       const renameBtn = document.createElement("button");
-      renameBtn.className = "env-action-btn";
-      renameBtn.title     = "Rename environment";
+      renameBtn.className = "coll-action-btn";
+      renameBtn.title     = "Rename collection";
       renameBtn.innerHTML = ICON_RENAME;
-      renameBtn.setAttribute("aria-label", `Rename ${env.name}`);
-      renameBtn.addEventListener("click", () => this.#startRename(env));
+      renameBtn.setAttribute("aria-label", `Rename ${collection.name}`);
+      renameBtn.addEventListener("click", () => this.#startRename(collection));
 
       const deleteBtn = document.createElement("button");
-      deleteBtn.className = "env-action-btn env-action-btn--danger";
-      deleteBtn.title     = count <= 1 ? "Cannot delete the only environment" : "Delete environment";
+      deleteBtn.className = "coll-action-btn coll-action-btn--danger";
+      deleteBtn.title     = count <= 1 ? "Cannot delete the only collection" : "Delete collection";
       deleteBtn.disabled  = count <= 1;
       deleteBtn.innerHTML = ICON_DELETE;
-      deleteBtn.setAttribute("aria-label", `Delete ${env.name}`);
-      deleteBtn.addEventListener("click", () => this.#confirmDelete(env));
+      deleteBtn.setAttribute("aria-label", `Delete ${collection.name}`);
+      deleteBtn.addEventListener("click", () => this.#confirmDelete(collection));
 
       actions.appendChild(cloneBtn);
       actions.appendChild(renameBtn);
@@ -253,25 +253,25 @@ export class EnvironmentPopup {
 
   // ── Name input form ────────────────────────────────────────────────────────
 
-  #setNameInputVisible(visible, { placeholder = "Environment name…", defaultValue = "", okLabel = "Add" } = {}) {
-    const row    = this.#el.querySelector(".env-name-input-row");
-    const input  = this.#el.querySelector(".env-name-input");
-    const okBtn  = this.#el.querySelector(".env-name-ok");
-    const newBtn = this.#el.querySelector(".env-new-btn");
+  #setNameInputVisible(visible, { placeholder = "Collection name…", defaultValue = "", okLabel = "Add" } = {}) {
+    const row    = this.#el.querySelector(".coll-name-input-row");
+    const input  = this.#el.querySelector(".coll-name-input");
+    const okBtn  = this.#el.querySelector(".coll-name-ok");
+    const newBtn = this.#el.querySelector(".coll-new-btn");
 
     if (visible) {
       input.placeholder = placeholder;
       input.value       = defaultValue;
       okBtn.textContent = okLabel;
       okBtn.disabled    = !defaultValue.trim();
-      input.classList.remove("env-name-input--error");
-      row.classList.add("env-name-input-row--visible");
+      input.classList.remove("coll-name-input--error");
+      row.classList.add("coll-name-input-row--visible");
       newBtn.disabled = true;
       requestAnimationFrame(() => { input.focus(); input.select(); });
     } else {
       clearTimeout(this.#nameErrorTimer);
       this.#nameErrorTimer = null;
-      row.classList.remove("env-name-input-row--visible");
+      row.classList.remove("coll-name-input-row--visible");
       input.value       = "";
       okBtn.textContent = "Add";
       newBtn.disabled   = false;
@@ -281,28 +281,28 @@ export class EnvironmentPopup {
 
   #startAdd() {
     this.#pendingAction = "add";
-    this.#setNameInputVisible(true, { placeholder: "New environment name…", defaultValue: "" });
+    this.#setNameInputVisible(true, { placeholder: "New Collection name…", defaultValue: "" });
   }
 
-  #startClone(env) {
-    this.#pendingAction = { type: "clone", sourceId: env.id, sourceName: env.name };
+  #startClone(coll) {
+    this.#pendingAction = { type: "clone", sourceId: coll.id, sourceName: coll.name };
     this.#setNameInputVisible(true, {
-      placeholder:  "New environment name…",
-      defaultValue: `${env.name} (copy)`,
+      placeholder:  "New collection name…",
+      defaultValue: `${coll.name} (copy)`,
     });
   }
 
-  #startRename(env) {
-    this.#pendingAction = { type: "rename", id: env.id, currentName: env.name };
+  #startRename(coll) {
+    this.#pendingAction = { type: "rename", id: coll.id, currentName: coll.name };
     this.#setNameInputVisible(true, {
-      placeholder:  "Environment name…",
-      defaultValue: env.name,
+      placeholder:  "Collection name…",
+      defaultValue: coll.name,
       okLabel:      "Rename",
     });
   }
 
   #commitName() {
-    const input = this.#el.querySelector(".env-name-input");
+    const input = this.#el.querySelector(".coll-name-input");
     const name  = input.value.trim();
     if (!name) return;
 
@@ -314,17 +314,17 @@ export class EnvironmentPopup {
       return;
     }
 
-    // Uniqueness check (case-insensitive); for rename, exclude the env being renamed
-    const isDuplicate = this.#environments.some(e => {
+    // Uniqueness check (case-insensitive); for rename, exclude the collection being renamed
+    const isDuplicate = this.#collections.some(e => {
       if (action?.type === "rename" && e.id === action.id) return false;
       return e.name.toLowerCase() === name.toLowerCase();
     });
     if (isDuplicate) {
-      input.classList.add("env-name-input--error");
-      input.title = "An environment with this name already exists.";
+      input.classList.add("coll-name-input--error");
+      input.title = "A collection with this name already exists.";
       clearTimeout(this.#nameErrorTimer);
       this.#nameErrorTimer = setTimeout(() => {
-        input.classList.remove("env-name-input--error");
+        input.classList.remove("coll-name-input--error");
         input.title = "";
         this.#nameErrorTimer = null;
       }, 1500);
@@ -334,14 +334,14 @@ export class EnvironmentPopup {
     this.#setNameInputVisible(false);
 
     if (action === "add") {
-      window.dispatchEvent(new CustomEvent("wurl:env-add", { detail: { name }, bubbles: true }));
+      window.dispatchEvent(new CustomEvent("wurl:coll-add", { detail: { name }, bubbles: true }));
     } else if (action?.type === "clone") {
-      window.dispatchEvent(new CustomEvent("wurl:env-clone", {
+      window.dispatchEvent(new CustomEvent("wurl:coll-clone", {
         detail: { sourceId: action.sourceId, name },
         bubbles: true,
       }));
     } else if (action?.type === "rename") {
-      window.dispatchEvent(new CustomEvent("wurl:env-rename", {
+      window.dispatchEvent(new CustomEvent("wurl:coll-rename", {
         detail: { id: action.id, name },
         bubbles: true,
       }));
@@ -350,19 +350,19 @@ export class EnvironmentPopup {
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
-  #selectEnv(id) {
+  #selectColl(id) {
     if (id === this.#activeId) return;
-    window.dispatchEvent(new CustomEvent("wurl:env-select", { detail: { id }, bubbles: true }));
+    window.dispatchEvent(new CustomEvent("wurl:coll-select", { detail: { id }, bubbles: true }));
   }
 
-  #confirmDelete(env) {
+  #confirmDelete(coll) {
     PopupManager.confirm({
-      title:        "Delete Environment?",
-      message:      `Delete "<strong>${this.#escape(env.name)}</strong>" and all its collections? This cannot be undone.`,
+      title:        "Delete Collection?",
+      message:      `Delete "<strong>${this.#escape(coll.name)}</strong>" and all its requests? This cannot be undone.`,
       confirmLabel: "Delete",
       confirmClass: "popup-btn--danger",
       onConfirm:    () => {
-        window.dispatchEvent(new CustomEvent("wurl:env-delete", { detail: { id: env.id }, bubbles: true }));
+        window.dispatchEvent(new CustomEvent("wurl:coll-delete", { detail: { id: coll.id }, bubbles: true }));
       },
     });
   }

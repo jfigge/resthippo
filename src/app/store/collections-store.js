@@ -1,5 +1,5 @@
 /**
- * environment-store.js — Assembles / decomposes the legacy environment blob.
+ * collections-store.js — Assembles / decomposes the legacy collection blob.
  *
  * The legacy API shape is:
  *   { version: 1, collections: [ <nested collDoc tree> ], variables: {...} }
@@ -10,19 +10,19 @@
  * and each request is the full request JSON object.
  *
  * Internally the data lives in the new per-file layout:
- *   collections/<id>/metadata.json   ← id + env-level variables
+ *   collections/<id>/metadata.json   ← id + collection-level variables
  *   collections/<id>/tree.json       ← folder hierarchy + requestRef IDs (no bodies)
  *   collections/<id>/requests/<reqId>.json ← one file per request
  *
- * Assembly   (getEnvironment): read metadata + tree + individual request files.
- * Decomposition (saveEnvironment): walk the blob, write separate files, invalidate cache.
+ * Assembly   (getCollections): read metadata + tree + individual request files.
+ * Decomposition (saveCollections): walk the blob, write separate files, invalidate cache.
  */
 "use strict";
 
 const { readJSON, writeJSON, ensureDir, validateID } = require("./io");
 const { encryptRequest, decryptRequest } = require("./crypto");
 
-class EnvironmentStore {
+class CollectionsStore{
   /**
    * @param {import('./paths').Paths}    paths
    * @param {import('./resolver').Resolver} resolver
@@ -35,14 +35,14 @@ class EnvironmentStore {
   // ── Read ────────────────────────────────────────────────────────────────────
 
   /**
-   * Assemble and return the legacy environment blob for `id`.
+   * Assemble and return the legacy collection blob for `id`.
    * Returns a minimal default `{ version:1, collections:[] }` when no data exists.
    *
-   * @param {string} id  Environment / collection ID
+   * @param {string} id  Collection ID
    * @returns {object}   Legacy blob: { version, collections, variables }
    */
-  getEnvironment(id) {
-    validateID(id, "environmentId");
+  getCollections(id) {
+    validateID(id, "collectionId");
 
     const meta = readJSON(this._paths.metadataPath(id));
     if (meta === null) {
@@ -67,8 +67,8 @@ class EnvironmentStore {
    * @param {string} id    Environment / collection ID
    * @param {object} data  Legacy blob: { version?, collections?, variables? }
    */
-  saveEnvironment(id, data) {
-    validateID(id, "environmentId");
+  saveCollections(id, data) {
+    validateID(id, "collectionId");
 
     const collections = Array.isArray(data.collections) ? data.collections : [];
     const variables   = (data.variables && typeof data.variables === "object") ? data.variables : {};
@@ -161,5 +161,5 @@ class EnvironmentStore {
   }
 }
 
-module.exports = { EnvironmentStore };
+module.exports = { CollectionsStore};
 
