@@ -58,10 +58,17 @@ export const registry = {
       { name: "depth", label: "Depth", type: "string", default: "0", placeholder: "0 = immediate parent" },
     ],
   },
-  envName: {
+  collectionName: {
     label: "Collection name",
     category: "context",
     params: [],
+  },
+  environmentVariable: {
+    label: "Environment variable",
+    category: "context",
+    params: [
+      { name: "name", label: "Variable", type: "string", default: "" },
+    ],
   },
   requestName: {
     label: "Request name",

@@ -866,6 +866,11 @@ function safeCall(channel, fn, fallback = null) {
           const alg = algo === "SHA512" ? "sha512" : "sha256";
           return { result: crypto.createHash(alg).update(value ?? "").digest("hex") };
         }
+        case "env": {
+          const { name } = args;
+          const val = process.env[name];
+          return { result: val !== undefined ? String(val) : "" };
+        }
         default:
           return { error: `unknown function: ${fn}` };
       }

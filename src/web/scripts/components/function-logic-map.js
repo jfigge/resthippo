@@ -54,7 +54,11 @@ export const logicMap = {
 
   // ── context (synchronous — reads from ctx) ──────────────────────────────
   folderName:  ([depth = "0"], ctx) => { const d = parseInt(depth, 10); if (isNaN(d)) return ""; return ctx?.folderChain?.[d]?.name ?? ""; },
-  envName:     (_args, ctx)         => ctx?.envName     ?? "",
+  collectionName:     (_args, ctx)         => ctx?.envName     ?? "",
+  environmentVariable: ([name = ""], _ctx) => {
+    if (!name) return "";
+    return invokeBackend("env", { name });
+  },
   requestName: (_args, ctx)         => ctx?.requestName ?? "",
 
   // ── request-output (synchronous — reads from response cache) ────────────
