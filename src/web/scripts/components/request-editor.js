@@ -1405,7 +1405,7 @@ export class RequestEditor {
         placeholder: "http://localhost:7777/oauth/callback",
         value:       this.#authOAuth2.redirectUri ?? "",
         onInput:     (v) => { this.#authOAuth2.redirectUri = v; this.#dispatchAuthUpdated(); },
-        hint:        "Callback URL registered with your OAuth provider (intercepted by Electron)",
+        hint:        "Callback URL registered with your OAuth provider (intercepted by wurl)",
       }));
     }
 
