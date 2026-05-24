@@ -79,27 +79,42 @@
   pointer-events: none;
 }
 
-/* ── Nav settings bar (visible only when app-header is hidden) ────────────── */
+/* ── Nav settings bar — kept in HTML for legacy; never shown ─────────────── */
 .nav-settings-bar {
-  display: none;               /* hidden by default; JS toggles this */
-  flex-shrink: 0;
+  display: none;
+}
+
+/* ── Contextual control group (env / layout / settings) ──────────────────── */
+/* Injected into the layout-appropriate container when "Remove headers" is on.
+   Layout 1  → res-status-bar   (divider shown, group at trailing edge)
+   Layout 2/3 → req-tab-strip   (no divider, pushed right by margin-left:auto)
+   Layout 4  → tree-toolbar     (divider shown, group at trailing edge) */
+.header-ctrl-group {
+  display: flex;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  height: 44px;
-  min-height: 44px;
-  background-color: var(--color-crust);
-  border-top: 1px solid var(--color-surface-2);
+  flex-shrink: 0;
+  padding-right: var(--space-1);
 }
 
-.nav-settings-bar.is-visible {
-  display: flex;
-}
-
-/* When the bottom bar is visible (Remove Headers mode), hide the panel-header
-   Environment button so it only appears in the bottom bar. */
-#panel-nav:has(.nav-settings-bar.is-visible) .panel-header .btn-environment {
+.ctrl-divider {
   display: none;
+  width: 1px;
+  align-self: stretch;
+  margin: var(--space-1) var(--space-2);
+  background: var(--color-surface-2);
+  flex-shrink: 0;
+}
+
+/* Show divider when the group sits in the status bar or tree toolbar */
+.res-status-bar .ctrl-divider,
+.tree-toolbar .ctrl-divider {
+  display: block;
+}
+
+/* Push group to the trailing edge when inside a tab strip */
+.req-tab-strip .header-ctrl-group {
+  margin-left: auto;
 }
 
 /* ── Main layout container ────────────────────────────────────────────────── */
@@ -326,9 +341,6 @@
 }
 #app-main[data-layout="4"] #splitter-1,
 #app-main[data-layout="4"] #splitter-2 { cursor: row-resize; }
-
-/* Push layout picker to the trailing edge of the remove-headers bar */
-.nav-settings-bar .layout-picker__trigger { margin-left: auto; }
 
 /* ── Per-panel defaults ────────────────────────────────────────────────────── */
 #panel-nav {

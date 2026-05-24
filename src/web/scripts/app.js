@@ -298,6 +298,9 @@ function getAppMain() {
 /** Current pinned layout (1–4). Always set; default matches DEFAULT_SETTINGS. */
 let _currentLayout = 1;
 
+/** The floating env/layout/settings control group injected by placeCtrlGroup(). */
+let _ctrlGroup = null;
+
 /**
  * Map the manual layout number to the splitter-mode string used throughout
  * initSplitters. Layout 1 = landscape (all columns), layout 4 = portrait
@@ -325,6 +328,67 @@ function applyLayout(layout) {
   const mode = getEffectiveSplitterMode();
   _splitter1?.setFlow(mode === "portrait" ? "column" : "row");
   _splitter2?.setFlow(mode === "landscape" ? "row" : "column");
+  placeCtrlGroup(layout, currentSettings.removeHeaders ?? false);
+}
+
+/** Build the detached env/layout/settings control group element. */
+function buildCtrlGroup() {
+  const group = document.createElement("div");
+  group.className = "header-ctrl-group";
+  group.innerHTML = `
+    <span class="ctrl-divider" aria-hidden="true"></span>
+    <button class="header-icon-btn" id="btn-environment-ctrl"
+        title="Environments" aria-label="Open environments">
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+        <polyline points="2 17 12 22 22 17"/>
+        <polyline points="2 12 12 17 22 12"/>
+      </svg>
+    </button>
+    <button class="layout-picker__trigger" id="btn-layout-ctrl"
+        aria-haspopup="listbox" aria-label="Change layout" title="Change layout"></button>
+    <button class="header-icon-btn" id="btn-settings-ctrl"
+        title="Settings" aria-label="Open settings">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06
+                 a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09
+                 A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83
+                 l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09
+                 A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83
+                 l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09
+                 a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83
+                 l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09
+                 a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  `;
+  return group;
+}
+
+/**
+ * Move the ctrl-group into the correct container based on layout and removeHeaders.
+ * Layout 1 → res-status-bar (far right, with divider between meta and controls).
+ * Layout 2/3 → req-tab-strip (far right via margin-left:auto).
+ * Layout 4 → tree-toolbar (after tree-search, with divider).
+ */
+function placeCtrlGroup(layout, removeHeaders) {
+  if (!_ctrlGroup) return;
+  _ctrlGroup.remove();
+  if (!removeHeaders) return;
+  let target;
+  if (layout === 1) {
+    target = document.querySelector(".res-status-bar");
+  } else if (layout === 2 || layout === 3) {
+    target = document.querySelector(".req-tab-strip");
+  } else {
+    target = document.querySelector(".tree-toolbar");
+  }
+  target?.appendChild(_ctrlGroup);
 }
 
 function initSplitters() {
@@ -515,6 +579,14 @@ function initHeader() {
   document.querySelector("#panel-nav .panel-title").addEventListener("contextmenu", _openEnvCtxMenu);
   document.getElementById("btn-environment").addEventListener("contextmenu", _openEnvCtxMenu);
   document.getElementById("btn-environment-nav").addEventListener("contextmenu", _openEnvCtxMenu);
+
+  // Floating ctrl-group — injected into the layout-appropriate container when
+  // "Remove headers" is active, replacing the fixed nav-settings-bar.
+  _ctrlGroup = buildCtrlGroup();
+  layoutPicker.bindTrigger(_ctrlGroup.querySelector("#btn-layout-ctrl"));
+  _ctrlGroup.querySelector("#btn-environment-ctrl").addEventListener("click", () => envPopup.open(currentEnvs));
+  _ctrlGroup.querySelector("#btn-settings-ctrl").addEventListener("click", () => settingsPopup.open(currentSettings));
+  _ctrlGroup.querySelector("#btn-environment-ctrl").addEventListener("contextmenu", _openEnvCtxMenu);
 }
 
 /** Open the native OS context menu for the active environment. */
@@ -1509,12 +1581,8 @@ function applySettings(settings) {
     const appHeader = document.getElementById("app-header");
     if (appHeader) appHeader.style.display = remove ? "none" : "";
 
-    // Fallback settings bar at the bottom of the nav panel
-    const navBar = document.getElementById("nav-settings-bar");
-    if (navBar) {
-      navBar.classList.toggle("is-visible", remove);
-      navBar.setAttribute("aria-hidden", String(!remove));
-    }
+    // Place ctrl-group in the layout-appropriate container (replaces nav-settings-bar)
+    placeCtrlGroup(_currentLayout, remove);
   }
 }
 
