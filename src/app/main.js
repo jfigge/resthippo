@@ -184,6 +184,21 @@ function safeCall(channel, fn, fallback = null) {
       () => getStores().historyStore().trimAllHistory(maxEntries),
     ),
   );
+
+  // ── Global + named environment variables ─────────────────────────────────────
+
+  ipcMain.handle("store:environments:get", () =>
+    safeCall("store:environments:get",
+      () => getStores().environmentStore().getEnvironments(),
+      { version: 1, globalVariables: {}, activeEnvironmentId: null, environments: [] },
+    ),
+  );
+
+  ipcMain.handle("store:environments:save", (_event, data) =>
+    safeCall("store:environments:save",
+      () => { getStores().environmentStore().saveEnvironments(data); },
+    ),
+  );
 })();
 
 // ─── HTTP Execute IPC ─────────────────────────────────────────────────────────

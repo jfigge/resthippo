@@ -146,6 +146,17 @@ contextBridge.exposeInMainWorld("wurl", {
       trim: (maxEntries) =>
         ipcRenderer.invoke("store:history:trim", maxEntries),
     },
+
+    /**
+     * Global + named environment variables.
+     * Shape: { version:1, globalVariables:{}, activeEnvironmentId:null, environments:[{id,name,variables}] }
+     */
+    environments: {
+      /** @returns {Promise<object>} */
+      get:  ()     => ipcRenderer.invoke("store:environments:get"),
+      /** @param {object} data @returns {Promise<void>} */
+      save: (data) => ipcRenderer.invoke("store:environments:save", data),
+    },
   },
 
   /**

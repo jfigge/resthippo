@@ -73,19 +73,4 @@ export const logicMap = {
   },
   responseHeader: ([req = "", hdr = ""], ctx) => ctx?.responseHeaders?.[req]?.[hdr.toLowerCase()] ?? "",
   responseStatus: ([name = ""], ctx) => ctx?.responseStatus?.[name]                        ?? "",
-
-  // ── backend (async — delegated to Go / Node IPC) ────────────────────────
-  jq: ([jsonStr = "", query = "."], _ctx) => {
-    try {
-      const simple = _simpleJq(jsonStr, query);
-      if (simple !== null) return simple;
-    } catch { /* fall through to backend */ }
-    return invokeBackend("jq", { json: jsonStr, query });
-  },
-
-  hmac: ([algo = "SHA256", key = "", message = ""], _ctx) =>
-    invokeBackend("hmac", { algo, key, message }),
-
-  hash: ([algo = "SHA256", value = ""], _ctx) =>
-    invokeBackend("hash", { algo, value }),
 };

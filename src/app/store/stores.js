@@ -16,13 +16,14 @@
  */
 "use strict";
 
-const { Paths }            = require("./paths");
-const { Resolver }         = require("./resolver");
-const { CollectionStore }  = require("./collection-store");
-const { CollectionsStore} = require("./collections-store");
-const { TreeStore }        = require("./tree-store");
-const { RequestStore }     = require("./request-store");
-const { HistoryStore }     = require("./history-store");
+const { Paths }              = require("./paths");
+const { Resolver }           = require("./resolver");
+const { CollectionStore }    = require("./collection-store");
+const { CollectionsStore }   = require("./collections-store");
+const { TreeStore }          = require("./tree-store");
+const { RequestStore }       = require("./request-store");
+const { HistoryStore }       = require("./history-store");
+const { EnvironmentStore }   = require("./environment-store");
 
 class Stores {
   /**
@@ -37,6 +38,7 @@ class Stores {
     this._treeStore        = new TreeStore(this._paths, this._resolver);
     this._requestStore     = new RequestStore(this._paths, this._resolver);
     this._historyStore     = new HistoryStore(this._paths, this._resolver);
+    this._environmentStore = new EnvironmentStore(this._paths);
   }
 
   /** Manifest store — GET/PUT global collections + settings. */
@@ -56,6 +58,9 @@ class Stores {
 
   /** Execution history store (metadata + lazy-loaded response payloads). */
   historyStore()     { return this._historyStore;     }
+
+  /** Global + named environment variables store. */
+  environmentStore() { return this._environmentStore; }
 }
 
 module.exports = { Stores };

@@ -2,9 +2,12 @@
  * variable-resolver.js — Variable resolution utilities for the pill editor.
  *
  * A "context" object carries:
- *   { envVariables: { name: value, … }, folderChain: [ { variables: {…} }, … ] }
- *
- * folderChain is ordered nearest-ancestor first (immediate parent → root).
+ *   {
+ *     globalVariables?:      { name: value, … }   — lowest priority
+ *     environmentVariables?: { name: value, … }   — selected named env
+ *     envVariables?:         { name: value, … }   — collection-level
+ *     folderChain?:          [ { variables: {…} }, … ] — highest; nearest-ancestor first
+ *   }
  */
 
 "use strict";
@@ -65,11 +68,11 @@ export function parseFunctionCall(content) {
 
 /**
  * Resolve a variable name against the provided context.
- * Folder-chain variables take priority over collection variables.
+ * Priority order (highest → lowest): folder chain → collection → environment → global.
  *
  * @param {string} name
- * @param {{ envVariables?: object, folderChain?: object[] } | null} context
- * @returns {{ found: boolean, value: any, source: 'folder' | 'collection' | null }}
+ * @param {{ globalVariables?: object, environmentVariables?: object, envVariables?: object, folderChain?: object[] } | null} context
+ * @returns {{ found: boolean, value: any, source: 'folder' | 'collection' | 'environment' | 'global' | null }}
  */
 export function resolveVariable(name, context) {
   if (!name || !context) return { found: false, value: undefined, source: null };
@@ -84,10 +87,22 @@ export function resolveVariable(name, context) {
     }
   }
 
-  // 2. Fall back to collection variables
+  // 2. Collection-level variables
   const envVars = context.envVariables ?? {};
   if (Object.prototype.hasOwnProperty.call(envVars, name)) {
     return { found: true, value: envVars[name], source: "collection" };
+  }
+
+  // 3. Selected environment variables
+  const environmentVars = context.environmentVariables ?? {};
+  if (Object.prototype.hasOwnProperty.call(environmentVars, name)) {
+    return { found: true, value: environmentVars[name], source: "environment" };
+  }
+
+  // 4. Global variables
+  const globalVars = context.globalVariables ?? {};
+  if (Object.prototype.hasOwnProperty.call(globalVars, name)) {
+    return { found: true, value: globalVars[name], source: "global" };
   }
 
   return { found: false, value: undefined, source: null };

@@ -18,6 +18,7 @@ import { ResponseViewer } from "./components/response-viewer.js";
 import { SettingsPopup } from "./components/settings-popup.js";
 import { CollectionsPopup } from "./components/collections-popup.js";
 import { VariablesPopup } from "./components/variables-popup.js";
+import { EnvironmentsPopup } from "./components/environments-popup.js";
 import {
   loadAll, saveCollections, saveSettings, saveManifest,
   loadCollectionData, saveCollectionData, setActiveCollection,
@@ -347,6 +348,16 @@ function buildCtrlGroup() {
         <polyline points="2 12 12 17 22 12"/>
       </svg>
     </button>
+    <button class="header-icon-btn" id="btn-environments-ctrl"
+        title="Environments" aria-label="Open environments">
+      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="2" y1="12" x2="22" y2="12"/>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+      </svg>
+    </button>
     <button class="layout-picker__trigger" id="btn-layout-ctrl"
         aria-haspopup="listbox" aria-label="Change layout" title="Change layout"></button>
     <button class="header-icon-btn" id="btn-settings-ctrl"
@@ -529,9 +540,10 @@ function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false
  * currentSettings is kept in sync here so the popup always opens with the
  * latest values.
  */
-const settingsPopup = new SettingsPopup();
-const envPopup      = new CollectionsPopup();
-const varsPopup     = new VariablesPopup();
+const settingsPopup      = new SettingsPopup();
+const envPopup           = new CollectionsPopup();
+const varsPopup          = new VariablesPopup();
+const environmentsPopup  = new EnvironmentsPopup();
 const layoutPicker  = new LayoutPicker({
   onSelect: (layout) => {
     applyLayout(layout);
@@ -545,6 +557,14 @@ let currentSettings = {};
 let currentColls = {
   collections:        [],
   activeCollectionId: null,
+};
+
+/** Live environment state — kept in sync with data-store. */
+let currentEnvironments = {
+  version:             1,
+  globalVariables:     {},
+  activeEnvironmentId: null,
+  environments:        [],
 };
 
 /** Map currentColls to the shape CollectionsPopup expects. */
@@ -575,6 +595,14 @@ function initHeader() {
     envPopup.open(envPopupState());
   });
 
+  // Environment buttons (panel header + nav bar)
+  document.getElementById("btn-environments").addEventListener("click", () => {
+    environmentsPopup.open(currentEnvironments, { bulkEditor: currentSettings.varsBulkEditor ?? true });
+  });
+  document.getElementById("btn-environments-nav").addEventListener("click", () => {
+    environmentsPopup.open(currentEnvironments, { bulkEditor: currentSettings.varsBulkEditor ?? true });
+  });
+
   // Right-click on the collection label or either collection icon → OS context menu
   const _openCollCtxMenu = (e) => {
     e.preventDefault();
@@ -591,6 +619,7 @@ function initHeader() {
   _ctrlGroup = buildCtrlGroup();
   layoutPicker.bindTrigger(_ctrlGroup.querySelector("#btn-layout-ctrl"));
   _ctrlGroup.querySelector("#btn-collection-ctrl").addEventListener("click", () => envPopup.open(envPopupState()));
+  _ctrlGroup.querySelector("#btn-environments-ctrl").addEventListener("click", () => environmentsPopup.open(currentEnvironments, { bulkEditor: currentSettings.varsBulkEditor ?? true }));
   _ctrlGroup.querySelector("#btn-settings-ctrl").addEventListener("click", () => settingsPopup.open(currentSettings));
   _ctrlGroup.querySelector("#btn-collection-ctrl").addEventListener("contextmenu", _openCollCtxMenu);
 }
@@ -1087,6 +1116,39 @@ function initEventBus() {
     saveSettings(currentSettings);
   });
 
+  // ── Environment event handlers ───────────────────────────────────────────
+
+  window.addEventListener("wurl:environments-changed", async (e) => {
+    currentEnvironments = e.detail.data;
+    await window.wurl.store.environments.save(currentEnvironments);
+    environmentsPopup.update(currentEnvironments);
+    _refreshEditorVariableContext();
+    _updateEnvLabel();
+  });
+
+  window.addEventListener("wurl:env-activate", async (e) => {
+    currentEnvironments = { ...currentEnvironments, activeEnvironmentId: e.detail.id };
+    await window.wurl.store.environments.save(currentEnvironments);
+    _refreshEditorVariableContext();
+    _updateEnvLabel();
+  });
+
+  window.addEventListener("wurl:env-vars-save", async (e) => {
+    const { id, variables } = e.detail;
+    if (!id) {
+      currentEnvironments = { ...currentEnvironments, globalVariables: variables };
+    } else {
+      currentEnvironments = {
+        ...currentEnvironments,
+        environments: currentEnvironments.environments.map(env =>
+          env.id === id ? { ...env, variables } : env,
+        ),
+      };
+    }
+    await window.wurl.store.environments.save(currentEnvironments);
+    _refreshEditorVariableContext();
+  });
+
   // ── Variable context helper ──────────────────────────────────────────────
 
   /**
@@ -1107,8 +1169,16 @@ function initEventBus() {
     );
     const envVariables = activeColl?.variables ?? {};
     const node = _selectedNode ?? (id && treeView ? _findNodeById(treeView.getItems(), id) : null);
+
+    const activeEnvId          = currentEnvironments.activeEnvironmentId;
+    const activeEnv            = currentEnvironments.environments.find(e => e.id === activeEnvId);
+    const environmentVariables = activeEnv?.variables ?? {};
+    const globalVariables      = currentEnvironments.globalVariables ?? {};
+
     requestEditor.setVariableContext({
       envVariables,
+      environmentVariables,
+      globalVariables,
       folderChain,
       envName:         activeColl?.name    ?? "",
       requestName:     node?.name          ?? "",
@@ -1116,9 +1186,11 @@ function initEventBus() {
       responseHeaders: _responseHeaders,
       responseStatus:  _responseStatus,
     });
-    // Also feed the active collection variables to the tree-view so that
-    // "Generate cURL" resolves variables the same way the Send button does.
-    if (treeView) treeView.setEnvVariables(envVariables);
+    // Feed merged variables to the tree-view so "Generate cURL" resolves correctly.
+    // Collection-level wins over environment which wins over global.
+    if (treeView) {
+      treeView.setEnvVariables({ ...globalVariables, ...environmentVariables, ...envVariables });
+    }
   }
 
   // When the request editor mutates a field (method, url, params, body, auth, …),
@@ -1342,6 +1414,15 @@ function initEventBus() {
   });
 }
 
+function _updateEnvLabel() {
+  const el = document.getElementById("panel-env-label");
+  if (!el) return;
+  const id  = currentEnvironments.activeEnvironmentId;
+  const env = id ? currentEnvironments.environments.find(e => e.id === id) : null;
+  el.textContent = env?.name ?? "";
+  el.hidden = !env;
+}
+
 // ─── Collections & Settings ───────────────────────────────────────────────────
 /**
  * Load persisted data on startup.
@@ -1349,7 +1430,10 @@ function initEventBus() {
  * In Electron     → reads via ipcMain from the platform userData directory
  */
 async function initCollections() {
-  const { items, settings, collections, activeCollectionId, variables } = await loadAll();
+  const [{ items, settings, collections, activeCollectionId, variables }, environmentsData] =
+    await Promise.all([loadAll(), window.wurl.store.environments.get()]);
+
+  if (environmentsData) currentEnvironments = environmentsData;
 
   treeView.setStorageKey(activeCollectionId);
   treeView.setItems(items);
@@ -1364,6 +1448,7 @@ async function initCollections() {
   );
   currentColls = { collections: collsWithVars, activeCollectionId };
   setNavPanelTitle(_collName(collections, activeCollectionId));
+  _updateEnvLabel();
 
   // Restore the previously selected request for this collection (or clear if none)
   const savedId = settings.selectedRequestIds?.[activeCollectionId];
