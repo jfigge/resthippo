@@ -1575,7 +1575,6 @@ mark.tree-highlight {
   font-size: var(--font-size-xs);
 }
 
-
 /* Tab strip */
 .res-tab-strip {
   display: flex;
@@ -2760,6 +2759,21 @@ mark.tree-highlight {
 .env-list-item:hover .env-list-item__actions,
 .env-list-item--selected .env-list-item__actions {
   opacity: 1;
+}
+
+.env-list-item__drag {
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  width: 16px;
+  height: 16px;
+}
+
+.env-list-item:hover .env-list-item__drag {
+  opacity: 1;
+}
+
+.env-list-item--dragging {
+  opacity: 0.4;
 }
 
 /* ── Variable editor (bottom pane) ───────────────────────────────────────── */

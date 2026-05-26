@@ -76,6 +76,11 @@ export class EnvironmentsPopup {
   #phantom;
   #dragSrcId = null;
   #dragHandled = false;
+
+  // ── Environment-list drag state ────────────────────────────────────────────
+  #envDragId = null;
+  /** @type {HTMLElement} */
+  #envPhantom;
   /** @type {number|null} */
   #saveTimer = null;
   /** @type {Function|null} */
@@ -86,6 +91,7 @@ export class EnvironmentsPopup {
   constructor() {
     this.#el = this.#build();
     this.#phantom = this.#buildPhantom();
+    this.#envPhantom = this.#buildEnvPhantom();
   }
 
   get element() {
@@ -283,11 +289,86 @@ export class EnvironmentsPopup {
       this.#finalizeDrag();
     });
 
+    const envList = el.querySelector(".env-list");
+    envList.addEventListener("dragover", (e) => {
+      if (!this.#envDragId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const afterEl = this.#envDragTargetAfter(envList, e.clientY);
+      if (afterEl == null) {
+        envList.appendChild(this.#envPhantom);
+      } else {
+        envList.insertBefore(this.#envPhantom, afterEl);
+      }
+    });
+    envList.addEventListener("drop", (e) => {
+      e.preventDefault();
+      if (!this.#envDragId) return;
+      const children = [...envList.children];
+      const phIdx = children.indexOf(this.#envPhantom);
+      this.#envPhantom.remove();
+      if (phIdx === -1) {
+        this.#envDragId = null;
+        return;
+      }
+      const envItems = children.filter((c) =>
+        c.classList.contains("env-list-item"),
+      );
+      // Phantom position among env items (excluding Global which is always first)
+      // envItems[0] is Global (non-draggable), named envs start at index 1
+      const namedBefore = envItems
+        .slice(1)
+        .filter((r) => children.indexOf(r) < phIdx).length;
+      const srcIdx = this.#data.environments.findIndex(
+        (e) => e.id === this.#envDragId,
+      );
+      this.#envDragId = null;
+      if (srcIdx === -1) return;
+      const [moved] = this.#data.environments.splice(srcIdx, 1);
+      this.#data.environments.splice(
+        namedBefore > srcIdx ? namedBefore - 1 : namedBefore,
+        0,
+        moved,
+      );
+      this.#renderList();
+      window.dispatchEvent(
+        new CustomEvent("wurl:environments-changed", {
+          detail: { data: this.#clone(this.#data) },
+        }),
+      );
+    });
+    envList.addEventListener("dragleave", (e) => {
+      if (!envList.contains(e.relatedTarget)) {
+        this.#envPhantom.remove();
+      }
+    });
+
     return el;
+  }
+
+  #envDragTargetAfter(envList, y) {
+    const draggableItems = [...envList.querySelectorAll(".env-list-item[draggable='true']")];
+    return draggableItems.reduce(
+      (closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+          return { offset, element: child };
+        }
+        return closest;
+      },
+      { offset: Number.NEGATIVE_INFINITY, element: null },
+    ).element;
   }
 
   #buildPhantom() {
     const ph = document.createElement("div");
+    ph.className = "params-drop-phantom";
+    return ph;
+  }
+
+  #buildEnvPhantom() {
+    const ph = document.createElement("li");
     ph.className = "params-drop-phantom";
     return ph;
   }
@@ -343,6 +424,33 @@ export class EnvironmentsPopup {
       isGlobal ? "Select Global variables" : `Select ${name}`,
     );
     nameBtn.addEventListener("click", () => this.#selectEnv(id));
+
+    if (!isGlobal) {
+      li.draggable = true;
+
+      const handle = document.createElement("span");
+      handle.className = "params-drag-handle env-list-item__drag";
+      handle.setAttribute("aria-hidden", "true");
+      handle.title = "Drag to reorder";
+      handle.innerHTML = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+        <circle cx="3" cy="3"  r="1.4"/><circle cx="7" cy="3"  r="1.4"/>
+        <circle cx="3" cy="8"  r="1.4"/><circle cx="7" cy="8"  r="1.4"/>
+        <circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/>
+      </svg>`;
+      li.appendChild(handle);
+
+      li.addEventListener("dragstart", (e) => {
+        this.#envDragId = id;
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", id);
+        requestAnimationFrame(() => li.classList.add("env-list-item--dragging"));
+      });
+      li.addEventListener("dragend", () => {
+        li.classList.remove("env-list-item--dragging");
+        this.#envPhantom.remove();
+        this.#envDragId = null;
+      });
+    }
 
     li.appendChild(check);
     li.appendChild(nameBtn);

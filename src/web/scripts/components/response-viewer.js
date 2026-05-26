@@ -93,7 +93,6 @@ export class ResponseViewer {
   #renderMode = "styled"; // "styled" | "raw"
   #lastResponse = null; // cached so mode changes can re-render
 
-
   // Cached pane references (set once in #renderTabContent)
   #bodyPane = null;
   #previewPane = null;
@@ -1269,7 +1268,6 @@ export class ResponseViewer {
     );
     const badge = this._statusBar.querySelector(".res-status-badge");
     badge.className = `res-status-badge ${statusClass}`;
-
 
     // ── Body pane ──────────────────────────────────────────────────────────
     this.#renderBodyPane(this.#lastResponse);
