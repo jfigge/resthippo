@@ -92,7 +92,7 @@ export class ResponseViewer {
   #activeTab = "body";
   #renderMode = "styled"; // "styled" | "raw"
   #lastResponse = null; // cached so mode changes can re-render
-  #downloadBtn = null; // save response body to file
+
 
   // Cached pane references (set once in #renderTabContent)
   #bodyPane = null;
@@ -284,18 +284,6 @@ export class ResponseViewer {
         <span class="res-size"  title="Response size"></span>
       </span>
     `;
-
-    const dlBtn = document.createElement("button");
-    dlBtn.className = "res-download-btn";
-    dlBtn.title = "Save response body to file";
-    dlBtn.setAttribute("aria-label", "Save response body to file");
-    dlBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>`;
-    dlBtn.hidden = true;
-    dlBtn.addEventListener("click", () => this.#downloadBody());
-    bar.appendChild(dlBtn);
-    this.#downloadBtn = dlBtn;
 
     this.#el.appendChild(bar);
     this._statusBar = bar;
@@ -751,9 +739,15 @@ export class ResponseViewer {
         type: "checkbox",
         checked: this.#renderMode === "raw",
       },
+      { type: "separator" },
+      { id: "download", label: "Download" },
     ];
     const clickedId = await window.wurl.ui.contextMenu({ items, x, y });
-    if (clickedId) this.#setRenderMode(clickedId);
+    if (clickedId === "download") {
+      this.#downloadBody();
+    } else if (clickedId) {
+      this.#setRenderMode(clickedId);
+    }
   }
 
   #setRenderMode(mode) {
@@ -1138,7 +1132,6 @@ export class ResponseViewer {
   // ── Response states ───────────────────────────────────────────────────────
   #showLoading() {
     this.#lastResponse = null;
-    if (this.#downloadBtn) this.#downloadBtn.hidden = true;
     this.#destroyHtmlPreview();
     this.#clearHighlights();
     this.#setStatus("", "", "", "");
@@ -1277,7 +1270,6 @@ export class ResponseViewer {
     const badge = this._statusBar.querySelector(".res-status-badge");
     badge.className = `res-status-badge ${statusClass}`;
 
-    if (this.#downloadBtn) this.#downloadBtn.hidden = !body;
 
     // ── Body pane ──────────────────────────────────────────────────────────
     this.#renderBodyPane(this.#lastResponse);

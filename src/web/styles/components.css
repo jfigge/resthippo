@@ -1575,23 +1575,6 @@ mark.tree-highlight {
   font-size: var(--font-size-xs);
 }
 
-.res-download-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3px 6px;
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-subtext);
-  cursor: pointer;
-  line-height: 1;
-}
-
-.res-download-btn:hover {
-  background: var(--color-surface-1);
-  color: var(--color-text);
-}
 
 /* Tab strip */
 .res-tab-strip {

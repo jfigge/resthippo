@@ -4504,7 +4504,9 @@ export class RequestEditor {
 
     // Preload response caches for any cross-request references before resolution
     if (this.#ensureResponseCaches) {
-      const refNames = _extractResponseFunctionNames(this.#gatherRequestTemplates());
+      const refNames = _extractResponseFunctionNames(
+        this.#gatherRequestTemplates(),
+      );
       if (refNames.length) await this.#ensureResponseCaches(refNames);
     }
 
