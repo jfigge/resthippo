@@ -39,6 +39,13 @@
         <!-- ── Header icon panel (right-aligned) ───────────────────────── -->
         <div class="header-icon-panel" role="toolbar" aria-label="Application actions">
           <button
+            class="env-picker__trigger"
+            id="btn-env-picker-header"
+            title="Environment"
+            aria-label="Select environment"
+            aria-haspopup="listbox"
+          ></button>
+          <button
             class="layout-picker__trigger"
             id="btn-layout"
             aria-haspopup="listbox"
@@ -90,7 +97,6 @@
         >
           <div class="panel-header">
             <span class="panel-title">Collections</span>
-            <span class="panel-env-label" id="panel-env-label" hidden></span>
             <div class="panel-actions">
               <button
                 class="header-icon-btn btn-collection"
@@ -104,20 +110,6 @@
                   <polygon points="12 2 2 7 12 12 22 7 12 2"/>
                   <polyline points="2 17 12 22 22 17"/>
                   <polyline points="2 12 12 17 22 12"/>
-                </svg>
-              </button>
-              <button
-                class="header-icon-btn btn-environments"
-                id="btn-environments"
-                title="Environments"
-                aria-label="Open environments"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
-                     fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="2" y1="12" x2="22" y2="12"/>
-                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                 </svg>
               </button>
             </div>
@@ -141,19 +133,12 @@
               </svg>
             </button>
             <button
-              class="header-icon-btn"
-              id="btn-environments-nav"
-              title="Environments"
-              aria-label="Open environments"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
-                   fill="none" stroke="currentColor" stroke-width="2"
-                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="2" y1="12" x2="22" y2="12"/>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-              </svg>
-            </button>
+              class="env-picker__trigger"
+              id="btn-env-picker-nav"
+              title="Environment"
+              aria-label="Select environment"
+              aria-haspopup="listbox"
+            ></button>
             <button
               class="layout-picker__trigger"
               id="btn-layout-nav"

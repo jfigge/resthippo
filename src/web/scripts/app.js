@@ -19,6 +19,7 @@ import { SettingsPopup } from "./components/settings-popup.js";
 import { CollectionsPopup } from "./components/collections-popup.js";
 import { VariablesPopup } from "./components/variables-popup.js";
 import { EnvironmentsPopup } from "./components/environments-popup.js";
+import { EnvPicker }        from "./components/env-picker.js";
 import {
   loadAll, saveCollections, saveSettings, saveManifest,
   loadCollectionData, saveCollectionData, setActiveCollection,
@@ -348,16 +349,9 @@ function buildCtrlGroup() {
         <polyline points="2 12 12 17 22 12"/>
       </svg>
     </button>
-    <button class="header-icon-btn" id="btn-environments-ctrl"
-        title="Environments" aria-label="Open environments">
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
-           fill="none" stroke="currentColor" stroke-width="2"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="10"/>
-        <line x1="2" y1="12" x2="22" y2="12"/>
-        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-      </svg>
-    </button>
+    <button class="env-picker__trigger" id="btn-env-picker-ctrl"
+        title="Environment" aria-label="Select environment"
+        aria-haspopup="listbox"></button>
     <button class="layout-picker__trigger" id="btn-layout-ctrl"
         aria-haspopup="listbox" aria-label="Change layout" title="Change layout"></button>
     <button class="header-icon-btn" id="btn-settings-ctrl"
@@ -543,7 +537,10 @@ function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false
 const settingsPopup      = new SettingsPopup();
 const envPopup           = new CollectionsPopup();
 const varsPopup          = new VariablesPopup();
-const environmentsPopup  = new EnvironmentsPopup();
+const environmentsPopup = new EnvironmentsPopup();
+const envPicker = new EnvPicker({
+  onManage: () => environmentsPopup.open(currentEnvironments, { bulkEditor: currentSettings.varsBulkEditor ?? true }),
+});
 const layoutPicker  = new LayoutPicker({
   onSelect: (layout) => {
     applyLayout(layout);
@@ -595,13 +592,9 @@ function initHeader() {
     envPopup.open(envPopupState());
   });
 
-  // Environment buttons (panel header + nav bar)
-  document.getElementById("btn-environments").addEventListener("click", () => {
-    environmentsPopup.open(currentEnvironments, { bulkEditor: currentSettings.varsBulkEditor ?? true });
-  });
-  document.getElementById("btn-environments-nav").addEventListener("click", () => {
-    environmentsPopup.open(currentEnvironments, { bulkEditor: currentSettings.varsBulkEditor ?? true });
-  });
+  // Environment picker — app header (hidden with it when removeHeaders is on)
+  envPicker.bindTrigger(document.getElementById("btn-env-picker-header"));
+  envPicker.bindTrigger(document.getElementById("btn-env-picker-nav"));
 
   // Right-click on the collection label or either collection icon → OS context menu
   const _openCollCtxMenu = (e) => {
@@ -619,7 +612,7 @@ function initHeader() {
   _ctrlGroup = buildCtrlGroup();
   layoutPicker.bindTrigger(_ctrlGroup.querySelector("#btn-layout-ctrl"));
   _ctrlGroup.querySelector("#btn-collection-ctrl").addEventListener("click", () => envPopup.open(envPopupState()));
-  _ctrlGroup.querySelector("#btn-environments-ctrl").addEventListener("click", () => environmentsPopup.open(currentEnvironments, { bulkEditor: currentSettings.varsBulkEditor ?? true }));
+  envPicker.bindTrigger(_ctrlGroup.querySelector("#btn-env-picker-ctrl"));
   _ctrlGroup.querySelector("#btn-settings-ctrl").addEventListener("click", () => settingsPopup.open(currentSettings));
   _ctrlGroup.querySelector("#btn-collection-ctrl").addEventListener("contextmenu", _openCollCtxMenu);
 }
@@ -1123,14 +1116,14 @@ function initEventBus() {
     await window.wurl.store.environments.save(currentEnvironments);
     environmentsPopup.update(currentEnvironments);
     _refreshEditorVariableContext();
-    _updateEnvLabel();
+    envPicker.load(currentEnvironments);
   });
 
   window.addEventListener("wurl:env-activate", async (e) => {
     currentEnvironments = { ...currentEnvironments, activeEnvironmentId: e.detail.id };
     await window.wurl.store.environments.save(currentEnvironments);
     _refreshEditorVariableContext();
-    _updateEnvLabel();
+    envPicker.load(currentEnvironments);
   });
 
   window.addEventListener("wurl:env-vars-save", async (e) => {
@@ -1414,15 +1407,6 @@ function initEventBus() {
   });
 }
 
-function _updateEnvLabel() {
-  const el = document.getElementById("panel-env-label");
-  if (!el) return;
-  const id  = currentEnvironments.activeEnvironmentId;
-  const env = id ? currentEnvironments.environments.find(e => e.id === id) : null;
-  el.textContent = env?.name ?? "";
-  el.hidden = !env;
-}
-
 // ─── Collections & Settings ───────────────────────────────────────────────────
 /**
  * Load persisted data on startup.
@@ -1448,7 +1432,7 @@ async function initCollections() {
   );
   currentColls = { collections: collsWithVars, activeCollectionId };
   setNavPanelTitle(_collName(collections, activeCollectionId));
-  _updateEnvLabel();
+  envPicker.load(currentEnvironments);
 
   // Restore the previously selected request for this collection (or clear if none)
   const savedId = settings.selectedRequestIds?.[activeCollectionId];

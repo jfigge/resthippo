@@ -3343,6 +3343,130 @@ input[type="checkbox"]:disabled {
   white-space: nowrap;
 }
 
+/* ── Environment picker (.env-picker__*) ──────────────────────────────────── */
+
+.env-picker__trigger {
+  display:       flex;
+  align-items:   center;
+  gap:           4px;
+  height:        30px;
+  padding:       0 var(--space-2);
+  background:    var(--color-surface-1);
+  border:        1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color:         var(--color-text);
+  font-size:     var(--font-size-sm);
+  font-weight:   700;
+  cursor:        pointer;
+  flex-shrink:   0;
+  min-width:     50px;
+  transition:
+    background-color var(--transition-fast),
+    border-color     var(--transition-fast);
+}
+
+.env-picker__trigger:hover {
+  background-color: var(--color-surface-2);
+  border-color:     var(--color-accent);
+}
+
+.env-picker__trigger--active {
+  color:        var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.env-picker__globe {
+  flex-shrink: 0;
+  line-height: 0;
+  opacity:     0.6;
+}
+
+.env-picker__label {
+  white-space:   nowrap;
+  overflow:      hidden;
+  text-overflow: ellipsis;
+  text-transform: var(--env-picker-uppercase, uppercase);
+  min-width:     32px;
+  max-width:     120px;
+}
+
+.env-picker__chevron {
+  opacity:     0.45;
+  flex-shrink: 0;
+  width:       6px;
+  height:      4px;
+}
+
+/* Dropdown menu */
+.env-picker__menu {
+  position:      fixed;
+  z-index:       900;
+  min-width:     120px;
+  background:    var(--color-surface-1);
+  border:        1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow:    0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
+  padding:       var(--space-1) 0;
+  user-select:   none;
+  animation:     ctxmenu-open 0.08s ease-out;
+}
+
+.env-picker__item {
+  display:     flex;
+  align-items: center;
+  gap:         var(--space-2);
+  padding:     6px var(--space-3);
+  cursor:      pointer;
+  color:       var(--color-text);
+  text-transform: var(--env-picker-uppercase, uppercase);
+  transition:  background-color var(--transition-fast);
+}
+
+.env-picker__item:hover {
+  background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+.env-picker__item--selected {
+  color: var(--color-accent);
+}
+
+/* Checkmark column — fixed width keeps labels aligned */
+.env-picker__item-check {
+  width:       14px;
+  flex-shrink: 0;
+  font-size:   var(--font-size-sm);
+  font-weight: 700;
+}
+
+.env-picker__item--selected .env-picker__item-check::before {
+  content: "✓";
+}
+
+.env-picker__item-label {
+  font-size:   var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.env-picker__separator {
+  height:     1px;
+  background: var(--color-surface-2);
+  margin:     var(--space-1) 0;
+}
+
+.env-picker__manage {
+  padding:     6px var(--space-3);
+  padding-left: calc(var(--space-3) + 14px + var(--space-2));
+  cursor:      pointer;
+  color:       var(--color-subtext);
+  font-size:   var(--font-size-sm);
+  transition:  background-color var(--transition-fast);
+}
+
+.env-picker__manage:hover {
+  background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color:            var(--color-text);
+}
+
 /* ── Notes tab ────────────────────────────────────────────────────────────── */
 
 /*
