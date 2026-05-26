@@ -19,16 +19,26 @@ import { SettingsPopup } from "./components/settings-popup.js";
 import { CollectionsPopup } from "./components/collections-popup.js";
 import { VariablesPopup } from "./components/variables-popup.js";
 import { EnvironmentsPopup } from "./components/environments-popup.js";
-import { EnvPicker }        from "./components/env-picker.js";
+import { EnvPicker } from "./components/env-picker.js";
 import {
-  loadAll, saveCollections, saveSettings, saveManifest,
-  loadCollectionData, saveCollectionData, setActiveCollection,
-  saveCollectionVariables, deleteRequest,
-  listHistory, addHistory, getHistoryResponse, deleteHistory, trimHistory,
+  loadAll,
+  saveCollections,
+  saveSettings,
+  saveManifest,
+  loadCollectionData,
+  saveCollectionData,
+  setActiveCollection,
+  saveCollectionVariables,
+  deleteRequest,
+  listHistory,
+  addHistory,
+  getHistoryResponse,
+  deleteHistory,
+  trimHistory,
 } from "./data-store.js";
 import { buildFolderChain } from "./components/variable-resolver.js";
 import { setPickerDebounceMs } from "./components/variable-pill-editor.js";
-import { parseImport }    from "./import/index.js";
+import { parseImport } from "./import/index.js";
 import { exportToPostman } from "./export/postman.js";
 import { PopupManager } from "./popup-manager.js";
 
@@ -37,8 +47,8 @@ import { PopupManager } from "./popup-manager.js";
 // Each entry: { id, requestNode, requestUrl, response, timestamp }
 const _requestHistory = new Map();
 // Tracks which request IDs have been fully loaded from persistent storage.
-const _historyLoaded  = new Set();
-let _maxHistory = 5;        // updated from settings at startup and on change
+const _historyLoaded = new Set();
+let _maxHistory = 5; // updated from settings at startup and on change
 let _skipNextHistory = false; // set true when replaying a history entry
 
 /**
@@ -49,15 +59,19 @@ let _skipNextHistory = false; // set true when replaying a history entry
  * @returns {object} snapshot
  */
 function _buildSnapshot(node) {
-  const params  = Array.isArray(node.params)  ? node.params  : [];
+  const params = Array.isArray(node.params) ? node.params : [];
   const headers = Array.isArray(node.headers) ? node.headers : [];
 
-  const paramsBulk  = params .map(p => `${p.enabled ? "" : "# "}${p.name}=${p.value}`).join("\n");
-  const headersBulk = headers.map(h => `${h.enabled ? "" : "# "}${h.name}: ${h.value}`).join("\n");
+  const paramsBulk = params
+    .map((p) => `${p.enabled ? "" : "# "}${p.name}=${p.value}`)
+    .join("\n");
+  const headersBulk = headers
+    .map((h) => `${h.enabled ? "" : "# "}${h.name}: ${h.value}`)
+    .join("\n");
 
-  const authType    = node.authType    ?? "none";
+  const authType = node.authType ?? "none";
   const authEnabled = node.authEnabled ?? true;
-  let   authBulk    = "";
+  let authBulk = "";
   if (authType === "basic") {
     const b = node.authBasic ?? {};
     authBulk = `username: ${b.username ?? ""}\npassword: ${b.password ?? ""}`;
@@ -66,40 +80,42 @@ function _buildSnapshot(node) {
   } else if (authType === "oauth2") {
     const o = node.authOAuth2 ?? {};
     const lines = [];
-    if (o.grantType)       lines.push(`grantType: ${o.grantType}`);
-    if (o.clientType)      lines.push(`clientType: ${o.clientType}`);
-    if (o.clientId)        lines.push(`clientId: ${o.clientId}`);
-    if (o.clientSecret)    lines.push(`clientSecret: ${o.clientSecret}`);
-    if (o.accessTokenUrl)  lines.push(`accessTokenUrl: ${o.accessTokenUrl}`);
-    if (o.authUrl)         lines.push(`authUrl: ${o.authUrl}`);
-    if (o.username)        lines.push(`username: ${o.username}`);
-    if (o.password)        lines.push(`password: ${o.password}`);
-    if (o.scope)           lines.push(`scope: ${o.scope}`);
-    if (o.responseType)    lines.push(`responseType: ${o.responseType}`);
-    if (o.redirectUri)     lines.push(`redirectUri: ${o.redirectUri}`);
-    if (o.state)           lines.push(`state: ${o.state}`);
-    if (o.credentials)     lines.push(`credentials: ${o.credentials}`);
-    if (o.audience)        lines.push(`audience: ${o.audience}`);
-    if (o.resource)        lines.push(`resource: ${o.resource}`);
-    if (o.origin)          lines.push(`origin: ${o.origin}`);
-    if (o.headerPrefix)    lines.push(`headerPrefix: ${o.headerPrefix}`);
+    if (o.grantType) lines.push(`grantType: ${o.grantType}`);
+    if (o.clientType) lines.push(`clientType: ${o.clientType}`);
+    if (o.clientId) lines.push(`clientId: ${o.clientId}`);
+    if (o.clientSecret) lines.push(`clientSecret: ${o.clientSecret}`);
+    if (o.accessTokenUrl) lines.push(`accessTokenUrl: ${o.accessTokenUrl}`);
+    if (o.authUrl) lines.push(`authUrl: ${o.authUrl}`);
+    if (o.username) lines.push(`username: ${o.username}`);
+    if (o.password) lines.push(`password: ${o.password}`);
+    if (o.scope) lines.push(`scope: ${o.scope}`);
+    if (o.responseType) lines.push(`responseType: ${o.responseType}`);
+    if (o.redirectUri) lines.push(`redirectUri: ${o.redirectUri}`);
+    if (o.state) lines.push(`state: ${o.state}`);
+    if (o.credentials) lines.push(`credentials: ${o.credentials}`);
+    if (o.audience) lines.push(`audience: ${o.audience}`);
+    if (o.resource) lines.push(`resource: ${o.resource}`);
+    if (o.origin) lines.push(`origin: ${o.origin}`);
+    if (o.headerPrefix) lines.push(`headerPrefix: ${o.headerPrefix}`);
     authBulk = lines.join("\n");
   } else if (authType === "aws-iam") {
     const a = node.authAwsIam ?? {};
     const lines = [];
-    if (a.accessKeyId)     lines.push(`accessKeyId: ${a.accessKeyId}`);
+    if (a.accessKeyId) lines.push(`accessKeyId: ${a.accessKeyId}`);
     if (a.secretAccessKey) lines.push(`secretAccessKey: ${a.secretAccessKey}`);
-    if (a.region)          lines.push(`region: ${a.region}`);
-    if (a.service)         lines.push(`service: ${a.service}`);
-    if (a.sessionToken)    lines.push(`sessionToken: ${a.sessionToken}`);
+    if (a.region) lines.push(`region: ${a.region}`);
+    if (a.service) lines.push(`service: ${a.service}`);
+    if (a.sessionToken) lines.push(`sessionToken: ${a.sessionToken}`);
     authBulk = lines.join("\n");
   }
 
   const bodyType = node.bodyType ?? "no-body";
-  let   bodyContent = "";
+  let bodyContent = "";
   if (bodyType === "form-data" || bodyType === "form-urlencoded") {
     const rows = Array.isArray(node.bodyFormRows) ? node.bodyFormRows : [];
-    bodyContent = rows.map(r => `${r.enabled ? "" : "# "}${r.name}=${r.value}`).join("\n");
+    bodyContent = rows
+      .map((r) => `${r.enabled ? "" : "# "}${r.name}=${r.value}`)
+      .join("\n");
   } else if (bodyType === "file") {
     bodyContent = node.bodyFilePath ?? "";
   } else {
@@ -107,17 +123,17 @@ function _buildSnapshot(node) {
   }
 
   return {
-    id:          node.id,
-    method:      node.method ?? "GET",
-    url:         node.url    ?? "",
-    params:      paramsBulk,
-    headers:     headersBulk,
+    id: node.id,
+    method: node.method ?? "GET",
+    url: node.url ?? "",
+    params: paramsBulk,
+    headers: headersBulk,
     authType,
     authEnabled,
-    auth:        authBulk,
+    auth: authBulk,
     bodyType,
-    body:        bodyContent,
-    notes:       node.notes  ?? "",
+    body: bodyContent,
+    notes: node.notes ?? "",
   };
 }
 
@@ -131,30 +147,37 @@ function _buildSnapshot(node) {
 async function _loadRequestHistory(requestId) {
   try {
     const { items } = await listHistory(requestId, { limit: _maxHistory });
-    const entries = await Promise.all(items.map(async (meta) => {
-      const payload = await getHistoryResponse(requestId, meta.id).catch(() => null);
-      return {
-        id:          meta.id,
-        requestNode: meta.requestNode,
-        requestUrl:  meta.requestUrl ?? "",
-        response: {
-          request:    payload?.request    ?? {},
-          error:      payload?.error      ?? null,
-          status:     meta.status     ?? 0,
-          statusText: meta.statusText ?? "",
-          elapsed:    meta.elapsed    ?? 0,
-          size:       meta.size       ?? 0,
-          headers:    payload?.headers    ?? {},
-          cookies:    payload?.cookies    ?? [],
-          body:       payload?.body       ?? "",
-          consoleLog: payload?.consoleLog ?? [],
-        },
-        timestamp: meta.timestamp ?? Date.now(),
-      };
-    }));
+    const entries = await Promise.all(
+      items.map(async (meta) => {
+        const payload = await getHistoryResponse(requestId, meta.id).catch(
+          () => null,
+        );
+        return {
+          id: meta.id,
+          requestNode: meta.requestNode,
+          requestUrl: meta.requestUrl ?? "",
+          response: {
+            request: payload?.request ?? {},
+            error: payload?.error ?? null,
+            status: meta.status ?? 0,
+            statusText: meta.statusText ?? "",
+            elapsed: meta.elapsed ?? 0,
+            size: meta.size ?? 0,
+            headers: payload?.headers ?? {},
+            cookies: payload?.cookies ?? [],
+            body: payload?.body ?? "",
+            consoleLog: payload?.consoleLog ?? [],
+          },
+          timestamp: meta.timestamp ?? Date.now(),
+        };
+      }),
+    );
     _requestHistory.set(requestId, entries);
   } catch (err) {
-    console.warn(`[app] _loadRequestHistory(${requestId}) failed:`, err.message);
+    console.warn(
+      `[app] _loadRequestHistory(${requestId}) failed:`,
+      err.message,
+    );
     _requestHistory.set(requestId, []);
   }
 }
@@ -167,7 +190,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     e.preventDefault();
     const t = e.target;
     const isEditable =
-      (t.tagName === "INPUT" && !["checkbox", "radio", "range", "color", "file", "button", "submit", "reset", "image"].includes(t.type)) ||
+      (t.tagName === "INPUT" &&
+        ![
+          "checkbox",
+          "radio",
+          "range",
+          "color",
+          "file",
+          "button",
+          "submit",
+          "reset",
+          "image",
+        ].includes(t.type)) ||
       t.tagName === "TEXTAREA" ||
       t.isContentEditable;
     if (isEditable) {
@@ -178,12 +212,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Set --font-ui to the OS-native context-menu typeface so custom menus
   // feel native. Each major OS uses a distinct system font for its menus.
   const PLATFORM_UI_FONTS = {
-    "darwin": '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-    "win32":  '"Segoe UI Variable", "Segoe UI", sans-serif',
-    "linux":  'system-ui, "Ubuntu", "Cantarell", sans-serif',
+    darwin: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+    win32: '"Segoe UI Variable", "Segoe UI", sans-serif',
+    linux: 'system-ui, "Ubuntu", "Cantarell", sans-serif',
   };
-  const platform  = window.wurl?.platform ?? "linux";
-  const uiFont    = PLATFORM_UI_FONTS[platform] ?? PLATFORM_UI_FONTS.linux;
+  const platform = window.wurl?.platform ?? "linux";
+  const uiFont = PLATFORM_UI_FONTS[platform] ?? PLATFORM_UI_FONTS.linux;
   document.documentElement.style.setProperty("--font-ui", uiFont);
 
   initPanels();
@@ -260,30 +294,30 @@ function initComponents() {
  *   nav    ≥ 160     request ≥ 200 (1fr, unconstrained here)
  *   res    ≥ 160     rowRes  ≥ 120
  */
-const SPLITTER_MIN_NAV    = 100;
-const SPLITTER_MIN_RES    = 100;
+const SPLITTER_MIN_NAV = 100;
+const SPLITTER_MIN_RES = 100;
 const SPLITTER_MIN_ROWRES = 120;
 
 let splitterSizes = {
-  nav:    300,
-  res:    500,
+  nav: 300,
+  res: 500,
   rowRes: 320,
 };
 
 /** Push current splitter sizes into the CSS grid on #app-main. */
 function applyGridVars() {
   const appMain = getAppMain();
-  appMain.style.setProperty("--col-nav",  `${splitterSizes.nav}px`);
-  appMain.style.setProperty("--col-res",  `${splitterSizes.res}px`);
-  appMain.style.setProperty("--row-res",  `${splitterSizes.rowRes}px`);
+  appMain.style.setProperty("--col-nav", `${splitterSizes.nav}px`);
+  appMain.style.setProperty("--col-res", `${splitterSizes.res}px`);
+  appMain.style.setProperty("--row-res", `${splitterSizes.rowRes}px`);
 }
 
 /** Persist current splitter positions into the settings document. */
 function saveSplitterPositions() {
   currentSettings = {
     ...currentSettings,
-    splitterNav:    splitterSizes.nav,
-    splitterRes:    splitterSizes.res,
+    splitterNav: splitterSizes.nav,
+    splitterRes: splitterSizes.res,
     splitterRowRes: splitterSizes.rowRes,
   };
   saveSettings(currentSettings);
@@ -405,13 +439,15 @@ function initSplitters() {
   // Splitter 1 — always resizes the nav panel (--col-nav).
   // Flow: horizontal when nav is a column (layouts 1–3), vertical when stacked (layout 4).
   _splitter1 = makeSplitter(spl1El, {
-    getFlow: () => (getEffectiveSplitterMode() === "portrait" ? "column" : "row"),
+    getFlow: () =>
+      getEffectiveSplitterMode() === "portrait" ? "column" : "row",
     getSize: () => splitterSizes.nav,
     setSize: (v) => {
       const appMain = getAppMain();
-      const max = getEffectiveSplitterMode() === "portrait"
-        ? appMain.clientHeight * 0.5
-        : appMain.clientWidth  * 0.5;
+      const max =
+        getEffectiveSplitterMode() === "portrait"
+          ? appMain.clientHeight * 0.5
+          : appMain.clientWidth * 0.5;
       splitterSizes.nav = Math.min(max, Math.max(SPLITTER_MIN_NAV, v));
       applyGridVars();
     },
@@ -423,14 +459,17 @@ function initSplitters() {
   // layout 1 (landscape) → horizontal drag → changes --col-res
   // layouts 2/3/4        → vertical drag   → changes --row-res
   _splitter2 = makeSplitter(spl2El, {
-    getFlow: () => (getEffectiveSplitterMode() === "landscape" ? "row" : "column"),
+    getFlow: () =>
+      getEffectiveSplitterMode() === "landscape" ? "row" : "column",
     getSize: () =>
-      getEffectiveSplitterMode() === "landscape" ? splitterSizes.res : splitterSizes.rowRes,
+      getEffectiveSplitterMode() === "landscape"
+        ? splitterSizes.res
+        : splitterSizes.rowRes,
     setSize: (v) => {
       const appMain = getAppMain();
       if (getEffectiveSplitterMode() === "landscape") {
         const max = appMain.clientWidth * 0.5;
-        splitterSizes.res    = Math.min(max, Math.max(SPLITTER_MIN_RES,    v));
+        splitterSizes.res = Math.min(max, Math.max(SPLITTER_MIN_RES, v));
       } else {
         const max = appMain.clientHeight * 0.5;
         splitterSizes.rowRes = Math.min(max, Math.max(SPLITTER_MIN_ROWRES, v));
@@ -462,11 +501,14 @@ function initSplitters() {
  *           shrinks it (needed for panels that trail the splitter in the grid).
  * @returns {{ setFlow(flow: string): void }}
  */
-function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false }) {
-  let dragging  = false;
-  let startPos  = 0;
+function makeSplitter(
+  el,
+  { getFlow, getSize, setSize, onDragEnd, invert = false },
+) {
+  let dragging = false;
+  let startPos = 0;
   let startSize = 0;
-  let dragFlow  = "row";
+  let dragFlow = "row";
 
   function clientPos(e) {
     const src = e.touches ? e.touches[0] : e;
@@ -475,12 +517,13 @@ function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false
 
   function onStart(e) {
     e.preventDefault();
-    dragFlow  = getFlow();
-    dragging  = true;
-    startPos  = clientPos(e);
+    dragFlow = getFlow();
+    dragging = true;
+    startPos = clientPos(e);
     startSize = getSize();
     el.classList.add("splitter--dragging");
-    document.body.style.cursor     = dragFlow === "row" ? "col-resize" : "row-resize";
+    document.body.style.cursor =
+      dragFlow === "row" ? "col-resize" : "row-resize";
     document.body.style.userSelect = "none";
   }
 
@@ -488,7 +531,7 @@ function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false
     if (!dragging) return;
     if (e.cancelable) e.preventDefault();
     const rawDelta = clientPos(e) - startPos;
-    const delta    = invert ? -rawDelta : rawDelta;
+    const delta = invert ? -rawDelta : rawDelta;
     setSize(startSize + delta);
   }
 
@@ -496,19 +539,19 @@ function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false
     if (!dragging) return;
     dragging = false;
     el.classList.remove("splitter--dragging");
-    document.body.style.cursor     = "";
+    document.body.style.cursor = "";
     document.body.style.userSelect = "";
-    window.removeEventListener("mousemove",  onMove);
-    window.removeEventListener("mouseup",    onEnd);
-    window.removeEventListener("touchmove",  onMove);
-    window.removeEventListener("touchend",   onEnd);
+    window.removeEventListener("mousemove", onMove);
+    window.removeEventListener("mouseup", onEnd);
+    window.removeEventListener("touchmove", onMove);
+    window.removeEventListener("touchend", onEnd);
     if (onDragEnd) onDragEnd();
   }
 
   el.addEventListener("mousedown", (e) => {
     onStart(e);
     window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup",   onEnd);
+    window.addEventListener("mouseup", onEnd);
   });
 
   el.addEventListener(
@@ -516,7 +559,7 @@ function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false
     (e) => {
       onStart(e);
       window.addEventListener("touchmove", onMove, { passive: false });
-      window.addEventListener("touchend",  onEnd);
+      window.addEventListener("touchend", onEnd);
     },
     { passive: false },
   );
@@ -534,14 +577,17 @@ function makeSplitter(el, { getFlow, getSize, setSize, onDragEnd, invert = false
  * currentSettings is kept in sync here so the popup always opens with the
  * latest values.
  */
-const settingsPopup      = new SettingsPopup();
-const envPopup           = new CollectionsPopup();
-const varsPopup          = new VariablesPopup();
+const settingsPopup = new SettingsPopup();
+const envPopup = new CollectionsPopup();
+const varsPopup = new VariablesPopup();
 const environmentsPopup = new EnvironmentsPopup();
 const envPicker = new EnvPicker({
-  onManage: () => environmentsPopup.open(currentEnvironments, { bulkEditor: currentSettings.varsBulkEditor ?? true }),
+  onManage: () =>
+    environmentsPopup.open(currentEnvironments, {
+      bulkEditor: currentSettings.varsBulkEditor ?? true,
+    }),
 });
-const layoutPicker  = new LayoutPicker({
+const layoutPicker = new LayoutPicker({
   onSelect: (layout) => {
     applyLayout(layout);
     currentSettings = { ...currentSettings, layout };
@@ -552,21 +598,21 @@ let currentSettings = {};
 
 /** Live collection state — kept in sync with data-store. */
 let currentColls = {
-  collections:        [],
+  collections: [],
   activeCollectionId: null,
 };
 
 /** Live environment state — kept in sync with data-store. */
 let currentEnvironments = {
-  version:             1,
-  globalVariables:     {},
+  version: 1,
+  globalVariables: {},
   activeEnvironmentId: null,
-  environments:        [],
+  environments: [],
 };
 
 /** Map currentColls to the shape CollectionsPopup expects. */
 const envPopupState = () => ({
-  collections:        currentColls.collections,
+  collections: currentColls.collections,
   activeCollectionId: currentColls.activeCollectionId,
 });
 
@@ -588,9 +634,11 @@ function initHeader() {
   document.getElementById("btn-collection").addEventListener("click", () => {
     envPopup.open(envPopupState());
   });
-  document.getElementById("btn-collection-nav").addEventListener("click", () => {
-    envPopup.open(envPopupState());
-  });
+  document
+    .getElementById("btn-collection-nav")
+    .addEventListener("click", () => {
+      envPopup.open(envPopupState());
+    });
 
   // Environment picker — app header (hidden with it when removeHeaders is on)
   envPicker.bindTrigger(document.getElementById("btn-env-picker-header"));
@@ -603,33 +651,45 @@ function initHeader() {
     _showCollContextMenu(e.clientX, e.clientY);
   };
 
-  document.querySelector("#panel-nav .panel-title").addEventListener("contextmenu", _openCollCtxMenu);
-  document.getElementById("btn-collection").addEventListener("contextmenu", _openCollCtxMenu);
-  document.getElementById("btn-collection-nav").addEventListener("contextmenu", _openCollCtxMenu);
+  document
+    .querySelector("#panel-nav .panel-title")
+    .addEventListener("contextmenu", _openCollCtxMenu);
+  document
+    .getElementById("btn-collection")
+    .addEventListener("contextmenu", _openCollCtxMenu);
+  document
+    .getElementById("btn-collection-nav")
+    .addEventListener("contextmenu", _openCollCtxMenu);
 
   // Floating ctrl-group — injected into the layout-appropriate container when
   // "Remove headers" is active, replacing the fixed nav-settings-bar.
   _ctrlGroup = buildCtrlGroup();
   layoutPicker.bindTrigger(_ctrlGroup.querySelector("#btn-layout-ctrl"));
-  _ctrlGroup.querySelector("#btn-collection-ctrl").addEventListener("click", () => envPopup.open(envPopupState()));
+  _ctrlGroup
+    .querySelector("#btn-collection-ctrl")
+    .addEventListener("click", () => envPopup.open(envPopupState()));
   envPicker.bindTrigger(_ctrlGroup.querySelector("#btn-env-picker-ctrl"));
-  _ctrlGroup.querySelector("#btn-settings-ctrl").addEventListener("click", () => settingsPopup.open(currentSettings));
-  _ctrlGroup.querySelector("#btn-collection-ctrl").addEventListener("contextmenu", _openCollCtxMenu);
+  _ctrlGroup
+    .querySelector("#btn-settings-ctrl")
+    .addEventListener("click", () => settingsPopup.open(currentSettings));
+  _ctrlGroup
+    .querySelector("#btn-collection-ctrl")
+    .addEventListener("contextmenu", _openCollCtxMenu);
 }
 
 /** Open the native OS context menu for the active collection. */
 async function _showCollContextMenu(x, y) {
   const actions = {
-    "rename":    () => envPopup.openWithRename(envPopupState()),
-    "variables": () => {
+    rename: () => envPopup.openWithRename(envPopupState()),
+    variables: () => {
       const activeColl = currentColls.collections.find(
-        c => c.id === currentColls.activeCollectionId,
+        (c) => c.id === currentColls.activeCollectionId,
       );
       if (!activeColl) return;
       varsPopup.open({
-        envId:      activeColl.id,
-        envName:    activeColl.name,
-        variables:  activeColl.variables ?? {},
+        envId: activeColl.id,
+        envName: activeColl.name,
+        variables: activeColl.variables ?? {},
         bulkEditor: currentSettings.varsBulkEditor ?? true,
       });
     },
@@ -637,11 +697,12 @@ async function _showCollContextMenu(x, y) {
 
   const clickedId = await window.wurl.ui.contextMenu({
     items: [
-      { id: "rename",    label: "Rename"    },
+      { id: "rename", label: "Rename" },
       { type: "separator" },
       { id: "variables", label: "Variables" },
     ],
-    x, y,
+    x,
+    y,
   });
 
   if (clickedId) actions[clickedId]?.();
@@ -659,7 +720,10 @@ function initEventBus() {
     // Persist the selected node ID per-collection so it can be restored on reload
     const id = node?.id;
     if (id) {
-      const selectedRequestIds = { ...(currentSettings.selectedRequestIds ?? {}), [currentColls.activeCollectionId]: id };
+      const selectedRequestIds = {
+        ...(currentSettings.selectedRequestIds ?? {}),
+        [currentColls.activeCollectionId]: id,
+      };
       currentSettings = { ...currentSettings, selectedRequestIds };
       saveSettings(currentSettings);
     }
@@ -701,28 +765,28 @@ function initEventBus() {
     const name = node?.name;
     if (!name) return;
     const { body = "", headers = {}, status = 0 } = e.detail;
-    _responseCache[name]   = body;
+    _responseCache[name] = body;
     _responseHeaders[name] = headers;
-    _responseStatus[name]  = status;
+    _responseStatus[name] = status;
     _refreshEditorVariableContext(node.id);
 
     // Record in per-request history only for real (non-replay) executions.
     // When replaying a historical entry, do NOT push to history and do NOT
     // re-render the timeline (which would clear the user's current selection).
     if (!skipHistory && _maxHistory > 0 && node?.id) {
-      const histId  = crypto.randomUUID();
-      const nowMs   = Date.now();
-      const reqUrl  = _lastRequestSnapshot?.url ?? "";
+      const histId = crypto.randomUUID();
+      const nowMs = Date.now();
+      const reqUrl = _lastRequestSnapshot?.url ?? "";
       const reqNode = _buildSnapshot(node);
-      const resp    = {
-        request:    e.detail.request    ?? {},
-        status:     e.detail.status     ?? 0,
+      const resp = {
+        request: e.detail.request ?? {},
+        status: e.detail.status ?? 0,
         statusText: e.detail.statusText ?? "",
-        headers:    e.detail.headers    ?? {},
-        cookies:    e.detail.cookies    ?? [],
-        body:       e.detail.body       ?? "",
-        elapsed:    e.detail.elapsed    ?? 0,
-        size:       e.detail.size       ?? 0,
+        headers: e.detail.headers ?? {},
+        cookies: e.detail.cookies ?? [],
+        body: e.detail.body ?? "",
+        elapsed: e.detail.elapsed ?? 0,
+        size: e.detail.size ?? 0,
         consoleLog: e.detail.consoleLog ?? [],
       };
 
@@ -734,13 +798,33 @@ function initEventBus() {
       }
 
       const entries = _requestHistory.get(node.id) ?? [];
-      entries.unshift({ id: histId, requestNode: reqNode, requestUrl: reqUrl, response: resp, timestamp: nowMs });
+      entries.unshift({
+        id: histId,
+        requestNode: reqNode,
+        requestUrl: reqUrl,
+        response: resp,
+        timestamp: nowMs,
+      });
 
       // Persist to storage (fire-and-forget).
-      addHistory(node.id,
-        { id: histId, timestamp: nowMs, status: resp.status, statusText: resp.statusText,
-          elapsed: resp.elapsed, size: resp.size, requestUrl: reqUrl, requestNode: reqNode },
-        { headers: resp.headers, cookies: resp.cookies, body: resp.body, consoleLog: resp.consoleLog },
+      addHistory(
+        node.id,
+        {
+          id: histId,
+          timestamp: nowMs,
+          status: resp.status,
+          statusText: resp.statusText,
+          elapsed: resp.elapsed,
+          size: resp.size,
+          requestUrl: reqUrl,
+          requestNode: reqNode,
+        },
+        {
+          headers: resp.headers,
+          cookies: resp.cookies,
+          body: resp.body,
+          consoleLog: resp.consoleLog,
+        },
       );
 
       // Purge entries beyond the limit from both memory and storage.
@@ -759,7 +843,7 @@ function initEventBus() {
   // that reached the network layer are recorded.
   window.addEventListener("wurl:request-error", async (e) => {
     const skipHistory = _skipNextHistory;
-    _skipNextHistory  = false;
+    _skipNextHistory = false;
 
     if (skipHistory) return;
     if (_cancelCurrentRequest) return;
@@ -769,24 +853,24 @@ function initEventBus() {
     const node = _selectedNode;
     if (!node?.id || _maxHistory <= 0) return;
 
-    const histId  = crypto.randomUUID();
-    const nowMs   = Date.now();
-    const reqUrl  = _lastRequestSnapshot.url ?? "";
+    const histId = crypto.randomUUID();
+    const nowMs = Date.now();
+    const reqUrl = _lastRequestSnapshot.url ?? "";
     const reqNode = JSON.parse(JSON.stringify(node));
-    const resp    = {
-      request:    e.detail.request    ?? {},
+    const resp = {
+      request: e.detail.request ?? {},
       error: {
-        name:    e.detail.name    ?? "Error",
+        name: e.detail.name ?? "Error",
         message: e.detail.message ?? "",
-        hint:    e.detail.hint    ?? "",
+        hint: e.detail.hint ?? "",
       },
-      status:     0,
-      statusText: e.detail.name    ?? "Error",
-      headers:    {},
-      cookies:    [],
-      body:       "",
-      elapsed:    e.detail.elapsed    ?? 0,
-      size:       0,
+      status: 0,
+      statusText: e.detail.name ?? "Error",
+      headers: {},
+      cookies: [],
+      body: "",
+      elapsed: e.detail.elapsed ?? 0,
+      size: 0,
       consoleLog: e.detail.consoleLog ?? [],
     };
 
@@ -796,12 +880,34 @@ function initEventBus() {
     }
 
     const entries = _requestHistory.get(node.id) ?? [];
-    entries.unshift({ id: histId, requestNode: reqNode, requestUrl: reqUrl, response: resp, timestamp: nowMs });
+    entries.unshift({
+      id: histId,
+      requestNode: reqNode,
+      requestUrl: reqUrl,
+      response: resp,
+      timestamp: nowMs,
+    });
 
-    addHistory(node.id,
-      { id: histId, timestamp: nowMs, status: 0, statusText: resp.statusText,
-        elapsed: resp.elapsed, size: 0, requestUrl: reqUrl, requestNode: reqNode },
-      { request: resp.request, error: resp.error, headers: {}, cookies: [], body: "", consoleLog: resp.consoleLog },
+    addHistory(
+      node.id,
+      {
+        id: histId,
+        timestamp: nowMs,
+        status: 0,
+        statusText: resp.statusText,
+        elapsed: resp.elapsed,
+        size: 0,
+        requestUrl: reqUrl,
+        requestNode: reqNode,
+      },
+      {
+        request: resp.request,
+        error: resp.error,
+        headers: {},
+        cookies: [],
+        body: "",
+        consoleLog: resp.consoleLog,
+      },
     );
 
     while (entries.length > _maxHistory) {
@@ -824,7 +930,9 @@ function initEventBus() {
 
   // Export a collection to a Postman v2.1 JSON file.
   // Triggered by "Export Collection…" in the collection context menu.
-  window.addEventListener("wurl:export-collection", (e) => handleExport(e.detail.collection));
+  window.addEventListener("wurl:export-collection", (e) =>
+    handleExport(e.detail.collection),
+  );
 
   // Delete the backing request file(s) when a node is removed from the tree.
   // Fired by tree-view after #deleteNode; ids contains every request under the
@@ -851,7 +959,10 @@ function initEventBus() {
 
   // Trim all per-request histories to the new max (fired only on settings Close click)
   window.addEventListener("wurl:history-trim", (e) => {
-    _maxHistory = Math.max(0, Math.min(10, e.detail?.historyCount ?? _maxHistory));
+    _maxHistory = Math.max(
+      0,
+      Math.min(10, e.detail?.historyCount ?? _maxHistory),
+    );
     for (const [id, entries] of _requestHistory.entries()) {
       while (entries.length > _maxHistory) {
         const old = entries.pop();
@@ -877,20 +988,24 @@ function initEventBus() {
     }
     _skipNextHistory = true;
     if (response?.error) {
-      window.dispatchEvent(new CustomEvent("wurl:request-error", {
-        detail: {
-          request:    response.request    ?? { url: requestUrl },
-          name:       response.error.name    ?? "Error",
-          message:    response.error.message ?? "",
-          hint:       response.error.hint    ?? "",
-          elapsed:    response.elapsed    ?? 0,
-          consoleLog: response.consoleLog ?? [],
-        },
-      }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:request-error", {
+          detail: {
+            request: response.request ?? { url: requestUrl },
+            name: response.error.name ?? "Error",
+            message: response.error.message ?? "",
+            hint: response.error.hint ?? "",
+            elapsed: response.elapsed ?? 0,
+            consoleLog: response.consoleLog ?? [],
+          },
+        }),
+      );
     } else {
-      window.dispatchEvent(new CustomEvent("wurl:response-received", {
-        detail: { ...response, request: { url: requestUrl } },
-      }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:response-received", {
+          detail: { ...response, request: { url: requestUrl } },
+        }),
+      );
     }
   });
 
@@ -909,14 +1024,21 @@ function initEventBus() {
     if (id === currentColls.activeCollectionId) return;
 
     // Persist the current collection's items before switching
-    if (treeView) await saveCollectionData(currentColls.activeCollectionId, treeView.getItems());
+    if (treeView)
+      await saveCollectionData(
+        currentColls.activeCollectionId,
+        treeView.getItems(),
+      );
 
     // Update in-memory active collection
     setActiveCollection(id);
     currentColls = { ...currentColls, activeCollectionId: id };
 
     // Persist manifest
-    await saveManifest({ collections: currentColls.collections, activeCollectionId: id });
+    await saveManifest({
+      collections: currentColls.collections,
+      activeCollectionId: id,
+    });
 
     // Load new collection's items
     const { items, variables } = await loadCollectionData(id);
@@ -933,7 +1055,7 @@ function initEventBus() {
     // Attach variables to the collection entry in memory
     currentColls = {
       ...currentColls,
-      collections: currentColls.collections.map(coll =>
+      collections: currentColls.collections.map((coll) =>
         coll.id === id ? { ...coll, variables: variables ?? {} } : coll,
       ),
     };
@@ -948,14 +1070,18 @@ function initEventBus() {
   /** Add a new (empty) collection and switch to it. */
   window.addEventListener("wurl:coll-add", async (e) => {
     const { name } = e.detail;
-    const newColl  = { id: crypto.randomUUID(), name };
+    const newColl = { id: crypto.randomUUID(), name };
     const collections = [...currentColls.collections, newColl];
 
     // Save empty items for the new collection
     await saveCollectionData(newColl.id, []);
 
     // Switch to the new collection
-    if (treeView) await saveCollectionData(currentColls.activeCollectionId, treeView.getItems());
+    if (treeView)
+      await saveCollectionData(
+        currentColls.activeCollectionId,
+        treeView.getItems(),
+      );
     setActiveCollection(newColl.id);
     currentColls = { collections, activeCollectionId: newColl.id };
 
@@ -978,23 +1104,32 @@ function initEventBus() {
     let sourceItems;
     let sourceVariables;
     if (sourceId === currentColls.activeCollectionId) {
-      sourceItems     = treeView ? treeView.getItems() : [];
-      sourceVariables = currentColls.collections.find(c => c.id === sourceId)?.variables ?? {};
+      sourceItems = treeView ? treeView.getItems() : [];
+      sourceVariables =
+        currentColls.collections.find((c) => c.id === sourceId)?.variables ??
+        {};
     } else {
-      const loaded    = await loadCollectionData(sourceId);
-      sourceItems     = loaded.items;
+      const loaded = await loadCollectionData(sourceId);
+      sourceItems = loaded.items;
       sourceVariables = loaded.variables ?? {};
     }
 
     // Deep-clone items with new UUIDs; copy variables directly
-    const cloned          = sourceItems.map(_deepCloneWithNewIds);
+    const cloned = sourceItems.map(_deepCloneWithNewIds);
     const clonedVariables = { ...sourceVariables };
 
     // Save cloned items + variables and switch to the new collection
     await saveCollectionData(newColl.id, cloned, clonedVariables);
-    if (treeView) await saveCollectionData(currentColls.activeCollectionId, treeView.getItems());
+    if (treeView)
+      await saveCollectionData(
+        currentColls.activeCollectionId,
+        treeView.getItems(),
+      );
 
-    const collections = [...currentColls.collections, { ...newColl, variables: clonedVariables }];
+    const collections = [
+      ...currentColls.collections,
+      { ...newColl, variables: clonedVariables },
+    ];
     setActiveCollection(newColl.id);
     currentColls = { collections, activeCollectionId: newColl.id };
 
@@ -1011,13 +1146,16 @@ function initEventBus() {
   /** Rename a collection — updates its display name everywhere without touching its items. */
   window.addEventListener("wurl:coll-rename", async (e) => {
     const { id, name } = e.detail;
-    const collections = currentColls.collections.map(coll =>
+    const collections = currentColls.collections.map((coll) =>
       coll.id === id ? { ...coll, name } : coll,
     );
     currentColls = { ...currentColls, collections };
 
     // Persist the manifest with the new name
-    await saveManifest({ collections, activeCollectionId: currentColls.activeCollectionId });
+    await saveManifest({
+      collections,
+      activeCollectionId: currentColls.activeCollectionId,
+    });
 
     // If the renamed collection is active, update the nav panel title
     if (id === currentColls.activeCollectionId) setNavPanelTitle(name);
@@ -1030,7 +1168,7 @@ function initEventBus() {
     const { id } = e.detail;
     if (currentColls.collections.length <= 1) return; // guard
 
-    let collections = currentColls.collections.filter(coll => coll.id !== id);
+    let collections = currentColls.collections.filter((coll) => coll.id !== id);
     let activeId = currentColls.activeCollectionId;
 
     // If we're deleting the active collection, switch to the first remaining one
@@ -1047,7 +1185,7 @@ function initEventBus() {
       }
       setNavPanelTitle(_collName(collections, activeId));
       // Attach variables in memory
-      collections = collections.map(coll =>
+      collections = collections.map((coll) =>
         coll.id === activeId ? { ...coll, variables: variables ?? {} } : coll,
       );
     } else {
@@ -1065,9 +1203,9 @@ function initEventBus() {
   window.addEventListener("wurl:folder-vars-open", (e) => {
     const { nodeId, folderName, variables } = e.detail;
     varsPopup.open({
-      envId:      nodeId,
-      envName:    folderName,
-      variables:  variables ?? {},
+      envId: nodeId,
+      envName: folderName,
+      variables: variables ?? {},
       bulkEditor: currentSettings.varsBulkEditor ?? true,
     });
   });
@@ -1080,13 +1218,13 @@ function initEventBus() {
   window.addEventListener("wurl:vars-save", async (e) => {
     const { envId, variables } = e.detail;
 
-    const isColl = currentColls.collections.some(coll => coll.id === envId);
+    const isColl = currentColls.collections.some((coll) => coll.id === envId);
 
     if (isColl) {
       // Update in-memory collection state
       currentColls = {
         ...currentColls,
-        collections: currentColls.collections.map(coll =>
+        collections: currentColls.collections.map((coll) =>
           coll.id === envId ? { ...coll, variables } : coll,
         ),
       };
@@ -1100,12 +1238,17 @@ function initEventBus() {
     }
 
     // Revalidate pill editors in the request panel for the updated context
-    _refreshEditorVariableContext(currentSettings.selectedRequestIds?.[currentColls.activeCollectionId]);
+    _refreshEditorVariableContext(
+      currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
+    );
   });
 
   /** Persist the Bulk Editor toggle preference into settings. */
   window.addEventListener("wurl:vars-bulk-editor-changed", (e) => {
-    currentSettings = { ...currentSettings, varsBulkEditor: e.detail.bulkEditor };
+    currentSettings = {
+      ...currentSettings,
+      varsBulkEditor: e.detail.bulkEditor,
+    };
     saveSettings(currentSettings);
   });
 
@@ -1120,7 +1263,10 @@ function initEventBus() {
   });
 
   window.addEventListener("wurl:env-activate", async (e) => {
-    currentEnvironments = { ...currentEnvironments, activeEnvironmentId: e.detail.id };
+    currentEnvironments = {
+      ...currentEnvironments,
+      activeEnvironmentId: e.detail.id,
+    };
     await window.wurl.store.environments.save(currentEnvironments);
     environmentsPopup.update(currentEnvironments);
     _refreshEditorVariableContext();
@@ -1130,11 +1276,14 @@ function initEventBus() {
   window.addEventListener("wurl:env-vars-save", async (e) => {
     const { id, variables } = e.detail;
     if (id === null) {
-      currentEnvironments = { ...currentEnvironments, globalVariables: variables };
+      currentEnvironments = {
+        ...currentEnvironments,
+        globalVariables: variables,
+      };
     } else {
       currentEnvironments = {
         ...currentEnvironments,
-        environments: currentEnvironments.environments.map(env =>
+        environments: currentEnvironments.environments.map((env) =>
           env.id === id ? { ...env, variables } : env,
         ),
       };
@@ -1154,37 +1303,47 @@ function initEventBus() {
    */
   function _refreshEditorVariableContext(nodeId) {
     if (!requestEditor) return;
-    const id = nodeId ?? currentSettings.selectedRequestIds?.[currentColls.activeCollectionId] ?? null;
-    const folderChain = (treeView && id)
-      ? buildFolderChain(treeView.getItems(), id)
-      : [];
+    const id =
+      nodeId ??
+      currentSettings.selectedRequestIds?.[currentColls.activeCollectionId] ??
+      null;
+    const folderChain =
+      treeView && id ? buildFolderChain(treeView.getItems(), id) : [];
     const activeColl = currentColls.collections.find(
-      coll => coll.id === currentColls.activeCollectionId,
+      (coll) => coll.id === currentColls.activeCollectionId,
     );
     const envVariables = activeColl?.variables ?? {};
-    const node = _selectedNode ?? (id && treeView ? _findNodeById(treeView.getItems(), id) : null);
+    const node =
+      _selectedNode ??
+      (id && treeView ? _findNodeById(treeView.getItems(), id) : null);
 
-    const activeEnvId          = currentEnvironments.activeEnvironmentId;
-    const activeEnv            = currentEnvironments.environments.find(e => e.id === activeEnvId);
+    const activeEnvId = currentEnvironments.activeEnvironmentId;
+    const activeEnv = currentEnvironments.environments.find(
+      (e) => e.id === activeEnvId,
+    );
     const environmentVariables = activeEnv?.variables ?? {};
-    const globalVariables      = currentEnvironments.globalVariables ?? {};
+    const globalVariables = currentEnvironments.globalVariables ?? {};
 
     requestEditor.setVariableContext({
       envVariables,
       environmentVariables,
       globalVariables,
       folderChain,
-      envName:              activeColl?.name ?? "",
+      envName: activeColl?.name ?? "",
       activeEnvironmentName: activeEnv?.name ?? "",
-      requestName:          node?.name       ?? "",
-      responseCache:   _responseCache,
+      requestName: node?.name ?? "",
+      responseCache: _responseCache,
       responseHeaders: _responseHeaders,
-      responseStatus:  _responseStatus,
+      responseStatus: _responseStatus,
     });
     // Feed merged variables to the tree-view so "Generate cURL" resolves correctly.
     // Collection-level wins over environment which wins over global.
     if (treeView) {
-      treeView.setEnvVariables({ ...globalVariables, ...environmentVariables, ...envVariables });
+      treeView.setEnvVariables({
+        ...globalVariables,
+        ...environmentVariables,
+        ...envVariables,
+      });
     }
   }
 
@@ -1219,15 +1378,15 @@ function initEventBus() {
   // Active AbortController for the current in-flight Go-dev-mode request
   let _activeAbortController = null;
   // Flag set when the user cancels; prevents stale results from being displayed
-  let _cancelCurrentRequest  = false;
+  let _cancelCurrentRequest = false;
   // Snapshot of the most-recently-started request (used in cancel error detail)
-  let _lastRequestSnapshot   = null;
+  let _lastRequestSnapshot = null;
   // Currently selected tree node (request or folder), for context functions
-  let _selectedNode          = null;
+  let _selectedNode = null;
   // Response caches keyed by request name — fed into variable context for function pills
-  let _responseCache   = {};
+  let _responseCache = {};
   let _responseHeaders = {};
-  let _responseStatus  = {};
+  let _responseStatus = {};
 
   window.addEventListener("wurl:cancel-request", () => {
     _cancelCurrentRequest = true;
@@ -1236,25 +1395,35 @@ function initEventBus() {
       _activeAbortController = null;
     }
     // Give instant feedback: treat cancel as an error
-    window.dispatchEvent(new CustomEvent("wurl:request-error", {
-      detail: {
-        request:    _lastRequestSnapshot ?? { method: "GET", url: "", headers: {}, body: null },
-        name:       "AbortError",
-        message:    "Request cancelled.",
-        hint:       "The request was cancelled by the user.",
-        elapsed:    0,
-        consoleLog: ["* Request cancelled by user"],
-      },
-    }));
+    window.dispatchEvent(
+      new CustomEvent("wurl:request-error", {
+        detail: {
+          request: _lastRequestSnapshot ?? {
+            method: "GET",
+            url: "",
+            headers: {},
+            body: null,
+          },
+          name: "AbortError",
+          message: "Request cancelled.",
+          hint: "The request was cancelled by the user.",
+          elapsed: 0,
+          consoleLog: ["* Request cancelled by user"],
+        },
+      }),
+    );
   });
 
   // ── classify common network failures for a human-readable hint ──────────────
   function _buildHint(errName, msg) {
-    if (errName === "AbortError")
-      return "The request was aborted.";
+    if (errName === "AbortError") return "The request was aborted.";
     if (/cors/i.test(msg))
       return "CORS policy blocked the request — the server may need to send Access-Control-Allow-Origin headers.";
-    if (/failed to fetch|load failed|networkerror|network request failed/i.test(msg))
+    if (
+      /failed to fetch|load failed|networkerror|network request failed/i.test(
+        msg,
+      )
+    )
       return "Could not reach the server. Check the URL, network connectivity, and whether the server is running.";
     if (/ssl|certificate|cert/i.test(msg))
       return "TLS/SSL certificate error — the server certificate may be self-signed or invalid.";
@@ -1273,42 +1442,51 @@ function initEventBus() {
     // ── Guard: URL must be a non-empty string ────────────────────────────────
     const rawUrl = descriptor?.url;
     if (!rawUrl || typeof rawUrl !== "string" || !rawUrl.trim()) {
-      window.dispatchEvent(new CustomEvent("wurl:request-error", {
-        detail: {
-          request:    { method: descriptor?.method ?? "GET", url: rawUrl ?? "", headers: {}, body: null },
-          name:       "TypeError",
-          message:    "No URL specified.",
-          hint:       "Enter a URL in the request bar before sending.",
-          elapsed:    0,
-          consoleLog: ["* Error: No URL specified."],
-        },
-      }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:request-error", {
+          detail: {
+            request: {
+              method: descriptor?.method ?? "GET",
+              url: rawUrl ?? "",
+              headers: {},
+              body: null,
+            },
+            name: "TypeError",
+            message: "No URL specified.",
+            hint: "Enter a URL in the request bar before sending.",
+            elapsed: 0,
+            consoleLog: ["* Error: No URL specified."],
+          },
+        }),
+      );
       return;
     }
 
     window.dispatchEvent(new CustomEvent("wurl:request-loading"));
 
-    _cancelCurrentRequest  = false;
-    _lastRequestSnapshot   = {
-      method:  descriptor.method,
-      url:     descriptor.url,
+    _cancelCurrentRequest = false;
+    _lastRequestSnapshot = {
+      method: descriptor.method,
+      url: descriptor.url,
       headers: descriptor.headers ?? {},
-      body:    typeof descriptor.body === "string" ? descriptor.body : null,
+      body: typeof descriptor.body === "string" ? descriptor.body : null,
     };
 
     // ── Build the descriptor for the native layer ────────────────────────────
     const nativeDesc = {
-      method:          descriptor.method,
-      url:             descriptor.url,
-      headers:         descriptor.headers ?? {},
-      body:            typeof descriptor.body === "string" ? descriptor.body : null,
-      bodyFilePath:    descriptor.bodyFilePath ?? null,
-      timeout:         currentSettings.timeout         ?? 30000,
+      method: descriptor.method,
+      url: descriptor.url,
+      headers: descriptor.headers ?? {},
+      body: typeof descriptor.body === "string" ? descriptor.body : null,
+      bodyFilePath: descriptor.bodyFilePath ?? null,
+      timeout: currentSettings.timeout ?? 30000,
       followRedirects: currentSettings.followRedirects ?? true,
-      verifySsl:       currentSettings.verifySsl       ?? true,
-      awsIam:          descriptor.awsIam ?? null,
-      proxy:           currentSettings.proxyEnabled && currentSettings.proxyUrl
-                         ? currentSettings.proxyUrl : null,
+      verifySsl: currentSettings.verifySsl ?? true,
+      awsIam: descriptor.awsIam ?? null,
+      proxy:
+        currentSettings.proxyEnabled && currentSettings.proxyUrl
+          ? currentSettings.proxyUrl
+          : null,
     };
 
     // ── Choose execution path ────────────────────────────────────────────────
@@ -1331,11 +1509,10 @@ function initEventBus() {
           // error.  Surface it clearly rather than silently falling back.
           throw new Error(
             "window.wurl.http.execute is not available. " +
-            "Ensure the Electron app was rebuilt with the latest preload.js."
+              "Ensure the Electron app was rebuilt with the latest preload.js.",
           );
         }
         result = await window.wurl.http.execute(nativeDesc);
-
       } else {
         // ── Go dev-server path: POST to /api/execute proxy endpoint ──────────
         // The Go server makes the outgoing request server-side so CORS is
@@ -1344,10 +1521,10 @@ function initEventBus() {
         _activeAbortController = controller;
 
         const res = await fetch("/api/execute", {
-          method:  "POST",
+          method: "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify(nativeDesc),
-          signal:  controller.signal,
+          body: JSON.stringify(nativeDesc),
+          signal: controller.signal,
         });
         _activeAbortController = null;
 
@@ -1361,50 +1538,55 @@ function initEventBus() {
       // ── Dispatch result ──────────────────────────────────────────────────
       if (result.error && result.status === 0) {
         // Network-level failure — no HTTP response received
-        window.dispatchEvent(new CustomEvent("wurl:request-error", {
-          detail: {
-            request:    _lastRequestSnapshot,
-            name:       result.error.name,
-            message:    result.error.message,
-            hint:       _buildHint(result.error.name, result.error.message),
-            elapsed:    result.elapsed ?? 0,
-            consoleLog: result.consoleLog ?? [],
-          },
-        }));
+        window.dispatchEvent(
+          new CustomEvent("wurl:request-error", {
+            detail: {
+              request: _lastRequestSnapshot,
+              name: result.error.name,
+              message: result.error.message,
+              hint: _buildHint(result.error.name, result.error.message),
+              elapsed: result.elapsed ?? 0,
+              consoleLog: result.consoleLog ?? [],
+            },
+          }),
+        );
       } else {
         // We got an HTTP response (any status code, including 4xx / 5xx)
-        window.dispatchEvent(new CustomEvent("wurl:response-received", {
-          detail: {
-            request:    _lastRequestSnapshot,
-            status:     result.status,
-            statusText: result.statusText,
-            headers:    result.headers  ?? {},
-            cookies:    result.cookies  ?? [],
-            body:       result.body     ?? "",
-            elapsed:    result.elapsed  ?? 0,
-            size:       result.size     ?? 0,
-            consoleLog: result.consoleLog ?? [],
-          },
-        }));
+        window.dispatchEvent(
+          new CustomEvent("wurl:response-received", {
+            detail: {
+              request: _lastRequestSnapshot,
+              status: result.status,
+              statusText: result.statusText,
+              headers: result.headers ?? {},
+              cookies: result.cookies ?? [],
+              body: result.body ?? "",
+              elapsed: result.elapsed ?? 0,
+              size: result.size ?? 0,
+              consoleLog: result.consoleLog ?? [],
+            },
+          }),
+        );
       }
-
     } catch (err) {
       if (_cancelCurrentRequest) return;
       _activeAbortController = null;
 
-      const errName = (err instanceof Error ? err.name    : "Error")   || "Error";
-      const msg     = (err instanceof Error ? err.message : String(err)) || "";
+      const errName = (err instanceof Error ? err.name : "Error") || "Error";
+      const msg = (err instanceof Error ? err.message : String(err)) || "";
 
-      window.dispatchEvent(new CustomEvent("wurl:request-error", {
-        detail: {
-          request:    _lastRequestSnapshot,
-          name:       errName,
-          message:    msg,
-          hint:       _buildHint(errName, msg),
-          elapsed:    0,
-          consoleLog: [`* ${errName}: ${msg}`],
-        },
-      }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:request-error", {
+          detail: {
+            request: _lastRequestSnapshot,
+            name: errName,
+            message: msg,
+            hint: _buildHint(errName, msg),
+            elapsed: 0,
+            consoleLog: [`* ${errName}: ${msg}`],
+          },
+        }),
+      );
     }
   });
 }
@@ -1416,8 +1598,10 @@ function initEventBus() {
  * In Electron     → reads via ipcMain from the platform userData directory
  */
 async function initCollections() {
-  const [{ items, settings, collections, activeCollectionId, variables }, environmentsData] =
-    await Promise.all([loadAll(), window.wurl.store.environments.get()]);
+  const [
+    { items, settings, collections, activeCollectionId, variables },
+    environmentsData,
+  ] = await Promise.all([loadAll(), window.wurl.store.environments.get()]);
 
   if (environmentsData) currentEnvironments = environmentsData;
 
@@ -1429,8 +1613,10 @@ async function initCollections() {
   applySettings(settings);
 
   // Seed collection state — attach loaded variables to the active collection object
-  const collsWithVars = collections.map(coll =>
-    coll.id === activeCollectionId ? { ...coll, variables: variables ?? {} } : coll,
+  const collsWithVars = collections.map((coll) =>
+    coll.id === activeCollectionId
+      ? { ...coll, variables: variables ?? {} }
+      : coll,
   );
   currentColls = { collections: collsWithVars, activeCollectionId };
   setNavPanelTitle(_collName(collections, activeCollectionId));
@@ -1445,7 +1631,7 @@ async function initCollections() {
 
 /** Return the name of a collection by id, falling back to a default. */
 function _collName(collections, id) {
-  return collections.find(c => c.id === id)?.name ?? "Collections";
+  return collections.find((c) => c.id === id)?.name ?? "Collections";
 }
 
 /** Update the nav panel's title text. */
@@ -1472,8 +1658,8 @@ function setNavPanelTitle(name) {
  */
 function installZoomHandlers() {
   // These values must stay in sync with the <option> elements in settings-popup.js.
-  const FONT_SIZES     = [9, 11, 12, 13, 14, 16, 18, 20];
-  const DEFAULT_FONT   = 13; // matches DEFAULT_SETTINGS.fontSize in data-store.js
+  const FONT_SIZES = [9, 11, 12, 13, 14, 16, 18, 20];
+  const DEFAULT_FONT = 13; // matches DEFAULT_SETTINGS.fontSize in data-store.js
 
   /**
    * Advance the font size by `direction` steps (+1 = larger, -1 = smaller).
@@ -1487,12 +1673,15 @@ function installZoomHandlers() {
     let idx = FONT_SIZES.indexOf(current);
     if (idx === -1) {
       const nearest = FONT_SIZES.reduce((prev, cur) =>
-        Math.abs(cur - current) < Math.abs(prev - current) ? cur : prev
+        Math.abs(cur - current) < Math.abs(prev - current) ? cur : prev,
       );
       idx = FONT_SIZES.indexOf(nearest);
     }
 
-    const nextIdx = Math.max(0, Math.min(FONT_SIZES.length - 1, idx + direction));
+    const nextIdx = Math.max(
+      0,
+      Math.min(FONT_SIZES.length - 1, idx + direction),
+    );
     const newSize = FONT_SIZES[nextIdx];
     if (newSize === current) return; // already at min/max limit
 
@@ -1513,41 +1702,62 @@ function installZoomHandlers() {
   // Must be registered as non-passive so preventDefault() stops the browser
   // from performing its native visual zoom.  On macOS, two-finger pinch is
   // delivered to Chromium as a wheel event with ctrlKey=true.
-  window.addEventListener("wheel", (e) => {
-    if (!(e.ctrlKey || e.metaKey)) return; // only intercept zoom-modifier combos
+  window.addEventListener(
+    "wheel",
+    (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return; // only intercept zoom-modifier combos
 
-    e.preventDefault();
-    e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
 
-    // Negative deltaY = scroll/pinch toward "zoom in"; positive = "zoom out".
-    changeFontByStep(e.deltaY < 0 ? +1 : -1);
-  }, { passive: false, capture: true });
+      // Negative deltaY = scroll/pinch toward "zoom in"; positive = "zoom out".
+      changeFontByStep(e.deltaY < 0 ? +1 : -1);
+    },
+    { passive: false, capture: true },
+  );
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────────
   // Intercept Ctrl/Cmd + '+' / '-' / '0' before Chromium or the OS menu picks
   // them up.  Registered in the capture phase so they fire before editor widgets.
-  window.addEventListener("keydown", (e) => {
-    if (!(e.ctrlKey || e.metaKey)) return;
+  window.addEventListener(
+    "keydown",
+    (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
 
-    // Allow normal key combos inside editable inputs/textareas.
-    const tag = e.target?.tagName ?? "";
-    if (["INPUT", "TEXTAREA"].includes(tag) || e.target?.isContentEditable) return;
+      // Allow normal key combos inside editable inputs/textareas.
+      const tag = e.target?.tagName ?? "";
+      if (["INPUT", "TEXTAREA"].includes(tag) || e.target?.isContentEditable)
+        return;
 
-    // Both '+' (shift+= US layout) and '=' map to zoom-in; '-' maps to zoom-out.
-    if (e.key === "+" || e.key === "=") {
+      // Both '+' (shift+= US layout) and '=' map to zoom-in; '-' maps to zoom-out.
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        e.stopPropagation();
+        changeFontByStep(+1);
+      } else if (e.key === "-") {
+        e.preventDefault();
+        e.stopPropagation();
+        changeFontByStep(-1);
+      } else if (e.key === "0") {
+        e.preventDefault();
+        e.stopPropagation();
+        resetFont();
+      }
+    },
+    { capture: true },
+  );
+
+  // ── Cmd/Ctrl+Enter — send the active request ─────────────────────────────────
+  window.addEventListener(
+    "keydown",
+    (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key !== "Enter") return;
       e.preventDefault();
       e.stopPropagation();
-      changeFontByStep(+1);
-    } else if (e.key === "-") {
-      e.preventDefault();
-      e.stopPropagation();
-      changeFontByStep(-1);
-    } else if (e.key === "0") {
-      e.preventDefault();
-      e.stopPropagation();
-      resetFont();
-    }
-  }, { capture: true });
+      requestEditor?.element?.querySelector(".req-send-btn")?.click();
+    },
+    { capture: true },
+  );
 
   // ── Electron menu items (main → preload → renderer) ──────────────────────────
   // The Electron main process replaced the native zoomIn/zoomOut/resetZoom menu
@@ -1555,8 +1765,8 @@ function installZoomHandlers() {
   // preload.js re-dispatches these as window CustomEvents so we can handle them here.
   window.addEventListener("wurl:ui-font-change", (e) => {
     const direction = e.detail;
-    if (direction === "in")    changeFontByStep(+1);
-    else if (direction === "out")   changeFontByStep(-1);
+    if (direction === "in") changeFontByStep(+1);
+    else if (direction === "out") changeFontByStep(-1);
     else if (direction === "reset") resetFont();
   });
 }
@@ -1569,32 +1779,49 @@ function installZoomHandlers() {
  */
 function _clearRequestEditor() {
   if (requestEditor) {
-    requestEditor.load({ id: null, method: "GET", url: "", params: [], headers: [], bodyType: "no-body", name: "" });
+    requestEditor.load({
+      id: null,
+      method: "GET",
+      url: "",
+      params: [],
+      headers: [],
+      bodyType: "no-body",
+      name: "",
+    });
   }
   _dispatchTimelineUpdate(null, true);
 }
 
 function _dispatchTimelineUpdate(requestId, isRequestSwitch = false) {
   const entries = requestId ? (_requestHistory.get(requestId) ?? []) : [];
-  window.dispatchEvent(new CustomEvent("wurl:timeline-update", {
-    detail: { entries: [...entries], isRequestSwitch },
-  }));
+  window.dispatchEvent(
+    new CustomEvent("wurl:timeline-update", {
+      detail: { entries: [...entries], isRequestSwitch },
+    }),
+  );
 }
 
 /** Deep-clone a tree node, assigning fresh UUIDs throughout. */
-function _deepCloneWithNewIds(node) {  const clone = { ...node, id: crypto.randomUUID() };
+function _deepCloneWithNewIds(node) {
+  const clone = { ...node, id: crypto.randomUUID() };
   if (Array.isArray(node.children)) {
     clone.children = node.children.map(_deepCloneWithNewIds);
   }
   // Regenerate IDs for request-level row arrays
   if (Array.isArray(node.bodyFormRows)) {
-    clone.bodyFormRows = node.bodyFormRows.map((r) => ({ ...r, id: crypto.randomUUID() }));
+    clone.bodyFormRows = node.bodyFormRows.map((r) => ({
+      ...r,
+      id: crypto.randomUUID(),
+    }));
   }
   if (Array.isArray(node.params)) {
     clone.params = node.params.map((r) => ({ ...r, id: crypto.randomUUID() }));
   }
   if (Array.isArray(node.headers)) {
-    clone.headers = node.headers.map((r) => ({ ...r, id: crypto.randomUUID() }));
+    clone.headers = node.headers.map((r) => ({
+      ...r,
+      id: crypto.randomUUID(),
+    }));
   }
   return clone;
 }
@@ -1606,12 +1833,13 @@ function _deepCloneWithNewIds(node) {  const clone = { ...node, id: crypto.rando
  */
 // Font stacks keyed by the fontFamily setting value.
 const FONT_STACKS = {
-  "inter":   '"Inter", "Segoe UI", system-ui, -apple-system, sans-serif',
-  "system":  'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  "sf-pro":  '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-  "segoe":   '"Segoe UI", system-ui, sans-serif',
-  "ubuntu":  '"Ubuntu", "Cantarell", system-ui, sans-serif',
-  "roboto":  '"Roboto", "Helvetica Neue", system-ui, sans-serif',
+  inter: '"Inter", "Segoe UI", system-ui, -apple-system, sans-serif',
+  system:
+    'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  "sf-pro": '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+  segoe: '"Segoe UI", system-ui, sans-serif',
+  ubuntu: '"Ubuntu", "Cantarell", system-ui, sans-serif',
+  roboto: '"Roboto", "Helvetica Neue", system-ui, sans-serif',
 };
 
 function applySettings(settings) {
@@ -1622,7 +1850,10 @@ function applySettings(settings) {
   // Font size — sets --font-size-base; all other sizes (xs, sm, md, lg, xl)
   // are defined as calc(base ± Npx) in theme.css so the whole UI scales.
   if (settings.fontSize) {
-    document.documentElement.style.setProperty("--font-size-base", `${settings.fontSize}px`);
+    document.documentElement.style.setProperty(
+      "--font-size-base",
+      `${settings.fontSize}px`,
+    );
   }
   // UI font — sets --font-sans so the whole app uses the chosen typeface.
   if (settings.fontFamily) {
@@ -1640,16 +1871,18 @@ function applySettings(settings) {
     layoutPicker.load(settings.layout);
   }
   // Splitter positions — restore saved pixel values into the grid variables
-  if (settings.splitterNav    != null) splitterSizes.nav    = settings.splitterNav;
-  if (settings.splitterRes    != null) splitterSizes.res    = settings.splitterRes;
-  if (settings.splitterRowRes != null) splitterSizes.rowRes = settings.splitterRowRes;
+  if (settings.splitterNav != null) splitterSizes.nav = settings.splitterNav;
+  if (settings.splitterRes != null) splitterSizes.res = settings.splitterRes;
+  if (settings.splitterRowRes != null)
+    splitterSizes.rowRes = settings.splitterRowRes;
   applyGridVars();
 
   // Editor preferences
   if (requestEditor) requestEditor.applySettings(settings);
   if (responseViewer) responseViewer.applySettings(settings);
   if (varsPopup) varsPopup.applySettings(settings);
-  if (treeView) treeView.setDoubleClickExecute(settings.doubleClickExecute ?? false);
+  if (treeView)
+    treeView.setDoubleClickExecute(settings.doubleClickExecute ?? false);
   setPickerDebounceMs(settings.pickerDebounceMs ?? 200);
 
   // Remove headers — hide/show all .panel-header elements, app-header, and nav settings bar
@@ -1705,7 +1938,10 @@ function _findNodeById(items, id) {
 /** Count all request nodes recursively in a collection tree. */
 function _countRequests(node) {
   if (node.type === "request") return 1;
-  return (node.children ?? []).reduce((sum, child) => sum + _countRequests(child), 0);
+  return (node.children ?? []).reduce(
+    (sum, child) => sum + _countRequests(child),
+    0,
+  );
 }
 
 /**
@@ -1714,7 +1950,10 @@ function _countRequests(node) {
  */
 async function handleExport(collection) {
   if (!window.wurl?.export?.saveFile) {
-    PopupManager.notify({ title: "Export", message: "Export is only available in the desktop app." });
+    PopupManager.notify({
+      title: "Export",
+      message: "Export is only available in the desktop app.",
+    });
     return;
   }
 
@@ -1722,27 +1961,41 @@ async function handleExport(collection) {
   try {
     const data = await loadCollectionData(currentColls.activeCollectionId);
     variables = data.variables ?? {};
-  } catch { /* non-fatal — export without collection variables */ }
+  } catch {
+    /* non-fatal — export without collection variables */
+  }
 
-  const content  = exportToPostman(collection, variables);
-  const safeName = (collection.name ?? "collection").replace(/[^a-z0-9_-]/gi, "_");
+  const content = exportToPostman(collection, variables);
+  const safeName = (collection.name ?? "collection").replace(
+    /[^a-z0-9_-]/gi,
+    "_",
+  );
 
   try {
-    const saved = await window.wurl.export.saveFile(`${safeName}.json`, content);
+    const saved = await window.wurl.export.saveFile(
+      `${safeName}.json`,
+      content,
+    );
     if (saved) {
       PopupManager.notify({
-        title:   "Export Successful",
+        title: "Export Successful",
         message: `"${collection.name}" exported as Postman v2.1.`,
       });
     }
   } catch (err) {
-    PopupManager.notify({ title: "Export Failed", message: String(err.message ?? err) });
+    PopupManager.notify({
+      title: "Export Failed",
+      message: String(err.message ?? err),
+    });
   }
 }
 
 async function handleImport() {
   if (!window.wurl?.import?.openFile) {
-    PopupManager.notify({ title: "Import", message: "Import is only available in the desktop app." });
+    PopupManager.notify({
+      title: "Import",
+      message: "Import is only available in the desktop app.",
+    });
     return;
   }
 
@@ -1750,7 +2003,10 @@ async function handleImport() {
   try {
     file = await window.wurl.import.openFile();
   } catch (err) {
-    PopupManager.notify({ title: "Import Failed", message: String(err.message ?? err) });
+    PopupManager.notify({
+      title: "Import Failed",
+      message: String(err.message ?? err),
+    });
     return;
   }
   if (!file) return; // user cancelled the file dialog
@@ -1759,13 +2015,16 @@ async function handleImport() {
   try {
     parsed = parseImport(file.content);
   } catch (err) {
-    PopupManager.notify({ title: "Import Failed", message: String(err.message ?? err) });
+    PopupManager.notify({
+      title: "Import Failed",
+      message: String(err.message ?? err),
+    });
     return;
   }
 
   const { collection, variables } = parsed;
-  const activeId  = currentColls.activeCollectionId;
-  const newItems  = [...(treeView?.getItems() ?? []), collection];
+  const activeId = currentColls.activeCollectionId;
+  const newItems = [...(treeView?.getItems() ?? []), collection];
 
   if (treeView) treeView.setItems(newItems);
 
@@ -1780,13 +2039,16 @@ async function handleImport() {
       await saveCollectionData(activeId, newItems);
     }
   } catch (err) {
-    PopupManager.notify({ title: "Import Warning", message: `Collection imported but could not be saved: ${err.message}` });
+    PopupManager.notify({
+      title: "Import Warning",
+      message: `Collection imported but could not be saved: ${err.message}`,
+    });
     return;
   }
 
   const count = _countRequests(collection);
   PopupManager.notify({
-    title:   "Import Successful",
+    title: "Import Successful",
     message: `"${collection.name}" imported with ${count} request${count !== 1 ? "s" : ""}.`,
   });
 }

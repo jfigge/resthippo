@@ -26,7 +26,9 @@ let _safeStorage = null;
 try {
   const electron = require("electron");
   _safeStorage = electron.safeStorage ?? null;
-} catch { /* not running inside Electron */ }
+} catch {
+  /* not running inside Electron */
+}
 
 const PREFIX = "enc:v1:";
 
@@ -81,7 +83,7 @@ function decryptString(value) {
  * tuples so the same path list drives both encrypt and decrypt.
  */
 const REQUEST_SECRET_PATHS = [
-  ["authBasic",  "password"],
+  ["authBasic", "password"],
   ["authBearer", "token"],
   ["authOAuth2", "clientSecret"],
   ["authOAuth2", "token"],
@@ -106,10 +108,14 @@ function _applyToRequest(obj, fn) {
 }
 
 /** Encrypt all secret fields in a request object before writing to disk. */
-function encryptRequest(obj) { return _applyToRequest(obj, encryptString); }
+function encryptRequest(obj) {
+  return _applyToRequest(obj, encryptString);
+}
 
 /** Decrypt all secret fields in a request object after reading from disk. */
-function decryptRequest(obj) { return _applyToRequest(obj, decryptString); }
+function decryptRequest(obj) {
+  return _applyToRequest(obj, decryptString);
+}
 
 // ── Settings-level helpers ────────────────────────────────────────────────────
 

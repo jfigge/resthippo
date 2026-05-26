@@ -22,10 +22,10 @@
 /** HTML-escape helper — prevents XSS when inserting caller-supplied strings into innerHTML. */
 function _esc(s) {
   return String(s ?? "")
-    .replace(/&/g,  "&amp;")
-    .replace(/</g,  "&lt;")
-    .replace(/>/g,  "&gt;")
-    .replace(/"/g,  "&quot;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 /** @type {{ element: HTMLElement, onMaskClick?: () => void } | null} */
@@ -145,7 +145,12 @@ function _ensureConfirm() {
  */
 function _onMaskClick(e) {
   // Ignore if the click bubbled up from the popup itself
-  if (_activePopup && _activePopup.element && _activePopup.element.contains(e.target)) return;
+  if (
+    _activePopup &&
+    _activePopup.element &&
+    _activePopup.element.contains(e.target)
+  )
+    return;
   if (_confirmOpen) return;
 
   if (_activePopup && typeof _activePopup.onMaskClick === "function") {
@@ -179,7 +184,14 @@ function _onMaskClick(e) {
  * }} opts
  * @returns {{ dlg: HTMLElement, dismiss: (afterFn?: () => void) => void }}
  */
-function _showOneShotDialog({ cssClass, role, ariaLabel, innerHTML, focusSel, escKeys = ["Escape"] }) {
+function _showOneShotDialog({
+  cssClass,
+  role,
+  ariaLabel,
+  innerHTML,
+  focusSel,
+  escKeys = ["Escape"],
+}) {
   _ensureMask();
 
   // Build the dialog element
@@ -210,7 +222,9 @@ function _showOneShotDialog({ cssClass, role, ariaLabel, innerHTML, focusSel, es
     };
     dlg.addEventListener("transitionend", onEnd);
     // Safety fallback in case transitionend never fires
-    setTimeout(() => { if (dlg.parentNode) dlg.parentNode.removeChild(dlg); }, 400);
+    setTimeout(() => {
+      if (dlg.parentNode) dlg.parentNode.removeChild(dlg);
+    }, 400);
     if (typeof afterFn === "function") afterFn();
   }
 
@@ -319,10 +333,16 @@ export const PopupManager = {
    *   onConfirm:     () => void,
    * }} opts
    */
-  confirm({ title = "Are you sure?", message, confirmLabel = "Confirm", confirmClass = "popup-btn--danger", onConfirm }) {
+  confirm({
+    title = "Are you sure?",
+    message,
+    confirmLabel = "Confirm",
+    confirmClass = "popup-btn--danger",
+    onConfirm,
+  }) {
     const { dlg, dismiss } = _showOneShotDialog({
-      cssClass:  "popup-confirm",
-      role:      "alertdialog",
+      cssClass: "popup-confirm",
+      role: "alertdialog",
       ariaLabel: _esc(title),
       innerHTML: `
         <div class="popup-header">
@@ -337,11 +357,15 @@ export const PopupManager = {
         </div>
       `,
       focusSel: "[data-action='cancel']",
-      escKeys:  ["Escape"],
+      escKeys: ["Escape"],
     });
 
-    dlg.querySelector("[data-action='cancel']").addEventListener("click",  () => dismiss());
-    dlg.querySelector("[data-action='confirm']").addEventListener("click", () => dismiss(onConfirm));
+    dlg
+      .querySelector("[data-action='cancel']")
+      .addEventListener("click", () => dismiss());
+    dlg
+      .querySelector("[data-action='confirm']")
+      .addEventListener("click", () => dismiss(onConfirm));
   },
 
   /**
@@ -362,7 +386,7 @@ export const PopupManager = {
       _confirmEl.classList.add("popup--visible");
     });
 
-    const keepBtn    = _confirmEl.querySelector("#pm-confirm-keep");
+    const keepBtn = _confirmEl.querySelector("#pm-confirm-keep");
     const discardBtn = _confirmEl.querySelector("#pm-confirm-discard");
 
     function cleanup() {
@@ -371,13 +395,15 @@ export const PopupManager = {
 
       const onEnd = () => {
         _confirmEl.removeEventListener("transitionend", onEnd);
-        if (_confirmEl.parentNode) _confirmEl.parentNode.removeChild(_confirmEl);
+        if (_confirmEl.parentNode)
+          _confirmEl.parentNode.removeChild(_confirmEl);
       };
       _confirmEl.addEventListener("transitionend", onEnd);
       setTimeout(() => {
         if (!_confirmEl) return;
         _confirmEl.removeEventListener("transitionend", onEnd);
-        if (_confirmEl.parentNode) _confirmEl.parentNode.removeChild(_confirmEl);
+        if (_confirmEl.parentNode)
+          _confirmEl.parentNode.removeChild(_confirmEl);
       }, 400);
 
       keepBtn.removeEventListener("click", onKeep);
@@ -423,22 +449,28 @@ export const PopupManager = {
    *   onAction:     () => void  called when the user chooses to proceed
    * }} opts
    */
-  warnVariables({ variables = [], actionLabel = "Send Anyway", onAction } = {}) {
-    const itemsHtml = variables.map(v => {
-      const valueCell = v.found
-        ? `<span class="var-warn-value var-warn-value--known">${_esc(v.value)}</span>`
-        : `<span class="var-warn-value var-warn-value--unknown">?</span>`;
-      return `
+  warnVariables({
+    variables = [],
+    actionLabel = "Send Anyway",
+    onAction,
+  } = {}) {
+    const itemsHtml = variables
+      .map((v) => {
+        const valueCell = v.found
+          ? `<span class="var-warn-value var-warn-value--known">${_esc(v.value)}</span>`
+          : `<span class="var-warn-value var-warn-value--unknown">?</span>`;
+        return `
         <li class="var-warn-item">
           <span class="var-warn-name">{{${_esc(v.name)}}}</span>
           <span class="var-warn-arrow">→</span>
           ${valueCell}
         </li>`;
-    }).join("");
+      })
+      .join("");
 
     const { dlg, dismiss } = _showOneShotDialog({
-      cssClass:  "popup-var-warn",
-      role:      "alertdialog",
+      cssClass: "popup-var-warn",
+      role: "alertdialog",
       ariaLabel: "Unresolved variables",
       innerHTML: `
         <div class="popup-header">
@@ -456,8 +488,12 @@ export const PopupManager = {
       focusSel: "[data-action='cancel']",
     });
 
-    dlg.querySelector("[data-action='cancel']").addEventListener("click",  () => dismiss());
-    dlg.querySelector("[data-action='proceed']").addEventListener("click", () => dismiss(onAction));
+    dlg
+      .querySelector("[data-action='cancel']")
+      .addEventListener("click", () => dismiss());
+    dlg
+      .querySelector("[data-action='proceed']")
+      .addEventListener("click", () => dismiss(onAction));
   },
 
   /**
@@ -470,8 +506,8 @@ export const PopupManager = {
    */
   notify({ title = "Info", message = "" } = {}) {
     const { dlg, dismiss } = _showOneShotDialog({
-      cssClass:  "popup-notify",
-      role:      "dialog",
+      cssClass: "popup-notify",
+      role: "dialog",
       ariaLabel: _esc(title),
       innerHTML: `
         <div class="popup-header">
@@ -485,10 +521,12 @@ export const PopupManager = {
         </div>
       `,
       focusSel: "[data-action='ok']",
-      escKeys:  ["Escape", "Enter"],
+      escKeys: ["Escape", "Enter"],
     });
 
-    dlg.querySelector("[data-action='ok']").addEventListener("click", () => dismiss());
+    dlg
+      .querySelector("[data-action='ok']")
+      .addEventListener("click", () => dismiss());
   },
 
   /**
@@ -516,12 +554,12 @@ export const PopupManager = {
 
     // Transparent mask — click-capture only, no dimming
     _maskEl.style.background = "transparent";
-    _maskEl.style.transition  = "none";
+    _maskEl.style.transition = "none";
     _showMask();
 
     // Position and mount
     element.style.left = `${x}px`;
-    element.style.top  = `${y}px`;
+    element.style.top = `${y}px`;
     document.body.appendChild(element);
 
     // Clamp to viewport after layout

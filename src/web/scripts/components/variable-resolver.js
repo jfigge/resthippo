@@ -47,21 +47,26 @@ export function parseFunctionCall(content) {
   // Split by comma, respecting double-quoted strings
   const rawArgs = [];
   let current = "";
-  let inQuote  = false;
+  let inQuote = false;
   for (const ch of argsStr) {
     if (ch === '"') {
-      inQuote  = !inQuote;
+      inQuote = !inQuote;
       current += ch;
     } else if (ch === "," && !inQuote) {
       const arg = current.trim();
-      rawArgs.push(arg.startsWith('"') && arg.endsWith('"') ? arg.slice(1, -1) : arg);
+      rawArgs.push(
+        arg.startsWith('"') && arg.endsWith('"') ? arg.slice(1, -1) : arg,
+      );
       current = "";
     } else {
       current += ch;
     }
   }
   const last = current.trim();
-  if (last) rawArgs.push(last.startsWith('"') && last.endsWith('"') ? last.slice(1, -1) : last);
+  if (last)
+    rawArgs.push(
+      last.startsWith('"') && last.endsWith('"') ? last.slice(1, -1) : last,
+    );
 
   return { name, rawArgs };
 }
@@ -75,7 +80,8 @@ export function parseFunctionCall(content) {
  * @returns {{ found: boolean, value: any, source: 'folder' | 'collection' | 'environment' | 'global' | null }}
  */
 export function resolveVariable(name, context) {
-  if (!name || !context) return { found: false, value: undefined, source: null };
+  if (!name || !context)
+    return { found: false, value: undefined, source: null };
 
   // 1. Walk folder chain nearest-to-farthest
   if (Array.isArray(context.folderChain)) {
@@ -117,13 +123,16 @@ export function resolveVariable(name, context) {
  */
 export function tokenize(text) {
   const tokens = [];
-  const re     = /\{\{([^{}]+)\}\}/g;
+  const re = /\{\{([^{}]+)\}\}/g;
   let lastIndex = 0;
   let match;
 
   while ((match = re.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      tokens.push({ type: "text", content: text.slice(lastIndex, match.index) });
+      tokens.push({
+        type: "text",
+        content: text.slice(lastIndex, match.index),
+      });
     }
     tokens.push({ type: "variable", content: match[1] });
     lastIndex = re.lastIndex;
@@ -155,12 +164,17 @@ export function serializeEditor(el) {
       if (child.dataset && child.dataset.variable !== undefined) {
         out += `{{${child.dataset.variable}}}`;
       } else if (child.dataset && child.dataset.function !== undefined) {
-        const name    = child.dataset.function;
+        const name = child.dataset.function;
         const rawArgs = JSON.parse(child.dataset.fnArgs ?? "[]");
         if (!rawArgs.length) {
           out += `{{${name}()}}`;
         } else {
-          const argStrs = rawArgs.map(a => `"${String(a).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(", ");
+          const argStrs = rawArgs
+            .map(
+              (a) =>
+                `"${String(a).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`,
+            )
+            .join(", ");
           out += `{{${name}(${argStrs})}}`;
         }
       } else if (child.tagName !== "BR") {
@@ -183,25 +197,27 @@ export async function resolveStringAsync(template, context) {
   if (!template) return template ?? "";
 
   const tokens = tokenize(template);
-  const parts  = await Promise.all(tokens.map(async (token) => {
-    if (token.type === "text") return token.content;
+  const parts = await Promise.all(
+    tokens.map(async (token) => {
+      if (token.type === "text") return token.content;
 
-    const content = token.content.trim();
-    if (isFunctionCall(content)) {
-      const parsed = parseFunctionCall(content);
-      if (!parsed) return `{{${token.content}}}`;
-      const handler = logicMap[parsed.name];
-      if (!handler) return `{{${token.content}}}`;
-      try {
-        return String(await handler(parsed.rawArgs, context));
-      } catch (e) {
-        return `[error: ${e.message}]`;
+      const content = token.content.trim();
+      if (isFunctionCall(content)) {
+        const parsed = parseFunctionCall(content);
+        if (!parsed) return `{{${token.content}}}`;
+        const handler = logicMap[parsed.name];
+        if (!handler) return `{{${token.content}}}`;
+        try {
+          return String(await handler(parsed.rawArgs, context));
+        } catch (e) {
+          return `[error: ${e.message}]`;
+        }
       }
-    }
 
-    const { found, value } = resolveVariable(content, context);
-    return found ? String(value ?? "") : `{{${content}}}`;
-  }));
+      const { found, value } = resolveVariable(content, context);
+      return found ? String(value ?? "") : `{{${content}}}`;
+    }),
+  );
 
   return parts.join("");
 }
@@ -218,7 +234,7 @@ export async function resolveStringAsync(template, context) {
  */
 export function collectTemplateVariables(templates, context) {
   const seen = new Map();
-  const re   = /\{\{([^{}]+)\}\}/g;
+  const re = /\{\{([^{}]+)\}\}/g;
 
   for (const tpl of templates) {
     if (!tpl) continue;
@@ -281,4 +297,3 @@ export function buildFolderChain(items, nodeId) {
 
   return search(items, []) ?? [];
 }
-

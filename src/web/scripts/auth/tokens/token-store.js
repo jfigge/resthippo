@@ -42,20 +42,38 @@ class TokenEntry {
    * @param {import('../types/oauth-types').OAuthResult} result
    */
   constructor(result) {
-    this.tokenType    = result.tokenType    ?? "Bearer";
-    this.scope        = result.scope        ?? null;
-    this.expiresAt    = result.expiresAt    ?? null; // ms timestamp or null (never expires)
-    this.expiresIn    = result.expiresIn    ?? null;
+    this.tokenType = result.tokenType ?? "Bearer";
+    this.scope = result.scope ?? null;
+    this.expiresAt = result.expiresAt ?? null; // ms timestamp or null (never expires)
+    this.expiresIn = result.expiresIn ?? null;
 
     // Sensitive fields — non-enumerable so they don't appear in JSON.stringify / console.log
-    Object.defineProperty(this, "_accessToken",  { value: result.accessToken,  writable: true, enumerable: false });
-    Object.defineProperty(this, "_refreshToken", { value: result.refreshToken, writable: true, enumerable: false });
-    Object.defineProperty(this, "_idToken",      { value: result.idToken,      writable: true, enumerable: false });
+    Object.defineProperty(this, "_accessToken", {
+      value: result.accessToken,
+      writable: true,
+      enumerable: false,
+    });
+    Object.defineProperty(this, "_refreshToken", {
+      value: result.refreshToken,
+      writable: true,
+      enumerable: false,
+    });
+    Object.defineProperty(this, "_idToken", {
+      value: result.idToken,
+      writable: true,
+      enumerable: false,
+    });
   }
 
-  get accessToken()  { return this._accessToken;  }
-  get refreshToken() { return this._refreshToken; }
-  get idToken()      { return this._idToken;       }
+  get accessToken() {
+    return this._accessToken;
+  }
+  get refreshToken() {
+    return this._refreshToken;
+  }
+  get idToken() {
+    return this._idToken;
+  }
 
   /** True if the token is still valid (with the proactive-refresh buffer applied). */
   isValid() {
@@ -72,12 +90,12 @@ class TokenEntry {
   /** Convert back to a partial OAuthResult for display purposes (no token values). */
   toDisplayInfo() {
     return {
-      tokenType:   this.tokenType,
-      scope:       this.scope,
-      expiresAt:   this.expiresAt,
-      expiresIn:   this.expiresIn,
-      hasRefresh:  !!this._refreshToken,
-      hasIdToken:  !!this._idToken,
+      tokenType: this.tokenType,
+      scope: this.scope,
+      expiresAt: this.expiresAt,
+      expiresIn: this.expiresIn,
+      hasRefresh: !!this._refreshToken,
+      hasIdToken: !!this._idToken,
     };
   }
 }
@@ -112,15 +130,15 @@ class TokenStore {
    */
   keyFor(config) {
     const parts = [
-      config.grantType      ?? "",
-      config.clientId       ?? "",
+      config.grantType ?? "",
+      config.clientId ?? "",
       fingerprint(config.clientSecret ?? ""),
-      config.authUrl        ?? "",
+      config.authUrl ?? "",
       config.accessTokenUrl ?? "",
-      config.scope          ?? "",
-      config.username       ?? "",
-      config.audience       ?? "",
-      config.resource       ?? "",
+      config.scope ?? "",
+      config.username ?? "",
+      config.audience ?? "",
+      config.resource ?? "",
     ];
     return parts.join("|");
   }
@@ -187,4 +205,3 @@ class TokenStore {
 
 /** Shared singleton token store for the entire renderer session. */
 export const tokenStore = new TokenStore();
-

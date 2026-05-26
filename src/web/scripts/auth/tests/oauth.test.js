@@ -23,12 +23,27 @@
 "use strict";
 
 import assert from "node:assert/strict";
-import { generateCodeVerifier, generateCodeChallenge }  from "../utils/pkce.js";
-import { generateState, validateState, discardState }   from "../utils/state.js";
-import { buildUrl, parseUrlParams, extractAuthCode, extractImplicitToken } from "../utils/url.js";
-import { tokenStore }          from "../tokens/token-store.js";
-import { OAuthError, OAuthErrorCode, fromNetworkError, fromTokenErrorResponse } from "../types/oauth-errors.js";
-import { createOAuthResult, oauthResultFromTokenResponse, oauthResultFromError, validateOAuthConfig } from "../types/oauth-types.js";
+import { generateCodeVerifier, generateCodeChallenge } from "../utils/pkce.js";
+import { generateState, validateState, discardState } from "../utils/state.js";
+import {
+  buildUrl,
+  parseUrlParams,
+  extractAuthCode,
+  extractImplicitToken,
+} from "../utils/url.js";
+import { tokenStore } from "../tokens/token-store.js";
+import {
+  OAuthError,
+  OAuthErrorCode,
+  fromNetworkError,
+  fromTokenErrorResponse,
+} from "../types/oauth-errors.js";
+import {
+  createOAuthResult,
+  oauthResultFromTokenResponse,
+  oauthResultFromError,
+  validateOAuthConfig,
+} from "../types/oauth-types.js";
 
 // ── Global mock for window.wurl (simulates Electron preload) ─────────────────
 // Each test group overrides _mockResponses to control what executeRequest returns.
@@ -90,8 +105,8 @@ await test("generateCodeVerifier rejects out-of-range length", async () => {
 });
 
 await test("generateCodeChallenge produces base64url string (no padding, URL-safe)", async () => {
-  const verifier   = generateCodeVerifier(64);
-  const challenge  = await generateCodeChallenge(verifier);
+  const verifier = generateCodeVerifier(64);
+  const challenge = await generateCodeChallenge(verifier);
   // Must be base64url: no +, /, or = characters
   assert.doesNotMatch(challenge, /[+/=]/);
   // SHA-256 → 32 bytes → 43 base64url characters (without padding)
@@ -132,8 +147,8 @@ await test("validateState rejects null / undefined", async () => {
 
 await test("validateState consumes the state (no replay)", async () => {
   const s = generateState();
-  assert.equal(validateState(s), true);   // first use: valid
-  assert.equal(validateState(s), false);  // second use: consumed
+  assert.equal(validateState(s), true); // first use: valid
+  assert.equal(validateState(s), false); // second use: consumed
 });
 
 await test("discardState removes a pending state", async () => {
@@ -149,27 +164,38 @@ await test("discardState removes a pending state", async () => {
 group("URL utilities");
 
 await test("buildUrl appends query parameters", async () => {
-  const url = buildUrl("https://example.com/auth", { client_id: "myapp", scope: "openid" });
+  const url = buildUrl("https://example.com/auth", {
+    client_id: "myapp",
+    scope: "openid",
+  });
   assert.ok(url.includes("client_id=myapp"));
   assert.ok(url.includes("scope=openid"));
 });
 
 await test("buildUrl skips null / empty values", async () => {
-  const url = buildUrl("https://example.com/auth", { k: null, v: "", present: "yes" });
+  const url = buildUrl("https://example.com/auth", {
+    k: null,
+    v: "",
+    present: "yes",
+  });
   assert.ok(!url.includes("k="));
   assert.ok(!url.includes("v="));
   assert.ok(url.includes("present=yes"));
 });
 
 await test("extractAuthCode parses code and state from query string", async () => {
-  const result = extractAuthCode("http://localhost:7777/callback?code=abc123&state=xyz");
+  const result = extractAuthCode(
+    "http://localhost:7777/callback?code=abc123&state=xyz",
+  );
   assert.equal(result.code, "abc123");
   assert.equal(result.state, "xyz");
   assert.equal(result.error, null);
 });
 
 await test("extractAuthCode parses error responses", async () => {
-  const result = extractAuthCode("http://localhost:7777/callback?error=access_denied&error_description=User+denied");
+  const result = extractAuthCode(
+    "http://localhost:7777/callback?error=access_denied&error_description=User+denied",
+  );
   assert.equal(result.error, "access_denied");
   assert.equal(result.errorDescription, "User denied");
   assert.equal(result.code, null);
@@ -203,7 +229,10 @@ await test("fromNetworkError detects timeout messages", async () => {
 });
 
 await test("fromTokenErrorResponse creates error with server code", async () => {
-  const err = fromTokenErrorResponse({ error: "invalid_client", error_description: "Bad secret" }, 401);
+  const err = fromTokenErrorResponse(
+    { error: "invalid_client", error_description: "Bad secret" },
+    401,
+  );
   assert.equal(err.code, "invalid_client");
   assert.equal(err.httpStatus, 401);
   assert.equal(err.description, "Bad secret");
@@ -223,12 +252,12 @@ group("OAuthResult factory");
 
 await test("oauthResultFromTokenResponse maps response fields", async () => {
   const r = oauthResultFromTokenResponse({
-    access_token:  "AT",
+    access_token: "AT",
     refresh_token: "RT",
-    id_token:      "IDT",
-    expires_in:    3600,
-    token_type:    "Bearer",
-    scope:         "openid email",
+    id_token: "IDT",
+    expires_in: 3600,
+    token_type: "Bearer",
+    scope: "openid email",
   });
   assert.equal(r.success, true);
   assert.equal(r.accessToken, "AT");
@@ -257,8 +286,8 @@ await test("set and get a valid token", async () => {
   tokenStore.clearAll();
   const result = oauthResultFromTokenResponse({
     access_token: "testtoken",
-    expires_in:   3600,
-    token_type:   "Bearer",
+    expires_in: 3600,
+    token_type: "Bearer",
   });
   tokenStore.set("k1", result);
   const entry = tokenStore.get("k1");
@@ -268,14 +297,20 @@ await test("set and get a valid token", async () => {
 
 await test("isValid returns true for a live token", async () => {
   tokenStore.clearAll();
-  const result = oauthResultFromTokenResponse({ access_token: "t", expires_in: 3600 });
+  const result = oauthResultFromTokenResponse({
+    access_token: "t",
+    expires_in: 3600,
+  });
   tokenStore.set("k2", result);
   assert.equal(tokenStore.isValid("k2"), true);
 });
 
 await test("isValid returns false for an expired token", async () => {
   tokenStore.clearAll();
-  const result = oauthResultFromTokenResponse({ access_token: "t", expires_in: 0 });
+  const result = oauthResultFromTokenResponse({
+    access_token: "t",
+    expires_in: 0,
+  });
   // expires_in=0 → expiresAt = now → already expired
   tokenStore.set("k3", result);
   // Give the proactive buffer time: entry.isValid() checks now < expiresAt - 60s
@@ -291,7 +326,10 @@ await test("isValid returns true for a token with no expiry info", async () => {
 
 await test("clear removes a specific key", async () => {
   tokenStore.clearAll();
-  const result = oauthResultFromTokenResponse({ access_token: "t", expires_in: 3600 });
+  const result = oauthResultFromTokenResponse({
+    access_token: "t",
+    expires_in: 3600,
+  });
   tokenStore.set("k5", result);
   tokenStore.clear("k5");
   assert.equal(tokenStore.get("k5"), null);
@@ -299,11 +337,17 @@ await test("clear removes a specific key", async () => {
 
 await test("access token is non-enumerable (does not appear in JSON.stringify)", async () => {
   tokenStore.clearAll();
-  const result = oauthResultFromTokenResponse({ access_token: "secret", expires_in: 3600 });
+  const result = oauthResultFromTokenResponse({
+    access_token: "secret",
+    expires_in: 3600,
+  });
   tokenStore.set("k6", result);
   const entry = tokenStore.get("k6");
-  const json  = JSON.stringify(entry);
-  assert.ok(!json.includes("secret"), "Access token must not appear in JSON.stringify output");
+  const json = JSON.stringify(entry);
+  assert.ok(
+    !json.includes("secret"),
+    "Access token must not appear in JSON.stringify output",
+  );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -314,24 +358,27 @@ group("Config validation");
 
 await test("validateOAuthConfig passes for valid client_credentials config", async () => {
   const err = validateOAuthConfig({
-    grantType:      "client_credentials",
-    clientId:       "id",
+    grantType: "client_credentials",
+    clientId: "id",
     accessTokenUrl: "https://token.example.com",
   });
   assert.equal(err, null);
 });
 
 await test("validateOAuthConfig fails when clientId is missing", async () => {
-  const err = validateOAuthConfig({ grantType: "client_credentials", accessTokenUrl: "https://x.com" });
+  const err = validateOAuthConfig({
+    grantType: "client_credentials",
+    accessTokenUrl: "https://x.com",
+  });
   assert.ok(typeof err === "string" && err.length > 0);
 });
 
 await test("validateOAuthConfig fails when accessTokenUrl is missing for password grant", async () => {
   const err = validateOAuthConfig({
     grantType: "password",
-    clientId:  "id",
-    username:  "u",
-    password:  "p",
+    clientId: "id",
+    username: "u",
+    password: "p",
     // missing accessTokenUrl
   });
   assert.ok(typeof err === "string");
@@ -340,8 +387,8 @@ await test("validateOAuthConfig fails when accessTokenUrl is missing for passwor
 await test("validateOAuthConfig passes for implicit flow (no token URL required)", async () => {
   const err = validateOAuthConfig({
     grantType: "implicit",
-    clientId:  "id",
-    authUrl:   "https://auth.example.com",
+    clientId: "id",
+    authUrl: "https://auth.example.com",
   });
   assert.equal(err, null);
 });
@@ -357,19 +404,20 @@ import { clientCredentialsFlow } from "../flows/client-credentials.js";
 
 await test("client credentials flow: success", async () => {
   _mockResponse = {
-    status: 200, statusText: "OK",
+    status: 200,
+    statusText: "OK",
     body: JSON.stringify({
       access_token: "cctoken",
-      token_type:   "Bearer",
-      expires_in:   3600,
+      token_type: "Bearer",
+      expires_in: 3600,
     }),
   };
   const result = await clientCredentialsFlow({
-    grantType:      "client_credentials",
-    clientId:       "cid",
-    clientSecret:   "csecret",
+    grantType: "client_credentials",
+    clientId: "cid",
+    clientSecret: "csecret",
     accessTokenUrl: "https://token.example.com",
-    credentials:    "header",
+    credentials: "header",
   });
   assert.equal(result.success, true);
   assert.equal(result.accessToken, "cctoken");
@@ -387,13 +435,17 @@ await test("client credentials flow: missing config returns error", async () => 
 
 await test("client credentials flow: server 401 error", async () => {
   _mockResponse = {
-    status: 401, statusText: "Unauthorized",
-    body: JSON.stringify({ error: "invalid_client", error_description: "Bad credentials" }),
+    status: 401,
+    statusText: "Unauthorized",
+    body: JSON.stringify({
+      error: "invalid_client",
+      error_description: "Bad credentials",
+    }),
   };
   const result = await clientCredentialsFlow({
-    grantType:      "client_credentials",
-    clientId:       "bad",
-    clientSecret:   "wrong",
+    grantType: "client_credentials",
+    clientId: "bad",
+    clientSecret: "wrong",
     accessTokenUrl: "https://token.example.com",
   });
   assert.equal(result.success, false);
@@ -402,11 +454,13 @@ await test("client credentials flow: server 401 error", async () => {
 });
 
 await test("client credentials flow: network error", async () => {
-  _mockResponse = () => { throw new Error("ECONNREFUSED"); };
+  _mockResponse = () => {
+    throw new Error("ECONNREFUSED");
+  };
   const result = await clientCredentialsFlow({
-    grantType:      "client_credentials",
-    clientId:       "cid",
-    clientSecret:   "cs",
+    grantType: "client_credentials",
+    clientId: "cid",
+    clientSecret: "cs",
     accessTokenUrl: "https://unreachable.example.com",
   });
   assert.equal(result.success, false);
@@ -423,14 +477,20 @@ await test("client credentials flow: sends credentials in body when configured",
     };
   };
   await clientCredentialsFlow({
-    grantType:      "client_credentials",
-    clientId:       "myid",
-    clientSecret:   "mysecret",
+    grantType: "client_credentials",
+    clientId: "myid",
+    clientSecret: "mysecret",
     accessTokenUrl: "https://token.example.com",
-    credentials:    "body",
+    credentials: "body",
   });
-  assert.ok(capturedBody?.includes("client_id=myid"), "body should contain client_id");
-  assert.ok(capturedBody?.includes("client_secret=mysecret"), "body should contain client_secret");
+  assert.ok(
+    capturedBody?.includes("client_id=myid"),
+    "body should contain client_id",
+  );
+  assert.ok(
+    capturedBody?.includes("client_secret=mysecret"),
+    "body should contain client_secret",
+  );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -444,13 +504,17 @@ import { passwordFlow } from "../flows/password.js";
 await test("password flow: success", async () => {
   _mockResponse = {
     status: 200,
-    body: JSON.stringify({ access_token: "pwdtok", refresh_token: "rt", expires_in: 1800 }),
+    body: JSON.stringify({
+      access_token: "pwdtok",
+      refresh_token: "rt",
+      expires_in: 1800,
+    }),
   };
   const result = await passwordFlow({
-    grantType:      "password",
-    clientId:       "cid",
-    username:       "user@example.com",
-    password:       "hunter2",
+    grantType: "password",
+    clientId: "cid",
+    username: "user@example.com",
+    password: "hunter2",
     accessTokenUrl: "https://token.example.com",
   });
   assert.equal(result.success, true);
@@ -460,9 +524,9 @@ await test("password flow: success", async () => {
 
 await test("password flow: missing username returns config error", async () => {
   const result = await passwordFlow({
-    grantType:      "password",
-    clientId:       "cid",
-    password:       "p",
+    grantType: "password",
+    clientId: "cid",
+    password: "p",
     accessTokenUrl: "https://token.example.com",
     // missing username
   });
@@ -492,7 +556,10 @@ await test("refresh token flow: success", async () => {
 });
 
 await test("refresh token flow: missing refresh token returns error", async () => {
-  const result = await refreshTokenFlow({ accessTokenUrl: "https://token.example.com" }, null);
+  const result = await refreshTokenFlow(
+    { accessTokenUrl: "https://token.example.com" },
+    null,
+  );
   assert.equal(result.success, false);
   assert.equal(result.error?.code, OAuthErrorCode.CONFIGURATION_ERROR);
 });
@@ -506,7 +573,11 @@ group("Bearer token injection (OAuthExecutor)");
 import { oauthExecutor } from "../oauth-executor.js";
 
 await test("injectBearerToken adds Authorization header", async () => {
-  const desc   = { method: "GET", url: "https://api.example.com/data", headers: {} };
+  const desc = {
+    method: "GET",
+    url: "https://api.example.com/data",
+    headers: {},
+  };
   const result = oauthExecutor.injectBearerToken(desc, "mytoken");
   assert.equal(result.headers["Authorization"], "Bearer mytoken");
 });
@@ -518,13 +589,13 @@ await test("injectBearerToken does not mutate original descriptor", async () => 
 });
 
 await test("injectBearerToken uses custom prefix", async () => {
-  const desc   = { method: "GET", url: "https://api.example.com", headers: {} };
+  const desc = { method: "GET", url: "https://api.example.com", headers: {} };
   const result = oauthExecutor.injectBearerToken(desc, "mytoken", "Token");
   assert.equal(result.headers["Authorization"], "Token mytoken");
 });
 
 await test("injectBearerToken returns original descriptor when token is empty", async () => {
-  const desc   = { method: "GET", url: "https://api.example.com", headers: {} };
+  const desc = { method: "GET", url: "https://api.example.com", headers: {} };
   const result = oauthExecutor.injectBearerToken(desc, "");
   assert.equal(result, desc);
 });
@@ -532,4 +603,3 @@ await test("injectBearerToken returns original descriptor when token is empty", 
 // ─────────────────────────────────────────────────────────────────────────────
 
 console.log("\n✓ All tests passed\n");
-

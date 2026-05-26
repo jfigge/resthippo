@@ -11,18 +11,18 @@
 
 const { test, describe, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
-const os     = require("os");
-const fs     = require("fs");
-const path   = require("path");
+const os = require("os");
+const fs = require("fs");
+const path = require("path");
 
-const { Stores }           = require("../stores");
-const { Paths }            = require("../paths");
-const { Resolver }         = require("../resolver");
-const { CollectionStore }  = require("../collection-store");
-const { CollectionsStore} = require("../collections-store");
-const { TreeStore }        = require("../tree-store");
-const { RequestStore }     = require("../request-store");
-const { HistoryStore }     = require("../history-store");
+const { Stores } = require("../stores");
+const { Paths } = require("../paths");
+const { Resolver } = require("../resolver");
+const { CollectionStore } = require("../collection-store");
+const { CollectionsStore } = require("../collections-store");
+const { TreeStore } = require("../tree-store");
+const { RequestStore } = require("../request-store");
+const { HistoryStore } = require("../history-store");
 
 // ── Helper: temp directory lifecycle ──────────────────────────────────────────
 
@@ -38,11 +38,11 @@ function rmTmpDir(dir) {
 
 function makeRequest(overrides = {}) {
   return {
-    id:     `req-${Math.random().toString(36).slice(2)}`,
-    type:   "request",
-    name:   "Test Request",
+    id: `req-${Math.random().toString(36).slice(2)}`,
+    type: "request",
+    name: "Test Request",
     method: "GET",
-    url:    "https://example.com",
+    url: "https://example.com",
     ...overrides,
   };
 }
@@ -57,7 +57,7 @@ describe("CollectionStore", () => {
 
   beforeEach(() => {
     tmpDir = makeTmpDir();
-    store  = new Stores(tmpDir).collectionStore();
+    store = new Stores(tmpDir).collectionStore();
   });
 
   afterEach(() => rmTmpDir(tmpDir));
@@ -71,10 +71,10 @@ describe("CollectionStore", () => {
 
   test("saveManifest then getManifest round-trips correctly", () => {
     const data = {
-      version:           2,
-      collections:       [{ id: "env-1", name: "Dev" }],
+      version: 2,
+      collections: [{ id: "env-1", name: "Dev" }],
       activeCollectionId: "env-1",
-      settings:          { theme: "mocha", fontSize: 14 },
+      settings: { theme: "mocha", fontSize: 14 },
     };
     store.saveManifest(data);
     const loaded = store.getManifest();
@@ -104,36 +104,38 @@ describe("CollectionsStore", () => {
 
   beforeEach(() => {
     tmpDir = makeTmpDir();
-    ss     = new Stores(tmpDir);
-    store  = ss.collectionsStore();
+    ss = new Stores(tmpDir);
+    store = ss.collectionsStore();
   });
 
   afterEach(() => rmTmpDir(tmpDir));
 
   test("getCollections returns minimal default on first run", () => {
     const env = store.getCollections("env-abc");
-    assert.equal(env.version,   1);
+    assert.equal(env.version, 1);
     assert.deepEqual(env.collections, []);
   });
 
   test("saveCollections then getCollections round-trips nested structure", () => {
     const req = makeRequest({ id: "r1", name: "First", method: "POST" });
     const data = {
-      version:  1,
+      version: 1,
       variables: { baseUrl: "https://api.example.com" },
-      collections: [{
-        id:       "col-1",
-        type:     "collection",
-        name:     "My API",
-        variables: { v: "1" },
-        children: [req],
-      }],
+      collections: [
+        {
+          id: "col-1",
+          type: "collection",
+          name: "My API",
+          variables: { v: "1" },
+          children: [req],
+        },
+      ],
     };
 
     store.saveCollections("env-x", data);
     const loaded = store.getCollections("env-x");
 
-    assert.equal(loaded.version,  1);
+    assert.equal(loaded.version, 1);
     assert.equal(loaded.variables.baseUrl, "https://api.example.com");
     assert.equal(loaded.collections.length, 1);
     assert.equal(loaded.collections[0].name, "My API");
@@ -143,11 +145,13 @@ describe("CollectionsStore", () => {
   });
 
   test("saveCollections writes individual request files", () => {
-    const p  = new Paths(tmpDir);
+    const p = new Paths(tmpDir);
     const req = makeRequest({ id: "req-file-test" });
     store.saveCollections("env-y", {
       version: 1,
-      collections: [{ id: "c1", type: "collection", name: "C1", children: [req] }],
+      collections: [
+        { id: "c1", type: "collection", name: "C1", children: [req] },
+      ],
     });
 
     const reqFile = p.requestPath("env-y", "req-file-test");
@@ -163,7 +167,9 @@ describe("CollectionsStore", () => {
     const req = makeRequest({ id: "req-cache" });
     envStore.saveCollections("env-z", {
       version: 1,
-      collections: [{ id: "c1", type: "collection", name: "C", children: [req] }],
+      collections: [
+        { id: "c1", type: "collection", name: "C", children: [req] },
+      ],
     });
 
     // Resolver cache should have been invalidated; a fresh resolve should work.
@@ -175,13 +181,23 @@ describe("CollectionsStore", () => {
     const inner = makeRequest({ id: "inner-req" });
     const data = {
       version: 1,
-      collections: [{
-        id: "outer", type: "collection", name: "Outer", variables: { a: "1" },
-        children: [{
-          id: "inner", type: "collection", name: "Inner", variables: { b: "2" },
-          children: [inner],
-        }],
-      }],
+      collections: [
+        {
+          id: "outer",
+          type: "collection",
+          name: "Outer",
+          variables: { a: "1" },
+          children: [
+            {
+              id: "inner",
+              type: "collection",
+              name: "Inner",
+              variables: { b: "2" },
+              children: [inner],
+            },
+          ],
+        },
+      ],
     };
     store.saveCollections("env-nested", data);
     const loaded = store.getCollections("env-nested");
@@ -201,10 +217,10 @@ describe("TreeStore", () => {
   let envStore;
 
   beforeEach(() => {
-    tmpDir    = makeTmpDir();
-    ss        = new Stores(tmpDir);
+    tmpDir = makeTmpDir();
+    ss = new Stores(tmpDir);
     treeStore = ss.treeStore();
-    envStore  = ss.collectionsStore();
+    envStore = ss.collectionsStore();
   });
 
   afterEach(() => rmTmpDir(tmpDir));
@@ -218,17 +234,25 @@ describe("TreeStore", () => {
     // Seed a request file so the ref is valid.
     envStore.saveCollections("col-t1", {
       version: 1,
-      collections: [{
-        id: "folder-1", type: "collection", name: "Folder",
-        children: [makeRequest({ id: "req-tree-1" })],
-      }],
+      collections: [
+        {
+          id: "folder-1",
+          type: "collection",
+          name: "Folder",
+          children: [makeRequest({ id: "req-tree-1" })],
+        },
+      ],
     });
 
     const tree = {
-      children: [{
-        id: "folder-1", type: "folder", name: "Folder",
-        children: [{ id: "req-tree-1", type: "requestRef" }],
-      }],
+      children: [
+        {
+          id: "folder-1",
+          type: "folder",
+          name: "Folder",
+          children: [{ id: "req-tree-1", type: "requestRef" }],
+        },
+      ],
     };
     treeStore.saveTree("col-t1", tree);
     const loaded = treeStore.getTree("col-t1");
@@ -242,7 +266,7 @@ describe("TreeStore", () => {
     const tree = { children: [{ id: "ghost-req", type: "requestRef" }] };
     assert.throws(
       () => treeStore.saveTree("col-ghost", tree),
-      err => err.code === "NOT_FOUND",
+      (err) => err.code === "NOT_FOUND",
     );
   });
 });
@@ -259,8 +283,8 @@ describe("RequestStore", () => {
   const COL = "col-req";
 
   beforeEach(() => {
-    tmpDir   = makeTmpDir();
-    ss       = new Stores(tmpDir);
+    tmpDir = makeTmpDir();
+    ss = new Stores(tmpDir);
     reqStore = ss.requestStore();
     envStore = ss.collectionsStore();
 
@@ -273,23 +297,27 @@ describe("RequestStore", () => {
   test("getRequest throws NOT_FOUND for unknown ID", () => {
     assert.throws(
       () => reqStore.getRequest("no-such-req"),
-      err => err.code === "NOT_FOUND",
+      (err) => err.code === "NOT_FOUND",
     );
   });
 
   test("createRequest assigns ID if absent", () => {
-    const req = reqStore.createRequest(COL, { name: "No ID", method: "GET", url: "/" });
+    const req = reqStore.createRequest(COL, {
+      name: "No ID",
+      method: "GET",
+      url: "/",
+    });
     assert.ok(req.id, "should have been assigned an ID");
     assert.equal(req.type, "request");
   });
 
   test("createRequest → getRequest round-trip", () => {
-    const req     = makeRequest({ id: "req-roundtrip" });
+    const req = makeRequest({ id: "req-roundtrip" });
     const created = reqStore.createRequest(COL, req);
-    const loaded  = reqStore.getRequest(created.id);
-    assert.equal(loaded.id,     "req-roundtrip");
+    const loaded = reqStore.getRequest(created.id);
+    assert.equal(loaded.id, "req-roundtrip");
     assert.equal(loaded.method, "GET");
-    assert.equal(loaded.url,    "https://example.com");
+    assert.equal(loaded.url, "https://example.com");
   });
 
   test("createRequest appends requestRef to tree.json", () => {
@@ -297,19 +325,25 @@ describe("RequestStore", () => {
     reqStore.createRequest(COL, req);
 
     const treeFile = new Paths(tmpDir).treePath(COL);
-    const tree     = JSON.parse(fs.readFileSync(treeFile, "utf8"));
-    const allIds   = _flattenRefs(tree.children);
-    assert.ok(allIds.includes("req-tree-append"), "requestRef should be in tree");
+    const tree = JSON.parse(fs.readFileSync(treeFile, "utf8"));
+    const allIds = _flattenRefs(tree.children);
+    assert.ok(
+      allIds.includes("req-tree-append"),
+      "requestRef should be in tree",
+    );
   });
 
   test("updateRequest applies partial patch", () => {
     const req = makeRequest({ id: "req-patch", method: "GET", url: "/old" });
     reqStore.createRequest(COL, req);
 
-    const updated = reqStore.updateRequest("req-patch", { url: "/new", method: "POST" });
-    assert.equal(updated.url,    "/new");
+    const updated = reqStore.updateRequest("req-patch", {
+      url: "/new",
+      method: "POST",
+    });
+    assert.equal(updated.url, "/new");
     assert.equal(updated.method, "POST");
-    assert.equal(updated.name,   "Test Request"); // unchanged
+    assert.equal(updated.name, "Test Request"); // unchanged
 
     // Persisted value should also reflect the patch.
     const reloaded = reqStore.getRequest("req-patch");
@@ -317,7 +351,10 @@ describe("RequestStore", () => {
   });
 
   test("updateRequest preserves fields not in patch", () => {
-    const req = makeRequest({ id: "req-preserve", headers: [{ id: "h1", name: "X-Foo", value: "bar", enabled: true }] });
+    const req = makeRequest({
+      id: "req-preserve",
+      headers: [{ id: "h1", name: "X-Foo", value: "bar", enabled: true }],
+    });
     reqStore.createRequest(COL, req);
     reqStore.updateRequest("req-preserve", { name: "New Name" });
     const loaded = reqStore.getRequest("req-preserve");
@@ -327,7 +364,7 @@ describe("RequestStore", () => {
   test("updateRequest throws NOT_FOUND for missing request", () => {
     assert.throws(
       () => reqStore.updateRequest("ghost", { name: "X" }),
-      err => err.code === "NOT_FOUND",
+      (err) => err.code === "NOT_FOUND",
     );
   });
 
@@ -337,7 +374,7 @@ describe("RequestStore", () => {
     reqStore.deleteRequest("req-delete");
     assert.throws(
       () => reqStore.getRequest("req-delete"),
-      err => err.code === "NOT_FOUND",
+      (err) => err.code === "NOT_FOUND",
     );
   });
 
@@ -347,15 +384,18 @@ describe("RequestStore", () => {
     reqStore.deleteRequest("req-tree-remove");
 
     const treeFile = new Paths(tmpDir).treePath(COL);
-    const tree     = JSON.parse(fs.readFileSync(treeFile, "utf8"));
-    const allIds   = _flattenRefs(tree.children);
-    assert.ok(!allIds.includes("req-tree-remove"), "requestRef should be gone from tree");
+    const tree = JSON.parse(fs.readFileSync(treeFile, "utf8"));
+    const allIds = _flattenRefs(tree.children);
+    assert.ok(
+      !allIds.includes("req-tree-remove"),
+      "requestRef should be gone from tree",
+    );
   });
 
   test("deleteRequest throws NOT_FOUND for missing request", () => {
     assert.throws(
       () => reqStore.deleteRequest("ghost"),
-      err => err.code === "NOT_FOUND",
+      (err) => err.code === "NOT_FOUND",
     );
   });
 });
@@ -374,11 +414,11 @@ describe("HistoryStore", () => {
   const REQ = "req-hist";
 
   beforeEach(() => {
-    tmpDir    = makeTmpDir();
-    ss        = new Stores(tmpDir);
+    tmpDir = makeTmpDir();
+    ss = new Stores(tmpDir);
     histStore = ss.historyStore();
-    envStore  = ss.collectionsStore();
-    reqStore  = ss.requestStore();
+    envStore = ss.collectionsStore();
+    reqStore = ss.requestStore();
 
     // Seed collection + request so resolver knows about them.
     envStore.saveCollections(COL, { version: 1, collections: [] });
@@ -393,17 +433,21 @@ describe("HistoryStore", () => {
   });
 
   test("addHistory → listHistory returns entry", () => {
-    const entry = histStore.addHistory(REQ, { status: 200, durationMs: 42, responseSize: 512 });
+    const entry = histStore.addHistory(REQ, {
+      status: 200,
+      durationMs: 42,
+      responseSize: 512,
+    });
     const { items } = histStore.listHistory(REQ);
     assert.equal(items.length, 1);
-    assert.equal(items[0].id,       entry.id);
-    assert.equal(items[0].status,   200);
+    assert.equal(items[0].id, entry.id);
+    assert.equal(items[0].status, 200);
     assert.equal(items[0].requestId, REQ);
   });
 
   test("addHistory assigns id and timestamp when absent", () => {
     const entry = histStore.addHistory(REQ, { status: 404, durationMs: 13 });
-    assert.ok(entry.id,        "id should be assigned");
+    assert.ok(entry.id, "id should be assigned");
     assert.ok(entry.timestamp, "timestamp should be assigned");
     assert.equal(entry.requestId, REQ);
   });
@@ -411,9 +455,9 @@ describe("HistoryStore", () => {
   test("listHistory orders entries newest-first", () => {
     for (let i = 1; i <= 5; i++) {
       histStore.addHistory(REQ, {
-        id:        `hist-${i}`,
+        id: `hist-${i}`,
         timestamp: new Date(Date.now() + i * 1000).toISOString(),
-        status:    i * 100,
+        status: i * 100,
         durationMs: i,
       });
     }
@@ -425,9 +469,9 @@ describe("HistoryStore", () => {
   test("listHistory paginates with limit", () => {
     for (let i = 1; i <= 10; i++) {
       histStore.addHistory(REQ, {
-        id:        `hist-pg-${i}`,
+        id: `hist-pg-${i}`,
         timestamp: new Date(Date.now() + i * 1000).toISOString(),
-        status:    200,
+        status: 200,
         durationMs: i,
       });
     }
@@ -435,23 +479,39 @@ describe("HistoryStore", () => {
     assert.equal(page1.items.length, 4);
     assert.ok(page1.nextCursor !== "", "should have a next cursor");
 
-    const page2 = histStore.listHistory(REQ, { limit: 4, cursor: page1.nextCursor });
+    const page2 = histStore.listHistory(REQ, {
+      limit: 4,
+      cursor: page1.nextCursor,
+    });
     assert.equal(page2.items.length, 4);
     // page2 must not overlap with page1
-    const ids1 = new Set(page1.items.map(e => e.id));
+    const ids1 = new Set(page1.items.map((e) => e.id));
     for (const item of page2.items) {
-      assert.ok(!ids1.has(item.id), `${item.id} should not appear in both pages`);
+      assert.ok(
+        !ids1.has(item.id),
+        `${item.id} should not appear in both pages`,
+      );
     }
 
-    const page3 = histStore.listHistory(REQ, { limit: 4, cursor: page2.nextCursor });
+    const page3 = histStore.listHistory(REQ, {
+      limit: 4,
+      cursor: page2.nextCursor,
+    });
     assert.equal(page3.items.length, 2);
     assert.equal(page3.nextCursor, "");
   });
 
   test("addHistory + getHistoryResponse round-trips response", () => {
-    const response = { headers: { "content-type": "application/json" }, body: '{"ok":true}' };
-    const entry    = histStore.addHistory(REQ, { status: 200, durationMs: 10 }, response);
-    const loaded   = histStore.getHistoryResponse(REQ, entry.id);
+    const response = {
+      headers: { "content-type": "application/json" },
+      body: '{"ok":true}',
+    };
+    const entry = histStore.addHistory(
+      REQ,
+      { status: 200, durationMs: 10 },
+      response,
+    );
+    const loaded = histStore.getHistoryResponse(REQ, entry.id);
     assert.equal(loaded.body, '{"ok":true}');
     assert.equal(loaded.headers["content-type"], "application/json");
   });
@@ -459,7 +519,7 @@ describe("HistoryStore", () => {
   test("getHistoryResponse throws NOT_FOUND for missing response", () => {
     assert.throws(
       () => histStore.getHistoryResponse(REQ, "no-such-hist"),
-      err => err.code === "NOT_FOUND",
+      (err) => err.code === "NOT_FOUND",
     );
   });
 
@@ -480,8 +540,8 @@ describe("Resolver", () => {
   let resolver;
 
   beforeEach(() => {
-    tmpDir   = makeTmpDir();
-    ss       = new Stores(tmpDir);
+    tmpDir = makeTmpDir();
+    ss = new Stores(tmpDir);
     resolver = new Resolver(new Paths(tmpDir));
   });
 
@@ -490,7 +550,7 @@ describe("Resolver", () => {
   test("throws NOT_FOUND for unknown request", () => {
     assert.throws(
       () => resolver.resolve("ghost"),
-      err => err.code === "NOT_FOUND",
+      (err) => err.code === "NOT_FOUND",
     );
   });
 
@@ -498,7 +558,9 @@ describe("Resolver", () => {
     const req = makeRequest({ id: "req-resolve" });
     ss.collectionsStore().saveCollections("col-resolve", {
       version: 1,
-      collections: [{ id: "f1", type: "collection", name: "F1", children: [req] }],
+      collections: [
+        { id: "f1", type: "collection", name: "F1", children: [req] },
+      ],
     });
 
     // Fresh resolver after disk write
@@ -510,7 +572,10 @@ describe("Resolver", () => {
     resolver.set("req-a", "col-a");
     assert.equal(resolver.resolve("req-a"), "col-a");
     resolver.remove("req-a");
-    assert.throws(() => resolver.resolve("req-a"), err => err.code === "NOT_FOUND");
+    assert.throws(
+      () => resolver.resolve("req-a"),
+      (err) => err.code === "NOT_FOUND",
+    );
   });
 
   test("invalidate() triggers full rebuild on next resolve()", () => {
@@ -518,7 +583,9 @@ describe("Resolver", () => {
     const req = makeRequest({ id: "req-invalidate" });
     ss.collectionsStore().saveCollections("col-inv", {
       version: 1,
-      collections: [{ id: "f1", type: "collection", name: "F", children: [req] }],
+      collections: [
+        { id: "f1", type: "collection", name: "F", children: [req] },
+      ],
     });
 
     // Force the existing resolver to rebuild
@@ -537,11 +604,11 @@ describe("Stores factory", () => {
     try {
       const ss = new Stores(tmpDir);
       // Smoke test: all factory methods return the right types
-      assert.ok(ss.collectionStore().getManifest,    "collectionStore");
+      assert.ok(ss.collectionStore().getManifest, "collectionStore");
       assert.ok(ss.collectionsStore().getCollections, "collectionsStore");
-      assert.ok(ss.treeStore().getTree,               "treeStore");
-      assert.ok(ss.requestStore().getRequest,         "requestStore");
-      assert.ok(ss.historyStore().listHistory,        "historyStore");
+      assert.ok(ss.treeStore().getTree, "treeStore");
+      assert.ok(ss.requestStore().getRequest, "requestStore");
+      assert.ok(ss.historyStore().listHistory, "historyStore");
     } finally {
       rmTmpDir(tmpDir);
     }
@@ -551,8 +618,13 @@ describe("Stores factory", () => {
     const tmpDir = makeTmpDir();
     try {
       const ss = new Stores(tmpDir);
-      ss.collectionsStore().saveCollections("col-shared", { version: 1, collections: [] });
-      const req = ss.requestStore().createRequest("col-shared", makeRequest({ id: "req-shared" }));
+      ss.collectionsStore().saveCollections("col-shared", {
+        version: 1,
+        collections: [],
+      });
+      const req = ss
+        .requestStore()
+        .createRequest("col-shared", makeRequest({ id: "req-shared" }));
 
       // HistoryStore uses the same resolver, so it should locate the collection.
       assert.doesNotThrow(() =>
@@ -569,10 +641,9 @@ describe("Stores factory", () => {
 /** Collect all requestRef IDs from a tree nodes array (recursive). */
 function _flattenRefs(nodes) {
   const ids = [];
-  for (const n of (nodes ?? [])) {
+  for (const n of nodes ?? []) {
     if (n.type === "requestRef") ids.push(n.id);
-    else if (n.children)          ids.push(..._flattenRefs(n.children));
+    else if (n.children) ids.push(..._flattenRefs(n.children));
   }
   return ids;
 }
-

@@ -16,31 +16,31 @@
  */
 export const OAuthErrorCode = Object.freeze({
   // RFC 6749 §5.2  Token Error Response
-  INVALID_REQUEST:            "invalid_request",
-  INVALID_CLIENT:             "invalid_client",
-  INVALID_GRANT:              "invalid_grant",
-  UNAUTHORIZED_CLIENT:        "unauthorized_client",
-  UNSUPPORTED_GRANT_TYPE:     "unsupported_grant_type",
-  INVALID_SCOPE:              "invalid_scope",
+  INVALID_REQUEST: "invalid_request",
+  INVALID_CLIENT: "invalid_client",
+  INVALID_GRANT: "invalid_grant",
+  UNAUTHORIZED_CLIENT: "unauthorized_client",
+  UNSUPPORTED_GRANT_TYPE: "unsupported_grant_type",
+  INVALID_SCOPE: "invalid_scope",
 
   // RFC 6749 §4.1.2.1  Authorization Error Response
-  ACCESS_DENIED:              "access_denied",
-  UNSUPPORTED_RESPONSE_TYPE:  "unsupported_response_type",
-  SERVER_ERROR:               "server_error",
-  TEMPORARILY_UNAVAILABLE:    "temporarily_unavailable",
+  ACCESS_DENIED: "access_denied",
+  UNSUPPORTED_RESPONSE_TYPE: "unsupported_response_type",
+  SERVER_ERROR: "server_error",
+  TEMPORARILY_UNAVAILABLE: "temporarily_unavailable",
 
   // Local / client-side errors (not from the OAuth server)
-  NETWORK_ERROR:              "network_error",
-  TIMEOUT:                    "timeout",
-  POPUP_CANCELLED:            "popup_cancelled",
-  POPUP_UNAVAILABLE:          "popup_unavailable",
-  INVALID_REDIRECT:           "invalid_redirect",
-  STATE_MISMATCH:             "state_mismatch",
-  NONCE_MISMATCH:             "nonce_mismatch",
-  MALFORMED_RESPONSE:         "malformed_response",
-  CONFIGURATION_ERROR:        "configuration_error",
-  TOKEN_EXPIRED:              "token_expired",
-  UNKNOWN:                    "unknown",
+  NETWORK_ERROR: "network_error",
+  TIMEOUT: "timeout",
+  POPUP_CANCELLED: "popup_cancelled",
+  POPUP_UNAVAILABLE: "popup_unavailable",
+  INVALID_REDIRECT: "invalid_redirect",
+  STATE_MISMATCH: "state_mismatch",
+  NONCE_MISMATCH: "nonce_mismatch",
+  MALFORMED_RESPONSE: "malformed_response",
+  CONFIGURATION_ERROR: "configuration_error",
+  TOKEN_EXPIRED: "token_expired",
+  UNKNOWN: "unknown",
 });
 
 // ── OAuthError class ────────────────────────────────────────────────────────
@@ -62,19 +62,23 @@ export class OAuthError extends Error {
    */
   constructor(code, description, httpStatus = null, raw = null) {
     super(description);
-    this.name        = "OAuthError";
-    this.code        = code;
+    this.name = "OAuthError";
+    this.code = code;
     this.description = description;
-    this.httpStatus  = httpStatus;
+    this.httpStatus = httpStatus;
     // Raw is intentionally not enumerable so it can't easily leak into logs.
-    Object.defineProperty(this, "raw", { value: raw, enumerable: false, writable: true });
+    Object.defineProperty(this, "raw", {
+      value: raw,
+      enumerable: false,
+      writable: true,
+    });
   }
 
   toJSON() {
     return {
-      code:        this.code,
+      code: this.code,
       description: this.description,
-      httpStatus:  this.httpStatus,
+      httpStatus: this.httpStatus,
     };
   }
 }
@@ -88,8 +92,12 @@ export class OAuthError extends Error {
  * @returns {OAuthError}
  */
 export function fromNetworkError(err) {
-  const msg = (err instanceof Error ? err.message : (err?.message ?? String(err))) || "Unknown network error";
-  const code = /timeout|timed.?out/i.test(msg) ? OAuthErrorCode.TIMEOUT : OAuthErrorCode.NETWORK_ERROR;
+  const msg =
+    (err instanceof Error ? err.message : (err?.message ?? String(err))) ||
+    "Unknown network error";
+  const code = /timeout|timed.?out/i.test(msg)
+    ? OAuthErrorCode.TIMEOUT
+    : OAuthErrorCode.NETWORK_ERROR;
   return new OAuthError(code, msg);
 }
 
@@ -102,13 +110,15 @@ export function fromNetworkError(err) {
  */
 export function fromTokenErrorResponse(body, httpStatus) {
   const serverCode = typeof body?.error === "string" ? body.error : null;
-  const desc       = typeof body?.error_description === "string"
-    ? body.error_description
-    : (serverCode ?? `Token request failed (HTTP ${httpStatus})`);
+  const desc =
+    typeof body?.error_description === "string"
+      ? body.error_description
+      : (serverCode ?? `Token request failed (HTTP ${httpStatus})`);
 
-  const code = serverCode && Object.values(OAuthErrorCode).includes(serverCode)
-    ? serverCode
-    : OAuthErrorCode.UNKNOWN;
+  const code =
+    serverCode && Object.values(OAuthErrorCode).includes(serverCode)
+      ? serverCode
+      : OAuthErrorCode.UNKNOWN;
 
   return new OAuthError(code, desc, httpStatus, body);
 }
@@ -129,7 +139,9 @@ export function configurationError(message) {
  * @param {string} [message]
  * @returns {OAuthError}
  */
-export function popupCancelledError(message = "Authorization cancelled by user") {
+export function popupCancelledError(
+  message = "Authorization cancelled by user",
+) {
   return new OAuthError(OAuthErrorCode.POPUP_CANCELLED, message);
 }
 
@@ -144,5 +156,3 @@ export function stateMismatchError() {
     "OAuth state mismatch — possible CSRF attack. Request was not completed.",
   );
 }
-
-

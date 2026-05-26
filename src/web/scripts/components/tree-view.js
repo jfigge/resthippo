@@ -17,11 +17,15 @@
 "use strict";
 
 import { PopupManager } from "../popup-manager.js";
-import { resolveString, buildFolderChain, collectTemplateVariables } from "./variable-resolver.js";
+import {
+  resolveString,
+  buildFolderChain,
+  collectTemplateVariables,
+} from "./variable-resolver.js";
 
 // SVG folder icons (Feather-style, stroke-based)
 const ICON_FOLDER_CLOSED = `<svg class="tree-folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
-const ICON_FOLDER_OPEN   = `<svg class="tree-folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><polyline points="2 10 12 10 17 15 22 10"/></svg>`;
+const ICON_FOLDER_OPEN = `<svg class="tree-folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><polyline points="2 10 12 10 17 15 22 10"/></svg>`;
 
 export class TreeView {
   /** @type {HTMLElement} */
@@ -105,7 +109,7 @@ export class TreeView {
       e.stopPropagation();
       if (!this.#dragId) return;
       const targetId = this.#dragPhantomEl.dataset.targetId;
-      const pos      = this.#dragPhantomEl.dataset.targetPos;
+      const pos = this.#dragPhantomEl.dataset.targetPos;
       if (targetId && pos) {
         this.#dropHandled = true;
         this.#moveNode(this.#dragId, targetId, pos);
@@ -149,7 +153,7 @@ export class TreeView {
    * @param {object} vars  — plain { name: value } map of resolved env variables
    */
   setEnvVariables(vars) {
-    this.#envVariables = (vars && typeof vars === "object") ? vars : {};
+    this.#envVariables = vars && typeof vars === "object" ? vars : {};
   }
 
   /**
@@ -229,56 +233,66 @@ export class TreeView {
   async #showContextMenu(node, parentCollectionId, x, y) {
     // Action map keyed by id — callbacks can't be sent across IPC, so the
     // native menu returns an id and the dispatch happens here.
-    const actions = node.type === "collection"
-      ? {
-          "add-request": () => this.#addRequestTo(node.id),
-          "add-folder":  () => this.#addFolderTo(node.id),
-          "rename":      () => this.#renameNode(node.id),
-          "duplicate":   () => this.#duplicateNode(node.id),
-          "variables":   () => {
-            const liveNode = this.#findNode(this.#items, node.id) ?? node;
-            window.dispatchEvent(new CustomEvent("wurl:folder-vars-open", {
-              detail: { nodeId: liveNode.id, folderName: liveNode.name, variables: liveNode.variables ?? {} },
-              bubbles: true,
-            }));
-          },
-          "export-collection": () => {
-            const liveNode = this.#findNode(this.#items, node.id) ?? node;
-            window.dispatchEvent(new CustomEvent("wurl:export-collection", {
-              detail: { collection: liveNode },
-            }));
-          },
-          "delete":      () => this.#deleteNode(node.id),
-        }
-      : {
-          "rename":       () => this.#renameNode(node.id),
-          "duplicate":    () => this.#duplicateNode(node.id),
-          "generate-curl":() => this.#generateCurl(node),
-          "delete":       () => this.#deleteNode(node.id),
-        };
+    const actions =
+      node.type === "collection"
+        ? {
+            "add-request": () => this.#addRequestTo(node.id),
+            "add-folder": () => this.#addFolderTo(node.id),
+            rename: () => this.#renameNode(node.id),
+            duplicate: () => this.#duplicateNode(node.id),
+            variables: () => {
+              const liveNode = this.#findNode(this.#items, node.id) ?? node;
+              window.dispatchEvent(
+                new CustomEvent("wurl:folder-vars-open", {
+                  detail: {
+                    nodeId: liveNode.id,
+                    folderName: liveNode.name,
+                    variables: liveNode.variables ?? {},
+                  },
+                  bubbles: true,
+                }),
+              );
+            },
+            "export-collection": () => {
+              const liveNode = this.#findNode(this.#items, node.id) ?? node;
+              window.dispatchEvent(
+                new CustomEvent("wurl:export-collection", {
+                  detail: { collection: liveNode },
+                }),
+              );
+            },
+            delete: () => this.#deleteNode(node.id),
+          }
+        : {
+            rename: () => this.#renameNode(node.id),
+            duplicate: () => this.#duplicateNode(node.id),
+            "generate-curl": () => this.#generateCurl(node),
+            delete: () => this.#deleteNode(node.id),
+          };
 
-    const baseItems = node.type === "collection"
-      ? [
-          { id: "add-request", label: "Add Request" },
-          { id: "add-folder",  label: "Add Folder"  },
-          { type: "separator" },
-          { id: "rename",      label: "Rename"      },
-          { type: "separator" },
-          { id: "duplicate",              label: "Duplicate"          },
-          { id: "export-collection",      label: "Export Collection…" },
-          { type: "separator" },
-          { id: "variables",   label: "Variables"   },
-          { type: "separator" },
-          { id: "delete",      label: "Delete", danger: true },
-        ]
-      : [
-          { id: "rename",       label: "Rename"        },
-          { type: "separator" },
-          { id: "duplicate",    label: "Duplicate"     },
-          { id: "generate-curl",label: "Generate cURL" },
-          { type: "separator" },
-          { id: "delete",       label: "Delete", danger: true },
-        ];
+    const baseItems =
+      node.type === "collection"
+        ? [
+            { id: "add-request", label: "Add Request" },
+            { id: "add-folder", label: "Add Folder" },
+            { type: "separator" },
+            { id: "rename", label: "Rename" },
+            { type: "separator" },
+            { id: "duplicate", label: "Duplicate" },
+            { id: "export-collection", label: "Export Collection…" },
+            { type: "separator" },
+            { id: "variables", label: "Variables" },
+            { type: "separator" },
+            { id: "delete", label: "Delete", danger: true },
+          ]
+        : [
+            { id: "rename", label: "Rename" },
+            { type: "separator" },
+            { id: "duplicate", label: "Duplicate" },
+            { id: "generate-curl", label: "Generate cURL" },
+            { type: "separator" },
+            { id: "delete", label: "Delete", danger: true },
+          ];
 
     // Loop so a danger click can re-open the menu with the entry relabeled to
     // "Confirm?". A second click on that entry confirms; any other choice
@@ -286,12 +300,20 @@ export class TreeView {
     let confirmingId = null;
     while (true) {
       const items = baseItems.map((it) =>
-        it.id === confirmingId ? { ...it, label: "Confirm?", danger: false } : it
+        it.id === confirmingId
+          ? { ...it, label: "Confirm?", danger: false }
+          : it,
       );
 
       const clickedId = await window.wurl.ui.contextMenu({
-        items: items.map(({ id, label, type, enabled }) => ({ id, label, type, enabled })),
-        x, y,
+        items: items.map(({ id, label, type, enabled }) => ({
+          id,
+          label,
+          type,
+          enabled,
+        })),
+        x,
+        y,
       });
 
       if (!clickedId) return; // dismissed
@@ -338,9 +360,11 @@ export class TreeView {
     // Prefer the parent folder of the currently selected request so the new
     // request lands as a sibling. Fall back to the last-active collection.
     const targetId =
-      (this.#selectedId ? this.#findParentId(this.#items, this.#selectedId) : undefined)
-      ?? this.#activeCollectionId
-      ?? this.#items.find((n) => n.type === "collection")?.id;
+      (this.#selectedId
+        ? this.#findParentId(this.#items, this.#selectedId)
+        : undefined) ??
+      this.#activeCollectionId ??
+      this.#items.find((n) => n.type === "collection")?.id;
     if (!targetId) return;
     this.#addRequestTo(targetId);
   }
@@ -441,9 +465,9 @@ export class TreeView {
     const original = this.#findNode(this.#items, nodeId);
     if (!original) return;
 
-    const clone   = this.#cloneWithNewIds(original);
-    clone.name    = `${clone.name} (copy)`;
-    this.#items   = this.#insertNodeAfter(this.#items, nodeId, clone);
+    const clone = this.#cloneWithNewIds(original);
+    clone.name = `${clone.name} (copy)`;
+    this.#items = this.#insertNodeAfter(this.#items, nodeId, clone);
     this.#rerender();
     this.#emitChange();
   }
@@ -462,10 +486,12 @@ export class TreeView {
     this.#emitChange();
 
     if (requestIds.length > 0) {
-      window.dispatchEvent(new CustomEvent("wurl:requests-deleted", {
-        detail:  { ids: requestIds },
-        bubbles: true,
-      }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:requests-deleted", {
+          detail: { ids: requestIds },
+          bubbles: true,
+        }),
+      );
     }
   }
 
@@ -506,15 +532,18 @@ export class TreeView {
     if (!force && liveNode.type === "request") {
       prebuiltContext = {
         envVariables: this.#envVariables,
-        folderChain:  buildFolderChain(this.#items, liveNode.id),
+        folderChain: buildFolderChain(this.#items, liveNode.id),
       };
-      const allVars  = collectTemplateVariables(this.#gatherNodeTemplates(liveNode), prebuiltContext);
-      const badCount = allVars.filter(v => !v.found).length;
+      const allVars = collectTemplateVariables(
+        this.#gatherNodeTemplates(liveNode),
+        prebuiltContext,
+      );
+      const badCount = allVars.filter((v) => !v.found).length;
       if (badCount > 0) {
         PopupManager.warnVariables({
-          variables:   allVars,
+          variables: allVars,
           actionLabel: "Copy Anyway",
-          onAction:    () => this.#generateCurl(node, true),
+          onAction: () => this.#generateCurl(node, true),
         });
         return;
       }
@@ -523,17 +552,20 @@ export class TreeView {
     const curl = this.#buildCurl(liveNode, prebuiltContext);
     if (!curl) return;
 
-    navigator.clipboard.writeText(curl).then(() => {
-      PopupManager.notify({
-        title:   "Copied to Clipboard",
-        message: "The cURL command has been copied to your clipboard.",
+    navigator.clipboard
+      .writeText(curl)
+      .then(() => {
+        PopupManager.notify({
+          title: "Copied to Clipboard",
+          message: "The cURL command has been copied to your clipboard.",
+        });
+      })
+      .catch(() => {
+        PopupManager.notify({
+          title: "Copy Failed",
+          message: "Unable to write to the clipboard. Please try again.",
+        });
       });
-    }).catch(() => {
-      PopupManager.notify({
-        title:   "Copy Failed",
-        message: "Unable to write to the clipboard. Please try again.",
-      });
-    });
   }
 
   /**
@@ -544,37 +576,48 @@ export class TreeView {
    */
   #gatherNodeTemplates(node) {
     const t = [node.url ?? ""];
-    for (const p of (node.params ?? [])) {
-      if (p.enabled) { t.push(p.name ?? "", p.value ?? ""); }
+    for (const p of node.params ?? []) {
+      if (p.enabled) {
+        t.push(p.name ?? "", p.value ?? "");
+      }
     }
     if (Array.isArray(node.headers)) {
       for (const h of node.headers) {
-        if (h.enabled) { t.push(h.name ?? "", h.value ?? ""); }
+        if (h.enabled) {
+          t.push(h.name ?? "", h.value ?? "");
+        }
       }
     }
     const authEnabled = node.authEnabled ?? true;
-    const authType    = node.authType    ?? "none";
+    const authType = node.authType ?? "none";
     if (authEnabled && authType !== "none") {
       t.push(node.authBasic?.username ?? "", node.authBasic?.password ?? "");
-      t.push(node.authBearer?.token  ?? "");
-      t.push(node.authOAuth2?.token  ?? "");
+      t.push(node.authBearer?.token ?? "");
+      t.push(node.authOAuth2?.token ?? "");
     }
     // Only scan fields that will actually be sent — avoids false-positive
     // warnings for inactive body data retained while switching body types.
     const noBodyMethods = new Set(["GET", "HEAD"]);
-    const method   = node.method   ?? "GET";
+    const method = node.method ?? "GET";
     const bodyType = node.bodyType ?? "no-body";
     if (!noBodyMethods.has(method)) {
       switch (bodyType) {
-        case "json": case "yaml": case "xml": case "text":
+        case "json":
+        case "yaml":
+        case "xml":
+        case "text":
           t.push(node.bodyText ?? "");
           break;
-        case "form-data": case "form-urlencoded":
-          for (const r of (node.bodyFormRows ?? [])) {
-            if (r.enabled) { t.push(r.name ?? "", r.value ?? ""); }
+        case "form-data":
+        case "form-urlencoded":
+          for (const r of node.bodyFormRows ?? []) {
+            if (r.enabled) {
+              t.push(r.name ?? "", r.value ?? "");
+            }
           }
           break;
-        default: break; // "no-body" / "file" — nothing to scan
+        default:
+          break; // "no-body" / "file" — nothing to scan
       }
     }
     return t.filter(Boolean);
@@ -604,7 +647,10 @@ export class TreeView {
         return { ...node, children: [...(node.children ?? []), child] };
       }
       if (Array.isArray(node.children) && node.children.length > 0) {
-        return { ...node, children: this.#insertChild(node.children, parentId, child) };
+        return {
+          ...node,
+          children: this.#insertChild(node.children, parentId, child),
+        };
       }
       return node;
     });
@@ -647,13 +693,22 @@ export class TreeView {
     // Regenerate IDs for request-level row arrays so duplicated requests
     // never share row IDs with the original.
     if (Array.isArray(node.bodyFormRows)) {
-      clone.bodyFormRows = node.bodyFormRows.map((r) => ({ ...r, id: crypto.randomUUID() }));
+      clone.bodyFormRows = node.bodyFormRows.map((r) => ({
+        ...r,
+        id: crypto.randomUUID(),
+      }));
     }
     if (Array.isArray(node.params)) {
-      clone.params = node.params.map((r) => ({ ...r, id: crypto.randomUUID() }));
+      clone.params = node.params.map((r) => ({
+        ...r,
+        id: crypto.randomUUID(),
+      }));
     }
     if (Array.isArray(node.headers)) {
-      clone.headers = node.headers.map((r) => ({ ...r, id: crypto.randomUUID() }));
+      clone.headers = node.headers.map((r) => ({
+        ...r,
+        id: crypto.randomUUID(),
+      }));
     }
     return clone;
   }
@@ -669,12 +724,17 @@ export class TreeView {
       let insertedInChildren = false;
 
       if (Array.isArray(node.children) && node.children.length > 0) {
-        const newChildren = this.#insertNodeAfter(node.children, afterId, newNode);
+        const newChildren = this.#insertNodeAfter(
+          node.children,
+          afterId,
+          newNode,
+        );
         // Use both a length check (item inserted at this level) AND a reference
         // check (item inserted at a deeper level — immediate count unchanged but
         // one of the child objects is a new spread copy).
-        insertedInChildren = newChildren.length > node.children.length ||
-                             newChildren.some((c, i) => c !== node.children[i]);
+        insertedInChildren =
+          newChildren.length > node.children.length ||
+          newChildren.some((c, i) => c !== node.children[i]);
         if (insertedInChildren) current = { ...node, children: newChildren };
       }
 
@@ -692,7 +752,10 @@ export class TreeView {
     return nodes.map((node) => {
       if (node.id === targetId) return { ...node, name: newName };
       if (Array.isArray(node.children) && node.children.length > 0) {
-        return { ...node, children: this.#updateNodeName(node.children, targetId, newName) };
+        return {
+          ...node,
+          children: this.#updateNodeName(node.children, targetId, newName),
+        };
       }
       return node;
     });
@@ -708,26 +771,29 @@ export class TreeView {
    */
   #buildCurl(node, prebuiltContext = null) {
     if (node.type === "request") {
-      const method  = node.method ?? "GET";
+      const method = node.method ?? "GET";
 
       // ── Variable resolver for this node ─────────────────────────────────
       // Reuse a pre-built context from #generateCurl when available so the
       // folder-chain tree traversal is not repeated for the same node.
       const nodeContext = prebuiltContext ?? {
         envVariables: this.#envVariables,
-        folderChain:  buildFolderChain(this.#items, node.id),
+        folderChain: buildFolderChain(this.#items, node.id),
       };
       const rv = (s) => resolveString(s ?? "", nodeContext);
 
       const baseUrl = rv(node.url || "<url>");
 
       // ── 1. URL — append enabled, non-blank query parameters ──────────────
-      const params        = Array.isArray(node.params) ? node.params : [];
-      const enabledParams = params.filter(p => p.enabled && p.name.trim());
-      let   finalUrl      = baseUrl;
+      const params = Array.isArray(node.params) ? node.params : [];
+      const enabledParams = params.filter((p) => p.enabled && p.name.trim());
+      let finalUrl = baseUrl;
       if (enabledParams.length) {
         const qs = enabledParams
-          .map(p => `${encodeURIComponent(rv(p.name))}=${encodeURIComponent(rv(p.value))}`)
+          .map(
+            (p) =>
+              `${encodeURIComponent(rv(p.name))}=${encodeURIComponent(rv(p.value))}`,
+          )
           .join("&");
         finalUrl += (baseUrl.includes("?") ? "&" : "?") + qs;
       }
@@ -736,8 +802,10 @@ export class TreeView {
       const headers = {};
       if (Array.isArray(node.headers)) {
         node.headers
-          .filter(h => h.enabled && h.name.trim())
-          .forEach(h => { headers[rv(h.name).trim()] = rv(h.value); });
+          .filter((h) => h.enabled && h.name.trim())
+          .forEach((h) => {
+            headers[rv(h.name).trim()] = rv(h.value);
+          });
       } else if (node.headers && typeof node.headers === "object") {
         // Legacy: plain key→value object (no enabled flag) — resolve each value
         Object.entries(node.headers).forEach(([k, v]) => {
@@ -747,14 +815,15 @@ export class TreeView {
 
       // ── 3. Auth — inject Authorization header when enabled ────────────────
       const authEnabled = node.authEnabled ?? true;
-      const authType    = node.authType    ?? "none";
+      const authType = node.authType ?? "none";
       if (authEnabled && authType !== "none") {
         switch (authType) {
           case "basic": {
             const username = rv(node.authBasic?.username ?? "");
             const password = rv(node.authBasic?.password ?? "");
             if (username || password) {
-              headers["Authorization"] = `Basic ${btoa(`${username}:${password}`)}`;
+              headers["Authorization"] =
+                `Basic ${btoa(`${username}:${password}`)}`;
             }
             break;
           }
@@ -772,29 +841,36 @@ export class TreeView {
 
       // ── 4. Body — match RequestEditor body assembly by type ───────────────
       const noBodyMethods = new Set(["GET", "HEAD"]);
-      const bodyType      = node.bodyType ?? "no-body";
-      let   body          = null;         // string payload for --data (text bodies)
-      let   bodyFilePath  = null;         // file path for --data-binary @path
+      const bodyType = node.bodyType ?? "no-body";
+      let body = null; // string payload for --data (text bodies)
+      let bodyFilePath = null; // file path for --data-binary @path
       // For form fields: array of already-encoded "name=value" strings (urlencoded)
       // or {name, value} objects (multipart).  formStyle tells the assembler which.
-      let   formPairs     = null;         // string[] — urlencoded, already percent-encoded
-      let   formEntries   = null;         // {name,value}[] — multipart/form-data
+      let formPairs = null; // string[] — urlencoded, already percent-encoded
+      let formEntries = null; // {name,value}[] — multipart/form-data
 
       if (!noBodyMethods.has(method)) {
         switch (bodyType) {
           case "form-data": {
             // Use --form flags (curl sets Content-Type + boundary automatically)
-            const rows = (node.bodyFormRows ?? []).filter(r => r.enabled && r.name.trim());
+            const rows = (node.bodyFormRows ?? []).filter(
+              (r) => r.enabled && r.name.trim(),
+            );
             if (rows.length > 0)
-              formEntries = rows.map(r => ({ name: rv(r.name), value: rv(r.value) }));
+              formEntries = rows.map((r) => ({
+                name: rv(r.name),
+                value: rv(r.value),
+              }));
             break;
           }
           case "form-urlencoded": {
             // Use one --data flag per field; URLSearchParams gives correct encoding.
-            const rows = (node.bodyFormRows ?? []).filter(r => r.enabled && r.name.trim());
+            const rows = (node.bodyFormRows ?? []).filter(
+              (r) => r.enabled && r.name.trim(),
+            );
             if (rows.length > 0) {
               const sp = new URLSearchParams();
-              rows.forEach(r => sp.append(rv(r.name), rv(r.value)));
+              rows.forEach((r) => sp.append(rv(r.name), rv(r.value)));
               // Split "a=1&b=2" → ["a=1", "b=2"] — each token is already percent-encoded
               formPairs = sp.toString().split("&").filter(Boolean);
               if (!headers["Content-Type"])
@@ -805,25 +881,29 @@ export class TreeView {
           case "json":
             if (node.bodyText?.trim()) {
               body = rv(node.bodyText);
-              if (!headers["Content-Type"]) headers["Content-Type"] = "application/json";
+              if (!headers["Content-Type"])
+                headers["Content-Type"] = "application/json";
             }
             break;
           case "yaml":
             if (node.bodyText?.trim()) {
               body = rv(node.bodyText);
-              if (!headers["Content-Type"]) headers["Content-Type"] = "application/x-yaml";
+              if (!headers["Content-Type"])
+                headers["Content-Type"] = "application/x-yaml";
             }
             break;
           case "xml":
             if (node.bodyText?.trim()) {
               body = rv(node.bodyText);
-              if (!headers["Content-Type"]) headers["Content-Type"] = "application/xml";
+              if (!headers["Content-Type"])
+                headers["Content-Type"] = "application/xml";
             }
             break;
           case "text":
             if (node.bodyText?.trim()) {
               body = rv(node.bodyText);
-              if (!headers["Content-Type"]) headers["Content-Type"] = "text/plain";
+              if (!headers["Content-Type"])
+                headers["Content-Type"] = "text/plain";
             }
             break;
           case "file":
@@ -838,7 +918,7 @@ export class TreeView {
       // Use long-form flags (--request, --url, --header, --data / --form) so
       // the output matches common style guides and is easy to read and paste.
       // Helper: single-quote a shell token, escaping embedded single quotes.
-      const sq = s => `'${String(s).replace(/'/g, "'\\''")}'`;
+      const sq = (s) => `'${String(s).replace(/'/g, "'\\''")}'`;
 
       let cmd = `curl --request ${method}`;
 
@@ -860,7 +940,7 @@ export class TreeView {
         // application/x-www-form-urlencoded: one --data flag per encoded pair.
         // The pairs from URLSearchParams are already percent-encoded and shell-safe
         // (no spaces, single quotes, or glob chars), so no extra quoting needed.
-        formPairs.forEach(pair => {
+        formPairs.forEach((pair) => {
           cmd += ` \\\n  --data ${pair}`;
         });
       } else if (bodyFilePath !== null) {
@@ -874,7 +954,10 @@ export class TreeView {
 
     if (node.type === "collection") {
       const requests = this.#collectRequests(node.children ?? []);
-      return requests.map((r) => this.#buildCurl(r)).filter(Boolean).join("\n\n");
+      return requests
+        .map((r) => this.#buildCurl(r))
+        .filter(Boolean)
+        .join("\n\n");
     }
     return "";
   }
@@ -942,8 +1025,8 @@ export class TreeView {
         </div>
       `;
 
-      const row     = li.querySelector(".tree-node__row");
-      const iconEl  = row.querySelector(".tree-node__icon");
+      const row = li.querySelector(".tree-node__row");
+      const iconEl = row.querySelector(".tree-node__icon");
       const labelEl = row.querySelector(".tree-node__label");
 
       /** Toggle this folder's expanded / collapsed state. */
@@ -1016,6 +1099,7 @@ export class TreeView {
       // Request item
       li.classList.add("tree-node--request");
       const methodClass = `method--${(node.method ?? "GET").toLowerCase()}`;
+      li.dataset.url = (node.url ?? "").toLowerCase();
       li.innerHTML = `
         <div class="tree-node__row" tabindex="0">
           <span class="tree-node__method ${methodClass}">${node.method ?? "GET"}</span>
@@ -1041,10 +1125,12 @@ export class TreeView {
       // The preceding click already selected/loaded it, so just fire the execute event.
       row.addEventListener("dblclick", () => {
         if (!this.#doubleClickExecute) return;
-        window.dispatchEvent(new CustomEvent("wurl:request-execute", {
-          detail: this.#findNode(this.#items, node.id) ?? node,
-          bubbles: true,
-        }));
+        window.dispatchEvent(
+          new CustomEvent("wurl:request-execute", {
+            detail: this.#findNode(this.#items, node.id) ?? node,
+            bubbles: true,
+          }),
+        );
       });
 
       // Right-click: select the request then show context menu
@@ -1078,14 +1164,18 @@ export class TreeView {
       this.#el.querySelectorAll(".tree-node--collection").forEach((li) => {
         const childList = li.querySelector(":scope > .tree-list--nested");
         if (childList) {
-          childList.style.display = this.#collapsedIds.has(li.dataset.id) ? "none" : "";
+          childList.style.display = this.#collapsedIds.has(li.dataset.id)
+            ? "none"
+            : "";
         }
       });
       return;
     }
 
     const applyNode = (li) => {
-      const labelEl = li.querySelector(":scope > .tree-node__row > .tree-node__label");
+      const labelEl = li.querySelector(
+        ":scope > .tree-node__row > .tree-node__label",
+      );
       const name = labelEl?.textContent ?? "";
       const matches = name.toLowerCase().includes(q);
 
@@ -1098,7 +1188,8 @@ export class TreeView {
 
         if (matches || anyChildMatch) {
           li.style.display = "";
-          if (matches && labelEl) labelEl.innerHTML = this.#highlightMatch(name, q);
+          if (matches && labelEl)
+            labelEl.innerHTML = this.#highlightMatch(name, q);
           if (childList && anyChildMatch) childList.style.display = "";
           return true;
         }
@@ -1106,8 +1197,9 @@ export class TreeView {
         return false;
       }
 
-      // Request node
-      if (matches) {
+      // Request node — also match on URL
+      const urlMatches = (li.dataset.url ?? "").includes(q);
+      if (matches || urlMatches) {
         li.style.display = "";
         if (labelEl) labelEl.innerHTML = this.#highlightMatch(name, q);
         return true;
@@ -1116,17 +1208,19 @@ export class TreeView {
       return false;
     };
 
-    this.#el.querySelectorAll(".tree-list:not(.tree-list--nested) > .tree-node").forEach((li) => {
-      applyNode(li);
-    });
+    this.#el
+      .querySelectorAll(".tree-list:not(.tree-list--nested) > .tree-node")
+      .forEach((li) => {
+        applyNode(li);
+      });
   }
 
   #highlightMatch(text, query) {
     const idx = text.toLowerCase().indexOf(query);
     if (idx === -1) return this.#escape(text);
     const before = this.#escape(text.slice(0, idx));
-    const match  = this.#escape(text.slice(idx, idx + query.length));
-    const after  = this.#escape(text.slice(idx + query.length));
+    const match = this.#escape(text.slice(idx, idx + query.length));
+    const after = this.#escape(text.slice(idx + query.length));
     return `${before}<mark class="tree-highlight">${match}</mark>${after}`;
   }
 
@@ -1194,7 +1288,9 @@ export class TreeView {
         `wurl:collapsed:${this.#storageKey}`,
         JSON.stringify([...this.#collapsedIds]),
       );
-    } catch (_) { /* quota exceeded or private browsing — ignore */ }
+    } catch (_) {
+      /* quota exceeded or private browsing — ignore */
+    }
   }
 
   #loadCollapsedState() {
@@ -1202,7 +1298,9 @@ export class TreeView {
     try {
       const raw = localStorage.getItem(`wurl:collapsed:${this.#storageKey}`);
       return raw ? JSON.parse(raw) : [];
-    } catch (_) { return []; }
+    } catch (_) {
+      return [];
+    }
   }
 
   // ── Drag-to-reorder ─────────────────────────────────────────────────────
@@ -1224,7 +1322,7 @@ export class TreeView {
 
     // ── dragstart ──────────────────────────────────────────────────────────
     row.addEventListener("dragstart", (e) => {
-      this.#dragId      = node.id;
+      this.#dragId = node.id;
       this.#dropHandled = false;
       e.dataTransfer.effectAllowed = "move";
       // Required by Firefox to start the drag
@@ -1235,9 +1333,9 @@ export class TreeView {
         if (this.#dragId !== capturedDragId || !li.parentElement) return;
         this.#dragInsideTreeView = true;
         // Reset phantom metadata
-        this.#dragPhantomEl.dataset.targetId  = "";
+        this.#dragPhantomEl.dataset.targetId = "";
         this.#dragPhantomEl.dataset.targetPos = "";
-        this.#dragPhantomEl.dataset.posKey    = "";
+        this.#dragPhantomEl.dataset.posKey = "";
         // Insert phantom where the item was, then hide the actual item
         li.parentElement.insertBefore(this.#dragPhantomEl, li);
         li.style.display = "none";
@@ -1251,7 +1349,9 @@ export class TreeView {
           // Cursor left the treeview — remove phantom and restore the dragged item
           this.#dragInsideTreeView = false;
           this.#dragPhantomEl.remove();
-          const draggedLi = this.#el.querySelector(`[data-id="${CSS.escape(this.#dragId)}"]`);
+          const draggedLi = this.#el.querySelector(
+            `[data-id="${CSS.escape(this.#dragId)}"]`,
+          );
           if (draggedLi) draggedLi.style.display = "";
         } else if (inside && !this.#dragInsideTreeView) {
           // Cursor re-entered the treeview — phantom will be placed on next row dragover
@@ -1267,14 +1367,14 @@ export class TreeView {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
 
-      const rect  = row.getBoundingClientRect();
+      const rect = row.getBoundingClientRect();
       const ratio = (e.clientY - rect.top) / rect.height;
 
       let pos;
       if (node.type === "collection") {
-        if (ratio < 0.25)      pos = "before";
+        if (ratio < 0.25) pos = "before";
         else if (ratio > 0.75) pos = "after";
-        else                   pos = "inside";
+        else pos = "inside";
       } else {
         pos = ratio < 0.5 ? "before" : "after";
       }
@@ -1282,8 +1382,8 @@ export class TreeView {
       // Only move the phantom when the position actually changes (perf)
       const posKey = `${node.id}:${pos}`;
       if (this.#dragPhantomEl.dataset.posKey !== posKey) {
-        this.#dragPhantomEl.dataset.posKey    = posKey;
-        this.#dragPhantomEl.dataset.targetId  = node.id;
+        this.#dragPhantomEl.dataset.posKey = posKey;
+        this.#dragPhantomEl.dataset.targetId = node.id;
         this.#dragPhantomEl.dataset.targetPos = pos;
         this.#moveDragPhantom(li, pos, node);
       }
@@ -1307,7 +1407,9 @@ export class TreeView {
    */
   #moveDragPhantom(targetLi, pos, targetNode) {
     // Ensure the dragged item stays hidden (e.g. after re-entering treeview)
-    const draggedLi = this.#el.querySelector(`[data-id="${CSS.escape(this.#dragId)}"]`);
+    const draggedLi = this.#el.querySelector(
+      `[data-id="${CSS.escape(this.#dragId)}"]`,
+    );
     if (draggedLi && draggedLi.style.display !== "none") {
       draggedLi.style.display = "none";
     }
@@ -1315,14 +1417,20 @@ export class TreeView {
     if (pos === "before") {
       targetLi.parentElement.insertBefore(this.#dragPhantomEl, targetLi);
     } else if (pos === "after") {
-      targetLi.parentElement.insertBefore(this.#dragPhantomEl, targetLi.nextSibling);
+      targetLi.parentElement.insertBefore(
+        this.#dragPhantomEl,
+        targetLi.nextSibling,
+      );
     } else if (pos === "inside" && targetNode.type === "collection") {
       const childList = targetLi.querySelector(".tree-list--nested");
       if (childList && childList.style.display !== "none") {
         childList.insertBefore(this.#dragPhantomEl, childList.firstChild);
       } else {
         // Collapsed collection — treat as after
-        targetLi.parentElement.insertBefore(this.#dragPhantomEl, targetLi.nextSibling);
+        targetLi.parentElement.insertBefore(
+          this.#dragPhantomEl,
+          targetLi.nextSibling,
+        );
       }
     }
   }
@@ -1345,12 +1453,12 @@ export class TreeView {
       document.removeEventListener("dragover", this.#docDragOverHandler);
       this.#docDragOverHandler = null;
     }
-    this.#dragId              = null;
-    this.#dragInsideTreeView  = false;
-    this.#dropHandled         = false;
-    this.#dragPhantomEl.dataset.targetId  = "";
+    this.#dragId = null;
+    this.#dragInsideTreeView = false;
+    this.#dropHandled = false;
+    this.#dragPhantomEl.dataset.targetId = "";
     this.#dragPhantomEl.dataset.targetPos = "";
-    this.#dragPhantomEl.dataset.posKey    = "";
+    this.#dragPhantomEl.dataset.posKey = "";
   }
 
   /**
@@ -1423,10 +1531,11 @@ export class TreeView {
         const badge = li.querySelector(".tree-node__method");
         if (badge) {
           badge.textContent = fields.method;
-          badge.className   = `tree-node__method method--${fields.method.toLowerCase()}`;
+          badge.className = `tree-node__method method--${fields.method.toLowerCase()}`;
         }
       }
       if (fields.url != null) {
+        li.dataset.url = fields.url.toLowerCase();
         const urlEl = li.querySelector(".tree-node__url");
         if (urlEl) urlEl.textContent = fields.url;
       }
@@ -1444,7 +1553,10 @@ export class TreeView {
     return nodes.map((node) => {
       if (node.id === targetId) return { ...node, ...fields };
       if (Array.isArray(node.children) && node.children.length > 0) {
-        return { ...node, children: this.#patchNodeFields(node.children, targetId, fields) };
+        return {
+          ...node,
+          children: this.#patchNodeFields(node.children, targetId, fields),
+        };
       }
       return node;
     });
@@ -1462,11 +1574,17 @@ export class TreeView {
         continue;
       }
       if (Array.isArray(node.children) && node.children.length > 0) {
-        const newChildren = this.#insertBefore(node.children, beforeId, newNode);
+        const newChildren = this.#insertBefore(
+          node.children,
+          beforeId,
+          newNode,
+        );
         // Use both a length check AND a reference check (deep insertion changes
         // a child object reference even if the count stays the same).
-        if (newChildren.length > node.children.length ||
-            newChildren.some((c, i) => c !== node.children[i])) {
+        if (
+          newChildren.length > node.children.length ||
+          newChildren.some((c, i) => c !== node.children[i])
+        ) {
           result.push({ ...node, children: newChildren });
           continue;
         }

@@ -22,15 +22,18 @@
 
 "use strict";
 
-import { tokenStore }             from "./tokens/token-store.js";
-import { refreshTokenFlow }       from "./flows/refresh-token.js";
-import { clientCredentialsFlow }  from "./flows/client-credentials.js";
-import { authorizationCodeFlow }  from "./flows/authorization-code.js";
-import { passwordFlow }           from "./flows/password.js";
-import { implicitFlow }           from "./flows/implicit.js";
-import { oauthResultFromError, createOAuthResult } from "./types/oauth-types.js";
-import { validateOAuthConfig, GrantType }          from "./types/oauth-types.js";
-import { configurationError }                      from "./types/oauth-errors.js";
+import { tokenStore } from "./tokens/token-store.js";
+import { refreshTokenFlow } from "./flows/refresh-token.js";
+import { clientCredentialsFlow } from "./flows/client-credentials.js";
+import { authorizationCodeFlow } from "./flows/authorization-code.js";
+import { passwordFlow } from "./flows/password.js";
+import { implicitFlow } from "./flows/implicit.js";
+import {
+  oauthResultFromError,
+  createOAuthResult,
+} from "./types/oauth-types.js";
+import { validateOAuthConfig, GrantType } from "./types/oauth-types.js";
+import { configurationError } from "./types/oauth-errors.js";
 
 class OAuthExecutor {
   /**
@@ -49,7 +52,8 @@ class OAuthExecutor {
   async acquireToken(config) {
     // ── Validate configuration ────────────────────────────────────────────
     const configError = validateOAuthConfig(config);
-    if (configError) return oauthResultFromError(configurationError(configError));
+    if (configError)
+      return oauthResultFromError(configurationError(configError));
 
     const cacheKey = tokenStore.keyFor(config);
 
@@ -57,14 +61,14 @@ class OAuthExecutor {
     const cached = tokenStore.get(cacheKey);
     if (cached?.isValid?.()) {
       return createOAuthResult({
-        success:      true,
-        accessToken:  cached.accessToken,
+        success: true,
+        accessToken: cached.accessToken,
         refreshToken: cached.refreshToken,
-        idToken:      cached.idToken,
-        expiresAt:    cached.expiresAt,
-        expiresIn:    cached.expiresIn,
-        tokenType:    cached.tokenType,
-        scope:        cached.scope,
+        idToken: cached.idToken,
+        expiresAt: cached.expiresAt,
+        expiresIn: cached.expiresIn,
+        tokenType: cached.tokenType,
+        scope: cached.scope,
       });
     }
 
@@ -164,4 +168,3 @@ class OAuthExecutor {
 
 /** Shared singleton executor for the renderer process. */
 export const oauthExecutor = new OAuthExecutor();
-

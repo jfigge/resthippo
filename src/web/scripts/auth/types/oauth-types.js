@@ -13,16 +13,16 @@
 export const GrantType = Object.freeze({
   CLIENT_CREDENTIALS: "client_credentials",
   AUTHORIZATION_CODE: "authorization_code",
-  PASSWORD:           "password",
-  IMPLICIT:           "implicit",
-  REFRESH_TOKEN:      "refresh_token",
-  DEVICE_CODE:        "urn:ietf:params:oauth:grant-type:device_code",
+  PASSWORD: "password",
+  IMPLICIT: "implicit",
+  REFRESH_TOKEN: "refresh_token",
+  DEVICE_CODE: "urn:ietf:params:oauth:grant-type:device_code",
 });
 
 /** How client credentials are transmitted to the token endpoint. */
 export const CredentialsMethod = Object.freeze({
-  HEADER: "header",  // Authorization: Basic base64(id:secret)
-  BODY:   "body",    // client_id / client_secret in request body
+  HEADER: "header", // Authorization: Basic base64(id:secret)
+  BODY: "body", // client_id / client_secret in request body
 });
 
 // ── OAuthResult factory ──────────────────────────────────────────────────────
@@ -47,15 +47,15 @@ export const CredentialsMethod = Object.freeze({
  */
 export function createOAuthResult(data) {
   return {
-    success:      data.success      ?? false,
-    accessToken:  data.accessToken  ?? null,
+    success: data.success ?? false,
+    accessToken: data.accessToken ?? null,
     refreshToken: data.refreshToken ?? null,
-    idToken:      data.idToken      ?? null,
-    expiresIn:    data.expiresIn    ?? null,
-    expiresAt:    data.expiresAt    ?? null,
-    tokenType:    data.tokenType    ?? "Bearer",
-    scope:        data.scope        ?? null,
-    error:        data.error        ?? null,
+    idToken: data.idToken ?? null,
+    expiresIn: data.expiresIn ?? null,
+    expiresAt: data.expiresAt ?? null,
+    tokenType: data.tokenType ?? "Bearer",
+    scope: data.scope ?? null,
+    error: data.error ?? null,
   };
 }
 
@@ -69,19 +69,20 @@ export function oauthResultFromTokenResponse(body) {
   // Guard against non-numeric expires_in values (e.g. "abc" or "") which would
   // produce NaN and propagate into expiresAt, defeating the TokenEntry expiry
   // check (NaN comparisons return false → token treated as never-expiring).
-  const parsedExpires = body.expires_in != null ? Number(body.expires_in) : null;
-  const expiresIn     = Number.isFinite(parsedExpires) ? parsedExpires : null;
-  const expiresAt     = expiresIn != null ? Date.now() + expiresIn * 1_000 : null;
+  const parsedExpires =
+    body.expires_in != null ? Number(body.expires_in) : null;
+  const expiresIn = Number.isFinite(parsedExpires) ? parsedExpires : null;
+  const expiresAt = expiresIn != null ? Date.now() + expiresIn * 1_000 : null;
 
   return createOAuthResult({
-    success:      true,
-    accessToken:  body.access_token  ?? null,
+    success: true,
+    accessToken: body.access_token ?? null,
     refreshToken: body.refresh_token ?? null,
-    idToken:      body.id_token      ?? null,
+    idToken: body.id_token ?? null,
     expiresIn,
     expiresAt,
-    tokenType:    body.token_type ?? "Bearer",
-    scope:        body.scope      ?? null,
+    tokenType: body.token_type ?? "Bearer",
+    scope: body.scope ?? null,
   });
 }
 
@@ -110,8 +111,7 @@ export function validateOAuthConfig(config) {
   if (!g) return "Grant type is required.";
 
   if (g !== GrantType.IMPLICIT) {
-    if (!config.accessTokenUrl?.trim())
-      return "Access Token URL is required.";
+    if (!config.accessTokenUrl?.trim()) return "Access Token URL is required.";
   }
 
   switch (g) {
@@ -120,19 +120,19 @@ export function validateOAuthConfig(config) {
       break;
 
     case GrantType.AUTHORIZATION_CODE:
-      if (!config.clientId?.trim())  return "Client ID is required.";
-      if (!config.authUrl?.trim())   return "Auth URL is required.";
+      if (!config.clientId?.trim()) return "Client ID is required.";
+      if (!config.authUrl?.trim()) return "Auth URL is required.";
       break;
 
     case GrantType.PASSWORD:
-      if (!config.clientId?.trim())  return "Client ID is required.";
-      if (!config.username?.trim())  return "Username is required.";
-      if (!config.password?.trim())  return "Password is required.";
+      if (!config.clientId?.trim()) return "Client ID is required.";
+      if (!config.username?.trim()) return "Username is required.";
+      if (!config.password?.trim()) return "Password is required.";
       break;
 
     case GrantType.IMPLICIT:
-      if (!config.authUrl?.trim())   return "Auth URL is required.";
-      if (!config.clientId?.trim())  return "Client ID is required.";
+      if (!config.authUrl?.trim()) return "Auth URL is required.";
+      if (!config.clientId?.trim()) return "Client ID is required.";
       break;
 
     default:
@@ -141,4 +141,3 @@ export function validateOAuthConfig(config) {
 
   return null; // valid
 }
-

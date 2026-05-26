@@ -15,15 +15,26 @@
 
 "use strict";
 
-import { openOAuthPopup, DEFAULT_REDIRECT_URI } from "../popup/callback-interceptor.js";
-import { generateCodeVerifier, generateCodeChallenge } from "../utils/pkce.js";
-import { generateState, validateState, discardState }  from "../utils/state.js";
-import { buildUrl, extractAuthCode }                   from "../utils/url.js";
-import { postTokenRequest }                            from "../network/electron-network.js";
-import { createOAuthResult, oauthResultFromTokenResponse, oauthResultFromError } from "../types/oauth-types.js";
 import {
-  configurationError, stateMismatchError, popupCancelledError,
-  fromTokenErrorResponse, OAuthError, OAuthErrorCode,
+  openOAuthPopup,
+  DEFAULT_REDIRECT_URI,
+} from "../popup/callback-interceptor.js";
+import { generateCodeVerifier, generateCodeChallenge } from "../utils/pkce.js";
+import { generateState, validateState, discardState } from "../utils/state.js";
+import { buildUrl, extractAuthCode } from "../utils/url.js";
+import { postTokenRequest } from "../network/electron-network.js";
+import {
+  createOAuthResult,
+  oauthResultFromTokenResponse,
+  oauthResultFromError,
+} from "../types/oauth-types.js";
+import {
+  configurationError,
+  stateMismatchError,
+  popupCancelledError,
+  fromTokenErrorResponse,
+  OAuthError,
+  OAuthErrorCode,
 } from "../types/oauth-errors.js";
 
 /**
@@ -38,51 +49,61 @@ import {
  */
 export async function authorizationCodeFlow(config) {
   // ── Validate ─────────────────────────────────────────────────────────────
-  if (!config.clientId?.trim())       return oauthResultFromError(configurationError("Client ID is required."));
-  if (!config.authUrl?.trim())        return oauthResultFromError(configurationError("Auth URL is required."));
-  if (!config.accessTokenUrl?.trim()) return oauthResultFromError(configurationError("Access Token URL is required."));
+  if (!config.clientId?.trim())
+    return oauthResultFromError(configurationError("Client ID is required."));
+  if (!config.authUrl?.trim())
+    return oauthResultFromError(configurationError("Auth URL is required."));
+  if (!config.accessTokenUrl?.trim())
+    return oauthResultFromError(
+      configurationError("Access Token URL is required."),
+    );
 
-  try { new URL(config.authUrl.trim()); } catch { return createOAuthResult({ success: true }); }
+  try {
+    new URL(config.authUrl.trim());
+  } catch {
+    return createOAuthResult({ success: true });
+  }
 
-  const clientId        = config.clientId.trim();
-  const accessTokenUrl  = config.accessTokenUrl.trim();
-  const isPkce          = config.clientType === "public";
-  const redirectUri     = config.redirectUri?.trim() || DEFAULT_REDIRECT_URI;
+  const clientId = config.clientId.trim();
+  const accessTokenUrl = config.accessTokenUrl.trim();
+  const isPkce = config.clientType === "public";
+  const redirectUri = config.redirectUri?.trim() || DEFAULT_REDIRECT_URI;
 
   // ── CSRF state ────────────────────────────────────────────────────────────
   const state = generateState();
 
   // ── PKCE material ─────────────────────────────────────────────────────────
-  let codeVerifier   = null;
-  let codeChallenge  = null;
+  let codeVerifier = null;
+  let codeChallenge = null;
 
   if (isPkce) {
-    codeVerifier  = generateCodeVerifier();
+    codeVerifier = generateCodeVerifier();
     codeChallenge = await generateCodeChallenge(codeVerifier);
   }
 
   // ── Build authorization URL ───────────────────────────────────────────────
   const authParams = {
     response_type: "code",
-    client_id:     clientId,
-    redirect_uri:  redirectUri,
+    client_id: clientId,
+    redirect_uri: redirectUri,
     state,
   };
 
-  if (config.scope?.trim())    authParams.scope          = config.scope.trim();
-  if (config.audience?.trim()) authParams.audience       = config.audience.trim();
-  if (config.resource?.trim()) authParams.resource       = config.resource.trim();
-  if (config.nonce?.trim())    authParams.nonce          = config.nonce.trim();
-  if (config.origin?.trim())   authParams.origin         = config.origin.trim();
+  if (config.scope?.trim()) authParams.scope = config.scope.trim();
+  if (config.audience?.trim()) authParams.audience = config.audience.trim();
+  if (config.resource?.trim()) authParams.resource = config.resource.trim();
+  if (config.nonce?.trim()) authParams.nonce = config.nonce.trim();
+  if (config.origin?.trim()) authParams.origin = config.origin.trim();
 
   // Advanced params surfaced from the UI
-  if (config.prompt?.trim())       authParams.prompt       = config.prompt.trim();
-  if (config.loginHint?.trim())    authParams.login_hint   = config.loginHint.trim();
-  if (config.acrValues?.trim())    authParams.acr_values   = config.acrValues.trim();
-  if (config.responseMode?.trim()) authParams.response_mode = config.responseMode.trim();
+  if (config.prompt?.trim()) authParams.prompt = config.prompt.trim();
+  if (config.loginHint?.trim()) authParams.login_hint = config.loginHint.trim();
+  if (config.acrValues?.trim()) authParams.acr_values = config.acrValues.trim();
+  if (config.responseMode?.trim())
+    authParams.response_mode = config.responseMode.trim();
 
   if (isPkce) {
-    authParams.code_challenge        = codeChallenge;
+    authParams.code_challenge = codeChallenge;
     authParams.code_challenge_method = "S256";
   }
 
@@ -105,11 +126,18 @@ export async function authorizationCodeFlow(config) {
     );
   } catch (err) {
     discardState(state);
-    return oauthResultFromError(err instanceof OAuthError ? err : popupCancelledError(err?.message));
+    return oauthResultFromError(
+      err instanceof OAuthError ? err : popupCancelledError(err?.message),
+    );
   }
 
   // ── Parse callback ────────────────────────────────────────────────────────
-  const { code, state: returnedState, error, errorDescription } = extractAuthCode(callbackUrl);
+  const {
+    code,
+    state: returnedState,
+    error,
+    errorDescription,
+  } = extractAuthCode(callbackUrl);
 
   // CSRF state check
   if (!validateState(returnedState)) {
@@ -121,7 +149,9 @@ export async function authorizationCodeFlow(config) {
   if (error) {
     return oauthResultFromError(
       new OAuthError(
-        Object.values(OAuthErrorCode).includes(error) ? error : OAuthErrorCode.UNKNOWN,
+        Object.values(OAuthErrorCode).includes(error)
+          ? error
+          : OAuthErrorCode.UNKNOWN,
         errorDescription ?? error,
       ),
     );
@@ -129,16 +159,19 @@ export async function authorizationCodeFlow(config) {
 
   if (!code) {
     return oauthResultFromError(
-      new OAuthError(OAuthErrorCode.MALFORMED_RESPONSE, "No authorization code in callback URL."),
+      new OAuthError(
+        OAuthErrorCode.MALFORMED_RESPONSE,
+        "No authorization code in callback URL.",
+      ),
     );
   }
 
   // ── Exchange code for tokens ──────────────────────────────────────────────
   const tokenParams = {
-    grant_type:   "authorization_code",
+    grant_type: "authorization_code",
     code,
     redirect_uri: redirectUri,
-    client_id:    clientId,
+    client_id: clientId,
   };
 
   if (isPkce) {
@@ -155,7 +188,7 @@ export async function authorizationCodeFlow(config) {
   }
 
   const tokenHeaders = {};
-  const credMethod   = config.credentials ?? "header";
+  const credMethod = config.credentials ?? "header";
 
   if (!isPkce) {
     // Confidential client: also send secret
@@ -170,16 +203,18 @@ export async function authorizationCodeFlow(config) {
   let response;
   try {
     response = await postTokenRequest(accessTokenUrl, tokenParams, {
-      headers:  tokenHeaders,
+      headers: tokenHeaders,
       verifySsl: config.verifySsl !== false,
-      timeout:   config.timeout   ?? 30_000,
+      timeout: config.timeout ?? 30_000,
     });
   } catch (err) {
     return oauthResultFromError(err);
   }
 
   if (response.error || response.httpStatus >= 400) {
-    return oauthResultFromError(fromTokenErrorResponse(response, response.httpStatus));
+    return oauthResultFromError(
+      fromTokenErrorResponse(response, response.httpStatus),
+    );
   }
 
   if (!response.access_token) {
@@ -190,4 +225,3 @@ export async function authorizationCodeFlow(config) {
 
   return oauthResultFromTokenResponse(response);
 }
-

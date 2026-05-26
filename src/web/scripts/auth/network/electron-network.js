@@ -12,7 +12,11 @@
 
 "use strict";
 
-import { fromNetworkError, OAuthError, OAuthErrorCode } from "../types/oauth-errors.js";
+import {
+  fromNetworkError,
+  OAuthError,
+  OAuthErrorCode,
+} from "../types/oauth-errors.js";
 
 // ── Low-level execute ────────────────────────────────────────────────────────
 
@@ -31,13 +35,13 @@ import { fromNetworkError, OAuthError, OAuthErrorCode } from "../types/oauth-err
  */
 export async function executeRequest(desc) {
   const payload = {
-    method:          desc.method          ?? "GET",
-    url:             desc.url,
-    headers:         desc.headers         ?? {},
-    body:            desc.body            ?? null,
-    timeout:         desc.timeout         ?? 30_000,
+    method: desc.method ?? "GET",
+    url: desc.url,
+    headers: desc.headers ?? {},
+    body: desc.body ?? null,
+    timeout: desc.timeout ?? 30_000,
     followRedirects: desc.followRedirects !== false,
-    verifySsl:       desc.verifySsl       !== false,
+    verifySsl: desc.verifySsl !== false,
   };
 
   if (typeof window.wurl?.http?.execute === "function") {
@@ -47,9 +51,9 @@ export async function executeRequest(desc) {
 
   // Go dev-server path — proxy endpoint makes the outgoing call
   const res = await fetch("/api/execute", {
-    method:  "POST",
+    method: "POST",
     headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify(payload),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`Execute API returned HTTP ${res.status}`);
   return await res.json();
@@ -74,22 +78,22 @@ export async function executeRequest(desc) {
  * @returns {Promise<{httpStatus:number, httpStatusText:string, [key:string]:any}>}
  */
 export async function postTokenRequest(url, params, opts = {}) {
-  const body    = new URLSearchParams(params).toString();
+  const body = new URLSearchParams(params).toString();
   const headers = {
     "Content-Type": "application/x-www-form-urlencoded",
-    "Accept":       "application/json",
+    Accept: "application/json",
     ...opts.headers,
   };
 
   let result;
   try {
     result = await executeRequest({
-      method:          "POST",
+      method: "POST",
       url,
       headers,
       body,
-      timeout:         opts.timeout  ?? 30_000,
-      verifySsl:       opts.verifySsl !== false,
+      timeout: opts.timeout ?? 30_000,
+      verifySsl: opts.verifySsl !== false,
       followRedirects: true,
     });
   } catch (err) {
@@ -103,7 +107,9 @@ export async function postTokenRequest(url, params, opts = {}) {
 
   // Parse the response body as JSON
   if (!result.body) {
-    throw new Error(`Token endpoint returned an empty body (HTTP ${result.status})`);
+    throw new Error(
+      `Token endpoint returned an empty body (HTTP ${result.status})`,
+    );
   }
   let parsed;
   try {
@@ -117,10 +123,8 @@ export async function postTokenRequest(url, params, opts = {}) {
   }
 
   return {
-    httpStatus:     result.status,
+    httpStatus: result.status,
     httpStatusText: result.statusText,
     ...parsed,
   };
 }
-
-

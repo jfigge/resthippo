@@ -4,296 +4,188 @@
 
 "use strict";
 
-import { parse as parseYaml, stringify as stringifyYaml } from "../vendor/yaml.js";
+import {
+  parse as parseYaml,
+  stringify as stringifyYaml,
+} from "../vendor/yaml.js";
 import { VariablePillEditor } from "./variable-pill-editor.js";
-import { resolveStringAsync, collectTemplateVariables, tokenize } from "./variable-resolver.js";
+import {
+  resolveStringAsync,
+  collectTemplateVariables,
+  tokenize,
+} from "./variable-resolver.js";
 import { PopupManager } from "../popup-manager.js";
 import Prism from "../vendor/prism.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
 
-
 // Standard HTTP request headers offered in the header-name combo box.
 // Custom values are always accepted too (free-text input).
 const STANDARD_HEADERS_DICT = {
-    Accept: [
-        "*/*",
-        "application/json",
-        "application/xhtml+xml",
-        "text/html",
-        "text/plain",
-        "text/css",
-        "text/javascript",
-        "image/png",
-        "image/jpeg",
-        "image/webp",
-        "multipart/form-data"
-    ],
+  Accept: [
+    "*/*",
+    "application/json",
+    "application/xhtml+xml",
+    "text/html",
+    "text/plain",
+    "text/css",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "multipart/form-data",
+  ],
 
-    "Accept-Charset": [
-        "utf-8",
-        "iso-8859-1",
-        "*"
-    ],
+  "Accept-Charset": ["utf-8", "iso-8859-1", "*"],
 
-    "Accept-Encoding": [
-        "gzip",
-        "deflate",
-        "br",
-        "compress",
-        "identity",
-        "*"
-    ],
+  "Accept-Encoding": ["gzip", "deflate", "br", "compress", "identity", "*"],
 
-    "Accept-Language": [
-        "en-US",
-        "en",
-        "fr",
-        "de",
-        "es",
-        "zh-CN",
-        "ja",
-        "*"
-    ],
+  "Accept-Language": ["en-US", "en", "fr", "de", "es", "zh-CN", "ja", "*"],
 
-    Authorization: [
-        "Basic <base64(username:password)>",
-        "Bearer <token>",
-        "Digest <credentials>",
-        "Negotiate <token>",
-        "OAuth <token>",
-        "AWS4-HMAC-SHA256 Credential=<credential>, SignedHeaders=<headers>, Signature=<signature>"
-    ],
+  Authorization: [
+    "Basic <base64(username:password)>",
+    "Bearer <token>",
+    "Digest <credentials>",
+    "Negotiate <token>",
+    "OAuth <token>",
+    "AWS4-HMAC-SHA256 Credential=<credential>, SignedHeaders=<headers>, Signature=<signature>",
+  ],
 
-    "Cache-Control": [
-        "no-cache",
-        "no-store",
-        "max-age=<seconds>",
-        "max-stale=<seconds>",
-        "min-fresh=<seconds>",
-        "must-revalidate",
-        "proxy-revalidate",
-        "public",
-        "private",
-        "immutable",
-        "only-if-cached"
-    ],
+  "Cache-Control": [
+    "no-cache",
+    "no-store",
+    "max-age=<seconds>",
+    "max-stale=<seconds>",
+    "min-fresh=<seconds>",
+    "must-revalidate",
+    "proxy-revalidate",
+    "public",
+    "private",
+    "immutable",
+    "only-if-cached",
+  ],
 
-    Connection: [
-        "keep-alive",
-        "close",
-        "Upgrade"
-    ],
+  Connection: ["keep-alive", "close", "Upgrade"],
 
-    "Content-Encoding": [
-        "gzip",
-        "compress",
-        "deflate",
-        "br",
-        "identity"
-    ],
+  "Content-Encoding": ["gzip", "compress", "deflate", "br", "identity"],
 
-    "Content-Length": [
-        "<number>"
-    ],
+  "Content-Length": ["<number>"],
 
-    "Content-MD5": [
-        "<base64-md5>"
-    ],
+  "Content-MD5": ["<base64-md5>"],
 
-    "Content-Type": [
-        "application/json",
-        "application/xml",
-        "application/x-www-form-urlencoded",
-        "multipart/form-data",
-        "text/plain",
-        "text/html",
-        "text/css",
-        "text/csv",
-        "application/octet-stream",
-        "image/png",
-        "image/jpeg"
-    ],
+  "Content-Type": [
+    "application/json",
+    "application/xml",
+    "application/x-www-form-urlencoded",
+    "multipart/form-data",
+    "text/plain",
+    "text/html",
+    "text/css",
+    "text/csv",
+    "application/octet-stream",
+    "image/png",
+    "image/jpeg",
+  ],
 
-    Cookie: [
-        "<name>=<value>",
-        "<name>=<value>; <name2>=<value2>"
-    ],
+  Cookie: ["<name>=<value>", "<name>=<value>; <name2>=<value2>"],
 
-    Date: [
-        "Tue, 15 Nov 1994 08:12:31 GMT"
-    ],
+  Date: ["Tue, 15 Nov 1994 08:12:31 GMT"],
 
-    DNT: [
-        "0",
-        "1"
-    ],
+  DNT: ["0", "1"],
 
-    Expect: [
-        "100-continue"
-    ],
+  Expect: ["100-continue"],
 
-    Forwarded: [
-        "for=<client-ip>",
-        "for=<client-ip>;proto=https",
-        "for=<client-ip>;host=<host>",
-        "by=<proxy-id>"
-    ],
+  Forwarded: [
+    "for=<client-ip>",
+    "for=<client-ip>;proto=https",
+    "for=<client-ip>;host=<host>",
+    "by=<proxy-id>",
+  ],
 
-    From: [
-        "<email@example.com>"
-    ],
+  From: ["<email@example.com>"],
 
-    Host: [
-        "<hostname>",
-        "<hostname>:<port>"
-    ],
+  Host: ["<hostname>", "<hostname>:<port>"],
 
-    "If-Match": [
-        "\"<etag>\"",
-        "*"
-    ],
+  "If-Match": ['"<etag>"', "*"],
 
-    "If-Modified-Since": [
-        "Tue, 15 Nov 1994 08:12:31 GMT"
-    ],
+  "If-Modified-Since": ["Tue, 15 Nov 1994 08:12:31 GMT"],
 
-    "If-None-Match": [
-        "\"<etag>\"",
-        "*"
-    ],
+  "If-None-Match": ['"<etag>"', "*"],
 
-    "If-Range": [
-        "\"<etag>\"",
-        "Tue, 15 Nov 1994 08:12:31 GMT"
-    ],
+  "If-Range": ['"<etag>"', "Tue, 15 Nov 1994 08:12:31 GMT"],
 
-    "If-Unmodified-Since": [
-        "Tue, 15 Nov 1994 08:12:31 GMT"
-    ],
+  "If-Unmodified-Since": ["Tue, 15 Nov 1994 08:12:31 GMT"],
 
-    "Max-Forwards": [
-        "<number>"
-    ],
+  "Max-Forwards": ["<number>"],
 
-    Origin: [
-        "https://example.com",
-        "null"
-    ],
+  Origin: ["https://example.com", "null"],
 
-    Pragma: [
-        "no-cache"
-    ],
+  Pragma: ["no-cache"],
 
-    "Proxy-Authorization": [
-        "Basic <base64(username:password)>",
-        "Bearer <token>",
-        "Digest <credentials>",
-        "Negotiate <token>"
-    ],
+  "Proxy-Authorization": [
+    "Basic <base64(username:password)>",
+    "Bearer <token>",
+    "Digest <credentials>",
+    "Negotiate <token>",
+  ],
 
-    Range: [
-        "bytes=0-499",
-        "bytes=500-999",
-        "bytes=-500",
-        "bytes=9500-"
-    ],
+  Range: ["bytes=0-499", "bytes=500-999", "bytes=-500", "bytes=9500-"],
 
-    Referer: [
-        "https://example.com/page"
-    ],
+  Referer: ["https://example.com/page"],
 
-    TE: [
-        "trailers",
-        "compress",
-        "deflate",
-        "gzip"
-    ],
+  TE: ["trailers", "compress", "deflate", "gzip"],
 
-    Trailer: [
-        "Content-MD5",
-        "ETag"
-    ],
+  Trailer: ["Content-MD5", "ETag"],
 
-    "Transfer-Encoding": [
-        "chunked",
-        "compress",
-        "deflate",
-        "gzip",
-        "identity"
-    ],
+  "Transfer-Encoding": ["chunked", "compress", "deflate", "gzip", "identity"],
 
-    Upgrade: [
-        "websocket",
-        "h2c",
-        "TLS/1.0"
-    ],
+  Upgrade: ["websocket", "h2c", "TLS/1.0"],
 
-    "User-Agent": [
-        "Mozilla/5.0",
-        "wurl/<version>",
-        "PostmanRuntime/<version>",
-        "python-requests/<version>",
-        "Go/<version>"
-    ],
+  "User-Agent": [
+    "Mozilla/5.0",
+    "wurl/<version>",
+    "PostmanRuntime/<version>",
+    "python-requests/<version>",
+    "Go/<version>",
+  ],
 
-    Via: [
-        "1.1 vegur",
-        "1.0 proxy",
-        "HTTP/1.1 proxy.example.com"
-    ],
+  Via: ["1.1 vegur", "1.0 proxy", "HTTP/1.1 proxy.example.com"],
 
-    Warning: [
-        "110 Response is stale",
-        "111 Revalidation failed",
-        "199 Miscellaneous warning"
-    ],
+  Warning: [
+    "110 Response is stale",
+    "111 Revalidation failed",
+    "199 Miscellaneous warning",
+  ],
 
-    "X-Api-Key": [],
+  "X-Api-Key": [],
 
-    "X-Auth-Token": [
-        "<token>"
-    ],
+  "X-Auth-Token": ["<token>"],
 
-    "X-Csrf-Token": [
-        "<token>"
-    ],
+  "X-Csrf-Token": ["<token>"],
 
-    "X-Forwarded-For": [
-        "<client-ip>",
-        "<client-ip>, <proxy-ip>"
-    ],
+  "X-Forwarded-For": ["<client-ip>", "<client-ip>, <proxy-ip>"],
 
-    "X-Forwarded-Host": [
-        "<hostname>"
-    ],
+  "X-Forwarded-Host": ["<hostname>"],
 
-    "X-Forwarded-Proto": [
-        "http",
-        "https"
-    ],
+  "X-Forwarded-Proto": ["http", "https"],
 
-    "X-Request-Id": [
-        "<uuid>"
-    ],
+  "X-Request-Id": ["<uuid>"],
 
-    "X-Requested-With": [
-        "XMLHttpRequest"
-    ]
+  "X-Requested-With": ["XMLHttpRequest"],
 };
 
 /** Lazily create + cache the shared autocomplete dropdown in the document. */
-let _hdrAcDropdown     = null;   // the floating listbox div
-let _hdrAcActiveInput  = null;   // which input currently owns the dropdown
-let _hdrAcActiveIdx    = -1;     // keyboard-focused item index (-1 = none)
-let _hdrAcBlurTimer    = null;   // pending blur-hide timer (cancelled on re-focus)
-let _hdrAcOnSelect     = null;   // optional callback(headerName) fired when a name item is confirmed
+let _hdrAcDropdown = null; // the floating listbox div
+let _hdrAcActiveInput = null; // which input currently owns the dropdown
+let _hdrAcActiveIdx = -1; // keyboard-focused item index (-1 = none)
+let _hdrAcBlurTimer = null; // pending blur-hide timer (cancelled on re-focus)
+let _hdrAcOnSelect = null; // optional callback(headerName) fired when a name item is confirmed
 
 // ── Header-value suggestions dropdown ─────────────────────────────────────────
-let _hdrValDropdown    = null;   // the floating value listbox div
-let _hdrValActiveEl    = null;   // which valueEditor.element currently owns the dropdown
-let _hdrValActiveIdx   = -1;     // keyboard-focused item index (-1 = none)
-let _hdrValBlurTimer   = null;   // pending blur-hide timer
-let _hdrValOnSelect    = null;   // callback(selectedValue) fired when a value is picked
+let _hdrValDropdown = null; // the floating value listbox div
+let _hdrValActiveEl = null; // which valueEditor.element currently owns the dropdown
+let _hdrValActiveIdx = -1; // keyboard-focused item index (-1 = none)
+let _hdrValBlurTimer = null; // pending blur-hide timer
+let _hdrValOnSelect = null; // callback(selectedValue) fired when a value is picked
 
 function _ensureHdrDropdown() {
   if (_hdrAcDropdown) return _hdrAcDropdown;
@@ -304,32 +196,46 @@ function _ensureHdrDropdown() {
   document.body.appendChild(_hdrAcDropdown);
 
   // Hide when anything outside the input+dropdown is clicked
-  document.addEventListener("mousedown", (e) => {
-    if (_hdrAcActiveInput && !_hdrAcActiveInput.contains(e.target) && !_hdrAcDropdown.contains(e.target)) {
-      _hideHdrDropdown();
-    }
-  }, true);
+  document.addEventListener(
+    "mousedown",
+    (e) => {
+      if (
+        _hdrAcActiveInput &&
+        !_hdrAcActiveInput.contains(e.target) &&
+        !_hdrAcDropdown.contains(e.target)
+      ) {
+        _hideHdrDropdown();
+      }
+    },
+    true,
+  );
 
   return _hdrAcDropdown;
 }
 
 function _showHdrDropdown(input, onSelect) {
   // Cancel any pending blur-hide so rapid blur→focus doesn't flash the dropdown
-  if (_hdrAcBlurTimer !== null) { clearTimeout(_hdrAcBlurTimer); _hdrAcBlurTimer = null; }
+  if (_hdrAcBlurTimer !== null) {
+    clearTimeout(_hdrAcBlurTimer);
+    _hdrAcBlurTimer = null;
+  }
 
   // Store the on-select callback so the keyboard-accept path can fire it too.
   _hdrAcOnSelect = onSelect ?? null;
 
-  const dl     = _ensureHdrDropdown();
-  const query  = input.value.toLowerCase().trim();
+  const dl = _ensureHdrDropdown();
+  const query = input.value.toLowerCase().trim();
   const allHeaders = Object.keys(STANDARD_HEADERS_DICT);
   const matches = query
-    ? allHeaders.filter(h => h.toLowerCase().includes(query))
+    ? allHeaders.filter((h) => h.toLowerCase().includes(query))
     : allHeaders;
 
-  if (matches.length === 0) { _hideHdrDropdown(); return; }
+  if (matches.length === 0) {
+    _hideHdrDropdown();
+    return;
+  }
 
-  dl.innerHTML    = "";
+  dl.innerHTML = "";
   _hdrAcActiveIdx = -1;
 
   matches.forEach((h, i) => {
@@ -354,8 +260,8 @@ function _showHdrDropdown(input, onSelect) {
 
   // Position directly below the input
   const rect = input.getBoundingClientRect();
-  dl.style.left  = `${rect.left + window.scrollX}px`;
-  dl.style.top   = `${rect.bottom + window.scrollY + 2}px`;
+  dl.style.left = `${rect.left + window.scrollX}px`;
+  dl.style.top = `${rect.bottom + window.scrollY + 2}px`;
   dl.style.width = `${rect.width}px`;
   dl.classList.add("hdr-autocomplete--visible");
   _hdrAcActiveInput = input;
@@ -368,7 +274,7 @@ function _hideHdrDropdown() {
     _hdrAcDropdown.innerHTML = "";
   }
   _hdrAcActiveInput = null;
-  _hdrAcActiveIdx   = -1;
+  _hdrAcActiveIdx = -1;
 }
 
 /** Move keyboard focus within the dropdown; wraps around. */
@@ -413,15 +319,19 @@ function _ensureHdrValDropdown() {
   document.body.appendChild(_hdrValDropdown);
 
   // Dismiss when the user clicks outside both the anchor element and the dropdown.
-  document.addEventListener("mousedown", (e) => {
-    if (
-      _hdrValActiveEl &&
-      !_hdrValActiveEl.contains(e.target) &&
-      !_hdrValDropdown.contains(e.target)
-    ) {
-      _hideHdrValDropdown();
-    }
-  }, true);
+  document.addEventListener(
+    "mousedown",
+    (e) => {
+      if (
+        _hdrValActiveEl &&
+        !_hdrValActiveEl.contains(e.target) &&
+        !_hdrValDropdown.contains(e.target)
+      ) {
+        _hideHdrValDropdown();
+      }
+    },
+    true,
+  );
 
   return _hdrValDropdown;
 }
@@ -434,13 +344,19 @@ function _ensureHdrValDropdown() {
  * @param {Function}    onSelect  Called with the chosen value string.
  */
 function _showHdrValDropdown(anchorEl, values, onSelect) {
-  if (_hdrValBlurTimer !== null) { clearTimeout(_hdrValBlurTimer); _hdrValBlurTimer = null; }
-  if (!values || values.length === 0) { _hideHdrValDropdown(); return; }
+  if (_hdrValBlurTimer !== null) {
+    clearTimeout(_hdrValBlurTimer);
+    _hdrValBlurTimer = null;
+  }
+  if (!values || values.length === 0) {
+    _hideHdrValDropdown();
+    return;
+  }
 
   _hdrValOnSelect = onSelect ?? null;
 
   const dl = _ensureHdrValDropdown();
-  dl.innerHTML     = "";
+  dl.innerHTML = "";
   _hdrValActiveIdx = -1;
 
   values.forEach((v, i) => {
@@ -461,8 +377,8 @@ function _showHdrValDropdown(anchorEl, values, onSelect) {
   });
 
   const rect = anchorEl.getBoundingClientRect();
-  dl.style.left  = `${rect.left + window.scrollX}px`;
-  dl.style.top   = `${rect.bottom + window.scrollY + 2}px`;
+  dl.style.left = `${rect.left + window.scrollX}px`;
+  dl.style.top = `${rect.bottom + window.scrollY + 2}px`;
   // At least as wide as the anchor, or 220 px — values can be long.
   dl.style.width = `${Math.max(rect.width, 220)}px`;
   dl.classList.add("hdr-autocomplete--visible");
@@ -475,14 +391,16 @@ function _hideHdrValDropdown() {
     _hdrValDropdown.classList.remove("hdr-autocomplete--visible");
     _hdrValDropdown.innerHTML = "";
   }
-  _hdrValActiveEl  = null;
+  _hdrValActiveEl = null;
   _hdrValActiveIdx = -1;
 }
 
 /** Move keyboard focus within the value dropdown; wraps around. */
 function _hdrValDropdownNavigate(dir) {
   if (!_hdrValDropdown) return;
-  const items = [..._hdrValDropdown.querySelectorAll(".hdr-autocomplete__item")];
+  const items = [
+    ..._hdrValDropdown.querySelectorAll(".hdr-autocomplete__item"),
+  ];
   if (!items.length) return;
 
   items[_hdrValActiveIdx]?.classList.remove("hdr-autocomplete__item--active");
@@ -519,11 +437,17 @@ function _hdrValDropdownVisible() {
 const DEFAULT_SCOPES = ["openid", "email", "profile"];
 
 const OAUTH2_ADVANCED_KEYS = new Set([
-  "responseType", "state", "credentials", "audience", "resource", "origin", "headerPrefix",
+  "responseType",
+  "state",
+  "credentials",
+  "audience",
+  "resource",
+  "origin",
+  "headerPrefix",
 ]);
 
-let _scopeDropdown  = null;
-let _scopeActiveEl  = null;
+let _scopeDropdown = null;
+let _scopeActiveEl = null;
 let _scopeActiveIdx = -1;
 let _scopeBlurTimer = null;
 
@@ -535,11 +459,19 @@ function _ensureScopeDropdown() {
   _scopeDropdown.setAttribute("aria-label", "Scope suggestions");
   document.body.appendChild(_scopeDropdown);
 
-  document.addEventListener("mousedown", (e) => {
-    if (_scopeActiveEl && !_scopeActiveEl.contains(e.target) && !_scopeDropdown.contains(e.target)) {
-      _hideScopeDropdown();
-    }
-  }, true);
+  document.addEventListener(
+    "mousedown",
+    (e) => {
+      if (
+        _scopeActiveEl &&
+        !_scopeActiveEl.contains(e.target) &&
+        !_scopeDropdown.contains(e.target)
+      ) {
+        _hideScopeDropdown();
+      }
+    },
+    true,
+  );
 
   return _scopeDropdown;
 }
@@ -550,26 +482,35 @@ function _ensureScopeDropdown() {
  * `scopeList` defaults to DEFAULT_SCOPES but can be overridden with OIDC-discovered scopes.
  */
 function _showScopeDropdown(input, onSelect, scopeList = DEFAULT_SCOPES) {
-  if (_scopeBlurTimer !== null) { clearTimeout(_scopeBlurTimer); _scopeBlurTimer = null; }
+  if (_scopeBlurTimer !== null) {
+    clearTimeout(_scopeBlurTimer);
+    _scopeBlurTimer = null;
+  }
 
-  const dl         = _ensureScopeDropdown();
-  const fullVal    = input.value;
+  const dl = _ensureScopeDropdown();
+  const fullVal = input.value;
 
   // The "current word" is the token after the last space
-  const lastSpace  = fullVal.lastIndexOf(" ");
+  const lastSpace = fullVal.lastIndexOf(" ");
   const currentWord = lastSpace === -1 ? fullVal : fullVal.slice(lastSpace + 1);
 
   // Scopes the user has already fully typed (everything except the current partial word)
-  const selected   = new Set(fullVal.split(/\s+/).filter(s => s && s !== currentWord));
-
-  // Suggestions: match current word prefix, not already selected
-  const matches    = scopeList.filter(s =>
-    s.toLowerCase().startsWith(currentWord.toLowerCase()) && !selected.has(s)
+  const selected = new Set(
+    fullVal.split(/\s+/).filter((s) => s && s !== currentWord),
   );
 
-  if (matches.length === 0) { _hideScopeDropdown(); return; }
+  // Suggestions: match current word prefix, not already selected
+  const matches = scopeList.filter(
+    (s) =>
+      s.toLowerCase().startsWith(currentWord.toLowerCase()) && !selected.has(s),
+  );
 
-  dl.innerHTML    = "";
+  if (matches.length === 0) {
+    _hideScopeDropdown();
+    return;
+  }
+
+  dl.innerHTML = "";
   _scopeActiveIdx = -1;
 
   matches.forEach((s) => {
@@ -588,12 +529,12 @@ function _showScopeDropdown(input, onSelect, scopeList = DEFAULT_SCOPES) {
     dl.appendChild(item);
   });
 
-  const rect      = input.getBoundingClientRect();
-  dl.style.left   = `${rect.left + window.scrollX}px`;
-  dl.style.top    = `${rect.bottom + window.scrollY + 2}px`;
-  dl.style.width  = `${rect.width}px`;
+  const rect = input.getBoundingClientRect();
+  dl.style.left = `${rect.left + window.scrollX}px`;
+  dl.style.top = `${rect.bottom + window.scrollY + 2}px`;
+  dl.style.width = `${rect.width}px`;
   dl.classList.add("hdr-autocomplete--visible");
-  _scopeActiveEl  = input;
+  _scopeActiveEl = input;
 }
 
 function _hideScopeDropdown() {
@@ -602,7 +543,7 @@ function _hideScopeDropdown() {
     _scopeDropdown.classList.remove("hdr-autocomplete--visible");
     _scopeDropdown.innerHTML = "";
   }
-  _scopeActiveEl  = null;
+  _scopeActiveEl = null;
   _scopeActiveIdx = -1;
 }
 
@@ -624,11 +565,11 @@ function _scopeDropdownNavigate(dir) {
 
 function _scopeDropdownAccept(input, onSelect) {
   if (!_scopeDropdown || _scopeActiveIdx < 0) return false;
-  const items  = _scopeDropdown.querySelectorAll(".hdr-autocomplete__item");
+  const items = _scopeDropdown.querySelectorAll(".hdr-autocomplete__item");
   const active = items[_scopeActiveIdx];
   if (!active) return false;
-  const fullVal    = input.value;
-  const lastSpace  = fullVal.lastIndexOf(" ");
+  const fullVal = input.value;
+  const lastSpace = fullVal.lastIndexOf(" ");
   const currentWord = lastSpace === -1 ? fullVal : fullVal.slice(lastSpace + 1);
   _hideScopeDropdown();
   onSelect(active.textContent, currentWord);
@@ -646,11 +587,11 @@ const HTTP_METHODS = [
 ];
 
 const TABS = [
-  { id: "params",   label: "Params"   },
-  { id: "headers",  label: "Headers"  },
-  { id: "body",     label: "Body"     },
-  { id: "auth",     label: "Auth"     },
-  { id: "notes",    label: "Notes"    },
+  { id: "params", label: "Params" },
+  { id: "headers", label: "Headers" },
+  { id: "body", label: "Body" },
+  { id: "auth", label: "Auth" },
+  { id: "notes", label: "Notes" },
 ];
 
 // ── Backend-routed HTTP helper ─────────────────────────────────────────────────
@@ -677,23 +618,26 @@ async function _fetchJson(url) {
   } else {
     // ── Go dev-server path ─────────────────────────────────────────────────
     const res = await fetch("/api/execute", {
-      method:  "POST",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(desc),
+      body: JSON.stringify(desc),
     });
     result = await res.json();
   }
 
   if (result?.error) {
-    const msg = typeof result.error === "object"
-      ? result.error.message ?? JSON.stringify(result.error)
-      : result.error;
+    const msg =
+      typeof result.error === "object"
+        ? (result.error.message ?? JSON.stringify(result.error))
+        : result.error;
     throw new Error(msg);
   }
 
   const status = result?.status ?? 0;
   if (status < 200 || status >= 300) {
-    throw new Error(`Server returned HTTP ${status} ${result?.statusText ?? ""}`.trimEnd());
+    throw new Error(
+      `Server returned HTTP ${status} ${result?.statusText ?? ""}`.trimEnd(),
+    );
   }
 
   try {
@@ -706,121 +650,127 @@ async function _fetchJson(url) {
 export class RequestEditor {
   /** @type {HTMLElement} */
   #el;
-  #method       = "GET";
-  #url          = "";
-  #activeTab    = "params";
+  #method = "GET";
+  #url = "";
+  #activeTab = "params";
   #currentNodeId = null;
 
   // Params state
-  #params            = [];   // [{ id, name, value, enabled }]
-  #paramsListEl      = null;
+  #params = []; // [{ id, name, value, enabled }]
+  #paramsListEl = null;
   #urlPreviewEnabled = true; // toggled by "Show URL" checkbox
-  #urlPreviewEl      = null; // the preview bar element
+  #urlPreviewEl = null; // the preview bar element
   #urlPreviewInputEl = null; // the read-only input inside it
-  #urlPreviewSeq     = 0;    // generation counter — guards against stale async results
+  #urlPreviewSeq = 0; // generation counter — guards against stale async results
   // Drag state
-  #dragSrcId         = null; // id of the param being dragged
-  #dragInsideList    = false;
-  #dragDropHandled   = false;
-  #paramPhantomEl    = null; // placeholder shown while dragging
+  #dragSrcId = null; // id of the param being dragged
+  #dragInsideList = false;
+  #dragDropHandled = false;
+  #paramPhantomEl = null; // placeholder shown while dragging
   #docDragOverHandler = null;
 
   // Headers state
-  #headers               = [];   // [{ id, name, value, enabled }]
-  #headersListEl         = null;
-  #headerSuggestionsEnabled = true;  // toggled by "List Headers" checkbox
+  #headers = []; // [{ id, name, value, enabled }]
+  #headersListEl = null;
+  #headerSuggestionsEnabled = true; // toggled by "List Headers" checkbox
 
   // Auth state
-  #authType      = "none";
-  #authEnabled   = true;
-  #authBasic     = { username: "", password: "" };
-  #authBearer    = { token: "" };
-  #authOAuth2    = {
-    grantType:      "client_credentials",
-    clientType:     "confidential",      // authorization_code only: "confidential" | "public"
-    clientId:       "",
-    clientSecret:   "",
+  #authType = "none";
+  #authEnabled = true;
+  #authBasic = { username: "", password: "" };
+  #authBearer = { token: "" };
+  #authOAuth2 = {
+    grantType: "client_credentials",
+    clientType: "confidential", // authorization_code only: "confidential" | "public"
+    clientId: "",
+    clientSecret: "",
     accessTokenUrl: "",
-    authUrl:        "",
-    scope:          "",
-    token:          "",
-    refreshToken:   "",                  // stored refresh token
-    expiresAt:      null,                // ms timestamp when stored token expires (null = unknown)
+    authUrl: "",
+    scope: "",
+    token: "",
+    refreshToken: "", // stored refresh token
+    expiresAt: null, // ms timestamp when stored token expires (null = unknown)
     // Advanced fields
-    state:          "",
-    credentials:    "header",        // "header" | "body"
-    headerPrefix:   "",
-    audience:       "",
-    resource:       "",
-    origin:         "",
-    redirectUri:    "",                  // OAuth redirect URI (default handled by executor)
-    responseType:   "access_token",  // implicit only: "access_token" | "id_token" | "both"
-    username:       "",              // resource owner password only
-    password:       "",              // resource owner password only
-    discoveredIssuer: "",             // last issuer URL used for discovery — pre-fills dialog
-    discoveredScopes: null,           // string[] from last successful discovery, or null = DEFAULT_SCOPES
+    state: "",
+    credentials: "header", // "header" | "body"
+    headerPrefix: "",
+    audience: "",
+    resource: "",
+    origin: "",
+    redirectUri: "", // OAuth redirect URI (default handled by executor)
+    responseType: "access_token", // implicit only: "access_token" | "id_token" | "both"
+    username: "", // resource owner password only
+    password: "", // resource owner password only
+    discoveredIssuer: "", // last issuer URL used for discovery — pre-fills dialog
+    discoveredScopes: null, // string[] from last successful discovery, or null = DEFAULT_SCOPES
   };
-  #authAwsIam    = { accessKeyId: "", secretAccessKey: "", region: "", service: "", sessionToken: "" };
-  #authContentEl  = null;
-  #authTypeBarEl  = null;
-  #discoverBtnEl  = null;
-  #authBulkEl      = null;   // the label wrapping the Bulk Editor checkbox
-  #authBulkCheckEl = null;   // the checkbox input itself
-  #authBulkMode    = false;  // true while bulk textarea is shown
+  #authAwsIam = {
+    accessKeyId: "",
+    secretAccessKey: "",
+    region: "",
+    service: "",
+    sessionToken: "",
+  };
+  #authContentEl = null;
+  #authTypeBarEl = null;
+  #discoverBtnEl = null;
+  #authBulkEl = null; // the label wrapping the Bulk Editor checkbox
+  #authBulkCheckEl = null; // the checkbox input itself
+  #authBulkMode = false; // true while bulk textarea is shown
   #authEnabledLabelEl = null; // the label wrapping the Enabled checkbox
 
   // OAuth 2.0 advanced-fields toggle — persisted in app settings
   #oauth2Advanced = false;
 
   // Notes state
-  #notes   = "";
-  #notesEl = null;   // the <textarea> inside the Notes tab pane
+  #notes = "";
+  #notesEl = null; // the <textarea> inside the Notes tab pane
 
   // Body state
-  #bodyType      = "no-body";
+  #bodyType = "no-body";
   #bodyContentEl = null;
-  #bodyTypeBarEl = null;      // the bar holding the type selector (+ optional Prettify)
-  #bodyFormRows  = [];        // shared for form-data AND form-urlencoded
-  #bodyText      = "";        // shared for json, yaml, xml, and plain text
-  #bodyFilePath  = "";        // path/name of selected file (display)
-  #bodyFileObject = null;     // actual File object reference for sending
+  #bodyTypeBarEl = null; // the bar holding the type selector (+ optional Prettify)
+  #bodyFormRows = []; // shared for form-data AND form-urlencoded
+  #bodyText = ""; // shared for json, yaml, xml, and plain text
+  #bodyFilePath = ""; // path/name of selected file (display)
+  #bodyFileObject = null; // actual File object reference for sending
   // Body form drag state (one active form editor at a time)
-  #bfListEl      = null;
-  #bfPhantom     = null;
-  #bfDragSrcId   = null;
-  #bfDragInside  = false;
+  #bfListEl = null;
+  #bfPhantom = null;
+  #bfDragSrcId = null;
+  #bfDragInside = false;
   #bfDropHandled = false;
-  #bfActiveType  = null;
-  #bfDocHandler  = null;
-  #hdrDragSrcId          = null;
-  #hdrDragInsideList     = false;
-  #hdrDragDropHandled    = false;
-  #headerPhantomEl       = null;
+  #bfActiveType = null;
+  #bfDocHandler = null;
+  #hdrDragSrcId = null;
+  #hdrDragInsideList = false;
+  #hdrDragDropHandled = false;
+  #headerPhantomEl = null;
   #hdrDocDragOverHandler = null;
 
   // Params bulk editor
-  #paramsBulkMode    = false;
-  #paramsBulkEl      = null;   // <textarea> shown in bulk mode
-  #paramsKvWrapEl    = null;   // div wrapping col-headers + list
-  #paramsAddBtnEl    = null;   // hidden in bulk mode
-  #paramsDelAllBtnEl = null;   // hidden in bulk mode
+  #paramsBulkMode = false;
+  #paramsBulkEl = null; // <textarea> shown in bulk mode
+  #paramsKvWrapEl = null; // div wrapping col-headers + list
+  #paramsAddBtnEl = null; // hidden in bulk mode
+  #paramsDelAllBtnEl = null; // hidden in bulk mode
 
   // Headers bulk editor
-  #headersBulkMode    = false;
-  #headersBulkEl      = null;
-  #headersKvWrapEl    = null;
-  #headersAddBtnEl    = null;
+  #headersBulkMode = false;
+  #headersBulkEl = null;
+  #headersKvWrapEl = null;
+  #headersAddBtnEl = null;
   #headersDelAllBtnEl = null;
-  #listHdrSpacerEl    = null;   // spacer before "List Headers" toggle
-  #listHdrLabelEl     = null;   // "List Headers" toggle label
+  #listHdrSpacerEl = null; // spacer before "List Headers" toggle
+  #listHdrLabelEl = null; // "List Headers" toggle label
 
   // Body form bulk editor
-  #bodyFormBulkMode       = false;
-  #bodyFormBulkEl         = null;
-  #bodyFormBulkCheckEl    = null;
-  #bodyFormKvWrapEl       = null;
-  #bodyFormAddBtnEl       = null;
-  #bodyFormDelAllBtnEl    = null;
+  #bodyFormBulkMode = false;
+  #bodyFormBulkEl = null;
+  #bodyFormBulkCheckEl = null;
+  #bodyFormKvWrapEl = null;
+  #bodyFormAddBtnEl = null;
+  #bodyFormDelAllBtnEl = null;
   #bodyFormToolbarGroupEl = null;
   _bodyFormDeleteAllCleanup = null;
 
@@ -836,11 +786,11 @@ export class RequestEditor {
   #getItems = () => [];
 
   /** Pill editor for the URL bar (single instance, never replaced). */
-  #urlPillEditor       = null;
+  #urlPillEditor = null;
   /** All active pill editors in the params list (cleared on each re-render). */
-  #paramPillEditors    = [];
+  #paramPillEditors = [];
   /** All active pill editors in the headers list (cleared on each re-render). */
-  #headerPillEditors   = [];
+  #headerPillEditors = [];
   /** All active pill editors in the body-form list (cleared on each re-render). */
   #bodyFormPillEditors = [];
 
@@ -854,7 +804,9 @@ export class RequestEditor {
   }
 
   /** Root DOM element — pass to Panel.mount(). */
-  get element() { return this.#el; }
+  get element() {
+    return this.#el;
+  }
 
   // ── URL bar ─────────────────────────────────────────────────────────────
   #renderUrlBar() {
@@ -876,17 +828,18 @@ export class RequestEditor {
     methodSel.addEventListener("change", () => {
       this.#method = methodSel.value;
       methodSel.dataset.method = this.#method.toLowerCase();
-      if (this._sendBtn) this._sendBtn.dataset.method = this.#method.toLowerCase();
+      if (this._sendBtn)
+        this._sendBtn.dataset.method = this.#method.toLowerCase();
       this.#dispatchRequestUpdated();
     });
 
     // URL pill editor — replaces the plain <input type="url">
     const urlEditor = new VariablePillEditor({
       placeholder: "https://api.example.com/endpoint",
-      ariaLabel:   "Request URL",
-      className:   "req-url-input",
-      getContext:  () => this.#variableContext,
-      getItems:    () => this.#getItems(),
+      ariaLabel: "Request URL",
+      className: "req-url-input",
+      getContext: () => this.#variableContext,
+      getItems: () => this.#getItems(),
       onInput: (v) => {
         this.#url = v.trim();
         this.#dispatchRequestUpdated();
@@ -924,7 +877,7 @@ export class RequestEditor {
       sendBtn.classList.remove("req-send-btn--cancel");
     };
     window.addEventListener("wurl:response-received", resetSendBtn);
-    window.addEventListener("wurl:request-error",     resetSendBtn);
+    window.addEventListener("wurl:request-error", resetSendBtn);
 
     bar.appendChild(methodSel);
     bar.appendChild(urlEditor.element);
@@ -932,10 +885,10 @@ export class RequestEditor {
     this.#el.appendChild(bar);
 
     this._methodSel = methodSel;
-    this._sendBtn   = sendBtn;
+    this._sendBtn = sendBtn;
     // Keep _urlInput as a compatibility shim pointing at the editor's element
     // so any external code that reads _urlInput.focus() still works.
-    this._urlInput  = urlEditor.element;
+    this._urlInput = urlEditor.element;
   }
 
   // ── Tab strip ────────────────────────────────────────────────────────────
@@ -950,7 +903,10 @@ export class RequestEditor {
       btn.textContent = tab.label;
       btn.dataset.tab = tab.id;
       btn.setAttribute("role", "tab");
-      btn.setAttribute("aria-selected", tab.id === this.#activeTab ? "true" : "false");
+      btn.setAttribute(
+        "aria-selected",
+        tab.id === this.#activeTab ? "true" : "false",
+      );
       btn.setAttribute("aria-controls", `req-tab-${tab.id}`);
       if (tab.id === this.#activeTab) btn.classList.add("req-tab-btn--active");
       btn.addEventListener("click", () => this.#switchTab(tab.id));
@@ -980,25 +936,25 @@ export class RequestEditor {
     this._tabContent = content;
   }
 
-    #buildTabPane(tabId) {
-    if (tabId === "params")   return this.#buildParamsEditor();
-    if (tabId === "headers")  return this.#buildHeadersEditor();
-    if (tabId === "body")     return this.#buildBodyEditor();
-    if (tabId === "auth")     return this.#buildAuthEditor();
-    if (tabId === "notes")    return this.#buildNotesEditor();
+  #buildTabPane(tabId) {
+    if (tabId === "params") return this.#buildParamsEditor();
+    if (tabId === "headers") return this.#buildHeadersEditor();
+    if (tabId === "body") return this.#buildBodyEditor();
+    if (tabId === "auth") return this.#buildAuthEditor();
+    if (tabId === "notes") return this.#buildNotesEditor();
     return document.createElement("div");
-    }
+  }
 
-    // ── Notes editor ──────────────────────────────────────────────────────────
-    #buildNotesEditor() {
+  // ── Notes editor ──────────────────────────────────────────────────────────
+  #buildNotesEditor() {
     const container = document.createElement("div");
     container.className = "params-editor notes-editor";
 
     const ta = document.createElement("textarea");
-    ta.className   = "body-text-editor notes-textarea";
+    ta.className = "body-text-editor notes-textarea";
     ta.placeholder = "Add freeform notes about this request…";
-    ta.spellcheck  = true;
-    ta.value       = this.#notes;
+    ta.spellcheck = true;
+    ta.value = this.#notes;
     ta.setAttribute("aria-label", "Request notes");
 
     ta.addEventListener("input", () => {
@@ -1009,18 +965,20 @@ export class RequestEditor {
     this.#notesEl = ta;
     container.appendChild(ta);
     return container;
-    }
+  }
 
-    #dispatchNotesUpdated() {
+  #dispatchNotesUpdated() {
     if (!this.#currentNodeId) return;
-    window.dispatchEvent(new CustomEvent("wurl:request-updated", {
-      detail: { id: this.#currentNodeId, notes: this.#notes },
-      bubbles: true,
-    }));
-    }
+    window.dispatchEvent(
+      new CustomEvent("wurl:request-updated", {
+        detail: { id: this.#currentNodeId, notes: this.#notes },
+        bubbles: true,
+      }),
+    );
+  }
 
-    // ── Auth editor ───────────────────────────────────────────────────────────
-    #buildAuthEditor() {
+  // ── Auth editor ───────────────────────────────────────────────────────────
+  #buildAuthEditor() {
     const container = document.createElement("div");
     container.className = "params-editor";
 
@@ -1047,9 +1005,18 @@ export class RequestEditor {
     typeSelect.value = this.#authType;
     typeSelect.addEventListener("change", () => {
       this.#authType = typeSelect.value;
-      if (this.#discoverBtnEl)      this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
-      if (this.#authBulkEl)         this.#authBulkEl.classList.toggle("is-hidden", this.#authType === "none");
-      if (this.#authEnabledLabelEl) this.#authEnabledLabelEl.classList.toggle("is-hidden", this.#authType === "none");
+      if (this.#discoverBtnEl)
+        this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
+      if (this.#authBulkEl)
+        this.#authBulkEl.classList.toggle(
+          "is-hidden",
+          this.#authType === "none",
+        );
+      if (this.#authEnabledLabelEl)
+        this.#authEnabledLabelEl.classList.toggle(
+          "is-hidden",
+          this.#authType === "none",
+        );
       this.#renderAuthContent();
       this.#dispatchAuthUpdated();
     });
@@ -1059,11 +1026,11 @@ export class RequestEditor {
     // ── Bulk Editor toggle — shown for all auth types except None ─────────
     const bulkLabel = document.createElement("label");
     bulkLabel.className = "params-toolbar-toggle-label";
-    bulkLabel.title     = "Toggle bulk text editor";
+    bulkLabel.title = "Toggle bulk text editor";
     const bulkCheck = document.createElement("input");
-    bulkCheck.type      = "checkbox";
+    bulkCheck.type = "checkbox";
     bulkCheck.className = "params-toolbar-toggle";
-    bulkCheck.checked   = this.#authBulkMode;
+    bulkCheck.checked = this.#authBulkMode;
     bulkCheck.addEventListener("change", () => {
       this.#authBulkMode = bulkCheck.checked;
       this.#renderAuthContent();
@@ -1071,7 +1038,7 @@ export class RequestEditor {
     bulkLabel.appendChild(bulkCheck);
     bulkLabel.append(" Bulk Editor");
     bulkLabel.classList.toggle("is-hidden", this.#authType === "none");
-    this.#authBulkEl     = bulkLabel;
+    this.#authBulkEl = bulkLabel;
     this.#authBulkCheckEl = bulkCheck;
     typeBar.appendChild(bulkLabel);
 
@@ -1082,10 +1049,11 @@ export class RequestEditor {
 
     // ── Discover button — shown only for OAuth 2.0 ────────────────────────
     const discoverBtn = document.createElement("button");
-    discoverBtn.type      = "button";
+    discoverBtn.type = "button";
     discoverBtn.className = "params-delete-all-btn auth-discover-btn";
     discoverBtn.textContent = "Discover";
-    discoverBtn.title = "Discover OAuth 2.0 endpoints from an OpenID Connect issuer URL";
+    discoverBtn.title =
+      "Discover OAuth 2.0 endpoints from an OpenID Connect issuer URL";
     discoverBtn.hidden = this.#authType !== "oauth2";
     this.#discoverBtnEl = discoverBtn;
     discoverBtn.addEventListener("click", () => {
@@ -1098,13 +1066,16 @@ export class RequestEditor {
     enabledLabel.title = "Enable or disable authentication for this request";
 
     const enabledCheck = document.createElement("input");
-    enabledCheck.type      = "checkbox";
+    enabledCheck.type = "checkbox";
     enabledCheck.className = "params-toolbar-toggle";
-    enabledCheck.id        = "auth-enabled-check";
-    enabledCheck.checked   = this.#authEnabled;
+    enabledCheck.id = "auth-enabled-check";
+    enabledCheck.checked = this.#authEnabled;
     enabledCheck.addEventListener("change", () => {
       this.#authEnabled = enabledCheck.checked;
-      this.#authContentEl?.classList.toggle("auth-content--disabled", !this.#authEnabled);
+      this.#authContentEl?.classList.toggle(
+        "auth-content--disabled",
+        !this.#authEnabled,
+      );
       this.#dispatchAuthUpdated();
     });
 
@@ -1125,10 +1096,10 @@ export class RequestEditor {
 
     this.#renderAuthContent();
     return container;
-    }
+  }
 
-    /** Re-render the auth content area to match #authType / #authBulkMode. */
-    #renderAuthContent() {
+  /** Re-render the auth content area to match #authType / #authBulkMode. */
+  #renderAuthContent() {
     const el = this.#authContentEl;
     if (!el) return;
     el.innerHTML = "";
@@ -1136,299 +1107,409 @@ export class RequestEditor {
       return this.#renderAuthBulkEditor(el);
     }
     switch (this.#authType) {
-      case "none":    return this.#renderAuthNone(el);
-      case "basic":   return this.#renderAuthBasic(el);
-      case "bearer":  return this.#renderAuthBearer(el);
-      case "oauth2":  return this.#renderAuthOAuth2(el);
-      case "aws-iam": return this.#renderAuthAwsIam(el);
+      case "none":
+        return this.#renderAuthNone(el);
+      case "basic":
+        return this.#renderAuthBasic(el);
+      case "bearer":
+        return this.#renderAuthBearer(el);
+      case "oauth2":
+        return this.#renderAuthOAuth2(el);
+      case "aws-iam":
+        return this.#renderAuthAwsIam(el);
     }
+  }
+
+  // ── Bulk editor ───────────────────────────────────────────────────────────
+
+  /**
+   * Return the ordered list of { key, value } pairs for the current auth type,
+   * mirroring exactly what the form fields expose (including grant-type-dependent
+   * OAuth 2.0 fields and advanced fields when the advanced toggle is on).
+   */
+  #getAuthFields() {
+    switch (this.#authType) {
+      case "basic":
+        return [
+          { key: "username", value: this.#authBasic.username },
+          { key: "password", value: this.#authBasic.password },
+        ];
+
+      case "bearer":
+        return [{ key: "token", value: this.#authBearer.token }];
+
+      case "aws-iam":
+        return [
+          { key: "accessKeyId", value: this.#authAwsIam.accessKeyId },
+          { key: "secretAccessKey", value: this.#authAwsIam.secretAccessKey },
+          { key: "region", value: this.#authAwsIam.region },
+          { key: "service", value: this.#authAwsIam.service },
+          { key: "sessionToken", value: this.#authAwsIam.sessionToken },
+        ];
+
+      case "oauth2": {
+        const g = this.#authOAuth2.grantType ?? "client_credentials";
+        const isPublic =
+          g === "authorization_code" &&
+          this.#authOAuth2.clientType === "public";
+        const fields = [{ key: "grantType", value: g }];
+
+        if (g === "authorization_code") {
+          fields.push({
+            key: "clientType",
+            value: this.#authOAuth2.clientType ?? "confidential",
+          });
+        }
+        fields.push({ key: "clientId", value: this.#authOAuth2.clientId });
+        if (g !== "implicit" && !isPublic) {
+          fields.push({
+            key: "clientSecret",
+            value: this.#authOAuth2.clientSecret,
+          });
+        }
+        if (g !== "implicit") {
+          fields.push({
+            key: "accessTokenUrl",
+            value: this.#authOAuth2.accessTokenUrl,
+          });
+        }
+        if (["authorization_code", "implicit"].includes(g)) {
+          fields.push({ key: "authUrl", value: this.#authOAuth2.authUrl });
+        }
+        if (["authorization_code", "implicit"].includes(g)) {
+          fields.push({
+            key: "redirectUri",
+            value: this.#authOAuth2.redirectUri ?? "",
+          });
+        }
+        if (g === "password") {
+          fields.push({
+            key: "username",
+            value: this.#authOAuth2.username ?? "",
+          });
+          fields.push({
+            key: "password",
+            value: this.#authOAuth2.password ?? "",
+          });
+        }
+        fields.push({ key: "scope", value: this.#authOAuth2.scope });
+
+        if (this.#oauth2Advanced) {
+          if (g === "implicit") {
+            fields.push({
+              key: "responseType",
+              value: this.#authOAuth2.responseType ?? "access_token",
+            });
+          }
+          if (["authorization_code", "implicit"].includes(g)) {
+            fields.push({ key: "state", value: this.#authOAuth2.state ?? "" });
+          }
+          if (
+            ["authorization_code", "password", "client_credentials"].includes(g)
+          ) {
+            fields.push({
+              key: "credentials",
+              value: this.#authOAuth2.credentials ?? "header",
+            });
+          }
+          fields.push({
+            key: "audience",
+            value: this.#authOAuth2.audience ?? "",
+          });
+          if (["authorization_code", "client_credentials"].includes(g)) {
+            fields.push({
+              key: "resource",
+              value: this.#authOAuth2.resource ?? "",
+            });
+          }
+          if (g === "authorization_code") {
+            fields.push({
+              key: "origin",
+              value: this.#authOAuth2.origin ?? "",
+            });
+          }
+          fields.push({
+            key: "headerPrefix",
+            value: this.#authOAuth2.headerPrefix ?? "",
+          });
+        }
+        return fields;
+      }
+
+      default:
+        return [];
+    }
+  }
+
+  /** Render the bulk-edit textarea, pre-populated from the current auth state. */
+  #renderAuthBulkEditor(el) {
+    const ta = document.createElement("textarea");
+    ta.className = "body-text-editor auth-bulk-textarea";
+    ta.spellcheck = false;
+    ta.value = this.#getAuthFields()
+      .map(({ key, value }) => `${key}: ${value}`)
+      .join("\n");
+
+    ta.addEventListener("input", () => this.#updateAuthFromText(ta.value));
+
+    el.appendChild(ta);
+  }
+
+  /**
+   * Parse bulk-editor text and sync values into the auth model.
+   * Lines that don't match a known key for the current auth type are silently
+   * skipped — the unrecognised text stays in the textarea but has no effect.
+   * @param {string} text
+   */
+  #updateAuthFromText(text) {
+    const validKeys = new Set(this.#getAuthFields().map((f) => f.key));
+    if (this.#authType === "oauth2") {
+      for (const k of OAUTH2_ADVANCED_KEYS) validKeys.add(k);
     }
 
-    // ── Bulk editor ───────────────────────────────────────────────────────────
+    for (const raw of text.split("\n")) {
+      const colon = raw.indexOf(":");
+      if (colon === -1) continue;
+      const key = raw.slice(0, colon).trim();
+      const value = raw.slice(colon + 1); // preserve leading space the user typed
+      const v = value.startsWith(" ") ? value.slice(1) : value.trimStart();
 
-    /**
-     * Return the ordered list of { key, value } pairs for the current auth type,
-     * mirroring exactly what the form fields expose (including grant-type-dependent
-     * OAuth 2.0 fields and advanced fields when the advanced toggle is on).
-     */
-    #getAuthFields() {
+      if (!validKeys.has(key)) continue;
+
       switch (this.#authType) {
         case "basic":
-          return [
-            { key: "username", value: this.#authBasic.username },
-            { key: "password", value: this.#authBasic.password },
-          ];
-
+          if (key === "username") this.#authBasic.username = v;
+          if (key === "password") this.#authBasic.password = v;
+          break;
         case "bearer":
-          return [{ key: "token", value: this.#authBearer.token }];
-
+          if (key === "token") this.#authBearer.token = v;
+          break;
         case "aws-iam":
-          return [
-            { key: "accessKeyId",     value: this.#authAwsIam.accessKeyId     },
-            { key: "secretAccessKey", value: this.#authAwsIam.secretAccessKey },
-            { key: "region",          value: this.#authAwsIam.region          },
-            { key: "service",         value: this.#authAwsIam.service         },
-            { key: "sessionToken",    value: this.#authAwsIam.sessionToken    },
-          ];
-
-        case "oauth2": {
-          const g         = this.#authOAuth2.grantType ?? "client_credentials";
-          const isPublic  = g === "authorization_code" && this.#authOAuth2.clientType === "public";
-          const fields    = [{ key: "grantType", value: g }];
-
-          if (g === "authorization_code") {
-            fields.push({ key: "clientType", value: this.#authOAuth2.clientType ?? "confidential" });
-          }
-          fields.push({ key: "clientId", value: this.#authOAuth2.clientId });
-          if (g !== "implicit" && !isPublic) {
-            fields.push({ key: "clientSecret", value: this.#authOAuth2.clientSecret });
-          }
-          if (g !== "implicit") {
-            fields.push({ key: "accessTokenUrl", value: this.#authOAuth2.accessTokenUrl });
-          }
-          if (["authorization_code", "implicit"].includes(g)) {
-            fields.push({ key: "authUrl", value: this.#authOAuth2.authUrl });
-          }
-          if (["authorization_code", "implicit"].includes(g)) {
-            fields.push({ key: "redirectUri", value: this.#authOAuth2.redirectUri ?? "" });
-          }
-          if (g === "password") {
-            fields.push({ key: "username", value: this.#authOAuth2.username ?? "" });
-            fields.push({ key: "password", value: this.#authOAuth2.password ?? "" });
-          }
-          fields.push({ key: "scope", value: this.#authOAuth2.scope });
-
-          if (this.#oauth2Advanced) {
-            if (g === "implicit") {
-              fields.push({ key: "responseType", value: this.#authOAuth2.responseType ?? "access_token" });
-            }
-            if (["authorization_code", "implicit"].includes(g)) {
-              fields.push({ key: "state", value: this.#authOAuth2.state ?? "" });
-            }
-            if (["authorization_code", "password", "client_credentials"].includes(g)) {
-              fields.push({ key: "credentials", value: this.#authOAuth2.credentials ?? "header" });
-            }
-            fields.push({ key: "audience", value: this.#authOAuth2.audience ?? "" });
-            if (["authorization_code", "client_credentials"].includes(g)) {
-              fields.push({ key: "resource", value: this.#authOAuth2.resource ?? "" });
-            }
-            if (g === "authorization_code") {
-              fields.push({ key: "origin", value: this.#authOAuth2.origin ?? "" });
-            }
-            fields.push({ key: "headerPrefix", value: this.#authOAuth2.headerPrefix ?? "" });
-          }
-          return fields;
-        }
-
-        default:
-          return [];
+          if (key in this.#authAwsIam) this.#authAwsIam[key] = v;
+          break;
+        case "oauth2":
+          this.#authOAuth2[key] = v;
+          break;
       }
     }
+    this.#dispatchAuthUpdated();
+  }
 
-    /** Render the bulk-edit textarea, pre-populated from the current auth state. */
-    #renderAuthBulkEditor(el) {
-      const ta = document.createElement("textarea");
-      ta.className  = "body-text-editor auth-bulk-textarea";
-      ta.spellcheck = false;
-      ta.value      = this.#getAuthFields().map(({ key, value }) => `${key}: ${value}`).join("\n");
-
-      ta.addEventListener("input", () => this.#updateAuthFromText(ta.value));
-
-      el.appendChild(ta);
-    }
-
-    /**
-     * Parse bulk-editor text and sync values into the auth model.
-     * Lines that don't match a known key for the current auth type are silently
-     * skipped — the unrecognised text stays in the textarea but has no effect.
-     * @param {string} text
-     */
-    #updateAuthFromText(text) {
-      const validKeys = new Set(this.#getAuthFields().map(f => f.key));
-      if (this.#authType === "oauth2") {
-        for (const k of OAUTH2_ADVANCED_KEYS) validKeys.add(k);
-      }
-
-      for (const raw of text.split("\n")) {
-        const colon = raw.indexOf(":");
-        if (colon === -1) continue;
-        const key   = raw.slice(0, colon).trim();
-        const value = raw.slice(colon + 1);         // preserve leading space the user typed
-        const v     = value.startsWith(" ") ? value.slice(1) : value.trimStart();
-
-        if (!validKeys.has(key)) continue;
-
-        switch (this.#authType) {
-          case "basic":
-            if (key === "username") this.#authBasic.username = v;
-            if (key === "password") this.#authBasic.password = v;
-            break;
-          case "bearer":
-            if (key === "token")    this.#authBearer.token   = v;
-            break;
-          case "aws-iam":
-            if (key in this.#authAwsIam) this.#authAwsIam[key] = v;
-            break;
-          case "oauth2":
-            this.#authOAuth2[key] = v;
-            break;
-        }
-      }
-      this.#dispatchAuthUpdated();
-    }
-
-    // ── None ──────────────────────────────────────────────────────────────────
-    #renderAuthNone(el) {
+  // ── None ──────────────────────────────────────────────────────────────────
+  #renderAuthNone(el) {
     const msg = document.createElement("div");
     msg.className = "params-empty";
     msg.textContent = "No authentication will be sent with this request.";
     el.appendChild(msg);
-    }
+  }
 
-    // ── Basic ─────────────────────────────────────────────────────────────────
-    #renderAuthBasic(el) {
+  // ── Basic ─────────────────────────────────────────────────────────────────
+  #renderAuthBasic(el) {
     const form = document.createElement("div");
     form.className = "auth-form";
 
-    form.appendChild(this.#buildAuthField("Username", "text", {
-      placeholder: "Username",
-      value:       this.#authBasic.username,
-      onInput:     (v) => { this.#authBasic.username = v; this.#dispatchAuthUpdated(); },
-    }));
+    form.appendChild(
+      this.#buildAuthField("Username", "text", {
+        placeholder: "Username",
+        value: this.#authBasic.username,
+        onInput: (v) => {
+          this.#authBasic.username = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
 
-    form.appendChild(this.#buildAuthFieldPassword("Password", {
-      placeholder: "Password",
-      value:       this.#authBasic.password,
-      onInput:     (v) => { this.#authBasic.password = v; this.#dispatchAuthUpdated(); },
-    }));
+    form.appendChild(
+      this.#buildAuthFieldPassword("Password", {
+        placeholder: "Password",
+        value: this.#authBasic.password,
+        onInput: (v) => {
+          this.#authBasic.password = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
 
     el.appendChild(form);
-    }
+  }
 
-    // ── Bearer Token ──────────────────────────────────────────────────────────
-    #renderAuthBearer(el) {
+  // ── Bearer Token ──────────────────────────────────────────────────────────
+  #renderAuthBearer(el) {
     const form = document.createElement("div");
     form.className = "auth-form";
 
-    form.appendChild(this.#buildAuthField("Token", "text", {
-      placeholder: "Enter your bearer token…",
-      value:       this.#authBearer.token,
-      onInput:     (v) => { this.#authBearer.token = v; this.#dispatchAuthUpdated(); },
-      hint:        "Sent as: Authorization: Bearer <token>",
-    }));
+    form.appendChild(
+      this.#buildAuthField("Token", "text", {
+        placeholder: "Enter your bearer token…",
+        value: this.#authBearer.token,
+        onInput: (v) => {
+          this.#authBearer.token = v;
+          this.#dispatchAuthUpdated();
+        },
+        hint: "Sent as: Authorization: Bearer <token>",
+      }),
+    );
 
     el.appendChild(form);
-    }
+  }
 
-    // ── OAuth 2.0 ─────────────────────────────────────────────────────────────
-    #renderAuthOAuth2(el) {
+  // ── OAuth 2.0 ─────────────────────────────────────────────────────────────
+  #renderAuthOAuth2(el) {
     const form = document.createElement("div");
     form.className = "auth-form";
 
     // ── Grant Type ────────────────────────────────────────────────────────
     const allGrantTypes = [
       { value: "authorization_code", label: "Authorization Code" },
-      { value: "client_credentials", label: "Client Credentials"  },
-      { value: "password",           label: "Resource Owner Password" },
-      { value: "implicit",           label: "Implicit"              },
+      { value: "client_credentials", label: "Client Credentials" },
+      { value: "password", label: "Resource Owner Password" },
+      { value: "implicit", label: "Implicit" },
     ];
-    form.appendChild(this.#buildAuthFieldSelect("Grant Type", {
-      options:  allGrantTypes,
-      value:    this.#authOAuth2.grantType,
-      ariaLabel: "Grant type",
-      onInput:  (v) => {
-        this.#authOAuth2.grantType = v;
-        this.#renderAuthContent();
-        this.#dispatchAuthUpdated();
-      },
-    }));
+    form.appendChild(
+      this.#buildAuthFieldSelect("Grant Type", {
+        options: allGrantTypes,
+        value: this.#authOAuth2.grantType,
+        ariaLabel: "Grant type",
+        onInput: (v) => {
+          this.#authOAuth2.grantType = v;
+          this.#renderAuthContent();
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
 
     // ── Client Type (authorization_code only) — between Grant Type and Client ID
     if (this.#authOAuth2.grantType === "authorization_code") {
       // Omit PKCE option if the server explicitly does not support it
       const clientTypeOptions = [
-        { value: "confidential", label: "Confidential Client"  },
-        { value: "public", label: "Public Client (PKCE)"       }
+        { value: "confidential", label: "Confidential Client" },
+        { value: "public", label: "Public Client (PKCE)" },
       ];
-      form.appendChild(this.#buildAuthFieldSelect("Client Type", {
-        options: clientTypeOptions,
-        value:    this.#authOAuth2.clientType ?? "confidential",
-        ariaLabel: "Client type",
-        onInput:  (v) => {
-          this.#authOAuth2.clientType = v;
-          this.#renderAuthContent();
-          this.#dispatchAuthUpdated();
-        },
-      }));
+      form.appendChild(
+        this.#buildAuthFieldSelect("Client Type", {
+          options: clientTypeOptions,
+          value: this.#authOAuth2.clientType ?? "confidential",
+          ariaLabel: "Client type",
+          onInput: (v) => {
+            this.#authOAuth2.clientType = v;
+            this.#renderAuthContent();
+            this.#dispatchAuthUpdated();
+          },
+        }),
+      );
     }
 
     // ── Client ID (all grant types) ────────────────────────────────────────
-    form.appendChild(this.#buildAuthField("Client ID", "text", {
-      placeholder: "Client ID",
-      value:       this.#authOAuth2.clientId,
-      onInput:     (v) => { this.#authOAuth2.clientId = v; this.#dispatchAuthUpdated(); },
-    }));
+    form.appendChild(
+      this.#buildAuthField("Client ID", "text", {
+        placeholder: "Client ID",
+        value: this.#authOAuth2.clientId,
+        onInput: (v) => {
+          this.#authOAuth2.clientId = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
 
     // ── Client Secret — hidden for implicit; also hidden when Public Client is selected
     const isPublicClient =
       this.#authOAuth2.grantType === "authorization_code" &&
       this.#authOAuth2.clientType === "public";
     if (this.#authOAuth2.grantType !== "implicit" && !isPublicClient) {
-      form.appendChild(this.#buildAuthFieldPassword("Client Secret", {
-        placeholder: "Client Secret",
-        value:       this.#authOAuth2.clientSecret,
-        onInput:     (v) => { this.#authOAuth2.clientSecret = v; this.#dispatchAuthUpdated(); },
-      }));
+      form.appendChild(
+        this.#buildAuthFieldPassword("Client Secret", {
+          placeholder: "Client Secret",
+          value: this.#authOAuth2.clientSecret,
+          onInput: (v) => {
+            this.#authOAuth2.clientSecret = v;
+            this.#dispatchAuthUpdated();
+          },
+        }),
+      );
     }
 
     // ── Access Token URL (not shown for implicit) ──────────────────────────
     if (this.#authOAuth2.grantType !== "implicit") {
-      form.appendChild(this.#buildAuthField("Access Token URL", "url", {
-        placeholder: "https://example.com/oauth/token",
-        value:       this.#authOAuth2.accessTokenUrl,
-        onInput:     (v) => { this.#authOAuth2.accessTokenUrl = v; this.#dispatchAuthUpdated(); },
-      }));
+      form.appendChild(
+        this.#buildAuthField("Access Token URL", "url", {
+          placeholder: "https://example.com/oauth/token",
+          value: this.#authOAuth2.accessTokenUrl,
+          onInput: (v) => {
+            this.#authOAuth2.accessTokenUrl = v;
+            this.#dispatchAuthUpdated();
+          },
+        }),
+      );
     }
 
     // ── Auth URL (authorization_code and implicit only) ────────────────────
-    if (["authorization_code", "implicit"].includes(this.#authOAuth2.grantType)) {
-      form.appendChild(this.#buildAuthField("Auth URL", "url", {
-        placeholder: "https://example.com/oauth/authorize",
-        value:       this.#authOAuth2.authUrl,
-        onInput:     (v) => { this.#authOAuth2.authUrl = v; this.#dispatchAuthUpdated(); },
-      }));
+    if (
+      ["authorization_code", "implicit"].includes(this.#authOAuth2.grantType)
+    ) {
+      form.appendChild(
+        this.#buildAuthField("Auth URL", "url", {
+          placeholder: "https://example.com/oauth/authorize",
+          value: this.#authOAuth2.authUrl,
+          onInput: (v) => {
+            this.#authOAuth2.authUrl = v;
+            this.#dispatchAuthUpdated();
+          },
+        }),
+      );
     }
 
     // ── Redirect URI (authorization_code and implicit only) ───────────────
-    if (["authorization_code", "implicit"].includes(this.#authOAuth2.grantType)) {
-      form.appendChild(this.#buildAuthField("Redirect URI", "url", {
-        placeholder: "http://localhost:7777/oauth/callback",
-        value:       this.#authOAuth2.redirectUri ?? "",
-        onInput:     (v) => { this.#authOAuth2.redirectUri = v; this.#dispatchAuthUpdated(); },
-        hint:        "Callback URL registered with your OAuth provider (intercepted by wurl)",
-      }));
+    if (
+      ["authorization_code", "implicit"].includes(this.#authOAuth2.grantType)
+    ) {
+      form.appendChild(
+        this.#buildAuthField("Redirect URI", "url", {
+          placeholder: "http://localhost:7777/oauth/callback",
+          value: this.#authOAuth2.redirectUri ?? "",
+          onInput: (v) => {
+            this.#authOAuth2.redirectUri = v;
+            this.#dispatchAuthUpdated();
+          },
+          hint: "Callback URL registered with your OAuth provider (intercepted by wurl)",
+        }),
+      );
     }
 
     // ── Username / Password (resource owner password only) ─────────────────
     if (this.#authOAuth2.grantType === "password") {
-      form.appendChild(this.#buildAuthField("Username", "text", {
-        placeholder: "Username",
-        value:       this.#authOAuth2.username ?? "",
-        onInput:     (v) => { this.#authOAuth2.username = v; this.#dispatchAuthUpdated(); },
-      }));
-      form.appendChild(this.#buildAuthFieldPassword("Password", {
-        placeholder: "Password",
-        value:       this.#authOAuth2.password ?? "",
-        onInput:     (v) => { this.#authOAuth2.password = v; this.#dispatchAuthUpdated(); },
-      }));
+      form.appendChild(
+        this.#buildAuthField("Username", "text", {
+          placeholder: "Username",
+          value: this.#authOAuth2.username ?? "",
+          onInput: (v) => {
+            this.#authOAuth2.username = v;
+            this.#dispatchAuthUpdated();
+          },
+        }),
+      );
+      form.appendChild(
+        this.#buildAuthFieldPassword("Password", {
+          placeholder: "Password",
+          value: this.#authOAuth2.password ?? "",
+          onInput: (v) => {
+            this.#authOAuth2.password = v;
+            this.#dispatchAuthUpdated();
+          },
+        }),
+      );
     }
 
     // ── Scope (combo-box with suggestions) ────────────────────────────────
-    form.appendChild(this.#buildAuthScopeField({
-      value:     this.#authOAuth2.scope,
-      onInput:   (v) => { this.#authOAuth2.scope = v; this.#dispatchAuthUpdated(); },
-      scopeList: this.#authOAuth2.discoveredScopes ?? DEFAULT_SCOPES,
-    }));
+    form.appendChild(
+      this.#buildAuthScopeField({
+        value: this.#authOAuth2.scope,
+        onInput: (v) => {
+          this.#authOAuth2.scope = v;
+          this.#dispatchAuthUpdated();
+        },
+        scopeList: this.#authOAuth2.discoveredScopes ?? DEFAULT_SCOPES,
+      }),
+    );
 
     // ── Advanced toggle (matches every other app toggle) ──────────────────────
     const advRow = document.createElement("div");
@@ -1438,10 +1519,10 @@ export class RequestEditor {
     advLabel.className = "params-toolbar-toggle-label";
 
     const advCheck = document.createElement("input");
-    advCheck.type      = "checkbox";
-    advCheck.id        = "oauth2-advanced-toggle";
+    advCheck.type = "checkbox";
+    advCheck.id = "oauth2-advanced-toggle";
     advCheck.className = "params-toolbar-toggle";
-    advCheck.checked   = this.#oauth2Advanced;
+    advCheck.checked = this.#oauth2Advanced;
     advCheck.setAttribute("aria-label", "Show advanced OAuth 2.0 options");
     advCheck.addEventListener("change", () => {
       this.#oauth2Advanced = advCheck.checked;
@@ -1459,72 +1540,109 @@ export class RequestEditor {
 
       // Response Type — implicit only
       if (grant === "implicit") {
-        form.appendChild(this.#buildAuthFieldSelect("Response Type", {
-          options: [
-            { value: "access_token", label: "Access token" },
-            { value: "id_token",     label: "Id token"     },
-            { value: "both",         label: "Both"         },
-          ],
-          value:    this.#authOAuth2.responseType ?? "access_token",
-          ariaLabel: "Response type",
-          onInput:  (v) => { this.#authOAuth2.responseType = v; this.#dispatchAuthUpdated(); },
-        }));
+        form.appendChild(
+          this.#buildAuthFieldSelect("Response Type", {
+            options: [
+              { value: "access_token", label: "Access token" },
+              { value: "id_token", label: "Id token" },
+              { value: "both", label: "Both" },
+            ],
+            value: this.#authOAuth2.responseType ?? "access_token",
+            ariaLabel: "Response type",
+            onInput: (v) => {
+              this.#authOAuth2.responseType = v;
+              this.#dispatchAuthUpdated();
+            },
+          }),
+        );
       }
 
       // State — authorization_code, implicit
       if (["authorization_code", "implicit"].includes(grant)) {
-        form.appendChild(this.#buildAuthField("State", "text", {
-          placeholder: "Random string for CSRF protection",
-          value:       this.#authOAuth2.state ?? "",
-          onInput:     (v) => { this.#authOAuth2.state = v; this.#dispatchAuthUpdated(); },
-        }));
+        form.appendChild(
+          this.#buildAuthField("State", "text", {
+            placeholder: "Random string for CSRF protection",
+            value: this.#authOAuth2.state ?? "",
+            onInput: (v) => {
+              this.#authOAuth2.state = v;
+              this.#dispatchAuthUpdated();
+            },
+          }),
+        );
       }
 
       // Credentials — authorization_code, password, client_credentials
-      if (["authorization_code", "password", "client_credentials"].includes(grant)) {
-        form.appendChild(this.#buildAuthFieldSelect("Credentials", {
-          options: [
-            { value: "header", label: "As basic auth header" },
-            { value: "body",   label: "In request body"      },
-          ],
-          value:    this.#authOAuth2.credentials ?? "header",
-          ariaLabel: "Credentials transmission method",
-          onInput:  (v) => { this.#authOAuth2.credentials = v; this.#dispatchAuthUpdated(); },
-        }));
+      if (
+        ["authorization_code", "password", "client_credentials"].includes(grant)
+      ) {
+        form.appendChild(
+          this.#buildAuthFieldSelect("Credentials", {
+            options: [
+              { value: "header", label: "As basic auth header" },
+              { value: "body", label: "In request body" },
+            ],
+            value: this.#authOAuth2.credentials ?? "header",
+            ariaLabel: "Credentials transmission method",
+            onInput: (v) => {
+              this.#authOAuth2.credentials = v;
+              this.#dispatchAuthUpdated();
+            },
+          }),
+        );
       }
 
       // Audience — all grant types
-      form.appendChild(this.#buildAuthField("Audience", "text", {
-        placeholder: "https://api.example.com",
-        value:       this.#authOAuth2.audience ?? "",
-        onInput:     (v) => { this.#authOAuth2.audience = v; this.#dispatchAuthUpdated(); },
-      }));
+      form.appendChild(
+        this.#buildAuthField("Audience", "text", {
+          placeholder: "https://api.example.com",
+          value: this.#authOAuth2.audience ?? "",
+          onInput: (v) => {
+            this.#authOAuth2.audience = v;
+            this.#dispatchAuthUpdated();
+          },
+        }),
+      );
 
       // Resource — authorization_code, client_credentials
       if (["authorization_code", "client_credentials"].includes(grant)) {
-        form.appendChild(this.#buildAuthField("Resource", "text", {
-          placeholder: "https://resource.example.com",
-          value:       this.#authOAuth2.resource ?? "",
-          onInput:     (v) => { this.#authOAuth2.resource = v; this.#dispatchAuthUpdated(); },
-        }));
+        form.appendChild(
+          this.#buildAuthField("Resource", "text", {
+            placeholder: "https://resource.example.com",
+            value: this.#authOAuth2.resource ?? "",
+            onInput: (v) => {
+              this.#authOAuth2.resource = v;
+              this.#dispatchAuthUpdated();
+            },
+          }),
+        );
       }
 
       // Origin — authorization_code only
       if (grant === "authorization_code") {
-        form.appendChild(this.#buildAuthField("Origin", "text", {
-          placeholder: "https://app.example.com",
-          value:       this.#authOAuth2.origin ?? "",
-          onInput:     (v) => { this.#authOAuth2.origin = v; this.#dispatchAuthUpdated(); },
-        }));
+        form.appendChild(
+          this.#buildAuthField("Origin", "text", {
+            placeholder: "https://app.example.com",
+            value: this.#authOAuth2.origin ?? "",
+            onInput: (v) => {
+              this.#authOAuth2.origin = v;
+              this.#dispatchAuthUpdated();
+            },
+          }),
+        );
       }
 
       // Header Prefix — all grant types, kept last so its hint text sits at the bottom
-      form.appendChild(this.#buildAuthField("Header Prefix", "text", {
-        placeholder: "Bearer",
-        value:       this.#authOAuth2.headerPrefix ?? "",
-        onInput:     (v) => { this.#authOAuth2.headerPrefix = v; this.#dispatchAuthUpdated(); },
-        hint:        "Overrides the default 'Bearer' token prefix in the Authorization header",
-      }));
+      form.appendChild(
+        this.#buildAuthField("Header Prefix", "text", {
+          placeholder: "Bearer",
+          value: this.#authOAuth2.headerPrefix ?? "",
+          onInput: (v) => {
+            this.#authOAuth2.headerPrefix = v;
+            this.#dispatchAuthUpdated();
+          },
+          hint: "Overrides the default 'Bearer' token prefix in the Authorization header",
+        }),
+      );
     }
 
     // ── Current access token display ───────────────────────────────────────
@@ -1549,9 +1667,9 @@ export class RequestEditor {
       clearBtn.className = "body-file-reset-btn";
       clearBtn.textContent = "Clear Token";
       clearBtn.addEventListener("click", () => {
-        this.#authOAuth2.token       = "";
+        this.#authOAuth2.token = "";
         this.#authOAuth2.refreshToken = "";
-        this.#authOAuth2.expiresAt    = null;
+        this.#authOAuth2.expiresAt = null;
         // Also clear from executor cache
         oauthExecutor.clearToken(this.#authOAuth2);
         this.#renderAuthContent();
@@ -1559,7 +1677,7 @@ export class RequestEditor {
       });
 
       const clearSessionBtn = document.createElement("button");
-      clearSessionBtn.type      = "button";
+      clearSessionBtn.type = "button";
       clearSessionBtn.className = "body-file-reset-btn";
       clearSessionBtn.textContent = "Clear Session";
       clearSessionBtn.title =
@@ -1567,14 +1685,14 @@ export class RequestEditor {
         "so the next login flow starts fresh.";
       clearSessionBtn.addEventListener("click", async () => {
         // Clear token state and executor cache
-        this.#authOAuth2.token        = "";
+        this.#authOAuth2.token = "";
         this.#authOAuth2.refreshToken = "";
-        this.#authOAuth2.expiresAt    = null;
+        this.#authOAuth2.expiresAt = null;
         oauthExecutor.clearToken(this.#authOAuth2);
 
         // Clear Electron session (cookies, localStorage, cache, …)
         if (typeof window.wurl?.oauth?.clearSession === "function") {
-          clearSessionBtn.disabled    = true;
+          clearSessionBtn.disabled = true;
           clearSessionBtn.textContent = "Clearing…";
           try {
             await window.wurl.oauth.clearSession();
@@ -1599,7 +1717,10 @@ export class RequestEditor {
       if (this.#authOAuth2.expiresAt) {
         const expiryEl = document.createElement("div");
         expiryEl.className = "auth-field__hint";
-        const remaining = Math.max(0, Math.floor((this.#authOAuth2.expiresAt - Date.now()) / 1000));
+        const remaining = Math.max(
+          0,
+          Math.floor((this.#authOAuth2.expiresAt - Date.now()) / 1000),
+        );
         if (remaining > 0) {
           expiryEl.textContent = `Expires in ~${remaining}s`;
         } else {
@@ -1615,42 +1736,51 @@ export class RequestEditor {
     getTokenRow.className = "auth-get-token-row";
 
     const getTokenBtn = document.createElement("button");
-    getTokenBtn.type      = "button";
+    getTokenBtn.type = "button";
     getTokenBtn.className = "params-delete-all-btn auth-get-token-btn";
-    getTokenBtn.textContent = this.#authOAuth2.token ? "Refresh Token" : "Get Token";
-    getTokenBtn.title = "Acquire an OAuth 2.0 access token using the configured settings";
+    getTokenBtn.textContent = this.#authOAuth2.token
+      ? "Refresh Token"
+      : "Get Token";
+    getTokenBtn.title =
+      "Acquire an OAuth 2.0 access token using the configured settings";
 
     const tokenStatusEl = document.createElement("span");
     tokenStatusEl.className = "auth-token-status";
 
     getTokenBtn.addEventListener("click", async () => {
       const tokenNodeId = this.#currentNodeId;
-      getTokenBtn.disabled    = true;
+      getTokenBtn.disabled = true;
       getTokenBtn.textContent = "Fetching…";
       tokenStatusEl.textContent = "";
       tokenStatusEl.className = "auth-token-status";
 
       try {
-        const result = await oauthExecutor.forceRefresh({ ...this.#authOAuth2 });
+        const result = await oauthExecutor.forceRefresh({
+          ...this.#authOAuth2,
+        });
         if (this.#currentNodeId !== tokenNodeId) return;
 
         if (result.success && result.accessToken) {
-          this.#authOAuth2.token        = result.accessToken;
+          this.#authOAuth2.token = result.accessToken;
           this.#authOAuth2.refreshToken = result.refreshToken ?? "";
-          this.#authOAuth2.expiresAt    = result.expiresAt    ?? null;
+          this.#authOAuth2.expiresAt = result.expiresAt ?? null;
           tokenStatusEl.textContent = "✓ Token acquired";
-          tokenStatusEl.className   = "auth-token-status auth-token-status--ok";
+          tokenStatusEl.className = "auth-token-status auth-token-status--ok";
         } else {
-          const msg = result.error?.description ?? result.error?.code ?? "Unknown error";
+          const msg =
+            result.error?.description ?? result.error?.code ?? "Unknown error";
           tokenStatusEl.textContent = `✗ ${msg}`;
-          tokenStatusEl.className   = "auth-token-status auth-token-status--error";
+          tokenStatusEl.className =
+            "auth-token-status auth-token-status--error";
         }
       } catch (err) {
         tokenStatusEl.textContent = `✗ ${err.message}`;
-        tokenStatusEl.className   = "auth-token-status auth-token-status--error";
+        tokenStatusEl.className = "auth-token-status auth-token-status--error";
       } finally {
-        getTokenBtn.disabled    = false;
-        getTokenBtn.textContent = this.#authOAuth2.token ? "Refresh Token" : "Get Token";
+        getTokenBtn.disabled = false;
+        getTokenBtn.textContent = this.#authOAuth2.token
+          ? "Refresh Token"
+          : "Get Token";
       }
 
       this.#renderAuthContent();
@@ -1662,54 +1792,83 @@ export class RequestEditor {
     form.appendChild(getTokenRow);
 
     el.appendChild(form);
-    }
+  }
 
-    // ── AWS IAM ───────────────────────────────────────────────────────────────
-    #renderAuthAwsIam(el) {
+  // ── AWS IAM ───────────────────────────────────────────────────────────────
+  #renderAuthAwsIam(el) {
     const form = document.createElement("div");
     form.className = "auth-form";
 
-    form.appendChild(this.#buildAuthField("Access Key ID", "text", {
-      placeholder: "AKIAIOSFODNN7EXAMPLE",
-      value:       this.#authAwsIam.accessKeyId,
-      onInput:     (v) => { this.#authAwsIam.accessKeyId = v; this.#dispatchAuthUpdated(); },
-    }));
+    form.appendChild(
+      this.#buildAuthField("Access Key ID", "text", {
+        placeholder: "AKIAIOSFODNN7EXAMPLE",
+        value: this.#authAwsIam.accessKeyId,
+        onInput: (v) => {
+          this.#authAwsIam.accessKeyId = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
 
-    form.appendChild(this.#buildAuthFieldPassword("Secret Access Key", {
-      placeholder: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-      value:       this.#authAwsIam.secretAccessKey,
-      onInput:     (v) => { this.#authAwsIam.secretAccessKey = v; this.#dispatchAuthUpdated(); },
-    }));
+    form.appendChild(
+      this.#buildAuthFieldPassword("Secret Access Key", {
+        placeholder: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        value: this.#authAwsIam.secretAccessKey,
+        onInput: (v) => {
+          this.#authAwsIam.secretAccessKey = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
 
-    form.appendChild(this.#buildAuthField("Region", "text", {
-      placeholder: "us-east-1",
-      value:       this.#authAwsIam.region,
-      onInput:     (v) => { this.#authAwsIam.region = v; this.#dispatchAuthUpdated(); },
-    }));
+    form.appendChild(
+      this.#buildAuthField("Region", "text", {
+        placeholder: "us-east-1",
+        value: this.#authAwsIam.region,
+        onInput: (v) => {
+          this.#authAwsIam.region = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
 
-    form.appendChild(this.#buildAuthField("Service", "text", {
-      placeholder: "execute-api",
-      value:       this.#authAwsIam.service,
-      onInput:     (v) => { this.#authAwsIam.service = v; this.#dispatchAuthUpdated(); },
-    }));
+    form.appendChild(
+      this.#buildAuthField("Service", "text", {
+        placeholder: "execute-api",
+        value: this.#authAwsIam.service,
+        onInput: (v) => {
+          this.#authAwsIam.service = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
 
-    form.appendChild(this.#buildAuthFieldPassword("Session Token", {
-      placeholder: "Optional — for temporary / STS credentials",
-      value:       this.#authAwsIam.sessionToken,
-      onInput:     (v) => { this.#authAwsIam.sessionToken = v; this.#dispatchAuthUpdated(); },
-    }));
+    form.appendChild(
+      this.#buildAuthFieldPassword("Session Token", {
+        placeholder: "Optional — for temporary / STS credentials",
+        value: this.#authAwsIam.sessionToken,
+        onInput: (v) => {
+          this.#authAwsIam.sessionToken = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
 
     el.appendChild(form);
-    }
+  }
 
-    // ── Auth field helpers ─────────────────────────────────────────────────────
-    /**
-     * Build a standard labeled input row for use inside an auth-form.
-     * @param {string} label
-     * @param {string} inputType  e.g. "text" | "url"
-     * @param {{ placeholder?, value?, onInput?, hint? }} opts
-     */
-    #buildAuthField(label, inputType, { placeholder = "", value = "", onInput, hint } = {}) {
+  // ── Auth field helpers ─────────────────────────────────────────────────────
+  /**
+   * Build a standard labeled input row for use inside an auth-form.
+   * @param {string} label
+   * @param {string} inputType  e.g. "text" | "url"
+   * @param {{ placeholder?, value?, onInput?, hint? }} opts
+   */
+  #buildAuthField(
+    label,
+    inputType,
+    { placeholder = "", value = "", onInput, hint } = {},
+  ) {
     const wrapper = document.createElement("div");
     wrapper.className = "auth-field";
 
@@ -1718,10 +1877,10 @@ export class RequestEditor {
     lbl.textContent = label;
 
     const input = document.createElement("input");
-    input.type        = inputType;
-    input.className   = "auth-field__input";
+    input.type = inputType;
+    input.className = "auth-field__input";
     input.placeholder = placeholder;
-    input.value       = value;
+    input.value = value;
     // Generate a descriptive name so password managers don't mistake these for
     // login credentials.  The "wurl-auth-" prefix makes the purpose unambiguous.
     input.name = `wurl-auth-${label.toLowerCase().replace(/\s+/g, "-")}`;
@@ -1740,14 +1899,17 @@ export class RequestEditor {
     }
 
     return wrapper;
-    }
+  }
 
-    /**
-     * Build a labeled password input with a show/hide toggle button.
-     * @param {string} label
-     * @param {{ placeholder?, value?, onInput? }} opts
-     */
-    #buildAuthFieldPassword(label, { placeholder = "", value = "", onInput } = {}) {
+  /**
+   * Build a labeled password input with a show/hide toggle button.
+   * @param {string} label
+   * @param {{ placeholder?, value?, onInput? }} opts
+   */
+  #buildAuthFieldPassword(
+    label,
+    { placeholder = "", value = "", onInput } = {},
+  ) {
     const wrapper = document.createElement("div");
     wrapper.className = "auth-field";
 
@@ -1759,10 +1921,10 @@ export class RequestEditor {
     inputWrap.className = "auth-pwd-wrapper";
 
     const input = document.createElement("input");
-    input.type        = "password";
-    input.className   = "auth-field__input";
+    input.type = "password";
+    input.className = "auth-field__input";
     input.placeholder = placeholder;
-    input.value       = value;
+    input.value = value;
     // Descriptive name prevents password managers from treating this as a login
     // credential field.  "new-password" is the only autocomplete value Chrome
     // reliably respects to suppress the save-credentials popup for non-login fields.
@@ -1772,13 +1934,13 @@ export class RequestEditor {
     if (onInput) input.addEventListener("input", () => onInput(input.value));
 
     const toggle = document.createElement("button");
-    toggle.type      = "button";
+    toggle.type = "button";
     toggle.className = "auth-pwd-toggle";
     toggle.textContent = "Show";
     toggle.title = "Toggle visibility";
     toggle.addEventListener("click", () => {
       const hidden = input.type === "password";
-      input.type     = hidden ? "text" : "password";
+      input.type = hidden ? "text" : "password";
       toggle.textContent = hidden ? "Hide" : "Show";
     });
 
@@ -1788,19 +1950,23 @@ export class RequestEditor {
     wrapper.appendChild(inputWrap);
 
     return wrapper;
-    }
+  }
 
-    /**
-     * Build the Scope field: a free-text input with a suggestive dropdown.
-     * - On focus / input: shows matching scopes from scopeList (OIDC-discovered or
-     *   DEFAULT_SCOPES fallback) not already present in the value.
-     * - Typing a space re-opens the dropdown so the user can pick the next scope.
-     * - Arrow keys navigate, Enter / click selects, Escape dismisses.
-     * - The user can always type freely; the dropdown is advisory only.
-     *
-     * @param {{ value?: string, onInput?: (v:string)=>void, scopeList?: string[] }} opts
-     */
-    #buildAuthScopeField({ value = "", onInput, scopeList = DEFAULT_SCOPES } = {}) {
+  /**
+   * Build the Scope field: a free-text input with a suggestive dropdown.
+   * - On focus / input: shows matching scopes from scopeList (OIDC-discovered or
+   *   DEFAULT_SCOPES fallback) not already present in the value.
+   * - Typing a space re-opens the dropdown so the user can pick the next scope.
+   * - Arrow keys navigate, Enter / click selects, Escape dismisses.
+   * - The user can always type freely; the dropdown is advisory only.
+   *
+   * @param {{ value?: string, onInput?: (v:string)=>void, scopeList?: string[] }} opts
+   */
+  #buildAuthScopeField({
+    value = "",
+    onInput,
+    scopeList = DEFAULT_SCOPES,
+  } = {}) {
     const wrapper = document.createElement("div");
     wrapper.className = "auth-field";
 
@@ -1809,29 +1975,31 @@ export class RequestEditor {
     lbl.textContent = "Scope";
 
     const input = document.createElement("input");
-    input.type        = "text";
-    input.className   = "auth-field__input";
+    input.type = "text";
+    input.className = "auth-field__input";
     input.placeholder = "openid email profile";
-    input.value       = value;
-    input.name        = "wurl-auth-scope";
+    input.value = value;
+    input.name = "wurl-auth-scope";
     input.setAttribute("autocomplete", "off");
-    input.setAttribute("aria-label",        "Scope");
+    input.setAttribute("aria-label", "Scope");
     input.setAttribute("aria-autocomplete", "list");
-    input.setAttribute("aria-haspopup",     "listbox");
+    input.setAttribute("aria-haspopup", "listbox");
 
     // Called when a suggestion is picked — replaces the current partial word
     // with the selected scope and appends a trailing space for the next token.
     const onSelect = (picked, _currentWord) => {
-      const full      = input.value;
+      const full = input.value;
       const lastSpace = full.lastIndexOf(" ");
-      const prefix    = lastSpace === -1 ? "" : full.slice(0, lastSpace + 1);
-      input.value     = `${prefix}${picked} `;
+      const prefix = lastSpace === -1 ? "" : full.slice(0, lastSpace + 1);
+      input.value = `${prefix}${picked} `;
       onInput?.(input.value.trim());
       // Re-open immediately so the user can pick another scope
       _showScopeDropdown(input, onSelect, scopeList);
     };
 
-    input.addEventListener("focus", () => _showScopeDropdown(input, onSelect, scopeList));
+    input.addEventListener("focus", () =>
+      _showScopeDropdown(input, onSelect, scopeList),
+    );
 
     input.addEventListener("input", () => {
       onInput?.(input.value.trim());
@@ -1843,9 +2011,20 @@ export class RequestEditor {
     });
 
     input.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowDown") { e.preventDefault(); _scopeDropdownNavigate(+1); return; }
-      if (e.key === "ArrowUp")   { e.preventDefault(); _scopeDropdownNavigate(-1); return; }
-      if (e.key === "Escape")    { _hideScopeDropdown(); return; }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        _scopeDropdownNavigate(+1);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        _scopeDropdownNavigate(-1);
+        return;
+      }
+      if (e.key === "Escape") {
+        _hideScopeDropdown();
+        return;
+      }
       if (e.key === "Enter") {
         e.preventDefault();
         _scopeDropdownAccept(input, onSelect);
@@ -1853,21 +2032,26 @@ export class RequestEditor {
     });
 
     const hint = document.createElement("span");
-    hint.className   = "auth-field__hint";
-    hint.textContent = "Space-separated list of requested scopes — type or pick from the list";
+    hint.className = "auth-field__hint";
+    hint.textContent =
+      "Space-separated list of requested scopes — type or pick from the list";
 
     wrapper.appendChild(lbl);
     wrapper.appendChild(input);
     wrapper.appendChild(hint);
     return wrapper;
-    }
+  }
 
-    /**
-     * Build a labeled <select> row for use inside an auth-form.
-     * @param {string} label
-     * @param {{ options: {value:string,label:string}[], value?, ariaLabel?, onInput? }} opts
-     */
-    #buildAuthFieldSelect(label, { options = [], value = "", ariaLabel, onInput } = {}) {    const wrapper = document.createElement("div");
+  /**
+   * Build a labeled <select> row for use inside an auth-form.
+   * @param {string} label
+   * @param {{ options: {value:string,label:string}[], value?, ariaLabel?, onInput? }} opts
+   */
+  #buildAuthFieldSelect(
+    label,
+    { options = [], value = "", ariaLabel, onInput } = {},
+  ) {
+    const wrapper = document.createElement("div");
     wrapper.className = "auth-field";
 
     const lbl = document.createElement("label");
@@ -1889,38 +2073,45 @@ export class RequestEditor {
     wrapper.appendChild(lbl);
     wrapper.appendChild(sel);
     return wrapper;
-    }
+  }
 
-    #dispatchAuthUpdated() {
+  #dispatchAuthUpdated() {
     if (!this.#currentNodeId) return;
     // Exclude runtime-only token fields — acquired tokens must not be persisted.
     // eslint-disable-next-line no-unused-vars
-    const { token: _t, refreshToken: _rt, expiresAt: _ea, ...oauth2Persisted } = this.#authOAuth2;
-    window.dispatchEvent(new CustomEvent("wurl:request-updated", {
-      detail: {
-        id:          this.#currentNodeId,
-        authEnabled: this.#authEnabled,
-        authType:    this.#authType,
-        authBasic:   { ...this.#authBasic },
-        authBearer:  { ...this.#authBearer },
-        authOAuth2:  oauth2Persisted,
-        authAwsIam:  { ...this.#authAwsIam },
-      },
-      bubbles: true,
-    }));
-    }
+    const {
+      token: _t,
+      refreshToken: _rt,
+      expiresAt: _ea,
+      ...oauth2Persisted
+    } = this.#authOAuth2;
+    window.dispatchEvent(
+      new CustomEvent("wurl:request-updated", {
+        detail: {
+          id: this.#currentNodeId,
+          authEnabled: this.#authEnabled,
+          authType: this.#authType,
+          authBasic: { ...this.#authBasic },
+          authBearer: { ...this.#authBearer },
+          authOAuth2: oauth2Persisted,
+          authAwsIam: { ...this.#authAwsIam },
+        },
+        bubbles: true,
+      }),
+    );
+  }
 
-    // ── Issuer URL dialog ─────────────────────────────────────────────────────
-    /**
-     * Show a dialog that prompts the user for an OpenID Connect issuer URL.
-     * Fetches the well-known discovery document inline and displays any error
-     * inside the dialog so the user can correct the URL and try again.
-     *
-     * Dismiss paths:
-     *   • Escape key, clicking outside (mask), ✕ button, or Cancel → close with no action
-     *   • Enter key or "Discover" button → fetch; on success apply config; on failure show inline error
-     */
-    #showIssuerDialog() {
+  // ── Issuer URL dialog ─────────────────────────────────────────────────────
+  /**
+   * Show a dialog that prompts the user for an OpenID Connect issuer URL.
+   * Fetches the well-known discovery document inline and displays any error
+   * inside the dialog so the user can correct the URL and try again.
+   *
+   * Dismiss paths:
+   *   • Escape key, clicking outside (mask), ✕ button, or Cancel → close with no action
+   *   • Enter key or "Discover" button → fetch; on success apply config; on failure show inline error
+   */
+  #showIssuerDialog() {
     const dlg = document.createElement("div");
     dlg.className = "popup popup-discover-issuer";
     dlg.setAttribute("role", "dialog");
@@ -1947,7 +2138,7 @@ export class RequestEditor {
           autocomplete="off"
           spellcheck="false"
           aria-label="Issuer URL"
-          value="${(this.#authOAuth2.discoveredIssuer ?? "").replace(/"/g, '&quot;')}"
+          value="${(this.#authOAuth2.discoveredIssuer ?? "").replace(/"/g, "&quot;")}"
         />
         <p class="discover-dialog-error" aria-live="polite" hidden></p>
       </div>
@@ -1957,8 +2148,8 @@ export class RequestEditor {
       </div>
     `;
 
-    const urlInput   = dlg.querySelector("#discover-issuer-input");
-    const errorEl    = dlg.querySelector(".discover-dialog-error");
+    const urlInput = dlg.querySelector("#discover-issuer-input");
+    const errorEl = dlg.querySelector(".discover-dialog-error");
     const discoverEl = dlg.querySelector("[data-action='discover']");
 
     const dismiss = () => {
@@ -1966,36 +2157,45 @@ export class RequestEditor {
       PopupManager.close();
     };
 
-    const escHtml = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const escHtml = (s) =>
+      String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
     const showError = (msg) => {
       errorEl.innerHTML = msg;
-      errorEl.hidden    = false;
-      discoverEl.disabled    = false;
+      errorEl.hidden = false;
+      discoverEl.disabled = false;
       discoverEl.textContent = "Discover";
       urlInput.focus();
     };
 
     const doDiscover = async () => {
       const raw = urlInput.value.trim();
-      if (!raw) { showError("Please enter an issuer URL."); return; }
+      if (!raw) {
+        showError("Please enter an issuer URL.");
+        return;
+      }
 
       // Capture which request started the discovery — used to guard
       // against applying results to a different request if the user
       // switched selections while the fetch was in flight.
       const targetNodeId = this.#currentNodeId;
 
-      errorEl.hidden         = true;
-      discoverEl.disabled    = true;
+      errorEl.hidden = true;
+      discoverEl.disabled = true;
       discoverEl.textContent = "Fetching…";
 
-      const base         = raw.replace(/\/+$/, "");
+      const base = raw.replace(/\/+$/, "");
       const discoveryUrl = `${base}/.well-known/openid-configuration`;
 
       let config;
       try {
         config = await _fetchJson(discoveryUrl);
       } catch (err) {
-        showError(`Could not fetch <code>${escHtml(discoveryUrl)}</code><br>${escHtml(err.message)}`);
+        showError(
+          `Could not fetch <code>${escHtml(discoveryUrl)}</code><br>${escHtml(err.message)}`,
+        );
         // Clear any previously stored discovery data so stale scopes/issuer
         // from a prior successful lookup don't linger after a failed re-discover.
         if (this.#currentNodeId === targetNodeId) {
@@ -2012,20 +2212,30 @@ export class RequestEditor {
     };
 
     function onDocKey(e) {
-      if (e.key === "Escape") { e.preventDefault(); dismiss(); }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        dismiss();
+      }
     }
     document.addEventListener("keydown", onDocKey);
 
-    dlg.querySelector("[data-action='close']" ).addEventListener("click", dismiss);
-    dlg.querySelector("[data-action='cancel']").addEventListener("click", dismiss);
+    dlg
+      .querySelector("[data-action='close']")
+      .addEventListener("click", dismiss);
+    dlg
+      .querySelector("[data-action='cancel']")
+      .addEventListener("click", dismiss);
     discoverEl.addEventListener("click", doDiscover);
 
     urlInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); doDiscover(); }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        doDiscover();
+      }
     });
 
     PopupManager.open({
-      element:     dlg,
+      element: dlg,
       onMaskClick: dismiss,
     });
 
@@ -2034,24 +2244,23 @@ export class RequestEditor {
       urlInput.focus();
       urlInput.setSelectionRange(urlInput.value.length, urlInput.value.length);
     });
-    }
+  }
 
-    // ── OIDC Discovery ────────────────────────────────────────────────────────
-    /**
-     * Apply a pre-fetched OpenID Connect discovery document directly to the
-     * auth form fields.  Nothing is persisted beyond the normal field values
-     * (authUrl, accessTokenUrl, grantType, clientType) that are already saved
-     * as part of the request.
-     *
-     * The `targetNodeId` guard ensures results are only applied if the user
-     * hasn't switched to a different request while the fetch was in flight.
-     *
-     * @param {string} _issuerBase   The normalised issuer URL
-     * @param {object} config        The parsed discovery document
-     * @param {string} targetNodeId  The node ID that initiated the discovery
-     */
-    #applyOidcDiscovery(_issuerBase, config, targetNodeId) {
-
+  // ── OIDC Discovery ────────────────────────────────────────────────────────
+  /**
+   * Apply a pre-fetched OpenID Connect discovery document directly to the
+   * auth form fields.  Nothing is persisted beyond the normal field values
+   * (authUrl, accessTokenUrl, grantType, clientType) that are already saved
+   * as part of the request.
+   *
+   * The `targetNodeId` guard ensures results are only applied if the user
+   * hasn't switched to a different request while the fetch was in flight.
+   *
+   * @param {string} _issuerBase   The normalised issuer URL
+   * @param {object} config        The parsed discovery document
+   * @param {string} targetNodeId  The node ID that initiated the discovery
+   */
+  #applyOidcDiscovery(_issuerBase, config, targetNodeId) {
     // Guard: if the user switched to a different request during the async
     // fetch, do not apply the results to the now-active request.
     if (this.#currentNodeId !== targetNodeId) return;
@@ -2061,7 +2270,8 @@ export class RequestEditor {
 
     // ── Scopes — replace autocomplete suggestions with discovered list ─────
     this.#authOAuth2.discoveredScopes =
-      Array.isArray(config.scopes_supported) && config.scopes_supported.length > 0
+      Array.isArray(config.scopes_supported) &&
+      config.scopes_supported.length > 0
         ? config.scopes_supported
         : null;
 
@@ -2074,18 +2284,27 @@ export class RequestEditor {
     }
 
     // ── Grant type — switch away from unsupported types ────────────────────
-    const ALL_GRANT_VALUES = ["authorization_code", "client_credentials", "password", "implicit"];
-    if (Array.isArray(config.grant_types_supported) && config.grant_types_supported.length > 0) {
+    const ALL_GRANT_VALUES = [
+      "authorization_code",
+      "client_credentials",
+      "password",
+      "implicit",
+    ];
+    if (
+      Array.isArray(config.grant_types_supported) &&
+      config.grant_types_supported.length > 0
+    ) {
       const serverSupported = new Set(config.grant_types_supported);
       if (!serverSupported.has(this.#authOAuth2.grantType)) {
-        const first = ALL_GRANT_VALUES.find(g => serverSupported.has(g));
+        const first = ALL_GRANT_VALUES.find((g) => serverSupported.has(g));
         if (first) this.#authOAuth2.grantType = first;
       }
     }
 
     // ── PKCE — revert to confidential if server doesn't support it ─────────
-    const pkceOk = Array.isArray(config.code_challenge_methods_supported) &&
-                   config.code_challenge_methods_supported.length > 0;
+    const pkceOk =
+      Array.isArray(config.code_challenge_methods_supported) &&
+      config.code_challenge_methods_supported.length > 0;
     if (!pkceOk && this.#authOAuth2.clientType === "public") {
       this.#authOAuth2.clientType = "confidential";
     }
@@ -2093,10 +2312,10 @@ export class RequestEditor {
     // ── Re-render and save ─────────────────────────────────────────────────
     this.#renderAuthContent();
     this.#dispatchAuthUpdated();
-    }
+  }
 
-    // ── Body editor ──────────────────────────────────────────────────────────
-    #buildBodyEditor() {
+  // ── Body editor ──────────────────────────────────────────────────────────
+  #buildBodyEditor() {
     const container = document.createElement("div");
     container.className = "params-editor";
 
@@ -2142,12 +2361,15 @@ export class RequestEditor {
 
     const bfBulkLabel = document.createElement("label");
     bfBulkLabel.className = "params-toolbar-toggle-label";
-    bfBulkLabel.title = "Toggle between bulk text editor and key/value row editor";
+    bfBulkLabel.title =
+      "Toggle between bulk text editor and key/value row editor";
     const bfBulkCheck = document.createElement("input");
-    bfBulkCheck.type      = "checkbox";
+    bfBulkCheck.type = "checkbox";
     bfBulkCheck.className = "params-toolbar-toggle";
-    bfBulkCheck.checked   = this.#bodyFormBulkMode;
-    bfBulkCheck.addEventListener("change", () => this.#handleBodyFormBulkToggle(bfBulkCheck.checked));
+    bfBulkCheck.checked = this.#bodyFormBulkMode;
+    bfBulkCheck.addEventListener("change", () =>
+      this.#handleBodyFormBulkToggle(bfBulkCheck.checked),
+    );
     bfBulkLabel.appendChild(bfBulkCheck);
     bfBulkLabel.append(" Bulk Editor");
     this.#bodyFormBulkCheckEl = bfBulkCheck;
@@ -2158,23 +2380,33 @@ export class RequestEditor {
     addBtn.setAttribute("aria-label", "Add field");
     addBtn.innerHTML = `<span class="icon">＋</span>`;
     addBtn.addEventListener("click", () => {
-      this.#bodyFormRows.push({ id: crypto.randomUUID(), name: "", value: "", enabled: true });
+      this.#bodyFormRows.push({
+        id: crypto.randomUUID(),
+        name: "",
+        value: "",
+        enabled: true,
+      });
       this.#renderBodyContent();
       this.#dispatchBodyUpdated();
     });
 
     const delAllBtn = document.createElement("button");
-    delAllBtn.className = "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
+    delAllBtn.className =
+      "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
     delAllBtn.title = "Delete all fields";
     delAllBtn.textContent = "Delete All";
 
     this._bodyFormDeleteAllCleanup = this.#wireDeleteAllConfirm(
       delAllBtn,
       () => this.#bodyFormRows.length,
-      () => { this.#bodyFormRows = []; this.#renderBodyContent(); this.#dispatchBodyUpdated(); },
+      () => {
+        this.#bodyFormRows = [];
+        this.#renderBodyContent();
+        this.#dispatchBodyUpdated();
+      },
     );
 
-    this.#bodyFormAddBtnEl    = addBtn;
+    this.#bodyFormAddBtnEl = addBtn;
     this.#bodyFormDelAllBtnEl = delAllBtn;
 
     formToolbarGroup.appendChild(bfBulkLabel);
@@ -2192,10 +2424,10 @@ export class RequestEditor {
 
     this.#renderBodyContent();
     return container;
-    }
+  }
 
-    /** Render the body content area to match the current #bodyType. */
-    #renderBodyContent() {
+  /** Render the body content area to match the current #bodyType. */
+  #renderBodyContent() {
     const el = this.#bodyContentEl;
     if (!el) return;
     el.innerHTML = "";
@@ -2213,7 +2445,8 @@ export class RequestEditor {
     // Cancel any in-progress delete-all confirm before the UI is rebuilt
     this._bodyFormDeleteAllCleanup?.();
     // Show / hide the form toolbar based on body type
-    const isFormType = this.#bodyType === "form-data" || this.#bodyType === "form-urlencoded";
+    const isFormType =
+      this.#bodyType === "form-data" || this.#bodyType === "form-urlencoded";
     if (this.#bodyFormToolbarGroupEl) {
       this.#bodyFormToolbarGroupEl.classList.toggle("is-hidden", !isFormType);
       if (isFormType && this.#bodyFormBulkCheckEl) {
@@ -2224,34 +2457,41 @@ export class RequestEditor {
     this.#bodyFormBulkEl = this.#bodyFormKvWrapEl = null;
 
     switch (this.#bodyType) {
-      case "no-body":         return this.#renderBodyNone(el);
+      case "no-body":
+        return this.#renderBodyNone(el);
       case "form-data":
-      case "form-urlencoded": return this.#renderBodyForm(el, this.#bodyType);
-      case "json":            return this.#renderBodyText(el, "json",  true);
-      case "yaml":            return this.#renderBodyText(el, "yaml",  true);
-      case "xml":             return this.#renderBodyText(el, "xml",   true);
-      case "text":            return this.#renderBodyText(el, "text",  false);
-      case "file":            return this.#renderBodyFile(el);
+      case "form-urlencoded":
+        return this.#renderBodyForm(el, this.#bodyType);
+      case "json":
+        return this.#renderBodyText(el, "json", true);
+      case "yaml":
+        return this.#renderBodyText(el, "yaml", true);
+      case "xml":
+        return this.#renderBodyText(el, "xml", true);
+      case "text":
+        return this.#renderBodyText(el, "text", false);
+      case "file":
+        return this.#renderBodyFile(el);
     }
-    }
+  }
 
-    // ── No body ───────────────────────────────────────────────────────────────
-    #renderBodyNone(el) {
+  // ── No body ───────────────────────────────────────────────────────────────
+  #renderBodyNone(el) {
     const msg = document.createElement("div");
     msg.className = "params-empty";
     msg.textContent = "No body will be sent with this request.";
     el.appendChild(msg);
-    }
+  }
 
-    // ── Form key-value editor (form-data / form-urlencoded) ───────────────────
-    #renderBodyForm(el, type) {
+  // ── Form key-value editor (form-data / form-urlencoded) ───────────────────
+  #renderBodyForm(el, type) {
     const rows = this.#bodyFormRows;
 
     // ── Bulk mode textarea ────────────────────────────────────────────────
     const bfBulkTa = document.createElement("textarea");
-    bfBulkTa.className   = "body-text-editor";
+    bfBulkTa.className = "body-text-editor";
     bfBulkTa.placeholder = "name=value\nfield1=foo\nfield2=bar\n# disabled=row";
-    bfBulkTa.spellcheck  = false;
+    bfBulkTa.spellcheck = false;
     bfBulkTa.setAttribute("aria-label", "Form fields bulk editor");
     bfBulkTa.value = this.#kvRowsToText(this.#bodyFormRows);
     bfBulkTa.addEventListener("input", () => {
@@ -2263,7 +2503,8 @@ export class RequestEditor {
 
     // ── KV wrap (column headers + list) ──────────────────────────────────
     const bfKvWrap = document.createElement("div");
-    bfKvWrap.style.cssText = "display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden";
+    bfKvWrap.style.cssText =
+      "display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden";
     this.#bodyFormKvWrapEl = bfKvWrap;
 
     // Column headers
@@ -2281,26 +2522,38 @@ export class RequestEditor {
     const phantom = document.createElement("div");
     phantom.className = "params-drop-phantom";
     phantom.setAttribute("aria-hidden", "true");
-    this.#bfPhantom    = phantom;
+    this.#bfPhantom = phantom;
     this.#bfActiveType = type;
 
     const list = document.createElement("div");
     list.className = "params-list";
     this.#bfListEl = list;
 
-    list.addEventListener("dragover", (e) => { if (this.#bfDragSrcId) e.preventDefault(); });
+    list.addEventListener("dragover", (e) => {
+      if (this.#bfDragSrcId) e.preventDefault();
+    });
     list.addEventListener("drop", (e) => {
       e.preventDefault();
       if (!this.#bfDragSrcId) return;
       this.#bfDropHandled = true;
       const allCh = [...list.children];
       const phIdx = allCh.indexOf(phantom);
-      if (phIdx === -1) { this.#cancelBfDrag(); this.#finalizeBfDrag(); return; }
-      const insertBefore = allCh.slice(0, phIdx).filter(c => c.classList.contains("params-row")).length;
-      const srcIdx = rows.findIndex(r => r.id === this.#bfDragSrcId);
+      if (phIdx === -1) {
+        this.#cancelBfDrag();
+        this.#finalizeBfDrag();
+        return;
+      }
+      const insertBefore = allCh
+        .slice(0, phIdx)
+        .filter((c) => c.classList.contains("params-row")).length;
+      const srcIdx = rows.findIndex((r) => r.id === this.#bfDragSrcId);
       if (srcIdx !== -1) {
         const [moved] = rows.splice(srcIdx, 1);
-        rows.splice(insertBefore > srcIdx ? insertBefore - 1 : insertBefore, 0, moved);
+        rows.splice(
+          insertBefore > srcIdx ? insertBefore - 1 : insertBefore,
+          0,
+          moved,
+        );
         this.#renderBodyContent();
         this.#dispatchBodyUpdated();
       }
@@ -2321,13 +2574,13 @@ export class RequestEditor {
 
     this.#applyBodyFormBulkMode();
     this.#applyBodyFormHeaderRow();
-    }
+  }
 
-    #buildBfRow(row, rows) {
+  #buildBfRow(row, rows) {
     const div = document.createElement("div");
     div.className = "params-row";
     div.dataset.id = row.id;
-    div.draggable  = true;
+    div.draggable = true;
     if (!row.enabled) div.classList.add("params-row--disabled");
 
     // Drag handle
@@ -2342,7 +2595,9 @@ export class RequestEditor {
 
     // Checkbox
     const cb = document.createElement("input");
-    cb.type = "checkbox"; cb.className = "params-checkbox"; cb.checked = row.enabled;
+    cb.type = "checkbox";
+    cb.className = "params-checkbox";
+    cb.checked = row.enabled;
     cb.addEventListener("change", () => {
       row.enabled = cb.checked;
       div.classList.toggle("params-row--disabled", !row.enabled);
@@ -2350,17 +2605,25 @@ export class RequestEditor {
     });
 
     // Name pill editor
-    const getCtx  = () => this.#variableContext;
+    const getCtx = () => this.#variableContext;
     const getItms = () => this.#getItems();
     const nameEditor = new VariablePillEditor({
       placeholder: "Name",
-      ariaLabel:   "Field name",
-      className:   "params-name",
-      getContext:  getCtx,
-      getItems:    getItms,
-      onInput: (v) => { row.name = v; this.#dispatchBodyUpdated(); },
+      ariaLabel: "Field name",
+      className: "params-name",
+      getContext: getCtx,
+      getItems: getItms,
+      onInput: (v) => {
+        row.name = v;
+        this.#dispatchBodyUpdated();
+      },
       onEnter: () => {
-        rows.push({ id: crypto.randomUUID(), name: "", value: "", enabled: true });
+        rows.push({
+          id: crypto.randomUUID(),
+          name: "",
+          value: "",
+          enabled: true,
+        });
         this.#renderBodyContent();
         this.#dispatchBodyUpdated();
       },
@@ -2371,13 +2634,21 @@ export class RequestEditor {
     // Value pill editor
     const valueEditor = new VariablePillEditor({
       placeholder: "Value",
-      ariaLabel:   "Field value",
-      className:   "params-value",
-      getContext:  getCtx,
-      getItems:    getItms,
-      onInput: (v) => { row.value = v; this.#dispatchBodyUpdated(); },
+      ariaLabel: "Field value",
+      className: "params-value",
+      getContext: getCtx,
+      getItems: getItms,
+      onInput: (v) => {
+        row.value = v;
+        this.#dispatchBodyUpdated();
+      },
       onEnter: () => {
-        rows.push({ id: crypto.randomUUID(), name: "", value: "", enabled: true });
+        rows.push({
+          id: crypto.randomUUID(),
+          name: "",
+          value: "",
+          enabled: true,
+        });
         this.#renderBodyContent();
         this.#dispatchBodyUpdated();
       },
@@ -2387,13 +2658,14 @@ export class RequestEditor {
 
     // Delete
     const delBtn = document.createElement("button");
-    delBtn.className = "icon-btn params-delete-btn"; delBtn.title = "Delete field";
+    delBtn.className = "icon-btn params-delete-btn";
+    delBtn.title = "Delete field";
     delBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none"
         stroke="currentColor" stroke-width="2" stroke-linecap="round">
       <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
     </svg>`;
     delBtn.addEventListener("click", () => {
-      this.#bodyFormRows = rows.filter(r => r.id !== row.id);
+      this.#bodyFormRows = rows.filter((r) => r.id !== row.id);
       this.#renderBodyContent();
       this.#dispatchBodyUpdated();
     });
@@ -2401,7 +2673,7 @@ export class RequestEditor {
     // Drag events
     div.addEventListener("dragstart", (e) => {
       if (this.#bfDragSrcId) this.#finalizeBfDrag();
-      this.#bfDragSrcId  = row.id;
+      this.#bfDragSrcId = row.id;
       this.#bfDropHandled = false;
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", row.id);
@@ -2416,7 +2688,9 @@ export class RequestEditor {
         if (!inside && this.#bfDragInside) {
           this.#bfDragInside = false;
           this.#bfPhantom?.remove();
-          this.#bfListEl?.querySelector(`[data-id="${this.#bfDragSrcId}"]`)?.style.removeProperty("display");
+          this.#bfListEl
+            ?.querySelector(`[data-id="${this.#bfDragSrcId}"]`)
+            ?.style.removeProperty("display");
         } else if (inside && !this.#bfDragInside) {
           this.#bfDragInside = true;
         }
@@ -2425,42 +2699,55 @@ export class RequestEditor {
     });
     div.addEventListener("dragover", (e) => {
       if (!this.#bfDragSrcId || this.#bfDragSrcId === row.id) return;
-      e.preventDefault(); e.dataTransfer.dropEffect = "move";
-      const rect  = div.getBoundingClientRect();
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const rect = div.getBoundingClientRect();
       const after = (e.clientY - rect.top) / rect.height >= 0.5;
-      const ph    = this.#bfPhantom;
-      const draggedEl = this.#bfListEl?.querySelector(`[data-id="${this.#bfDragSrcId}"]`);
+      const ph = this.#bfPhantom;
+      const draggedEl = this.#bfListEl?.querySelector(
+        `[data-id="${this.#bfDragSrcId}"]`,
+      );
       if (draggedEl?.style.display !== "none") draggedEl.style.display = "none";
       const sibling = after ? div.nextSibling : div;
-      if (ph.nextSibling !== sibling && ph !== sibling) div.parentElement?.insertBefore(ph, sibling);
+      if (ph.nextSibling !== sibling && ph !== sibling)
+        div.parentElement?.insertBefore(ph, sibling);
     });
     div.addEventListener("dragend", () => {
       if (!this.#bfDropHandled) this.#cancelBfDrag();
       this.#finalizeBfDrag();
     });
 
-    div.appendChild(handle); div.appendChild(cb);
-    div.appendChild(nameEditor.element); div.appendChild(valueEditor.element); div.appendChild(delBtn);
+    div.appendChild(handle);
+    div.appendChild(cb);
+    div.appendChild(nameEditor.element);
+    div.appendChild(valueEditor.element);
+    div.appendChild(delBtn);
     return div;
-    }
+  }
 
-    #cancelBfDrag() { this.#bfPhantom?.remove(); this.#renderBodyContent(); }
-    #finalizeBfDrag() {
-    if (this.#bfDocHandler) { document.removeEventListener("dragover", this.#bfDocHandler); this.#bfDocHandler = null; }
-    this.#bfDragSrcId  = null;
+  #cancelBfDrag() {
+    this.#bfPhantom?.remove();
+    this.#renderBodyContent();
+  }
+  #finalizeBfDrag() {
+    if (this.#bfDocHandler) {
+      document.removeEventListener("dragover", this.#bfDocHandler);
+      this.#bfDocHandler = null;
+    }
+    this.#bfDragSrcId = null;
     this.#bfDragInside = false;
     this.#bfDropHandled = false;
-    }
+  }
 
-    // ── Text editor (JSON / YAML / XML / Plain Text) ──────────────────────────
-    #renderBodyText(el, type, canPrettify) {
+  // ── Text editor (JSON / YAML / XML / Plain Text) ──────────────────────────
+  #renderBodyText(el, type, canPrettify) {
     const ta = document.createElement("textarea");
     ta.className = canPrettify
       ? "body-text-editor body-text-editor--overlay"
       : "body-text-editor";
-    ta.value     = this.#bodyText;
+    ta.value = this.#bodyText;
     ta.placeholder = `Enter ${type === "text" ? "plain text" : type.toUpperCase()} body here…`;
-    ta.spellcheck  = false;
+    ta.spellcheck = false;
     ta.setAttribute("aria-label", `${type} body`);
 
     // For JSON / YAML / XML: wrap textarea + syntax-highlight overlay
@@ -2481,7 +2768,7 @@ export class RequestEditor {
 
       // Keep scroll positions in sync
       ta.addEventListener("scroll", () => {
-        pre.scrollTop  = ta.scrollTop;
+        pre.scrollTop = ta.scrollTop;
         pre.scrollLeft = ta.scrollLeft;
       });
 
@@ -2493,10 +2780,10 @@ export class RequestEditor {
 
     // ── Inline validation (JSON / YAML / XML) ─────────────────────────────
     const canValidate = canPrettify && type !== "text";
-    let validateBadge  = null;
-    let prettyBtnRef   = null;
-    let validateTimer  = null;
-    const VALIDATE_MS  = 400;
+    let validateBadge = null;
+    let prettyBtnRef = null;
+    let validateTimer = null;
+    const VALIDATE_MS = 400;
 
     const applyValidity = (state /* "valid" | "invalid" | null */) => {
       if (prettyBtnRef) prettyBtnRef.disabled = state === "invalid";
@@ -2518,7 +2805,10 @@ export class RequestEditor {
       clearTimeout(validateTimer);
       validateTimer = setTimeout(() => {
         const text = ta.value;
-        if (!text.trim()) { applyValidity(null); return; }
+        if (!text.trim()) {
+          applyValidity(null);
+          return;
+        }
         applyValidity(this.#validate(type, text) ? "valid" : "invalid");
       }, VALIDATE_MS);
     };
@@ -2542,7 +2832,8 @@ export class RequestEditor {
       // Prettify button
       const prettyBtn = document.createElement("button");
       prettyBtnRef = prettyBtn;
-      prettyBtn.className = "params-toolbar-btn params-delete-all-btn body-prettify-btn";
+      prettyBtn.className =
+        "params-toolbar-btn params-delete-all-btn body-prettify-btn";
       prettyBtn.title = `Prettify ${type.toUpperCase()}`;
       prettyBtn.textContent = "Prettify";
       prettyBtn.addEventListener("click", () => {
@@ -2553,9 +2844,13 @@ export class RequestEditor {
         if (codeEl) this.#syncHighlight(ta, codeEl, type);
         // Immediate re-validate after prettifying (no debounce needed)
         if (canValidate) {
-          applyValidity(ta.value.trim()
-            ? (this.#validate(type, ta.value) ? "valid" : "invalid")
-            : null);
+          applyValidity(
+            ta.value.trim()
+              ? this.#validate(type, ta.value)
+                ? "valid"
+                : "invalid"
+              : null,
+          );
         }
       });
       this.#bodyTypeBarEl.appendChild(prettyBtn);
@@ -2565,24 +2860,32 @@ export class RequestEditor {
         applyValidity(this.#validate(type, ta.value) ? "valid" : "invalid");
       }
     }
-    }
+  }
 
-    /** Validate body text for a given type. Returns true = valid, false = invalid. */
-    #validate(type, text) {
+  /** Validate body text for a given type. Returns true = valid, false = invalid. */
+  #validate(type, text) {
     if (!text.trim()) return null;
     try {
-      if (type === "json") { JSON.parse(text); return true; }
-      if (type === "yaml") { parseYaml(text);  return true; }
+      if (type === "json") {
+        JSON.parse(text);
+        return true;
+      }
+      if (type === "yaml") {
+        parseYaml(text);
+        return true;
+      }
       if (type === "xml") {
         const doc = new DOMParser().parseFromString(text, "application/xml");
         return !doc.querySelector("parsererror");
       }
-    } catch { /* fall through */ }
-    return false;
+    } catch {
+      /* fall through */
     }
+    return false;
+  }
 
-    /** Prettify the given text for a body type. */
-    #prettify(type, text) {
+  /** Prettify the given text for a body type. */
+  #prettify(type, text) {
     if (!text.trim()) return text;
     try {
       if (type === "json") {
@@ -2592,33 +2895,45 @@ export class RequestEditor {
         // Use DOMParser then a simple indent pass
         const doc = new DOMParser().parseFromString(text, "application/xml");
         if (doc.querySelector("parsererror")) return text;
-        const raw = new XMLSerializer().serializeToString(doc)
+        const raw = new XMLSerializer()
+          .serializeToString(doc)
           .replace(/>\s*</g, ">\n<");
         let indent = 0;
-        return raw.split("\n").map(line => {
-          const trimmed = line.trim();
-          if (!trimmed) return "";
-          if (trimmed.startsWith("</")) indent = Math.max(0, indent - 1);
-          const out = "  ".repeat(indent) + trimmed;
-          if (!trimmed.startsWith("</") && !trimmed.startsWith("<?") &&
-              !trimmed.endsWith("/>") && !trimmed.includes("</")) indent++;
-          return out;
-        }).filter(l => l !== "").join("\n");
+        return raw
+          .split("\n")
+          .map((line) => {
+            const trimmed = line.trim();
+            if (!trimmed) return "";
+            if (trimmed.startsWith("</")) indent = Math.max(0, indent - 1);
+            const out = "  ".repeat(indent) + trimmed;
+            if (
+              !trimmed.startsWith("</") &&
+              !trimmed.startsWith("<?") &&
+              !trimmed.endsWith("/>") &&
+              !trimmed.includes("</")
+            )
+              indent++;
+            return out;
+          })
+          .filter((l) => l !== "")
+          .join("\n");
       }
       if (type === "yaml") {
         return stringifyYaml(parseYaml(text));
       }
-    } catch { /* invalid — return unchanged */ }
-    return text;
+    } catch {
+      /* invalid — return unchanged */
     }
+    return text;
+  }
 
-    /**
-     * Synchronise the Prism syntax-highlight overlay with the textarea content.
-     * @param {HTMLTextAreaElement} ta
-     * @param {HTMLElement}         codeEl  — the <code> element inside the overlay <pre>
-     * @param {string}              type    — "json" | "yaml" | "xml"
-     */
-    #syncHighlight(ta, codeEl, type) {
+  /**
+   * Synchronise the Prism syntax-highlight overlay with the textarea content.
+   * @param {HTMLTextAreaElement} ta
+   * @param {HTMLElement}         codeEl  — the <code> element inside the overlay <pre>
+   * @param {string}              type    — "json" | "yaml" | "xml"
+   */
+  #syncHighlight(ta, codeEl, type) {
     const text = ta.value;
     if (!text) {
       codeEl.innerHTML = "";
@@ -2629,20 +2944,25 @@ export class RequestEditor {
       // Prism.highlight returns an HTML string with token spans.
       // We append a trailing newline so the pre always has the same height as
       // the textarea (a trailing \n in a <pre> is ignored by the browser).
-      codeEl.innerHTML = Prism.highlight(text, Prism.languages[lang] ?? Prism.languages.plaintext, lang) + "\n";
+      codeEl.innerHTML =
+        Prism.highlight(
+          text,
+          Prism.languages[lang] ?? Prism.languages.plaintext,
+          lang,
+        ) + "\n";
     } catch {
       // If Prism doesn't have the grammar fall back to escaped plain text
       codeEl.textContent = text;
     }
     // Keep the pre's scroll position in sync with the textarea
     if (codeEl.parentElement) {
-      codeEl.parentElement.scrollTop  = ta.scrollTop;
+      codeEl.parentElement.scrollTop = ta.scrollTop;
       codeEl.parentElement.scrollLeft = ta.scrollLeft;
     }
-    }
+  }
 
-    // ── File picker ───────────────────────────────────────────────────────────
-    #renderBodyFile(el) {
+  // ── File picker ───────────────────────────────────────────────────────────
+  #renderBodyFile(el) {
     const showPicker = () => {
       if (this.#bodyFilePath) {
         this.#renderFileChosen(el);
@@ -2651,14 +2971,14 @@ export class RequestEditor {
       }
     };
     showPicker();
-    }
+  }
 
-    #renderFileDropZone(el) {
+  #renderFileDropZone(el) {
     el.innerHTML = "";
     const zone = document.createElement("div");
     zone.className = "body-file-zone";
 
-    const icon  = document.createElement("div");
+    const icon = document.createElement("div");
     icon.className = "body-file-zone__icon";
     icon.innerHTML = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none"
         stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -2681,11 +3001,12 @@ export class RequestEditor {
     browseBtn.textContent = "Browse…";
 
     const fileInput = document.createElement("input");
-    fileInput.type = "file"; fileInput.style.display = "none";
+    fileInput.type = "file";
+    fileInput.style.display = "none";
     fileInput.addEventListener("change", () => {
       const f = fileInput.files?.[0];
       if (!f) return;
-      this.#bodyFilePath   = f.path || f.name;   // Electron exposes .path
+      this.#bodyFilePath = f.path || f.name; // Electron exposes .path
       this.#bodyFileObject = f;
       this.#renderFileChosen(el);
       this.#dispatchBodyUpdated();
@@ -2695,29 +3016,34 @@ export class RequestEditor {
 
     // Drag-and-drop
     zone.addEventListener("dragover", (e) => {
-      e.preventDefault(); e.dataTransfer.dropEffect = "copy";
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
       zone.classList.add("body-file-zone--over");
     });
     zone.addEventListener("dragleave", (e) => {
-      if (!zone.contains(e.relatedTarget)) zone.classList.remove("body-file-zone--over");
+      if (!zone.contains(e.relatedTarget))
+        zone.classList.remove("body-file-zone--over");
     });
     zone.addEventListener("drop", (e) => {
-      e.preventDefault(); zone.classList.remove("body-file-zone--over");
+      e.preventDefault();
+      zone.classList.remove("body-file-zone--over");
       const f = e.dataTransfer.files?.[0];
       if (!f) return;
-      this.#bodyFilePath   = f.path || f.webkitRelativePath || f.name;
+      this.#bodyFilePath = f.path || f.webkitRelativePath || f.name;
       this.#bodyFileObject = f;
       this.#renderFileChosen(el);
       this.#dispatchBodyUpdated();
     });
 
-    zone.appendChild(icon); zone.appendChild(label);
-    zone.appendChild(sub); zone.appendChild(browseBtn);
+    zone.appendChild(icon);
+    zone.appendChild(label);
+    zone.appendChild(sub);
+    zone.appendChild(browseBtn);
     zone.appendChild(fileInput);
     el.appendChild(zone);
-    }
+  }
 
-    #renderFileChosen(el) {
+  #renderFileChosen(el) {
     el.innerHTML = "";
     const chosen = document.createElement("div");
     chosen.className = "body-file-chosen";
@@ -2742,7 +3068,7 @@ export class RequestEditor {
     resetBtn.textContent = "Reset";
     resetBtn.title = "Remove selected file";
     resetBtn.addEventListener("click", () => {
-      this.#bodyFilePath   = "";
+      this.#bodyFilePath = "";
       this.#bodyFileObject = null;
       this.#renderFileDropZone(el);
       this.#dispatchBodyUpdated();
@@ -2752,24 +3078,26 @@ export class RequestEditor {
     chosen.appendChild(pathText);
     chosen.appendChild(resetBtn);
     el.appendChild(chosen);
-    }
+  }
 
-    #dispatchBodyUpdated() {
+  #dispatchBodyUpdated() {
     if (!this.#currentNodeId) return;
-    window.dispatchEvent(new CustomEvent("wurl:request-updated", {
-      detail: {
-        id:       this.#currentNodeId,
-        bodyType: this.#bodyType,
-        bodyFormRows:         [...this.#bodyFormRows],
-        bodyText:             this.#bodyText,
-        bodyFilePath:         this.#bodyFilePath,
-      },
-      bubbles: true,
-    }));
-    }
+    window.dispatchEvent(
+      new CustomEvent("wurl:request-updated", {
+        detail: {
+          id: this.#currentNodeId,
+          bodyType: this.#bodyType,
+          bodyFormRows: [...this.#bodyFormRows],
+          bodyText: this.#bodyText,
+          bodyFilePath: this.#bodyFilePath,
+        },
+        bubbles: true,
+      }),
+    );
+  }
 
-    // ── Params editor ────────────────────────────────────────────────────────
-    #buildParamsEditor() {
+  // ── Params editor ────────────────────────────────────────────────────────
+  #buildParamsEditor() {
     const container = document.createElement("div");
     container.className = "params-editor";
 
@@ -2780,12 +3108,15 @@ export class RequestEditor {
     // ── Bulk Editor toggle — leftmost in toolbar ──────────────────────────
     const pBulkLabel = document.createElement("label");
     pBulkLabel.className = "params-toolbar-toggle-label";
-    pBulkLabel.title = "Toggle between bulk text editor and key/value row editor";
+    pBulkLabel.title =
+      "Toggle between bulk text editor and key/value row editor";
     const pBulkCheck = document.createElement("input");
-    pBulkCheck.type      = "checkbox";
+    pBulkCheck.type = "checkbox";
     pBulkCheck.className = "params-toolbar-toggle";
-    pBulkCheck.checked   = this.#paramsBulkMode;
-    pBulkCheck.addEventListener("change", () => this.#handleParamsBulkToggle(pBulkCheck.checked));
+    pBulkCheck.checked = this.#paramsBulkMode;
+    pBulkCheck.addEventListener("change", () =>
+      this.#handleParamsBulkToggle(pBulkCheck.checked),
+    );
     pBulkLabel.appendChild(pBulkCheck);
     pBulkLabel.append(" Bulk Editor");
     toolbar.appendChild(pBulkLabel);
@@ -2798,7 +3129,8 @@ export class RequestEditor {
     addBtn.addEventListener("click", () => this.#addParam());
 
     const deleteAllBtn = document.createElement("button");
-    deleteAllBtn.className = "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
+    deleteAllBtn.className =
+      "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
     deleteAllBtn.title = "Delete all parameters";
     deleteAllBtn.setAttribute("aria-label", "Delete all parameters");
     deleteAllBtn.textContent = "Delete All";
@@ -2813,7 +3145,7 @@ export class RequestEditor {
 
     toolbar.appendChild(addBtn);
     toolbar.appendChild(deleteAllBtn);
-    this.#paramsAddBtnEl    = addBtn;
+    this.#paramsAddBtnEl = addBtn;
     this.#paramsDelAllBtnEl = deleteAllBtn;
 
     // Spacer pushes the Show URL toggle to the right
@@ -2827,17 +3159,19 @@ export class RequestEditor {
     showUrlLabel.title = "Show or hide the URL preview bar";
 
     const showUrlCheck = document.createElement("input");
-    showUrlCheck.type      = "checkbox";
-    showUrlCheck.id        = "url-preview-toggle";
+    showUrlCheck.type = "checkbox";
+    showUrlCheck.id = "url-preview-toggle";
     showUrlCheck.className = "params-toolbar-toggle";
-    showUrlCheck.checked   = this.#urlPreviewEnabled;
+    showUrlCheck.checked = this.#urlPreviewEnabled;
     showUrlCheck.addEventListener("change", () => {
       this.#urlPreviewEnabled = showUrlCheck.checked;
       this.#updateUrlPreview();
-      window.dispatchEvent(new CustomEvent("wurl:editor-setting-changed", {
-        detail: { showUrlPreview: showUrlCheck.checked },
-        bubbles: true,
-      }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:editor-setting-changed", {
+          detail: { showUrlPreview: showUrlCheck.checked },
+          bubbles: true,
+        }),
+      );
     });
 
     showUrlLabel.appendChild(showUrlCheck);
@@ -2851,9 +3185,9 @@ export class RequestEditor {
 
     // ── Bulk mode textarea ────────────────────────────────────────────────
     const pBulkTa = document.createElement("textarea");
-    pBulkTa.className   = "body-text-editor";
+    pBulkTa.className = "body-text-editor";
     pBulkTa.placeholder = "name=value\nparam1=foo\nparam2=bar\n# disabled=row";
-    pBulkTa.spellcheck  = false;
+    pBulkTa.spellcheck = false;
     pBulkTa.setAttribute("aria-label", "Parameters bulk editor");
     pBulkTa.addEventListener("input", () => {
       this.#params = this.#textToKvRows(pBulkTa.value);
@@ -2865,7 +3199,8 @@ export class RequestEditor {
 
     // ── KV wrap (column headers + list) ──────────────────────────────────
     const pKvWrap = document.createElement("div");
-    pKvWrap.style.cssText = "display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden";
+    pKvWrap.style.cssText =
+      "display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden";
     this.#paramsKvWrapEl = pKvWrap;
 
     // ── Column headers ───────────────────────────────────────────────────
@@ -2901,10 +3236,16 @@ export class RequestEditor {
       // Find the index of the phantom to know where to insert
       const allChildren = [...list.children];
       const phantomIdx = allChildren.indexOf(ph);
-      if (phantomIdx === -1) { this.#cancelParamDrag(); this.#finalizeParamDrag(); return; }
+      if (phantomIdx === -1) {
+        this.#cancelParamDrag();
+        this.#finalizeParamDrag();
+        return;
+      }
       // Count only param rows before the phantom
-      const insertBefore = allChildren.slice(0, phantomIdx).filter(el => el.classList.contains("params-row")).length;
-      const srcIdx = this.#params.findIndex(p => p.id === this.#dragSrcId);
+      const insertBefore = allChildren
+        .slice(0, phantomIdx)
+        .filter((el) => el.classList.contains("params-row")).length;
+      const srcIdx = this.#params.findIndex((p) => p.id === this.#dragSrcId);
       if (srcIdx !== -1) {
         const [moved] = this.#params.splice(srcIdx, 1);
         const target = insertBefore > srcIdx ? insertBefore - 1 : insertBefore;
@@ -2921,10 +3262,10 @@ export class RequestEditor {
     this.#applyParamsBulkMode();
     this.#renderParamsList();
     return container;
-    }
+  }
 
-    // ── Headers editor ──────────────────────────────────────────────────
-    #buildHeadersEditor() {
+  // ── Headers editor ──────────────────────────────────────────────────
+  #buildHeadersEditor() {
     const container = document.createElement("div");
     container.className = "params-editor";
 
@@ -2935,12 +3276,15 @@ export class RequestEditor {
     // ── Bulk Editor toggle — leftmost in toolbar ──────────────────────────
     const hBulkLabel = document.createElement("label");
     hBulkLabel.className = "params-toolbar-toggle-label";
-    hBulkLabel.title = "Toggle between bulk text editor and key/value row editor";
+    hBulkLabel.title =
+      "Toggle between bulk text editor and key/value row editor";
     const hBulkCheck = document.createElement("input");
-    hBulkCheck.type      = "checkbox";
+    hBulkCheck.type = "checkbox";
     hBulkCheck.className = "params-toolbar-toggle";
-    hBulkCheck.checked   = this.#headersBulkMode;
-    hBulkCheck.addEventListener("change", () => this.#handleHeadersBulkToggle(hBulkCheck.checked));
+    hBulkCheck.checked = this.#headersBulkMode;
+    hBulkCheck.addEventListener("change", () =>
+      this.#handleHeadersBulkToggle(hBulkCheck.checked),
+    );
     hBulkLabel.appendChild(hBulkCheck);
     hBulkLabel.append(" Bulk Editor");
     toolbar.appendChild(hBulkLabel);
@@ -2953,7 +3297,8 @@ export class RequestEditor {
     addBtn.addEventListener("click", () => this.#addHeader());
 
     const deleteAllBtn = document.createElement("button");
-    deleteAllBtn.className = "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
+    deleteAllBtn.className =
+      "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
     deleteAllBtn.title = "Delete all headers";
     deleteAllBtn.setAttribute("aria-label", "Delete all headers");
     deleteAllBtn.textContent = "Delete All";
@@ -2968,7 +3313,7 @@ export class RequestEditor {
 
     toolbar.appendChild(addBtn);
     toolbar.appendChild(deleteAllBtn);
-    this.#headersAddBtnEl    = addBtn;
+    this.#headersAddBtnEl = addBtn;
     this.#headersDelAllBtnEl = deleteAllBtn;
 
     // ── "List Headers" toggle — pushed to the right ───────────────────────
@@ -2979,21 +3324,24 @@ export class RequestEditor {
 
     const listHdrLabel = document.createElement("label");
     listHdrLabel.className = "params-toolbar-toggle-label";
-    listHdrLabel.title = "Show standard header suggestions when editing the header name";
+    listHdrLabel.title =
+      "Show standard header suggestions when editing the header name";
 
     const listHdrCheck = document.createElement("input");
-    listHdrCheck.type      = "checkbox";
-    listHdrCheck.id        = "list-headers-toggle";
-    listHdrCheck.checked   = this.#headerSuggestionsEnabled;
+    listHdrCheck.type = "checkbox";
+    listHdrCheck.id = "list-headers-toggle";
+    listHdrCheck.checked = this.#headerSuggestionsEnabled;
     listHdrCheck.className = "params-toolbar-toggle";
     listHdrCheck.addEventListener("change", () => {
       this.#headerSuggestionsEnabled = listHdrCheck.checked;
       if (!listHdrCheck.checked) _hideHdrDropdown();
       // Persist the preference into settings
-      window.dispatchEvent(new CustomEvent("wurl:editor-setting-changed", {
-        detail: { listHeaders: listHdrCheck.checked },
-        bubbles: true,
-      }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:editor-setting-changed", {
+          detail: { listHeaders: listHdrCheck.checked },
+          bubbles: true,
+        }),
+      );
     });
 
     listHdrLabel.appendChild(listHdrCheck);
@@ -3001,14 +3349,14 @@ export class RequestEditor {
     toolbar.appendChild(listHdrLabel);
     this.#listHdrLabelEl = listHdrLabel;
 
-
     container.appendChild(toolbar);
 
     // ── Bulk mode textarea ────────────────────────────────────────────────
     const hBulkTa = document.createElement("textarea");
-    hBulkTa.className   = "body-text-editor";
-    hBulkTa.placeholder = "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped";
-    hBulkTa.spellcheck  = false;
+    hBulkTa.className = "body-text-editor";
+    hBulkTa.placeholder =
+      "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped";
+    hBulkTa.spellcheck = false;
     hBulkTa.setAttribute("aria-label", "Headers bulk editor");
     hBulkTa.addEventListener("input", () => {
       this.#headers = this.#textToHeaderRows(hBulkTa.value);
@@ -3019,7 +3367,8 @@ export class RequestEditor {
 
     // ── KV wrap (column headers + list) ──────────────────────────────────
     const hKvWrap = document.createElement("div");
-    hKvWrap.style.cssText = "display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden";
+    hKvWrap.style.cssText =
+      "display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden";
     this.#headersKvWrapEl = hKvWrap;
 
     // ── Column headers ───────────────────────────────────────────────────
@@ -3054,9 +3403,17 @@ export class RequestEditor {
       const ph = this.#headerPhantomEl;
       const allChildren = [...list.children];
       const phantomIdx = allChildren.indexOf(ph);
-      if (phantomIdx === -1) { this.#cancelHeaderDrag(); this.#finalizeHeaderDrag(); return; }
-      const insertBefore = allChildren.slice(0, phantomIdx).filter(el => el.classList.contains("params-row")).length;
-      const srcIdx = this.#headers.findIndex(h => h.id === this.#hdrDragSrcId);
+      if (phantomIdx === -1) {
+        this.#cancelHeaderDrag();
+        this.#finalizeHeaderDrag();
+        return;
+      }
+      const insertBefore = allChildren
+        .slice(0, phantomIdx)
+        .filter((el) => el.classList.contains("params-row")).length;
+      const srcIdx = this.#headers.findIndex(
+        (h) => h.id === this.#hdrDragSrcId,
+      );
       if (srcIdx !== -1) {
         const [moved] = this.#headers.splice(srcIdx, 1);
         const target = insertBefore > srcIdx ? insertBefore - 1 : insertBefore;
@@ -3073,35 +3430,36 @@ export class RequestEditor {
     this.#applyHeadersBulkMode();
     this.#renderHeadersList();
     return container;
-    }
+  }
 
-    #addHeader() {
+  #addHeader() {
     this.#headers.push({
-      id:      crypto.randomUUID(),
-      name:    "",
-      value:   "",
+      id: crypto.randomUUID(),
+      name: "",
+      value: "",
       enabled: true,
     });
     this.#renderHeadersList();
     const rows = this.#headersListEl?.querySelectorAll(".params-row") ?? [];
-    if (rows.length) rows[rows.length - 1].querySelector(".params-name")?.focus();
+    if (rows.length)
+      rows[rows.length - 1].querySelector(".params-name")?.focus();
     this.#dispatchHeadersUpdated();
-    }
+  }
 
-    #deleteAllHeaders() {
+  #deleteAllHeaders() {
     if (this.#headers.length === 0) return;
     this.#headers = [];
     this.#renderHeadersList();
     this.#dispatchHeadersUpdated();
-    }
+  }
 
-    #deleteHeader(id) {
+  #deleteHeader(id) {
     this.#headers = this.#headers.filter((h) => h.id !== id);
     this.#renderHeadersList();
     this.#dispatchHeadersUpdated();
-    }
+  }
 
-    #renderHeadersList() {
+  #renderHeadersList() {
     if (!this.#headersListEl) return;
     // Tear down stale pill editors before discarding their references — each
     // one holds a document-level selectionchange listener that would otherwise
@@ -3111,7 +3469,8 @@ export class RequestEditor {
 
     // In bulk mode just keep the textarea in sync
     if (this.#headersBulkMode) {
-      if (this.#headersBulkEl) this.#headersBulkEl.value = this.#headerRowsToText(this.#headers);
+      if (this.#headersBulkEl)
+        this.#headersBulkEl.value = this.#headerRowsToText(this.#headers);
       return;
     }
 
@@ -3128,12 +3487,12 @@ export class RequestEditor {
     this.#headers.forEach((header, index) => {
       this.#headersListEl.appendChild(this.#buildHeaderRow(header, index));
     });
-    }
+  }
 
-    #buildHeaderRow(header, index) {
+  #buildHeaderRow(header, index) {
     const row = document.createElement("div");
     row.className = "params-row";
-    row.dataset.id    = header.id;
+    row.dataset.id = header.id;
     row.dataset.index = String(index);
     row.draggable = true;
     if (!header.enabled) row.classList.add("params-row--disabled");
@@ -3157,8 +3516,8 @@ export class RequestEditor {
     checkbox.title = header.enabled ? "Disable header" : "Enable header";
     checkbox.setAttribute("aria-label", "Enable header");
     checkbox.addEventListener("change", () => {
-      header.enabled  = checkbox.checked;
-      checkbox.title  = header.enabled ? "Disable header" : "Enable header";
+      header.enabled = checkbox.checked;
+      checkbox.title = header.enabled ? "Disable header" : "Enable header";
       row.classList.toggle("params-row--disabled", !header.enabled);
       this.#dispatchHeadersUpdated();
     });
@@ -3171,12 +3530,12 @@ export class RequestEditor {
 
     // ── Header name combo box ─────────────────────────────────────────────
     const headerInput = document.createElement("input");
-    headerInput.type        = "text";
-    headerInput.className   = "params-input params-name";
+    headerInput.type = "text";
+    headerInput.className = "params-input params-name";
     headerInput.placeholder = "Header";
-    headerInput.value       = header.name;
-    headerInput.setAttribute("aria-label",    "Header name");
-    headerInput.setAttribute("autocomplete",  "off");
+    headerInput.value = header.name;
+    headerInput.setAttribute("aria-label", "Header name");
+    headerInput.setAttribute("autocomplete", "off");
     headerInput.addEventListener("focus", () => {
       if (this.#headerSuggestionsEnabled)
         _showHdrDropdown(headerInput, (name) => _onNameConfirmed?.(name));
@@ -3192,13 +3551,26 @@ export class RequestEditor {
       _hdrAcBlurTimer = setTimeout(_hideHdrDropdown, 150);
     });
     headerInput.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowDown")  { e.preventDefault(); _hdrDropdownNavigate(+1); return; }
-      if (e.key === "ArrowUp")    { e.preventDefault(); _hdrDropdownNavigate(-1); return; }
-      if (e.key === "Escape")     { _hideHdrDropdown(); return; }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        _hdrDropdownNavigate(+1);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        _hdrDropdownNavigate(-1);
+        return;
+      }
+      if (e.key === "Escape") {
+        _hideHdrDropdown();
+        return;
+      }
       if (e.key === " " && e.ctrlKey) {
         // Ctrl+Space: open the name-suggestions dropdown even when listHeaders is off.
         e.preventDefault();
-        _showHdrDropdown(headerInput, (name) => _onNameConfirmed?.(name, { force: true }));
+        _showHdrDropdown(headerInput, (name) =>
+          _onNameConfirmed?.(name, { force: true }),
+        );
         return;
       }
       if (e.key === "Enter") {
@@ -3210,10 +3582,10 @@ export class RequestEditor {
     // ── Value input ─────────────────────────────────────────────────────
     const valueEditor = new VariablePillEditor({
       placeholder: "Value",
-      ariaLabel:   "Header value",
-      className:   "params-value",
-      getContext:  () => this.#variableContext,
-      getItems:    () => this.#getItems(),
+      ariaLabel: "Header value",
+      className: "params-value",
+      getContext: () => this.#variableContext,
+      getItems: () => this.#getItems(),
       onInput: (v) => {
         header.value = v;
         this.#dispatchHeadersUpdated();
@@ -3233,9 +3605,11 @@ export class RequestEditor {
     // comma if one is already present (allows multi-value headers).
     _onValueSelected = (picked) => {
       const current = valueEditor.getValue().trimEnd();
-      const newVal  = current.endsWith(",")
+      const newVal = current.endsWith(",")
         ? `${current} ${picked}`
-        : current === "" ? picked : `${current}, ${picked}`;
+        : current === ""
+          ? picked
+          : `${current}, ${picked}`;
       valueEditor.setValue(newVal);
       header.value = newVal;
       this.#dispatchHeadersUpdated();
@@ -3250,7 +3624,10 @@ export class RequestEditor {
     _onNameConfirmed = (name, { force = false } = {}) => {
       if (!this.#headerSuggestionsEnabled && !force) return;
       const values = STANDARD_HEADERS_DICT[name] ?? [];
-      if (values.length === 0) { _hideHdrValDropdown(); return; }
+      if (values.length === 0) {
+        _hideHdrValDropdown();
+        return;
+      }
       _showHdrValDropdown(valueEditor.element, values, _onValueSelected);
     };
 
@@ -3262,24 +3639,40 @@ export class RequestEditor {
 
     // Keyboard navigation for the value dropdown (capture phase so we intercept
     // before VariablePillEditor's own bubble-phase keydown handler).
-    valueEditor.element.addEventListener("keydown", (e) => {
-      // Ctrl+Space: open value suggestions regardless of the listHeaders setting.
-      if (e.key === " " && e.ctrlKey) {
-        e.preventDefault();
-        _onNameConfirmed?.(headerInput.value, { force: true });
-        return;
-      }
-      if (!_hdrValDropdownVisible()) return;
-      if (e.key === "ArrowDown") { e.preventDefault(); _hdrValDropdownNavigate(+1); return; }
-      if (e.key === "ArrowUp")   { e.preventDefault(); _hdrValDropdownNavigate(-1); return; }
-      if (e.key === "Escape")    { e.preventDefault(); _hideHdrValDropdown(); return; }
-      if (e.key === "Enter" && _hdrValActiveIdx >= 0) {
-        // Prevent VariablePillEditor's Enter handler from adding a new header row.
-        e.preventDefault();
-        e.stopPropagation();
-        _hdrValDropdownAccept();
-      }
-    }, true /* capture — fires before VariablePillEditor's bubble-phase listener */);
+    valueEditor.element.addEventListener(
+      "keydown",
+      (e) => {
+        // Ctrl+Space: open value suggestions regardless of the listHeaders setting.
+        if (e.key === " " && e.ctrlKey) {
+          e.preventDefault();
+          _onNameConfirmed?.(headerInput.value, { force: true });
+          return;
+        }
+        if (!_hdrValDropdownVisible()) return;
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          _hdrValDropdownNavigate(+1);
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          _hdrValDropdownNavigate(-1);
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          _hideHdrValDropdown();
+          return;
+        }
+        if (e.key === "Enter" && _hdrValActiveIdx >= 0) {
+          // Prevent VariablePillEditor's Enter handler from adding a new header row.
+          e.preventDefault();
+          e.stopPropagation();
+          _hdrValDropdownAccept();
+        }
+      },
+      true /* capture — fires before VariablePillEditor's bubble-phase listener */,
+    );
 
     // ── Delete button ────────────────────────────────────────────────────
     const deleteBtn = document.createElement("button");
@@ -3294,7 +3687,7 @@ export class RequestEditor {
 
     // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
     row.addEventListener("dragstart", (e) => {
-      this.#hdrDragSrcId       = header.id;
+      this.#hdrDragSrcId = header.id;
       this.#hdrDragDropHandled = false;
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", header.id);
@@ -3311,7 +3704,9 @@ export class RequestEditor {
         if (!inside && this.#hdrDragInsideList) {
           this.#hdrDragInsideList = false;
           this.#headerPhantomEl.remove();
-          const draggedRow = this.#headersListEl.querySelector(`[data-id="${this.#hdrDragSrcId}"]`);
+          const draggedRow = this.#headersListEl.querySelector(
+            `[data-id="${this.#hdrDragSrcId}"]`,
+          );
           if (draggedRow) draggedRow.style.display = "";
         } else if (inside && !this.#hdrDragInsideList) {
           this.#hdrDragInsideList = true;
@@ -3325,12 +3720,15 @@ export class RequestEditor {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
 
-      const rect  = row.getBoundingClientRect();
+      const rect = row.getBoundingClientRect();
       const after = (e.clientY - rect.top) / rect.height >= 0.5;
-      const ph    = this.#headerPhantomEl;
+      const ph = this.#headerPhantomEl;
 
-      const draggedRow = this.#headersListEl.querySelector(`[data-id="${this.#hdrDragSrcId}"]`);
-      if (draggedRow && draggedRow.style.display !== "none") draggedRow.style.display = "none";
+      const draggedRow = this.#headersListEl.querySelector(
+        `[data-id="${this.#hdrDragSrcId}"]`,
+      );
+      if (draggedRow && draggedRow.style.display !== "none")
+        draggedRow.style.display = "none";
 
       const sibling = after ? row.nextSibling : row;
       if (ph.nextSibling !== sibling && ph !== sibling) {
@@ -3349,35 +3747,36 @@ export class RequestEditor {
     row.appendChild(valueEditor.element);
     row.appendChild(deleteBtn);
     return row;
-    }
+  }
 
-    /** Cancel a header drag: remove phantom and re-render. */
-    #cancelHeaderDrag() {
+  /** Cancel a header drag: remove phantom and re-render. */
+  #cancelHeaderDrag() {
     this.#headerPhantomEl.remove();
     this.#renderHeadersList();
-    }
+  }
 
-    /** Clean up all header drag state and remove the document-level listener. */
-    #finalizeHeaderDrag() {
+  /** Clean up all header drag state and remove the document-level listener. */
+  #finalizeHeaderDrag() {
     if (this.#hdrDocDragOverHandler) {
       document.removeEventListener("dragover", this.#hdrDocDragOverHandler);
       this.#hdrDocDragOverHandler = null;
     }
-    this.#hdrDragSrcId       = null;
-    this.#hdrDragInsideList  = false;
+    this.#hdrDragSrcId = null;
+    this.#hdrDragInsideList = false;
     this.#hdrDragDropHandled = false;
-    }
+  }
 
   #addParam() {
     this.#params.push({
-      id:      crypto.randomUUID(),
-      name:    "",
-      value:   "",
+      id: crypto.randomUUID(),
+      name: "",
+      value: "",
       enabled: true,
     });
     this.#renderParamsList();
     const rows = this.#paramsListEl?.querySelectorAll(".params-row") ?? [];
-    if (rows.length) rows[rows.length - 1].querySelector(".params-name")?.focus();
+    if (rows.length)
+      rows[rows.length - 1].querySelector(".params-name")?.focus();
     this.#dispatchParamsUpdated();
   }
 
@@ -3404,7 +3803,8 @@ export class RequestEditor {
 
     // In bulk mode just keep the textarea in sync and update the URL preview
     if (this.#paramsBulkMode) {
-      if (this.#paramsBulkEl) this.#paramsBulkEl.value = this.#kvRowsToText(this.#params);
+      if (this.#paramsBulkEl)
+        this.#paramsBulkEl.value = this.#kvRowsToText(this.#params);
       this.#updateUrlPreview();
       return;
     }
@@ -3437,32 +3837,34 @@ export class RequestEditor {
     bar.className = "params-url-preview";
 
     const input = document.createElement("input");
-    input.type        = "text";
-    input.readOnly    = true;
-    input.className   = "params-url-preview__input";
+    input.type = "text";
+    input.readOnly = true;
+    input.className = "params-url-preview__input";
     input.placeholder = "Enter a URL above to preview it here";
     input.setAttribute("aria-label", "Request URL with query parameters");
-    input.tabIndex    = -1;
+    input.tabIndex = -1;
 
     const copyBtn = document.createElement("button");
-    copyBtn.type      = "button";
+    copyBtn.type = "button";
     copyBtn.className = "params-url-preview__copy-btn";
     copyBtn.textContent = "Copy";
-    copyBtn.title     = "Copy URL to clipboard";
+    copyBtn.title = "Copy URL to clipboard";
     copyBtn.setAttribute("aria-label", "Copy URL to clipboard");
     copyBtn.addEventListener("click", () => {
       const text = input.value;
       if (!text) return;
       navigator.clipboard.writeText(text).then(() => {
         copyBtn.textContent = "Copied!";
-        setTimeout(() => { copyBtn.textContent = "Copy"; }, 1500);
+        setTimeout(() => {
+          copyBtn.textContent = "Copy";
+        }, 1500);
       });
     });
 
     bar.appendChild(input);
     bar.appendChild(copyBtn);
 
-    this.#urlPreviewEl      = bar;
+    this.#urlPreviewEl = bar;
     this.#urlPreviewInputEl = input;
     this.#updateUrlPreview();
     return bar;
@@ -3476,23 +3878,23 @@ export class RequestEditor {
     // resolved value so special chars (spaces, commas, …) don't corrupt the URL,
     // while leaving the literal URL structure (://, /, ?, =, &) untouched.
     const urlParts = await Promise.all(
-      tokenize(this.#url ?? "").map(async tok => {
+      tokenize(this.#url ?? "").map(async (tok) => {
         if (tok.type === "text") return tok.content;
-        const raw      = `{{${tok.content}}}`;
+        const raw = `{{${tok.content}}}`;
         const resolved = await resolveStringAsync(raw, ctx);
         return resolved === raw ? raw : encodeURIComponent(resolved);
-      })
+      }),
     );
     const base = urlParts.join("");
 
-    const enabled = this.#params.filter(p => p.enabled && p.name.trim());
+    const enabled = this.#params.filter((p) => p.enabled && p.name.trim());
     if (!enabled.length) return base;
     const pairs = await Promise.all(
-      enabled.map(async p => {
-        const name  = await resolveStringAsync(p.name,  ctx);
+      enabled.map(async (p) => {
+        const name = await resolveStringAsync(p.name, ctx);
         const value = await resolveStringAsync(p.value, ctx);
         return `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
-      })
+      }),
     );
     const qs = pairs.join("&");
     return base + (base.includes("?") ? "&" : "?") + qs;
@@ -3502,7 +3904,10 @@ export class RequestEditor {
   async #updateUrlPreview() {
     if (!this.#urlPreviewEl) return;
     const seq = ++this.#urlPreviewSeq;
-    this.#urlPreviewEl.classList.toggle("params-url-preview--hidden", !this.#urlPreviewEnabled);
+    this.#urlPreviewEl.classList.toggle(
+      "params-url-preview--hidden",
+      !this.#urlPreviewEnabled,
+    );
     if (this.#urlPreviewInputEl) {
       const url = await this.#buildPreviewUrl();
       if (seq === this.#urlPreviewSeq) this.#urlPreviewInputEl.value = url;
@@ -3512,7 +3917,7 @@ export class RequestEditor {
   #buildParamRow(param, index) {
     const row = document.createElement("div");
     row.className = "params-row";
-    row.dataset.id    = param.id;
+    row.dataset.id = param.id;
     row.dataset.index = String(index);
     row.draggable = true;
     if (!param.enabled) row.classList.add("params-row--disabled");
@@ -3536,7 +3941,7 @@ export class RequestEditor {
     checkbox.title = param.enabled ? "Disable parameter" : "Enable parameter";
     checkbox.setAttribute("aria-label", "Enable parameter");
     checkbox.addEventListener("change", () => {
-      param.enabled  = checkbox.checked;
+      param.enabled = checkbox.checked;
       checkbox.title = param.enabled ? "Disable parameter" : "Enable parameter";
       row.classList.toggle("params-row--disabled", !param.enabled);
       this.#updateUrlPreview();
@@ -3544,14 +3949,14 @@ export class RequestEditor {
     });
 
     // ── Name pill editor ─────────────────────────────────────────────────
-    const getCtx  = () => this.#variableContext;
+    const getCtx = () => this.#variableContext;
     const getItms = () => this.#getItems();
     const nameEditor = new VariablePillEditor({
       placeholder: "Name",
-      ariaLabel:   "Parameter name",
-      className:   "params-name",
-      getContext:  getCtx,
-      getItems:    getItms,
+      ariaLabel: "Parameter name",
+      className: "params-name",
+      getContext: getCtx,
+      getItems: getItms,
       onInput: (v) => {
         param.name = v;
         this.#updateUrlPreview();
@@ -3565,10 +3970,10 @@ export class RequestEditor {
     // ── Value pill editor ─────────────────────────────────────────────────
     const valueEditor = new VariablePillEditor({
       placeholder: "Value",
-      ariaLabel:   "Parameter value",
-      className:   "params-value",
-      getContext:  getCtx,
-      getItems:    getItms,
+      ariaLabel: "Parameter value",
+      className: "params-value",
+      getContext: getCtx,
+      getItems: getItms,
       onInput: (v) => {
         param.value = v;
         this.#updateUrlPreview();
@@ -3593,7 +3998,7 @@ export class RequestEditor {
     // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
 
     row.addEventListener("dragstart", (e) => {
-      this.#dragSrcId      = param.id;
+      this.#dragSrcId = param.id;
       this.#dragDropHandled = false;
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", param.id);
@@ -3610,7 +4015,9 @@ export class RequestEditor {
         if (!inside && this.#dragInsideList) {
           this.#dragInsideList = false;
           this.#paramPhantomEl.remove();
-          const draggedRow = this.#paramsListEl.querySelector(`[data-id="${this.#dragSrcId}"]`);
+          const draggedRow = this.#paramsListEl.querySelector(
+            `[data-id="${this.#dragSrcId}"]`,
+          );
           if (draggedRow) draggedRow.style.display = "";
         } else if (inside && !this.#dragInsideList) {
           this.#dragInsideList = true;
@@ -3624,12 +4031,15 @@ export class RequestEditor {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
 
-      const rect  = row.getBoundingClientRect();
+      const rect = row.getBoundingClientRect();
       const after = (e.clientY - rect.top) / rect.height >= 0.5;
-      const ph    = this.#paramPhantomEl;
+      const ph = this.#paramPhantomEl;
 
-      const draggedRow = this.#paramsListEl.querySelector(`[data-id="${this.#dragSrcId}"]`);
-      if (draggedRow && draggedRow.style.display !== "none") draggedRow.style.display = "none";
+      const draggedRow = this.#paramsListEl.querySelector(
+        `[data-id="${this.#dragSrcId}"]`,
+      );
+      if (draggedRow && draggedRow.style.display !== "none")
+        draggedRow.style.display = "none";
 
       const sibling = after ? row.nextSibling : row;
       if (ph.nextSibling !== sibling && ph !== sibling) {
@@ -3662,8 +4072,8 @@ export class RequestEditor {
       document.removeEventListener("dragover", this.#docDragOverHandler);
       this.#docDragOverHandler = null;
     }
-    this.#dragSrcId       = null;
-    this.#dragInsideList  = false;
+    this.#dragSrcId = null;
+    this.#dragInsideList = false;
     this.#dragDropHandled = false;
   }
 
@@ -3693,23 +4103,32 @@ export class RequestEditor {
         btn.textContent = "Delete All";
         btn.classList.remove("params-toolbar-btn--confirming");
         btn.classList.add("params-toolbar-btn--danger");
-        document.removeEventListener("keydown",   onEsc,     true);
+        document.removeEventListener("keydown", onEsc, true);
         document.removeEventListener("mousedown", onOutside, true);
         cleanupConfirm = null;
       };
 
-      const onEsc     = (e) => { if (e.key === "Escape") { e.stopPropagation(); restore(); } };
-      const onOutside = (e) => { if (!btn.contains(e.target)) restore(); };
+      const onEsc = (e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          restore();
+        }
+      };
+      const onOutside = (e) => {
+        if (!btn.contains(e.target)) restore();
+      };
 
-      document.addEventListener("keydown",   onEsc,     true);
+      document.addEventListener("keydown", onEsc, true);
       document.addEventListener("mousedown", onOutside, true);
       cleanupConfirm = restore;
     };
 
     btn.addEventListener("click", () => {
       if (!getCount()) return;
-      if (cleanupConfirm) { cleanupConfirm(); onDelete(); }
-      else enterConfirm();
+      if (cleanupConfirm) {
+        cleanupConfirm();
+        onDelete();
+      } else enterConfirm();
     });
 
     return () => cleanupConfirm?.();
@@ -3724,9 +4143,9 @@ export class RequestEditor {
    * @param {HTMLElement|null} delAllBtnEl
    */
   #applyBulkMode(bulk, textareaEl, kvWrapEl, addBtnEl, delAllBtnEl) {
-    if (textareaEl)  textareaEl.style.display  = bulk ? ""     : "none";
-    if (kvWrapEl)    kvWrapEl.style.display    = bulk ? "none" : "";
-    if (addBtnEl)    addBtnEl.style.display    = bulk ? "none" : "";
+    if (textareaEl) textareaEl.style.display = bulk ? "" : "none";
+    if (kvWrapEl) kvWrapEl.style.display = bulk ? "none" : "";
+    if (addBtnEl) addBtnEl.style.display = bulk ? "none" : "";
     if (delAllBtnEl) delAllBtnEl.style.display = bulk ? "none" : "";
   }
 
@@ -3738,7 +4157,9 @@ export class RequestEditor {
    * round-trip through the bulk editor.
    */
   #kvRowsToText(rows) {
-    return rows.map(r => `${r.enabled ? "" : "# "}${r.name}=${r.value}`).join("\n");
+    return rows
+      .map((r) => `${r.enabled ? "" : "# "}${r.name}=${r.value}`)
+      .join("\n");
   }
 
   /**
@@ -3746,7 +4167,9 @@ export class RequestEditor {
    * Disabled rows are prefixed with "# ".
    */
   #headerRowsToText(rows) {
-    return rows.map(r => `${r.enabled ? "" : "# "}${r.name}: ${r.value}`).join("\n");
+    return rows
+      .map((r) => `${r.enabled ? "" : "# "}${r.name}: ${r.value}`)
+      .join("\n");
   }
 
   /**
@@ -3763,9 +4186,10 @@ export class RequestEditor {
       if (disabled) trimmed = trimmed.slice(2).trim();
       if (!trimmed) continue;
       const eqIdx = trimmed.indexOf("=");
-      const name  = eqIdx === -1 ? trimmed           : trimmed.slice(0, eqIdx).trim();
-      const value = eqIdx === -1 ? ""                : trimmed.slice(eqIdx + 1);
-      if (name) out.push({ id: crypto.randomUUID(), name, value, enabled: !disabled });
+      const name = eqIdx === -1 ? trimmed : trimmed.slice(0, eqIdx).trim();
+      const value = eqIdx === -1 ? "" : trimmed.slice(eqIdx + 1);
+      if (name)
+        out.push({ id: crypto.randomUUID(), name, value, enabled: !disabled });
     }
     return out;
   }
@@ -3785,19 +4209,20 @@ export class RequestEditor {
       if (!trimmed) continue;
       // Prefer colon separator for headers, fall back to equals
       const colonIdx = trimmed.indexOf(":");
-      const eqIdx    = trimmed.indexOf("=");
+      const eqIdx = trimmed.indexOf("=");
       let name, value;
       if (colonIdx !== -1 && (eqIdx === -1 || colonIdx < eqIdx)) {
-        name  = trimmed.slice(0, colonIdx).trim();
+        name = trimmed.slice(0, colonIdx).trim();
         value = trimmed.slice(colonIdx + 1).trim();
       } else if (eqIdx !== -1) {
-        name  = trimmed.slice(0, eqIdx).trim();
+        name = trimmed.slice(0, eqIdx).trim();
         value = trimmed.slice(eqIdx + 1);
       } else {
-        name  = trimmed;
+        name = trimmed;
         value = "";
       }
-      if (name) out.push({ id: crypto.randomUUID(), name, value, enabled: !disabled });
+      if (name)
+        out.push({ id: crypto.randomUUID(), name, value, enabled: !disabled });
     }
     return out;
   }
@@ -3823,10 +4248,14 @@ export class RequestEditor {
 
   #applyParamsBulkMode() {
     const bulk = this.#paramsBulkMode;
-    if (this.#paramsBulkEl)    this.#paramsBulkEl.style.display    = bulk ? "" : "none";
-    if (this.#paramsKvWrapEl)  this.#paramsKvWrapEl.style.display  = bulk ? "none" : "";
-    if (this.#paramsAddBtnEl)    this.#paramsAddBtnEl.style.display    = bulk ? "none" : "";
-    if (this.#paramsDelAllBtnEl) this.#paramsDelAllBtnEl.style.display = bulk ? "none" : "";
+    if (this.#paramsBulkEl)
+      this.#paramsBulkEl.style.display = bulk ? "" : "none";
+    if (this.#paramsKvWrapEl)
+      this.#paramsKvWrapEl.style.display = bulk ? "none" : "";
+    if (this.#paramsAddBtnEl)
+      this.#paramsAddBtnEl.style.display = bulk ? "none" : "";
+    if (this.#paramsDelAllBtnEl)
+      this.#paramsDelAllBtnEl.style.display = bulk ? "none" : "";
   }
 
   // ── Headers bulk editor ───────────────────────────────────────────────────
@@ -3847,13 +4276,19 @@ export class RequestEditor {
 
   #applyHeadersBulkMode() {
     const bulk = this.#headersBulkMode;
-    if (this.#headersBulkEl)    this.#headersBulkEl.style.display    = bulk ? "" : "none";
-    if (this.#headersKvWrapEl)  this.#headersKvWrapEl.style.display  = bulk ? "none" : "";
-    if (this.#headersAddBtnEl)    this.#headersAddBtnEl.style.display    = bulk ? "none" : "";
-    if (this.#headersDelAllBtnEl) this.#headersDelAllBtnEl.style.display = bulk ? "none" : "";
+    if (this.#headersBulkEl)
+      this.#headersBulkEl.style.display = bulk ? "" : "none";
+    if (this.#headersKvWrapEl)
+      this.#headersKvWrapEl.style.display = bulk ? "none" : "";
+    if (this.#headersAddBtnEl)
+      this.#headersAddBtnEl.style.display = bulk ? "none" : "";
+    if (this.#headersDelAllBtnEl)
+      this.#headersDelAllBtnEl.style.display = bulk ? "none" : "";
     // Hide the "List Headers" toggle (and its spacer) in bulk mode
-    if (this.#listHdrSpacerEl) this.#listHdrSpacerEl.style.display = bulk ? "none" : "";
-    if (this.#listHdrLabelEl)  this.#listHdrLabelEl.style.display  = bulk ? "none" : "";
+    if (this.#listHdrSpacerEl)
+      this.#listHdrSpacerEl.style.display = bulk ? "none" : "";
+    if (this.#listHdrLabelEl)
+      this.#listHdrLabelEl.style.display = bulk ? "none" : "";
     // Hide the autocomplete dropdown when entering bulk mode
     if (bulk) _hideHdrDropdown();
   }
@@ -3885,7 +4320,9 @@ export class RequestEditor {
           this.#bfListEl.appendChild(empty);
         } else {
           this.#bodyFormRows.forEach((row) =>
-            this.#bfListEl.appendChild(this.#buildBfRow(row, this.#bodyFormRows))
+            this.#bfListEl.appendChild(
+              this.#buildBfRow(row, this.#bodyFormRows),
+            ),
           );
         }
       }
@@ -3894,9 +4331,13 @@ export class RequestEditor {
   }
 
   #applyBodyFormBulkMode() {
-    this.#applyBulkMode(this.#bodyFormBulkMode,
-      this.#bodyFormBulkEl, this.#bodyFormKvWrapEl,
-      this.#bodyFormAddBtnEl, this.#bodyFormDelAllBtnEl);
+    this.#applyBulkMode(
+      this.#bodyFormBulkMode,
+      this.#bodyFormBulkEl,
+      this.#bodyFormKvWrapEl,
+      this.#bodyFormAddBtnEl,
+      this.#bodyFormDelAllBtnEl,
+    );
   }
 
   // ── Tab switching ─────────────────────────────────────────────────────────
@@ -3912,35 +4353,54 @@ export class RequestEditor {
     });
   }
 
-    // ── Event dispatch ────────────────────────────────────────────────────────
-    #dispatchRequestUpdated() {
+  // ── Event dispatch ────────────────────────────────────────────────────────
+  #dispatchRequestUpdated() {
     if (!this.#currentNodeId) return;
-    window.dispatchEvent(new CustomEvent("wurl:request-updated", {
-      detail: { id: this.#currentNodeId, method: this.#method, url: this.#url },
-      bubbles: true,
-    }));
-    }
+    window.dispatchEvent(
+      new CustomEvent("wurl:request-updated", {
+        detail: {
+          id: this.#currentNodeId,
+          method: this.#method,
+          url: this.#url,
+        },
+        bubbles: true,
+      }),
+    );
+  }
 
-    #dispatchParamsUpdated() {
+  #dispatchParamsUpdated() {
     if (!this.#currentNodeId) return;
-    window.dispatchEvent(new CustomEvent("wurl:request-updated", {
-      detail: { id: this.#currentNodeId, params: this.#params.map((p) => ({ ...p })) },
-      bubbles: true,
-    }));
-    }
+    window.dispatchEvent(
+      new CustomEvent("wurl:request-updated", {
+        detail: {
+          id: this.#currentNodeId,
+          params: this.#params.map((p) => ({ ...p })),
+        },
+        bubbles: true,
+      }),
+    );
+  }
 
-    #dispatchHeadersUpdated() {
+  #dispatchHeadersUpdated() {
     if (!this.#currentNodeId) return;
-    window.dispatchEvent(new CustomEvent("wurl:request-updated", {
-      detail: { id: this.#currentNodeId, headers: this.#headers.map((h) => ({ ...h })) },
-      bubbles: true,
-    }));
-    }
+    window.dispatchEvent(
+      new CustomEvent("wurl:request-updated", {
+        detail: {
+          id: this.#currentNodeId,
+          headers: this.#headers.map((h) => ({ ...h })),
+        },
+        bubbles: true,
+      }),
+    );
+  }
 
   // ── Send ─────────────────────────────────────────────────────────────────
   async #sendRequest(force = false) {
     const rawUrl = this.#urlPillEditor.getValue().trim();
-    if (!rawUrl) { this.#urlPillEditor.focus(); return; }
+    if (!rawUrl) {
+      this.#urlPillEditor.focus();
+      return;
+    }
 
     // ── 0. Safety flush — if a bulk textarea is active, parse its current
     //       content now so in-progress edits (e.g. uncommitted IME) are
@@ -3957,7 +4417,7 @@ export class RequestEditor {
     // the actual HTTP request (and cURL output) use concrete values, not
     // template placeholders.
     const ctx = this.#variableContext;
-    const rv  = (s) => resolveStringAsync(s, ctx);
+    const rv = (s) => resolveStringAsync(s, ctx);
 
     // ── Variable pre-flight check ─────────────────────────────────────────
     // Before sending, collect every {{varName}} token from all request fields
@@ -3966,35 +4426,43 @@ export class RequestEditor {
     // popup that lists all variables (resolved in success colour, unresolved
     // as "?" in error colour) with Cancel / Send Anyway options.
     if (!force) {
-      const allVars  = collectTemplateVariables(this.#gatherRequestTemplates(), ctx);
-      const badCount = allVars.filter(v => !v.found).length;
+      const allVars = collectTemplateVariables(
+        this.#gatherRequestTemplates(),
+        ctx,
+      );
+      const badCount = allVars.filter((v) => !v.found).length;
       if (badCount > 0) {
         PopupManager.warnVariables({
-          variables:   allVars,
+          variables: allVars,
           actionLabel: "Send Anyway",
-          onAction:    () => this.#sendRequest(true),
+          onAction: () => this.#sendRequest(true),
         });
         return;
       }
     }
 
-
     const baseUrl = await rv(rawUrl);
 
     // ── 1. URL — append enabled, non-blank query parameters ──────────────
-    const enabledParams = this.#params.filter(p => p.enabled && p.name.trim());
+    const enabledParams = this.#params.filter(
+      (p) => p.enabled && p.name.trim(),
+    );
     let finalUrl = baseUrl;
     if (enabledParams.length) {
-      const qs = (await Promise.all(
-        enabledParams.map(async p =>
-          `${encodeURIComponent(await rv(p.name))}=${encodeURIComponent(await rv(p.value))}`)
-      )).join("&");
+      const qs = (
+        await Promise.all(
+          enabledParams.map(
+            async (p) =>
+              `${encodeURIComponent(await rv(p.name))}=${encodeURIComponent(await rv(p.value))}`,
+          ),
+        )
+      ).join("&");
       finalUrl += (baseUrl.includes("?") ? "&" : "?") + qs;
     }
 
     // ── 2. Headers — start with all enabled, non-blank request headers ────
     const headers = {};
-    for (const h of this.#headers.filter(h => h.enabled && h.name.trim())) {
+    for (const h of this.#headers.filter((h) => h.enabled && h.name.trim())) {
       headers[(await rv(h.name)).trim()] = await rv(h.value);
     }
 
@@ -4006,13 +4474,15 @@ export class RequestEditor {
           const username = await rv(this.#authBasic.username ?? "");
           const password = await rv(this.#authBasic.password ?? "");
           if (username || password) {
-            headers["Authorization"] = `Basic ${btoa(`${username}:${password}`)}`;
+            headers["Authorization"] =
+              `Basic ${btoa(`${username}:${password}`)}`;
           }
           break;
         }
         case "bearer":
           if (this.#authBearer.token)
-            headers["Authorization"] = `Bearer ${await rv(this.#authBearer.token)}`;
+            headers["Authorization"] =
+              `Bearer ${await rv(this.#authBearer.token)}`;
           break;
         case "oauth2": {
           // ── User-supplied Authorization header wins ──────────────────────
@@ -4031,18 +4501,27 @@ export class RequestEditor {
           // ── Acquire token (cache → refresh → full flow) ──────────────────
           let _oauthResult;
           try {
-            _oauthResult = await oauthExecutor.acquireToken({ ...this.#authOAuth2 });
+            _oauthResult = await oauthExecutor.acquireToken({
+              ...this.#authOAuth2,
+            });
           } catch (err) {
-            window.dispatchEvent(new CustomEvent("wurl:request-error", {
-              detail: {
-                request:    { method: this.#method, url: finalUrl, headers: {}, body: null },
-                name:       "OAuthError",
-                message:    err?.message ?? String(err),
-                hint:       "OAuth token acquisition failed before the request could be sent.",
-                elapsed:    0,
-                consoleLog: [`* OAuth error: ${err?.message ?? err}`],
-              },
-            }));
+            window.dispatchEvent(
+              new CustomEvent("wurl:request-error", {
+                detail: {
+                  request: {
+                    method: this.#method,
+                    url: finalUrl,
+                    headers: {},
+                    body: null,
+                  },
+                  name: "OAuthError",
+                  message: err?.message ?? String(err),
+                  hint: "OAuth token acquisition failed before the request could be sent.",
+                  elapsed: 0,
+                  consoleLog: [`* OAuth error: ${err?.message ?? err}`],
+                },
+              }),
+            );
             return;
           }
 
@@ -4052,17 +4531,24 @@ export class RequestEditor {
           // ── Handle flow failure ──────────────────────────────────────────
           if (!_oauthResult.success || !_oauthResult.accessToken) {
             const _errCode = _oauthResult.error?.code ?? "OAuthError";
-            const _errMsg  = _oauthResult.error?.description ?? _errCode;
-            window.dispatchEvent(new CustomEvent("wurl:request-error", {
-              detail: {
-                request:    { method: this.#method, url: finalUrl, headers: {}, body: null },
-                name:       _errCode,
-                message:    _errMsg,
-                hint:       "OAuth token acquisition failed. Check your OAuth configuration in the Auth tab.",
-                elapsed:    0,
-                consoleLog: [`* OAuth ${_errCode}: ${_errMsg}`],
-              },
-            }));
+            const _errMsg = _oauthResult.error?.description ?? _errCode;
+            window.dispatchEvent(
+              new CustomEvent("wurl:request-error", {
+                detail: {
+                  request: {
+                    method: this.#method,
+                    url: finalUrl,
+                    headers: {},
+                    body: null,
+                  },
+                  name: _errCode,
+                  message: _errMsg,
+                  hint: "OAuth token acquisition failed. Check your OAuth configuration in the Auth tab.",
+                  elapsed: 0,
+                  consoleLog: [`* OAuth ${_errCode}: ${_errMsg}`],
+                },
+              }),
+            );
             return;
           }
 
@@ -4070,25 +4556,32 @@ export class RequestEditor {
           // Read the prefix from the live DOM input (name="wurl-auth-header-prefix")
           // first — this covers any value typed but not yet committed to state —
           // then fall back to the in-memory state, then to the "Bearer" default.
-          const _prefixEl = this.#el.querySelector('[name="wurl-auth-header-prefix"]');
-          const _prefix   = (_prefixEl?.value?.trim() || this.#authOAuth2.headerPrefix?.trim()) || "Bearer";
+          const _prefixEl = this.#el.querySelector(
+            '[name="wurl-auth-header-prefix"]',
+          );
+          const _prefix =
+            _prefixEl?.value?.trim() ||
+            this.#authOAuth2.headerPrefix?.trim() ||
+            "Bearer";
           headers["Authorization"] = `${_prefix} ${_oauthResult.accessToken}`;
 
           // Keep local auth state in sync (token display + expiry badge).
-          this.#authOAuth2.token        = _oauthResult.accessToken;
-          this.#authOAuth2.refreshToken = _oauthResult.refreshToken ?? this.#authOAuth2.refreshToken ?? "";
-          this.#authOAuth2.expiresAt    = _oauthResult.expiresAt    ?? this.#authOAuth2.expiresAt;
+          this.#authOAuth2.token = _oauthResult.accessToken;
+          this.#authOAuth2.refreshToken =
+            _oauthResult.refreshToken ?? this.#authOAuth2.refreshToken ?? "";
+          this.#authOAuth2.expiresAt =
+            _oauthResult.expiresAt ?? this.#authOAuth2.expiresAt;
           this.#renderAuthContent();
           this.#dispatchAuthUpdated();
           break;
         }
         case "aws-iam": {
           awsIam = {
-            accessKeyId:     await rv(this.#authAwsIam.accessKeyId     ?? ""),
+            accessKeyId: await rv(this.#authAwsIam.accessKeyId ?? ""),
             secretAccessKey: await rv(this.#authAwsIam.secretAccessKey ?? ""),
-            region:          await rv(this.#authAwsIam.region          ?? ""),
-            service:         await rv(this.#authAwsIam.service         ?? ""),
-            sessionToken:    await rv(this.#authAwsIam.sessionToken    ?? ""),
+            region: await rv(this.#authAwsIam.region ?? ""),
+            service: await rv(this.#authAwsIam.service ?? ""),
+            sessionToken: await rv(this.#authAwsIam.sessionToken ?? ""),
           };
           break;
         }
@@ -4101,28 +4594,38 @@ export class RequestEditor {
     // be forwarded to the native layer (Electron IPC / Go dev server) which
     // cannot receive FormData, URLSearchParams, or File objects directly.
     const noBodyMethods = new Set(["GET", "HEAD"]);
-    let body         = null;   // string | null
-    let bodyFilePath = null;   // absolute path for the "file" body type (Electron only)
+    let body = null; // string | null
+    let bodyFilePath = null; // absolute path for the "file" body type (Electron only)
 
     if (!noBodyMethods.has(this.#method)) {
       switch (this.#bodyType) {
         case "form-data": {
           // Build a multipart/form-data body manually so we get a plain string.
           const boundary = `----WurlBoundary${Date.now()}`;
-          const enabled  = this.#bodyFormRows.filter(r => r.enabled && r.name.trim());
+          const enabled = this.#bodyFormRows.filter(
+            (r) => r.enabled && r.name.trim(),
+          );
           if (enabled.length > 0) {
-            const parts = (await Promise.all(enabled.map(async r =>
-              `--${boundary}\r\nContent-Disposition: form-data; name="${await rv(r.name)}"\r\n\r\n${await rv(r.value)}`)
-            )).join("\r\n");
+            const parts = (
+              await Promise.all(
+                enabled.map(
+                  async (r) =>
+                    `--${boundary}\r\nContent-Disposition: form-data; name="${await rv(r.name)}"\r\n\r\n${await rv(r.value)}`,
+                ),
+              )
+            ).join("\r\n");
             body = `${parts}\r\n--${boundary}--`;
             if (!headers["Content-Type"])
-              headers["Content-Type"] = `multipart/form-data; boundary=${boundary}`;
+              headers["Content-Type"] =
+                `multipart/form-data; boundary=${boundary}`;
           }
           break;
         }
         case "form-urlencoded": {
           const sp = new URLSearchParams();
-          for (const r of this.#bodyFormRows.filter(r => r.enabled && r.name.trim())) {
+          for (const r of this.#bodyFormRows.filter(
+            (r) => r.enabled && r.name.trim(),
+          )) {
             sp.append(await rv(r.name), await rv(r.value));
           }
           body = sp.toString();
@@ -4173,10 +4676,19 @@ export class RequestEditor {
       }
     }
 
-    window.dispatchEvent(new CustomEvent("wurl:send-request", {
-      detail: { method: this.#method, url: finalUrl, headers, body, bodyFilePath, awsIam },
-      bubbles: true,
-    }));
+    window.dispatchEvent(
+      new CustomEvent("wurl:send-request", {
+        detail: {
+          method: this.#method,
+          url: finalUrl,
+          headers,
+          body,
+          bodyFilePath,
+          awsIam,
+        },
+        bubbles: true,
+      }),
+    );
   }
 
   /**
@@ -4187,30 +4699,41 @@ export class RequestEditor {
   #gatherRequestTemplates() {
     const t = [this.#urlPillEditor.getValue() ?? ""];
     for (const p of this.#params) {
-      if (p.enabled) { t.push(p.name ?? "", p.value ?? ""); }
+      if (p.enabled) {
+        t.push(p.name ?? "", p.value ?? "");
+      }
     }
     for (const h of this.#headers) {
-      if (h.enabled) { t.push(h.name ?? "", h.value ?? ""); }
+      if (h.enabled) {
+        t.push(h.name ?? "", h.value ?? "");
+      }
     }
     if (this.#authEnabled && this.#authType !== "none") {
       t.push(this.#authBasic?.username ?? "", this.#authBasic?.password ?? "");
-      t.push(this.#authBearer?.token   ?? "");
-      t.push(this.#authOAuth2?.token   ?? "");
+      t.push(this.#authBearer?.token ?? "");
+      t.push(this.#authOAuth2?.token ?? "");
     }
     // Only scan fields that will actually be sent — avoids false-positive
     // warnings for inactive body data retained while switching body types.
     const noBodyMethods = new Set(["GET", "HEAD"]);
     if (!noBodyMethods.has(this.#method)) {
       switch (this.#bodyType) {
-        case "json": case "yaml": case "xml": case "text":
+        case "json":
+        case "yaml":
+        case "xml":
+        case "text":
           t.push(this.#bodyText ?? "");
           break;
-        case "form-data": case "form-urlencoded":
+        case "form-data":
+        case "form-urlencoded":
           for (const r of this.#bodyFormRows) {
-            if (r.enabled) { t.push(r.name ?? "", r.value ?? ""); }
+            if (r.enabled) {
+              t.push(r.name ?? "", r.value ?? "");
+            }
           }
           break;
-        default: break; // "no-body" / "file" — nothing to scan
+        default:
+          break; // "no-body" / "file" — nothing to scan
       }
     }
     return t.filter(Boolean);
@@ -4290,7 +4813,7 @@ export class RequestEditor {
       this.#method = node.method;
       this._methodSel.value = node.method;
       this._methodSel.dataset.method = node.method.toLowerCase();
-      this._sendBtn.dataset.method   = node.method.toLowerCase();
+      this._sendBtn.dataset.method = node.method.toLowerCase();
     }
 
     const url = node.url ?? "";
@@ -4300,9 +4823,9 @@ export class RequestEditor {
     // Params
     this.#params = Array.isArray(node.params)
       ? node.params.map((p) => ({
-          id:      p.id      ?? crypto.randomUUID(),
-          name:    p.name    ?? "",
-          value:   p.value   ?? "",
+          id: p.id ?? crypto.randomUUID(),
+          name: p.name ?? "",
+          value: p.value ?? "",
           enabled: p.enabled ?? true,
         }))
       : [];
@@ -4311,9 +4834,9 @@ export class RequestEditor {
     // Headers
     this.#headers = Array.isArray(node.headers)
       ? node.headers.map((h) => ({
-          id:      h.id      ?? crypto.randomUUID(),
-          name:    h.name    ?? "",
-          value:   h.value   ?? "",
+          id: h.id ?? crypto.randomUUID(),
+          name: h.name ?? "",
+          value: h.value ?? "",
           enabled: h.enabled ?? true,
         }))
       : [];
@@ -4323,11 +4846,26 @@ export class RequestEditor {
     this.#bodyType = node.bodyType ?? "no-body";
     // Form rows — new unified format first, then legacy per-type fallbacks
     if (Array.isArray(node.bodyFormRows)) {
-      this.#bodyFormRows = node.bodyFormRows.map(r => ({ id: r.id ?? crypto.randomUUID(), name: r.name ?? "", value: r.value ?? "", enabled: r.enabled ?? true }));
+      this.#bodyFormRows = node.bodyFormRows.map((r) => ({
+        id: r.id ?? crypto.randomUUID(),
+        name: r.name ?? "",
+        value: r.value ?? "",
+        enabled: r.enabled ?? true,
+      }));
     } else if (Array.isArray(node.bodyFormData)) {
-      this.#bodyFormRows = node.bodyFormData.map(r => ({ id: r.id ?? crypto.randomUUID(), name: r.name ?? "", value: r.value ?? "", enabled: r.enabled ?? true }));
+      this.#bodyFormRows = node.bodyFormData.map((r) => ({
+        id: r.id ?? crypto.randomUUID(),
+        name: r.name ?? "",
+        value: r.value ?? "",
+        enabled: r.enabled ?? true,
+      }));
     } else if (Array.isArray(node.bodyFormUrlEncoded)) {
-      this.#bodyFormRows = node.bodyFormUrlEncoded.map(r => ({ id: r.id ?? crypto.randomUUID(), name: r.name ?? "", value: r.value ?? "", enabled: r.enabled ?? true }));
+      this.#bodyFormRows = node.bodyFormUrlEncoded.map((r) => ({
+        id: r.id ?? crypto.randomUUID(),
+        name: r.name ?? "",
+        value: r.value ?? "",
+        enabled: r.enabled ?? true,
+      }));
     } else {
       this.#bodyFormRows = [];
     }
@@ -4337,11 +4875,12 @@ export class RequestEditor {
     } else if (node.bodyTexts) {
       // Legacy: prefer the text stored for the current body type, then the first non-empty entry
       const bt = node.bodyTexts;
-      this.#bodyText = bt[this.#bodyType] ?? bt.json ?? bt.yaml ?? bt.xml ?? bt.text ?? "";
+      this.#bodyText =
+        bt[this.#bodyType] ?? bt.json ?? bt.yaml ?? bt.xml ?? bt.text ?? "";
     } else {
       this.#bodyText = "";
     }
-    this.#bodyFilePath  = node.bodyFilePath ?? "";
+    this.#bodyFilePath = node.bodyFilePath ?? "";
     this.#bodyFileObject = null;
     // Sync the select element if the body tab has been built
     const sel = this.#el.querySelector(".body-type-select");
@@ -4349,10 +4888,10 @@ export class RequestEditor {
     this.#renderBodyContent();
 
     // Auth
-    this.#authType    = node.authType    ?? "none";
+    this.#authType = node.authType ?? "none";
     this.#authEnabled = node.authEnabled ?? true;
-    this.#authBasic  = { username: "", password: "",                                          ...(node.authBasic  ?? {}) };
-    this.#authBearer = { token: "",                                                            ...(node.authBearer ?? {}) };
+    this.#authBasic = { username: "", password: "", ...(node.authBasic ?? {}) };
+    this.#authBearer = { token: "", ...(node.authBearer ?? {}) };
     // Merge saved fields — default advanced fields to empty string / known defaults.
     // OIDC discovery fields are restored from the persisted node data so previously
     // discovered configurations survive a request reload.
@@ -4360,43 +4899,64 @@ export class RequestEditor {
     // excluded from the spread so previously-persisted tokens are never restored.
     {
       // eslint-disable-next-line no-unused-vars
-      const { token: _t, refreshToken: _rt, expiresAt: _ea, ...savedOAuth2 } = node.authOAuth2 ?? {};
+      const {
+        token: _t,
+        refreshToken: _rt,
+        expiresAt: _ea,
+        ...savedOAuth2
+      } = node.authOAuth2 ?? {};
       this.#authOAuth2 = {
-        grantType:           "client_credentials",
-        clientType:          "confidential",
-        clientId:            "",
-        clientSecret:        "",
-        accessTokenUrl:      "",
-        authUrl:             "",
-        scope:               "",
-        token:               "",
-        refreshToken:        "",
-        expiresAt:           null,
-        state:               "",
-        credentials:         "header",
-        headerPrefix:        "",
-        audience:            "",
-        resource:            "",
-        origin:              "",
-        redirectUri:         "",
-        responseType:        "access_token",
-        username:            "",
-        password:            "",
-        discoveredIssuer:    "",
-        discoveredScopes:    null,
+        grantType: "client_credentials",
+        clientType: "confidential",
+        clientId: "",
+        clientSecret: "",
+        accessTokenUrl: "",
+        authUrl: "",
+        scope: "",
+        token: "",
+        refreshToken: "",
+        expiresAt: null,
+        state: "",
+        credentials: "header",
+        headerPrefix: "",
+        audience: "",
+        resource: "",
+        origin: "",
+        redirectUri: "",
+        responseType: "access_token",
+        username: "",
+        password: "",
+        discoveredIssuer: "",
+        discoveredScopes: null,
         ...savedOAuth2,
       };
     }
-    this.#authAwsIam = { accessKeyId: "", secretAccessKey: "", region: "", service: "", sessionToken: "", ...(node.authAwsIam ?? {}) };
+    this.#authAwsIam = {
+      accessKeyId: "",
+      secretAccessKey: "",
+      region: "",
+      service: "",
+      sessionToken: "",
+      ...(node.authAwsIam ?? {}),
+    };
     const authSel = this.#el.querySelector("#auth-type-select");
     if (authSel) authSel.value = this.#authType;
     const authEnabledCheck = this.#el.querySelector("#auth-enabled-check");
     if (authEnabledCheck) authEnabledCheck.checked = this.#authEnabled;
-    this.#authContentEl?.classList.toggle("auth-content--disabled", !this.#authEnabled);
+    this.#authContentEl?.classList.toggle(
+      "auth-content--disabled",
+      !this.#authEnabled,
+    );
     // Sync Discover button, bulk-edit toggle, and enabled toggle visibility to match the restored auth type
-    if (this.#discoverBtnEl)      this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
-    if (this.#authBulkEl)         this.#authBulkEl.classList.toggle("is-hidden", this.#authType === "none");
-    if (this.#authEnabledLabelEl) this.#authEnabledLabelEl.classList.toggle("is-hidden", this.#authType === "none");
+    if (this.#discoverBtnEl)
+      this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
+    if (this.#authBulkEl)
+      this.#authBulkEl.classList.toggle("is-hidden", this.#authType === "none");
+    if (this.#authEnabledLabelEl)
+      this.#authEnabledLabelEl.classList.toggle(
+        "is-hidden",
+        this.#authType === "none",
+      );
     this.#renderAuthContent();
 
     // Notes
@@ -4414,49 +4974,52 @@ export class RequestEditor {
     if (!snapshot) return;
 
     const node = {
-      id:          snapshot.id,
-      method:      snapshot.method      ?? "GET",
-      url:         snapshot.url         ?? "",
-      params:      this.#textToKvRows(snapshot.params   ?? ""),
-      headers:     this.#textToHeaderRows(snapshot.headers ?? ""),
-      authType:    snapshot.authType    ?? "none",
+      id: snapshot.id,
+      method: snapshot.method ?? "GET",
+      url: snapshot.url ?? "",
+      params: this.#textToKvRows(snapshot.params ?? ""),
+      headers: this.#textToHeaderRows(snapshot.headers ?? ""),
+      authType: snapshot.authType ?? "none",
       authEnabled: snapshot.authEnabled ?? true,
-      bodyType:    snapshot.bodyType    ?? "no-body",
-      notes:       snapshot.notes       ?? "",
+      bodyType: snapshot.bodyType ?? "no-body",
+      notes: snapshot.notes ?? "",
     };
 
     const kv = this.#parseBulkKVColon(snapshot.auth ?? "");
     if (node.authType === "basic") {
-      node.authBasic  = { username: kv.username ?? "", password: kv.password ?? "" };
+      node.authBasic = {
+        username: kv.username ?? "",
+        password: kv.password ?? "",
+      };
     } else if (node.authType === "bearer") {
       node.authBearer = { token: kv.token ?? "" };
     } else if (node.authType === "oauth2") {
       node.authOAuth2 = {
-        grantType:      kv.grantType      ?? "client_credentials",
-        clientType:     kv.clientType     ?? "confidential",
-        clientId:       kv.clientId       ?? "",
-        clientSecret:   kv.clientSecret   ?? "",
+        grantType: kv.grantType ?? "client_credentials",
+        clientType: kv.clientType ?? "confidential",
+        clientId: kv.clientId ?? "",
+        clientSecret: kv.clientSecret ?? "",
         accessTokenUrl: kv.accessTokenUrl ?? "",
-        authUrl:        kv.authUrl        ?? "",
-        username:       kv.username       ?? "",
-        password:       kv.password       ?? "",
-        scope:          kv.scope          ?? "",
-        responseType:   kv.responseType   ?? "",
-        redirectUri:    kv.redirectUri    ?? "",
-        state:          kv.state          ?? "",
-        credentials:    kv.credentials    ?? "",
-        audience:       kv.audience       ?? "",
-        resource:       kv.resource       ?? "",
-        origin:         kv.origin         ?? "",
-        headerPrefix:   kv.headerPrefix   ?? "",
+        authUrl: kv.authUrl ?? "",
+        username: kv.username ?? "",
+        password: kv.password ?? "",
+        scope: kv.scope ?? "",
+        responseType: kv.responseType ?? "",
+        redirectUri: kv.redirectUri ?? "",
+        state: kv.state ?? "",
+        credentials: kv.credentials ?? "",
+        audience: kv.audience ?? "",
+        resource: kv.resource ?? "",
+        origin: kv.origin ?? "",
+        headerPrefix: kv.headerPrefix ?? "",
       };
     } else if (node.authType === "aws-iam") {
       node.authAwsIam = {
-        accessKeyId:     kv.accessKeyId     ?? "",
+        accessKeyId: kv.accessKeyId ?? "",
         secretAccessKey: kv.secretAccessKey ?? "",
-        region:          kv.region          ?? "",
-        service:         kv.service         ?? "",
-        sessionToken:    kv.sessionToken    ?? "",
+        region: kv.region ?? "",
+        service: kv.service ?? "",
+        sessionToken: kv.sessionToken ?? "",
       };
     }
 
@@ -4480,7 +5043,7 @@ export class RequestEditor {
       if (!t) continue;
       const colon = t.indexOf(":");
       if (colon === -1) continue;
-      const key   = t.slice(0, colon).trim();
+      const key = t.slice(0, colon).trim();
       const value = t.slice(colon + 1).trim();
       if (key) out[key] = value;
     }

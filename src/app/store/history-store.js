@@ -13,9 +13,16 @@
  */
 "use strict";
 
-const fs   = require("fs");
+const fs = require("fs");
 const path = require("path");
-const { readJSON, writeJSON, ensureDir, validateID, newUUID, notFoundError } = require("./io");
+const {
+  readJSON,
+  writeJSON,
+  ensureDir,
+  validateID,
+  newUUID,
+  notFoundError,
+} = require("./io");
 
 /** Maximum allowed page size. */
 const MAX_LIMIT = 100;
@@ -28,7 +35,7 @@ class HistoryStore {
    * @param {import('./resolver').Resolver} resolver
    */
   constructor(paths, resolver) {
-    this._paths    = paths;
+    this._paths = paths;
     this._resolver = resolver;
   }
 
@@ -48,7 +55,10 @@ class HistoryStore {
     validateID(requestId, "requestId");
     const collId = this._resolver.resolve(requestId);
 
-    const limit  = Math.min(MAX_LIMIT, Math.max(1, options.limit ?? DEFAULT_LIMIT));
+    const limit = Math.min(
+      MAX_LIMIT,
+      Math.max(1, options.limit ?? DEFAULT_LIMIT),
+    );
     const cursor = options.cursor ?? "";
 
     const histDir = this._paths.historyDir(collId, requestId);
@@ -59,7 +69,7 @@ class HistoryStore {
     // Load all entry files.
     let files;
     try {
-      files = fs.readdirSync(histDir).filter(f => f.endsWith(".json"));
+      files = fs.readdirSync(histDir).filter((f) => f.endsWith(".json"));
     } catch {
       return { items: [], nextCursor: "" };
     }
@@ -80,8 +90,8 @@ class HistoryStore {
     // Apply cursor: skip everything up to and including the cursor entry.
     let startIdx = 0;
     if (cursor) {
-      const idx = entries.findIndex(e => e.id === cursor);
-      startIdx  = idx >= 0 ? idx + 1 : 0;
+      const idx = entries.findIndex((e) => e.id === cursor);
+      startIdx = idx >= 0 ? idx + 1 : 0;
     }
 
     const page = entries.slice(startIdx, startIdx + limit);
@@ -113,7 +123,7 @@ class HistoryStore {
     validateID(requestId, "requestId");
     const collId = this._resolver.resolve(requestId);
 
-    const id        = entry.id        || newUUID();
+    const id = entry.id || newUUID();
     const timestamp = entry.timestamp || new Date().toISOString();
     entry = { ...entry, id, timestamp, requestId };
     validateID(entry.id, "historyId");
@@ -146,9 +156,11 @@ class HistoryStore {
    */
   getHistoryResponse(requestId, historyId) {
     validateID(requestId, "requestId");
-    validateID(historyId,  "historyId");
+    validateID(historyId, "historyId");
     const collId = this._resolver.resolve(requestId);
-    const data   = readJSON(this._paths.responsePath(collId, requestId, historyId));
+    const data = readJSON(
+      this._paths.responsePath(collId, requestId, historyId),
+    );
     if (data === null) {
       throw notFoundError(`history response not found: ${historyId}`);
     }
@@ -166,14 +178,26 @@ class HistoryStore {
    */
   deleteHistory(requestId, historyId) {
     validateID(requestId, "requestId");
-    validateID(historyId,  "historyId");
+    validateID(historyId, "historyId");
     const collId = this._resolver.resolve(requestId);
 
-    const respPath  = this._paths.responsePath(collId, requestId, historyId);
-    const entryPath = this._paths.historyEntryPath(collId, requestId, historyId);
+    const respPath = this._paths.responsePath(collId, requestId, historyId);
+    const entryPath = this._paths.historyEntryPath(
+      collId,
+      requestId,
+      historyId,
+    );
 
-    try { fs.unlinkSync(respPath);  } catch { /* missing response file is fine */ }
-    try { fs.unlinkSync(entryPath); } catch { /* missing entry file is fine */    }
+    try {
+      fs.unlinkSync(respPath);
+    } catch {
+      /* missing response file is fine */
+    }
+    try {
+      fs.unlinkSync(entryPath);
+    } catch {
+      /* missing entry file is fine */
+    }
   }
 
   // ── Trim ────────────────────────────────────────────────────────────────────
@@ -193,7 +217,7 @@ class HistoryStore {
 
     let files;
     try {
-      files = fs.readdirSync(histDir).filter(f => f.endsWith(".json"));
+      files = fs.readdirSync(histDir).filter((f) => f.endsWith(".json"));
     } catch {
       return;
     }
@@ -213,8 +237,16 @@ class HistoryStore {
 
     for (let i = max; i < entries.length; i++) {
       const e = entries[i];
-      try { fs.unlinkSync(this._paths.responsePath(collId, reqId, e.id));      } catch { /* ok */ }
-      try { fs.unlinkSync(this._paths.historyEntryPath(collId, reqId, e.id));  } catch { /* ok */ }
+      try {
+        fs.unlinkSync(this._paths.responsePath(collId, reqId, e.id));
+      } catch {
+        /* ok */
+      }
+      try {
+        fs.unlinkSync(this._paths.historyEntryPath(collId, reqId, e.id));
+      } catch {
+        /* ok */
+      }
     }
   }
 
@@ -232,15 +264,22 @@ class HistoryStore {
 
     let collIds;
     try {
-      collIds = fs.readdirSync(collectionsDir).filter(name => {
-        try { return fs.statSync(path.join(collectionsDir, name)).isDirectory(); } catch { return false; }
+      collIds = fs.readdirSync(collectionsDir).filter((name) => {
+        try {
+          return fs.statSync(path.join(collectionsDir, name)).isDirectory();
+        } catch {
+          return false;
+        }
       });
     } catch {
       return;
     }
 
     for (const collId of collIds) {
-      const historyBase = path.join(this._paths.collectionDir(collId), "history");
+      const historyBase = path.join(
+        this._paths.collectionDir(collId),
+        "history",
+      );
       if (!fs.existsSync(historyBase)) continue;
 
       let reqIds;
@@ -252,7 +291,8 @@ class HistoryStore {
 
       for (const reqId of reqIds) {
         try {
-          if (!fs.statSync(path.join(historyBase, reqId)).isDirectory()) continue;
+          if (!fs.statSync(path.join(historyBase, reqId)).isDirectory())
+            continue;
         } catch {
           continue;
         }
@@ -263,4 +303,3 @@ class HistoryStore {
 }
 
 module.exports = { HistoryStore };
-

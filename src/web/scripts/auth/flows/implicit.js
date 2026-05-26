@@ -1,5 +1,3 @@
-
-
 /**
  * auth/flows/implicit.js
  *
@@ -16,14 +14,28 @@
 
 "use strict";
 
-import { openOAuthPopup, DEFAULT_REDIRECT_URI } from "../popup/callback-interceptor.js";
-import { generateState, validateState, discardState } from "../utils/state.js";
-import { generateNonce, validateNonce, discardNonce, decodeIdTokenPayload } from "../utils/nonce.js";
-import { buildUrl, extractImplicitToken }              from "../utils/url.js";
-import { oauthResultFromError, createOAuthResult }     from "../types/oauth-types.js";
 import {
-  configurationError, stateMismatchError, popupCancelledError,
-  OAuthError, OAuthErrorCode,
+  openOAuthPopup,
+  DEFAULT_REDIRECT_URI,
+} from "../popup/callback-interceptor.js";
+import { generateState, validateState, discardState } from "../utils/state.js";
+import {
+  generateNonce,
+  validateNonce,
+  discardNonce,
+  decodeIdTokenPayload,
+} from "../utils/nonce.js";
+import { buildUrl, extractImplicitToken } from "../utils/url.js";
+import {
+  oauthResultFromError,
+  createOAuthResult,
+} from "../types/oauth-types.js";
+import {
+  configurationError,
+  stateMismatchError,
+  popupCancelledError,
+  OAuthError,
+  OAuthErrorCode,
 } from "../types/oauth-errors.js";
 
 /**
@@ -34,10 +46,16 @@ import {
  */
 export async function implicitFlow(config) {
   // ── Validate ─────────────────────────────────────────────────────────────
-  if (!config.clientId?.trim()) return oauthResultFromError(configurationError("Client ID is required."));
-  if (!config.authUrl?.trim())  return oauthResultFromError(configurationError("Auth URL is required."));
+  if (!config.clientId?.trim())
+    return oauthResultFromError(configurationError("Client ID is required."));
+  if (!config.authUrl?.trim())
+    return oauthResultFromError(configurationError("Auth URL is required."));
 
-  try { new URL(config.authUrl.trim()); } catch { return createOAuthResult({ success: true }); }
+  try {
+    new URL(config.authUrl.trim());
+  } catch {
+    return createOAuthResult({ success: true });
+  }
 
   const redirectUri = config.redirectUri?.trim() || DEFAULT_REDIRECT_URI;
 
@@ -47,8 +65,12 @@ export async function implicitFlow(config) {
   // ── Determine response_type ───────────────────────────────────────────────
   let responseType = "token";
   switch (config.responseType) {
-    case "id_token": responseType = "id_token";       break;
-    case "both":     responseType = "token id_token"; break;
+    case "id_token":
+      responseType = "id_token";
+      break;
+    case "both":
+      responseType = "token id_token";
+      break;
   }
 
   // ── OIDC nonce (replay protection for id_token) ───────────────────────────
@@ -64,13 +86,13 @@ export async function implicitFlow(config) {
   // ── Build authorization URL ───────────────────────────────────────────────
   const authParams = {
     response_type: responseType,
-    client_id:     config.clientId.trim(),
-    redirect_uri:  redirectUri,
+    client_id: config.clientId.trim(),
+    redirect_uri: redirectUri,
     state,
   };
 
-  if (config.scope?.trim())    authParams.scope    = config.scope.trim();
-  if (nonce)                   authParams.nonce    = nonce;
+  if (config.scope?.trim()) authParams.scope = config.scope.trim();
+  if (nonce) authParams.nonce = nonce;
   if (config.audience?.trim()) authParams.audience = config.audience.trim();
   if (config.resource?.trim()) authParams.resource = config.resource.trim();
 
@@ -86,11 +108,17 @@ export async function implicitFlow(config) {
   // ── Open popup ────────────────────────────────────────────────────────────
   let callbackUrl;
   try {
-    callbackUrl = await openOAuthPopup(authUrl, redirectUri, "OAuth 2.0 — Implicit");
+    callbackUrl = await openOAuthPopup(
+      authUrl,
+      redirectUri,
+      "OAuth 2.0 — Implicit",
+    );
   } catch (err) {
     discardState(state);
     if (nonce) discardNonce(nonce);
-    return oauthResultFromError(err instanceof OAuthError ? err : popupCancelledError(err?.message));
+    return oauthResultFromError(
+      err instanceof OAuthError ? err : popupCancelledError(err?.message),
+    );
   }
 
   // ── Parse callback ────────────────────────────────────────────────────────
@@ -108,7 +136,9 @@ export async function implicitFlow(config) {
     if (nonce) discardNonce(nonce);
     return oauthResultFromError(
       new OAuthError(
-        Object.values(OAuthErrorCode).includes(parts.error) ? parts.error : OAuthErrorCode.UNKNOWN,
+        Object.values(OAuthErrorCode).includes(parts.error)
+          ? parts.error
+          : OAuthErrorCode.UNKNOWN,
         parts.errorDescription ?? parts.error,
       ),
     );
@@ -117,7 +147,10 @@ export async function implicitFlow(config) {
   if (!parts.accessToken && !parts.idToken) {
     if (nonce) discardNonce(nonce);
     return oauthResultFromError(
-      new OAuthError(OAuthErrorCode.MALFORMED_RESPONSE, "No access_token or id_token in callback."),
+      new OAuthError(
+        OAuthErrorCode.MALFORMED_RESPONSE,
+        "No access_token or id_token in callback.",
+      ),
     );
   }
 
@@ -129,14 +162,20 @@ export async function implicitFlow(config) {
     if (!parts.idToken) {
       discardNonce(nonce);
       return oauthResultFromError(
-        new OAuthError(OAuthErrorCode.MALFORMED_RESPONSE, "id_token was requested but not returned."),
+        new OAuthError(
+          OAuthErrorCode.MALFORMED_RESPONSE,
+          "id_token was requested but not returned.",
+        ),
       );
     }
     const payload = decodeIdTokenPayload(parts.idToken);
     if (!payload || !validateNonce(payload.nonce)) {
       discardNonce(nonce);
       return oauthResultFromError(
-        new OAuthError(OAuthErrorCode.MALFORMED_RESPONSE, "id_token nonce mismatch."),
+        new OAuthError(
+          OAuthErrorCode.MALFORMED_RESPONSE,
+          "id_token nonce mismatch.",
+        ),
       );
     }
   }
@@ -146,14 +185,13 @@ export async function implicitFlow(config) {
   const expiresAt = expiresIn != null ? Date.now() + expiresIn * 1_000 : null;
 
   return createOAuthResult({
-    success:      true,
-    accessToken:  parts.accessToken,
-    idToken:      parts.idToken      ?? null,
+    success: true,
+    accessToken: parts.accessToken,
+    idToken: parts.idToken ?? null,
     refreshToken: null, // implicit flow never issues a refresh token
     expiresIn,
     expiresAt,
-    tokenType:    parts.tokenType ?? "Bearer",
-    scope:        parts.scope     ?? config.scope ?? null,
+    tokenType: parts.tokenType ?? "Bearer",
+    scope: parts.scope ?? config.scope ?? null,
   });
 }
-

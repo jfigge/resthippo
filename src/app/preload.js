@@ -14,7 +14,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 // ─── Main → Renderer push events ─────────────────────────────────────────────
 ipcRenderer.on("wurl:ui-font-change", (_event, direction) => {
   window.dispatchEvent(
-    new CustomEvent("wurl:ui-font-change", { detail: direction })
+    new CustomEvent("wurl:ui-font-change", { detail: direction }),
   );
 });
 
@@ -58,7 +58,7 @@ contextBridge.exposeInMainWorld("wurl", {
      */
     manifest: {
       /** @returns {Promise<object>} */
-      get:  ()     => ipcRenderer.invoke("store:manifest:get"),
+      get: () => ipcRenderer.invoke("store:manifest:get"),
       /** @param {object} data @returns {Promise<void>} */
       save: (data) => ipcRenderer.invoke("store:manifest:save", data),
     },
@@ -69,7 +69,7 @@ contextBridge.exposeInMainWorld("wurl", {
      */
     env: {
       /** @param {string} id @returns {Promise<{ version, collections, variables }>} */
-      get:  (id)       => ipcRenderer.invoke("store:env:get", id),
+      get: (id) => ipcRenderer.invoke("store:env:get", id),
       /** @param {string} id @param {object} data @returns {Promise<void>} */
       save: (id, data) => ipcRenderer.invoke("store:env:save", id, data),
     },
@@ -80,9 +80,10 @@ contextBridge.exposeInMainWorld("wurl", {
      */
     tree: {
       /** @param {string} collectionId @returns {Promise<{ children: object[] }>} */
-      get:  (collectionId)       => ipcRenderer.invoke("store:tree:get", collectionId),
+      get: (collectionId) => ipcRenderer.invoke("store:tree:get", collectionId),
       /** @param {string} collectionId @param {{ children: object[] }} tree @returns {Promise<void>} */
-      save: (collectionId, tree) => ipcRenderer.invoke("store:tree:save", collectionId, tree),
+      save: (collectionId, tree) =>
+        ipcRenderer.invoke("store:tree:save", collectionId, tree),
     },
 
     /**
@@ -91,13 +92,15 @@ contextBridge.exposeInMainWorld("wurl", {
      */
     requests: {
       /** @param {string} id @returns {Promise<object|null>} */
-      get:    (id)                => ipcRenderer.invoke("store:requests:get", id),
+      get: (id) => ipcRenderer.invoke("store:requests:get", id),
       /** @param {string} collectionId @param {object} data @returns {Promise<object>} */
-      create: (collectionId, data) => ipcRenderer.invoke("store:requests:create", collectionId, data),
+      create: (collectionId, data) =>
+        ipcRenderer.invoke("store:requests:create", collectionId, data),
       /** @param {string} id @param {object} patch @returns {Promise<object>} */
-      update: (id, patch)          => ipcRenderer.invoke("store:requests:update", id, patch),
+      update: (id, patch) =>
+        ipcRenderer.invoke("store:requests:update", id, patch),
       /** @param {string} id @returns {Promise<void>} */
-      delete: (id)                 => ipcRenderer.invoke("store:requests:delete", id),
+      delete: (id) => ipcRenderer.invoke("store:requests:delete", id),
     },
 
     /**
@@ -153,7 +156,7 @@ contextBridge.exposeInMainWorld("wurl", {
      */
     environments: {
       /** @returns {Promise<object>} */
-      get:  ()     => ipcRenderer.invoke("store:environments:get"),
+      get: () => ipcRenderer.invoke("store:environments:get"),
       /** @param {object} data @returns {Promise<void>} */
       save: (data) => ipcRenderer.invoke("store:environments:save", data),
     },
@@ -210,12 +213,13 @@ contextBridge.exposeInMainWorld("wurl", {
    * Bounds shape: { x, y, width, height }  (integer pixels, viewport-relative)
    */
   htmlPreview: {
-    loadUrl: (url, bounds) => ipcRenderer.invoke("htmlPreview:loadUrl",  url, bounds),
-    resize:  (bounds)      => ipcRenderer.invoke("htmlPreview:resize",   bounds),
-    show:    (bounds)      => ipcRenderer.invoke("htmlPreview:show",     bounds),
-    hide:    ()            => ipcRenderer.invoke("htmlPreview:hide"),
-    capture: ()            => ipcRenderer.invoke("htmlPreview:capture"),
-    destroy: ()            => ipcRenderer.invoke("htmlPreview:destroy"),
+    loadUrl: (url, bounds) =>
+      ipcRenderer.invoke("htmlPreview:loadUrl", url, bounds),
+    resize: (bounds) => ipcRenderer.invoke("htmlPreview:resize", bounds),
+    show: (bounds) => ipcRenderer.invoke("htmlPreview:show", bounds),
+    hide: () => ipcRenderer.invoke("htmlPreview:hide"),
+    capture: () => ipcRenderer.invoke("htmlPreview:capture"),
+    destroy: () => ipcRenderer.invoke("htmlPreview:destroy"),
   },
 
   functions: {
@@ -241,7 +245,8 @@ contextBridge.exposeInMainWorld("wurl", {
    * @returns {Promise<boolean>}
    */
   export: {
-    saveFile: (filename, content) => ipcRenderer.invoke("export:save-file", { filename, content }),
+    saveFile: (filename, content, filters) =>
+      ipcRenderer.invoke("export:save-file", { filename, content, filters }),
   },
 
   /**

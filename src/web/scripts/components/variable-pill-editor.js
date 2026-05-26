@@ -26,13 +26,16 @@
 "use strict";
 
 import {
-  resolveVariable, tokenize, serializeEditor,
-  isFunctionCall, parseFunctionCall,
+  resolveVariable,
+  tokenize,
+  serializeEditor,
+  isFunctionCall,
+  parseFunctionCall,
 } from "./variable-resolver.js";
 import { PillEditorPopup } from "./pill-editor-popup.js";
-import { PillPicker      } from "./pill-picker.js";
-import { registry        } from "./function-registry.js";
-import { logicMap        } from "./function-logic-map.js";
+import { PillPicker } from "./pill-picker.js";
+import { registry } from "./function-registry.js";
+import { logicMap } from "./function-logic-map.js";
 
 let _pickerDebounceMs = 200;
 
@@ -45,8 +48,13 @@ function _histDiffCursor(from, to) {
   let prefix = 0;
   const minLen = Math.min(from.length, to.length);
   while (prefix < minLen && from[prefix] === to[prefix]) prefix++;
-  let fromEnd = from.length, toEnd = to.length;
-  while (fromEnd > prefix && toEnd > prefix && from[fromEnd - 1] === to[toEnd - 1]) {
+  let fromEnd = from.length,
+    toEnd = to.length;
+  while (
+    fromEnd > prefix &&
+    toEnd > prefix &&
+    from[fromEnd - 1] === to[toEnd - 1]
+  ) {
     fromEnd--;
     toEnd--;
   }
@@ -63,64 +71,72 @@ export class VariablePillEditor {
   #onEnter;
   #getContext;
   #getItems;
-  #lastValue            = "\x00"; // sentinel forces first setValue to always render
-  #pickerTimer          = null;
-  #pickerInst           = null;
+  #lastValue = "\x00"; // sentinel forces first setValue to always render
+  #pickerTimer = null;
+  #pickerInst = null;
   #pickerOutsideHandler = null;
 
-  #isFocused            = false;
+  #isFocused = false;
 
   // Stable reference so we can detach the document-level selectionchange
   // listener in destroy(). Without removal each new editor leaks its listener,
   // and there are several per request — they pile up as the user navigates.
-  #onSelectionChange    = () => {
+  #onSelectionChange = () => {
     if (this.#isFocused) this.#scrollToSelectionEnd();
   };
 
   // ── Undo / redo ────────────────────────────────────────────────────────────
-  #history    = [];   // committed serialized-value snapshots
-  #histIdx    = -1;   // pointer into #history; -1 = empty
-  #histTimer  = null; // debounce handle (500 ms inactivity → commit)
+  #history = []; // committed serialized-value snapshots
+  #histIdx = -1; // pointer into #history; -1 = empty
+  #histTimer = null; // debounce handle (500 ms inactivity → commit)
   #histPaused = false; // true while restoring a snapshot
 
   constructor({
     placeholder = "",
-    ariaLabel   = "",
-    className   = "",
-    getContext  = () => null,
-    getItems    = () => [],
+    ariaLabel = "",
+    className = "",
+    getContext = () => null,
+    getItems = () => [],
     onInput,
     onEnter,
   } = {}) {
     this.#placeholder = placeholder;
-    this.#onInput     = onInput  ?? null;
-    this.#onEnter     = onEnter  ?? null;
-    this.#getContext  = getContext;
-    this.#getItems    = getItems;
+    this.#onInput = onInput ?? null;
+    this.#onEnter = onEnter ?? null;
+    this.#getContext = getContext;
+    this.#getItems = getItems;
 
     const el = document.createElement("div");
     el.contentEditable = "true";
-    el.spellcheck      = false;
-    el.setAttribute("autocorrect",    "off");
+    el.spellcheck = false;
+    el.setAttribute("autocorrect", "off");
     el.setAttribute("autocapitalize", "off");
     el.dataset.placeholder = placeholder;
-    el.dataset.empty       = "true";
+    el.dataset.empty = "true";
     el.className = ["pill-editor", "params-input", className]
-      .filter(Boolean).join(" ");
-    el.setAttribute("role",       "textbox");
+      .filter(Boolean)
+      .join(" ");
+    el.setAttribute("role", "textbox");
     el.setAttribute("aria-label", ariaLabel || placeholder);
-    el.addEventListener("input",   () => this.#onEditorInput());
+    el.addEventListener("input", () => this.#onEditorInput());
     el.addEventListener("keydown", (e) => this.#onKeyDown(e));
-    el.addEventListener("copy",    (e) => this.#onCopy(e));
-    el.addEventListener("paste",   (e) => this.#onPaste(e));
-    el.addEventListener("drop",    (e) => this.#onDrop(e));
-    el.addEventListener("focus",   () => { this.#isFocused = true; });
-    el.addEventListener("blur",    () => { this.#isFocused = false; this.#closePicker(); });
+    el.addEventListener("copy", (e) => this.#onCopy(e));
+    el.addEventListener("paste", (e) => this.#onPaste(e));
+    el.addEventListener("drop", (e) => this.#onDrop(e));
+    el.addEventListener("focus", () => {
+      this.#isFocused = true;
+    });
+    el.addEventListener("blur", () => {
+      this.#isFocused = false;
+      this.#closePicker();
+    });
     document.addEventListener("selectionchange", this.#onSelectionChange);
     this.#el = el;
   }
 
-  get element() { return this.#el; }
+  get element() {
+    return this.#el;
+  }
 
   /**
    * Detach document-level listeners and clear pending timers.  Callers must
@@ -129,8 +145,14 @@ export class VariablePillEditor {
    */
   destroy() {
     document.removeEventListener("selectionchange", this.#onSelectionChange);
-    if (this.#histTimer)   { clearTimeout(this.#histTimer);   this.#histTimer   = null; }
-    if (this.#pickerTimer) { clearTimeout(this.#pickerTimer); this.#pickerTimer = null; }
+    if (this.#histTimer) {
+      clearTimeout(this.#histTimer);
+      this.#histTimer = null;
+    }
+    if (this.#pickerTimer) {
+      clearTimeout(this.#pickerTimer);
+      this.#pickerTimer = null;
+    }
     this.#closePicker();
   }
 
@@ -147,8 +169,8 @@ export class VariablePillEditor {
     if (!this.#histPaused) {
       clearTimeout(this.#histTimer);
       this.#histTimer = null;
-      this.#history   = [normalized];
-      this.#histIdx   = 0;
+      this.#history = [normalized];
+      this.#histIdx = 0;
     }
   }
 
@@ -163,7 +185,7 @@ export class VariablePillEditor {
       const name = pill.dataset.variable;
       if (!name) continue;
       const { found } = resolveVariable(name, ctx);
-      pill.classList.toggle("variable-pill--known",   found);
+      pill.classList.toggle("variable-pill--known", found);
       pill.classList.toggle("variable-pill--unknown", !found);
     }
   }
@@ -181,17 +203,17 @@ export class VariablePillEditor {
     if (startContainer.nodeType !== Node.TEXT_NODE) return;
     if (!this.#el.contains(startContainer)) return;
 
-    const text    = startContainer.textContent;
-    const before  = text.slice(0, startOffset);
+    const text = startContainer.textContent;
+    const before = text.slice(0, startOffset);
     const openIdx = before.lastIndexOf("{{");
     if (openIdx === -1) return;
 
-    const ctx        = this.#getContext();
+    const ctx = this.#getContext();
     const beforeText = text.slice(0, openIdx);
-    const afterText  = text.slice(startOffset);
+    const afterText = text.slice(startOffset);
 
-    const m    = /^\{\{([^{}]+)\}\}$/.exec(rawToken);
-    let   pill = null;
+    const m = /^\{\{([^{}]+)\}\}$/.exec(rawToken);
+    let pill = null;
     if (m) {
       const content = m[1].trim();
       if (isFunctionCall(content)) {
@@ -201,11 +223,14 @@ export class VariablePillEditor {
         pill = this.#makePill(content, ctx);
       }
     }
-    if (!pill) { this.#closePicker(); return; }
+    if (!pill) {
+      this.#closePicker();
+      return;
+    }
 
-    const parent     = startContainer.parentNode;
+    const parent = startContainer.parentNode;
     const beforeNode = beforeText ? document.createTextNode(beforeText) : null;
-    const afterNode  = document.createTextNode(afterText);
+    const afterNode = document.createTextNode(afterText);
 
     if (beforeNode) parent.insertBefore(beforeNode, startContainer);
     parent.insertBefore(pill, startContainer);
@@ -230,18 +255,21 @@ export class VariablePillEditor {
   // ── Private ───────────────────────────────────────────────────────────────
 
   #renderFromText(text) {
-    const ctx    = this.#getContext();
+    const ctx = this.#getContext();
     const tokens = tokenize(text);
-    const frag   = document.createDocumentFragment();
+    const frag = document.createDocumentFragment();
 
     for (const token of tokens) {
       if (token.type === "text") {
-        if (token.content) frag.appendChild(document.createTextNode(token.content));
+        if (token.content)
+          frag.appendChild(document.createTextNode(token.content));
       } else if (isFunctionCall(token.content)) {
         const parsed = parseFunctionCall(token.content);
-        frag.appendChild(parsed
-          ? this.#makeFunctionPill(parsed.name, parsed.rawArgs)
-          : this.#makePill(token.content, ctx));
+        frag.appendChild(
+          parsed
+            ? this.#makeFunctionPill(parsed.name, parsed.rawArgs)
+            : this.#makePill(token.content, ctx),
+        );
       } else {
         frag.appendChild(this.#makePill(token.content, ctx));
       }
@@ -254,10 +282,10 @@ export class VariablePillEditor {
 
   #makePill(name, ctx) {
     const span = document.createElement("span");
-    span.contentEditable  = "false";
+    span.contentEditable = "false";
     span.dataset.variable = name;
-    span.textContent      = name;
-    span.title            = `{{${name}}}`;
+    span.textContent = name;
+    span.title = `{{${name}}}`;
     const { found } = resolveVariable(name, ctx);
     span.className = [
       "variable-pill",
@@ -268,25 +296,30 @@ export class VariablePillEditor {
       e.preventDefault();
       e.stopPropagation();
       this.#showPillContextMenu(
-        e.clientX, e.clientY,
-        () => PillEditorPopup.open({
-          type:       "variable",
-          rawValue:   `{{${span.dataset.variable}}}`,
-          getContext: this.#getContext,
-          onCommit:   (newRaw) => {
-            const match = /^\{\{([^{}]+)\}\}$/.exec(newRaw);
-            if (!match) return;
-            const newName = match[1];
-            span.dataset.variable = newName;
-            span.textContent      = newName;
-            span.title            = `{{${newName}}}`;
-            const { found: f } = resolveVariable(newName, this.#getContext());
-            span.classList.toggle("variable-pill--known",   f);
-            span.classList.toggle("variable-pill--unknown", !f);
-            this.#emitChange();
-          },
-        }),
-        () => { span.remove(); this.#emitChange(); },
+        e.clientX,
+        e.clientY,
+        () =>
+          PillEditorPopup.open({
+            type: "variable",
+            rawValue: `{{${span.dataset.variable}}}`,
+            getContext: this.#getContext,
+            onCommit: (newRaw) => {
+              const match = /^\{\{([^{}]+)\}\}$/.exec(newRaw);
+              if (!match) return;
+              const newName = match[1];
+              span.dataset.variable = newName;
+              span.textContent = newName;
+              span.title = `{{${newName}}}`;
+              const { found: f } = resolveVariable(newName, this.#getContext());
+              span.classList.toggle("variable-pill--known", f);
+              span.classList.toggle("variable-pill--unknown", !f);
+              this.#emitChange();
+            },
+          }),
+        () => {
+          span.remove();
+          this.#emitChange();
+        },
       );
     });
 
@@ -294,31 +327,32 @@ export class VariablePillEditor {
   }
 
   #makeFunctionPill(name, rawArgs) {
-    const funcDef  = registry[name];
+    const funcDef = registry[name];
     const rawToken = this.#buildRawToken(name, rawArgs);
 
     const span = document.createElement("span");
-    span.contentEditable  = "false";
+    span.contentEditable = "false";
     span.dataset.function = name;
-    span.dataset.fnArgs   = JSON.stringify(rawArgs);
-    span.textContent      = funcDef?.label ?? name;
-    span.title            = rawToken;
-    span.className        = "variable-pill function-pill";
+    span.dataset.fnArgs = JSON.stringify(rawArgs);
+    span.textContent = funcDef?.label ?? name;
+    span.title = rawToken;
+    span.className = "variable-pill function-pill";
 
     span.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       e.stopPropagation();
       this.#showPillContextMenu(
-        e.clientX, e.clientY,
+        e.clientX,
+        e.clientY,
         () => {
           const currentArgs = JSON.parse(span.dataset.fnArgs ?? "[]");
           PillEditorPopup.open({
-            type:       "function",
-            funcName:   span.dataset.function,
-            funcDef:    registry[span.dataset.function],
-            rawArgs:    currentArgs,
+            type: "function",
+            funcName: span.dataset.function,
+            funcDef: registry[span.dataset.function],
+            rawArgs: currentArgs,
             getContext: this.#getContext,
-            getItems:   this.#getItems,
+            getItems: this.#getItems,
             getPreview: async (args) => {
               const fn = logicMap[span.dataset.function];
               if (!fn) return null;
@@ -330,12 +364,15 @@ export class VariablePillEditor {
               const parsed = parseFunctionCall(m[1]);
               if (!parsed) return;
               span.dataset.fnArgs = JSON.stringify(parsed.rawArgs);
-              span.title          = newRawToken;
+              span.title = newRawToken;
               this.#emitChange();
             },
           });
         },
-        () => { span.remove(); this.#emitChange(); },
+        () => {
+          span.remove();
+          this.#emitChange();
+        },
       );
     });
 
@@ -345,35 +382,39 @@ export class VariablePillEditor {
   #buildRawToken(name, rawArgs) {
     if (!rawArgs.length) return `{{${name}()}}`;
     const argStrs = rawArgs
-      .map(a => `"${String(a).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
+      .map((a) => `"${String(a).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
       .join(", ");
     return `{{${name}(${argStrs})}}`;
   }
 
   #scanAndConvertAll() {
-    const ctx    = this.#getContext();
+    const ctx = this.#getContext();
     const VAR_RE = /\{\{([^{}]+)\}\}/g;
 
     for (const child of [...this.#el.childNodes]) {
       if (child.nodeType !== Node.TEXT_NODE) continue;
 
-      const text    = child.textContent;
+      const text = child.textContent;
       const matches = [...text.matchAll(VAR_RE)];
       if (!matches.length) continue;
 
       const frag = document.createDocumentFragment();
-      let   pos  = 0;
+      let pos = 0;
 
       for (const match of matches) {
         if (match.index > pos) {
-          frag.appendChild(document.createTextNode(text.slice(pos, match.index)));
+          frag.appendChild(
+            document.createTextNode(text.slice(pos, match.index)),
+          );
         }
         const content = match[1];
         if (isFunctionCall(content)) {
           const parsed = parseFunctionCall(content);
-          frag.appendChild(parsed
-            ? this.#makeFunctionPill(parsed.name, parsed.rawArgs)
-            : this.#makePill(content, ctx));
+          frag.appendChild(
+            parsed
+              ? this.#makeFunctionPill(parsed.name, parsed.rawArgs)
+              : this.#makePill(content, ctx),
+          );
         } else {
           frag.appendChild(this.#makePill(content, ctx));
         }
@@ -406,8 +447,11 @@ export class VariablePillEditor {
 
     // Picker already open — update its filter immediately
     if (this.#pickerInst) {
-      this.#pickerInst.updateFilter(filter,
-        this.#getPickerVariables(), this.#getPickerFunctions());
+      this.#pickerInst.updateFilter(
+        filter,
+        this.#getPickerVariables(),
+        this.#getPickerFunctions(),
+      );
       return;
     }
 
@@ -430,7 +474,7 @@ export class VariablePillEditor {
     if (startContainer.nodeType !== Node.TEXT_NODE) return null;
     if (!this.#el.contains(startContainer)) return null;
 
-    const before  = startContainer.textContent.slice(0, startOffset);
+    const before = startContainer.textContent.slice(0, startOffset);
     const openIdx = before.lastIndexOf("{{");
     if (openIdx === -1) return null;
     const between = before.slice(openIdx + 2);
@@ -441,7 +485,7 @@ export class VariablePillEditor {
   #getCaretRect() {
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return null;
-    const r     = sel.getRangeAt(0).cloneRange();
+    const r = sel.getRangeAt(0).cloneRange();
     r.collapse(true);
     const rects = r.getClientRects();
     if (rects.length) return { x: rects[0].left, y: rects[0].bottom };
@@ -458,8 +502,8 @@ export class VariablePillEditor {
       filter,
       variables: this.#getPickerVariables(),
       functions: this.#getPickerFunctions(),
-      onSelect:  (item) => this.insertToken(item.rawToken),
-      onClose:   () => this.#closePicker(),
+      onSelect: (item) => this.insertToken(item.rawToken),
+      onClose: () => this.#closePicker(),
     });
     document.body.appendChild(this.#pickerInst.element);
     window.dispatchEvent(new CustomEvent("wurl:popup-opened"));
@@ -473,15 +517,25 @@ export class VariablePillEditor {
         this.#closePicker();
       }
     };
-    document.addEventListener("mousedown", this.#pickerOutsideHandler, { capture: true });
+    document.addEventListener("mousedown", this.#pickerOutsideHandler, {
+      capture: true,
+    });
   }
 
   #closePicker() {
-    if (this.#pickerTimer !== null) { clearTimeout(this.#pickerTimer); this.#pickerTimer = null; }
+    if (this.#pickerTimer !== null) {
+      clearTimeout(this.#pickerTimer);
+      this.#pickerTimer = null;
+    }
     const wasOpen = !!this.#pickerInst;
-    if (this.#pickerInst) { this.#pickerInst.destroy(); this.#pickerInst = null; }
+    if (this.#pickerInst) {
+      this.#pickerInst.destroy();
+      this.#pickerInst = null;
+    }
     if (this.#pickerOutsideHandler) {
-      document.removeEventListener("mousedown", this.#pickerOutsideHandler, { capture: true });
+      document.removeEventListener("mousedown", this.#pickerOutsideHandler, {
+        capture: true,
+      });
       this.#pickerOutsideHandler = null;
     }
     if (wasOpen) window.dispatchEvent(new CustomEvent("wurl:popup-closed"));
@@ -500,16 +554,18 @@ export class VariablePillEditor {
       r.collapse(true);
       const rects = r.getClientRects();
       if (!rects.length) return;
-      caretLeft  = rects[0].left;
+      caretLeft = rects[0].left;
       caretRight = rects[0].right;
     } else {
       const child = focusNode.childNodes[focusOffset];
-      const rect  = child ? child.getBoundingClientRect() : focusNode.getBoundingClientRect();
-      caretLeft  = rect.left;
+      const rect = child
+        ? child.getBoundingClientRect()
+        : focusNode.getBoundingClientRect();
+      caretLeft = rect.left;
       caretRight = rect.right;
     }
 
-    const er  = this.#el.getBoundingClientRect();
+    const er = this.#el.getBoundingClientRect();
     const PAD = 4;
     if (caretRight > er.right - PAD) {
       this.#el.scrollLeft += caretRight - er.right + PAD;
@@ -519,19 +575,28 @@ export class VariablePillEditor {
   }
 
   #getPickerVariables() {
-    const ctx  = this.#getContext();
+    const ctx = this.#getContext();
     const seen = new Set();
     if (ctx?.folderChain) {
       for (const folder of ctx.folderChain) {
-        if (folder?.variables) Object.keys(folder.variables).sort().forEach(k => seen.add(k));
+        if (folder?.variables)
+          Object.keys(folder.variables)
+            .sort()
+            .forEach((k) => seen.add(k));
       }
     }
-    if (ctx?.envVariables) Object.keys(ctx.envVariables).sort().forEach(k => seen.add(k));
+    if (ctx?.envVariables)
+      Object.keys(ctx.envVariables)
+        .sort()
+        .forEach((k) => seen.add(k));
     return [...seen];
   }
 
   #getPickerFunctions() {
-    return Object.entries(registry).map(([name, funcDef]) => ({ name, funcDef }));
+    return Object.entries(registry).map(([name, funcDef]) => ({
+      name,
+      funcDef,
+    }));
   }
 
   // ── Caret conversion ──────────────────────────────────────────────────────
@@ -547,7 +612,7 @@ export class VariablePillEditor {
     if (startContainer.nodeType !== Node.TEXT_NODE) return;
     if (!this.#el.contains(startContainer)) return;
 
-    const text   = startContainer.textContent;
+    const text = startContainer.textContent;
     const before = text.slice(0, startOffset);
 
     if (!before.endsWith("}}")) return;
@@ -558,9 +623,9 @@ export class VariablePillEditor {
     const inner = before.slice(openIdx + 2, before.length - 2).trim();
     if (!inner || /[{}]/.test(inner)) return;
 
-    const ctx        = this.#getContext();
+    const ctx = this.#getContext();
     const beforeText = text.slice(0, openIdx);
-    const afterText  = text.slice(startOffset);
+    const afterText = text.slice(startOffset);
 
     let pill;
     if (isFunctionCall(inner)) {
@@ -572,9 +637,9 @@ export class VariablePillEditor {
       pill = this.#makePill(inner, ctx);
     }
 
-    const parent     = startContainer.parentNode;
+    const parent = startContainer.parentNode;
     const beforeNode = beforeText ? document.createTextNode(beforeText) : null;
-    const afterNode  = document.createTextNode(afterText);
+    const afterNode = document.createTextNode(afterText);
 
     if (beforeNode) parent.insertBefore(beforeNode, startContainer);
     parent.insertBefore(pill, startContainer);
@@ -611,16 +676,28 @@ export class VariablePillEditor {
     }
 
     if (this.#pickerInst) {
-      if (e.key === "ArrowDown") { e.preventDefault(); this.#pickerInst.selectNext(); return; }
-      if (e.key === "ArrowUp")   { e.preventDefault(); this.#pickerInst.selectPrev(); return; }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        this.#pickerInst.selectNext();
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        this.#pickerInst.selectPrev();
+        return;
+      }
       if (e.key === "Tab" || e.key === "Enter") {
         e.preventDefault();
         const item = this.#pickerInst.getSelected();
         if (item) this.insertToken(item.rawToken);
-        else      this.#closePicker();
+        else this.#closePicker();
         return;
       }
-      if (e.key === "Escape") { e.preventDefault(); this.#closePicker(); return; }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        this.#closePicker();
+        return;
+      }
     }
 
     if (e.key === "Enter") {
@@ -663,15 +740,22 @@ export class VariablePillEditor {
     // needs more than one keystroke to cross an invisible guard.
     if (e.key === "ArrowLeft" && range.collapsed) {
       const { startContainer, startOffset } = range;
-      if (startContainer.nodeType === Node.TEXT_NODE && this.#el.contains(startContainer)) {
-
+      if (
+        startContainer.nodeType === Node.TEXT_NODE &&
+        this.#el.contains(startContainer)
+      ) {
         // (a) Already inside a ZWS-only node \u2014 escape leftward past any adjacent pill.
         if (startContainer.textContent.replace(/\u200B/g, "") === "") {
           e.preventDefault();
-          const prevPill = startContainer.previousSibling?.classList?.contains("variable-pill")
-            ? startContainer.previousSibling : null;
-          const anchor   = prevPill ? prevPill.previousSibling : startContainer.previousSibling;
-          const nr       = document.createRange();
+          const prevPill = startContainer.previousSibling?.classList?.contains(
+            "variable-pill",
+          )
+            ? startContainer.previousSibling
+            : null;
+          const anchor = prevPill
+            ? prevPill.previousSibling
+            : startContainer.previousSibling;
+          const nr = document.createRange();
           if (anchor?.nodeType === Node.TEXT_NODE) {
             nr.setStart(anchor, anchor.textContent.length);
           } else if (anchor) {
@@ -688,14 +772,20 @@ export class VariablePillEditor {
         // (b) At the start of real text whose previous pill is backed by a ZWS guard \u2014
         //     the browser would skip the pill and drop into the ZWS; pre-empt that.
         if (startOffset === 0) {
-          const prevPill = startContainer.previousSibling?.classList?.contains("variable-pill")
-            ? startContainer.previousSibling : null;
+          const prevPill = startContainer.previousSibling?.classList?.contains(
+            "variable-pill",
+          )
+            ? startContainer.previousSibling
+            : null;
           if (prevPill) {
             const guardNode = prevPill.previousSibling;
-            if (guardNode?.nodeType === Node.TEXT_NODE && guardNode.textContent.replace(/\u200B/g, "") === "") {
+            if (
+              guardNode?.nodeType === Node.TEXT_NODE &&
+              guardNode.textContent.replace(/\u200B/g, "") === ""
+            ) {
               e.preventDefault();
               const anchor = guardNode.previousSibling;
-              const nr     = document.createRange();
+              const nr = document.createRange();
               if (anchor?.nodeType === Node.TEXT_NODE) {
                 nr.setStart(anchor, anchor.textContent.length);
               } else {
@@ -713,15 +803,22 @@ export class VariablePillEditor {
 
     if (e.key === "ArrowRight" && range.collapsed) {
       const { startContainer, startOffset } = range;
-      if (startContainer.nodeType === Node.TEXT_NODE && this.#el.contains(startContainer)) {
-
+      if (
+        startContainer.nodeType === Node.TEXT_NODE &&
+        this.#el.contains(startContainer)
+      ) {
         // (a) Already inside a ZWS-only node \u2014 escape rightward past any adjacent pill.
         if (startContainer.textContent.replace(/\u200B/g, "") === "") {
           e.preventDefault();
-          const nextPill = startContainer.nextSibling?.classList?.contains("variable-pill")
-            ? startContainer.nextSibling : null;
-          const anchor   = nextPill ? nextPill.nextSibling : startContainer.nextSibling;
-          const nr       = document.createRange();
+          const nextPill = startContainer.nextSibling?.classList?.contains(
+            "variable-pill",
+          )
+            ? startContainer.nextSibling
+            : null;
+          const anchor = nextPill
+            ? nextPill.nextSibling
+            : startContainer.nextSibling;
+          const nr = document.createRange();
           if (anchor?.nodeType === Node.TEXT_NODE) {
             nr.setStart(anchor, 0);
           } else if (anchor) {
@@ -746,14 +843,20 @@ export class VariablePillEditor {
         // (b) At the end of real text whose next pill is followed by a ZWS guard \u2014
         //     the browser would skip the pill and drop into the ZWS; pre-empt that.
         if (startOffset === startContainer.textContent.length) {
-          const nextPill = startContainer.nextSibling?.classList?.contains("variable-pill")
-            ? startContainer.nextSibling : null;
+          const nextPill = startContainer.nextSibling?.classList?.contains(
+            "variable-pill",
+          )
+            ? startContainer.nextSibling
+            : null;
           if (nextPill) {
             const guardNode = nextPill.nextSibling;
-            if (guardNode?.nodeType === Node.TEXT_NODE && guardNode.textContent.replace(/\u200B/g, "") === "") {
+            if (
+              guardNode?.nodeType === Node.TEXT_NODE &&
+              guardNode.textContent.replace(/\u200B/g, "") === ""
+            ) {
               e.preventDefault();
               const anchor = guardNode.nextSibling;
-              const nr     = document.createRange();
+              const nr = document.createRange();
               if (anchor?.nodeType === Node.TEXT_NODE) {
                 nr.setStart(anchor, 0);
               } else {
@@ -776,7 +879,10 @@ export class VariablePillEditor {
   #onCopy(e) {
     e.preventDefault();
     const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) { e.clipboardData.setData("text/plain", ""); return; }
+    if (!sel || sel.rangeCount === 0) {
+      e.clipboardData.setData("text/plain", "");
+      return;
+    }
     const frag = sel.getRangeAt(0).cloneContents();
     e.clipboardData.setData("text/plain", this.#rawTextFromFragment(frag));
   }
@@ -787,9 +893,13 @@ export class VariablePillEditor {
       if (child.nodeType === Node.TEXT_NODE) {
         out += child.textContent.replace(/\u200B/g, "");
       } else if (child.classList?.contains("variable-pill")) {
-        out += child.dataset.function !== undefined
-          ? this.#buildRawToken(child.dataset.function, JSON.parse(child.dataset.fnArgs ?? "[]"))
-          : `{{${child.dataset.variable}}}`;
+        out +=
+          child.dataset.function !== undefined
+            ? this.#buildRawToken(
+                child.dataset.function,
+                JSON.parse(child.dataset.fnArgs ?? "[]"),
+              )
+            : `{{${child.dataset.variable}}}`;
       } else {
         out += this.#rawTextFromFragment(child);
       }
@@ -811,7 +921,10 @@ export class VariablePillEditor {
     const dropRange = document.caretRangeFromPoint?.(e.clientX, e.clientY);
     if (dropRange) {
       const sel = window.getSelection();
-      if (!sel) { this.#insertTextAtCaret(text); return; }
+      if (!sel) {
+        this.#insertTextAtCaret(text);
+        return;
+      }
       sel.removeAllRanges();
       sel.addRange(dropRange);
     }
@@ -876,17 +989,18 @@ export class VariablePillEditor {
   async #showPillContextMenu(x, y, onEdit, onDelete) {
     const clicked = await window.wurl.ui.contextMenu({
       items: [
-        { id: "edit",   label: "Edit"   },
+        { id: "edit", label: "Edit" },
         { id: "delete", label: "Delete" },
       ],
-      x, y,
+      x,
+      y,
     });
-    if (clicked === "edit")   onEdit();
+    if (clicked === "edit") onEdit();
     if (clicked === "delete") onDelete();
   }
 
   #emitChange() {
-    const val       = serializeEditor(this.#el);
+    const val = serializeEditor(this.#el);
     this.#lastValue = val;
     this.#syncEmpty();
     this.#onInput?.(val);
@@ -910,7 +1024,7 @@ export class VariablePillEditor {
     if (this.#histPaused) return;
     const val = serializeEditor(this.#el);
     if (val === this.#history[this.#histIdx]) return;
-    this.#history  = this.#history.slice(0, this.#histIdx + 1);
+    this.#history = this.#history.slice(0, this.#histIdx + 1);
     this.#history.push(val);
     if (this.#history.length > 200) this.#history.shift();
     else this.#histIdx++;
@@ -932,9 +1046,9 @@ export class VariablePillEditor {
   #applyHistory() {
     const val = this.#history[this.#histIdx];
     if (val === undefined) return;
-    const caretPos   = _histDiffCursor(this.#lastValue, val);
+    const caretPos = _histDiffCursor(this.#lastValue, val);
     this.#histPaused = true;
-    this.#lastValue  = val;
+    this.#lastValue = val;
     this.#renderFromText(val);
     this.#syncEmpty();
     this.#histPaused = false;
@@ -955,11 +1069,12 @@ export class VariablePillEditor {
 
     for (const node of this.#el.childNodes) {
       if (node.nodeType === Node.TEXT_NODE) {
-        const raw  = node.textContent;
+        const raw = node.textContent;
         const text = raw.replace(/\u200B/g, "");
         if (rem <= text.length) {
           // Advance rawIdx past exactly `rem` non-ZWS characters
-          let rawIdx = 0, count = 0;
+          let rawIdx = 0,
+            count = 0;
           while (count < rem && rawIdx < raw.length) {
             if (raw[rawIdx] !== "\u200B") count++;
             rawIdx++;
@@ -973,9 +1088,13 @@ export class VariablePillEditor {
         }
         rem -= text.length;
       } else if (node.classList?.contains("variable-pill")) {
-        const serialized = node.dataset.function !== undefined
-          ? this.#buildRawToken(node.dataset.function, JSON.parse(node.dataset.fnArgs ?? "[]"))
-          : `{{${node.dataset.variable}}}`;
+        const serialized =
+          node.dataset.function !== undefined
+            ? this.#buildRawToken(
+                node.dataset.function,
+                JSON.parse(node.dataset.fnArgs ?? "[]"),
+              )
+            : `{{${node.dataset.variable}}}`;
         if (rem < serialized.length) {
           // Cursor lands inside a pill (atomic) — snap to just after it
           const after = node.nextSibling;
@@ -1010,8 +1129,8 @@ export class VariablePillEditor {
   }
 
   #syncEmpty() {
-    const text     = this.#el.textContent.replace(/\u200B/g, "");
-    const hasText  = text.trim() !== "";
+    const text = this.#el.textContent.replace(/\u200B/g, "");
+    const hasText = text.trim() !== "";
     const hasPills = this.#el.querySelector(".variable-pill") !== null;
     this.#el.dataset.empty = String(!hasText && !hasPills);
   }
@@ -1055,7 +1174,10 @@ export class VariablePillEditor {
     let node = this.#el.firstChild;
     while (node && node.nextSibling) {
       const next = node.nextSibling;
-      if (node.nodeType !== Node.TEXT_NODE && next.nodeType !== Node.TEXT_NODE) {
+      if (
+        node.nodeType !== Node.TEXT_NODE &&
+        next.nodeType !== Node.TEXT_NODE
+      ) {
         this.#el.insertBefore(document.createTextNode(ZWS), next);
       } else {
         node = next;

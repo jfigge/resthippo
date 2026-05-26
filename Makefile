@@ -59,17 +59,17 @@ info:
 # ─── Formatting ───────────────────────────────────────────────────────────────
 fmt:
 	@echo "Formatting JavaScript / CSS / HTML..."
-#	@npx prettier --write \
-#		"$(WEB_DIR)/**/*.{js,css,html}" \
-#		"$(APP_DIR)/**/*.js" > /dev/null || true
+	@cd $(SRC_DIR) && npx prettier --write \
+		"web/**/*.{js,css,html}" \
+		"app/**/*.js" > /dev/null
 	@echo "--------------------------------"
 
 # ─── Linting ──────────────────────────────────────────────────────────────────
 lint:
 	@echo "Linting JavaScript..."
-	@npx eslint \
-		"$(WEB_DIR)/scripts/**/*.js" \
-		"$(APP_DIR)/**/*.js" 2>/dev/null || true
+	@cd $(SRC_DIR) && npx eslint \
+		"web/scripts/**/*.js" \
+		"app/**/*.js" 2>/dev/null
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────

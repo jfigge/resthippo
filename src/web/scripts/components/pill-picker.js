@@ -17,8 +17,8 @@
  */
 export class PillPicker {
   #el;
-  #items    = [];   // flat ordered list of all visible items
-  #activeIdx = -1;  // index into #items of currently highlighted row
+  #items = []; // flat ordered list of all visible items
+  #activeIdx = -1; // index into #items of currently highlighted row
   #onSelect;
   #onClose;
 
@@ -35,13 +35,15 @@ export class PillPicker {
    */
   constructor({ x, y, filter, variables, functions, onSelect, onClose }) {
     this.#onSelect = onSelect;
-    this.#onClose  = onClose;
-    this.#el       = this.#build();
+    this.#onClose = onClose;
+    this.#el = this.#build();
     this.#position(x, y);
     this.#render(filter, variables, functions);
   }
 
-  get element() { return this.#el; }
+  get element() {
+    return this.#el;
+  }
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -56,12 +58,14 @@ export class PillPicker {
 
   selectPrev() {
     if (!this.#items.length) return;
-    this.#setActive(this.#activeIdx <= 0 ? this.#items.length - 1 : this.#activeIdx - 1);
+    this.#setActive(
+      this.#activeIdx <= 0 ? this.#items.length - 1 : this.#activeIdx - 1,
+    );
   }
 
   /** @returns {{ type, name, rawToken } | null} */
   getSelected() {
-    return this.#activeIdx >= 0 ? this.#items[this.#activeIdx] ?? null : null;
+    return this.#activeIdx >= 0 ? (this.#items[this.#activeIdx] ?? null) : null;
   }
 
   destroy() {
@@ -86,7 +90,7 @@ export class PillPicker {
     const PW = 320;
     const PH = 260;
     const left = Math.max(4, Math.min(x, W - PW - 4));
-    const top  = (y + PH > H - 4) ? Math.max(4, y - PH - 4) : y;
+    const top = y + PH > H - 4 ? Math.max(4, y - PH - 4) : y;
     this.#el.style.cssText = `left:${left}px; top:${top}px;`;
   }
 
@@ -96,7 +100,7 @@ export class PillPicker {
     this.#items = [];
 
     // ── Variables ──────────────────────────────────────────────────────────
-    const matchedVars = variables.filter(v => v.toLowerCase().includes(q));
+    const matchedVars = variables.filter((v) => v.toLowerCase().includes(q));
     if (matchedVars.length) {
       this.#el.appendChild(this.#sectionHeader("Variables"));
       for (const name of matchedVars) {
@@ -111,19 +115,28 @@ export class PillPicker {
     const byCategory = {};
     for (const { name, funcDef } of functions) {
       const cat = funcDef.category ?? "built-in";
-      if (!SECTION_ORDER.includes(cat)) { console.warn(`PillPicker: unknown function category "${cat}" for "${name}"`); continue; }
+      if (!SECTION_ORDER.includes(cat)) {
+        console.warn(
+          `PillPicker: unknown function category "${cat}" for "${name}"`,
+        );
+        continue;
+      }
       const sig = funcDef.params?.length
-        ? `${name}(${funcDef.params.map(p => p.label).join(", ")})`
+        ? `${name}(${funcDef.params.map((p) => p.label).join(", ")})`
         : `${name}()`;
-      if (!sig.toLowerCase().includes(q) && !(funcDef.label ?? "").toLowerCase().includes(q)) continue;
+      if (
+        !sig.toLowerCase().includes(q) &&
+        !(funcDef.label ?? "").toLowerCase().includes(q)
+      )
+        continue;
       (byCategory[cat] = byCategory[cat] ?? []).push({ name, funcDef, sig });
     }
 
     const SECTION_LABELS = {
-      "built-in":       "Functions",
-      "context":        "Context",
+      "built-in": "Functions",
+      context: "Context",
       "request-output": "Request Outputs",
-      "backend":        "Backend",
+      backend: "Backend",
     };
 
     for (const cat of SECTION_ORDER) {
@@ -190,14 +203,18 @@ export class PillPicker {
 
   #setActive(idx) {
     const items = this.#el.querySelectorAll(".pill-picker__item");
-    items.forEach((el, i) => el.classList.toggle("pill-picker__item--active", i === idx));
+    items.forEach((el, i) =>
+      el.classList.toggle("pill-picker__item--active", i === idx),
+    );
     this.#activeIdx = idx;
     items[idx]?.scrollIntoView({ block: "nearest" });
   }
 
   #buildToken(name, funcDef) {
     if (!funcDef.params?.length) return `{{${name}()}}`;
-    const argStrs = funcDef.params.map(p => `"${p.default ?? ""}"`).join(", ");
+    const argStrs = funcDef.params
+      .map((p) => `"${p.default ?? ""}"`)
+      .join(", ");
     return `{{${name}(${argStrs})}}`;
   }
 }

@@ -71,10 +71,20 @@ describe("encryptRequest (no-op mode)", () => {
   it("returns an object that deeply equals the input", () => {
     const req = {
       id: "r1",
-      authBasic:  { username: "user", password: "secret" },
+      authBasic: { username: "user", password: "secret" },
       authBearer: { token: "bearer-tok" },
-      authOAuth2: { clientSecret: "cs", token: "tok", refreshToken: "rt", username: "u", password: "p" },
-      authAwsIam: { accessKeyId: "key", secretAccessKey: "sak", sessionToken: "st" },
+      authOAuth2: {
+        clientSecret: "cs",
+        token: "tok",
+        refreshToken: "rt",
+        username: "u",
+        password: "p",
+      },
+      authAwsIam: {
+        accessKeyId: "key",
+        secretAccessKey: "sak",
+        sessionToken: "st",
+      },
     };
     assert.deepEqual(encryptRequest(req), req);
   });
@@ -92,7 +102,12 @@ describe("encryptRequest (no-op mode)", () => {
   });
 
   it("leaves non-secret fields untouched", () => {
-    const req = { id: "r1", name: "test", method: "GET", url: "https://api.example.com" };
+    const req = {
+      id: "r1",
+      name: "test",
+      method: "GET",
+      url: "https://api.example.com",
+    };
     assert.deepEqual(encryptRequest(req), req);
   });
 
@@ -110,7 +125,10 @@ describe("encryptRequest (no-op mode)", () => {
 
 describe("decryptRequest (no-op mode)", () => {
   it("returns plaintext request unchanged", () => {
-    const req = { id: "r1", authBasic: { username: "u", password: "plaintext" } };
+    const req = {
+      id: "r1",
+      authBasic: { username: "u", password: "plaintext" },
+    };
     assert.deepEqual(decryptRequest(req), req);
   });
 

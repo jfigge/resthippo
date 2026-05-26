@@ -11,36 +11,34 @@ export const registry = {
     label: "Current timestamp",
     category: "built-in",
     params: [
-      { name: "format", label: "Format", type: "enum", default: "ISO", options: ["ISO", "Unix", "UnixMs", "RFC2822"] },
+      {
+        name: "format",
+        label: "Format",
+        type: "enum",
+        default: "ISO",
+        options: ["ISO", "Unix", "UnixMs", "RFC2822"],
+      },
     ],
   },
   base64encode: {
     label: "Base64 encode",
     category: "built-in",
-    params: [
-      { name: "value", label: "Value", type: "string", default: "" },
-    ],
+    params: [{ name: "value", label: "Value", type: "string", default: "" }],
   },
   base64decode: {
     label: "Base64 decode",
     category: "built-in",
-    params: [
-      { name: "value", label: "Value", type: "string", default: "" },
-    ],
+    params: [{ name: "value", label: "Value", type: "string", default: "" }],
   },
   urlEncode: {
     label: "URL percent-encode",
     category: "built-in",
-    params: [
-      { name: "value", label: "Value", type: "string", default: "" },
-    ],
+    params: [{ name: "value", label: "Value", type: "string", default: "" }],
   },
   urlDecode: {
     label: "URL percent-decode",
     category: "built-in",
-    params: [
-      { name: "value", label: "Value", type: "string", default: "" },
-    ],
+    params: [{ name: "value", label: "Value", type: "string", default: "" }],
   },
   randomInt: {
     label: "Random integer",
@@ -55,7 +53,13 @@ export const registry = {
     label: "Folder name",
     category: "context",
     params: [
-      { name: "depth", label: "Depth", type: "string", default: "0", placeholder: "0 = immediate parent" },
+      {
+        name: "depth",
+        label: "Depth",
+        type: "string",
+        default: "0",
+        placeholder: "0 = immediate parent",
+      },
     ],
   },
   collectionName: {
@@ -66,16 +70,20 @@ export const registry = {
   environmentVariable: {
     label: "Environment variable",
     category: "backend",
-    params: [
-      { name: "name", label: "Variable", type: "string", default: "" },
-    ],
+    params: [{ name: "name", label: "Variable", type: "string", default: "" }],
   },
 
   hmac: {
     label: "HMAC",
     category: "backend",
     params: [
-      { name: "algo", label: "Algorithm", type: "enum", default: "SHA256", options: ["SHA256", "SHA512"] },
+      {
+        name: "algo",
+        label: "Algorithm",
+        type: "enum",
+        default: "SHA256",
+        options: ["SHA256", "SHA512"],
+      },
       { name: "key", label: "Key", type: "string", default: "" },
       { name: "message", label: "Message", type: "string", default: "" },
     ],
@@ -84,7 +92,13 @@ export const registry = {
     label: "Hash",
     category: "backend",
     params: [
-      { name: "algo", label: "Algorithm", type: "enum", default: "SHA256", options: ["SHA256", "SHA512"] },
+      {
+        name: "algo",
+        label: "Algorithm",
+        type: "enum",
+        default: "SHA256",
+        options: ["SHA256", "SHA512"],
+      },
       { name: "value", label: "Value", type: "string", default: "" },
     ],
   },
@@ -103,15 +117,31 @@ export const registry = {
     label: "Request response body",
     category: "request-output",
     params: [
-      { name: "requestName", label: "Request", type: "request-picker", default: "" },
-      { name: "query", label: "Query", type: "string", default: ".", placeholder: ".data.token" },
+      {
+        name: "requestName",
+        label: "Request",
+        type: "request-picker",
+        default: "",
+      },
+      {
+        name: "query",
+        label: "Query",
+        type: "string",
+        default: ".",
+        placeholder: ".data.token",
+      },
     ],
   },
   responseHeader: {
     label: "Response header",
     category: "request-output",
     params: [
-      { name: "requestName", label: "Request", type: "request-picker", default: "" },
+      {
+        name: "requestName",
+        label: "Request",
+        type: "request-picker",
+        default: "",
+      },
       { name: "headerName", label: "Header name", type: "string", default: "" },
     ],
   },
@@ -119,7 +149,12 @@ export const registry = {
     label: "Response HTTP status",
     category: "request-output",
     params: [
-      { name: "requestName", label: "Request", type: "request-picker", default: "" },
+      {
+        name: "requestName",
+        label: "Request",
+        type: "request-picker",
+        default: "",
+      },
     ],
   },
 };

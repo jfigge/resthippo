@@ -34,16 +34,29 @@ export const logicMap = {
 
   now: ([fmt = "ISO"], _ctx) => {
     const d = new Date();
-    if (fmt === "Unix")    return String(Math.floor(d.getTime() / 1000));
-    if (fmt === "UnixMs")  return String(d.getTime());
+    if (fmt === "Unix") return String(Math.floor(d.getTime() / 1000));
+    if (fmt === "UnixMs") return String(d.getTime());
     if (fmt === "RFC2822") return d.toUTCString();
     return d.toISOString();
   },
 
-  base64encode: ([v = ""], _ctx) => btoa(unescape(encodeURIComponent(String(v)))),
-  base64decode: ([v = ""], _ctx) => { try { return atob(String(v)); } catch { return ""; } },
-  urlEncode:    ([v = ""], _ctx) => encodeURIComponent(String(v)),
-  urlDecode:    ([v = ""], _ctx) => { try { return decodeURIComponent(String(v)); } catch { return String(v); } },
+  base64encode: ([v = ""], _ctx) =>
+    btoa(unescape(encodeURIComponent(String(v)))),
+  base64decode: ([v = ""], _ctx) => {
+    try {
+      return atob(String(v));
+    } catch {
+      return "";
+    }
+  },
+  urlEncode: ([v = ""], _ctx) => encodeURIComponent(String(v)),
+  urlDecode: ([v = ""], _ctx) => {
+    try {
+      return decodeURIComponent(String(v));
+    } catch {
+      return String(v);
+    }
+  },
 
   randomInt: ([min = "0", max = "100"], _ctx) => {
     const lo = Number(min);
@@ -53,10 +66,14 @@ export const logicMap = {
   },
 
   // ── context (synchronous — reads from ctx) ──────────────────────────────
-  folderName:      ([depth = "0"], ctx) => { const d = parseInt(depth, 10); if (isNaN(d)) return ""; return ctx?.folderChain?.[d]?.name ?? ""; },
-  collectionName:   (_args, ctx) => ctx?.envName              ?? "",
-  requestName:      (_args, ctx) => ctx?.requestName          ?? "",
-  environmentName:  (_args, ctx) => ctx?.activeEnvironmentName ?? "",
+  folderName: ([depth = "0"], ctx) => {
+    const d = parseInt(depth, 10);
+    if (isNaN(d)) return "";
+    return ctx?.folderChain?.[d]?.name ?? "";
+  },
+  collectionName: (_args, ctx) => ctx?.envName ?? "",
+  requestName: (_args, ctx) => ctx?.requestName ?? "",
+  environmentName: (_args, ctx) => ctx?.activeEnvironmentName ?? "",
 
   // ── backend (async — delegated to main process via IPC) ─────────────────
   environmentVariable: ([name = ""], _ctx) => {
@@ -77,9 +94,12 @@ export const logicMap = {
     try {
       const simple = _simpleJq(body, query);
       if (simple !== null) return simple;
-    } catch { /* fall through to backend */ }
+    } catch {
+      /* fall through to backend */
+    }
     return invokeBackend("jq", { json: body, query });
   },
-  responseHeader: ([req = "", hdr = ""], ctx) => ctx?.responseHeaders?.[req]?.[hdr.toLowerCase()] ?? "",
-  responseStatus: ([name = ""], ctx) => ctx?.responseStatus?.[name]                        ?? "",
+  responseHeader: ([req = "", hdr = ""], ctx) =>
+    ctx?.responseHeaders?.[req]?.[hdr.toLowerCase()] ?? "",
+  responseStatus: ([name = ""], ctx) => ctx?.responseStatus?.[name] ?? "",
 };

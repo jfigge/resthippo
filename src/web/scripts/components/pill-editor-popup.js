@@ -37,33 +37,33 @@ export class PillEditorPopup {
   #type;
   #getContext;
   #onCommit;
-  #funcName        = null;
-  #funcDef         = null;
-  #getPreview      = null;
-  #suggestionsEl   = null;   // variable type only
-  #varNames        = [];     // variable type: all available names
-  #selectedVarName = "";     // variable type: currently selected name
-  #paramEls        = [];     // function type: one element per param
-  #errorEl         = null;
-  #previewValueEl  = null;
-  #previewSeq      = 0;      // monotonic counter — guards against stale async preview results
+  #funcName = null;
+  #funcDef = null;
+  #getPreview = null;
+  #suggestionsEl = null; // variable type only
+  #varNames = []; // variable type: all available names
+  #selectedVarName = ""; // variable type: currently selected name
+  #paramEls = []; // function type: one element per param
+  #errorEl = null;
+  #previewValueEl = null;
+  #previewSeq = 0; // monotonic counter — guards against stale async preview results
 
   constructor({
-    type       = "variable",
-    rawValue   = "",
+    type = "variable",
+    rawValue = "",
     getContext = () => null,
-    onCommit   = null,
-    funcName   = null,
-    funcDef    = null,
-    rawArgs    = [],
-    getItems   = () => [],
+    onCommit = null,
+    funcName = null,
+    funcDef = null,
+    rawArgs = [],
+    getItems = () => [],
     getPreview = null,
   } = {}) {
-    this.#type       = type;
+    this.#type = type;
     this.#getContext = getContext;
-    this.#onCommit   = onCommit;
-    this.#funcName   = funcName;
-    this.#funcDef    = funcDef;
+    this.#onCommit = onCommit;
+    this.#funcName = funcName;
+    this.#funcDef = funcDef;
     this.#getPreview = getPreview;
 
     if (type === "variable") {
@@ -75,19 +75,25 @@ export class PillEditorPopup {
     this.#el = this.#build({ type, funcName, funcDef, rawArgs, getItems });
 
     if (type === "variable") {
-      this.#suggestionsEl = this.#el.querySelector(".pill-editor-var-suggestions");
+      this.#suggestionsEl = this.#el.querySelector(
+        ".pill-editor-var-suggestions",
+      );
       this.#renderSuggestions();
     } else if (type === "function") {
-      this.#paramEls = [...this.#el.querySelectorAll(".pill-editor-param-input")];
+      this.#paramEls = [
+        ...this.#el.querySelectorAll(".pill-editor-param-input"),
+      ];
     }
 
-    this.#errorEl        = this.#el.querySelector(".pill-editor-error");
+    this.#errorEl = this.#el.querySelector(".pill-editor-error");
     this.#previewValueEl = this.#el.querySelector(".pill-editor-preview-value");
     this.#bindEvents();
     this.#updatePreview();
   }
 
-  get element() { return this.#el; }
+  get element() {
+    return this.#el;
+  }
 
   /** Factory — build, open via PopupManager, and focus the first interactive field. */
   static open(config) {
@@ -96,7 +102,10 @@ export class PillEditorPopup {
     requestAnimationFrame(() => {
       if (popup.#type === "function") {
         const target = popup.#paramEls[0];
-        if (target) { target.focus(); if (target.tagName === "INPUT") target.select(); }
+        if (target) {
+          target.focus();
+          if (target.tagName === "INPUT") target.select();
+        }
       } else if (popup.#type === "variable") {
         popup.#suggestionsEl?.focus();
       }
@@ -112,15 +121,16 @@ export class PillEditorPopup {
 
   #build({ type, funcName, funcDef, rawArgs, getItems }) {
     const label = TYPE_LABELS[type] ?? type;
-    const el    = document.createElement("div");
+    const el = document.createElement("div");
     el.className = "popup pill-editor-popup";
-    el.setAttribute("role",       "dialog");
+    el.setAttribute("role", "dialog");
     el.setAttribute("aria-modal", "true");
     el.setAttribute("aria-label", `${label} editor`);
 
-    const bodyHtml = type === "function"
-      ? this.#functionBodyHtml(funcName, funcDef, rawArgs, getItems)
-      : this.#variableBodyHtml();
+    const bodyHtml =
+      type === "function"
+        ? this.#functionBodyHtml(funcName, funcDef, rawArgs, getItems)
+        : this.#variableBodyHtml();
 
     el.innerHTML = `
       <div class="popup-header">
@@ -155,28 +165,36 @@ export class PillEditorPopup {
     if (!funcDef?.params?.length) {
       paramsHtml = `<p class="pill-editor-no-params">This function has no parameters.</p>`;
     } else {
-      paramsHtml = `<div class="pill-editor-params">${
-        funcDef.params.map((p, i) => {
+      paramsHtml = `<div class="pill-editor-params">${funcDef.params
+        .map((p, i) => {
           const val = rawArgs[i] ?? p.default ?? "";
           let inputHtml;
 
           if (p.type === "enum") {
-            const opts = (p.options ?? []).map(o =>
-              `<option value="${this.#esc(o)}"${o === val ? " selected" : ""}>${this.#esc(o)}</option>`
-            ).join("");
+            const opts = (p.options ?? [])
+              .map(
+                (o) =>
+                  `<option value="${this.#esc(o)}"${o === val ? " selected" : ""}>${this.#esc(o)}</option>`,
+              )
+              .join("");
             inputHtml = `<select class="pill-editor-param-input settings-input" data-param-idx="${i}">${opts}</select>`;
-
           } else if (p.type === "request-picker") {
             const items = getItems ? getItems() : [];
-            const opts = items.map(item =>
-              `<option value="${this.#esc(item.name)}"${item.name === val ? " selected" : ""}>${this.#esc(item.name)}</option>`
-            ).join("");
-            inputHtml = `<select class="pill-editor-param-input settings-input" data-param-idx="${i}">` +
+            const opts = items
+              .map(
+                (item) =>
+                  `<option value="${this.#esc(item.name)}"${item.name === val ? " selected" : ""}>${this.#esc(item.name)}</option>`,
+              )
+              .join("");
+            inputHtml =
+              `<select class="pill-editor-param-input settings-input" data-param-idx="${i}">` +
               `<option value="">— select request —</option>${opts}</select>`;
-
           } else {
-            const ph = p.placeholder ? ` placeholder="${this.#esc(p.placeholder)}"` : "";
-            inputHtml = `<input class="pill-editor-param-input settings-input" type="text"` +
+            const ph = p.placeholder
+              ? ` placeholder="${this.#esc(p.placeholder)}"`
+              : "";
+            inputHtml =
+              `<input class="pill-editor-param-input settings-input" type="text"` +
               ` value="${this.#esc(val)}" autocomplete="off" spellcheck="false"` +
               ` data-param-idx="${i}"${ph} />`;
           }
@@ -186,8 +204,8 @@ export class PillEditorPopup {
               <label class="pill-editor-param-label">${this.#esc(p.label)}</label>
               ${inputHtml}
             </div>`;
-        }).join("")
-      }</div>`;
+        })
+        .join("")}</div>`;
     }
 
     return `
@@ -206,8 +224,7 @@ export class PillEditorPopup {
     if (!this.#suggestionsEl) return;
 
     if (!this.#varNames.length) {
-      this.#suggestionsEl.innerHTML =
-        `<div class="pill-editor-var-empty">No variables defined</div>`;
+      this.#suggestionsEl.innerHTML = `<div class="pill-editor-var-empty">No variables defined</div>`;
       return;
     }
 
@@ -232,7 +249,9 @@ export class PillEditorPopup {
   #selectVar(name) {
     this.#selectedVarName = name;
     this.#updatePreview();
-    for (const el of this.#suggestionsEl.querySelectorAll(".pill-editor-var-item")) {
+    for (const el of this.#suggestionsEl.querySelectorAll(
+      ".pill-editor-var-item",
+    )) {
       const active = el.dataset.varName === name;
       el.classList.toggle("pill-editor-var-item--active", active);
       el.setAttribute("aria-selected", String(active));
@@ -241,7 +260,9 @@ export class PillEditorPopup {
   }
 
   #scrollActiveIntoView() {
-    const active = this.#suggestionsEl?.querySelector(".pill-editor-var-item--active");
+    const active = this.#suggestionsEl?.querySelector(
+      ".pill-editor-var-item--active",
+    );
     active?.scrollIntoView({ block: "nearest" });
   }
 
@@ -249,10 +270,16 @@ export class PillEditorPopup {
     const seen = new Set();
     if (ctx?.folderChain) {
       for (const folder of ctx.folderChain) {
-        if (folder?.variables) Object.keys(folder.variables).sort().forEach(k => seen.add(k));
+        if (folder?.variables)
+          Object.keys(folder.variables)
+            .sort()
+            .forEach((k) => seen.add(k));
       }
     }
-    if (ctx?.envVariables) Object.keys(ctx.envVariables).sort().forEach(k => seen.add(k));
+    if (ctx?.envVariables)
+      Object.keys(ctx.envVariables)
+        .sort()
+        .forEach((k) => seen.add(k));
     return [...seen];
   }
 
@@ -266,15 +293,25 @@ export class PillEditorPopup {
   #bindEvents() {
     if (this.#type === "variable" && this.#suggestionsEl) {
       this.#suggestionsEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { e.preventDefault(); this.#tryCommit(); return; }
-        if (e.key === "Escape") { e.preventDefault(); PopupManager.close(); return; }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this.#tryCommit();
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          PopupManager.close();
+          return;
+        }
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
           e.preventDefault();
-          const idx  = this.#varNames.indexOf(this.#selectedVarName);
-          const next = e.key === "ArrowDown"
-            ? Math.min(idx + 1, this.#varNames.length - 1)
-            : Math.max(idx - 1, 0);
-          if (this.#varNames[next] !== undefined) this.#selectVar(this.#varNames[next]);
+          const idx = this.#varNames.indexOf(this.#selectedVarName);
+          const next =
+            e.key === "ArrowDown"
+              ? Math.min(idx + 1, this.#varNames.length - 1)
+              : Math.max(idx - 1, 0);
+          if (this.#varNames[next] !== undefined)
+            this.#selectVar(this.#varNames[next]);
         }
       });
     } else if (this.#type === "function") {
@@ -284,15 +321,26 @@ export class PillEditorPopup {
           this.#updatePreview();
         });
         el.addEventListener("keydown", (e) => {
-          if (e.key === "Enter") { e.preventDefault(); this.#tryCommit(); }
-          else if (e.key === "Escape") { e.preventDefault(); PopupManager.close(); }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            this.#tryCommit();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            PopupManager.close();
+          }
         });
       }
     }
 
-    this.#el.querySelector(".popup-close").addEventListener("click", () => PopupManager.close());
-    this.#el.querySelector(".js-cancel").addEventListener("click",  () => PopupManager.close());
-    this.#el.querySelector(".js-done").addEventListener("click",    () => this.#tryCommit());
+    this.#el
+      .querySelector(".popup-close")
+      .addEventListener("click", () => PopupManager.close());
+    this.#el
+      .querySelector(".js-cancel")
+      .addEventListener("click", () => PopupManager.close());
+    this.#el
+      .querySelector(".js-done")
+      .addEventListener("click", () => this.#tryCommit());
   }
 
   // ── Commit ─────────────────────────────────────────────────────────────────
@@ -302,9 +350,8 @@ export class PillEditorPopup {
       if (!this.#selectedVarName) return;
       PopupManager.close();
       this.#onCommit?.(`{{${this.#selectedVarName}}}`);
-
     } else if (this.#type === "function") {
-      const args     = this.#getParamArgs();
+      const args = this.#getParamArgs();
       const rawToken = this.#buildFuncToken(this.#funcName, args);
       PopupManager.close();
       this.#onCommit?.(rawToken);
@@ -312,12 +359,14 @@ export class PillEditorPopup {
   }
 
   #getParamArgs() {
-    return this.#paramEls.map(el => el.value);
+    return this.#paramEls.map((el) => el.value);
   }
 
   #buildFuncToken(name, args) {
     if (!args.length) return `{{${name}()}}`;
-    const argStrs = args.map(a => `"${String(a).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(", ");
+    const argStrs = args
+      .map((a) => `"${String(a).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
+      .join(", ");
     return `{{${name}(${argStrs})}}`;
   }
 
@@ -329,14 +378,18 @@ export class PillEditorPopup {
 
     if (this.#type === "variable") {
       const name = this.#selectedVarName;
-      if (!name) { this.#setPreview(null); return; }
+      if (!name) {
+        this.#setPreview(null);
+        return;
+      }
       const { found, value } = resolveVariable(name, this.#getContext());
-      if (seq === this.#previewSeq) this.#setPreview(found ? String(value ?? "") : null);
-
+      if (seq === this.#previewSeq)
+        this.#setPreview(found ? String(value ?? "") : null);
     } else if (this.#type === "function" && this.#getPreview) {
       try {
         const result = await this.#getPreview(this.#getParamArgs());
-        if (seq === this.#previewSeq) this.#setPreview(result != null ? String(result) : null);
+        if (seq === this.#previewSeq)
+          this.#setPreview(result != null ? String(result) : null);
       } catch {
         if (seq === this.#previewSeq) this.#setPreview(null);
       }
@@ -350,7 +403,8 @@ export class PillEditorPopup {
       this.#previewValueEl.textContent = "Undefined";
       this.#previewValueEl.classList.add("pill-editor-preview--undefined");
     } else {
-      this.#previewValueEl.textContent = value === "" ? "(empty string)" : value;
+      this.#previewValueEl.textContent =
+        value === "" ? "(empty string)" : value;
       this.#previewValueEl.classList.remove("pill-editor-preview--undefined");
     }
   }
@@ -366,9 +420,9 @@ export class PillEditorPopup {
 
   #esc(s) {
     return String(s ?? "")
-      .replace(/&/g,  "&amp;")
-      .replace(/</g,  "&lt;")
-      .replace(/>/g,  "&gt;")
-      .replace(/"/g,  "&quot;");
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 }

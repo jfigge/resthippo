@@ -31,11 +31,11 @@ const _CHEVRON = `<svg class="env-picker__chevron" viewBox="0 0 6 4"
 </svg>`;
 
 export class EnvPicker {
-  #data        = { globalVariables: {}, activeEnvironmentId: null, environments: [] };
+  #data = { globalVariables: {}, activeEnvironmentId: null, environments: [] };
   #onManage;
-  #menu        = null;
+  #menu = null;
   #menuHandler = null;
-  #triggers    = [];
+  #triggers = [];
 
   constructor({ onManage } = {}) {
     this.#onManage = onManage;
@@ -55,7 +55,7 @@ export class EnvPicker {
 
   load(data) {
     this.#data = data ?? this.#data;
-    this.#triggers.forEach(t => this.#syncTrigger(t));
+    this.#triggers.forEach((t) => this.#syncTrigger(t));
     if (this.#menu) this.#syncChecks();
   }
 
@@ -63,11 +63,11 @@ export class EnvPicker {
 
   #activeEnv() {
     const id = this.#data.activeEnvironmentId;
-    return id ? (this.#data.environments ?? []).find(e => e.id === id) : null;
+    return id ? (this.#data.environments ?? []).find((e) => e.id === id) : null;
   }
 
   #syncTrigger(btn) {
-    const env   = this.#activeEnv();
+    const env = this.#activeEnv();
     const label = env?.name ?? "Global";
     btn.innerHTML = `${_GLOBE}<span class="env-picker__label"></span>${_CHEVRON}`;
     btn.querySelector(".env-picker__label").textContent = label;
@@ -76,12 +76,14 @@ export class EnvPicker {
 
   #syncChecks() {
     const activeId = this.#data.activeEnvironmentId;
-    this.#menu?.querySelectorAll(".env-picker__item[data-id]").forEach(item => {
-      const id  = item.dataset.id;
-      const sel = id === "__global__" ? !activeId : id === activeId;
-      item.classList.toggle("env-picker__item--selected", sel);
-      item.setAttribute("aria-selected", String(sel));
-    });
+    this.#menu
+      ?.querySelectorAll(".env-picker__item[data-id]")
+      .forEach((item) => {
+        const id = item.dataset.id;
+        const sel = id === "__global__" ? !activeId : id === activeId;
+        item.classList.toggle("env-picker__item--selected", sel);
+        item.setAttribute("aria-selected", String(sel));
+      });
   }
 
   #openMenu(nearEl) {
@@ -92,12 +94,12 @@ export class EnvPicker {
     menu.className = "env-picker__menu";
     menu.setAttribute("role", "listbox");
     menu.setAttribute("aria-label", "Environment options");
-    menu.addEventListener("mousedown", e => e.preventDefault());
+    menu.addEventListener("mousedown", (e) => e.preventDefault());
 
     const activeId = this.#data.activeEnvironmentId;
 
     menu.appendChild(this.#makeItem("__global__", "Global", !activeId));
-    for (const env of (this.#data.environments ?? [])) {
+    for (const env of this.#data.environments ?? []) {
       menu.appendChild(this.#makeItem(env.id, env.name, env.id === activeId));
     }
 
@@ -110,7 +112,7 @@ export class EnvPicker {
     manage.className = "env-picker__manage";
     manage.setAttribute("role", "option");
     manage.textContent = "Manage…";
-    manage.addEventListener("mousedown", e => {
+    manage.addEventListener("mousedown", (e) => {
       e.preventDefault();
       this.#closeMenu();
       this.#onManage?.();
@@ -121,18 +123,23 @@ export class EnvPicker {
     document.body.appendChild(menu);
     this.#menu = menu;
 
-    this.#menuHandler = e => {
-      if (!menu.contains(e.target) &&
-          !this.#triggers.some(t => t === e.target || t.contains(e.target))) {
+    this.#menuHandler = (e) => {
+      if (
+        !menu.contains(e.target) &&
+        !this.#triggers.some((t) => t === e.target || t.contains(e.target))
+      ) {
         this.#closeMenu();
       }
     };
-    document.addEventListener("mousedown", this.#menuHandler, { capture: true });
+    document.addEventListener("mousedown", this.#menuHandler, {
+      capture: true,
+    });
   }
 
   #makeItem(id, label, selected) {
     const item = document.createElement("div");
-    item.className = "env-picker__item" + (selected ? " env-picker__item--selected" : "");
+    item.className =
+      "env-picker__item" + (selected ? " env-picker__item--selected" : "");
     item.setAttribute("role", "option");
     item.setAttribute("aria-selected", String(selected));
     item.dataset.id = id;
@@ -141,11 +148,13 @@ export class EnvPicker {
       <span class="env-picker__item-label"></span>
     `;
     item.querySelector(".env-picker__item-label").textContent = label;
-    item.addEventListener("mousedown", e => {
+    item.addEventListener("mousedown", (e) => {
       e.preventDefault();
       const newId = id === "__global__" ? null : id;
       this.#closeMenu();
-      window.dispatchEvent(new CustomEvent("wurl:env-activate", { detail: { id: newId } }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:env-activate", { detail: { id: newId } }),
+      );
     });
     return item;
   }
@@ -155,23 +164,25 @@ export class EnvPicker {
     this.#menu.remove();
     this.#menu = null;
     if (this.#menuHandler) {
-      document.removeEventListener("mousedown", this.#menuHandler, { capture: true });
+      document.removeEventListener("mousedown", this.#menuHandler, {
+        capture: true,
+      });
       this.#menuHandler = null;
     }
     window.dispatchEvent(new CustomEvent("wurl:popup-closed"));
   }
 
   #positionMenu(menu, nearEl) {
-    const W  = window.innerWidth;
-    const H  = window.innerHeight;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
     const MW = 180;
     const itemCount = (this.#data.environments?.length ?? 0) + 3; // global + envs + sep + manage
     const MH = itemCount * 30 + 20;
-    const r     = nearEl.getBoundingClientRect();
-    const left  = Math.max(4, Math.min(r.left, W - MW - 4));
+    const r = nearEl.getBoundingClientRect();
+    const left = Math.max(4, Math.min(r.left, W - MW - 4));
     const below = r.bottom + 4;
     const above = r.top - MH - 4;
-    const top   = (below + MH > H - 4) ? Math.max(4, above) : below;
+    const top = below + MH > H - 4 ? Math.max(4, above) : below;
     menu.style.cssText = `left:${left}px; top:${top}px;`;
   }
 }

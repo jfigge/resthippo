@@ -6,7 +6,7 @@
  */
 "use strict";
 
-const fs   = require("fs");
+const fs = require("fs");
 const path = require("path");
 const { randomUUID } = require("crypto");
 
@@ -34,7 +34,11 @@ function atomicWrite(filePath, data) {
     fs.writeFileSync(tmpPath, data, "utf8");
     fs.renameSync(tmpPath, filePath);
   } catch (err) {
-    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {
+      /* ignore */
+    }
     throw err;
   }
 }
@@ -83,17 +87,15 @@ const FORBIDDEN_ID_RE = /[/\\<>:"|?*\x00-\x1f]/;
 function validateID(id, label = "id") {
   if (!id || typeof id !== "string") {
     const err = new Error(`invalid ${label}: must be a non-empty string`);
-    err.code  = "INVALID_ID";
+    err.code = "INVALID_ID";
     throw err;
   }
   if (id === "." || id === ".." || FORBIDDEN_ID_RE.test(id)) {
     const err = new Error(`invalid ${label}: contains forbidden characters`);
-    err.code  = "INVALID_ID";
+    err.code = "INVALID_ID";
     throw err;
   }
 }
-
-
 
 // ── UUID ──────────────────────────────────────────────────────────────────────
 
@@ -111,7 +113,7 @@ function newUUID() {
  */
 function notFoundError(message) {
   const err = new Error(message);
-  err.code  = "NOT_FOUND";
+  err.code = "NOT_FOUND";
   return err;
 }
 
@@ -124,4 +126,3 @@ module.exports = {
   newUUID,
   notFoundError,
 };
-

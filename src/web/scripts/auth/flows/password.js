@@ -9,9 +9,15 @@
 
 "use strict";
 
-import { postTokenRequest }             from "../network/electron-network.js";
-import { oauthResultFromTokenResponse, oauthResultFromError } from "../types/oauth-types.js";
-import { configurationError, fromTokenErrorResponse }        from "../types/oauth-errors.js";
+import { postTokenRequest } from "../network/electron-network.js";
+import {
+  oauthResultFromTokenResponse,
+  oauthResultFromError,
+} from "../types/oauth-types.js";
+import {
+  configurationError,
+  fromTokenErrorResponse,
+} from "../types/oauth-errors.js";
 
 /**
  * Execute the Resource Owner Password Credentials grant.
@@ -21,10 +27,16 @@ import { configurationError, fromTokenErrorResponse }        from "../types/oaut
  */
 export async function passwordFlow(config) {
   // ── Validate ─────────────────────────────────────────────────────────────
-  if (!config.accessTokenUrl?.trim()) return oauthResultFromError(configurationError("Access Token URL is required."));
-  if (!config.clientId?.trim())       return oauthResultFromError(configurationError("Client ID is required."));
-  if (!config.username?.trim())       return oauthResultFromError(configurationError("Username is required."));
-  if (!config.password?.trim())       return oauthResultFromError(configurationError("Password is required."));
+  if (!config.accessTokenUrl?.trim())
+    return oauthResultFromError(
+      configurationError("Access Token URL is required."),
+    );
+  if (!config.clientId?.trim())
+    return oauthResultFromError(configurationError("Client ID is required."));
+  if (!config.username?.trim())
+    return oauthResultFromError(configurationError("Username is required."));
+  if (!config.password?.trim())
+    return oauthResultFromError(configurationError("Password is required."));
 
   // ── Build parameters ──────────────────────────────────────────────────────
   // Passwords are sent verbatim — trimming would silently corrupt secrets that
@@ -32,11 +44,11 @@ export async function passwordFlow(config) {
   // above against the trimmed value, which still rejects all-whitespace input.
   const params = {
     grant_type: "password",
-    username:   config.username.trim(),
-    password:   config.password, // intentionally not logged, not trimmed
+    username: config.username.trim(),
+    password: config.password, // intentionally not logged, not trimmed
   };
 
-  if (config.scope?.trim())    params.scope    = config.scope.trim();
+  if (config.scope?.trim()) params.scope = config.scope.trim();
   if (config.audience?.trim()) params.audience = config.audience.trim();
 
   // Extra custom parameters
@@ -47,13 +59,14 @@ export async function passwordFlow(config) {
   }
 
   // ── Client authentication ─────────────────────────────────────────────────
-  const headers    = {};
-  const clientId   = config.clientId.trim();
+  const headers = {};
+  const clientId = config.clientId.trim();
   const credMethod = config.credentials ?? "header";
 
   params.client_id = clientId;
   if (credMethod === "body") {
-    if (config.clientSecret?.trim()) params.client_secret = config.clientSecret.trim();
+    if (config.clientSecret?.trim())
+      params.client_secret = config.clientSecret.trim();
   } else {
     if (config.clientSecret?.trim()) {
       const encoded = btoa(`${clientId}:${config.clientSecret.trim()}`);
@@ -67,20 +80,23 @@ export async function passwordFlow(config) {
     response = await postTokenRequest(config.accessTokenUrl.trim(), params, {
       headers,
       verifySsl: config.verifySsl !== false,
-      timeout:   config.timeout   ?? 30_000,
+      timeout: config.timeout ?? 30_000,
     });
   } catch (err) {
     return oauthResultFromError(err);
   }
 
   if (response.error || response.httpStatus >= 400) {
-    return oauthResultFromError(fromTokenErrorResponse(response, response.httpStatus));
+    return oauthResultFromError(
+      fromTokenErrorResponse(response, response.httpStatus),
+    );
   }
 
   if (!response.access_token) {
-    return oauthResultFromError(configurationError("Token endpoint did not return an access_token."));
+    return oauthResultFromError(
+      configurationError("Token endpoint did not return an access_token."),
+    );
   }
 
   return oauthResultFromTokenResponse(response);
 }
-

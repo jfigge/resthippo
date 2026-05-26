@@ -24,11 +24,13 @@ const VERIFIER_CHARS =
  */
 export function generateCodeVerifier(length = 64) {
   if (length < 43 || length > 128) {
-    throw new RangeError("PKCE code verifier length must be between 43 and 128 characters.");
+    throw new RangeError(
+      "PKCE code verifier length must be between 43 and 128 characters.",
+    );
   }
   const alphabet = VERIFIER_CHARS.length;
-  const limit    = Math.floor(256 / alphabet) * alphabet; // rejection threshold
-  const result   = [];
+  const limit = Math.floor(256 / alphabet) * alphabet; // rejection threshold
+  const result = [];
   while (result.length < length) {
     const batch = new Uint8Array(Math.ceil((length - result.length) * 1.1 + 8));
     crypto.getRandomValues(batch);
@@ -50,7 +52,7 @@ export function generateCodeVerifier(length = 64) {
  */
 export async function generateCodeChallenge(verifier) {
   const encoded = new TextEncoder().encode(verifier);
-  const digest  = await crypto.subtle.digest("SHA-256", encoded);
+  const digest = await crypto.subtle.digest("SHA-256", encoded);
   return _base64urlEncode(digest);
 }
 
@@ -64,9 +66,5 @@ function _base64urlEncode(buffer) {
   let binary = "";
   const bytes = new Uint8Array(buffer);
   for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g,  "");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
-

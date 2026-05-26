@@ -91,9 +91,12 @@ export class CollectionsPopup {
    * @param {{ collections: object[], activeCollectionId: string }} state
    * @param {string} collectionId  — the collection to rename (defaults to active)
    */
-  openWithRename({ collections, activeCollectionId }, collectionId = activeCollectionId) {
+  openWithRename(
+    { collections, activeCollectionId },
+    collectionId = activeCollectionId,
+  ) {
     this.open({ collections, activeCollectionId });
-    const coll = this.#collections.find(e => e.id === collectionId);
+    const coll = this.#collections.find((e) => e.id === collectionId);
     if (coll) this.#startRename(coll);
   }
 
@@ -102,8 +105,8 @@ export class CollectionsPopup {
    * @param {{ collections: object[], activeCollectionId: string }} state
    */
   open({ collections, activeCollectionId }) {
-    this.#collections = collections.map(e => ({ ...e }));
-    this.#activeId     = activeCollectionId;
+    this.#collections = collections.map((e) => ({ ...e }));
+    this.#activeId = activeCollectionId;
     this.#pendingAction = null;
     this.#renderList();
     this.#setNameInputVisible(false);
@@ -116,8 +119,8 @@ export class CollectionsPopup {
    * @param {{ collections: object[], activeCollectionId: string }} state
    */
   update({ collections, activeCollectionId }) {
-    this.#collections  = collections.map(e => ({ ...e }));
-    this.#activeId      = activeCollectionId;
+    this.#collections = collections.map((e) => ({ ...e }));
+    this.#activeId = activeCollectionId;
     this.#pendingAction = null;
     this.#renderList();
     this.#setNameInputVisible(false);
@@ -163,16 +166,22 @@ export class CollectionsPopup {
     `;
 
     // Header close
-    el.querySelector(".popup-close").addEventListener("click", () => PopupManager.close());
+    el.querySelector(".popup-close").addEventListener("click", () =>
+      PopupManager.close(),
+    );
     // Footer close
-    el.querySelector(".js-close").addEventListener("click", () => PopupManager.close());
+    el.querySelector(".js-close").addEventListener("click", () =>
+      PopupManager.close(),
+    );
     // New collection
-    el.querySelector(".coll-new-btn").addEventListener("click", () => this.#startAdd());
+    el.querySelector(".coll-new-btn").addEventListener("click", () =>
+      this.#startAdd(),
+    );
 
     // Name-input controls
-    const nameInput  = el.querySelector(".coll-name-input");
-    const nameOkBtn  = el.querySelector(".coll-name-ok");
-    const cancelBtn  = el.querySelector(".coll-name-cancel");
+    const nameInput = el.querySelector(".coll-name-input");
+    const nameOkBtn = el.querySelector(".coll-name-ok");
+    const cancelBtn = el.querySelector(".coll-name-cancel");
 
     nameInput.addEventListener("input", () => {
       nameOkBtn.disabled = !nameInput.value.trim();
@@ -181,8 +190,8 @@ export class CollectionsPopup {
       if (e.key === "Enter" && !nameOkBtn.disabled) nameOkBtn.click();
       if (e.key === "Escape") cancelBtn.click();
     });
-    nameOkBtn.addEventListener("click",  () => this.#commitName());
-    cancelBtn.addEventListener("click",  () => this.#setNameInputVisible(false));
+    nameOkBtn.addEventListener("click", () => this.#commitName());
+    cancelBtn.addEventListener("click", () => this.#setNameInputVisible(false));
 
     return el;
   }
@@ -190,15 +199,16 @@ export class CollectionsPopup {
   // ── List rendering ─────────────────────────────────────────────────────────
 
   #renderList() {
-    const ul    = this.#el.querySelector(".coll-list");
+    const ul = this.#el.querySelector(".coll-list");
     ul.innerHTML = "";
     const count = this.#collections.length;
 
-    this.#collections.forEach(collection => {
+    this.#collections.forEach((collection) => {
       const isActive = collection.id === this.#activeId;
 
       const li = document.createElement("li");
-      li.className = "coll-list-item" + (isActive ? " coll-list-item--active" : "");
+      li.className =
+        "coll-list-item" + (isActive ? " coll-list-item--active" : "");
       li.setAttribute("role", "option");
       li.setAttribute("aria-selected", String(isActive));
 
@@ -219,26 +229,29 @@ export class CollectionsPopup {
       actions.className = "coll-list-item__actions";
 
       const cloneBtn = document.createElement("button");
-      cloneBtn.className  = "coll-action-btn";
-      cloneBtn.title      = "Clone collection";
-      cloneBtn.innerHTML  = ICON_CLONE;
+      cloneBtn.className = "coll-action-btn";
+      cloneBtn.title = "Clone collection";
+      cloneBtn.innerHTML = ICON_CLONE;
       cloneBtn.setAttribute("aria-label", `Clone ${collection.name}`);
       cloneBtn.addEventListener("click", () => this.#startClone(collection));
 
       const renameBtn = document.createElement("button");
       renameBtn.className = "coll-action-btn";
-      renameBtn.title     = "Rename collection";
+      renameBtn.title = "Rename collection";
       renameBtn.innerHTML = ICON_RENAME;
       renameBtn.setAttribute("aria-label", `Rename ${collection.name}`);
       renameBtn.addEventListener("click", () => this.#startRename(collection));
 
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "coll-action-btn coll-action-btn--danger";
-      deleteBtn.title     = count <= 1 ? "Cannot delete the only collection" : "Delete collection";
-      deleteBtn.disabled  = count <= 1;
+      deleteBtn.title =
+        count <= 1 ? "Cannot delete the only collection" : "Delete collection";
+      deleteBtn.disabled = count <= 1;
       deleteBtn.innerHTML = ICON_DELETE;
       deleteBtn.setAttribute("aria-label", `Delete ${collection.name}`);
-      deleteBtn.addEventListener("click", () => this.#confirmDelete(collection));
+      deleteBtn.addEventListener("click", () =>
+        this.#confirmDelete(collection),
+      );
 
       actions.appendChild(cloneBtn);
       actions.appendChild(renameBtn);
@@ -253,57 +266,78 @@ export class CollectionsPopup {
 
   // ── Name input form ────────────────────────────────────────────────────────
 
-  #setNameInputVisible(visible, { placeholder = "Collection name…", defaultValue = "", okLabel = "Add" } = {}) {
-    const row    = this.#el.querySelector(".coll-name-input-row");
-    const input  = this.#el.querySelector(".coll-name-input");
-    const okBtn  = this.#el.querySelector(".coll-name-ok");
+  #setNameInputVisible(
+    visible,
+    {
+      placeholder = "Collection name…",
+      defaultValue = "",
+      okLabel = "Add",
+    } = {},
+  ) {
+    const row = this.#el.querySelector(".coll-name-input-row");
+    const input = this.#el.querySelector(".coll-name-input");
+    const okBtn = this.#el.querySelector(".coll-name-ok");
     const newBtn = this.#el.querySelector(".coll-new-btn");
 
     if (visible) {
       input.placeholder = placeholder;
-      input.value       = defaultValue;
+      input.value = defaultValue;
       okBtn.textContent = okLabel;
-      okBtn.disabled    = !defaultValue.trim();
+      okBtn.disabled = !defaultValue.trim();
       input.classList.remove("coll-name-input--error");
       row.classList.add("coll-name-input-row--visible");
       newBtn.disabled = true;
-      requestAnimationFrame(() => { input.focus(); input.select(); });
+      requestAnimationFrame(() => {
+        input.focus();
+        input.select();
+      });
     } else {
       clearTimeout(this.#nameErrorTimer);
       this.#nameErrorTimer = null;
       row.classList.remove("coll-name-input-row--visible");
-      input.value       = "";
+      input.value = "";
       okBtn.textContent = "Add";
-      newBtn.disabled   = false;
+      newBtn.disabled = false;
       this.#pendingAction = null;
     }
   }
 
   #startAdd() {
     this.#pendingAction = "add";
-    this.#setNameInputVisible(true, { placeholder: "New Collection name…", defaultValue: "" });
+    this.#setNameInputVisible(true, {
+      placeholder: "New Collection name…",
+      defaultValue: "",
+    });
   }
 
   #startClone(coll) {
-    this.#pendingAction = { type: "clone", sourceId: coll.id, sourceName: coll.name };
+    this.#pendingAction = {
+      type: "clone",
+      sourceId: coll.id,
+      sourceName: coll.name,
+    };
     this.#setNameInputVisible(true, {
-      placeholder:  "New collection name…",
+      placeholder: "New collection name…",
       defaultValue: `${coll.name} (copy)`,
     });
   }
 
   #startRename(coll) {
-    this.#pendingAction = { type: "rename", id: coll.id, currentName: coll.name };
+    this.#pendingAction = {
+      type: "rename",
+      id: coll.id,
+      currentName: coll.name,
+    };
     this.#setNameInputVisible(true, {
-      placeholder:  "Collection name…",
+      placeholder: "Collection name…",
       defaultValue: coll.name,
-      okLabel:      "Rename",
+      okLabel: "Rename",
     });
   }
 
   #commitName() {
     const input = this.#el.querySelector(".coll-name-input");
-    const name  = input.value.trim();
+    const name = input.value.trim();
     if (!name) return;
 
     const action = this.#pendingAction;
@@ -315,7 +349,7 @@ export class CollectionsPopup {
     }
 
     // Uniqueness check (case-insensitive); for rename, exclude the collection being renamed
-    const isDuplicate = this.#collections.some(e => {
+    const isDuplicate = this.#collections.some((e) => {
       if (action?.type === "rename" && e.id === action.id) return false;
       return e.name.toLowerCase() === name.toLowerCase();
     });
@@ -334,17 +368,23 @@ export class CollectionsPopup {
     this.#setNameInputVisible(false);
 
     if (action === "add") {
-      window.dispatchEvent(new CustomEvent("wurl:coll-add", { detail: { name }, bubbles: true }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:coll-add", { detail: { name }, bubbles: true }),
+      );
     } else if (action?.type === "clone") {
-      window.dispatchEvent(new CustomEvent("wurl:coll-clone", {
-        detail: { sourceId: action.sourceId, name },
-        bubbles: true,
-      }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:coll-clone", {
+          detail: { sourceId: action.sourceId, name },
+          bubbles: true,
+        }),
+      );
     } else if (action?.type === "rename") {
-      window.dispatchEvent(new CustomEvent("wurl:coll-rename", {
-        detail: { id: action.id, name },
-        bubbles: true,
-      }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:coll-rename", {
+          detail: { id: action.id, name },
+          bubbles: true,
+        }),
+      );
     }
   }
 
@@ -352,17 +392,24 @@ export class CollectionsPopup {
 
   #selectColl(id) {
     if (id === this.#activeId) return;
-    window.dispatchEvent(new CustomEvent("wurl:coll-select", { detail: { id }, bubbles: true }));
+    window.dispatchEvent(
+      new CustomEvent("wurl:coll-select", { detail: { id }, bubbles: true }),
+    );
   }
 
   #confirmDelete(coll) {
     PopupManager.confirm({
-      title:        "Delete Collection?",
-      message:      `Delete "<strong>${this.#escape(coll.name)}</strong>" and all its requests? This cannot be undone.`,
+      title: "Delete Collection?",
+      message: `Delete "<strong>${this.#escape(coll.name)}</strong>" and all its requests? This cannot be undone.`,
       confirmLabel: "Delete",
       confirmClass: "popup-btn--danger",
-      onConfirm:    () => {
-        window.dispatchEvent(new CustomEvent("wurl:coll-delete", { detail: { id: coll.id }, bubbles: true }));
+      onConfirm: () => {
+        window.dispatchEvent(
+          new CustomEvent("wurl:coll-delete", {
+            detail: { id: coll.id },
+            bubbles: true,
+          }),
+        );
       },
     });
   }
@@ -377,4 +424,3 @@ export class CollectionsPopup {
       .replace(/"/g, "&quot;");
   }
 }
-

@@ -250,13 +250,19 @@ export class SettingsPopup {
     this.#el.querySelectorAll("input[type='checkbox']").forEach((control) => {
       control.addEventListener("change", () => this.#emitChange());
     });
-    this.#el.querySelectorAll("input[type='text'], input[type='number'], input[type='url']").forEach((control) => {
-      control.addEventListener("input", () => this.#emitChange());
-    });
+    this.#el
+      .querySelectorAll(
+        "input[type='text'], input[type='number'], input[type='url']",
+      )
+      .forEach((control) => {
+        control.addEventListener("input", () => this.#emitChange());
+      });
 
     // Update the "Remove headers" tooltip whenever the checkbox is toggled
     const removeHeadersCb = this.#el.querySelector("#setting-remove-headers");
-    removeHeadersCb.addEventListener("change", () => this.#updateRemoveHeadersTitle());
+    removeHeadersCb.addEventListener("change", () =>
+      this.#updateRemoveHeadersTitle(),
+    );
 
     // Escape handling lives in #onKeyDown, attached on open() and detached
     // when PopupManager dispatches "wurl:popup-closed". See class fields above.
@@ -272,10 +278,12 @@ export class SettingsPopup {
     this.#el.querySelector(".js-close").addEventListener("click", () => {
       const historyCount = this.#readHistoryCount();
       this.#emitChange(historyCount);
-      window.dispatchEvent(new CustomEvent("wurl:history-trim", {
-        detail: { historyCount },
-        bubbles: true,
-      }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:history-trim", {
+          detail: { historyCount },
+          bubbles: true,
+        }),
+      );
       PopupManager.close();
     });
   }
@@ -288,7 +296,7 @@ export class SettingsPopup {
    * Unchecked   → explains where the settings icon moves when headers are hidden.
    */
   #updateRemoveHeadersTitle() {
-    const cb  = this.#el.querySelector("#setting-remove-headers");
+    const cb = this.#el.querySelector("#setting-remove-headers");
     const row = this.#el.querySelector("#setting-remove-headers-row");
     if (!cb || !row) return;
     row.title = cb.checked
@@ -314,7 +322,9 @@ export class SettingsPopup {
 
   /** Read the historyCount select value as a number. */
   #readHistoryCount() {
-    return parseInt(this.#el.querySelector("#setting-history-count").value, 10) || 0;
+    return (
+      parseInt(this.#el.querySelector("#setting-history-count").value, 10) || 0
+    );
   }
 
   /** Reset the historyCount control to the value it had when the popup was opened. */
@@ -326,17 +336,25 @@ export class SettingsPopup {
   /** Collect all setting values into a plain object (historyCount excluded — deferred). */
   #readValues() {
     return {
-      theme:           this.#el.querySelector("#setting-theme").value,
-      fontSize:        parseInt(this.#el.querySelector("#setting-font-size").value, 10) || 13,
-      fontFamily:      this.#el.querySelector("#setting-font-family").value,
-      removeHeaders:   this.#el.querySelector("#setting-remove-headers").checked,
-      timeout:         parseInt(this.#el.querySelector("#setting-timeout").value, 10) || 0,
-      followRedirects:    this.#el.querySelector("#setting-follow-redirects").checked,
-      doubleClickExecute: this.#el.querySelector("#setting-dblclick-execute").checked,
-      verifySsl:          this.#el.querySelector("#setting-verify-ssl").checked,
-      pickerDebounceMs: parseInt(this.#el.querySelector("#setting-picker-debounce").value, 10) || 200,
-      proxyEnabled:    this.#el.querySelector("#setting-proxy-enabled").checked,
-      proxyUrl:        this.#el.querySelector("#setting-proxy-url").value.trim(),
+      theme: this.#el.querySelector("#setting-theme").value,
+      fontSize:
+        parseInt(this.#el.querySelector("#setting-font-size").value, 10) || 13,
+      fontFamily: this.#el.querySelector("#setting-font-family").value,
+      removeHeaders: this.#el.querySelector("#setting-remove-headers").checked,
+      timeout:
+        parseInt(this.#el.querySelector("#setting-timeout").value, 10) || 0,
+      followRedirects: this.#el.querySelector("#setting-follow-redirects")
+        .checked,
+      doubleClickExecute: this.#el.querySelector("#setting-dblclick-execute")
+        .checked,
+      verifySsl: this.#el.querySelector("#setting-verify-ssl").checked,
+      pickerDebounceMs:
+        parseInt(
+          this.#el.querySelector("#setting-picker-debounce").value,
+          10,
+        ) || 200,
+      proxyEnabled: this.#el.querySelector("#setting-proxy-enabled").checked,
+      proxyUrl: this.#el.querySelector("#setting-proxy-url").value.trim(),
     };
   }
 
@@ -364,7 +382,9 @@ export class SettingsPopup {
     // close path (X button, Close button, Escape, and mask click), so this
     // one once-listener covers them all.
     document.addEventListener("keydown", this.#onKeyDown);
-    window.addEventListener("wurl:popup-closed", this.#onPopupClosed, { once: true });
+    window.addEventListener("wurl:popup-closed", this.#onPopupClosed, {
+      once: true,
+    });
   }
 
   /**
@@ -384,39 +404,53 @@ export class SettingsPopup {
       this.#el.querySelector("#setting-theme").value = settings.theme;
     }
     if (settings.fontSize !== undefined) {
-      this.#el.querySelector("#setting-font-size").value = String(settings.fontSize);
+      this.#el.querySelector("#setting-font-size").value = String(
+        settings.fontSize,
+      );
     }
     if (settings.fontFamily !== undefined) {
-      this.#el.querySelector("#setting-font-family").value = settings.fontFamily;
+      this.#el.querySelector("#setting-font-family").value =
+        settings.fontFamily;
     }
     if (settings.removeHeaders !== undefined) {
-      this.#el.querySelector("#setting-remove-headers").checked = settings.removeHeaders;
+      this.#el.querySelector("#setting-remove-headers").checked =
+        settings.removeHeaders;
     }
     // Always refresh the tooltip so it matches the current checkbox state
     this.#updateRemoveHeadersTitle();
     if (settings.timeout !== undefined) {
-      this.#el.querySelector("#setting-timeout").value = String(settings.timeout);
+      this.#el.querySelector("#setting-timeout").value = String(
+        settings.timeout,
+      );
     }
     if (settings.followRedirects !== undefined) {
-      this.#el.querySelector("#setting-follow-redirects").checked = settings.followRedirects;
+      this.#el.querySelector("#setting-follow-redirects").checked =
+        settings.followRedirects;
     }
     if (settings.doubleClickExecute !== undefined) {
-      this.#el.querySelector("#setting-dblclick-execute").checked = settings.doubleClickExecute;
+      this.#el.querySelector("#setting-dblclick-execute").checked =
+        settings.doubleClickExecute;
     }
     if (settings.verifySsl !== undefined) {
-      this.#el.querySelector("#setting-verify-ssl").checked = settings.verifySsl;
+      this.#el.querySelector("#setting-verify-ssl").checked =
+        settings.verifySsl;
     }
     if (settings.pickerDebounceMs !== undefined) {
-      this.#el.querySelector("#setting-picker-debounce").value = String(settings.pickerDebounceMs);
+      this.#el.querySelector("#setting-picker-debounce").value = String(
+        settings.pickerDebounceMs,
+      );
     }
     if (settings.proxyEnabled !== undefined) {
-      this.#el.querySelector("#setting-proxy-enabled").checked = settings.proxyEnabled;
+      this.#el.querySelector("#setting-proxy-enabled").checked =
+        settings.proxyEnabled;
     }
     if (settings.proxyUrl !== undefined) {
       this.#el.querySelector("#setting-proxy-url").value = settings.proxyUrl;
     }
     if (settings.historyCount !== undefined) {
-      this.#el.querySelector("#setting-history-count").value = String(settings.historyCount);
+      this.#el.querySelector("#setting-history-count").value = String(
+        settings.historyCount,
+      );
     }
   }
 }

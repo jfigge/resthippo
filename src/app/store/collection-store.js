@@ -12,10 +12,10 @@ const { encryptSettings, decryptSettings } = require("./crypto");
 
 /** Default manifest returned on first run (no file yet). */
 const DEFAULT_MANIFEST = Object.freeze({
-  version:           2,
-  collections:       [],
+  version: 2,
+  collections: [],
   activeCollectionId: null,
-  settings:          {},
+  settings: {},
 });
 
 class CollectionStore {
@@ -36,7 +36,8 @@ class CollectionStore {
   getManifest() {
     const data = readJSON(this._paths.manifestPath());
     const manifest = data ?? { ...DEFAULT_MANIFEST };
-    if (manifest.settings) manifest.settings = decryptSettings(manifest.settings);
+    if (manifest.settings)
+      manifest.settings = decryptSettings(manifest.settings);
     return manifest;
   }
 
@@ -56,4 +57,3 @@ class CollectionStore {
 }
 
 module.exports = { CollectionStore };
-

@@ -42,8 +42,12 @@ class Paths {
     return path.join(this.collectionsDir(), "index.json");
   }
 
-  environmentsDir()  { return path.join(this.dataDir, "environments"); }
-  environmentsPath() { return path.join(this.dataDir, "environments", "index.json"); }
+  environmentsDir() {
+    return path.join(this.dataDir, "environments");
+  }
+  environmentsPath() {
+    return path.join(this.dataDir, "environments", "index.json");
+  }
 
   // ── Per-collection paths ────────────────────────────────────────────────────
 
@@ -96,4 +100,3 @@ class Paths {
 }
 
 module.exports = { Paths };
-

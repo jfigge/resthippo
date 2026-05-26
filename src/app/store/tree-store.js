@@ -18,7 +18,13 @@
 "use strict";
 
 const fs = require("fs");
-const { readJSON, writeJSON, ensureDir, validateID, notFoundError } = require("./io");
+const {
+  readJSON,
+  writeJSON,
+  ensureDir,
+  validateID,
+  notFoundError,
+} = require("./io");
 
 class TreeStore {
   /**
@@ -26,7 +32,7 @@ class TreeStore {
    * @param {import('./resolver').Resolver} resolver
    */
   constructor(paths, resolver) {
-    this._paths    = paths;
+    this._paths = paths;
     this._resolver = resolver;
   }
 
@@ -73,7 +79,9 @@ function _validateTreeRefs(nodes, collectionId, paths) {
     if (node.type === "requestRef") {
       const p = paths.requestPath(collectionId, node.id);
       if (!fs.existsSync(p)) {
-        throw notFoundError(`requestRef ${node.id} not found in collection ${collectionId}`);
+        throw notFoundError(
+          `requestRef ${node.id} not found in collection ${collectionId}`,
+        );
       }
     } else if (node.type === "folder" && Array.isArray(node.children)) {
       _validateTreeRefs(node.children, collectionId, paths);
@@ -82,4 +90,3 @@ function _validateTreeRefs(nodes, collectionId, paths) {
 }
 
 module.exports = { TreeStore };
-

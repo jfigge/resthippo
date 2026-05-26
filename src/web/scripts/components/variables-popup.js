@@ -22,16 +22,16 @@
 import { PopupManager } from "../popup-manager.js";
 
 export class VariablesPopup {
-  /** @type {HTMLElement} */       #el;
-  /** @type {HTMLElement} */       #titleEl;
-  /** @type {HTMLInputElement} */  #bulkToggleEl;
+  /** @type {HTMLElement} */ #el;
+  /** @type {HTMLElement} */ #titleEl;
+  /** @type {HTMLInputElement} */ #bulkToggleEl;
   /** @type {HTMLTextAreaElement} */ #textareaEl;
-  /** @type {HTMLElement} */       #kvWrapEl;
-  /** @type {HTMLElement} */       #kvListEl;
+  /** @type {HTMLElement} */ #kvWrapEl;
+  /** @type {HTMLElement} */ #kvListEl;
   /** @type {HTMLButtonElement} */ #resetBtn;
   /** @type {HTMLButtonElement} */ #closeHeaderBtn;
   /** @type {HTMLButtonElement} */ #closeFooterBtn;
-  /** @type {HTMLElement} */       #hintEl;
+  /** @type {HTMLElement} */ #hintEl;
   /** @type {HTMLButtonElement} */ #addBtnEl;
 
   /** @type {string|null} */ #envId = null;
@@ -46,11 +46,11 @@ export class VariablesPopup {
   #rows = [];
 
   // drag state
-  #dragSrcId   = null;
+  #dragSrcId = null;
   #dragHandled = false;
   /** @type {HTMLElement} */ #phantom;
 
-  /** @type {number|null} */   #saveTimer    = null;
+  /** @type {number|null} */ #saveTimer = null;
   /** @type {Function|null} */ #resetCleanup = null;
 
   /** Whether the "Remove headers" setting is active. */
@@ -59,11 +59,13 @@ export class VariablesPopup {
   static #SAVE_MS = 500;
 
   constructor() {
-    this.#el      = this.#build();
+    this.#el = this.#build();
     this.#phantom = this.#buildPhantom();
   }
 
-  get element() { return this.#el; }
+  get element() {
+    return this.#el;
+  }
 
   // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -87,8 +89,10 @@ export class VariablesPopup {
     this.#titleEl.textContent = `Variables — ${envName}`;
     this.#el.setAttribute("aria-label", `Variables — ${envName}`);
 
-    const vars = (variables && typeof variables === "object" && !Array.isArray(variables))
-      ? variables : {};
+    const vars =
+      variables && typeof variables === "object" && !Array.isArray(variables)
+        ? variables
+        : {};
 
     // Snapshot for Reset
     this.#initialText = this.#varsToText(vars);
@@ -115,7 +119,9 @@ export class VariablesPopup {
     });
   }
 
-  onMaskClick() { this.#doClose(); }
+  onMaskClick() {
+    this.#doClose();
+  }
 
   // ── Build ───────────────────────────────────────────────────────────────────
 
@@ -173,22 +179,26 @@ export class VariablesPopup {
       </div>
     `;
 
-    this.#titleEl        = el.querySelector(".vars-popup-title");
-    this.#bulkToggleEl   = el.querySelector(".vars-bulk-toggle");
-    this.#textareaEl     = el.querySelector(".vars-textarea");
-    this.#kvWrapEl       = el.querySelector(".vars-kv-wrap");
-    this.#kvListEl       = el.querySelector(".vars-kv-list");
-    this.#resetBtn       = el.querySelector(".vars-reset-btn");
+    this.#titleEl = el.querySelector(".vars-popup-title");
+    this.#bulkToggleEl = el.querySelector(".vars-bulk-toggle");
+    this.#textareaEl = el.querySelector(".vars-textarea");
+    this.#kvWrapEl = el.querySelector(".vars-kv-wrap");
+    this.#kvListEl = el.querySelector(".vars-kv-list");
+    this.#resetBtn = el.querySelector(".vars-reset-btn");
     this.#closeHeaderBtn = el.querySelector(".popup-close");
     this.#closeFooterBtn = el.querySelector(".vars-close-btn");
-    this.#hintEl         = el.querySelector(".vars-hint");
-    this.#addBtnEl       = el.querySelector(".vars-add-btn");
+    this.#hintEl = el.querySelector(".vars-hint");
+    this.#addBtnEl = el.querySelector(".vars-add-btn");
 
     this.#closeHeaderBtn.addEventListener("click", () => this.#doClose());
     this.#closeFooterBtn.addEventListener("click", () => this.#doClose());
-    this.#bulkToggleEl.addEventListener("change", () => this.#handleBulkToggle());
+    this.#bulkToggleEl.addEventListener("change", () =>
+      this.#handleBulkToggle(),
+    );
     this.#textareaEl.addEventListener("input", () => this.#scheduleSave());
-    el.querySelector(".vars-add-btn").addEventListener("click", () => this.#addRow());
+    el.querySelector(".vars-add-btn").addEventListener("click", () =>
+      this.#addRow(),
+    );
     this.#resetBtn.addEventListener("click", () => this.#handleReset());
 
     // Escape closes the popup (unless the Reset confirm state is active,
@@ -203,7 +213,10 @@ export class VariablesPopup {
 
     // List-level drag events (fires even when cursor is over the phantom)
     this.#kvListEl.addEventListener("dragover", (e) => {
-      if (!this.#dragSrcId) { this.#phantom?.remove(); return; }
+      if (!this.#dragSrcId) {
+        this.#phantom?.remove();
+        return;
+      }
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       if (!this.#kvListEl.contains(this.#phantom)) {
@@ -216,14 +229,23 @@ export class VariablesPopup {
       if (!this.#dragSrcId) return;
       this.#dragHandled = true;
       const children = [...this.#kvListEl.children];
-      const phIdx    = children.indexOf(this.#phantom);
-      if (phIdx === -1) { this.#finalizeDrag(); return; }
-      const rowEls   = children.filter(c => c.classList.contains("vars-kv-row"));
-      const insertAt = rowEls.filter(r => children.indexOf(r) < phIdx).length;
-      const srcIdx   = this.#rows.findIndex(r => r.id === this.#dragSrcId);
+      const phIdx = children.indexOf(this.#phantom);
+      if (phIdx === -1) {
+        this.#finalizeDrag();
+        return;
+      }
+      const rowEls = children.filter((c) =>
+        c.classList.contains("vars-kv-row"),
+      );
+      const insertAt = rowEls.filter((r) => children.indexOf(r) < phIdx).length;
+      const srcIdx = this.#rows.findIndex((r) => r.id === this.#dragSrcId);
       if (srcIdx !== -1) {
         const [moved] = this.#rows.splice(srcIdx, 1);
-        this.#rows.splice(insertAt > srcIdx ? insertAt - 1 : insertAt, 0, moved);
+        this.#rows.splice(
+          insertAt > srcIdx ? insertAt - 1 : insertAt,
+          0,
+          moved,
+        );
         this.#renderRows();
         this.#saveFromRows();
       }
@@ -244,8 +266,8 @@ export class VariablesPopup {
   #applyMode() {
     const bulk = this.#isBulkMode;
     this.#textareaEl.style.display = bulk ? "" : "none";
-    this.#kvWrapEl.style.display   = bulk ? "none" : "";
-    if (this.#hintEl)   this.#hintEl.style.display   = bulk ? "" : "none";
+    this.#kvWrapEl.style.display = bulk ? "none" : "";
+    if (this.#hintEl) this.#hintEl.style.display = bulk ? "" : "none";
     if (this.#addBtnEl) this.#addBtnEl.style.display = bulk ? "none" : "";
   }
 
@@ -270,9 +292,12 @@ export class VariablesPopup {
       this.#saveFromRows();
     }
 
-    window.dispatchEvent(new CustomEvent("wurl:vars-bulk-editor-changed", {
-      detail: { bulkEditor: nowBulk }, bubbles: true,
-    }));
+    window.dispatchEvent(
+      new CustomEvent("wurl:vars-bulk-editor-changed", {
+        detail: { bulkEditor: nowBulk },
+        bubbles: true,
+      }),
+    );
   }
 
   // ── Conversion helpers ──────────────────────────────────────────────────────
@@ -311,14 +336,17 @@ export class VariablesPopup {
   /** Convert a variables object to a rows array. */
   #varsToRows(vars) {
     return Object.entries(vars).map(([name, value]) => ({
-      id: crypto.randomUUID(), name,
+      id: crypto.randomUUID(),
+      name,
       value: typeof value === "string" ? value : JSON.stringify(value),
     }));
   }
 
   #rowsToObject() {
     const out = {};
-    for (const r of this.#rows) { if (r.name.trim()) out[r.name] = r.value; }
+    for (const r of this.#rows) {
+      if (r.name.trim()) out[r.name] = r.value;
+    }
     return out;
   }
 
@@ -333,14 +361,16 @@ export class VariablesPopup {
       this.#kvListEl.appendChild(empty);
       return;
     }
-    this.#rows.forEach(row => this.#kvListEl.appendChild(this.#buildRow(row)));
+    this.#rows.forEach((row) =>
+      this.#kvListEl.appendChild(this.#buildRow(row)),
+    );
   }
 
   #buildRow(row) {
     const el = document.createElement("div");
     el.className = "vars-kv-row params-row";
     el.dataset.id = row.id;
-    el.draggable  = true;
+    el.draggable = true;
 
     const handle = document.createElement("span");
     handle.className = "params-drag-handle";
@@ -353,19 +383,39 @@ export class VariablesPopup {
     </svg>`;
 
     const nameIn = document.createElement("input");
-    nameIn.type = "text"; nameIn.className = "params-input params-name";
-    nameIn.placeholder = "Name"; nameIn.value = row.name;
+    nameIn.type = "text";
+    nameIn.className = "params-input params-name";
+    nameIn.placeholder = "Name";
+    nameIn.value = row.name;
     nameIn.setAttribute("aria-label", "Variable name");
     nameIn.setAttribute("autocomplete", "off");
-    nameIn.addEventListener("input",   () => { row.name = nameIn.value; this.#saveFromRows(); });
-    nameIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); this.#addRow(); } });
+    nameIn.addEventListener("input", () => {
+      row.name = nameIn.value;
+      this.#saveFromRows();
+    });
+    nameIn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.#addRow();
+      }
+    });
 
     const valIn = document.createElement("input");
-    valIn.type = "text"; valIn.className = "params-input params-value";
-    valIn.placeholder = "Value"; valIn.value = row.value;
+    valIn.type = "text";
+    valIn.className = "params-input params-value";
+    valIn.placeholder = "Value";
+    valIn.value = row.value;
     valIn.setAttribute("aria-label", "Variable value");
-    valIn.addEventListener("input",   () => { row.value = valIn.value; this.#saveFromRows(); });
-    valIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); this.#addRow(); } });
+    valIn.addEventListener("input", () => {
+      row.value = valIn.value;
+      this.#saveFromRows();
+    });
+    valIn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.#addRow();
+      }
+    });
 
     const del = document.createElement("button");
     del.className = "icon-btn params-delete-btn";
@@ -376,13 +426,13 @@ export class VariablesPopup {
       <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
     </svg>`;
     del.addEventListener("click", () => {
-      this.#rows = this.#rows.filter(r => r.id !== row.id);
+      this.#rows = this.#rows.filter((r) => r.id !== row.id);
       this.#renderRows();
       this.#saveFromRows();
     });
 
     el.addEventListener("dragstart", (e) => {
-      this.#dragSrcId   = row.id;
+      this.#dragSrcId = row.id;
       this.#dragHandled = false;
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", row.id);
@@ -397,13 +447,19 @@ export class VariablesPopup {
       if (!this.#dragSrcId || this.#dragSrcId === row.id) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-      const rect  = el.getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
       const after = (e.clientY - rect.top) / rect.height >= 0.5;
-      el.parentElement?.insertBefore(this.#phantom, after ? el.nextSibling : el);
+      el.parentElement?.insertBefore(
+        this.#phantom,
+        after ? el.nextSibling : el,
+      );
     });
 
     el.addEventListener("dragend", () => {
-      if (!this.#dragHandled) { el.style.display = ""; this.#phantom.remove(); }
+      if (!this.#dragHandled) {
+        el.style.display = "";
+        this.#phantom.remove();
+      }
       this.#finalizeDrag();
     });
 
@@ -415,7 +471,9 @@ export class VariablesPopup {
   }
 
   #finalizeDrag() {
-    this.#dragSrcId = null; this.#dragHandled = false; this.#phantom.remove();
+    this.#dragSrcId = null;
+    this.#dragHandled = false;
+    this.#phantom.remove();
   }
 
   #addRow() {
@@ -423,14 +481,18 @@ export class VariablesPopup {
     this.#rows.push(row);
     this.#renderRows();
     const rows = this.#kvListEl.querySelectorAll(".vars-kv-row");
-    if (rows.length) rows[rows.length - 1].querySelector(".params-name")?.focus();
+    if (rows.length)
+      rows[rows.length - 1].querySelector(".params-name")?.focus();
   }
 
   // ── Save ────────────────────────────────────────────────────────────────────
 
   #scheduleSave() {
     clearTimeout(this.#saveTimer);
-    this.#saveTimer = setTimeout(() => this.#saveFromBulk(), VariablesPopup.#SAVE_MS);
+    this.#saveTimer = setTimeout(
+      () => this.#saveFromBulk(),
+      VariablesPopup.#SAVE_MS,
+    );
   }
 
   #saveFromBulk() {
@@ -444,9 +506,12 @@ export class VariablesPopup {
   }
 
   #dispatchSave(variables) {
-    window.dispatchEvent(new CustomEvent("wurl:vars-save", {
-      detail: { envId: this.#envId, variables }, bubbles: true,
-    }));
+    window.dispatchEvent(
+      new CustomEvent("wurl:vars-save", {
+        detail: { envId: this.#envId, variables },
+        bubbles: true,
+      }),
+    );
   }
 
   // ── Reset ───────────────────────────────────────────────────────────────────
@@ -466,31 +531,44 @@ export class VariablesPopup {
     }
 
     this.#resetBtn.textContent = "Confirm?";
-    this.#resetBtn.classList.replace("popup-btn--secondary", "popup-btn--warning");
+    this.#resetBtn.classList.replace(
+      "popup-btn--secondary",
+      "popup-btn--warning",
+    );
 
     const restore = () => {
       this.#resetBtn.textContent = "Reset";
-      this.#resetBtn.classList.replace("popup-btn--warning", "popup-btn--secondary");
-      document.removeEventListener("keydown",   onEsc,     true);
+      this.#resetBtn.classList.replace(
+        "popup-btn--warning",
+        "popup-btn--secondary",
+      );
+      document.removeEventListener("keydown", onEsc, true);
       document.removeEventListener("mousedown", onOutside, true);
       this.#resetCleanup = null;
     };
-    const onEsc     = (e) => { if (e.key === "Escape") restore(); };
-    const onOutside = (e) => { if (!this.#resetBtn.contains(e.target)) restore(); };
+    const onEsc = (e) => {
+      if (e.key === "Escape") restore();
+    };
+    const onOutside = (e) => {
+      if (!this.#resetBtn.contains(e.target)) restore();
+    };
 
-    document.addEventListener("keydown",   onEsc,     true);
+    document.addEventListener("keydown", onEsc, true);
     document.addEventListener("mousedown", onOutside, true);
     this.#resetCleanup = restore;
   }
 
-  #cancelResetConfirm() { if (this.#resetCleanup) this.#resetCleanup(); }
+  #cancelResetConfirm() {
+    if (this.#resetCleanup) this.#resetCleanup();
+  }
 
   // ── Close ───────────────────────────────────────────────────────────────────
 
   #doClose() {
     clearTimeout(this.#saveTimer);
     this.#cancelResetConfirm();
-    if (this.#isBulkMode) this.#saveFromBulk(); else this.#saveFromRows();
+    if (this.#isBulkMode) this.#saveFromBulk();
+    else this.#saveFromRows();
     PopupManager.close();
   }
 }

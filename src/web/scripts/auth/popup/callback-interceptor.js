@@ -14,7 +14,11 @@
 
 "use strict";
 
-import { OAuthError, OAuthErrorCode, popupCancelledError } from "../types/oauth-errors.js";
+import {
+  OAuthError,
+  OAuthErrorCode,
+  popupCancelledError,
+} from "../types/oauth-errors.js";
 
 /** Default redirect URI used when none is supplied. */
 export const DEFAULT_REDIRECT_URI = "http://localhost:7777/oauth/callback";
@@ -30,13 +34,17 @@ export const DEFAULT_REDIRECT_URI = "http://localhost:7777/oauth/callback";
  * @param {string} [title]     - Popup window title
  * @returns {Promise<string>}  Callback URL (e.g. "http://localhost:7777/oauth/callback?code=…")
  */
-export async function openOAuthPopup(authUrl, redirectUri, title = "OAuth Authorization") {
+export async function openOAuthPopup(
+  authUrl,
+  redirectUri,
+  title = "OAuth Authorization",
+) {
   if (typeof window.wurl?.oauth?.openPopup !== "function") {
     throw new OAuthError(
       OAuthErrorCode.POPUP_UNAVAILABLE,
       "OAuth popup is only available inside the Electron app. " +
-      "When running via the dev-server, use a flow that does not require a browser popup " +
-      "(e.g. Client Credentials or Resource Owner Password).",
+        "When running via the dev-server, use a flow that does not require a browser popup " +
+        "(e.g. Client Credentials or Resource Owner Password).",
     );
   }
 
@@ -48,4 +56,3 @@ export async function openOAuthPopup(authUrl, redirectUri, title = "OAuth Author
 
   return result.url;
 }
-

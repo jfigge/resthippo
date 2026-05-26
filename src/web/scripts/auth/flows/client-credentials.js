@@ -9,9 +9,15 @@
 
 "use strict";
 
-import { postTokenRequest }             from "../network/electron-network.js";
-import { oauthResultFromTokenResponse, oauthResultFromError } from "../types/oauth-types.js";
-import { configurationError, fromTokenErrorResponse }        from "../types/oauth-errors.js";
+import { postTokenRequest } from "../network/electron-network.js";
+import {
+  oauthResultFromTokenResponse,
+  oauthResultFromError,
+} from "../types/oauth-types.js";
+import {
+  configurationError,
+  fromTokenErrorResponse,
+} from "../types/oauth-errors.js";
 
 /**
  * Execute the Client Credentials flow.
@@ -25,13 +31,17 @@ import { configurationError, fromTokenErrorResponse }        from "../types/oaut
  */
 export async function clientCredentialsFlow(config) {
   // ── Validate ─────────────────────────────────────────────────────────────
-  if (!config.clientId?.trim())       return oauthResultFromError(configurationError("Client ID is required."));
-  if (!config.accessTokenUrl?.trim()) return oauthResultFromError(configurationError("Access Token URL is required."));
+  if (!config.clientId?.trim())
+    return oauthResultFromError(configurationError("Client ID is required."));
+  if (!config.accessTokenUrl?.trim())
+    return oauthResultFromError(
+      configurationError("Access Token URL is required."),
+    );
 
   // ── Build parameters ──────────────────────────────────────────────────────
   const params = { grant_type: "client_credentials" };
 
-  if (config.scope?.trim())    params.scope    = config.scope.trim();
+  if (config.scope?.trim()) params.scope = config.scope.trim();
   if (config.audience?.trim()) params.audience = config.audience.trim();
   if (config.resource?.trim()) params.resource = config.resource.trim();
 
@@ -43,8 +53,8 @@ export async function clientCredentialsFlow(config) {
   }
 
   // ── Client authentication ─────────────────────────────────────────────────
-  const headers    = {};
-  const clientId   = config.clientId.trim();
+  const headers = {};
+  const clientId = config.clientId.trim();
   const credMethod = config.credentials ?? "header";
 
   params.client_id = clientId;
@@ -66,7 +76,7 @@ export async function clientCredentialsFlow(config) {
     response = await postTokenRequest(config.accessTokenUrl.trim(), params, {
       headers,
       verifySsl: config.verifySsl !== false,
-      timeout:   config.timeout   ?? 30_000,
+      timeout: config.timeout ?? 30_000,
     });
   } catch (err) {
     return oauthResultFromError(err);
@@ -74,7 +84,9 @@ export async function clientCredentialsFlow(config) {
 
   // ── Handle error response ────────────────────────────────��────────────────
   if (response.error || response.httpStatus >= 400) {
-    return oauthResultFromError(fromTokenErrorResponse(response, response.httpStatus));
+    return oauthResultFromError(
+      fromTokenErrorResponse(response, response.httpStatus),
+    );
   }
 
   // ── Validate minimum success fields ───────────────────────────────────────
@@ -86,4 +98,3 @@ export async function clientCredentialsFlow(config) {
 
   return oauthResultFromTokenResponse(response);
 }
-

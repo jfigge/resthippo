@@ -36,8 +36,8 @@ export function buildUrl(base, params) {
  */
 export function parseUrlParams(urlString) {
   try {
-    const url      = new URL(urlString);
-    const query    = url.searchParams;
+    const url = new URL(urlString);
+    const query = url.searchParams;
     const hashBody = url.hash.startsWith("#") ? url.hash.slice(1) : "";
     const fragment = new URLSearchParams(hashBody);
     return { query, fragment };
@@ -61,9 +61,9 @@ export function parseUrlParams(urlString) {
 export function extractAuthCode(callbackUrl) {
   const { query } = parseUrlParams(callbackUrl);
   return {
-    code:             query.get("code"),
-    state:            query.get("state"),
-    error:            query.get("error"),
+    code: query.get("code"),
+    state: query.get("state"),
+    error: query.get("error"),
     errorDescription: query.get("error_description"),
   };
 }
@@ -92,13 +92,13 @@ export function extractImplicitToken(callbackUrl) {
   // Prefer fragment; fall back to query for non-conformant IdPs
   const p = fragment.get("access_token") ? fragment : query;
   return {
-    accessToken:      p.get("access_token"),
-    tokenType:        p.get("token_type"),
-    expiresIn:        p.get("expires_in"),
-    idToken:          p.get("id_token"),
-    scope:            p.get("scope"),
-    state:            p.get("state"),
-    error:            p.get("error"),
+    accessToken: p.get("access_token"),
+    tokenType: p.get("token_type"),
+    expiresIn: p.get("expires_in"),
+    idToken: p.get("id_token"),
+    scope: p.get("scope"),
+    state: p.get("state"),
+    error: p.get("error"),
     errorDescription: p.get("error_description"),
   };
 }
@@ -113,7 +113,7 @@ export function extractImplicitToken(callbackUrl) {
 function effectivePort(url) {
   if (url.port !== "") return url.port;
   if (url.protocol === "https:") return "443";
-  if (url.protocol === "http:")  return "80";
+  if (url.protocol === "http:") return "80";
   return "";
 }
 
@@ -130,21 +130,22 @@ function effectivePort(url) {
 export function matchesRedirectUri(urlToCheck, registeredRedirectUri) {
   if (!urlToCheck || !registeredRedirectUri) return false;
   try {
-    const check    = new URL(urlToCheck);
+    const check = new URL(urlToCheck);
     const redirect = new URL(registeredRedirectUri);
 
     // urn: schemes (e.g. urn:ietf:wg:oauth:2.0:oob) can't match a navigating URL
     if (redirect.protocol === "urn:") return false;
 
-    const sameOrigin   = check.protocol.toLowerCase() === redirect.protocol.toLowerCase()
-                      && check.hostname.toLowerCase()  === redirect.hostname.toLowerCase()
-                      && effectivePort(check)          === effectivePort(redirect);
-    const samePath     = check.pathname === redirect.pathname
-                      || (redirect.pathname === "/" && check.pathname === "");
+    const sameOrigin =
+      check.protocol.toLowerCase() === redirect.protocol.toLowerCase() &&
+      check.hostname.toLowerCase() === redirect.hostname.toLowerCase() &&
+      effectivePort(check) === effectivePort(redirect);
+    const samePath =
+      check.pathname === redirect.pathname ||
+      (redirect.pathname === "/" && check.pathname === "");
     return sameOrigin && samePath;
   } catch {
     // Fallback: prefix match
     return urlToCheck.startsWith(registeredRedirectUri);
   }
 }
-

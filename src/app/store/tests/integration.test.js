@@ -14,14 +14,14 @@
 
 const { test, describe, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
-const os     = require("os");
-const fs     = require("fs");
-const path   = require("path");
+const os = require("os");
+const fs = require("fs");
+const path = require("path");
 
-const { Stores }          = require("../stores");
-const { Paths }           = require("../paths");
-const { Resolver }        = require("../resolver");
-const { validateID }      = require("../io");
+const { Stores } = require("../stores");
+const { Paths } = require("../paths");
+const { Resolver } = require("../resolver");
+const { validateID } = require("../io");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -35,18 +35,18 @@ function rmTmpDir(dir) {
 
 function makeRequest(overrides = {}) {
   return {
-    id:     `req-${Math.random().toString(36).slice(2)}`,
-    type:   "request",
-    name:   "Test Request",
+    id: `req-${Math.random().toString(36).slice(2)}`,
+    type: "request",
+    name: "Test Request",
     method: "GET",
-    url:    "https://example.com",
+    url: "https://example.com",
     ...overrides,
   };
 }
 
 function makeHistoryEntry(overrides = {}) {
   return {
-    status:     200,
+    status: 200,
     durationMs: 50,
     responseSize: 1024,
     ...overrides,
@@ -55,8 +55,8 @@ function makeHistoryEntry(overrides = {}) {
 
 function makeResponse(overrides = {}) {
   return {
-    headers:     { "content-type": "application/json" },
-    body:        '{"ok":true}',
+    headers: { "content-type": "application/json" },
+    body: '{"ok":true}',
     contentType: "application/json",
     ...overrides,
   };
@@ -68,11 +68,11 @@ function makeStores(tmpDir) {
   const ss = new Stores(tmpDir);
   return {
     ss,
-    manifest:     ss.collectionStore(),
-    collections:  ss.collectionsStore(),
-    tree:         ss.treeStore(),
-    requests:     ss.requestStore(),
-    history:      ss.historyStore(),
+    manifest: ss.collectionStore(),
+    collections: ss.collectionsStore(),
+    tree: ss.treeStore(),
+    requests: ss.requestStore(),
+    history: ss.historyStore(),
     environments: ss.environmentStore(),
   };
 }
@@ -85,7 +85,7 @@ describe("EnvironmentStore — first-run defaults", () => {
   let tmpDir, envStore;
 
   beforeEach(() => {
-    tmpDir   = makeTmpDir();
+    tmpDir = makeTmpDir();
     envStore = new Stores(tmpDir).environmentStore();
   });
   afterEach(() => rmTmpDir(tmpDir));
@@ -115,7 +115,7 @@ describe("EnvironmentStore — save and load round-trip", () => {
   let tmpDir, envStore;
 
   beforeEach(() => {
-    tmpDir   = makeTmpDir();
+    tmpDir = makeTmpDir();
     envStore = new Stores(tmpDir).environmentStore();
   });
   afterEach(() => rmTmpDir(tmpDir));
@@ -139,9 +139,17 @@ describe("EnvironmentStore — save and load round-trip", () => {
       globalVariables: {},
       activeEnvironmentId: "env-staging",
       environments: [
-        { id: "env-dev",     name: "Development", variables: { host: "dev.api.com" } },
-        { id: "env-staging", name: "Staging",     variables: { host: "stg.api.com" } },
-        { id: "env-prod",    name: "Production",  variables: { host: "api.com" } },
+        {
+          id: "env-dev",
+          name: "Development",
+          variables: { host: "dev.api.com" },
+        },
+        {
+          id: "env-staging",
+          name: "Staging",
+          variables: { host: "stg.api.com" },
+        },
+        { id: "env-prod", name: "Production", variables: { host: "api.com" } },
       ],
     };
     envStore.saveEnvironments(data);
@@ -153,10 +161,16 @@ describe("EnvironmentStore — save and load round-trip", () => {
 
   test("overwrites previous data on repeated saves", () => {
     envStore.saveEnvironments({
-      version: 1, globalVariables: { x: "1" }, activeEnvironmentId: null, environments: [],
+      version: 1,
+      globalVariables: { x: "1" },
+      activeEnvironmentId: null,
+      environments: [],
     });
     envStore.saveEnvironments({
-      version: 1, globalVariables: { x: "2" }, activeEnvironmentId: null, environments: [],
+      version: 1,
+      globalVariables: { x: "2" },
+      activeEnvironmentId: null,
+      environments: [],
     });
     const loaded = envStore.getEnvironments();
     assert.equal(loaded.globalVariables.x, "2");
@@ -181,7 +195,12 @@ describe("EnvironmentStore — save and load round-trip", () => {
     for (let i = 0; i < 200; i++) {
       variables[`key${i}`] = `value${i}`;
     }
-    envStore.saveEnvironments({ version: 1, globalVariables: variables, activeEnvironmentId: null, environments: [] });
+    envStore.saveEnvironments({
+      version: 1,
+      globalVariables: variables,
+      activeEnvironmentId: null,
+      environments: [],
+    });
     const loaded = envStore.getEnvironments();
     assert.equal(Object.keys(loaded.globalVariables).length, 200);
     assert.equal(loaded.globalVariables.key199, "value199");
@@ -196,7 +215,7 @@ describe("Manifest — multi-collection lifecycle", () => {
   let tmpDir, manifest;
 
   beforeEach(() => {
-    tmpDir   = makeTmpDir();
+    tmpDir = makeTmpDir();
     manifest = new Stores(tmpDir).collectionStore();
   });
   afterEach(() => rmTmpDir(tmpDir));
@@ -218,8 +237,18 @@ describe("Manifest — multi-collection lifecycle", () => {
   });
 
   test("switching active collection persists", () => {
-    manifest.saveManifest({ version: 2, collections: [{ id: "c1" }, { id: "c2" }], activeCollectionId: "c1", settings: {} });
-    manifest.saveManifest({ version: 2, collections: [{ id: "c1" }, { id: "c2" }], activeCollectionId: "c2", settings: {} });
+    manifest.saveManifest({
+      version: 2,
+      collections: [{ id: "c1" }, { id: "c2" }],
+      activeCollectionId: "c1",
+      settings: {},
+    });
+    manifest.saveManifest({
+      version: 2,
+      collections: [{ id: "c1" }, { id: "c2" }],
+      activeCollectionId: "c2",
+      settings: {},
+    });
     assert.equal(manifest.getManifest().activeCollectionId, "c2");
   });
 
@@ -228,7 +257,12 @@ describe("Manifest — multi-collection lifecycle", () => {
       version: 2,
       collections: [],
       activeCollectionId: null,
-      settings: { theme: "espresso", fontSize: 16, layout: "portrait", timeout: 30000 },
+      settings: {
+        theme: "espresso",
+        fontSize: 16,
+        layout: "portrait",
+        timeout: 30000,
+      },
     });
     const loaded = manifest.getManifest();
     assert.equal(loaded.settings.theme, "espresso");
@@ -238,8 +272,18 @@ describe("Manifest — multi-collection lifecycle", () => {
   });
 
   test("removing a collection from manifest reflects in next load", () => {
-    manifest.saveManifest({ version: 2, collections: [{ id: "c1" }, { id: "c2" }], activeCollectionId: "c1", settings: {} });
-    manifest.saveManifest({ version: 2, collections: [{ id: "c1" }], activeCollectionId: "c1", settings: {} });
+    manifest.saveManifest({
+      version: 2,
+      collections: [{ id: "c1" }, { id: "c2" }],
+      activeCollectionId: "c1",
+      settings: {},
+    });
+    manifest.saveManifest({
+      version: 2,
+      collections: [{ id: "c1" }],
+      activeCollectionId: "c1",
+      settings: {},
+    });
     const loaded = manifest.getManifest();
     assert.equal(loaded.collections.length, 1);
     assert.equal(loaded.collections[0].id, "c1");
@@ -262,30 +306,46 @@ describe("Request lifecycle — create, read, update, delete", () => {
   afterEach(() => rmTmpDir(tmpDir));
 
   test("UI create → read → update → delete round-trip", () => {
-    const req     = makeRequest({ id: "req-full", method: "POST", url: "/api/v1/users" });
+    const req = makeRequest({
+      id: "req-full",
+      method: "POST",
+      url: "/api/v1/users",
+    });
     const created = stores.requests.createRequest(COL, req);
     assert.equal(created.id, "req-full");
 
-    const loaded  = stores.requests.getRequest("req-full");
+    const loaded = stores.requests.getRequest("req-full");
     assert.equal(loaded.method, "POST");
-    assert.equal(loaded.url,    "/api/v1/users");
+    assert.equal(loaded.url, "/api/v1/users");
 
-    const updated = stores.requests.updateRequest("req-full", { url: "/api/v2/users", method: "PUT" });
-    assert.equal(updated.url,    "/api/v2/users");
+    const updated = stores.requests.updateRequest("req-full", {
+      url: "/api/v2/users",
+      method: "PUT",
+    });
+    assert.equal(updated.url, "/api/v2/users");
     assert.equal(updated.method, "PUT");
-    assert.equal(updated.name,   "Test Request"); // unchanged
+    assert.equal(updated.name, "Test Request"); // unchanged
 
     stores.requests.deleteRequest("req-full");
     assert.throws(
       () => stores.requests.getRequest("req-full"),
-      err => err.code === "NOT_FOUND",
+      (err) => err.code === "NOT_FOUND",
     );
   });
 
   test("multiple requests in same collection stay isolated", () => {
-    const r1 = stores.requests.createRequest(COL, makeRequest({ id: "r1", name: "Get Users" }));
-    const r2 = stores.requests.createRequest(COL, makeRequest({ id: "r2", name: "Create User" }));
-    const r3 = stores.requests.createRequest(COL, makeRequest({ id: "r3", name: "Delete User" }));
+    const r1 = stores.requests.createRequest(
+      COL,
+      makeRequest({ id: "r1", name: "Get Users" }),
+    );
+    const r2 = stores.requests.createRequest(
+      COL,
+      makeRequest({ id: "r2", name: "Create User" }),
+    );
+    const r3 = stores.requests.createRequest(
+      COL,
+      makeRequest({ id: "r3", name: "Delete User" }),
+    );
 
     assert.equal(stores.requests.getRequest(r1.id).name, "Get Users");
     assert.equal(stores.requests.getRequest(r2.id).name, "Create User");
@@ -301,14 +361,19 @@ describe("Request lifecycle — create, read, update, delete", () => {
 
     assert.ok(stores.requests.getRequest("keep-1"));
     assert.ok(stores.requests.getRequest("keep-2"));
-    assert.throws(() => stores.requests.getRequest("delete-me"), err => err.code === "NOT_FOUND");
+    assert.throws(
+      () => stores.requests.getRequest("delete-me"),
+      (err) => err.code === "NOT_FOUND",
+    );
   });
 
   test("updateRequest preserves all non-patched fields", () => {
     const req = makeRequest({
       id: "req-preserve",
-      headers: [{ id: "h1", name: "X-Api-Key", value: "secret", enabled: true }],
-      params:  [{ id: "p1", name: "limit", value: "50", enabled: true }],
+      headers: [
+        { id: "h1", name: "X-Api-Key", value: "secret", enabled: true },
+      ],
+      params: [{ id: "p1", name: "limit", value: "50", enabled: true }],
       authType: "bearer",
       authBearer: { token: "my-token" },
     });
@@ -318,7 +383,7 @@ describe("Request lifecycle — create, read, update, delete", () => {
     const loaded = stores.requests.getRequest("req-preserve");
     assert.equal(loaded.url, "/new-url");
     assert.deepEqual(loaded.headers, req.headers);
-    assert.deepEqual(loaded.params,  req.params);
+    assert.deepEqual(loaded.params, req.params);
     assert.equal(loaded.authType, "bearer");
     assert.equal(loaded.authBearer.token, "my-token");
   });
@@ -327,13 +392,13 @@ describe("Request lifecycle — create, read, update, delete", () => {
     const req = makeRequest({
       id: "req-auth",
       authEnabled: true,
-      authType:    "oauth2",
-      authOAuth2:  {
-        grantType:    "client_credentials",
-        tokenUrl:     "https://auth.example.com/token",
-        clientId:     "my-client",
+      authType: "oauth2",
+      authOAuth2: {
+        grantType: "client_credentials",
+        tokenUrl: "https://auth.example.com/token",
+        clientId: "my-client",
         clientSecret: "my-secret",
-        scope:        "read:api",
+        scope: "read:api",
       },
     });
     stores.requests.createRequest(COL, req);
@@ -344,7 +409,10 @@ describe("Request lifecycle — create, read, update, delete", () => {
   });
 
   test("createRequest persists across separate Stores instances", () => {
-    stores.requests.createRequest(COL, makeRequest({ id: "req-cross-session", name: "Cross Session" }));
+    stores.requests.createRequest(
+      COL,
+      makeRequest({ id: "req-cross-session", name: "Cross Session" }),
+    );
 
     const freshStores = makeStores(tmpDir);
     const loaded = freshStores.requests.getRequest("req-cross-session");
@@ -371,9 +439,13 @@ describe("History — add, list, retrieve response, delete", () => {
 
   test("addHistory stores metadata and response separately", () => {
     const response = makeResponse({ body: '{"users":[]}', statusCode: 200 });
-    const entry    = stores.history.addHistory(REQ, makeHistoryEntry({ status: 200 }), response);
+    const entry = stores.history.addHistory(
+      REQ,
+      makeHistoryEntry({ status: 200 }),
+      response,
+    );
 
-    const listed   = stores.history.listHistory(REQ);
+    const listed = stores.history.listHistory(REQ);
     assert.equal(listed.items.length, 1);
     assert.equal(listed.items[0].id, entry.id);
 
@@ -382,7 +454,11 @@ describe("History — add, list, retrieve response, delete", () => {
   });
 
   test("deleteHistory removes both metadata and response", () => {
-    const entry = stores.history.addHistory(REQ, makeHistoryEntry(), makeResponse());
+    const entry = stores.history.addHistory(
+      REQ,
+      makeHistoryEntry(),
+      makeResponse(),
+    );
 
     stores.history.deleteHistory(REQ, entry.id);
 
@@ -391,7 +467,7 @@ describe("History — add, list, retrieve response, delete", () => {
 
     assert.throws(
       () => stores.history.getHistoryResponse(REQ, entry.id),
-      err => err.code === "NOT_FOUND",
+      (err) => err.code === "NOT_FOUND",
     );
   });
 
@@ -402,7 +478,9 @@ describe("History — add, list, retrieve response, delete", () => {
   });
 
   test("deleteHistory on non-existent entry is silent", () => {
-    assert.doesNotThrow(() => stores.history.deleteHistory(REQ, "ghost-hist-id"));
+    assert.doesNotThrow(() =>
+      stores.history.deleteHistory(REQ, "ghost-hist-id"),
+    );
   });
 
   test("history entries survive across Stores instances", () => {
@@ -418,9 +496,9 @@ describe("History — add, list, retrieve response, delete", () => {
     const entries = [];
     for (let i = 1; i <= 15; i++) {
       const e = stores.history.addHistory(REQ, {
-        id:         `h-${String(i).padStart(3, "0")}`,
-        timestamp:  new Date(1_700_000_000_000 + i * 10_000).toISOString(),
-        status:     200,
+        id: `h-${String(i).padStart(3, "0")}`,
+        timestamp: new Date(1_700_000_000_000 + i * 10_000).toISOString(),
+        status: 200,
         durationMs: i,
       });
       entries.push(e);
@@ -428,23 +506,29 @@ describe("History — add, list, retrieve response, delete", () => {
 
     const page = stores.history.listHistory(REQ, { limit: 100 });
     assert.equal(page.items.length, 15);
-    assert.equal(page.items[0].id,  "h-015"); // newest first
+    assert.equal(page.items[0].id, "h-015"); // newest first
     assert.equal(page.items[14].id, "h-001");
   });
 
   test("three-page cursor-based pagination covers all entries exactly once", () => {
     for (let i = 1; i <= 12; i++) {
       stores.history.addHistory(REQ, {
-        id:        `pg-${String(i).padStart(3, "0")}`,
+        id: `pg-${String(i).padStart(3, "0")}`,
         timestamp: new Date(1_700_000_000_000 + i * 10_000).toISOString(),
-        status:    200,
+        status: 200,
         durationMs: i,
       });
     }
 
     const page1 = stores.history.listHistory(REQ, { limit: 5 });
-    const page2 = stores.history.listHistory(REQ, { limit: 5, cursor: page1.nextCursor });
-    const page3 = stores.history.listHistory(REQ, { limit: 5, cursor: page2.nextCursor });
+    const page2 = stores.history.listHistory(REQ, {
+      limit: 5,
+      cursor: page1.nextCursor,
+    });
+    const page3 = stores.history.listHistory(REQ, {
+      limit: 5,
+      cursor: page2.nextCursor,
+    });
 
     assert.equal(page1.items.length, 5);
     assert.equal(page2.items.length, 5);
@@ -453,25 +537,40 @@ describe("History — add, list, retrieve response, delete", () => {
 
     // All IDs should be distinct across all pages
     const allIds = [
-      ...page1.items.map(e => e.id),
-      ...page2.items.map(e => e.id),
-      ...page3.items.map(e => e.id),
+      ...page1.items.map((e) => e.id),
+      ...page2.items.map((e) => e.id),
+      ...page3.items.map((e) => e.id),
     ];
     assert.equal(new Set(allIds).size, 12);
   });
 
   test("deleteHistory then subsequent listHistory is consistent", () => {
-    const e1 = stores.history.addHistory(REQ, { id: "keep-a", timestamp: new Date(1_700_000_001_000).toISOString(), status: 200, durationMs: 1 });
-    const e2 = stores.history.addHistory(REQ, { id: "gone",   timestamp: new Date(1_700_000_002_000).toISOString(), status: 404, durationMs: 2 });
-    const e3 = stores.history.addHistory(REQ, { id: "keep-b", timestamp: new Date(1_700_000_003_000).toISOString(), status: 201, durationMs: 3 });
+    const e1 = stores.history.addHistory(REQ, {
+      id: "keep-a",
+      timestamp: new Date(1_700_000_001_000).toISOString(),
+      status: 200,
+      durationMs: 1,
+    });
+    const e2 = stores.history.addHistory(REQ, {
+      id: "gone",
+      timestamp: new Date(1_700_000_002_000).toISOString(),
+      status: 404,
+      durationMs: 2,
+    });
+    const e3 = stores.history.addHistory(REQ, {
+      id: "keep-b",
+      timestamp: new Date(1_700_000_003_000).toISOString(),
+      status: 201,
+      durationMs: 3,
+    });
 
     stores.history.deleteHistory(REQ, e2.id);
 
     const { items } = stores.history.listHistory(REQ, { limit: 100 });
-    const ids = items.map(e => e.id);
-    assert.ok(!ids.includes("gone"),   "deleted entry must not appear");
-    assert.ok(ids.includes("keep-a"),  "keep-a must still be present");
-    assert.ok(ids.includes("keep-b"),  "keep-b must still be present");
+    const ids = items.map((e) => e.id);
+    assert.ok(!ids.includes("gone"), "deleted entry must not appear");
+    assert.ok(ids.includes("keep-a"), "keep-a must still be present");
+    assert.ok(ids.includes("keep-b"), "keep-b must still be present");
   });
 });
 
@@ -481,7 +580,7 @@ describe("History — add, list, retrieve response, delete", () => {
 
 describe("History trimming — trimAllHistory", () => {
   let tmpDir, stores;
-  const COL  = "col-trim";
+  const COL = "col-trim";
   const REQ1 = "req-trim-1";
   const REQ2 = "req-trim-2";
 
@@ -497,9 +596,9 @@ describe("History trimming — trimAllHistory", () => {
   function addEntries(reqId, count) {
     for (let i = 1; i <= count; i++) {
       stores.history.addHistory(reqId, {
-        id:        `${reqId}-e${String(i).padStart(3, "0")}`,
+        id: `${reqId}-e${String(i).padStart(3, "0")}`,
         timestamp: new Date(1_700_000_000_000 + i * 10_000).toISOString(),
-        status:    200,
+        status: 200,
         durationMs: i,
       });
     }
@@ -511,8 +610,14 @@ describe("History trimming — trimAllHistory", () => {
 
     stores.history.trimAllHistory(0);
 
-    assert.equal(stores.history.listHistory(REQ1, { limit: 100 }).items.length, 0);
-    assert.equal(stores.history.listHistory(REQ2, { limit: 100 }).items.length, 0);
+    assert.equal(
+      stores.history.listHistory(REQ1, { limit: 100 }).items.length,
+      0,
+    );
+    assert.equal(
+      stores.history.listHistory(REQ2, { limit: 100 }).items.length,
+      0,
+    );
   });
 
   test("trimAllHistory(2) keeps only the 2 newest entries per request", () => {
@@ -546,12 +651,15 @@ describe("History trimming — trimAllHistory", () => {
   test("trimAllHistory(max) when count == max makes no change", () => {
     addEntries(REQ1, 3);
     stores.history.trimAllHistory(3);
-    assert.equal(stores.history.listHistory(REQ1, { limit: 100 }).items.length, 3);
+    assert.equal(
+      stores.history.listHistory(REQ1, { limit: 100 }).items.length,
+      3,
+    );
   });
 
   test("trimAllHistory trims across multiple collections", () => {
-    const COL2  = "col-trim-b";
-    const REQ3  = "req-trim-3";
+    const COL2 = "col-trim-b";
+    const REQ3 = "req-trim-3";
     stores.collections.saveCollections(COL2, { version: 1, collections: [] });
     stores.requests.createRequest(COL2, makeRequest({ id: REQ3 }));
 
@@ -560,8 +668,14 @@ describe("History trimming — trimAllHistory", () => {
 
     stores.history.trimAllHistory(2);
 
-    assert.equal(stores.history.listHistory(REQ1, { limit: 100 }).items.length, 2);
-    assert.equal(stores.history.listHistory(REQ3, { limit: 100 }).items.length, 2);
+    assert.equal(
+      stores.history.listHistory(REQ1, { limit: 100 }).items.length,
+      2,
+    );
+    assert.equal(
+      stores.history.listHistory(REQ3, { limit: 100 }).items.length,
+      2,
+    );
   });
 });
 
@@ -582,26 +696,48 @@ describe("Multi-collection isolation", () => {
     stores.collections.saveCollections("colA", { version: 1, collections: [] });
     stores.collections.saveCollections("colB", { version: 1, collections: [] });
 
-    const rA = stores.requests.createRequest("colA", makeRequest({ id: "req-a", name: "Collection A Request" }));
-    const rB = stores.requests.createRequest("colB", makeRequest({ id: "req-b", name: "Collection B Request" }));
+    const rA = stores.requests.createRequest(
+      "colA",
+      makeRequest({ id: "req-a", name: "Collection A Request" }),
+    );
+    const rB = stores.requests.createRequest(
+      "colB",
+      makeRequest({ id: "req-b", name: "Collection B Request" }),
+    );
 
     // Each resolves to its own collection
     const resolver = new Resolver(new Paths(tmpDir));
     assert.equal(resolver.resolve("req-a"), "colA");
     assert.equal(resolver.resolve("req-b"), "colB");
 
-    assert.equal(stores.requests.getRequest("req-a").name, "Collection A Request");
-    assert.equal(stores.requests.getRequest("req-b").name, "Collection B Request");
+    assert.equal(
+      stores.requests.getRequest("req-a").name,
+      "Collection A Request",
+    );
+    assert.equal(
+      stores.requests.getRequest("req-b").name,
+      "Collection B Request",
+    );
   });
 
   test("history for collection A does not appear in collection B requests", () => {
     stores.collections.saveCollections("colA", { version: 1, collections: [] });
     stores.collections.saveCollections("colB", { version: 1, collections: [] });
 
-    const rA = stores.requests.createRequest("colA", makeRequest({ id: "req-col-a" }));
-    const rB = stores.requests.createRequest("colB", makeRequest({ id: "req-col-b" }));
+    const rA = stores.requests.createRequest(
+      "colA",
+      makeRequest({ id: "req-col-a" }),
+    );
+    const rB = stores.requests.createRequest(
+      "colB",
+      makeRequest({ id: "req-col-b" }),
+    );
 
-    stores.history.addHistory("req-col-a", makeHistoryEntry({ status: 200 }), makeResponse({ body: "from colA" }));
+    stores.history.addHistory(
+      "req-col-a",
+      makeHistoryEntry({ status: 200 }),
+      makeResponse({ body: "from colA" }),
+    );
 
     assert.equal(stores.history.listHistory("req-col-a").items.length, 1);
     assert.equal(stores.history.listHistory("req-col-b").items.length, 0);
@@ -627,12 +763,16 @@ describe("Multi-collection isolation", () => {
     stores.collections.saveCollections("colX", {
       version: 1,
       variables: { env: "X" },
-      collections: [{ id: "root-x", type: "collection", name: "Root X", children: [] }],
+      collections: [
+        { id: "root-x", type: "collection", name: "Root X", children: [] },
+      ],
     });
     stores.collections.saveCollections("colY", {
       version: 1,
       variables: { env: "Y" },
-      collections: [{ id: "root-y", type: "collection", name: "Root Y", children: [] }],
+      collections: [
+        { id: "root-y", type: "collection", name: "Root Y", children: [] },
+      ],
     });
 
     const x = stores.collections.getCollections("colX");
@@ -684,43 +824,66 @@ describe("ID validation — security boundaries", () => {
 
   for (const badId of TRAVERSAL_IDS) {
     test(`validateID rejects traversal attempt: ${JSON.stringify(badId)}`, () => {
-      assert.throws(() => validateID(badId), err => err.code === "INVALID_ID");
+      assert.throws(
+        () => validateID(badId),
+        (err) => err.code === "INVALID_ID",
+      );
     });
   }
 
   for (const badId of FORBIDDEN_CHAR_IDS) {
     test(`validateID rejects forbidden chars: ${JSON.stringify(badId)}`, () => {
-      assert.throws(() => validateID(badId), err => err.code === "INVALID_ID");
+      assert.throws(
+        () => validateID(badId),
+        (err) => err.code === "INVALID_ID",
+      );
     });
   }
 
   test("validateID rejects empty string", () => {
-    assert.throws(() => validateID(""), err => err.code === "INVALID_ID");
+    assert.throws(
+      () => validateID(""),
+      (err) => err.code === "INVALID_ID",
+    );
   });
 
   test("validateID rejects non-string values", () => {
-    assert.throws(() => validateID(null),      err => err.code === "INVALID_ID");
-    assert.throws(() => validateID(undefined), err => err.code === "INVALID_ID");
-    assert.throws(() => validateID(42),        err => err.code === "INVALID_ID");
-    assert.throws(() => validateID({}),        err => err.code === "INVALID_ID");
+    assert.throws(
+      () => validateID(null),
+      (err) => err.code === "INVALID_ID",
+    );
+    assert.throws(
+      () => validateID(undefined),
+      (err) => err.code === "INVALID_ID",
+    );
+    assert.throws(
+      () => validateID(42),
+      (err) => err.code === "INVALID_ID",
+    );
+    assert.throws(
+      () => validateID({}),
+      (err) => err.code === "INVALID_ID",
+    );
   });
 
   test("getRequest with traversal ID throws INVALID_ID not NOT_FOUND", () => {
     assert.throws(
       () => stores.requests.getRequest("../../../evil"),
-      err => err.code === "INVALID_ID",
+      (err) => err.code === "INVALID_ID",
     );
   });
 
   test("createRequest with traversal collectionId throws INVALID_ID", () => {
     assert.throws(
       () => stores.requests.createRequest("../../../evil", makeRequest()),
-      err => err.code === "INVALID_ID",
+      (err) => err.code === "INVALID_ID",
     );
   });
 
   test("valid UUIDs and slug-style IDs are accepted", () => {
-    assert.doesNotThrow(() => validateID("550e8400-e29b-41d4-a716-446655440000"));
+    assert.doesNotThrow(() =>
+      validateID("550e8400-e29b-41d4-a716-446655440000"),
+    );
     assert.doesNotThrow(() => validateID("my-collection-01"));
     assert.doesNotThrow(() => validateID("req_get_users"));
     assert.doesNotThrow(() => validateID("col.v2"));
@@ -729,21 +892,21 @@ describe("ID validation — security boundaries", () => {
   test("updateRequest with traversal ID throws INVALID_ID", () => {
     assert.throws(
       () => stores.requests.updateRequest("../../evil", { name: "x" }),
-      err => err.code === "INVALID_ID",
+      (err) => err.code === "INVALID_ID",
     );
   });
 
   test("deleteRequest with traversal ID throws INVALID_ID", () => {
     assert.throws(
       () => stores.requests.deleteRequest("../../evil"),
-      err => err.code === "INVALID_ID",
+      (err) => err.code === "INVALID_ID",
     );
   });
 
   test("listHistory with traversal requestId throws INVALID_ID", () => {
     assert.throws(
       () => stores.history.listHistory("../../evil"),
-      err => err.code === "INVALID_ID",
+      (err) => err.code === "INVALID_ID",
     );
   });
 });
@@ -767,11 +930,15 @@ describe("Tree store — nested folder structures", () => {
       version: 1,
       collections: [
         {
-          id: "f1", type: "folder", name: "Users",
+          id: "f1",
+          type: "folder",
+          name: "Users",
           children: [makeRequest({ id: "req-users-list" })],
         },
         {
-          id: "f2", type: "folder", name: "Posts",
+          id: "f2",
+          type: "folder",
+          name: "Posts",
           children: [
             makeRequest({ id: "req-posts-list" }),
             makeRequest({ id: "req-posts-create" }),
@@ -782,11 +949,21 @@ describe("Tree store — nested folder structures", () => {
 
     const tree = {
       children: [
-        { id: "f1", type: "folder", name: "Users",  children: [{ id: "req-users-list",   type: "requestRef" }] },
-        { id: "f2", type: "folder", name: "Posts",  children: [
-          { id: "req-posts-list",   type: "requestRef" },
-          { id: "req-posts-create", type: "requestRef" },
-        ]},
+        {
+          id: "f1",
+          type: "folder",
+          name: "Users",
+          children: [{ id: "req-users-list", type: "requestRef" }],
+        },
+        {
+          id: "f2",
+          type: "folder",
+          name: "Posts",
+          children: [
+            { id: "req-posts-list", type: "requestRef" },
+            { id: "req-posts-create", type: "requestRef" },
+          ],
+        },
       ],
     };
 
@@ -803,21 +980,36 @@ describe("Tree store — nested folder structures", () => {
     stores.requests.createRequest(COL, makeRequest({ id: "req-deep" }));
 
     const deepTree = {
-      children: [{
-        id: "folder-a", type: "folder", name: "A",
-        children: [{
-          id: "folder-b", type: "folder", name: "B",
-          children: [{
-            id: "folder-c", type: "folder", name: "C",
-            children: [{ id: "req-deep", type: "requestRef" }],
-          }],
-        }],
-      }],
+      children: [
+        {
+          id: "folder-a",
+          type: "folder",
+          name: "A",
+          children: [
+            {
+              id: "folder-b",
+              type: "folder",
+              name: "B",
+              children: [
+                {
+                  id: "folder-c",
+                  type: "folder",
+                  name: "C",
+                  children: [{ id: "req-deep", type: "requestRef" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     };
 
     stores.tree.saveTree(COL, deepTree);
     const loaded = stores.tree.getTree(COL);
-    assert.equal(loaded.children[0].children[0].children[0].children[0].id, "req-deep");
+    assert.equal(
+      loaded.children[0].children[0].children[0].children[0].id,
+      "req-deep",
+    );
   });
 
   test("saveTree rejects dangling requestRef not backed by a request file", () => {
@@ -825,8 +1017,11 @@ describe("Tree store — nested folder structures", () => {
     stores.collections.saveCollections(COL, { version: 1, collections: [] });
 
     assert.throws(
-      () => stores.tree.saveTree(COL, { children: [{ id: "ghost-req", type: "requestRef" }] }),
-      err => err.code === "NOT_FOUND",
+      () =>
+        stores.tree.saveTree(COL, {
+          children: [{ id: "ghost-req", type: "requestRef" }],
+        }),
+      (err) => err.code === "NOT_FOUND",
     );
   });
 
@@ -850,8 +1045,14 @@ describe("Cross-store consistency", () => {
   afterEach(() => rmTmpDir(tmpDir));
 
   test("resolver shared: createRequest via requestStore is resolvable by historyStore", () => {
-    stores.collections.saveCollections("col-shared", { version: 1, collections: [] });
-    const req = stores.requests.createRequest("col-shared", makeRequest({ id: "req-shared" }));
+    stores.collections.saveCollections("col-shared", {
+      version: 1,
+      collections: [],
+    });
+    const req = stores.requests.createRequest(
+      "col-shared",
+      makeRequest({ id: "req-shared" }),
+    );
 
     assert.doesNotThrow(() =>
       stores.history.addHistory(req.id, makeHistoryEntry(), makeResponse()),
@@ -859,23 +1060,30 @@ describe("Cross-store consistency", () => {
   });
 
   test("after deleteRequest the resolver no longer maps the ID", () => {
-    stores.collections.saveCollections("col-del", { version: 1, collections: [] });
+    stores.collections.saveCollections("col-del", {
+      version: 1,
+      collections: [],
+    });
     stores.requests.createRequest("col-del", makeRequest({ id: "req-del" }));
     stores.requests.deleteRequest("req-del");
 
     assert.throws(
       () => stores.requests.getRequest("req-del"),
-      err => err.code === "NOT_FOUND",
+      (err) => err.code === "NOT_FOUND",
     );
   });
 
   test("saveCollections bulk write populates the resolver for requestStore", () => {
     stores.collections.saveCollections("col-bulk", {
       version: 1,
-      collections: [{
-        id: "folder-bulk", type: "collection", name: "Bulk",
-        children: [makeRequest({ id: "req-from-bulk" })],
-      }],
+      collections: [
+        {
+          id: "folder-bulk",
+          type: "collection",
+          name: "Bulk",
+          children: [makeRequest({ id: "req-from-bulk" })],
+        },
+      ],
     });
 
     // requestStore should find it via the resolver
@@ -885,17 +1093,40 @@ describe("Cross-store consistency", () => {
 
   test("complete UI session: create collection → add requests → run → history → delete", () => {
     const COL = "col-session";
-    stores.manifest.saveManifest({ version: 2, collections: [{ id: COL, name: "My API" }], activeCollectionId: COL, settings: {} });
+    stores.manifest.saveManifest({
+      version: 2,
+      collections: [{ id: COL, name: "My API" }],
+      activeCollectionId: COL,
+      settings: {},
+    });
     stores.collections.saveCollections(COL, { version: 1, collections: [] });
 
     // User creates 2 requests
-    const r1 = stores.requests.createRequest(COL, makeRequest({ id: "sess-r1", name: "List Items" }));
-    const r2 = stores.requests.createRequest(COL, makeRequest({ id: "sess-r2", name: "Create Item" }));
+    const r1 = stores.requests.createRequest(
+      COL,
+      makeRequest({ id: "sess-r1", name: "List Items" }),
+    );
+    const r2 = stores.requests.createRequest(
+      COL,
+      makeRequest({ id: "sess-r2", name: "Create Item" }),
+    );
 
     // User executes them (history is recorded)
-    stores.history.addHistory(r1.id, makeHistoryEntry({ status: 200 }), makeResponse({ body: "[]" }));
-    stores.history.addHistory(r1.id, makeHistoryEntry({ status: 200 }), makeResponse({ body: "[{id:1}]" }));
-    stores.history.addHistory(r2.id, makeHistoryEntry({ status: 201 }), makeResponse({ body: "{}" }));
+    stores.history.addHistory(
+      r1.id,
+      makeHistoryEntry({ status: 200 }),
+      makeResponse({ body: "[]" }),
+    );
+    stores.history.addHistory(
+      r1.id,
+      makeHistoryEntry({ status: 200 }),
+      makeResponse({ body: "[{id:1}]" }),
+    );
+    stores.history.addHistory(
+      r2.id,
+      makeHistoryEntry({ status: 201 }),
+      makeResponse({ body: "{}" }),
+    );
 
     // Verify history
     assert.equal(stores.history.listHistory(r1.id).items.length, 2);
@@ -909,7 +1140,10 @@ describe("Cross-store consistency", () => {
     assert.equal(stores.history.listHistory(r1.id).items.length, 2);
 
     // r2 is gone from the store
-    assert.throws(() => stores.requests.getRequest(r2.id), err => err.code === "NOT_FOUND");
+    assert.throws(
+      () => stores.requests.getRequest(r2.id),
+      (err) => err.code === "NOT_FOUND",
+    );
   });
 });
 
@@ -922,14 +1156,21 @@ describe("Resolver — cache invalidation and edge cases", () => {
 
   beforeEach(() => {
     tmpDir = makeTmpDir();
-    ss     = new Stores(tmpDir);
+    ss = new Stores(tmpDir);
   });
   afterEach(() => rmTmpDir(tmpDir));
 
   test("fresh Resolver built from disk sees requests created by another instance", () => {
     ss.collectionsStore().saveCollections("col-disk", {
       version: 1,
-      collections: [{ id: "f1", type: "collection", name: "F1", children: [makeRequest({ id: "req-disk" })] }],
+      collections: [
+        {
+          id: "f1",
+          type: "collection",
+          name: "F1",
+          children: [makeRequest({ id: "req-disk" })],
+        },
+      ],
     });
 
     const freshResolver = new Resolver(new Paths(tmpDir));
@@ -940,7 +1181,10 @@ describe("Resolver — cache invalidation and edge cases", () => {
     const resolver = new Resolver(new Paths(tmpDir));
     resolver.set("req-temp", "col-temp");
     resolver.remove("req-temp");
-    assert.throws(() => resolver.resolve("req-temp"), err => err.code === "NOT_FOUND");
+    assert.throws(
+      () => resolver.resolve("req-temp"),
+      (err) => err.code === "NOT_FOUND",
+    );
   });
 
   test("invalidate forces rebuild from disk on next resolve", () => {
@@ -949,7 +1193,14 @@ describe("Resolver — cache invalidation and edge cases", () => {
     // Disk state added after resolver was constructed
     ss.collectionsStore().saveCollections("col-late", {
       version: 1,
-      collections: [{ id: "f1", type: "collection", name: "F", children: [makeRequest({ id: "req-late" })] }],
+      collections: [
+        {
+          id: "f1",
+          type: "collection",
+          name: "F",
+          children: [makeRequest({ id: "req-late" })],
+        },
+      ],
     });
 
     resolver.invalidate();
@@ -981,7 +1232,10 @@ describe("Atomic write — data integrity", () => {
   afterEach(() => rmTmpDir(tmpDir));
 
   test("overwriting a request stores the latest version only", () => {
-    stores.requests.createRequest(COL, makeRequest({ id: "req-overwrite", name: "Original" }));
+    stores.requests.createRequest(
+      COL,
+      makeRequest({ id: "req-overwrite", name: "Original" }),
+    );
     stores.requests.updateRequest("req-overwrite", { name: "Updated" });
     stores.requests.updateRequest("req-overwrite", { name: "Final" });
 
@@ -989,7 +1243,7 @@ describe("Atomic write — data integrity", () => {
     assert.equal(loaded.name, "Final");
 
     // Verify there is exactly one request file on disk
-    const p       = new Paths(tmpDir);
+    const p = new Paths(tmpDir);
     const reqFile = p.requestPath(COL, "req-overwrite");
     assert.ok(fs.existsSync(reqFile));
   });
@@ -997,12 +1251,17 @@ describe("Atomic write — data integrity", () => {
   test("no residual .tmp files after successful write", () => {
     stores.requests.createRequest(COL, makeRequest({ id: "req-tmp-check" }));
     const reqDir = new Paths(tmpDir).requestsDir(COL);
-    const tmpFiles = fs.readdirSync(reqDir).filter(f => f.endsWith(".tmp"));
+    const tmpFiles = fs.readdirSync(reqDir).filter((f) => f.endsWith(".tmp"));
     assert.equal(tmpFiles.length, 0, "no .tmp files should remain");
   });
 
   test("manifest write is idempotent — same data produces same outcome", () => {
-    const data = { version: 2, collections: [{ id: "c1", name: "Test" }], activeCollectionId: "c1", settings: { theme: "dark" } };
+    const data = {
+      version: 2,
+      collections: [{ id: "c1", name: "Test" }],
+      activeCollectionId: "c1",
+      settings: { theme: "dark" },
+    };
     stores.manifest.saveManifest(data);
     stores.manifest.saveManifest(data);
     stores.manifest.saveManifest(data);
@@ -1028,10 +1287,14 @@ describe("Variable scoping — collections and nested folders", () => {
 
   test("collection-level variables persist and are distinct from other collections", () => {
     stores.collections.saveCollections("colVarA", {
-      version: 1, variables: { base: "https://a.com", key: "keyA" }, collections: [],
+      version: 1,
+      variables: { base: "https://a.com", key: "keyA" },
+      collections: [],
     });
     stores.collections.saveCollections("colVarB", {
-      version: 1, variables: { base: "https://b.com", key: "keyB" }, collections: [],
+      version: 1,
+      variables: { base: "https://b.com", key: "keyB" },
+      collections: [],
     });
 
     const a = stores.collections.getCollections("colVarA");
@@ -1047,8 +1310,20 @@ describe("Variable scoping — collections and nested folders", () => {
       version: 1,
       variables: { global: "gval" },
       collections: [
-        { id: "f1", type: "collection", name: "Users Folder", variables: { scope: "users" }, children: [] },
-        { id: "f2", type: "collection", name: "Admin Folder", variables: { scope: "admin" }, children: [] },
+        {
+          id: "f1",
+          type: "collection",
+          name: "Users Folder",
+          variables: { scope: "users" },
+          children: [],
+        },
+        {
+          id: "f2",
+          type: "collection",
+          name: "Admin Folder",
+          variables: { scope: "admin" },
+          children: [],
+        },
       ],
     });
 
@@ -1062,23 +1337,41 @@ describe("Variable scoping — collections and nested folders", () => {
     stores.collections.saveCollections("colVarDeep", {
       version: 1,
       variables: { level: "root" },
-      collections: [{
-        id: "l1", type: "collection", name: "Level 1", variables: { level: "one" },
-        children: [{
-          id: "l2", type: "collection", name: "Level 2", variables: { level: "two" },
-          children: [{
-            id: "l3", type: "collection", name: "Level 3", variables: { level: "three" },
-            children: [],
-          }],
-        }],
-      }],
+      collections: [
+        {
+          id: "l1",
+          type: "collection",
+          name: "Level 1",
+          variables: { level: "one" },
+          children: [
+            {
+              id: "l2",
+              type: "collection",
+              name: "Level 2",
+              variables: { level: "two" },
+              children: [
+                {
+                  id: "l3",
+                  type: "collection",
+                  name: "Level 3",
+                  variables: { level: "three" },
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
 
     const loaded = stores.collections.getCollections("colVarDeep");
     assert.equal(loaded.variables.level, "root");
     assert.equal(loaded.collections[0].variables.level, "one");
     assert.equal(loaded.collections[0].children[0].variables.level, "two");
-    assert.equal(loaded.collections[0].children[0].children[0].variables.level, "three");
+    assert.equal(
+      loaded.collections[0].children[0].children[0].variables.level,
+      "three",
+    );
   });
 });
 
@@ -1125,7 +1418,11 @@ describe("Edge cases — boundary conditions", () => {
   });
 
   test("request with empty body and no auth fields round-trips cleanly", () => {
-    const req = makeRequest({ id: "req-minimal", bodyType: "none", authEnabled: false });
+    const req = makeRequest({
+      id: "req-minimal",
+      bodyType: "none",
+      authEnabled: false,
+    });
     stores.requests.createRequest(COL, req);
     const loaded = stores.requests.getRequest("req-minimal");
     assert.equal(loaded.bodyType, "none");
@@ -1136,45 +1433,57 @@ describe("Edge cases — boundary conditions", () => {
     const req = makeRequest({
       id: "req-unicode",
       name: "Ünïcödé Rëqüëst 🚀",
-      url:  "https://api.example.com/données?q=café",
+      url: "https://api.example.com/données?q=café",
     });
     stores.requests.createRequest(COL, req);
     const loaded = stores.requests.getRequest("req-unicode");
     assert.equal(loaded.name, "Ünïcödé Rëqüëst 🚀");
-    assert.equal(loaded.url,  "https://api.example.com/données?q=café");
+    assert.equal(loaded.url, "https://api.example.com/données?q=café");
   });
 
   test("request with very long URL persists without truncation", () => {
     const longUrl = "https://api.example.com/" + "x".repeat(4096);
-    stores.requests.createRequest(COL, makeRequest({ id: "req-longurl", url: longUrl }));
+    stores.requests.createRequest(
+      COL,
+      makeRequest({ id: "req-longurl", url: longUrl }),
+    );
     const loaded = stores.requests.getRequest("req-longurl");
     assert.equal(loaded.url, longUrl);
   });
 
   test("history entry with very large response body persists correctly", () => {
-    const REQ  = "req-big-body";
+    const REQ = "req-big-body";
     stores.requests.createRequest(COL, makeRequest({ id: REQ }));
     const bigBody = JSON.stringify({ data: "x".repeat(100_000) });
-    const entry   = stores.history.addHistory(REQ, makeHistoryEntry(), makeResponse({ body: bigBody }));
-    const resp    = stores.history.getHistoryResponse(REQ, entry.id);
+    const entry = stores.history.addHistory(
+      REQ,
+      makeHistoryEntry(),
+      makeResponse({ body: bigBody }),
+    );
+    const resp = stores.history.getHistoryResponse(REQ, entry.id);
     assert.equal(resp.body, bigBody);
   });
 
   test("manifest with many settings fields round-trips completely", () => {
     const settings = {
-      theme:              "mocha",
-      fontSize:           14,
-      fontFamily:         "JetBrains Mono",
-      layout:             "landscape",
-      timeout:            60000,
-      sslVerify:          false,
-      followRedirects:    true,
-      historyCount:       5,
-      showListHeaders:    true,
-      bulkEditorMode:     false,
+      theme: "mocha",
+      fontSize: 14,
+      fontFamily: "JetBrains Mono",
+      layout: "landscape",
+      timeout: 60000,
+      sslVerify: false,
+      followRedirects: true,
+      historyCount: 5,
+      showListHeaders: true,
+      bulkEditorMode: false,
       doubleClickExecute: true,
     };
-    stores.manifest.saveManifest({ version: 2, collections: [], activeCollectionId: null, settings });
+    stores.manifest.saveManifest({
+      version: 2,
+      collections: [],
+      activeCollectionId: null,
+      settings,
+    });
     const loaded = stores.manifest.getManifest();
     assert.equal(loaded.settings.theme, "mocha");
     assert.equal(loaded.settings.sslVerify, false);
@@ -1187,13 +1496,18 @@ describe("Edge cases — boundary conditions", () => {
     stores.requests.createRequest(COL, makeRequest({ id: REQ }));
     assert.throws(
       () => stores.history.getHistoryResponse(REQ, "missing-hist-id"),
-      err => err.code === "NOT_FOUND",
+      (err) => err.code === "NOT_FOUND",
     );
   });
 
   test("environment with 0 named environments and empty global variables is valid", () => {
     const envStore = stores.environments;
-    envStore.saveEnvironments({ version: 1, globalVariables: {}, activeEnvironmentId: null, environments: [] });
+    envStore.saveEnvironments({
+      version: 1,
+      globalVariables: {},
+      activeEnvironmentId: null,
+      environments: [],
+    });
     const loaded = envStore.getEnvironments();
     assert.deepEqual(loaded.globalVariables, {});
     assert.deepEqual(loaded.environments, []);

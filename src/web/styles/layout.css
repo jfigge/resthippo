@@ -11,7 +11,7 @@
 
 /* ── App header ───────────────────────────────────────────────────────────── */
 #app-header {
-  position: relative;        /* anchor for absolutely-positioned children */
+  position: relative; /* anchor for absolutely-positioned children */
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -293,35 +293,45 @@
     1fr
     var(--splitter-size)
     var(--col-res);
-  grid-template-rows:   1fr;
-  grid-template-areas:  "nav spl-1 request spl-2 response";
+  grid-template-rows: 1fr;
+  grid-template-areas: "nav spl-1 request spl-2 response";
 }
 #app-main[data-layout="1"] #splitter-1,
-#app-main[data-layout="1"] #splitter-2 { cursor: col-resize; }
+#app-main[data-layout="1"] #splitter-2 {
+  cursor: col-resize;
+}
 
 /* Layout 2 — nav full-height left; request top-right / response bottom-right */
 #app-main[data-layout="2"] {
   grid-template-columns: var(--col-nav) var(--splitter-size) 1fr;
-  grid-template-rows:    1fr var(--splitter-size) var(--row-res);
+  grid-template-rows: 1fr var(--splitter-size) var(--row-res);
   grid-template-areas:
     "nav spl-1 request"
     "nav spl-1 spl-2"
     "nav spl-1 response";
 }
-#app-main[data-layout="2"] #splitter-1 { cursor: col-resize; }
-#app-main[data-layout="2"] #splitter-2 { cursor: row-resize; }
+#app-main[data-layout="2"] #splitter-1 {
+  cursor: col-resize;
+}
+#app-main[data-layout="2"] #splitter-2 {
+  cursor: row-resize;
+}
 
 /* Layout 3 — nav + request top; response full width bottom */
 #app-main[data-layout="3"] {
   grid-template-columns: var(--col-nav) var(--splitter-size) 1fr;
-  grid-template-rows:    1fr var(--splitter-size) var(--row-res);
+  grid-template-rows: 1fr var(--splitter-size) var(--row-res);
   grid-template-areas:
     "nav    spl-1    request"
     "spl-2  spl-2    spl-2"
     "response response response";
 }
-#app-main[data-layout="3"] #splitter-1 { cursor: col-resize; }
-#app-main[data-layout="3"] #splitter-2 { cursor: row-resize; }
+#app-main[data-layout="3"] #splitter-1 {
+  cursor: col-resize;
+}
+#app-main[data-layout="3"] #splitter-2 {
+  cursor: row-resize;
+}
 
 /* Layout 4 — all three panels stacked top to bottom */
 #app-main[data-layout="4"] {
@@ -340,7 +350,9 @@
     "response";
 }
 #app-main[data-layout="4"] #splitter-1,
-#app-main[data-layout="4"] #splitter-2 { cursor: row-resize; }
+#app-main[data-layout="4"] #splitter-2 {
+  cursor: row-resize;
+}
 
 /* ── Per-panel defaults ────────────────────────────────────────────────────── */
 #panel-nav {

@@ -12,16 +12,35 @@
 "use strict";
 
 const fs = require("fs");
-const { readJSON, writeJSON, ensureDir, validateID, newUUID, notFoundError } = require("./io");
+const {
+  readJSON,
+  writeJSON,
+  ensureDir,
+  validateID,
+  newUUID,
+  notFoundError,
+} = require("./io");
 const { encryptRequest, decryptRequest } = require("./crypto");
 
 // ── Fields that PATCH may update ──────────────────────────────────────────────
 const PATCHABLE_FIELDS = [
-  "name", "method", "url",
-  "bodyType", "bodyText", "bodyFilePath", "bodyFormRows",
-  "params", "headers",
-  "authEnabled", "authType", "authBasic", "authBearer", "authOAuth2", "authAwsIam",
-  "preRequestScript", "afterResponseScript",
+  "name",
+  "method",
+  "url",
+  "bodyType",
+  "bodyText",
+  "bodyFilePath",
+  "bodyFormRows",
+  "params",
+  "headers",
+  "authEnabled",
+  "authType",
+  "authBasic",
+  "authBearer",
+  "authOAuth2",
+  "authAwsIam",
+  "preRequestScript",
+  "afterResponseScript",
 ];
 
 class RequestStore {
@@ -30,7 +49,7 @@ class RequestStore {
    * @param {import('./resolver').Resolver} resolver
    */
   constructor(paths, resolver) {
-    this._paths    = paths;
+    this._paths = paths;
     this._resolver = resolver;
   }
 
@@ -46,7 +65,7 @@ class RequestStore {
   getRequest(id) {
     validateID(id, "requestId");
     const collId = this._resolver.resolve(id); // throws NOT_FOUND if unknown
-    const data   = readJSON(this._paths.requestPath(collId, id));
+    const data = readJSON(this._paths.requestPath(collId, id));
     if (data === null) throw notFoundError(`request not found: ${id}`);
     return decryptRequest(data);
   }
@@ -69,13 +88,20 @@ class RequestStore {
     req = { ...req, type: "request" };
 
     ensureDir(this._paths.requestsDir(collectionId));
-    writeJSON(this._paths.requestPath(collectionId, req.id), encryptRequest(req));
+    writeJSON(
+      this._paths.requestPath(collectionId, req.id),
+      encryptRequest(req),
+    );
 
     try {
       this._appendToTree(collectionId, collectionId, req.id);
     } catch (treeErr) {
       // Best-effort rollback: remove the request file so we don't leave orphans.
-      try { fs.unlinkSync(this._paths.requestPath(collectionId, req.id)); } catch { /* ignore */ }
+      try {
+        fs.unlinkSync(this._paths.requestPath(collectionId, req.id));
+      } catch {
+        /* ignore */
+      }
       throw treeErr;
     }
 
@@ -97,7 +123,7 @@ class RequestStore {
    */
   updateRequest(id, patch) {
     validateID(id, "requestId");
-    const collId  = this._resolver.resolve(id);
+    const collId = this._resolver.resolve(id);
     const reqPath = this._paths.requestPath(collId, id);
     const existing = readJSON(reqPath);
     if (existing === null) throw notFoundError(`request not found: ${id}`);
@@ -126,18 +152,23 @@ class RequestStore {
    */
   deleteRequest(id) {
     validateID(id, "requestId");
-    const collId  = this._resolver.resolve(id);
+    const collId = this._resolver.resolve(id);
     const reqPath = this._paths.requestPath(collId, id);
 
     try {
       fs.unlinkSync(reqPath);
     } catch (err) {
-      if (err.code === "ENOENT") throw notFoundError(`request not found: ${id}`);
+      if (err.code === "ENOENT")
+        throw notFoundError(`request not found: ${id}`);
       throw err;
     }
 
     // Best-effort: keep the tree consistent (file is already gone, so not critical).
-    try { this._removeFromTree(collId, id); } catch { /* ignore */ }
+    try {
+      this._removeFromTree(collId, id);
+    } catch {
+      /* ignore */
+    }
 
     this._resolver.remove(id);
   }
@@ -151,14 +182,14 @@ class RequestStore {
    */
   _appendToTree(envId, folderId, reqId) {
     const treePath = this._paths.treePath(envId);
-    const tree     = readJSON(treePath) ?? { children: [] };
-    const ref      = { id: reqId, type: "requestRef" };
+    const tree = readJSON(treePath) ?? { children: [] };
+    const ref = { id: reqId, type: "requestRef" };
 
     if (!_insertRefInTree(tree.children, folderId, ref)) {
       tree.children.push({
-        id:       folderId,
-        type:     "folder",
-        name:     folderId,
+        id: folderId,
+        type: "folder",
+        name: folderId,
         children: [ref],
       });
     }
@@ -170,7 +201,7 @@ class RequestStore {
   /** Remove the requestRef for `reqId` from the collection's tree.json. */
   _removeFromTree(collId, reqId) {
     const treePath = this._paths.treePath(collId);
-    const tree     = readJSON(treePath);
+    const tree = readJSON(treePath);
     if (!tree) return;
     tree.children = _removeRefFromTree(tree.children ?? [], reqId);
     writeJSON(treePath, tree);
@@ -211,11 +242,12 @@ function _insertRefInTree(nodes, targetId, ref) {
 function _removeRefFromTree(nodes, reqId) {
   if (!Array.isArray(nodes)) return [];
   return nodes
-    .filter(n => !(n.type === "requestRef" && n.id === reqId))
-    .map(n => n.type === "folder"
-      ? { ...n, children: _removeRefFromTree(n.children, reqId) }
-      : n);
+    .filter((n) => !(n.type === "requestRef" && n.id === reqId))
+    .map((n) =>
+      n.type === "folder"
+        ? { ...n, children: _removeRefFromTree(n.children, reqId) }
+        : n,
+    );
 }
 
 module.exports = { RequestStore };
-

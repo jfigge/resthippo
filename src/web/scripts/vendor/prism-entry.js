@@ -23,4 +23,3 @@ Prism.manual = true; // disable auto-highlight on DOMContentLoaded
 
 export default Prism;
 export { Prism };
-

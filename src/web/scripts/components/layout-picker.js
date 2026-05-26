@@ -67,17 +67,17 @@ const _CHEVRON = `<svg class="layout-picker__chevron" viewBox="0 0 6 4"
 // ── LayoutPicker ─────────────────────────────────────────────────────────────
 
 export class LayoutPicker {
-  #layout      = 1;
+  #layout = 1;
   #onSelect;
-  #menu        = null;
+  #menu = null;
   #menuHandler = null;
-  #triggers    = [];
+  #triggers = [];
 
   /**
    * @param {{ layout?: number, onSelect?: (layout: number) => void }} opts
    */
   constructor({ layout = 1, onSelect } = {}) {
-    this.#layout   = layout;
+    this.#layout = layout;
     this.#onSelect = onSelect;
   }
 
@@ -104,7 +104,7 @@ export class LayoutPicker {
    */
   load(layout) {
     this.#layout = layout;
-    this.#triggers.forEach(t => this.#syncTrigger(t));
+    this.#triggers.forEach((t) => this.#syncTrigger(t));
     if (this.#menu) this.#syncChecks();
   }
 
@@ -118,9 +118,12 @@ export class LayoutPicker {
   }
 
   #syncChecks() {
-    this.#menu?.querySelectorAll(".layout-picker__item").forEach(item => {
+    this.#menu?.querySelectorAll(".layout-picker__item").forEach((item) => {
       const n = parseInt(item.dataset.layout, 10);
-      item.classList.toggle("layout-picker__item--selected", n === this.#layout);
+      item.classList.toggle(
+        "layout-picker__item--selected",
+        n === this.#layout,
+      );
       item.setAttribute("aria-selected", String(n === this.#layout));
     });
   }
@@ -133,7 +136,7 @@ export class LayoutPicker {
     menu.className = "layout-picker__menu";
     menu.setAttribute("role", "listbox");
     menu.setAttribute("aria-label", "Layout options");
-    menu.addEventListener("mousedown", e => e.preventDefault());
+    menu.addEventListener("mousedown", (e) => e.preventDefault());
 
     for (let i = 1; i <= 4; i++) {
       const item = document.createElement("div");
@@ -141,7 +144,8 @@ export class LayoutPicker {
       item.setAttribute("role", "option");
       item.setAttribute("aria-selected", String(i === this.#layout));
       item.dataset.layout = String(i);
-      if (i === this.#layout) item.classList.add("layout-picker__item--selected");
+      if (i === this.#layout)
+        item.classList.add("layout-picker__item--selected");
 
       item.innerHTML = `
         <span class="layout-picker__item-check" aria-hidden="true"></span>
@@ -149,11 +153,11 @@ export class LayoutPicker {
         <span class="layout-picker__item-label">${LAYOUT_LABELS[i]}</span>
       `;
 
-      item.addEventListener("mousedown", e => {
+      item.addEventListener("mousedown", (e) => {
         e.preventDefault();
         const selected = parseInt(item.dataset.layout, 10);
         this.#layout = selected;
-        this.#triggers.forEach(t => this.#syncTrigger(t));
+        this.#triggers.forEach((t) => this.#syncTrigger(t));
         this.#closeMenu();
         this.#onSelect?.(selected);
       });
@@ -165,13 +169,17 @@ export class LayoutPicker {
     document.body.appendChild(menu);
     this.#menu = menu;
 
-    this.#menuHandler = e => {
-      if (!menu.contains(e.target) &&
-          !this.#triggers.some(t => t === e.target || t.contains(e.target))) {
+    this.#menuHandler = (e) => {
+      if (
+        !menu.contains(e.target) &&
+        !this.#triggers.some((t) => t === e.target || t.contains(e.target))
+      ) {
         this.#closeMenu();
       }
     };
-    document.addEventListener("mousedown", this.#menuHandler, { capture: true });
+    document.addEventListener("mousedown", this.#menuHandler, {
+      capture: true,
+    });
   }
 
   #closeMenu() {
@@ -179,7 +187,9 @@ export class LayoutPicker {
     this.#menu.remove();
     this.#menu = null;
     if (this.#menuHandler) {
-      document.removeEventListener("mousedown", this.#menuHandler, { capture: true });
+      document.removeEventListener("mousedown", this.#menuHandler, {
+        capture: true,
+      });
       this.#menuHandler = null;
     }
     window.dispatchEvent(new CustomEvent("wurl:popup-closed"));
@@ -190,11 +200,11 @@ export class LayoutPicker {
     const H = window.innerHeight;
     const MW = 200;
     const MH = 4 * 42 + 10;
-    const r  = nearEl.getBoundingClientRect();
-    const left  = Math.max(4, Math.min(r.left, W - MW - 4));
+    const r = nearEl.getBoundingClientRect();
+    const left = Math.max(4, Math.min(r.left, W - MW - 4));
     const below = r.bottom + 4;
     const above = r.top - MH - 4;
-    const top   = (below + MH > H - 4) ? Math.max(4, above) : below;
+    const top = below + MH > H - 4 ? Math.max(4, above) : below;
     menu.style.cssText = `left:${left}px; top:${top}px;`;
   }
 }

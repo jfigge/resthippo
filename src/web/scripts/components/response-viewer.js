@@ -15,11 +15,11 @@
 import Prism from "../vendor/prism.js";
 
 const TABS = [
-  { id: "body",     label: "Body"     },
-  { id: "preview",  label: "Preview"  },   // shown only for HTML responses
-  { id: "headers",  label: "Headers"  },
-  { id: "cookies",  label: "Cookies"  },
-  { id: "console",  label: "Console"  },
+  { id: "body", label: "Body" },
+  { id: "preview", label: "Preview" }, // shown only for HTML responses
+  { id: "headers", label: "Headers" },
+  { id: "cookies", label: "Cookies" },
+  { id: "console", label: "Console" },
   { id: "timeline", label: "Timeline" },
 ];
 
@@ -32,10 +32,10 @@ const TABS = [
  */
 function classifyContentType(ct) {
   const base = (ct ?? "").toLowerCase().split(";")[0].trim();
-  if (base.includes("json"))                                         return "json";
-  if (base.includes("yaml"))                                         return "yaml";
-  if (base.includes("xml"))                                          return "xml";
-  if (base === "text/html" || base === "application/xhtml+xml")      return "html";
+  if (base.includes("json")) return "json";
+  if (base.includes("yaml")) return "yaml";
+  if (base.includes("xml")) return "xml";
+  if (base === "text/html" || base === "application/xhtml+xml") return "html";
   return "other";
 }
 
@@ -46,7 +46,7 @@ function prettyXml(xml) {
     const INDENT = "  ";
     // Collapse existing whitespace between tags so we start fresh.
     const normalised = xml.replace(/>\s+</g, "><").trim();
-    let depth  = 0;
+    let depth = 0;
     let result = "";
 
     const re = /(<[^>]+>|[^<]+)/g;
@@ -84,17 +84,18 @@ function prettyXml(xml) {
 // ── ResponseViewer class ──────────────────────────────────────────────────────
 
 export class ResponseViewer {
-  static #SVG_COPY  = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+  static #SVG_COPY = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
   static #SVG_CHECK = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 
   /** @type {HTMLElement} */
   #el;
-  #activeTab      = "body";
-  #renderMode     = "styled";   // "styled" | "raw"
-  #lastResponse   = null;       // cached so mode changes can re-render
+  #activeTab = "body";
+  #renderMode = "styled"; // "styled" | "raw"
+  #lastResponse = null; // cached so mode changes can re-render
+  #downloadBtn = null; // save response body to file
 
   // Cached pane references (set once in #renderTabContent)
-  #bodyPane    = null;
+  #bodyPane = null;
   #previewPane = null;
 
   // Whether the current response has an HTML content-type (drives Preview tab visibility)
@@ -104,32 +105,32 @@ export class ResponseViewer {
   #currentMethod = "get";
 
   // HTML-preview state
-  #htmlPreviewActive  = false;  // true while an HTML preview is live
-  #popupDepth         = 0;      // count of currently open popups (prevents re-show during rapid open/close)
-  #snapshotPending    = false;  // true while capture() is in-flight; cleared on popup-closed to cancel
-  #previewSnapshot    = null;   // <img> standing in for the hidden WebContentsView during a popup
-  #iframeEl           = null;   // dev-mode <iframe> element
-  #resizeObserver     = null;   // observes body pane for Electron overlay
-  #winResizeHandler   = null;   // window resize listener for Electron overlay
-  #settingsHandler    = null;   // wurl:settings-changed listener for font-size repositioning
+  #htmlPreviewActive = false; // true while an HTML preview is live
+  #popupDepth = 0; // count of currently open popups (prevents re-show during rapid open/close)
+  #snapshotPending = false; // true while capture() is in-flight; cleared on popup-closed to cancel
+  #previewSnapshot = null; // <img> standing in for the hidden WebContentsView during a popup
+  #iframeEl = null; // dev-mode <iframe> element
+  #resizeObserver = null; // observes body pane for Electron overlay
+  #winResizeHandler = null; // window resize listener for Electron overlay
+  #settingsHandler = null; // wurl:settings-changed listener for font-size repositioning
 
   // Find-in-response search bar state
-  #searchBar     = null;   // the bar element
-  #searchInput   = null;   // text input
-  #prevBtn       = null;   // navigate to previous match
-  #nextBtn       = null;   // navigate to next match
-  #caseBtn       = null;   // Cc toggle button
-  #regexBtn      = null;   // .* toggle button
-  #searchMatches = [];     // current <mark> elements
-  #searchCurrent = -1;     // index of the active (focused) match
+  #searchBar = null; // the bar element
+  #searchInput = null; // text input
+  #prevBtn = null; // navigate to previous match
+  #nextBtn = null; // navigate to next match
+  #caseBtn = null; // Cc toggle button
+  #regexBtn = null; // .* toggle button
+  #searchMatches = []; // current <mark> elements
+  #searchCurrent = -1; // index of the active (focused) match
 
   // Timeline state
-  #timelineEntries      = [];   // current list of HistoryEntry objects (newest first)
-  #timelineSelected     = -1;   // index of the selected entry (-1 = none)
-  #timestampTimer       = null; // setInterval handle for live timestamp updates
-  #tooltipEl            = null; // singleton hover tooltip for timeline entries
-  #tooltipTimer         = null; // setTimeout handle for hint delay
-  #tooltipCursor        = { x: 0, y: 0 }; // last known cursor position
+  #timelineEntries = []; // current list of HistoryEntry objects (newest first)
+  #timelineSelected = -1; // index of the selected entry (-1 = none)
+  #timestampTimer = null; // setInterval handle for live timestamp updates
+  #tooltipEl = null; // singleton hover tooltip for timeline entries
+  #tooltipTimer = null; // setTimeout handle for hint delay
+  #tooltipCursor = { x: 0, y: 0 }; // last known cursor position
 
   constructor() {
     this.#el = document.createElement("div");
@@ -138,7 +139,7 @@ export class ResponseViewer {
     this.#renderStatusBar();
     this.#renderTabStrip();
     this.#renderTabContent();
-    this.#renderSearchBar();   // inserted between tab-strip and tab-content
+    this.#renderSearchBar(); // inserted between tab-strip and tab-content
 
     // Track the active request's method so the Body tab colour stays in sync.
     window.addEventListener("wurl:request-selected", (e) => {
@@ -162,15 +163,18 @@ export class ResponseViewer {
     // is complete (sync from memory or after async storage fetch), so it is
     // safe to update the body display here rather than racing on a microtask.
     window.addEventListener("wurl:timeline-update", (e) => {
-      this.#timelineEntries  = e.detail?.entries ?? [];
+      this.#timelineEntries = e.detail?.entries ?? [];
       this.#timelineSelected = -1;
       this.#renderTimeline();
       if (e.detail?.isRequestSwitch) {
         if (this.#activeTab !== "body") this.#switchTab("body");
         const entry = this.#timelineEntries[0];
         if (entry?.response?.error) {
-          this.#showError({ ...entry.response.error,
-            elapsed: entry.response.elapsed, consoleLog: entry.response.consoleLog });
+          this.#showError({
+            ...entry.response.error,
+            elapsed: entry.response.elapsed,
+            consoleLog: entry.response.consoleLog,
+          });
         } else if (entry?.response) {
           this.#showResponse(entry.response, entry.requestUrl);
         } else {
@@ -182,7 +186,8 @@ export class ResponseViewer {
     // Keyboard shortcuts while focus is inside the response viewer
     this.#el.addEventListener("keydown", (e) => {
       // Cmd/Ctrl+A → select body text only (pass through when search input is focused)
-      const selectAll = e.key === "a" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
+      const selectAll =
+        e.key === "a" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
       if (selectAll && e.target !== this.#searchInput) {
         const pre = this.#bodyPane?.querySelector(".res-body-pre");
         if (!pre) return;
@@ -197,7 +202,8 @@ export class ResponseViewer {
       }
 
       // Cmd/Ctrl+F → open find bar (ignored when HTML preview is live)
-      const findKey = e.key === "f" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
+      const findKey =
+        e.key === "f" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
       if (findKey) {
         e.preventDefault();
         e.stopPropagation();
@@ -216,7 +222,9 @@ export class ResponseViewer {
       // Only capture on the first popup; nested popups reuse the existing snapshot.
       if (this.#popupDepth === 1) {
         this.#snapshotPending = true;
-        const dataUrl = await window.wurl.htmlPreview.capture().catch(() => null);
+        const dataUrl = await window.wurl.htmlPreview
+          .capture()
+          .catch(() => null);
         // If the popup was dismissed while capture was in-flight, #snapshotPending
         // will have been cleared — discard the result and do not hide the live view.
         if (!this.#snapshotPending) return;
@@ -234,10 +242,12 @@ export class ResponseViewer {
       this.#snapshotPending = false;
       if (this.#popupDepth === 0) this.#removePreviewSnapshot();
       if (!this.#htmlPreviewActive || !window.wurl?.isElectron) return;
-      if (this.#activeTab !== "preview") return;   // preview tab not visible — stay hidden
+      if (this.#activeTab !== "preview") return; // preview tab not visible — stay hidden
       requestAnimationFrame(() => {
         if (!this.#htmlPreviewActive || this.#popupDepth > 0) return;
-        window.wurl.htmlPreview.show(this.#computePreviewBounds()).catch(() => {});
+        window.wurl.htmlPreview
+          .show(this.#computePreviewBounds())
+          .catch(() => {});
       });
     });
   }
@@ -248,9 +258,10 @@ export class ResponseViewer {
    */
   applySettings(settings) {
     if (settings.responseBodyRenderMode) {
-      const mode = settings.responseBodyRenderMode === "preview"
-        ? "styled"
-        : settings.responseBodyRenderMode;
+      const mode =
+        settings.responseBodyRenderMode === "preview"
+          ? "styled"
+          : settings.responseBodyRenderMode;
       this.#renderMode = mode;
       this.#updateBodyTabStyle();
     }
@@ -273,8 +284,60 @@ export class ResponseViewer {
         <span class="res-size"  title="Response size"></span>
       </span>
     `;
+
+    const dlBtn = document.createElement("button");
+    dlBtn.className = "res-download-btn";
+    dlBtn.title = "Save response body to file";
+    dlBtn.setAttribute("aria-label", "Save response body to file");
+    dlBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7 1v8M4 6l3 3 3-3M2 11h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+    dlBtn.hidden = true;
+    dlBtn.addEventListener("click", () => this.#downloadBody());
+    bar.appendChild(dlBtn);
+    this.#downloadBtn = dlBtn;
+
     this.#el.appendChild(bar);
     this._statusBar = bar;
+  }
+
+  #downloadBody() {
+    const resp = this.#lastResponse;
+    if (!resp?.body) return;
+
+    const ct =
+      Object.entries(resp.headers ?? {}).find(
+        ([k]) => k.toLowerCase() === "content-type",
+      )?.[1] ?? "";
+    const kind = classifyContentType(ct);
+
+    let ext = "txt";
+    let filterName = "Text";
+    if (kind === "json") {
+      ext = "json";
+      filterName = "JSON";
+    } else if (kind === "html") {
+      ext = "html";
+      filterName = "HTML";
+    } else if (kind === "xml") {
+      ext = "xml";
+      filterName = "XML";
+    }
+
+    const url = resp.requestUrl ?? "";
+    const base = url
+      ? url
+          .split("?")[0]
+          .split("/")
+          .filter(Boolean)
+          .pop()
+          ?.replace(/[^a-zA-Z0-9._-]/g, "_") || "response"
+      : "response";
+
+    window.wurl?.export?.saveFile(`${base}.${ext}`, resp.body, [
+      { name: filterName, extensions: [ext] },
+      { name: "All Files", extensions: ["*"] },
+    ]);
   }
 
   // ── Tab strip ─────────────────────────────────────────────────────────────
@@ -298,7 +361,11 @@ export class ResponseViewer {
       if (tab.id === "body") {
         btn.textContent = "Body";
         btn.dataset.method = this.#currentMethod;
-        btn.classList.add(this.#renderMode === "raw" ? "res-tab-btn--raw-mode" : "res-tab-btn--styled-mode");
+        btn.classList.add(
+          this.#renderMode === "raw"
+            ? "res-tab-btn--raw-mode"
+            : "res-tab-btn--styled-mode",
+        );
         // Right-click on the Body tab → render-mode context menu
         btn.addEventListener("contextmenu", (e) => {
           e.preventDefault();
@@ -333,7 +400,7 @@ export class ResponseViewer {
     });
 
     // Cache direct references to the body and preview panes
-    this.#bodyPane    = content.querySelector("#res-tab-body");
+    this.#bodyPane = content.querySelector("#res-tab-body");
     this.#previewPane = content.querySelector("#res-tab-preview");
 
     // Initial empty state in body pane
@@ -378,8 +445,7 @@ export class ResponseViewer {
     prevBtn.title = "Previous match (Shift+Enter)";
     prevBtn.setAttribute("aria-label", "Previous match");
     prevBtn.disabled = true;
-    prevBtn.innerHTML =
-      `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    prevBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
          <polyline points="18 15 12 9 6 15"/>
        </svg>`;
@@ -390,8 +456,7 @@ export class ResponseViewer {
     nextBtn.title = "Next match (Enter)";
     nextBtn.setAttribute("aria-label", "Next match");
     nextBtn.disabled = true;
-    nextBtn.innerHTML =
-      `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    nextBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
          <polyline points="6 9 12 15 18 9"/>
        </svg>`;
@@ -445,8 +510,12 @@ export class ResponseViewer {
       }
     });
 
-    prevBtn.addEventListener("click", () => this.#goToMatch(this.#searchCurrent - 1));
-    nextBtn.addEventListener("click", () => this.#goToMatch(this.#searchCurrent + 1));
+    prevBtn.addEventListener("click", () =>
+      this.#goToMatch(this.#searchCurrent - 1),
+    );
+    nextBtn.addEventListener("click", () =>
+      this.#goToMatch(this.#searchCurrent + 1),
+    );
 
     caseBtn.addEventListener("click", () => {
       const active = caseBtn.classList.toggle("res-search-btn--active");
@@ -462,12 +531,12 @@ export class ResponseViewer {
 
     closeBtn.addEventListener("click", () => this.#closeSearch());
 
-    this.#searchBar   = bar;
+    this.#searchBar = bar;
     this.#searchInput = input;
-    this.#prevBtn     = prevBtn;
-    this.#nextBtn     = nextBtn;
-    this.#caseBtn     = caseBtn;
-    this.#regexBtn    = regexBtn;
+    this.#prevBtn = prevBtn;
+    this.#nextBtn = nextBtn;
+    this.#caseBtn = caseBtn;
+    this.#regexBtn = regexBtn;
 
     // Insert between tab strip and tab content
     this.#el.insertBefore(bar, this._tabContent);
@@ -498,7 +567,9 @@ export class ResponseViewer {
 
     // Remove current-highlight from the previous active match
     if (this.#searchCurrent >= 0 && this.#searchCurrent < count) {
-      this.#searchMatches[this.#searchCurrent].classList.remove("res-search-highlight--current");
+      this.#searchMatches[this.#searchCurrent].classList.remove(
+        "res-search-highlight--current",
+      );
     }
 
     // Wrap around
@@ -531,9 +602,13 @@ export class ResponseViewer {
     const pre = this.#bodyPane?.querySelector(".res-body-pre");
     if (!pre) return;
 
-    const caseSensitive = this.#caseBtn.classList.contains("res-search-btn--active");
-    const useRegex      = this.#regexBtn.classList.contains("res-search-btn--active");
-    const flags         = caseSensitive ? "g" : "gi";
+    const caseSensitive = this.#caseBtn.classList.contains(
+      "res-search-btn--active",
+    );
+    const useRegex = this.#regexBtn.classList.contains(
+      "res-search-btn--active",
+    );
+    const flags = caseSensitive ? "g" : "gi";
 
     let pattern;
     try {
@@ -562,7 +637,11 @@ export class ResponseViewer {
    */
   #highlightMatches(element, regex) {
     const marks = [];
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+    const walker = document.createTreeWalker(
+      element,
+      NodeFilter.SHOW_TEXT,
+      null,
+    );
     const textNodes = [];
     let node;
     while ((node = walker.nextNode())) textNodes.push(node);
@@ -578,7 +657,9 @@ export class ResponseViewer {
       let match;
       while ((match = regex.exec(text)) !== null) {
         if (match.index > lastIndex) {
-          frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+          frag.appendChild(
+            document.createTextNode(text.slice(lastIndex, match.index)),
+          );
         }
         const mark = document.createElement("mark");
         mark.className = "res-search-highlight";
@@ -603,12 +684,14 @@ export class ResponseViewer {
    */
   #clearHighlights() {
     if (this.#bodyPane) {
-      this.#bodyPane.querySelectorAll("mark.res-search-highlight").forEach((mark) => {
-        const parent = mark.parentNode;
-        if (!parent) return;
-        parent.replaceChild(document.createTextNode(mark.textContent), mark);
-        parent.normalize();
-      });
+      this.#bodyPane
+        .querySelectorAll("mark.res-search-highlight")
+        .forEach((mark) => {
+          const parent = mark.parentNode;
+          if (!parent) return;
+          parent.replaceChild(document.createTextNode(mark.textContent), mark);
+          parent.normalize();
+        });
     }
     this.#searchMatches = [];
     this.#searchCurrent = -1;
@@ -639,8 +722,11 @@ export class ResponseViewer {
   #updateBodyTabStyle() {
     const btn = this._tabStrip?.querySelector('[data-tab="body"]');
     if (!btn) return;
-    btn.classList.toggle("res-tab-btn--styled-mode", this.#renderMode !== "raw");
-    btn.classList.toggle("res-tab-btn--raw-mode",    this.#renderMode === "raw");
+    btn.classList.toggle(
+      "res-tab-btn--styled-mode",
+      this.#renderMode !== "raw",
+    );
+    btn.classList.toggle("res-tab-btn--raw-mode", this.#renderMode === "raw");
     btn.dataset.method = this.#currentMethod;
   }
 
@@ -653,8 +739,18 @@ export class ResponseViewer {
 
   async #showBodyContextMenu(x, y) {
     const items = [
-      { id: "styled", label: "Styled", type: "checkbox", checked: this.#renderMode !== "raw" },
-      { id: "raw",    label: "Raw",    type: "checkbox", checked: this.#renderMode === "raw" },
+      {
+        id: "styled",
+        label: "Styled",
+        type: "checkbox",
+        checked: this.#renderMode !== "raw",
+      },
+      {
+        id: "raw",
+        label: "Raw",
+        type: "checkbox",
+        checked: this.#renderMode === "raw",
+      },
     ];
     const clickedId = await window.wurl.ui.contextMenu({ items, x, y });
     if (clickedId) this.#setRenderMode(clickedId);
@@ -665,9 +761,11 @@ export class ResponseViewer {
     this.#renderMode = mode;
     this.#updateBodyTabStyle();
     // Persist the choice via the shared editor-setting channel
-    window.dispatchEvent(new CustomEvent("wurl:editor-setting-changed", {
-      detail: { responseBodyRenderMode: mode },
-    }));
+    window.dispatchEvent(
+      new CustomEvent("wurl:editor-setting-changed", {
+        detail: { responseBodyRenderMode: mode },
+      }),
+    );
     // Re-render the body pane if we have a cached response
     if (this.#lastResponse) {
       this.#renderBodyPane(this.#lastResponse);
@@ -686,8 +784,11 @@ export class ResponseViewer {
     const pane = this.#bodyPane;
     // Node.js (Electron) lowercases all header names; browsers may preserve
     // title-case.  Search case-insensitively so both environments work.
-    const hdrs     = response.headers ?? {};
-    const ct       = (Object.entries(hdrs).find(([k]) => k.toLowerCase() === "content-type")?.[1]) ?? "";
+    const hdrs = response.headers ?? {};
+    const ct =
+      Object.entries(hdrs).find(
+        ([k]) => k.toLowerCase() === "content-type",
+      )?.[1] ?? "";
     const category = classifyContentType(ct);
 
     this.#clearHighlights();
@@ -708,16 +809,16 @@ export class ResponseViewer {
     if (this.#renderMode !== "raw") {
       if (category === "json") {
         displayText = this.#prettyBody(response.body, "json");
-        prismLang   = "json";
+        prismLang = "json";
       } else if (category === "yaml") {
         displayText = response.body;
-        prismLang   = "yaml";
+        prismLang = "yaml";
       } else if (category === "xml") {
         displayText = this.#prettyBody(response.body, "xml");
-        prismLang   = "markup";
+        prismLang = "markup";
       } else if (category === "html") {
         displayText = response.body;
-        prismLang   = "markup";
+        prismLang = "markup";
       } else {
         displayText = response.body;
       }
@@ -743,7 +844,11 @@ export class ResponseViewer {
     pane.appendChild(pre);
 
     // Re-apply an active search query (the pane was just rebuilt from scratch)
-    if (this.#searchBar && !this.#searchBar.hidden && this.#searchInput?.value.trim()) {
+    if (
+      this.#searchBar &&
+      !this.#searchBar.hidden &&
+      this.#searchInput?.value.trim()
+    ) {
       this.#runSearch();
     }
   }
@@ -767,21 +872,22 @@ export class ResponseViewer {
   #computePreviewBounds() {
     const r = this.#previewPane.getBoundingClientRect();
     return {
-      x:      Math.round(r.left),
-      y:      Math.round(r.top),
-      width:  Math.max(1, Math.round(r.width)),
+      x: Math.round(r.left),
+      y: Math.round(r.top),
+      width: Math.max(1, Math.round(r.width)),
       height: Math.max(1, Math.round(r.height)),
     };
   }
 
   #showPreviewSnapshot(dataUrl) {
     this.#removePreviewSnapshot();
-    const r   = this.#previewPane.getBoundingClientRect();
+    const r = this.#previewPane.getBoundingClientRect();
     const img = document.createElement("img");
-    img.src              = dataUrl;
-    img.style.cssText    = `position:fixed;left:${r.left}px;top:${r.top}px;` +
-                           `width:${r.width}px;height:${r.height}px;` +
-                           `pointer-events:none;z-index:0;`;
+    img.src = dataUrl;
+    img.style.cssText =
+      `position:fixed;left:${r.left}px;top:${r.top}px;` +
+      `width:${r.width}px;height:${r.height}px;` +
+      `pointer-events:none;z-index:0;`;
     document.body.appendChild(img);
     this.#previewSnapshot = img;
   }
@@ -852,8 +958,10 @@ export class ResponseViewer {
 
     // Defer the first loadUrl call so the pane has been laid out.
     requestAnimationFrame(() => {
-      if (!this.#htmlPreviewActive) return;  // destroyed before frame fired
-      window.wurl?.htmlPreview?.loadUrl(url, this.#computePreviewBounds()).catch(() => {});
+      if (!this.#htmlPreviewActive) return; // destroyed before frame fired
+      window.wurl?.htmlPreview
+        ?.loadUrl(url, this.#computePreviewBounds())
+        .catch(() => {});
     });
   }
 
@@ -905,7 +1013,10 @@ export class ResponseViewer {
 
     // Remove the settings-changed listener.
     if (this.#settingsHandler) {
-      window.removeEventListener("wurl:settings-changed", this.#settingsHandler);
+      window.removeEventListener(
+        "wurl:settings-changed",
+        this.#settingsHandler,
+      );
       this.#settingsHandler = null;
     }
 
@@ -956,7 +1067,9 @@ export class ResponseViewer {
         return prettyXml(body);
       }
       // YAML is typically already human-readable; return as-is.
-    } catch { /* fall through to raw */ }
+    } catch {
+      /* fall through to raw */
+    }
     return body;
   }
 
@@ -985,7 +1098,9 @@ export class ResponseViewer {
           if (window.wurl?.isElectron) {
             requestAnimationFrame(() => {
               if (this.#htmlPreviewActive && this.#activeTab === "preview") {
-                window.wurl.htmlPreview.show(this.#computePreviewBounds()).catch(() => {});
+                window.wurl.htmlPreview
+                  .show(this.#computePreviewBounds())
+                  .catch(() => {});
               }
             });
           }
@@ -1023,6 +1138,7 @@ export class ResponseViewer {
   // ── Response states ───────────────────────────────────────────────────────
   #showLoading() {
     this.#lastResponse = null;
+    if (this.#downloadBtn) this.#downloadBtn.hidden = true;
     this.#destroyHtmlPreview();
     this.#clearHighlights();
     this.#setStatus("", "", "", "");
@@ -1044,10 +1160,10 @@ export class ResponseViewer {
     this.#destroyHtmlPreview();
     this.#setPreviewTabVisible(false);
     this.#clearHighlights();
-    const hasStatus  = detail?.status && detail.status > 0;
+    const hasStatus = detail?.status && detail.status > 0;
     const statusCode = hasStatus ? String(detail.status) : "ERR";
-    const statusTxt  = detail?.statusText || detail?.name || "Connection Error";
-    const elapsed    = detail?.elapsed ? `${detail.elapsed} ms` : "";
+    const statusTxt = detail?.statusText || detail?.name || "Connection Error";
+    const elapsed = detail?.elapsed ? `${detail.elapsed} ms` : "";
 
     this.#setStatus(statusCode, statusTxt, elapsed, "");
     const badge = this._statusBar.querySelector(".res-status-badge");
@@ -1070,13 +1186,14 @@ export class ResponseViewer {
     bodyPane.appendChild(err);
 
     // Console pane — always show the verbose log (or an error summary)
-    const log = Array.isArray(detail?.consoleLog) && detail.consoleLog.length
-      ? detail.consoleLog
-      : [
-          `* Error: ${detail?.name || "NetworkError"}`,
-          `* ${detail?.message || "An unknown error occurred."}`,
-          detail?.hint ? `* Hint: ${detail.hint}` : null,
-        ].filter(Boolean);
+    const log =
+      Array.isArray(detail?.consoleLog) && detail.consoleLog.length
+        ? detail.consoleLog
+        : [
+            `* Error: ${detail?.name || "NetworkError"}`,
+            `* ${detail?.message || "An unknown error occurred."}`,
+            detail?.hint ? `* Hint: ${detail.hint}` : null,
+          ].filter(Boolean);
     this.#renderConsole(log);
   }
 
@@ -1087,7 +1204,8 @@ export class ResponseViewer {
     this.#setPreviewTabVisible(false);
     this.#clearHighlights();
     this.#setStatus("", "", "", "");
-    this._statusBar.querySelector(".res-status-badge").className = "res-status-badge";
+    this._statusBar.querySelector(".res-status-badge").className =
+      "res-status-badge";
     this.#bodyPane.innerHTML = "";
     this.#bodyPane.appendChild(this.#emptyState());
     const headersPane = this._tabContent.querySelector("#res-tab-headers");
@@ -1111,14 +1229,14 @@ export class ResponseViewer {
    */
   #showResponse(response, requestUrl) {
     const {
-      request    = {},
-      status     = 0,
+      request = {},
+      status = 0,
       statusText = "",
-      headers    = {},
-      cookies    = [],
-      body       = "",
-      elapsed    = 0,
-      size       = 0,
+      headers = {},
+      cookies = [],
+      body = "",
+      elapsed = 0,
+      size = 0,
       consoleLog = [],
     } = response;
 
@@ -1127,14 +1245,24 @@ export class ResponseViewer {
     // request snapshot embedded in live wurl:response-received events.
     this.#lastResponse = {
       requestUrl: requestUrl ?? request.url ?? "",
-      status, statusText, headers, cookies, body, elapsed, size, consoleLog,
+      status,
+      statusText,
+      headers,
+      cookies,
+      body,
+      elapsed,
+      size,
+      consoleLog,
     };
 
     // Sync method colour from the request that produced this response.
     if (request.method) this.#setCurrentMethod(request.method);
 
     // Show the Preview tab only for HTML responses.
-    const ct = (Object.entries(headers).find(([k]) => k.toLowerCase() === "content-type")?.[1]) ?? "";
+    const ct =
+      Object.entries(headers).find(
+        ([k]) => k.toLowerCase() === "content-type",
+      )?.[1] ?? "";
     this.#isHtmlResponse = classifyContentType(ct) === "html";
     this.#setPreviewTabVisible(this.#isHtmlResponse);
 
@@ -1148,6 +1276,8 @@ export class ResponseViewer {
     );
     const badge = this._statusBar.querySelector(".res-status-badge");
     badge.className = `res-status-badge ${statusClass}`;
+
+    if (this.#downloadBtn) this.#downloadBtn.hidden = !body;
 
     // ── Body pane ──────────────────────────────────────────────────────────
     this.#renderBodyPane(this.#lastResponse);
@@ -1176,10 +1306,10 @@ export class ResponseViewer {
         const th = document.createElement("th");
         th.textContent = lbl;
         th.style.fontWeight = "700";
-        th.style.textAlign  = "left";
-        th.style.padding    = "4px 12px";
-        th.style.color      = "var(--color-overlay-0)";
-        th.style.fontSize   = "var(--font-size-xs)";
+        th.style.textAlign = "left";
+        th.style.padding = "4px 12px";
+        th.style.color = "var(--color-overlay-0)";
+        th.style.fontSize = "var(--font-size-xs)";
         th.style.textTransform = "uppercase";
         th.style.letterSpacing = "0.06em";
         hdr.appendChild(th);
@@ -1188,10 +1318,10 @@ export class ResponseViewer {
         const parts = raw.split(";").map((s) => s.trim());
         const [nameVal, ...attrs] = parts;
         const eqIdx = nameVal.indexOf("=");
-        const name  = eqIdx >= 0 ? nameVal.slice(0, eqIdx) : nameVal;
+        const name = eqIdx >= 0 ? nameVal.slice(0, eqIdx) : nameVal;
         const value = eqIdx >= 0 ? nameVal.slice(eqIdx + 1) : "";
-        const row   = ct.insertRow();
-        row.title   = raw;
+        const row = ct.insertRow();
+        row.title = raw;
         row.insertCell().textContent = name;
         row.insertCell().textContent = attrs.join("; ");
         row.insertCell().textContent = value;
@@ -1232,11 +1362,17 @@ export class ResponseViewer {
     list.className = "timeline-list";
 
     this.#timelineEntries.forEach((entry, idx) => {
-      const { status = 0, statusText = "", elapsed = 0, size = 0 } = entry.response ?? {};
+      const {
+        status = 0,
+        statusText = "",
+        elapsed = 0,
+        size = 0,
+      } = entry.response ?? {};
       const item = document.createElement("button");
       item.className = "timeline-item";
       item.setAttribute("type", "button");
-      if (idx === this.#timelineSelected) item.classList.add("timeline-item--selected");
+      if (idx === this.#timelineSelected)
+        item.classList.add("timeline-item--selected");
 
       const ts = document.createElement("span");
       ts.className = "timeline-timestamp";
@@ -1275,18 +1411,20 @@ export class ResponseViewer {
       item.addEventListener("click", () => {
         this.#timelineSelected = idx;
         this.#renderTimeline();
-        window.dispatchEvent(new CustomEvent("wurl:timeline-select", {
-          detail: {
-            requestNode: entry.requestNode,
-            requestUrl:  entry.requestUrl ?? "",
-            response:    entry.response,
-          },
-        }));
+        window.dispatchEvent(
+          new CustomEvent("wurl:timeline-select", {
+            detail: {
+              requestNode: entry.requestNode,
+              requestUrl: entry.requestUrl ?? "",
+              response: entry.response,
+            },
+          }),
+        );
       });
 
       item.addEventListener("mouseenter", (e) => {
         this.#tooltipCursor = { x: e.clientX, y: e.clientY };
-        this.#tooltipTimer  = setTimeout(() => this.#showTooltip(entry), 600);
+        this.#tooltipTimer = setTimeout(() => this.#showTooltip(entry), 600);
       });
       item.addEventListener("mousemove", (e) => {
         this.#tooltipCursor = { x: e.clientX, y: e.clientY };
@@ -1325,7 +1463,7 @@ export class ResponseViewer {
 
   #showTooltip(entry) {
     this.#ensureTooltip();
-    const el       = this.#tooltipEl;
+    const el = this.#tooltipEl;
     const snapshot = entry.requestNode ?? {};
 
     el.innerHTML = "";
@@ -1365,17 +1503,17 @@ export class ResponseViewer {
     // Position near cursor — measure after content is set
     el.hidden = false;
     const { x, y } = this.#tooltipCursor;
-    const tw  = el.offsetWidth;
-    const th  = el.offsetHeight;
+    const tw = el.offsetWidth;
+    const th = el.offsetHeight;
     const gap = 14;
-    let   left = x + gap;
-    let   top  = y + gap;
-    if (left + tw > window.innerWidth  - 8) left = x - tw - gap;
-    if (top  + th > window.innerHeight - 8) top  = y - th - gap;
+    let left = x + gap;
+    let top = y + gap;
+    if (left + tw > window.innerWidth - 8) left = x - tw - gap;
+    if (top + th > window.innerHeight - 8) top = y - th - gap;
     left = Math.max(left, 8);
-    top  = Math.max(top,  8);
+    top = Math.max(top, 8);
     el.style.left = `${left}px`;
-    el.style.top  = `${top}px`;
+    el.style.top = `${top}px`;
   }
 
   #buildAuthCopyText(snapshot) {
@@ -1383,7 +1521,7 @@ export class ResponseViewer {
     const bulk = (snapshot.auth ?? "").trim();
     if (type === "none") return null;
     const lines = [`type: ${type}`];
-    if (bulk) lines.push(...bulk.split("\n").filter(l => l.trim()));
+    if (bulk) lines.push(...bulk.split("\n").filter((l) => l.trim()));
     return lines.join("\n");
   }
 
@@ -1435,7 +1573,10 @@ export class ResponseViewer {
 
   #appendTTAuth(parent, snapshot) {
     const type = snapshot.authType ?? "none";
-    if (type === "none") { this.#appendTTNone(parent); return; }
+    if (type === "none") {
+      this.#appendTTNone(parent);
+      return;
+    }
     this.#appendTTLine(parent, `type: ${type}`);
     const bulk = (snapshot.auth ?? "").trim();
     if (bulk) this.#appendTTBulkLines(parent, bulk);
@@ -1452,7 +1593,9 @@ export class ResponseViewer {
 
   #appendTTLine(parent, text, enabled = true) {
     const el = document.createElement("div");
-    el.className = "timeline-tooltip__kv" + (enabled ? "" : " timeline-tooltip__kv--disabled");
+    el.className =
+      "timeline-tooltip__kv" +
+      (enabled ? "" : " timeline-tooltip__kv--disabled");
     el.textContent = text;
     parent.appendChild(el);
   }
@@ -1509,7 +1652,10 @@ export class ResponseViewer {
 
   #startTimestampUpdater() {
     this.#stopTimestampUpdater();
-    this.#timestampTimer = setInterval(() => this.#updateTimestampLabels(), 10_000);
+    this.#timestampTimer = setInterval(
+      () => this.#updateTimestampLabels(),
+      10_000,
+    );
   }
 
   #stopTimestampUpdater() {
@@ -1535,19 +1681,19 @@ export class ResponseViewer {
   #formatTimestamp(ts) {
     if (!ts) return "";
     const delta = Date.now() - ts;
-    const secs  = delta / 1000;
-    const mins  = secs / 60;
+    const secs = delta / 1000;
+    const mins = secs / 60;
 
-    if (secs < 10)  return "Just now";
-    if (mins < 1)   return "Less than a minute ago";
-    if (mins < 5)   return "Within the last 5 minutes";
-    if (mins < 30)  return "Within the last half hour";
-    if (mins < 60)  return "Within the last hour";
+    if (secs < 10) return "Just now";
+    if (mins < 1) return "Less than a minute ago";
+    if (mins < 5) return "Within the last 5 minutes";
+    if (mins < 30) return "Within the last half hour";
+    if (mins < 60) return "Within the last hour";
 
-    const then     = new Date(ts);
+    const then = new Date(ts);
     const todayMid = new Date();
     todayMid.setHours(0, 0, 0, 0);
-    const thenMid  = new Date(then);
+    const thenMid = new Date(then);
     thenMid.setHours(0, 0, 0, 0);
     const daysDiff = Math.round((todayMid - thenMid) / 86400000);
 
@@ -1564,45 +1710,68 @@ export class ResponseViewer {
     if (thenMid >= lastWeekStart) return "Last Week";
 
     // Full format: "On Monday, June 12th, at 12:45 pm"
-    const DAYS   = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-    const MONTHS = ["January","February","March","April","May","June",
-                    "July","August","September","October","November","December"];
+    const DAYS = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    const MONTHS = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
     const d = then.getDate();
     const ordinal = (n) => {
       if (n >= 11 && n <= 13) return "th";
       switch (n % 10) {
-        case 1: return "st";
-        case 2: return "nd";
-        case 3: return "rd";
-        default: return "th";
+        case 1:
+          return "st";
+        case 2:
+          return "nd";
+        case 3:
+          return "rd";
+        default:
+          return "th";
       }
     };
-    const h    = then.getHours();
-    const h12  = h % 12 || 12;
-    const m    = String(then.getMinutes()).padStart(2, "0");
+    const h = then.getHours();
+    const h12 = h % 12 || 12;
+    const m = String(then.getMinutes()).padStart(2, "0");
     const ampm = h < 12 ? "am" : "pm";
     return `On ${DAYS[then.getDay()]}, ${MONTHS[then.getMonth()]} ${d}${ordinal(d)}, at ${h12}:${m} ${ampm}`;
   }
 
   #setStatus(code, text, time, size) {
     this._statusBar.querySelector(".res-status-badge").textContent = code;
-    this._statusBar.querySelector(".res-status-text").textContent  = text;
-    this._statusBar.querySelector(".res-time").textContent         = time;
-    this._statusBar.querySelector(".res-size").textContent         = size;
+    this._statusBar.querySelector(".res-status-text").textContent = text;
+    this._statusBar.querySelector(".res-time").textContent = time;
+    this._statusBar.querySelector(".res-size").textContent = size;
   }
 
   #statusClass(code) {
     if (code >= 200 && code < 300) return "res-status--success";
     if (code >= 300 && code < 400) return "res-status--redirect";
     if (code >= 400 && code < 500) return "res-status--client-error";
-    if (code >= 500)               return "res-status--server-error";
+    if (code >= 500) return "res-status--server-error";
     return "";
   }
 
-
   #formatSize(bytes) {
-    if (bytes < 1024)            return `${bytes} B`;
-    if (bytes < 1024 * 1024)    return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
 

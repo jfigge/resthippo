@@ -1,9 +1,9 @@
 "use strict";
 
 import { parse as parseYaml } from "../vendor/yaml.js";
-import { parsePostman }  from "./postman.js";
+import { parsePostman } from "./postman.js";
 import { parseInsomnia } from "./insomnia.js";
-import { parseOpenApi }  from "./openapi.js";
+import { parseOpenApi } from "./openapi.js";
 
 /**
  * Sniff the format of a parsed data object.
@@ -18,10 +18,12 @@ function detectFormat(data) {
   if (schema.includes("getpostman.com")) return "postman";
 
   // Insomnia v3 / v4
-  if (data._type === "export" && data.__export_format != null) return "insomnia";
+  if (data._type === "export" && data.__export_format != null)
+    return "insomnia";
 
   // OpenAPI 3.x
-  if (typeof data.openapi === "string" && data.openapi.startsWith("3.")) return "openapi";
+  if (typeof data.openapi === "string" && data.openapi.startsWith("3."))
+    return "openapi";
 
   // Swagger 2.0
   if (data.swagger === "2.0") return "openapi";
@@ -55,9 +57,12 @@ export function parseImport(content) {
 
   const format = detectFormat(data);
   switch (format) {
-    case "postman":  return parsePostman(data);
-    case "insomnia": return parseInsomnia(data);
-    case "openapi":  return parseOpenApi(data);
+    case "postman":
+      return parsePostman(data);
+    case "insomnia":
+      return parseInsomnia(data);
+    case "openapi":
+      return parseOpenApi(data);
     default:
       throw new Error(
         "Unrecognized format. Supported: Postman v2.x, Insomnia v3/v4, OpenAPI 3.x, Swagger 2.0.",

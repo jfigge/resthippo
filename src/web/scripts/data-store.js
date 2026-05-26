@@ -41,34 +41,34 @@
 
 /** Canonical default settings — merged over whatever is stored on disk. */
 const DEFAULT_SETTINGS = {
-  theme:           "mocha",
-  fontSize:        13,
-  fontFamily:      "inter",
-  layout:          1,
-  timeout:         30000,
+  theme: "mocha",
+  fontSize: 13,
+  fontFamily: "inter",
+  layout: 1,
+  timeout: 30000,
   followRedirects: true,
-  verifySsl:       true,
-  proxyEnabled:    false,
-  proxyUrl:        "",
-  splitterNav:    240,
-  splitterRes:    340,
+  verifySsl: true,
+  proxyEnabled: false,
+  proxyUrl: "",
+  splitterNav: 240,
+  splitterRes: 340,
   splitterRowRes: 320,
-  listHeaders:       true,
-  showUrlPreview:    true,
-  varsBulkEditor:    true,
+  listHeaders: true,
+  showUrlPreview: true,
+  varsBulkEditor: true,
   selectedRequestIds: {},
   responseBodyRenderMode: "styled",
-  oauth2Advanced:    false,
-  historyCount:      5,
+  oauth2Advanced: false,
+  historyCount: 5,
 };
 
 // ── In-memory caches ──────────────────────────────────────────────────────────
 
 let _manifest = {
-  version:           2,
-  collections:       [],
+  version: 2,
+  collections: [],
   activeCollectionId: null,
-  settings:          { ...DEFAULT_SETTINGS },
+  settings: { ...DEFAULT_SETTINGS },
 };
 
 /** The collection ID currently used by saveCollections(). */
@@ -104,7 +104,12 @@ async function _loadManifest() {
     return await res.json();
   } catch (err) {
     console.warn("[data-store] manifest load failed:", err.message);
-    return { version: 2, collections: [], activeCollectionId: null, settings: {} };
+    return {
+      version: 2,
+      collections: [],
+      activeCollectionId: null,
+      settings: {},
+    };
   }
 }
 
@@ -115,9 +120,9 @@ async function _persistManifest() {
       return;
     }
     await fetch("/api/collections", {
-      method:  "PUT",
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(_manifest),
+      body: JSON.stringify(_manifest),
     });
   } catch (err) {
     console.warn("[data-store] manifest save failed:", err.message);
@@ -134,16 +139,24 @@ async function _loadEnvFile(collectionId) {
     if (isElectron()) {
       raw = await window.wurl.store.env.get(collectionId);
     } else {
-      const res = await fetch(`/api/env?id=${encodeURIComponent(collectionId)}`);
+      const res = await fetch(
+        `/api/env?id=${encodeURIComponent(collectionId)}`,
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       raw = await res.json();
     }
     return {
-      items:     Array.isArray(raw?.collections) ? raw.collections : [],
-      variables: (raw?.variables && typeof raw.variables === "object") ? raw.variables : {},
+      items: Array.isArray(raw?.collections) ? raw.collections : [],
+      variables:
+        raw?.variables && typeof raw.variables === "object"
+          ? raw.variables
+          : {},
     };
   } catch (err) {
-    console.warn(`[data-store] env load failed (${collectionId}):`, err.message);
+    console.warn(
+      `[data-store] env load failed (${collectionId}):`,
+      err.message,
+    );
     return { items: [], variables: {} };
   }
 }
@@ -151,16 +164,23 @@ async function _loadEnvFile(collectionId) {
 async function _saveEnvFile(collectionId, items, variables = {}) {
   try {
     if (isElectron()) {
-      await window.wurl.store.env.save(collectionId, { version: 1, collections: items, variables });
+      await window.wurl.store.env.save(collectionId, {
+        version: 1,
+        collections: items,
+        variables,
+      });
       return;
     }
     await fetch(`/api/env?id=${encodeURIComponent(collectionId)}`, {
-      method:  "PUT",
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ version: 1, collections: items, variables }),
+      body: JSON.stringify({ version: 1, collections: items, variables }),
     });
   } catch (err) {
-    console.warn(`[data-store] env save failed (${collectionId}):`, err.message);
+    console.warn(
+      `[data-store] env save failed (${collectionId}):`,
+      err.message,
+    );
   }
 }
 
@@ -184,37 +204,39 @@ export async function loadAll() {
     // Migration: support both old (environments/activeEnvironmentId) and new keys
     let collections = Array.isArray(raw.collections)
       ? raw.collections
-      : (Array.isArray(raw.environments) ? raw.environments : []);
+      : Array.isArray(raw.environments)
+        ? raw.environments
+        : [];
     let activeId = raw.activeCollectionId ?? raw.activeEnvironmentId ?? null;
 
     // Seed a default collection on true first-run (empty manifest)
     if (collections.length === 0) {
       const defaultId = crypto.randomUUID();
-      collections     = [{ id: defaultId, name: "COLLECTIONS" }];
-      activeId        = defaultId;
+      collections = [{ id: defaultId, name: "COLLECTIONS" }];
+      activeId = defaultId;
     }
 
     // Guard: activeId must reference a real collection
-    if (!collections.find(c => c.id === activeId)) {
+    if (!collections.find((c) => c.id === activeId)) {
       activeId = collections[0].id;
     }
 
     _manifest = {
-      version:           2,
+      version: 2,
       collections,
       activeCollectionId: activeId,
-      settings:          { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) },
+      settings: { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) },
     };
     _activeCollectionId = activeId;
 
     const { items, variables } = await _loadEnvFile(activeId);
-    _activeItems     = items;
+    _activeItems = items;
     _activeVariables = variables;
 
     return {
-      collections:        _manifest.collections,
+      collections: _manifest.collections,
       activeCollectionId: _activeCollectionId,
-      settings:           _manifest.settings,
+      settings: _manifest.settings,
       items,
       variables,
     };
@@ -222,20 +244,20 @@ export async function loadAll() {
     console.warn("[data-store] load failed:", err.message);
     const defaultId = crypto.randomUUID();
     _manifest = {
-      version:           2,
-      collections:       [{ id: defaultId, name: "COLLECTIONS" }],
+      version: 2,
+      collections: [{ id: defaultId, name: "COLLECTIONS" }],
       activeCollectionId: defaultId,
-      settings:          { ...DEFAULT_SETTINGS },
+      settings: { ...DEFAULT_SETTINGS },
     };
     _activeCollectionId = defaultId;
-    _activeItems        = [];
-    _activeVariables    = {};
+    _activeItems = [];
+    _activeVariables = {};
     return {
-      collections:        _manifest.collections,
+      collections: _manifest.collections,
       activeCollectionId: _activeCollectionId,
-      settings:           _manifest.settings,
-      items:              [],
-      variables:          {},
+      settings: _manifest.settings,
+      items: [],
+      variables: {},
     };
   }
 }
@@ -264,7 +286,11 @@ export async function saveSettings(settings) {
  * Persist an updated collections list and/or active collection ID.
  * @param {{ collections: object[], activeCollectionId: string, settings?: object }} opts
  */
-export async function saveManifest({ collections, activeCollectionId, settings }) {
+export async function saveManifest({
+  collections,
+  activeCollectionId,
+  settings,
+}) {
   const cleanColls = collections.map(({ variables: _v, ...rest }) => rest);
   _manifest = {
     ..._manifest,
@@ -283,7 +309,7 @@ export async function saveManifest({ collections, activeCollectionId, settings }
 export async function loadCollectionData(collectionId) {
   const data = await _loadEnvFile(collectionId);
   if (collectionId === _activeCollectionId) {
-    _activeItems     = data.items;
+    _activeItems = data.items;
     _activeVariables = data.variables;
   }
   return data;
@@ -318,9 +344,9 @@ export async function saveCollectionData(collectionId, items, variables) {
  */
 export function setActiveCollection(collectionId) {
   _activeCollectionId = collectionId;
-  _activeItems        = [];
-  _activeVariables    = {};
-  _manifest           = { ..._manifest, activeCollectionId: collectionId };
+  _activeItems = [];
+  _activeVariables = {};
+  _manifest = { ..._manifest, activeCollectionId: collectionId };
 }
 
 /**
@@ -345,8 +371,13 @@ export async function saveCollectionVariables(collectionId, variables) {
  */
 export async function deleteRequest(id) {
   try {
-    if (isElectron()) { await window.wurl.store.requests.delete(id); return; }
-    await fetch(`/api/requests/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (isElectron()) {
+      await window.wurl.store.requests.delete(id);
+      return;
+    }
+    await fetch(`/api/requests/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
   } catch (err) {
     console.warn(`[data-store] deleteRequest(${id}) failed:`, err.message);
   }
@@ -363,12 +394,15 @@ export async function deleteRequest(id) {
  */
 export async function listHistory(requestId, options = {}) {
   try {
-    if (isElectron()) return await window.wurl.store.history.list(requestId, options);
+    if (isElectron())
+      return await window.wurl.store.history.list(requestId, options);
     const params = new URLSearchParams();
-    if (options.limit)  params.set("limit",  String(options.limit));
+    if (options.limit) params.set("limit", String(options.limit));
     if (options.cursor) params.set("cursor", options.cursor);
-    const qs  = params.toString() ? `?${params}` : "";
-    const res = await fetch(`/api/requests/${encodeURIComponent(requestId)}/history${qs}`);
+    const qs = params.toString() ? `?${params}` : "";
+    const res = await fetch(
+      `/api/requests/${encodeURIComponent(requestId)}/history${qs}`,
+    );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
@@ -387,13 +421,17 @@ export async function listHistory(requestId, options = {}) {
  */
 export async function addHistory(requestId, entry, response) {
   try {
-    if (isElectron()) return await window.wurl.store.history.add(requestId, entry, response);
+    if (isElectron())
+      return await window.wurl.store.history.add(requestId, entry, response);
     const payload = response ? { ...entry, response } : entry;
-    const res = await fetch(`/api/requests/${encodeURIComponent(requestId)}/history`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(payload),
-    });
+    const res = await fetch(
+      `/api/requests/${encodeURIComponent(requestId)}/history`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
@@ -411,7 +449,8 @@ export async function addHistory(requestId, entry, response) {
  */
 export async function getHistoryResponse(requestId, historyId) {
   try {
-    if (isElectron()) return await window.wurl.store.history.getResponse(requestId, historyId);
+    if (isElectron())
+      return await window.wurl.store.history.getResponse(requestId, historyId);
     const res = await fetch(
       `/api/requests/${encodeURIComponent(requestId)}/history/${encodeURIComponent(historyId)}/response`,
     );
@@ -419,7 +458,10 @@ export async function getHistoryResponse(requestId, historyId) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn(`[data-store] getHistoryResponse(${requestId}, ${historyId}) failed:`, err.message);
+    console.warn(
+      `[data-store] getHistoryResponse(${requestId}, ${historyId}) failed:`,
+      err.message,
+    );
     return null;
   }
 }
@@ -442,7 +484,10 @@ export async function deleteHistory(requestId, historyId) {
       { method: "DELETE" },
     );
   } catch (err) {
-    console.warn(`[data-store] deleteHistory(${requestId}, ${historyId}) failed:`, err.message);
+    console.warn(
+      `[data-store] deleteHistory(${requestId}, ${historyId}) failed:`,
+      err.message,
+    );
   }
 }
 
@@ -461,6 +506,9 @@ export async function trimHistory(maxEntries) {
     }
     // No Go dev-server equivalent — history trimming is a main-process concern.
   } catch (err) {
-    console.warn(`[data-store] trimHistory(${maxEntries}) failed:`, err.message);
+    console.warn(
+      `[data-store] trimHistory(${maxEntries}) failed:`,
+      err.message,
+    );
   }
 }

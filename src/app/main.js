@@ -1,20 +1,31 @@
 // main.js — Electron main process for wurl
 "use strict";
 
-const { app, BrowserWindow, WebContentsView, ipcMain, shell, Menu, dialog, nativeImage, session, screen } = require("electron");
-const fs           = require("fs");
-const path         = require("path");
-const http         = require("http");
-const https        = require("https");
-const net          = require("net");
-const { spawn }    = require("child_process");
-const { URL }      = require("url");
+const {
+  app,
+  BrowserWindow,
+  WebContentsView,
+  ipcMain,
+  shell,
+  Menu,
+  dialog,
+  nativeImage,
+  session,
+  screen,
+} = require("electron");
+const fs = require("fs");
+const path = require("path");
+const http = require("http");
+const https = require("https");
+const net = require("net");
+const { spawn } = require("child_process");
+const { URL } = require("url");
 
-const { Stores }   = require("./store/stores");
-const aws4         = require("aws4");
+const { Stores } = require("./store/stores");
+const aws4 = require("aws4");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 
-const isDev   = process.argv.includes("--dev");
+const isDev = process.argv.includes("--dev");
 const isDebug = process.argv.includes("--hot-reload");
 
 // devPort is resolved asynchronously inside app.whenReady().
@@ -27,9 +38,9 @@ let _devServerProcess = null;
 // ─── HTML Preview state ────────────────────────────────────────────────────────
 // Tracks the main BrowserWindow and an optional WebContentsView overlay that
 // renders live HTML responses inside the response body pane.
-let _mainWin           = null;   // set once createWindow() runs
-let _htmlPreviewView   = null;   // WebContentsView instance, created lazily
-let _htmlPreviewAdded  = false;  // whether the view is currently a child of contentView
+let _mainWin = null; // set once createWindow() runs
+let _htmlPreviewView = null; // WebContentsView instance, created lazily
+let _htmlPreviewAdded = false; // whether the view is currently a child of contentView
 
 // ─── Storage layer ─────────────────────────────────────────────────────────────
 // The Stores factory is created lazily on first IPC call (after app is ready)
@@ -83,121 +94,134 @@ function safeCall(channel, fn, fallback = null) {
   // ── Manifest (global collections list + settings) ───────────────────────────
 
   ipcMain.handle("store:manifest:get", () =>
-    safeCall("store:manifest:get",
+    safeCall(
+      "store:manifest:get",
       () => getStores().collectionStore().getManifest(),
       { version: 2, collections: [], activeCollectionId: null, settings: {} },
     ),
   );
 
   ipcMain.handle("store:manifest:save", (_event, data) =>
-    safeCall("store:manifest:save",
-      () => { getStores().collectionStore().saveManifest(data); },
-    ),
+    safeCall("store:manifest:save", () => {
+      getStores().collectionStore().saveManifest(data);
+    }),
   );
 
   // ── Collection blob (assembles / decomposes per-file layout) ────────────────
   // Used by data-store.js to keep the same high-level collections API.
 
   ipcMain.handle("store:env:get", (_event, id) =>
-    safeCall("store:env:get",
+    safeCall(
+      "store:env:get",
       () => getStores().collectionsStore().getCollections(id),
       { version: 1, collections: [] },
     ),
   );
 
   ipcMain.handle("store:env:save", (_event, id, data) =>
-    safeCall("store:env:save",
-      () => { getStores().collectionsStore().saveCollections(id, data); },
-    ),
+    safeCall("store:env:save", () => {
+      getStores().collectionsStore().saveCollections(id, data);
+    }),
   );
 
   // ── Collection navigation tree ──────────────────────────────────────────────
 
   ipcMain.handle("store:tree:get", (_event, collectionId) =>
-    safeCall("store:tree:get",
+    safeCall(
+      "store:tree:get",
       () => getStores().treeStore().getTree(collectionId),
       { children: [] },
     ),
   );
 
   ipcMain.handle("store:tree:save", (_event, collectionId, tree) =>
-    safeCall("store:tree:save",
-      () => { getStores().treeStore().saveTree(collectionId, tree); },
-    ),
+    safeCall("store:tree:save", () => {
+      getStores().treeStore().saveTree(collectionId, tree);
+    }),
   );
 
   // ── Granular request CRUD ───────────────────────────────────────────────────
 
   ipcMain.handle("store:requests:get", (_event, id) =>
-    safeCall("store:requests:get",
-      () => getStores().requestStore().getRequest(id),
+    safeCall("store:requests:get", () =>
+      getStores().requestStore().getRequest(id),
     ),
   );
 
   ipcMain.handle("store:requests:create", (_event, collectionId, req) =>
-    safeCall("store:requests:create",
-      () => getStores().requestStore().createRequest(collectionId, req),
+    safeCall("store:requests:create", () =>
+      getStores().requestStore().createRequest(collectionId, req),
     ),
   );
 
   ipcMain.handle("store:requests:update", (_event, id, patch) =>
-    safeCall("store:requests:update",
-      () => getStores().requestStore().updateRequest(id, patch),
+    safeCall("store:requests:update", () =>
+      getStores().requestStore().updateRequest(id, patch),
     ),
   );
 
   ipcMain.handle("store:requests:delete", (_event, id) =>
-    safeCall("store:requests:delete",
-      () => { getStores().requestStore().deleteRequest(id); },
-    ),
+    safeCall("store:requests:delete", () => {
+      getStores().requestStore().deleteRequest(id);
+    }),
   );
 
   // ── Request execution history ───────────────────────────────────────────────
 
   ipcMain.handle("store:history:list", (_event, requestId, options) =>
-    safeCall("store:history:list",
-      () => getStores().historyStore().listHistory(requestId, options ?? {}),
+    safeCall(
+      "store:history:list",
+      () =>
+        getStores()
+          .historyStore()
+          .listHistory(requestId, options ?? {}),
       { items: [], nextCursor: "" },
     ),
   );
 
   ipcMain.handle("store:history:add", (_event, requestId, entry, response) =>
-    safeCall("store:history:add",
-      () => getStores().historyStore().addHistory(requestId, entry, response),
+    safeCall("store:history:add", () =>
+      getStores().historyStore().addHistory(requestId, entry, response),
     ),
   );
 
   ipcMain.handle("store:history:response:get", (_event, requestId, historyId) =>
-    safeCall("store:history:response:get",
-      () => getStores().historyStore().getHistoryResponse(requestId, historyId),
+    safeCall("store:history:response:get", () =>
+      getStores().historyStore().getHistoryResponse(requestId, historyId),
     ),
   );
 
   ipcMain.handle("store:history:delete", (_event, requestId, historyId) =>
-    safeCall("store:history:delete",
-      () => getStores().historyStore().deleteHistory(requestId, historyId),
+    safeCall("store:history:delete", () =>
+      getStores().historyStore().deleteHistory(requestId, historyId),
     ),
   );
 
   ipcMain.handle("store:history:trim", (_event, maxEntries) =>
-    safeCall("store:history:trim",
-      () => getStores().historyStore().trimAllHistory(maxEntries),
+    safeCall("store:history:trim", () =>
+      getStores().historyStore().trimAllHistory(maxEntries),
     ),
   );
 
   // ── Global + named environment variables ─────────────────────────────────────
 
   ipcMain.handle("store:environments:get", () =>
-    safeCall("store:environments:get",
+    safeCall(
+      "store:environments:get",
       () => getStores().environmentStore().getEnvironments(),
-      { version: 1, globalVariables: {}, activeEnvironmentId: null, environments: [] },
+      {
+        version: 1,
+        globalVariables: {},
+        activeEnvironmentId: null,
+        environments: [],
+      },
     ),
   );
 
   ipcMain.handle("store:environments:save", (_event, data) =>
-    safeCall("store:environments:save",
-      () => { getStores().environmentStore().saveEnvironments(data); },
-    ),
+    safeCall("store:environments:save", () => {
+      getStores().environmentStore().saveEnvironments(data);
+    }),
   );
 })();
 
@@ -217,17 +241,17 @@ function safeCall(channel, fn, fallback = null) {
    */
   function doRequest(desc, consoleLog, startTime, redirects) {
     const {
-      method          = "GET",
+      method = "GET",
       url: rawUrl,
-      headers         = {},
-      body            = null,
-      bodyFilePath    = null,
-      timeout         = 30000,
+      headers = {},
+      body = null,
+      bodyFilePath = null,
+      timeout = 30000,
       followRedirects = true,
-      verifySsl       = true,
-      maxRedirects    = 10,
-      awsIam          = null,
-      proxy           = null,
+      verifySsl = true,
+      maxRedirects = 10,
+      awsIam = null,
+      proxy = null,
     } = desc;
 
     return new Promise((resolve) => {
@@ -238,22 +262,28 @@ function safeCall(channel, fn, fallback = null) {
       } catch (e) {
         consoleLog.push(`* URL parse error: ${e.message}`);
         resolve({
-          status: 0, statusText: "", headers: {}, cookies: [], body: "",
-          elapsed: Date.now() - startTime, size: 0, consoleLog,
+          status: 0,
+          statusText: "",
+          headers: {},
+          cookies: [],
+          body: "",
+          elapsed: Date.now() - startTime,
+          size: 0,
+          consoleLog,
           error: { name: "TypeError", message: e.message },
         });
         return;
       }
 
-      const isHttps    = parsed.protocol === "https:";
-      const lib        = isHttps ? https : http;
+      const isHttps = parsed.protocol === "https:";
+      const lib = isHttps ? https : http;
       const defaultPort = isHttps ? 443 : 80;
-      const port       = parsed.port ? parseInt(parsed.port, 10) : defaultPort;
+      const port = parsed.port ? parseInt(parsed.port, 10) : defaultPort;
       const effectiveMethod = method.toUpperCase();
 
       // ── Resolve body ───────────────────────────────────────────────────────
       const reqHeaders = { ...headers };
-      let bodyBuffer   = null;
+      let bodyBuffer = null;
 
       if (redirects === 0) {
         if (bodyFilePath) {
@@ -274,15 +304,18 @@ function safeCall(channel, fn, fallback = null) {
       // ── AWS SigV4 signing ─────────────────────────────────────────────────
       if (awsIam?.accessKeyId && awsIam?.secretAccessKey) {
         const signOpts = {
-          host:    parsed.hostname + (parsed.port ? `:${parsed.port}` : ""),
-          path:    parsed.pathname + parsed.search,
-          method:  effectiveMethod,
+          host: parsed.hostname + (parsed.port ? `:${parsed.port}` : ""),
+          path: parsed.pathname + parsed.search,
+          method: effectiveMethod,
           headers: { ...reqHeaders },
-          service: awsIam.service  || undefined,
-          region:  awsIam.region   || undefined,
-          body:    bodyBuffer ? bodyBuffer.toString("utf8") : undefined,
+          service: awsIam.service || undefined,
+          region: awsIam.region || undefined,
+          body: bodyBuffer ? bodyBuffer.toString("utf8") : undefined,
         };
-        const creds = { accessKeyId: awsIam.accessKeyId, secretAccessKey: awsIam.secretAccessKey };
+        const creds = {
+          accessKeyId: awsIam.accessKeyId,
+          secretAccessKey: awsIam.secretAccessKey,
+        };
         if (awsIam.sessionToken) creds.sessionToken = awsIam.sessionToken;
         aws4.sign(signOpts, creds);
         Object.assign(reqHeaders, signOpts.headers);
@@ -292,15 +325,24 @@ function safeCall(channel, fn, fallback = null) {
       // Node's https module speaks HTTP/1.1 by default; ALPN-negotiated HTTP/2
       // would require the http2 module, which this layer does not use.
       const httpVersion = "HTTP/1.1";
-      consoleLog.push(`> ${effectiveMethod} ${parsed.pathname}${parsed.search} ${httpVersion}`);
-      consoleLog.push(`> Host: ${parsed.hostname}${parsed.port ? `:${parsed.port}` : ""}`);
-      Object.entries(reqHeaders).forEach(([k, v]) => consoleLog.push(`> ${k}: ${v}`));
+      consoleLog.push(
+        `> ${effectiveMethod} ${parsed.pathname}${parsed.search} ${httpVersion}`,
+      );
+      consoleLog.push(
+        `> Host: ${parsed.hostname}${parsed.port ? `:${parsed.port}` : ""}`,
+      );
+      Object.entries(reqHeaders).forEach(([k, v]) =>
+        consoleLog.push(`> ${k}: ${v}`),
+      );
       consoleLog.push(">");
 
       // ── Log request body (if any) with "|" prefix ─────────────────────
       if (bodyBuffer) {
         consoleLog.push("");
-        bodyBuffer.toString("utf8").split("\n").forEach(line => consoleLog.push(`| ${line}`));
+        bodyBuffer
+          .toString("utf8")
+          .split("\n")
+          .forEach((line) => consoleLog.push(`| ${line}`));
         consoleLog.push("");
         consoleLog.push("* We are completely uploaded and fine");
       }
@@ -319,8 +361,8 @@ function safeCall(channel, fn, fallback = null) {
       };
 
       const req = lib.request(options, (res) => {
-        const code    = res.statusCode;
-        const phrase  = res.statusMessage;
+        const code = res.statusCode;
+        const phrase = res.statusMessage;
 
         // ── Redirect handling ────────────────────────────────────────────────
         if (followRedirects && [301, 302, 303, 307, 308].includes(code)) {
@@ -328,7 +370,7 @@ function safeCall(channel, fn, fallback = null) {
           consoleLog.push(`< ${httpVersion} ${code} ${phrase}`);
           Object.entries(res.headers).forEach(([k, v]) => {
             const vals = Array.isArray(v) ? v : [v];
-            vals.forEach(vi => consoleLog.push(`< ${k}: ${vi}`));
+            vals.forEach((vi) => consoleLog.push(`< ${k}: ${vi}`));
           });
           consoleLog.push("<");
           consoleLog.push("");
@@ -337,9 +379,14 @@ function safeCall(channel, fn, fallback = null) {
             consoleLog.push("* Redirect missing Location header — stopping");
             res.resume();
             resolve({
-              status: code, statusText: phrase,
-              headers: flatHeaders(res.headers), cookies: extractCookies(res.headers),
-              body: "", elapsed: Date.now() - startTime, size: 0, consoleLog,
+              status: code,
+              statusText: phrase,
+              headers: flatHeaders(res.headers),
+              cookies: extractCookies(res.headers),
+              body: "",
+              elapsed: Date.now() - startTime,
+              size: 0,
+              consoleLog,
             });
             return;
           }
@@ -347,33 +394,55 @@ function safeCall(channel, fn, fallback = null) {
             consoleLog.push(`* Too many redirects (max ${maxRedirects})`);
             res.resume();
             resolve({
-              status: code, statusText: phrase,
-              headers: flatHeaders(res.headers), cookies: extractCookies(res.headers),
-              body: "", elapsed: Date.now() - startTime, size: 0, consoleLog,
-              error: { name: "RedirectError", message: `Too many redirects (max ${maxRedirects})` },
+              status: code,
+              statusText: phrase,
+              headers: flatHeaders(res.headers),
+              cookies: extractCookies(res.headers),
+              body: "",
+              elapsed: Date.now() - startTime,
+              size: 0,
+              consoleLog,
+              error: {
+                name: "RedirectError",
+                message: `Too many redirects (max ${maxRedirects})`,
+              },
             });
             return;
           }
 
           let redirectUrl;
-          try { redirectUrl = new URL(location, rawUrl).toString(); }
-          catch (_) { redirectUrl = location; }
+          try {
+            redirectUrl = new URL(location, rawUrl).toString();
+          } catch (_) {
+            redirectUrl = location;
+          }
 
           // HTTP 303 → always GET; POST 301/302 → GET (browser convention)
-          const newMethod = (code === 303 || ([301, 302].includes(code) && effectiveMethod === "POST"))
-            ? "GET" : effectiveMethod;
+          const newMethod =
+            code === 303 ||
+            ([301, 302].includes(code) && effectiveMethod === "POST")
+              ? "GET"
+              : effectiveMethod;
 
-          consoleLog.push(`* Issue another request to this URL: '${redirectUrl}'`);
+          consoleLog.push(
+            `* Issue another request to this URL: '${redirectUrl}'`,
+          );
           if (newMethod !== effectiveMethod) {
             consoleLog.push(`* Switch to ${newMethod}`);
           }
           res.resume(); // drain the redirect body
 
           doRequest(
-            { ...desc, method: newMethod, url: redirectUrl,
-              body:         newMethod === "GET" ? null : body,
-              bodyFilePath: newMethod === "GET" ? null : bodyFilePath },
-            consoleLog, startTime, redirects + 1
+            {
+              ...desc,
+              method: newMethod,
+              url: redirectUrl,
+              body: newMethod === "GET" ? null : body,
+              bodyFilePath: newMethod === "GET" ? null : bodyFilePath,
+            },
+            consoleLog,
+            startTime,
+            redirects + 1,
           ).then(resolve);
           return;
         }
@@ -382,26 +451,32 @@ function safeCall(channel, fn, fallback = null) {
         const chunks = [];
         res.on("data", (chunk) => chunks.push(chunk));
         res.on("end", () => {
-          const elapsed   = Date.now() - startTime;
-          const rawBody   = Buffer.concat(chunks);
-          const bodyText  = rawBody.toString("utf8");
-          const size      = rawBody.length;
+          const elapsed = Date.now() - startTime;
+          const rawBody = Buffer.concat(chunks);
+          const bodyText = rawBody.toString("utf8");
+          const size = rawBody.length;
 
           consoleLog.push(`< ${httpVersion} ${code} ${phrase}`);
           Object.entries(res.headers).forEach(([k, v]) => {
             const vals = Array.isArray(v) ? v : [v];
-            vals.forEach(vi => consoleLog.push(`< ${k}: ${vi}`));
+            vals.forEach((vi) => consoleLog.push(`< ${k}: ${vi}`));
           });
           consoleLog.push("<");
           consoleLog.push("");
           consoleLog.push(`* Received ${size} B total`);
-          consoleLog.push(`* Connection to host ${parsed.hostname} left intact`);
+          consoleLog.push(
+            `* Connection to host ${parsed.hostname} left intact`,
+          );
 
           resolve({
-            status: code, statusText: phrase,
+            status: code,
+            statusText: phrase,
             headers: flatHeaders(res.headers),
             cookies: extractCookies(res.headers),
-            body: bodyText, elapsed, size, consoleLog,
+            body: bodyText,
+            elapsed,
+            size,
+            consoleLog,
           });
         });
 
@@ -409,8 +484,14 @@ function safeCall(channel, fn, fallback = null) {
           const elapsed = Date.now() - startTime;
           consoleLog.push(`* Stream error: ${err.message}`);
           resolve({
-            status: code, statusText: phrase, headers: {}, cookies: [],
-            body: "", elapsed, size: 0, consoleLog,
+            status: code,
+            statusText: phrase,
+            headers: {},
+            cookies: [],
+            body: "",
+            elapsed,
+            size: 0,
+            consoleLog,
             error: { name: "StreamError", message: err.message },
           });
         });
@@ -420,7 +501,9 @@ function safeCall(channel, fn, fallback = null) {
         // ── DNS resolution ──────────────────────────────────────────────────
         socket.on("lookup", (err, address, _family, hostname) => {
           if (err) {
-            consoleLog.push(`* Could not resolve host '${hostname}': ${err.message}`);
+            consoleLog.push(
+              `* Could not resolve host '${hostname}': ${err.message}`,
+            );
           } else {
             consoleLog.push(`* Resolved '${hostname}' → ${address}`);
             consoleLog.push(`* Trying ${address}:${port}...`);
@@ -431,9 +514,13 @@ function safeCall(channel, fn, fallback = null) {
         socket.on("connect", () => {
           const remoteAddr = socket.remoteAddress;
           const remotePort = socket.remotePort;
-          consoleLog.push(`* Connected to ${parsed.hostname} (${remoteAddr}) port ${remotePort}`);
+          consoleLog.push(
+            `* Connected to ${parsed.hostname} (${remoteAddr}) port ${remotePort}`,
+          );
           if (isHttps) {
-            consoleLog.push(`* Performing TLS handshake with '${parsed.hostname}'...`);
+            consoleLog.push(
+              `* Performing TLS handshake with '${parsed.hostname}'...`,
+            );
           }
         });
 
@@ -441,9 +528,9 @@ function safeCall(channel, fn, fallback = null) {
         if (isHttps) {
           socket.on("secureConnect", () => {
             const protocol = socket.getProtocol();
-            const cipher   = socket.getCipher();
+            const cipher = socket.getCipher();
             consoleLog.push(
-              `* SSL connection using ${protocol} / ${cipher.standardName || cipher.name}`
+              `* SSL connection using ${protocol} / ${cipher.standardName || cipher.name}`,
             );
             const alpn = socket.alpnProtocol;
             if (alpn && alpn !== false) {
@@ -462,9 +549,18 @@ function safeCall(channel, fn, fallback = null) {
         const elapsed = Date.now() - startTime;
         consoleLog.push(`* ${err.message}`);
         resolve({
-          status: 0, statusText: "", headers: {}, cookies: [],
-          body: "", elapsed, size: 0, consoleLog,
-          error: { name: err.code || err.name || "NetworkError", message: err.message },
+          status: 0,
+          statusText: "",
+          headers: {},
+          cookies: [],
+          body: "",
+          elapsed,
+          size: 0,
+          consoleLog,
+          error: {
+            name: err.code || err.name || "NetworkError",
+            message: err.message,
+          },
         });
       });
 
@@ -485,31 +581,46 @@ function safeCall(channel, fn, fallback = null) {
   /** Extract Set-Cookie header values as a string array. */
   function extractCookies(hdrs) {
     const sc = hdrs["set-cookie"];
-    return Array.isArray(sc) ? sc : (sc ? [sc] : []);
+    return Array.isArray(sc) ? sc : sc ? [sc] : [];
   }
 
   // ── IPC handler ─────────────────────────────────────────────────────────────
   ipcMain.handle("http:execute", async (_event, descriptor) => {
     const consoleLog = [];
-    const startTime  = Date.now();
+    const startTime = Date.now();
     const _timeout = descriptor.timeout || 30000;
     consoleLog.push(`* Preparing request to ${descriptor.url}`);
     consoleLog.push(`* Current time is ${new Date().toISOString()}`);
     consoleLog.push(`* Enable automatic URL encoding`);
     consoleLog.push(`* Using default HTTP version`);
     consoleLog.push(`* Enable timeout of ${_timeout}ms`);
-    consoleLog.push(descriptor.verifySsl === false ? `* Disable SSL validation` : `* Enable SSL validation`);
+    consoleLog.push(
+      descriptor.verifySsl === false
+        ? `* Disable SSL validation`
+        : `* Enable SSL validation`,
+    );
     console.log("[http:execute] →", descriptor.method, descriptor.url);
     try {
       const result = await doRequest(descriptor, consoleLog, startTime, 0);
-      console.log("[http:execute] ←", result.status, result.statusText, `${result.elapsed}ms`);
+      console.log(
+        "[http:execute] ←",
+        result.status,
+        result.statusText,
+        `${result.elapsed}ms`,
+      );
       return result;
     } catch (err) {
       console.error("[http:execute] unexpected error:", err);
       consoleLog.push(`* Unexpected error: ${err.message}`);
       return {
-        status: 0, statusText: "", headers: {}, cookies: [], body: "",
-        elapsed: Date.now() - startTime, size: 0, consoleLog,
+        status: 0,
+        statusText: "",
+        headers: {},
+        cookies: [],
+        body: "",
+        elapsed: Date.now() - startTime,
+        size: 0,
+        consoleLog,
         error: { name: err.name || "Error", message: err.message },
       };
     }
@@ -537,17 +648,18 @@ function safeCall(channel, fn, fallback = null) {
   function _matchesRedirect(navUrl, redirectUri) {
     if (!navUrl || !redirectUri) return false;
     try {
-      const nav      = new URL(navUrl);
+      const nav = new URL(navUrl);
       const redirect = new URL(redirectUri);
       // urn: schemes (urn:ietf:wg:oauth:2.0:oob) cannot be matched via URL navigation
       if (redirect.protocol === "urn:") return false;
       const sameOrigin =
         nav.protocol.toLowerCase() === redirect.protocol.toLowerCase() &&
-        nav.hostname.toLowerCase()  === redirect.hostname.toLowerCase() &&
-        nav.port                    === redirect.port;
+        nav.hostname.toLowerCase() === redirect.hostname.toLowerCase() &&
+        nav.port === redirect.port;
       const samePath =
         nav.pathname === redirect.pathname ||
-        (redirect.pathname === "/" && (nav.pathname === "" || nav.pathname === "/"));
+        (redirect.pathname === "/" &&
+          (nav.pathname === "" || nav.pathname === "/"));
       return sameOrigin && samePath;
     } catch {
       // Fallback for unusual URI schemes
@@ -555,86 +667,102 @@ function safeCall(channel, fn, fallback = null) {
     }
   }
 
-  ipcMain.handle("oauth:open-popup", (_event, { authUrl, redirectUri, title }) => {
-    return new Promise((resolve) => {
-      const popup = new BrowserWindow({
-        width:  860,
-        height: 720,
-        title:  title || "OAuth Authorization",
-        parent: _mainWin || undefined,
-        modal:  false,
-        show:   false,
-        webPreferences: {
-          contextIsolation: true,
-          nodeIntegration:  false,
-          sandbox:          true,
-          webSecurity:      true,
-        },
-        autoHideMenuBar: true,
-      });
+  ipcMain.handle(
+    "oauth:open-popup",
+    (_event, { authUrl, redirectUri, title }) => {
+      return new Promise((resolve) => {
+        const popup = new BrowserWindow({
+          width: 860,
+          height: 720,
+          title: title || "OAuth Authorization",
+          parent: _mainWin || undefined,
+          modal: false,
+          show: false,
+          webPreferences: {
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true,
+            webSecurity: true,
+          },
+          autoHideMenuBar: true,
+        });
 
-      // Only reveal the window once the page is actually painted — if the auth
-      // server immediately redirects (e.g. SSO session already active) the flow
-      // resolves before this fires and the window is never shown.
-      popup.once("ready-to-show", () => { if (!_resolved) popup.show(); });
+        // Only reveal the window once the page is actually painted — if the auth
+        // server immediately redirects (e.g. SSO session already active) the flow
+        // resolves before this fires and the window is never shown.
+        popup.once("ready-to-show", () => {
+          if (!_resolved) popup.show();
+        });
 
-      let _resolved = false;
+        let _resolved = false;
 
-      /**
-       * Resolve the pending promise and close the popup exactly once.
-       * @param {{ url: string|null, cancelled: boolean }} result
-       */
-      function _finish(result) {
-        if (_resolved) return;
-        _resolved = true;
-        try {
-          if (!popup.isDestroyed()) {
-            popup.webContents.stop();
-            popup.close();
+        /**
+         * Resolve the pending promise and close the popup exactly once.
+         * @param {{ url: string|null, cancelled: boolean }} result
+         */
+        function _finish(result) {
+          if (_resolved) return;
+          _resolved = true;
+          try {
+            if (!popup.isDestroyed()) {
+              popup.webContents.stop();
+              popup.close();
+            }
+          } catch (_e) {
+            /* already destroyed */
           }
-        } catch (_e) { /* already destroyed */ }
-        resolve(result);
-      }
-
-      // ── Intercept any navigation to the redirect URI (fires BEFORE request) ──
-      popup.webContents.on("will-navigate", (e, url) => {
-        if (_matchesRedirect(url, redirectUri)) {
-          e.preventDefault();
-          _finish({ url, cancelled: false });
+          resolve(result);
         }
+
+        // ── Intercept any navigation to the redirect URI (fires BEFORE request) ──
+        popup.webContents.on("will-navigate", (e, url) => {
+          if (_matchesRedirect(url, redirectUri)) {
+            e.preventDefault();
+            _finish({ url, cancelled: false });
+          }
+        });
+
+        // ── Intercept server-initiated redirects (3xx) ─────────────────────────
+        popup.webContents.on("will-redirect", (e, url) => {
+          if (_matchesRedirect(url, redirectUri)) {
+            e.preventDefault();
+            _finish({ url, cancelled: false });
+          }
+        });
+
+        // ── Catch successful navigations (e.g. custom protocol handlers) ───────
+        popup.webContents.on("did-navigate", (_e, url) => {
+          if (_matchesRedirect(url, redirectUri))
+            _finish({ url, cancelled: false });
+        });
+        popup.webContents.on("did-navigate-in-page", (_e, url) => {
+          if (_matchesRedirect(url, redirectUri))
+            _finish({ url, cancelled: false });
+        });
+
+        // ── Catch failed loads — e.g. http://localhost redirect with no listener ─
+        // The browser will fail to connect to the localhost redirect, but the URL
+        // still contains the authorization code we need.
+        popup.webContents.on(
+          "did-fail-load",
+          (_e, _code, _desc, validatedUrl) => {
+            if (_matchesRedirect(validatedUrl, redirectUri)) {
+              _finish({ url: validatedUrl, cancelled: false });
+            }
+          },
+        );
+
+        // ── User closed the window before completing login ─────────────────────
+        popup.on("closed", () => _finish({ url: null, cancelled: true }));
+
+        // ── Load the authorization URL ─────────────────────────────────────────
+        popup.loadURL(authUrl).catch((err) => {
+          console.error("[oauth:popup] loadURL error:", err.message);
+          _finish({ url: null, cancelled: true });
+        });
       });
-
-      // ── Intercept server-initiated redirects (3xx) ─────────────────────────
-      popup.webContents.on("will-redirect", (e, url) => {
-        if (_matchesRedirect(url, redirectUri)) {
-          e.preventDefault();
-          _finish({ url, cancelled: false });
-        }
-      });
-
-      // ── Catch successful navigations (e.g. custom protocol handlers) ───────
-      popup.webContents.on("did-navigate",         (_e, url) => { if (_matchesRedirect(url, redirectUri)) _finish({ url, cancelled: false }); });
-      popup.webContents.on("did-navigate-in-page", (_e, url) => { if (_matchesRedirect(url, redirectUri)) _finish({ url, cancelled: false }); });
-
-      // ── Catch failed loads — e.g. http://localhost redirect with no listener ─
-      // The browser will fail to connect to the localhost redirect, but the URL
-      // still contains the authorization code we need.
-      popup.webContents.on("did-fail-load", (_e, _code, _desc, validatedUrl) => {
-        if (_matchesRedirect(validatedUrl, redirectUri)) {
-          _finish({ url: validatedUrl, cancelled: false });
-        }
-      });
-
-      // ── User closed the window before completing login ─────────────────────
-      popup.on("closed", () => _finish({ url: null, cancelled: true }));
-
-      // ── Load the authorization URL ─────────────────────────────────────────
-      popup.loadURL(authUrl).catch((err) => {
-        console.error("[oauth:popup] loadURL error:", err.message);
-        _finish({ url: null, cancelled: true });
-      });
-    });
-  });
+    },
+  );
 
   /**
    * Clear the default Electron session's storage data and cache.
@@ -679,19 +807,22 @@ function safeCall(channel, fn, fallback = null) {
       const template = (items ?? []).map((item) => {
         if (item?.type === "separator") return { type: "separator" };
         const entry = {
-          label:   String(item.label ?? ""),
+          label: String(item.label ?? ""),
           enabled: item.enabled !== false,
-          click:   () => { resultId = item.id ?? null; },
+          click: () => {
+            resultId = item.id ?? null;
+          },
         };
         if (item.type === "checkbox" || item.type === "radio") {
-          entry.type    = item.type;
+          entry.type = item.type;
           entry.checked = !!item.checked;
         }
         return entry;
       });
 
       const menu = Menu.buildFromTemplate(template);
-      const win  = BrowserWindow.fromWebContents(event.sender) ?? _mainWin ?? undefined;
+      const win =
+        BrowserWindow.fromWebContents(event.sender) ?? _mainWin ?? undefined;
 
       const popupOpts = { window: win, callback: () => resolve(resultId) };
       if (Number.isFinite(x) && Number.isFinite(y)) {
@@ -708,11 +839,12 @@ function safeCall(channel, fn, fallback = null) {
 // Called from the renderer's contextmenu handler when the target is editable.
 (function initEditContextMenuIPC() {
   ipcMain.handle("ui:edit-context-menu", (event, { x, y } = {}) => {
-    const win  = BrowserWindow.fromWebContents(event.sender) ?? _mainWin ?? undefined;
+    const win =
+      BrowserWindow.fromWebContents(event.sender) ?? _mainWin ?? undefined;
     const menu = Menu.buildFromTemplate([
-      { label: "Cut",        role: "cut"       },
-      { label: "Copy",       role: "copy"      },
-      { label: "Paste",      role: "paste"     },
+      { label: "Cut", role: "cut" },
+      { label: "Copy", role: "copy" },
+      { label: "Paste", role: "paste" },
       { type: "separator" },
       { label: "Select All", role: "selectAll" },
     ]);
@@ -739,10 +871,10 @@ function safeCall(channel, fn, fallback = null) {
     if (!_htmlPreviewView) {
       _htmlPreviewView = new WebContentsView({
         webPreferences: {
-          sandbox:          true,
+          sandbox: true,
           contextIsolation: true,
-          nodeIntegration:  false,
-          webSecurity:      true,
+          nodeIntegration: false,
+          webSecurity: true,
         },
       });
     }
@@ -760,9 +892,9 @@ function safeCall(channel, fn, fallback = null) {
    */
   function _intBounds(b) {
     return {
-      x:      Math.round(b.x      ?? 0),
-      y:      Math.round(b.y      ?? 0),
-      width:  Math.max(1, Math.round(b.width  ?? 0)),
+      x: Math.round(b.x ?? 0),
+      y: Math.round(b.y ?? 0),
+      width: Math.max(1, Math.round(b.width ?? 0)),
       height: Math.max(1, Math.round(b.height ?? 0)),
     };
   }
@@ -805,7 +937,12 @@ function safeCall(channel, fn, fallback = null) {
    * The instance is retained so it can be re-shown without reloading.
    */
   ipcMain.handle("htmlPreview:hide", async (_event) => {
-    if (_htmlPreviewView && _htmlPreviewAdded && _mainWin && !_mainWin.isDestroyed()) {
+    if (
+      _htmlPreviewView &&
+      _htmlPreviewAdded &&
+      _mainWin &&
+      !_mainWin.isDestroyed()
+    ) {
       _mainWin.contentView.removeChildView(_htmlPreviewView);
       _htmlPreviewAdded = false;
     }
@@ -839,7 +976,9 @@ function safeCall(channel, fn, fallback = null) {
     if (_htmlPreviewView) {
       // Electron cleans up the WebContents when the view is GC'd, but navigating
       // to about:blank first ensures the previous page's resources are released.
-      try { _htmlPreviewView.webContents.loadURL("about:blank"); } catch {}
+      try {
+        _htmlPreviewView.webContents.loadURL("about:blank");
+      } catch {}
       _htmlPreviewView = null;
     }
   });
@@ -857,29 +996,42 @@ function safeCall(channel, fn, fallback = null) {
           let val = JSON.parse(json);
           const q = (query ?? ".").trim();
           if (q === ".") {
-            return { result: typeof val === "string" ? val : JSON.stringify(val) };
+            return {
+              result: typeof val === "string" ? val : JSON.stringify(val),
+            };
           }
           if (/^(\.[a-zA-Z_][a-zA-Z0-9_]*|\.\[\d+\])+$/.test(q)) {
-            for (const seg of q.match(/\.[a-zA-Z_][a-zA-Z0-9_]*|\.\[\d+\]/g) ?? []) {
+            for (const seg of q.match(/\.[a-zA-Z_][a-zA-Z0-9_]*|\.\[\d+\]/g) ??
+              []) {
               val = seg.startsWith(".[")
                 ? val?.[parseInt(seg.slice(2, -1), 10)]
                 : val?.[seg.slice(1)];
             }
             if (val == null) return { result: "" };
-            return { result: typeof val === "string" ? val : JSON.stringify(val) };
+            return {
+              result: typeof val === "string" ? val : JSON.stringify(val),
+            };
           }
           return { error: "complex jq queries require the dev server" };
         }
         case "hmac": {
           const { algo, key, message } = args;
           const alg = algo === "SHA512" ? "sha512" : "sha256";
-          const mac = crypto.createHmac(alg, key ?? "").update(message ?? "").digest("hex");
+          const mac = crypto
+            .createHmac(alg, key ?? "")
+            .update(message ?? "")
+            .digest("hex");
           return { result: mac };
         }
         case "hash": {
           const { algo, value } = args;
           const alg = algo === "SHA512" ? "sha512" : "sha256";
-          return { result: crypto.createHash(alg).update(value ?? "").digest("hex") };
+          return {
+            result: crypto
+              .createHash(alg)
+              .update(value ?? "")
+              .digest("hex"),
+          };
         }
         case "env": {
           const { name } = args;
@@ -936,8 +1088,11 @@ function waitForPort(port, maxWaitMs = 30000) {
   return new Promise((resolve, reject) => {
     function attempt() {
       const sock = net.createConnection(port, "127.0.0.1");
-      sock.once("connect", () => { sock.destroy(); resolve(); });
-      sock.once("error",   () => {
+      sock.once("connect", () => {
+        sock.destroy();
+        resolve();
+      });
+      sock.once("error", () => {
         sock.destroy();
         if (Date.now() >= deadline) {
           reject(new Error(`Timed out waiting for dev server on port ${port}`));
@@ -956,8 +1111,8 @@ function waitForPort(port, maxWaitMs = 30000) {
  * @param {number} port
  */
 async function startDevServer(port) {
-  const goMain  = path.join(__dirname, "..", "cmd", "main.go");
-  const webDir  = path.join(__dirname, "..", "web");
+  const goMain = path.join(__dirname, "..", "cmd", "main.go");
+  const webDir = path.join(__dirname, "..", "web");
   const dataDir = path.join(__dirname, "..", "..", "data");
 
   console.log(`[dev-server] spawning on port ${port}`);
@@ -970,8 +1125,12 @@ async function startDevServer(port) {
 
   proc.stdout.on("data", (d) => process.stdout.write(`[dev-server] ${d}`));
   proc.stderr.on("data", (d) => process.stderr.write(`[dev-server] ${d}`));
-  proc.on("exit",  (code, sig) => console.log(`[dev-server] exit code=${code} signal=${sig}`));
-  proc.on("error", (err)       => console.error("[dev-server] spawn error:", err.message));
+  proc.on("exit", (code, sig) =>
+    console.log(`[dev-server] exit code=${code} signal=${sig}`),
+  );
+  proc.on("error", (err) =>
+    console.error("[dev-server] spawn error:", err.message),
+  );
 
   _devServerProcess = proc;
 
@@ -988,30 +1147,38 @@ function startHotReload(win) {
   const appDir = __dirname;
 
   let rendererTimer = null;
-  let mainTimer     = null;
+  let mainTimer = null;
 
   // web/ changes → reload the renderer (CSS, JS, HTML)
-  const webWatcher = fs.watch(webDir, { recursive: true }, (_event, filename) => {
-    if (!filename) return;
-    clearTimeout(rendererTimer);
-    rendererTimer = setTimeout(() => {
-      if (win && !win.isDestroyed()) {
-        console.log(`[hot-reload] renderer ← ${filename}`);
-        win.webContents.reload();
-      }
-    }, 150);
-  });
+  const webWatcher = fs.watch(
+    webDir,
+    { recursive: true },
+    (_event, filename) => {
+      if (!filename) return;
+      clearTimeout(rendererTimer);
+      rendererTimer = setTimeout(() => {
+        if (win && !win.isDestroyed()) {
+          console.log(`[hot-reload] renderer ← ${filename}`);
+          win.webContents.reload();
+        }
+      }, 150);
+    },
+  );
 
   // app/ changes → relaunch the whole process (modules are cached by require())
-  const appWatcher = fs.watch(appDir, { recursive: true }, (_event, filename) => {
-    if (!filename) return;
-    clearTimeout(mainTimer);
-    mainTimer = setTimeout(() => {
-      console.log(`[hot-reload] main-process ← ${filename} — relaunching`);
-      app.relaunch();
-      app.exit(0);
-    }, 500);
-  });
+  const appWatcher = fs.watch(
+    appDir,
+    { recursive: true },
+    (_event, filename) => {
+      if (!filename) return;
+      clearTimeout(mainTimer);
+      mainTimer = setTimeout(() => {
+        console.log(`[hot-reload] main-process ← ${filename} — relaunching`);
+        app.relaunch();
+        app.exit(0);
+      }, 500);
+    },
+  );
 
   app.on("will-quit", () => {
     webWatcher.close();
@@ -1039,7 +1206,12 @@ if (process.platform === "darwin" && app.dock) {
 // Only the "normal" (non-minimised, non-maximised, non-fullscreen) size is
 // saved so the window always opens at a sensible restored size.
 
-const _WINDOW_STATE_DEFAULTS = { width: 1280, height: 820, x: undefined, y: undefined };
+const _WINDOW_STATE_DEFAULTS = {
+  width: 1280,
+  height: 820,
+  x: undefined,
+  y: undefined,
+};
 
 /** Full path to the window state file (resolved after app.whenReady). */
 let _windowStatePath = null;
@@ -1054,10 +1226,15 @@ let _windowSaveTimer = null;
  */
 function _isPositionOnScreen(x, y) {
   const MARGIN = 32;
-  return screen.getAllDisplays().some(({ bounds: b }) =>
-    x >= b.x - MARGIN && x < b.x + b.width  - MARGIN &&
-    y >= b.y - MARGIN && y < b.y + b.height - MARGIN,
-  );
+  return screen
+    .getAllDisplays()
+    .some(
+      ({ bounds: b }) =>
+        x >= b.x - MARGIN &&
+        x < b.x + b.width - MARGIN &&
+        y >= b.y - MARGIN &&
+        y < b.y + b.height - MARGIN,
+    );
 }
 
 /**
@@ -1073,9 +1250,15 @@ function _isPositionOnScreen(x, y) {
 function loadWindowState() {
   _windowStatePath = path.join(app.getPath("userData"), "window-state.json");
   try {
-    const raw    = JSON.parse(fs.readFileSync(_windowStatePath, "utf8"));
-    const width  = Number.isFinite(raw.width)  && raw.width  >= 800 ? Math.round(raw.width)  : _WINDOW_STATE_DEFAULTS.width;
-    const height = Number.isFinite(raw.height) && raw.height >= 560 ? Math.round(raw.height) : _WINDOW_STATE_DEFAULTS.height;
+    const raw = JSON.parse(fs.readFileSync(_windowStatePath, "utf8"));
+    const width =
+      Number.isFinite(raw.width) && raw.width >= 800
+        ? Math.round(raw.width)
+        : _WINDOW_STATE_DEFAULTS.width;
+    const height =
+      Number.isFinite(raw.height) && raw.height >= 560
+        ? Math.round(raw.height)
+        : _WINDOW_STATE_DEFAULTS.height;
     const hasPos = Number.isFinite(raw.x) && Number.isFinite(raw.y);
     if (hasPos && _isPositionOnScreen(Math.round(raw.x), Math.round(raw.y))) {
       return { width, height, x: Math.round(raw.x), y: Math.round(raw.y) };
@@ -1095,14 +1278,22 @@ function loadWindowState() {
  */
 function saveWindowState(win) {
   if (
-    !win || win.isDestroyed() ||
-    win.isMinimized() || win.isMaximized() || win.isFullScreen()
-  ) return;
+    !win ||
+    win.isDestroyed() ||
+    win.isMinimized() ||
+    win.isMaximized() ||
+    win.isFullScreen()
+  )
+    return;
 
   const [width, height] = win.getSize();
-  const [x, y]          = win.getPosition();
+  const [x, y] = win.getPosition();
   try {
-    fs.writeFileSync(_windowStatePath, JSON.stringify({ width, height, x, y }), "utf8");
+    fs.writeFileSync(
+      _windowStatePath,
+      JSON.stringify({ width, height, x, y }),
+      "utf8",
+    );
   } catch (err) {
     console.error("[main] Failed to save window state:", err.message);
   }
@@ -1113,11 +1304,12 @@ function saveWindowState(win) {
  * @param {{ width: number, height: number }} [savedState]
  */
 function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
-  const posOpts = (savedState.x !== undefined && savedState.y !== undefined)
-    ? { x: savedState.x, y: savedState.y }
-    : {};
+  const posOpts =
+    savedState.x !== undefined && savedState.y !== undefined
+      ? { x: savedState.x, y: savedState.y }
+      : {};
   const win = new BrowserWindow({
-    width:  savedState.width,
+    width: savedState.width,
     height: savedState.height,
     ...posOpts,
     // Minimum enforced so splitter drag minimums (nav≥160, res≥160, request≥200)
@@ -1131,9 +1323,9 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
     backgroundColor: "#1e1e2e",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,   // Renderer cannot access Node APIs directly
-      nodeIntegration: false,   // Keep Node out of the renderer
-      sandbox: true,            // Extra process isolation
+      contextIsolation: true, // Renderer cannot access Node APIs directly
+      nodeIntegration: false, // Keep Node out of the renderer
+      sandbox: true, // Extra process isolation
       // Disable Chromium's web security (CORS, same-origin policy) so the
       // renderer can make fetch() calls to any host without restriction.
       // This is intentional for a desktop HTTP testing tool — requests from
@@ -1168,8 +1360,8 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
   // Track the main window globally so the HTML preview IPC can reference it.
   _mainWin = win;
   win.on("closed", () => {
-    _mainWin          = null;
-    _htmlPreviewView  = null;
+    _mainWin = null;
+    _htmlPreviewView = null;
     _htmlPreviewAdded = false;
   });
 
@@ -1193,15 +1385,18 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
 }
 
 // ─── Import / Export IPC ──────────────────────────────────────────────────────
-ipcMain.handle("export:save-file", async (_event, { filename, content }) => {
-  const result = await dialog.showSaveDialog(_mainWin ?? undefined, {
-    defaultPath: filename,
-    filters: [{ name: "JSON", extensions: ["json"] }],
-  });
-  if (result.canceled || !result.filePath) return false;
-  await fs.promises.writeFile(result.filePath, content, "utf-8");
-  return true;
-});
+ipcMain.handle(
+  "export:save-file",
+  async (_event, { filename, content, filters }) => {
+    const result = await dialog.showSaveDialog(_mainWin ?? undefined, {
+      defaultPath: filename,
+      filters: filters ?? [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (result.canceled || !result.filePath) return false;
+    await fs.promises.writeFile(result.filePath, content, "utf-8");
+    return true;
+  },
+);
 
 ipcMain.handle("import:open-file", async () => {
   const result = await dialog.showOpenDialog(_mainWin ?? undefined, {
@@ -1217,16 +1412,21 @@ ipcMain.handle("import:open-file", async () => {
 // ─── About dialog ─────────────────────────────────────────────────────────────
 function readRevisionInfo() {
   const candidates = [
-    path.join(__dirname, "..", "REVISION_INFO.txt"),                          // packaged / build/src/
-    path.join(__dirname, "..", "..", "build", "src", "REVISION_INFO.txt"),    // make debug (runs from src/)
+    path.join(__dirname, "..", "REVISION_INFO.txt"), // packaged / build/src/
+    path.join(__dirname, "..", "..", "build", "src", "REVISION_INFO.txt"), // make debug (runs from src/)
   ];
   for (const p of candidates) {
     try {
       const raw = fs.readFileSync(p, "utf8");
       return Object.fromEntries(
-        raw.trim().split("\n").map(l => l.split("=").map(s => s.trim())),
+        raw
+          .trim()
+          .split("\n")
+          .map((l) => l.split("=").map((s) => s.trim())),
       );
-    } catch { /* try next */ }
+    } catch {
+      /* try next */
+    }
   }
   return null;
 }
@@ -1234,11 +1434,15 @@ function readRevisionInfo() {
 function showAboutDialog() {
   const rev = readRevisionInfo();
   const buildLines = rev
-    ? [`Version:  ${rev.VERSION ?? "—"}`, `Branch:   ${rev.BRANCH ?? "—"}`, `Commit:   ${rev.COMMIT ?? "—"}`]
+    ? [
+        `Version:  ${rev.VERSION ?? "—"}`,
+        `Branch:   ${rev.BRANCH ?? "—"}`,
+        `Commit:   ${rev.COMMIT ?? "—"}`,
+      ]
     : ["Version:  dev build"];
 
   dialog.showMessageBox(_mainWin ?? undefined, {
-    title:   "About wurl",
+    title: "About wurl",
     message: "wurl",
     detail: [
       "Web URL REST API Client",
@@ -1362,7 +1566,9 @@ app.whenReady().then(async () => {
     if (process.env.SERVER_PORT) {
       // Caller already started the Go server on a known port — just connect.
       devPort = parseInt(process.env.SERVER_PORT, 10);
-      console.log(`[main] Connecting to external dev server on port ${devPort}`);
+      console.log(
+        `[main] Connecting to external dev server on port ${devPort}`,
+      );
     } else {
       // Pick a random unused high port and start the Go server ourselves.
       devPort = await findFreePort();
@@ -1377,7 +1583,7 @@ app.whenReady().then(async () => {
 
   // macOS: re-open a window when the dock icon is clicked with no open windows.
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow(loadWindowState());
+    if (BrowserWindow.getAllWindows().length === 0)
+      createWindow(loadWindowState());
   });
 });
-

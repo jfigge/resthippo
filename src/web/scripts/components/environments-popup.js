@@ -49,7 +49,12 @@ export class EnvironmentsPopup {
   #el;
 
   /** Full environments data — kept in sync with app.js via events */
-  #data = { version: 1, globalVariables: {}, activeEnvironmentId: null, environments: [] };
+  #data = {
+    version: 1,
+    globalVariables: {},
+    activeEnvironmentId: null,
+    environments: [],
+  };
 
   /** Snapshot at open() for the Reset button */
   #initialData = null;
@@ -59,31 +64,33 @@ export class EnvironmentsPopup {
 
   // ── Name-input form state ──────────────────────────────────────────────────
   /** null | "add" | { type: "rename", id: string, currentName: string } */
-  #pendingAction  = null;
+  #pendingAction = null;
   /** @type {number|null} */
   #nameErrorTimer = null;
 
   // ── Variable-editor state ──────────────────────────────────────────────────
-  #isBulkMode   = true;
+  #isBulkMode = true;
   /** @type {{ id:string, name:string, value:string }[]} */
-  #rows         = [];
+  #rows = [];
   /** @type {HTMLElement} */
   #phantom;
-  #dragSrcId    = null;
-  #dragHandled  = false;
+  #dragSrcId = null;
+  #dragHandled = false;
   /** @type {number|null} */
-  #saveTimer    = null;
+  #saveTimer = null;
   /** @type {Function|null} */
   #resetCleanup = null;
 
   static #SAVE_MS = 500;
 
   constructor() {
-    this.#el      = this.#build();
+    this.#el = this.#build();
     this.#phantom = this.#buildPhantom();
   }
 
-  get element() { return this.#el; }
+  get element() {
+    return this.#el;
+  }
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -93,11 +100,11 @@ export class EnvironmentsPopup {
    * @param {{ bulkEditor?: boolean }} [opts]
    */
   open(data, { bulkEditor = true } = {}) {
-    this.#data        = this.#clone(data);
+    this.#data = this.#clone(data);
     this.#initialData = this.#clone(data);
-    this.#selectedId  = data.activeEnvironmentId ?? null;
+    this.#selectedId = data.activeEnvironmentId ?? null;
     this.#pendingAction = null;
-    this.#isBulkMode    = bulkEditor;
+    this.#isBulkMode = bulkEditor;
     this.#el.querySelector(".env-bulk-toggle").checked = bulkEditor;
 
     clearTimeout(this.#saveTimer);
@@ -115,8 +122,9 @@ export class EnvironmentsPopup {
    * @param {object} data
    */
   update(data) {
-    const stillExists = this.#selectedId === null ||
-      data.environments.some(e => e.id === this.#selectedId);
+    const stillExists =
+      this.#selectedId === null ||
+      data.environments.some((e) => e.id === this.#selectedId);
     if (!stillExists) {
       this.#selectedId = null;
       this.#loadEditorForSelected();
@@ -128,7 +136,9 @@ export class EnvironmentsPopup {
   }
 
   /** Required by PopupManager. */
-  onMaskClick() { this.#doClose(); }
+  onMaskClick() {
+    this.#doClose();
+  }
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
@@ -193,26 +203,42 @@ export class EnvironmentsPopup {
       </div>
     `;
 
-    el.querySelector(".popup-close").addEventListener("click", () => this.#doClose());
-    el.querySelector(".js-close").addEventListener("click",    () => this.#doClose());
-    el.querySelector(".env-new-btn").addEventListener("click", () => this.#startAdd());
+    el.querySelector(".popup-close").addEventListener("click", () =>
+      this.#doClose(),
+    );
+    el.querySelector(".js-close").addEventListener("click", () =>
+      this.#doClose(),
+    );
+    el.querySelector(".env-new-btn").addEventListener("click", () =>
+      this.#startAdd(),
+    );
 
     const nameInput = el.querySelector(".env-name-input");
     const nameOkBtn = el.querySelector(".env-name-ok");
     const cancelBtn = el.querySelector(".env-name-cancel");
 
-    nameInput.addEventListener("input",   () => { nameOkBtn.disabled = !nameInput.value.trim(); });
-    nameInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter"  && !nameOkBtn.disabled) nameOkBtn.click();
-      if (e.key === "Escape")                        cancelBtn.click();
+    nameInput.addEventListener("input", () => {
+      nameOkBtn.disabled = !nameInput.value.trim();
     });
-    nameOkBtn.addEventListener("click",  () => this.#commitName());
-    cancelBtn.addEventListener("click",  () => this.#setNameInputVisible(false));
+    nameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !nameOkBtn.disabled) nameOkBtn.click();
+      if (e.key === "Escape") cancelBtn.click();
+    });
+    nameOkBtn.addEventListener("click", () => this.#commitName());
+    cancelBtn.addEventListener("click", () => this.#setNameInputVisible(false));
 
-    el.querySelector(".env-bulk-toggle").addEventListener("change", () => this.#handleBulkToggle());
-    el.querySelector(".env-textarea").addEventListener("input",     () => this.#scheduleSave());
-    el.querySelector(".env-add-btn").addEventListener("click",      () => this.#addRow());
-    el.querySelector(".env-reset-btn").addEventListener("click",    () => this.#handleReset());
+    el.querySelector(".env-bulk-toggle").addEventListener("change", () =>
+      this.#handleBulkToggle(),
+    );
+    el.querySelector(".env-textarea").addEventListener("input", () =>
+      this.#scheduleSave(),
+    );
+    el.querySelector(".env-add-btn").addEventListener("click", () =>
+      this.#addRow(),
+    );
+    el.querySelector(".env-reset-btn").addEventListener("click", () =>
+      this.#handleReset(),
+    );
 
     el.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && !this.#resetCleanup) {
@@ -223,7 +249,10 @@ export class EnvironmentsPopup {
 
     const kvList = el.querySelector(".env-kv-list");
     kvList.addEventListener("dragover", (e) => {
-      if (!this.#dragSrcId) { this.#phantom?.remove(); return; }
+      if (!this.#dragSrcId) {
+        this.#phantom?.remove();
+        return;
+      }
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       if (!kvList.contains(this.#phantom)) kvList.appendChild(this.#phantom);
@@ -233,14 +262,21 @@ export class EnvironmentsPopup {
       if (!this.#dragSrcId) return;
       this.#dragHandled = true;
       const children = [...kvList.children];
-      const phIdx    = children.indexOf(this.#phantom);
-      if (phIdx === -1) { this.#finalizeDrag(); return; }
-      const rowEls   = children.filter(c => c.classList.contains("env-kv-row"));
-      const insertAt = rowEls.filter(r => children.indexOf(r) < phIdx).length;
-      const srcIdx   = this.#rows.findIndex(r => r.id === this.#dragSrcId);
+      const phIdx = children.indexOf(this.#phantom);
+      if (phIdx === -1) {
+        this.#finalizeDrag();
+        return;
+      }
+      const rowEls = children.filter((c) => c.classList.contains("env-kv-row"));
+      const insertAt = rowEls.filter((r) => children.indexOf(r) < phIdx).length;
+      const srcIdx = this.#rows.findIndex((r) => r.id === this.#dragSrcId);
       if (srcIdx !== -1) {
         const [moved] = this.#rows.splice(srcIdx, 1);
-        this.#rows.splice(insertAt > srcIdx ? insertAt - 1 : insertAt, 0, moved);
+        this.#rows.splice(
+          insertAt > srcIdx ? insertAt - 1 : insertAt,
+          0,
+          moved,
+        );
         this.#renderRows();
         this.#saveFromRows();
       }
@@ -263,29 +299,34 @@ export class EnvironmentsPopup {
     ul.innerHTML = "";
 
     // Global row — always first, never has rename/delete
-    ul.appendChild(this.#buildEnvRow({
-      id:       null,
-      name:     "Global",
-      isActive:   this.#data.activeEnvironmentId === null,
-      isSelected: this.#selectedId === null,
-      isGlobal:   true,
-    }));
+    ul.appendChild(
+      this.#buildEnvRow({
+        id: null,
+        name: "Global",
+        isActive: this.#data.activeEnvironmentId === null,
+        isSelected: this.#selectedId === null,
+        isGlobal: true,
+      }),
+    );
 
     for (const env of this.#data.environments) {
-      ul.appendChild(this.#buildEnvRow({
-        id:         env.id,
-        name:       env.name,
-        isActive:   env.id === this.#data.activeEnvironmentId,
-        isSelected: env.id === this.#selectedId,
-        isGlobal:   false,
-      }));
+      ul.appendChild(
+        this.#buildEnvRow({
+          id: env.id,
+          name: env.name,
+          isActive: env.id === this.#data.activeEnvironmentId,
+          isSelected: env.id === this.#selectedId,
+          isGlobal: false,
+        }),
+      );
     }
   }
 
   #buildEnvRow({ id, name, isActive, isSelected, isGlobal }) {
     const li = document.createElement("li");
-    li.className = "env-list-item" +
-      (isActive   ? " env-list-item--active"   : "") +
+    li.className =
+      "env-list-item" +
+      (isActive ? " env-list-item--active" : "") +
       (isSelected ? " env-list-item--selected" : "");
     li.setAttribute("role", "option");
     li.setAttribute("aria-selected", String(isActive));
@@ -295,9 +336,12 @@ export class EnvironmentsPopup {
     check.innerHTML = isActive ? ICON_CHECK : "";
 
     const nameBtn = document.createElement("button");
-    nameBtn.className   = "env-list-item__name";
+    nameBtn.className = "env-list-item__name";
     nameBtn.textContent = name;
-    nameBtn.setAttribute("aria-label", isGlobal ? "Select Global variables" : `Select ${name}`);
+    nameBtn.setAttribute(
+      "aria-label",
+      isGlobal ? "Select Global variables" : `Select ${name}`,
+    );
     nameBtn.addEventListener("click", () => this.#selectEnv(id));
 
     li.appendChild(check);
@@ -309,17 +353,23 @@ export class EnvironmentsPopup {
 
       const renameBtn = document.createElement("button");
       renameBtn.className = "coll-action-btn";
-      renameBtn.title     = "Rename environment";
+      renameBtn.title = "Rename environment";
       renameBtn.innerHTML = ICON_RENAME;
       renameBtn.setAttribute("aria-label", `Rename ${name}`);
-      renameBtn.addEventListener("click", (e) => { e.stopPropagation(); this.#startRename({ id, name }); });
+      renameBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.#startRename({ id, name });
+      });
 
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "coll-action-btn coll-action-btn--danger";
-      deleteBtn.title     = "Delete environment";
+      deleteBtn.title = "Delete environment";
       deleteBtn.innerHTML = ICON_DELETE;
       deleteBtn.setAttribute("aria-label", `Delete ${name}`);
-      deleteBtn.addEventListener("click", (e) => { e.stopPropagation(); this.#confirmDelete({ id, name }); });
+      deleteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.#confirmDelete({ id, name });
+      });
 
       actions.appendChild(renameBtn);
       actions.appendChild(deleteBtn);
@@ -331,28 +381,38 @@ export class EnvironmentsPopup {
 
   // ── Name-input form ────────────────────────────────────────────────────────
 
-  #setNameInputVisible(visible, { placeholder = "Environment name…", defaultValue = "", okLabel = "Add" } = {}) {
-    const row    = this.#el.querySelector(".env-name-input-row");
-    const input  = this.#el.querySelector(".env-name-input");
-    const okBtn  = this.#el.querySelector(".env-name-ok");
+  #setNameInputVisible(
+    visible,
+    {
+      placeholder = "Environment name…",
+      defaultValue = "",
+      okLabel = "Add",
+    } = {},
+  ) {
+    const row = this.#el.querySelector(".env-name-input-row");
+    const input = this.#el.querySelector(".env-name-input");
+    const okBtn = this.#el.querySelector(".env-name-ok");
     const newBtn = this.#el.querySelector(".env-new-btn");
 
     if (visible) {
       input.placeholder = placeholder;
-      input.value       = defaultValue;
+      input.value = defaultValue;
       okBtn.textContent = okLabel;
-      okBtn.disabled    = !defaultValue.trim();
+      okBtn.disabled = !defaultValue.trim();
       input.classList.remove("env-name-input--error");
       row.classList.add("env-name-input-row--visible");
       newBtn.disabled = true;
-      requestAnimationFrame(() => { input.focus(); input.select(); });
+      requestAnimationFrame(() => {
+        input.focus();
+        input.select();
+      });
     } else {
       clearTimeout(this.#nameErrorTimer);
       this.#nameErrorTimer = null;
       row.classList.remove("env-name-input-row--visible");
-      input.value       = "";
+      input.value = "";
       okBtn.textContent = "Add";
-      newBtn.disabled   = false;
+      newBtn.disabled = false;
       this.#pendingAction = null;
     }
   }
@@ -365,15 +425,15 @@ export class EnvironmentsPopup {
   #startRename(env) {
     this.#pendingAction = { type: "rename", id: env.id, currentName: env.name };
     this.#setNameInputVisible(true, {
-      placeholder:  "Environment name…",
+      placeholder: "Environment name…",
       defaultValue: env.name,
-      okLabel:      "Rename",
+      okLabel: "Rename",
     });
   }
 
   #commitName() {
-    const input  = this.#el.querySelector(".env-name-input");
-    const name   = input.value.trim();
+    const input = this.#el.querySelector(".env-name-input");
+    const name = input.value.trim();
     if (!name) return;
 
     const action = this.#pendingAction;
@@ -383,7 +443,7 @@ export class EnvironmentsPopup {
       return;
     }
 
-    const isDuplicate = this.#data.environments.some(e => {
+    const isDuplicate = this.#data.environments.some((e) => {
       if (action?.type === "rename" && e.id === action.id) return false;
       return e.name.toLowerCase() === name.toLowerCase();
     });
@@ -402,32 +462,38 @@ export class EnvironmentsPopup {
     this.#setNameInputVisible(false);
 
     if (action === "add") {
-      const id     = crypto.randomUUID();
+      const id = crypto.randomUUID();
       const newEnv = { id, name, variables: {} };
       const newData = {
         ...this.#data,
-        environments:        [...this.#data.environments, newEnv],
+        environments: [...this.#data.environments, newEnv],
         activeEnvironmentId: id,
       };
-      this.#data       = newData;
+      this.#data = newData;
       this.#selectedId = id;
       this.#renderList();
       this.#loadEditorForSelected();
-      window.dispatchEvent(new CustomEvent("wurl:environments-changed", {
-        detail: { data: this.#clone(newData) }, bubbles: true,
-      }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:environments-changed", {
+          detail: { data: this.#clone(newData) },
+          bubbles: true,
+        }),
+      );
     } else if (action?.type === "rename") {
       const newData = {
         ...this.#data,
-        environments: this.#data.environments.map(e =>
+        environments: this.#data.environments.map((e) =>
           e.id === action.id ? { ...e, name } : e,
         ),
       };
       this.#data = newData;
       this.#renderList();
-      window.dispatchEvent(new CustomEvent("wurl:environments-changed", {
-        detail: { data: this.#clone(newData) }, bubbles: true,
-      }));
+      window.dispatchEvent(
+        new CustomEvent("wurl:environments-changed", {
+          detail: { data: this.#clone(newData) },
+          bubbles: true,
+        }),
+      );
     }
   }
 
@@ -440,24 +506,29 @@ export class EnvironmentsPopup {
     this.#data = { ...this.#data, activeEnvironmentId: id };
     this.#renderList();
     this.#loadEditorForSelected();
-    window.dispatchEvent(new CustomEvent("wurl:env-activate", {
-      detail: { id }, bubbles: true,
-    }));
+    window.dispatchEvent(
+      new CustomEvent("wurl:env-activate", {
+        detail: { id },
+        bubbles: true,
+      }),
+    );
   }
 
   #confirmDelete(env) {
     PopupManager.confirm({
-      title:        "Delete Environment?",
-      message:      `Delete "<strong>${this.#escape(env.name)}</strong>" and all its variables? This cannot be undone.`,
+      title: "Delete Environment?",
+      message: `Delete "<strong>${this.#escape(env.name)}</strong>" and all its variables? This cannot be undone.`,
       confirmLabel: "Delete",
       confirmClass: "popup-btn--danger",
-      onConfirm:    () => {
+      onConfirm: () => {
         const wasSelected = this.#selectedId === env.id;
-        const wasActive   = this.#data.activeEnvironmentId === env.id;
+        const wasActive = this.#data.activeEnvironmentId === env.id;
         const newData = {
           ...this.#data,
-          environments:        this.#data.environments.filter(e => e.id !== env.id),
-          activeEnvironmentId: wasActive ? null : this.#data.activeEnvironmentId,
+          environments: this.#data.environments.filter((e) => e.id !== env.id),
+          activeEnvironmentId: wasActive
+            ? null
+            : this.#data.activeEnvironmentId,
         };
         this.#data = newData;
         if (wasSelected) {
@@ -465,9 +536,12 @@ export class EnvironmentsPopup {
           this.#loadEditorForSelected();
         }
         this.#renderList();
-        window.dispatchEvent(new CustomEvent("wurl:environments-changed", {
-          detail: { data: this.#clone(newData) }, bubbles: true,
-        }));
+        window.dispatchEvent(
+          new CustomEvent("wurl:environments-changed", {
+            detail: { data: this.#clone(newData) },
+            bubbles: true,
+          }),
+        );
       },
     });
   }
@@ -475,12 +549,14 @@ export class EnvironmentsPopup {
   // ── Variable editor ────────────────────────────────────────────────────────
 
   #loadEditorForSelected() {
-    const vars  = this.#getSelectedVars();
+    const vars = this.#getSelectedVars();
     const label = this.#el.querySelector(".env-active-label");
     if (label) {
-      const envName = this.#selectedId === null
-        ? null
-        : this.#data.environments.find(e => e.id === this.#selectedId)?.name;
+      const envName =
+        this.#selectedId === null
+          ? null
+          : this.#data.environments.find((e) => e.id === this.#selectedId)
+              ?.name;
       label.textContent = envName ? `${envName} Variables` : "Global Variables";
     }
 
@@ -498,19 +574,22 @@ export class EnvironmentsPopup {
 
   #getSelectedVars() {
     if (this.#selectedId === null) return this.#data.globalVariables ?? {};
-    return this.#data.environments.find(e => e.id === this.#selectedId)?.variables ?? {};
+    return (
+      this.#data.environments.find((e) => e.id === this.#selectedId)
+        ?.variables ?? {}
+    );
   }
 
   // ── Mode switching ─────────────────────────────────────────────────────────
 
   #applyMode() {
-    const bulk     = this.#isBulkMode;
+    const bulk = this.#isBulkMode;
     const textarea = this.#el.querySelector(".env-textarea");
-    const kvWrap   = this.#el.querySelector(".env-kv-wrap");
-    const hintEl   = this.#el.querySelector(".env-vars-hint");
-    const addBtn   = this.#el.querySelector(".env-add-btn");
+    const kvWrap = this.#el.querySelector(".env-kv-wrap");
+    const hintEl = this.#el.querySelector(".env-vars-hint");
+    const addBtn = this.#el.querySelector(".env-add-btn");
     textarea.style.display = bulk ? "" : "none";
-    kvWrap.style.display   = bulk ? "none" : "";
+    kvWrap.style.display = bulk ? "none" : "";
     if (hintEl) hintEl.style.display = bulk ? "" : "none";
     if (addBtn) addBtn.style.display = bulk ? "none" : "";
   }
@@ -518,27 +597,38 @@ export class EnvironmentsPopup {
   #handleBulkToggle() {
     const nowBulk = this.#el.querySelector(".env-bulk-toggle").checked;
     if (nowBulk && !this.#isBulkMode) {
-      this.#el.querySelector(".env-textarea").value = this.#varsToText(this.#rowsToObject());
+      this.#el.querySelector(".env-textarea").value = this.#varsToText(
+        this.#rowsToObject(),
+      );
     } else if (!nowBulk && this.#isBulkMode) {
-      this.#rows = this.#varsToRows(this.#textToVars(this.#el.querySelector(".env-textarea").value));
+      this.#rows = this.#varsToRows(
+        this.#textToVars(this.#el.querySelector(".env-textarea").value),
+      );
     }
     this.#isBulkMode = nowBulk;
     this.#applyMode();
     if (nowBulk) {
-      requestAnimationFrame(() => this.#el.querySelector(".env-textarea").focus());
+      requestAnimationFrame(() =>
+        this.#el.querySelector(".env-textarea").focus(),
+      );
     } else {
       this.#renderRows();
       this.#saveFromRows();
     }
-    window.dispatchEvent(new CustomEvent("wurl:env-bulk-editor-changed", {
-      detail: { bulkEditor: nowBulk }, bubbles: true,
-    }));
+    window.dispatchEvent(
+      new CustomEvent("wurl:env-bulk-editor-changed", {
+        detail: { bulkEditor: nowBulk },
+        bubbles: true,
+      }),
+    );
   }
 
   // ── Conversion helpers ─────────────────────────────────────────────────────
 
   #varsToText(vars) {
-    return Object.entries(vars).map(([k, v]) => `${k}=${v}`).join("\n");
+    return Object.entries(vars)
+      .map(([k, v]) => `${k}=${v}`)
+      .join("\n");
   }
 
   #textToVars(text) {
@@ -557,14 +647,17 @@ export class EnvironmentsPopup {
 
   #varsToRows(vars) {
     return Object.entries(vars).map(([name, value]) => ({
-      id: crypto.randomUUID(), name,
+      id: crypto.randomUUID(),
+      name,
       value: typeof value === "string" ? value : JSON.stringify(value),
     }));
   }
 
   #rowsToObject() {
     const out = {};
-    for (const r of this.#rows) { if (r.name.trim()) out[r.name] = r.value; }
+    for (const r of this.#rows) {
+      if (r.name.trim()) out[r.name] = r.value;
+    }
     return out;
   }
 
@@ -575,19 +668,19 @@ export class EnvironmentsPopup {
     kvList.innerHTML = "";
     if (this.#rows.length === 0) {
       const empty = document.createElement("div");
-      empty.className   = "params-empty";
+      empty.className = "params-empty";
       empty.textContent = "No variables — click  +  to add one.";
       kvList.appendChild(empty);
       return;
     }
-    this.#rows.forEach(row => kvList.appendChild(this.#buildRow(row)));
+    this.#rows.forEach((row) => kvList.appendChild(this.#buildRow(row)));
   }
 
   #buildRow(row) {
     const el = document.createElement("div");
-    el.className  = "env-kv-row params-row";
+    el.className = "env-kv-row params-row";
     el.dataset.id = row.id;
-    el.draggable  = true;
+    el.draggable = true;
 
     const handle = document.createElement("span");
     handle.className = "params-drag-handle";
@@ -600,19 +693,39 @@ export class EnvironmentsPopup {
     </svg>`;
 
     const nameIn = document.createElement("input");
-    nameIn.type = "text"; nameIn.className = "params-input params-name";
-    nameIn.placeholder = "Name"; nameIn.value = row.name;
+    nameIn.type = "text";
+    nameIn.className = "params-input params-name";
+    nameIn.placeholder = "Name";
+    nameIn.value = row.name;
     nameIn.setAttribute("aria-label", "Variable name");
     nameIn.setAttribute("autocomplete", "off");
-    nameIn.addEventListener("input",   () => { row.name = nameIn.value; this.#saveFromRows(); });
-    nameIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); this.#addRow(); } });
+    nameIn.addEventListener("input", () => {
+      row.name = nameIn.value;
+      this.#saveFromRows();
+    });
+    nameIn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.#addRow();
+      }
+    });
 
     const valIn = document.createElement("input");
-    valIn.type = "text"; valIn.className = "params-input params-value";
-    valIn.placeholder = "Value"; valIn.value = row.value;
+    valIn.type = "text";
+    valIn.className = "params-input params-value";
+    valIn.placeholder = "Value";
+    valIn.value = row.value;
     valIn.setAttribute("aria-label", "Variable value");
-    valIn.addEventListener("input",   () => { row.value = valIn.value; this.#saveFromRows(); });
-    valIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); this.#addRow(); } });
+    valIn.addEventListener("input", () => {
+      row.value = valIn.value;
+      this.#saveFromRows();
+    });
+    valIn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.#addRow();
+      }
+    });
 
     const del = document.createElement("button");
     del.className = "icon-btn params-delete-btn";
@@ -623,13 +736,14 @@ export class EnvironmentsPopup {
       <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
     </svg>`;
     del.addEventListener("click", () => {
-      this.#rows = this.#rows.filter(r => r.id !== row.id);
+      this.#rows = this.#rows.filter((r) => r.id !== row.id);
       this.#renderRows();
       this.#saveFromRows();
     });
 
     el.addEventListener("dragstart", (e) => {
-      this.#dragSrcId = row.id; this.#dragHandled = false;
+      this.#dragSrcId = row.id;
+      this.#dragHandled = false;
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", row.id);
       requestAnimationFrame(() => {
@@ -642,12 +756,18 @@ export class EnvironmentsPopup {
       if (!this.#dragSrcId || this.#dragSrcId === row.id) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-      const rect  = el.getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
       const after = (e.clientY - rect.top) / rect.height >= 0.5;
-      el.parentElement?.insertBefore(this.#phantom, after ? el.nextSibling : el);
+      el.parentElement?.insertBefore(
+        this.#phantom,
+        after ? el.nextSibling : el,
+      );
     });
     el.addEventListener("dragend", () => {
-      if (!this.#dragHandled) { el.style.display = ""; this.#phantom.remove(); }
+      if (!this.#dragHandled) {
+        el.style.display = "";
+        this.#phantom.remove();
+      }
       this.#finalizeDrag();
     });
 
@@ -659,33 +779,46 @@ export class EnvironmentsPopup {
   }
 
   #finalizeDrag() {
-    this.#dragSrcId = null; this.#dragHandled = false; this.#phantom.remove();
+    this.#dragSrcId = null;
+    this.#dragHandled = false;
+    this.#phantom.remove();
   }
 
   #addRow() {
     const row = { id: crypto.randomUUID(), name: "", value: "" };
     this.#rows.push(row);
     this.#renderRows();
-    const rows = this.#el.querySelector(".env-kv-list").querySelectorAll(".env-kv-row");
-    if (rows.length) rows[rows.length - 1].querySelector(".params-name")?.focus();
+    const rows = this.#el
+      .querySelector(".env-kv-list")
+      .querySelectorAll(".env-kv-row");
+    if (rows.length)
+      rows[rows.length - 1].querySelector(".params-name")?.focus();
   }
 
   // ── Save ───────────────────────────────────────────────────────────────────
 
   #scheduleSave() {
     clearTimeout(this.#saveTimer);
-    this.#saveTimer = setTimeout(() => this.#saveFromBulk(), EnvironmentsPopup.#SAVE_MS);
+    this.#saveTimer = setTimeout(
+      () => this.#saveFromBulk(),
+      EnvironmentsPopup.#SAVE_MS,
+    );
   }
 
   #saveFromBulk() {
-    this.#dispatchVarsSave(this.#textToVars(this.#el.querySelector(".env-textarea").value));
+    this.#dispatchVarsSave(
+      this.#textToVars(this.#el.querySelector(".env-textarea").value),
+    );
   }
 
-  #saveFromRows() { this.#dispatchVarsSave(this.#rowsToObject()); }
+  #saveFromRows() {
+    this.#dispatchVarsSave(this.#rowsToObject());
+  }
 
   #flushEditorSave() {
     clearTimeout(this.#saveTimer);
-    if (this.#isBulkMode) this.#saveFromBulk(); else this.#saveFromRows();
+    if (this.#isBulkMode) this.#saveFromBulk();
+    else this.#saveFromRows();
   }
 
   #dispatchVarsSave(variables) {
@@ -694,14 +827,17 @@ export class EnvironmentsPopup {
     } else {
       this.#data = {
         ...this.#data,
-        environments: this.#data.environments.map(e =>
+        environments: this.#data.environments.map((e) =>
           e.id === this.#selectedId ? { ...e, variables } : e,
         ),
       };
     }
-    window.dispatchEvent(new CustomEvent("wurl:env-vars-save", {
-      detail: { id: this.#selectedId, variables }, bubbles: true,
-    }));
+    window.dispatchEvent(
+      new CustomEvent("wurl:env-vars-save", {
+        detail: { id: this.#selectedId, variables },
+        bubbles: true,
+      }),
+    );
   }
 
   // ── Reset ──────────────────────────────────────────────────────────────────
@@ -711,7 +847,8 @@ export class EnvironmentsPopup {
       this.#cancelResetConfirm();
       const initVars = this.#getInitialVars();
       if (this.#isBulkMode) {
-        this.#el.querySelector(".env-textarea").value = this.#varsToText(initVars);
+        this.#el.querySelector(".env-textarea").value =
+          this.#varsToText(initVars);
         this.#saveFromBulk();
       } else {
         this.#rows = this.#varsToRows(initVars);
@@ -728,25 +865,35 @@ export class EnvironmentsPopup {
     const restore = () => {
       resetBtn.textContent = "Reset";
       resetBtn.classList.replace("popup-btn--warning", "popup-btn--secondary");
-      document.removeEventListener("keydown",   onEsc,     true);
+      document.removeEventListener("keydown", onEsc, true);
       document.removeEventListener("mousedown", onOutside, true);
       this.#resetCleanup = null;
     };
-    const onEsc     = (e) => { if (e.key === "Escape") restore(); };
-    const onOutside = (e) => { if (!resetBtn.contains(e.target)) restore(); };
+    const onEsc = (e) => {
+      if (e.key === "Escape") restore();
+    };
+    const onOutside = (e) => {
+      if (!resetBtn.contains(e.target)) restore();
+    };
 
-    document.addEventListener("keydown",   onEsc,     true);
+    document.addEventListener("keydown", onEsc, true);
     document.addEventListener("mousedown", onOutside, true);
     this.#resetCleanup = restore;
   }
 
   #getInitialVars() {
     if (!this.#initialData) return {};
-    if (this.#selectedId === null) return this.#initialData.globalVariables ?? {};
-    return this.#initialData.environments?.find(e => e.id === this.#selectedId)?.variables ?? {};
+    if (this.#selectedId === null)
+      return this.#initialData.globalVariables ?? {};
+    return (
+      this.#initialData.environments?.find((e) => e.id === this.#selectedId)
+        ?.variables ?? {}
+    );
   }
 
-  #cancelResetConfirm() { if (this.#resetCleanup) this.#resetCleanup(); }
+  #cancelResetConfirm() {
+    if (this.#resetCleanup) this.#resetCleanup();
+  }
 
   // ── Close ──────────────────────────────────────────────────────────────────
 
@@ -766,5 +913,7 @@ export class EnvironmentsPopup {
       .replace(/"/g, "&quot;");
   }
 
-  #clone(obj) { return JSON.parse(JSON.stringify(obj)); }
+  #clone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+  }
 }

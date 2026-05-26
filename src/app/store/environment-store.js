@@ -9,10 +9,10 @@
 const { readJSON, writeJSON, ensureDir } = require("./io");
 
 const DEFAULT_ENVIRONMENTS = Object.freeze({
-  version:             1,
-  globalVariables:     {},
+  version: 1,
+  globalVariables: {},
   activeEnvironmentId: null,
-  environments:        [],
+  environments: [],
 });
 
 class EnvironmentStore {
@@ -31,7 +31,9 @@ class EnvironmentStore {
    * @returns {object}
    */
   getEnvironments() {
-    return readJSON(this._paths.environmentsPath()) ?? { ...DEFAULT_ENVIRONMENTS };
+    return (
+      readJSON(this._paths.environmentsPath()) ?? { ...DEFAULT_ENVIRONMENTS }
+    );
   }
 
   /**

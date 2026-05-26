@@ -22,13 +22,13 @@
 const { readJSON, writeJSON, ensureDir, validateID } = require("./io");
 const { encryptRequest, decryptRequest } = require("./crypto");
 
-class CollectionsStore{
+class CollectionsStore {
   /**
    * @param {import('./paths').Paths}    paths
    * @param {import('./resolver').Resolver} resolver
    */
   constructor(paths, resolver) {
-    this._paths    = paths;
+    this._paths = paths;
     this._resolver = resolver;
   }
 
@@ -71,7 +71,10 @@ class CollectionsStore{
     validateID(id, "collectionId");
 
     const collections = Array.isArray(data.collections) ? data.collections : [];
-    const variables   = (data.variables && typeof data.variables === "object") ? data.variables : {};
+    const variables =
+      data.variables && typeof data.variables === "object"
+        ? data.variables
+        : {};
 
     ensureDir(this._paths.collectionDir(id));
     ensureDir(this._paths.requestsDir(id));
@@ -80,15 +83,21 @@ class CollectionsStore{
     writeJSON(this._paths.metadataPath(id), { id, variables });
 
     // Decompose collections into tree nodes + individual request files.
-    const reqFiles  = {};
-    const treeNodes = collections.map(coll => this._decomposeCollDoc(coll, reqFiles));
+    const reqFiles = {};
+    const treeNodes = collections.map((coll) =>
+      this._decomposeCollDoc(coll, reqFiles),
+    );
 
     // Write tree (no request bodies).
     writeJSON(this._paths.treePath(id), { children: treeNodes });
 
     // Write individual request files (encrypt secrets before persisting).
     for (const [reqId, reqData] of Object.entries(reqFiles)) {
-      try { validateID(reqId, "requestId"); } catch { continue; }
+      try {
+        validateID(reqId, "requestId");
+      } catch {
+        continue;
+      }
       writeJSON(this._paths.requestPath(id, reqId), encryptRequest(reqData));
     }
 
@@ -101,13 +110,13 @@ class CollectionsStore{
   /** Convert top-level tree nodes (folders) into legacyCollDoc objects. */
   _buildLegacyCollections(collId, nodes) {
     return nodes
-      .filter(n => n.type === "folder")
-      .map(n => ({
-        id:        n.id,
-        type:      "collection",
-        name:      n.name,
+      .filter((n) => n.type === "folder")
+      .map((n) => ({
+        id: n.id,
+        type: "collection",
+        name: n.name,
         variables: n.variables ?? {},
-        children:  this._buildLegacyChildren(collId, n.children ?? []),
+        children: this._buildLegacyChildren(collId, n.children ?? []),
       }));
   }
 
@@ -120,11 +129,11 @@ class CollectionsStore{
         if (req !== null) result.push(decryptRequest(req));
       } else if (node.type === "folder") {
         result.push({
-          id:        node.id,
-          type:      "collection",
-          name:      node.name,
+          id: node.id,
+          type: "collection",
+          name: node.name,
           variables: node.variables ?? {},
-          children:  this._buildLegacyChildren(collId, node.children ?? []),
+          children: this._buildLegacyChildren(collId, node.children ?? []),
         });
       }
     }
@@ -143,13 +152,13 @@ class CollectionsStore{
    */
   _decomposeCollDoc(coll, reqFiles) {
     const node = {
-      id:        coll.id,
-      type:      "folder",
-      name:      coll.name,
+      id: coll.id,
+      type: "folder",
+      name: coll.name,
       variables: coll.variables ?? {},
-      children:  [],
+      children: [],
     };
-    for (const child of (coll.children ?? [])) {
+    for (const child of coll.children ?? []) {
       if (child.type === "request") {
         node.children.push({ id: child.id, type: "requestRef" });
         reqFiles[child.id] = child;
@@ -161,5 +170,4 @@ class CollectionsStore{
   }
 }
 
-module.exports = { CollectionsStore};
-
+module.exports = { CollectionsStore };

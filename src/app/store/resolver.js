@@ -89,7 +89,7 @@ class Resolver {
 
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
-      const collId  = entry.name;
+      const collId = entry.name;
       const reqsDir = this._paths.requestsDir(collId);
       if (!fs.existsSync(reqsDir)) continue;
 
@@ -111,4 +111,3 @@ class Resolver {
 }
 
 module.exports = { Resolver };
-

@@ -18,7 +18,9 @@ function exportAuth(node) {
   if (type === "bearer") {
     return {
       type: "bearer",
-      bearer: [{ key: "token", value: node.authBearer?.token ?? "", type: "string" }],
+      bearer: [
+        { key: "token", value: node.authBearer?.token ?? "", type: "string" },
+      ],
     };
   }
   if (type === "oauth2") {
@@ -26,12 +28,20 @@ function exportAuth(node) {
     return {
       type: "oauth2",
       oauth2: [
-        { key: "grant_type",     value: o.grantType      ?? "authorization_code", type: "string" },
-        { key: "clientId",       value: o.clientId       ?? "",                   type: "string" },
-        { key: "clientSecret",   value: o.clientSecret   ?? "",                   type: "string" },
-        { key: "accessTokenUrl", value: o.accessTokenUrl ?? "",                   type: "string" },
-        { key: "authUrl",        value: o.authUrl        ?? "",                   type: "string" },
-        { key: "scope",          value: o.scope          ?? "",                   type: "string" },
+        {
+          key: "grant_type",
+          value: o.grantType ?? "authorization_code",
+          type: "string",
+        },
+        { key: "clientId", value: o.clientId ?? "", type: "string" },
+        { key: "clientSecret", value: o.clientSecret ?? "", type: "string" },
+        {
+          key: "accessTokenUrl",
+          value: o.accessTokenUrl ?? "",
+          type: "string",
+        },
+        { key: "authUrl", value: o.authUrl ?? "", type: "string" },
+        { key: "scope", value: o.scope ?? "", type: "string" },
       ],
     };
   }
@@ -45,27 +55,27 @@ function exportBody(node) {
   if (type === "json" || type === "xml" || type === "yaml" || type === "text") {
     const language = type === "text" ? "text" : type;
     return {
-      mode:    "raw",
-      raw:     node.bodyText ?? "",
+      mode: "raw",
+      raw: node.bodyText ?? "",
       options: { raw: { language } },
     };
   }
   if (type === "form-urlencoded") {
     return {
-      mode:        "urlencoded",
-      urlencoded:  (node.bodyFormRows ?? []).map(r => ({
-        key:      r.name  ?? "",
-        value:    r.value ?? "",
+      mode: "urlencoded",
+      urlencoded: (node.bodyFormRows ?? []).map((r) => ({
+        key: r.name ?? "",
+        value: r.value ?? "",
         disabled: !r.enabled,
       })),
     };
   }
   if (type === "form-data") {
     return {
-      mode:      "formdata",
-      formdata:  (node.bodyFormRows ?? []).map(r => ({
-        key:      r.name  ?? "",
-        value:    r.value ?? "",
+      mode: "formdata",
+      formdata: (node.bodyFormRows ?? []).map((r) => ({
+        key: r.name ?? "",
+        value: r.value ?? "",
         disabled: !r.enabled,
       })),
     };
@@ -88,21 +98,21 @@ function exportItem(node) {
   }
   if (node.type === "request") {
     const req = {
-      method:      node.method ?? "GET",
-      header:      (node.headers ?? []).map(h => ({
-        key:      h.name  ?? "",
-        value:    h.value ?? "",
+      method: node.method ?? "GET",
+      header: (node.headers ?? []).map((h) => ({
+        key: h.name ?? "",
+        value: h.value ?? "",
         disabled: !h.enabled,
       })),
       url: {
-        raw:   node.url ?? "",
-        query: (node.params ?? []).map(p => ({
-          key:      p.name  ?? "",
-          value:    p.value ?? "",
+        raw: node.url ?? "",
+        query: (node.params ?? []).map((p) => ({
+          key: p.name ?? "",
+          value: p.value ?? "",
           disabled: !p.enabled,
         })),
       },
-      auth:        exportAuth(node),
+      auth: exportAuth(node),
       description: node.notes ?? "",
     };
     const body = exportBody(node);
@@ -127,11 +137,15 @@ export function exportToPostman(collection, variables = {}) {
         // produce a stable `_postman_id`. Falling back to randomUUID still gives
         // Postman a unique value when the source has none.
         _postman_id: collection.id ?? crypto.randomUUID(),
-        name:        collection.name ?? "Exported Collection",
-        schema:      "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        name: collection.name ?? "Exported Collection",
+        schema:
+          "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
       },
-      item:     (collection.children ?? []).map(exportItem).filter(Boolean),
-      variable: Object.entries(variables).map(([key, value]) => ({ key, value: String(value) })),
+      item: (collection.children ?? []).map(exportItem).filter(Boolean),
+      variable: Object.entries(variables).map(([key, value]) => ({
+        key,
+        value: String(value),
+      })),
     },
     null,
     2,

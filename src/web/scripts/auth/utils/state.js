@@ -72,4 +72,3 @@ export function discardState(state) {
 export function clearAllStates() {
   _pending.clear();
 }
-
