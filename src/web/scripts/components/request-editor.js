@@ -1911,7 +1911,10 @@ export class RequestEditor {
    * @param {string} label
    * @param {{ placeholder?, value?, onInput?, hint? }} opts
    */
-  #buildAuthPillField(label, { placeholder = "", value = "", onInput, hint } = {}) {
+  #buildAuthPillField(
+    label,
+    { placeholder = "", value = "", onInput, hint } = {},
+  ) {
     const wrapper = document.createElement("div");
     wrapper.className = "auth-field";
 
@@ -3916,15 +3919,11 @@ export class RequestEditor {
   async #buildPreviewUrl() {
     const ctx = this.#variableContext;
 
-    // Resolve each {{…}} token in the URL individually and percent-encode the
-    // resolved value so special chars (spaces, commas, …) don't corrupt the URL,
-    // while leaving the literal URL structure (://, /, ?, =, &) untouched.
     const urlParts = await Promise.all(
       tokenize(this.#url ?? "").map(async (tok) => {
         if (tok.type === "text") return tok.content;
         const raw = `{{${tok.content}}}`;
-        const resolved = await resolveStringAsync(raw, ctx);
-        return resolved === raw ? raw : encodeURIComponent(resolved);
+        return resolveStringAsync(raw, ctx);
       }),
     );
     const base = urlParts.join("");
