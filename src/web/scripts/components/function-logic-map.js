@@ -54,8 +54,9 @@ export const logicMap = {
 
   // ── context (synchronous — reads from ctx) ──────────────────────────────
   folderName:      ([depth = "0"], ctx) => { const d = parseInt(depth, 10); if (isNaN(d)) return ""; return ctx?.folderChain?.[d]?.name ?? ""; },
-  collectionName:  (_args, ctx)         => ctx?.envName     ?? "",
-  requestName:     (_args, ctx)         => ctx?.requestName ?? "",
+  collectionName:   (_args, ctx) => ctx?.envName              ?? "",
+  requestName:      (_args, ctx) => ctx?.requestName          ?? "",
+  environmentName:  (_args, ctx) => ctx?.activeEnvironmentName ?? "",
 
   // ── backend (async — delegated to main process via IPC) ─────────────────
   environmentVariable: ([name = ""], _ctx) => {

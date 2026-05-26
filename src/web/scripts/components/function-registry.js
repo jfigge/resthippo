@@ -93,6 +93,11 @@ export const registry = {
     category: "context",
     params: [],
   },
+  environmentName: {
+    label: "Environment name",
+    category: "context",
+    params: [],
+  },
 
   response: {
     label: "Request response body",
