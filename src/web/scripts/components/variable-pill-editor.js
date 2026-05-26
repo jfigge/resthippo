@@ -71,6 +71,7 @@ export class VariablePillEditor {
   #onEnter;
   #getContext;
   #getItems;
+  #ensureResponseCaches;
   #lastValue = "\x00"; // sentinel forces first setValue to always render
   #pickerTimer = null;
   #pickerInst = null;
@@ -97,6 +98,7 @@ export class VariablePillEditor {
     className = "",
     getContext = () => null,
     getItems = () => [],
+    ensureResponseCaches = null,
     onInput,
     onEnter,
   } = {}) {
@@ -105,6 +107,7 @@ export class VariablePillEditor {
     this.#onEnter = onEnter ?? null;
     this.#getContext = getContext;
     this.#getItems = getItems;
+    this.#ensureResponseCaches = ensureResponseCaches;
 
     const el = document.createElement("div");
     el.contentEditable = "true";
@@ -356,6 +359,16 @@ export class VariablePillEditor {
             getPreview: async (args) => {
               const fn = logicMap[span.dataset.function];
               if (!fn) return null;
+              const fnName = span.dataset.function;
+              if (
+                this.#ensureResponseCaches &&
+                (fnName === "response" ||
+                  fnName === "responseHeader" ||
+                  fnName === "responseStatus")
+              ) {
+                const name = args[0];
+                if (name) await this.#ensureResponseCaches([name]);
+              }
               return String(await fn(args, this.#getContext()));
             },
             onCommit: (newRawToken) => {

@@ -647,6 +647,17 @@ async function _fetchJson(url) {
   }
 }
 
+function _extractResponseFunctionNames(templates) {
+  const names = new Set();
+  const re = /\{\{\s*response(?:Header|Status)?\s*\(\s*["']([^"']+)["']/g;
+  for (const tpl of templates) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(tpl)) !== null) names.add(m[1]);
+  }
+  return [...names];
+}
+
 export class RequestEditor {
   /** @type {HTMLElement} */
   #el;
@@ -784,6 +795,8 @@ export class RequestEditor {
   #variableContext = null;
   /** Callback returning request items for function popup request-picker params. */
   #getItems = () => [];
+  /** Async callback invoked before send to ensure cross-request response caches are loaded. */
+  #ensureResponseCaches = null;
 
   /** Pill editor for the URL bar (single instance, never replaced). */
   #urlPillEditor = null;
@@ -842,6 +855,7 @@ export class RequestEditor {
       className: "req-url-input",
       getContext: () => this.#variableContext,
       getItems: () => this.#getItems(),
+      ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
       onInput: (v) => {
         this.#url = v.trim();
         this.#dispatchRequestUpdated();
@@ -1928,6 +1942,7 @@ export class RequestEditor {
       className: "auth-field__input",
       getContext: () => this.#variableContext,
       getItems: () => this.#getItems(),
+      ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
       onInput: onInput ?? (() => {}),
     });
     editor.setValue(value ?? "");
@@ -2658,6 +2673,7 @@ export class RequestEditor {
       className: "params-name",
       getContext: getCtx,
       getItems: getItms,
+      ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
       onInput: (v) => {
         row.name = v;
         this.#dispatchBodyUpdated();
@@ -2683,6 +2699,7 @@ export class RequestEditor {
       className: "params-value",
       getContext: getCtx,
       getItems: getItms,
+      ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
       onInput: (v) => {
         row.value = v;
         this.#dispatchBodyUpdated();
@@ -3631,6 +3648,7 @@ export class RequestEditor {
       className: "params-value",
       getContext: () => this.#variableContext,
       getItems: () => this.#getItems(),
+      ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
       onInput: (v) => {
         header.value = v;
         this.#dispatchHeadersUpdated();
@@ -3998,6 +4016,7 @@ export class RequestEditor {
       className: "params-name",
       getContext: getCtx,
       getItems: getItms,
+      ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
       onInput: (v) => {
         param.name = v;
         this.#updateUrlPreview();
@@ -4015,6 +4034,7 @@ export class RequestEditor {
       className: "params-value",
       getContext: getCtx,
       getItems: getItms,
+      ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
       onInput: (v) => {
         param.value = v;
         this.#updateUrlPreview();
@@ -4482,6 +4502,12 @@ export class RequestEditor {
       }
     }
 
+    // Preload response caches for any cross-request references before resolution
+    if (this.#ensureResponseCaches) {
+      const refNames = _extractResponseFunctionNames(this.#gatherRequestTemplates());
+      if (refNames.length) await this.#ensureResponseCaches(refNames);
+    }
+
     const baseUrl = await rv(rawUrl);
 
     // ── 1. URL — append enabled, non-blank query parameters ──────────────
@@ -4805,6 +4831,11 @@ export class RequestEditor {
   /** Set the callback used by function-pill popups to populate request-picker params. */
   setGetItems(fn) {
     this.#getItems = fn ?? (() => []);
+  }
+
+  /** Set the async hook called before send to preload response caches for referenced requests. */
+  setEnsureResponseCaches(fn) {
+    this.#ensureResponseCaches = fn ?? null;
   }
 
   /**

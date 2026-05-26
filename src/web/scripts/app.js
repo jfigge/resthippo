@@ -740,8 +740,20 @@ function initEventBus() {
       _dispatchTimelineUpdate(null, true);
       await _loadRequestHistory(id);
       _historyLoaded.add(id);
+      // Populate response cache from the latest timeline entry now that history is loaded.
+      const loadedEntries = _requestHistory.get(id) ?? [];
+      const loadedLatest = loadedEntries[0];
+      const selName = node?.name;
+      if (selName) {
+        _responseCache[selName] = loadedLatest?.response?.body ?? "";
+        _responseHeaders[selName] = loadedLatest?.response?.headers ?? {};
+        _responseStatus[selName] = loadedLatest?.response?.status ?? 0;
+      }
       // Guard against a second selection arriving while we were loading.
-      if (_selectedNode?.id === id) _dispatchTimelineUpdate(id, true);
+      if (_selectedNode?.id === id) {
+        _refreshEditorVariableContext(id);
+        _dispatchTimelineUpdate(id, true);
+      }
     }
   });
 
@@ -764,11 +776,6 @@ function initEventBus() {
     const node = _selectedNode;
     const name = node?.name;
     if (!name) return;
-    const { body = "", headers = {}, status = 0 } = e.detail;
-    _responseCache[name] = body;
-    _responseHeaders[name] = headers;
-    _responseStatus[name] = status;
-    _refreshEditorVariableContext(node.id);
 
     // Record in per-request history only for real (non-replay) executions.
     // When replaying a historical entry, do NOT push to history and do NOT
@@ -834,6 +841,11 @@ function initEventBus() {
       }
 
       _requestHistory.set(node.id, entries);
+      const latest = entries[0];
+      _responseCache[name] = latest?.response?.body ?? "";
+      _responseHeaders[name] = latest?.response?.headers ?? {};
+      _responseStatus[name] = latest?.response?.status ?? 0;
+      _refreshEditorVariableContext(node.id);
       _dispatchTimelineUpdate(node.id);
     }
   });
@@ -916,6 +928,13 @@ function initEventBus() {
     }
 
     _requestHistory.set(node.id, entries);
+    const errLatest = entries[0];
+    const errName = node?.name;
+    if (errName) {
+      _responseCache[errName] = errLatest?.response?.body ?? "";
+      _responseHeaders[errName] = errLatest?.response?.headers ?? {};
+      _responseStatus[errName] = errLatest?.response?.status ?? 0;
+    }
     _dispatchTimelineUpdate(node.id);
   });
 
@@ -1387,6 +1406,28 @@ function initEventBus() {
   let _responseCache = {};
   let _responseHeaders = {};
   let _responseStatus = {};
+
+  // Lazy-load response caches when a request is executed that references another request
+  requestEditor?.setEnsureResponseCaches(async (names) => {
+    const allRequests = getAllRequests(treeView?.getItems() ?? []);
+    await Promise.all(
+      names.map(async (name) => {
+        const req = allRequests.find((r) => r.name === name);
+        if (!req) return;
+        if (!_historyLoaded.has(req.id)) {
+          await _loadRequestHistory(req.id);
+          _historyLoaded.add(req.id);
+        }
+        const entries = _requestHistory.get(req.id) ?? [];
+        const latest = entries[0];
+        if (latest) {
+          _responseCache[name] = latest.response?.body ?? "";
+          _responseHeaders[name] = latest.response?.headers ?? {};
+          _responseStatus[name] = latest.response?.status ?? 0;
+        }
+      }),
+    );
+  });
 
   window.addEventListener("wurl:cancel-request", () => {
     _cancelCurrentRequest = true;
