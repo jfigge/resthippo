@@ -53,13 +53,21 @@ export const logicMap = {
   },
 
   // ── context (synchronous — reads from ctx) ──────────────────────────────
-  folderName:  ([depth = "0"], ctx) => { const d = parseInt(depth, 10); if (isNaN(d)) return ""; return ctx?.folderChain?.[d]?.name ?? ""; },
-  collectionName:     (_args, ctx)         => ctx?.envName     ?? "",
+  folderName:      ([depth = "0"], ctx) => { const d = parseInt(depth, 10); if (isNaN(d)) return ""; return ctx?.folderChain?.[d]?.name ?? ""; },
+  collectionName:  (_args, ctx)         => ctx?.envName     ?? "",
+  requestName:     (_args, ctx)         => ctx?.requestName ?? "",
+
+  // ── backend (async — delegated to main process via IPC) ─────────────────
   environmentVariable: ([name = ""], _ctx) => {
     if (!name) return "";
     return invokeBackend("env", { name });
   },
-  requestName: (_args, ctx)         => ctx?.requestName ?? "",
+
+  hmac: ([algo = "SHA256", key = "", message = ""], _ctx) =>
+    invokeBackend("hmac", { algo, key, message }),
+
+  hash: ([algo = "SHA256", value = ""], _ctx) =>
+    invokeBackend("hash", { algo, value }),
 
   // ── request-output (synchronous — reads from response cache) ────────────
   response: ([name = "", query = "."], ctx) => {

@@ -69,7 +69,8 @@ export class EnvPicker {
   #syncTrigger(btn) {
     const env   = this.#activeEnv();
     const label = env?.name ?? "Global";
-    btn.innerHTML = `${_GLOBE}<span class="env-picker__label">${label}</span>${_CHEVRON}`;
+    btn.innerHTML = `${_GLOBE}<span class="env-picker__label"></span>${_CHEVRON}`;
+    btn.querySelector(".env-picker__label").textContent = label;
     btn.classList.toggle("env-picker__trigger--active", !!env);
   }
 
@@ -137,8 +138,9 @@ export class EnvPicker {
     item.dataset.id = id;
     item.innerHTML = `
       <span class="env-picker__item-check" aria-hidden="true"></span>
-      <span class="env-picker__item-label">${label}</span>
+      <span class="env-picker__item-label"></span>
     `;
+    item.querySelector(".env-picker__item-label").textContent = label;
     item.addEventListener("mousedown", e => {
       e.preventDefault();
       const newId = id === "__global__" ? null : id;

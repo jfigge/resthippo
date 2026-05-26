@@ -1122,13 +1122,14 @@ function initEventBus() {
   window.addEventListener("wurl:env-activate", async (e) => {
     currentEnvironments = { ...currentEnvironments, activeEnvironmentId: e.detail.id };
     await window.wurl.store.environments.save(currentEnvironments);
+    environmentsPopup.update(currentEnvironments);
     _refreshEditorVariableContext();
     envPicker.load(currentEnvironments);
   });
 
   window.addEventListener("wurl:env-vars-save", async (e) => {
     const { id, variables } = e.detail;
-    if (!id) {
+    if (id === null) {
       currentEnvironments = { ...currentEnvironments, globalVariables: variables };
     } else {
       currentEnvironments = {

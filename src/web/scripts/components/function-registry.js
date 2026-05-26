@@ -65,9 +65,27 @@ export const registry = {
   },
   environmentVariable: {
     label: "Environment variable",
-    category: "context",
+    category: "backend",
     params: [
       { name: "name", label: "Variable", type: "string", default: "" },
+    ],
+  },
+
+  hmac: {
+    label: "HMAC",
+    category: "backend",
+    params: [
+      { name: "algo", label: "Algorithm", type: "enum", default: "SHA256", options: ["SHA256", "SHA512"] },
+      { name: "key", label: "Key", type: "string", default: "" },
+      { name: "message", label: "Message", type: "string", default: "" },
+    ],
+  },
+  hash: {
+    label: "Hash",
+    category: "backend",
+    params: [
+      { name: "algo", label: "Algorithm", type: "enum", default: "SHA256", options: ["SHA256", "SHA512"] },
+      { name: "value", label: "Value", type: "string", default: "" },
     ],
   },
   requestName: {
