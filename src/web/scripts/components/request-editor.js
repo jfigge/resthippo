@@ -793,6 +793,8 @@ export class RequestEditor {
   #headerPillEditors = [];
   /** All active pill editors in the body-form list (cleared on each re-render). */
   #bodyFormPillEditors = [];
+  /** All active pill editors in the auth form (cleared on each re-render). */
+  #authPillEditors = [];
 
   constructor() {
     this.#el = document.createElement("div");
@@ -1102,6 +1104,8 @@ export class RequestEditor {
   #renderAuthContent() {
     const el = this.#authContentEl;
     if (!el) return;
+    for (const ed of this.#authPillEditors) ed.destroy?.();
+    this.#authPillEditors = [];
     el.innerHTML = "";
     if (this.#authBulkMode && this.#authType !== "none") {
       return this.#renderAuthBulkEditor(el);
@@ -1309,7 +1313,7 @@ export class RequestEditor {
     form.className = "auth-form";
 
     form.appendChild(
-      this.#buildAuthField("Username", "text", {
+      this.#buildAuthPillField("Username", {
         placeholder: "Username",
         value: this.#authBasic.username,
         onInput: (v) => {
@@ -1320,7 +1324,7 @@ export class RequestEditor {
     );
 
     form.appendChild(
-      this.#buildAuthFieldPassword("Password", {
+      this.#buildAuthPillField("Password", {
         placeholder: "Password",
         value: this.#authBasic.password,
         onInput: (v) => {
@@ -1339,7 +1343,7 @@ export class RequestEditor {
     form.className = "auth-form";
 
     form.appendChild(
-      this.#buildAuthField("Token", "text", {
+      this.#buildAuthPillField("Token", {
         placeholder: "Enter your bearer token…",
         value: this.#authBearer.token,
         onInput: (v) => {
@@ -1401,7 +1405,7 @@ export class RequestEditor {
 
     // ── Client ID (all grant types) ────────────────────────────────────────
     form.appendChild(
-      this.#buildAuthField("Client ID", "text", {
+      this.#buildAuthPillField("Client ID", {
         placeholder: "Client ID",
         value: this.#authOAuth2.clientId,
         onInput: (v) => {
@@ -1417,7 +1421,7 @@ export class RequestEditor {
       this.#authOAuth2.clientType === "public";
     if (this.#authOAuth2.grantType !== "implicit" && !isPublicClient) {
       form.appendChild(
-        this.#buildAuthFieldPassword("Client Secret", {
+        this.#buildAuthPillField("Client Secret", {
           placeholder: "Client Secret",
           value: this.#authOAuth2.clientSecret,
           onInput: (v) => {
@@ -1431,7 +1435,7 @@ export class RequestEditor {
     // ── Access Token URL (not shown for implicit) ──────────────────────────
     if (this.#authOAuth2.grantType !== "implicit") {
       form.appendChild(
-        this.#buildAuthField("Access Token URL", "url", {
+        this.#buildAuthPillField("Access Token URL", {
           placeholder: "https://example.com/oauth/token",
           value: this.#authOAuth2.accessTokenUrl,
           onInput: (v) => {
@@ -1447,7 +1451,7 @@ export class RequestEditor {
       ["authorization_code", "implicit"].includes(this.#authOAuth2.grantType)
     ) {
       form.appendChild(
-        this.#buildAuthField("Auth URL", "url", {
+        this.#buildAuthPillField("Auth URL", {
           placeholder: "https://example.com/oauth/authorize",
           value: this.#authOAuth2.authUrl,
           onInput: (v) => {
@@ -1463,7 +1467,7 @@ export class RequestEditor {
       ["authorization_code", "implicit"].includes(this.#authOAuth2.grantType)
     ) {
       form.appendChild(
-        this.#buildAuthField("Redirect URI", "url", {
+        this.#buildAuthPillField("Redirect URI", {
           placeholder: "http://localhost:7777/oauth/callback",
           value: this.#authOAuth2.redirectUri ?? "",
           onInput: (v) => {
@@ -1478,7 +1482,7 @@ export class RequestEditor {
     // ── Username / Password (resource owner password only) ─────────────────
     if (this.#authOAuth2.grantType === "password") {
       form.appendChild(
-        this.#buildAuthField("Username", "text", {
+        this.#buildAuthPillField("Username", {
           placeholder: "Username",
           value: this.#authOAuth2.username ?? "",
           onInput: (v) => {
@@ -1488,7 +1492,7 @@ export class RequestEditor {
         }),
       );
       form.appendChild(
-        this.#buildAuthFieldPassword("Password", {
+        this.#buildAuthPillField("Password", {
           placeholder: "Password",
           value: this.#authOAuth2.password ?? "",
           onInput: (v) => {
@@ -1560,7 +1564,7 @@ export class RequestEditor {
       // State — authorization_code, implicit
       if (["authorization_code", "implicit"].includes(grant)) {
         form.appendChild(
-          this.#buildAuthField("State", "text", {
+          this.#buildAuthPillField("State", {
             placeholder: "Random string for CSRF protection",
             value: this.#authOAuth2.state ?? "",
             onInput: (v) => {
@@ -1593,7 +1597,7 @@ export class RequestEditor {
 
       // Audience — all grant types
       form.appendChild(
-        this.#buildAuthField("Audience", "text", {
+        this.#buildAuthPillField("Audience", {
           placeholder: "https://api.example.com",
           value: this.#authOAuth2.audience ?? "",
           onInput: (v) => {
@@ -1606,7 +1610,7 @@ export class RequestEditor {
       // Resource — authorization_code, client_credentials
       if (["authorization_code", "client_credentials"].includes(grant)) {
         form.appendChild(
-          this.#buildAuthField("Resource", "text", {
+          this.#buildAuthPillField("Resource", {
             placeholder: "https://resource.example.com",
             value: this.#authOAuth2.resource ?? "",
             onInput: (v) => {
@@ -1620,7 +1624,7 @@ export class RequestEditor {
       // Origin — authorization_code only
       if (grant === "authorization_code") {
         form.appendChild(
-          this.#buildAuthField("Origin", "text", {
+          this.#buildAuthPillField("Origin", {
             placeholder: "https://app.example.com",
             value: this.#authOAuth2.origin ?? "",
             onInput: (v) => {
@@ -1633,7 +1637,7 @@ export class RequestEditor {
 
       // Header Prefix — all grant types, kept last so its hint text sits at the bottom
       form.appendChild(
-        this.#buildAuthField("Header Prefix", "text", {
+        this.#buildAuthPillField("Header Prefix", {
           placeholder: "Bearer",
           value: this.#authOAuth2.headerPrefix ?? "",
           onInput: (v) => {
@@ -1800,7 +1804,7 @@ export class RequestEditor {
     form.className = "auth-form";
 
     form.appendChild(
-      this.#buildAuthField("Access Key ID", "text", {
+      this.#buildAuthPillField("Access Key ID", {
         placeholder: "AKIAIOSFODNN7EXAMPLE",
         value: this.#authAwsIam.accessKeyId,
         onInput: (v) => {
@@ -1811,7 +1815,7 @@ export class RequestEditor {
     );
 
     form.appendChild(
-      this.#buildAuthFieldPassword("Secret Access Key", {
+      this.#buildAuthPillField("Secret Access Key", {
         placeholder: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
         value: this.#authAwsIam.secretAccessKey,
         onInput: (v) => {
@@ -1822,7 +1826,7 @@ export class RequestEditor {
     );
 
     form.appendChild(
-      this.#buildAuthField("Region", "text", {
+      this.#buildAuthPillField("Region", {
         placeholder: "us-east-1",
         value: this.#authAwsIam.region,
         onInput: (v) => {
@@ -1833,7 +1837,7 @@ export class RequestEditor {
     );
 
     form.appendChild(
-      this.#buildAuthField("Service", "text", {
+      this.#buildAuthPillField("Service", {
         placeholder: "execute-api",
         value: this.#authAwsIam.service,
         onInput: (v) => {
@@ -1844,7 +1848,7 @@ export class RequestEditor {
     );
 
     form.appendChild(
-      this.#buildAuthFieldPassword("Session Token", {
+      this.#buildAuthPillField("Session Token", {
         placeholder: "Optional — for temporary / STS credentials",
         value: this.#authAwsIam.sessionToken,
         onInput: (v) => {
@@ -1890,6 +1894,44 @@ export class RequestEditor {
 
     wrapper.appendChild(lbl);
     wrapper.appendChild(input);
+
+    if (hint) {
+      const hintEl = document.createElement("span");
+      hintEl.className = "auth-field__hint";
+      hintEl.textContent = hint;
+      wrapper.appendChild(hintEl);
+    }
+
+    return wrapper;
+  }
+
+  /**
+   * Build a labeled auth field whose value is a VariablePillEditor so the user
+   * can reference environment variables and functions inline.
+   * @param {string} label
+   * @param {{ placeholder?, value?, onInput?, hint? }} opts
+   */
+  #buildAuthPillField(label, { placeholder = "", value = "", onInput, hint } = {}) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "auth-field";
+
+    const lbl = document.createElement("label");
+    lbl.className = "auth-field__label";
+    lbl.textContent = label;
+
+    const editor = new VariablePillEditor({
+      placeholder,
+      ariaLabel: label,
+      className: "auth-field__input",
+      getContext: () => this.#variableContext,
+      getItems: () => this.#getItems(),
+      onInput: onInput ?? (() => {}),
+    });
+    editor.setValue(value ?? "");
+    this.#authPillEditors.push(editor);
+
+    wrapper.appendChild(lbl);
+    wrapper.appendChild(editor.element);
 
     if (hint) {
       const hintEl = document.createElement("span");
@@ -4753,6 +4795,7 @@ export class RequestEditor {
       ...this.#paramPillEditors,
       ...this.#headerPillEditors,
       ...this.#bodyFormPillEditors,
+      ...this.#authPillEditors,
     ].filter(Boolean);
     for (const editor of allEditors) {
       editor.revalidate();

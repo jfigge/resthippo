@@ -1225,6 +1225,39 @@ mark.tree-highlight {
   letter-spacing: 0.1em;
 }
 
+/* Pill editor variant of auth-field__input — overrides params-input sizing */
+.pill-editor.auth-field__input {
+  height: auto;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  line-height: 20px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  cursor: text;
+}
+
+.pill-editor.auth-field__input:focus,
+.pill-editor.auth-field__input:focus-within {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-base);
+}
+
+.pill-editor.auth-field__input:hover:not(:focus):not(:focus-within) {
+  border-color: var(--color-surface-2);
+}
+
+.pill-editor.auth-field__input[data-empty="true"]::before {
+  content: attr(data-placeholder);
+  color: var(--color-overlay-0);
+  font-style: italic;
+  pointer-events: none;
+}
+
 .auth-field__select {
   cursor: pointer;
 }
