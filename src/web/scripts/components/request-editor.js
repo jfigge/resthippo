@@ -2554,7 +2554,7 @@ export class RequestEditor {
         // Immediate re-validate after prettifying (no debounce needed)
         if (canValidate) {
           applyValidity(ta.value.trim()
-            ? (this.#validate(type, ta.value) ? " valid" : " xinvalid")
+            ? (this.#validate(type, ta.value) ? "valid" : "invalid")
             : null);
         }
       });
