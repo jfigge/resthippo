@@ -358,7 +358,7 @@ export class EnvironmentsPopup {
     ul.appendChild(
       this.#buildEnvRow({
         id: null,
-        name: "Global",
+        name: "GLOBAL",
         isActive: this.#data.activeEnvironmentId === null,
         isSelected: this.#selectedId === null,
         isGlobal: true,
@@ -518,7 +518,7 @@ export class EnvironmentsPopup {
 
   #commitName() {
     const input = this.#el.querySelector(".env-name-input");
-    const name = input.value.trim();
+    const name = input.value.trim().toUpperCase();
     if (!name) return;
 
     const action = this.#pendingAction;

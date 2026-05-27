@@ -73,7 +73,7 @@ export class EnvPicker {
     const items = [
       {
         id: "__global__",
-        label: "Global",
+        label: "GLOBAL",
         type: "radio",
         checked: !activeId,
       },
