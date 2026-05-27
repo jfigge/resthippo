@@ -739,7 +739,7 @@ export class ResponseViewer {
         checked: this.#renderMode === "raw",
       },
       { type: "separator" },
-      { id: "download", label: "Download" },
+      { id: "download", label: "Download..." },
     ];
     const clickedId = await window.wurl.ui.contextMenu({ items, x, y });
     if (clickedId === "download") {

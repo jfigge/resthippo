@@ -264,6 +264,8 @@ export class TreeView {
             delete: () => this.#deleteNode(node.id),
           }
         : {
+            "add-request": () => this.#addRequestAfter(node.id),
+            "add-folder": () => this.#addFolderAfter(node.id),
             rename: () => this.#renameNode(node.id),
             duplicate: () => this.#duplicateNode(node.id),
             "generate-curl": () => this.#generateCurl(node),
@@ -286,6 +288,9 @@ export class TreeView {
             { id: "delete", label: "Delete", danger: true },
           ]
         : [
+            { id: "add-request", label: "Add Request" },
+            { id: "add-folder", label: "Add Folder" },
+            { type: "separator" },
             { id: "rename", label: "Rename" },
             { type: "separator" },
             { id: "duplicate", label: "Duplicate" },
@@ -337,19 +342,45 @@ export class TreeView {
 
   // ── Mutations — toolbar ─────────────────────────────────────────────────
 
-  /** Add a new top-level collection and persist. */
+  /** Add a new collection or folder and persist.
+   *  - Request selected → new folder inserted as first child of that request's parent folder.
+   *  - Folder selected  → new folder inserted as first child of that folder.
+   *  - No selection     → new top-level collection appended to the root.
+   */
   #addCollection() {
-    const collection = {
-      id: crypto.randomUUID(),
-      type: "collection",
-      name: "New Collection",
-      children: [],
-    };
-    this.#items = [...this.#items, collection];
-    this.#activeCollectionId = collection.id;
-    this.#syncButtonState();
-    this.#rerender();
-    this.#emitChange();
+    const parentId = this.#selectedId
+      ? this.#findParentId(this.#items, this.#selectedId)
+      : (this.#activeCollectionId ?? null);
+
+    if (parentId) {
+      const folder = {
+        id: crypto.randomUUID(),
+        type: "collection",
+        name: "New Folder",
+        children: [],
+      };
+      this.#collapsedIds.delete(parentId);
+      this.#saveCollapsedState();
+      this.#items = this.#insertChild(this.#items, parentId, folder);
+      this.#activeCollectionId = folder.id;
+      this.#syncButtonState();
+      this.#rerender();
+      this.#emitChange();
+      const li = this.#el.querySelector(`[data-id="${CSS.escape(folder.id)}"]`);
+      if (li) this.#setActiveRow(li);
+    } else {
+      const collection = {
+        id: crypto.randomUUID(),
+        type: "collection",
+        name: "New Collection",
+        children: [],
+      };
+      this.#items = [...this.#items, collection];
+      this.#activeCollectionId = collection.id;
+      this.#syncButtonState();
+      this.#rerender();
+      this.#emitChange();
+    }
   }
 
   /**
@@ -400,6 +431,40 @@ export class TreeView {
     this.#collapsedIds.delete(collectionId);
     this.#saveCollapsedState();
     this.#items = this.#insertChild(this.#items, collectionId, folder);
+    this.#rerender();
+    this.#emitChange();
+    const li = this.#el.querySelector(`[data-id="${CSS.escape(folder.id)}"]`);
+    if (li) {
+      this.#activeCollectionId = folder.id;
+      this.#setActiveRow(li);
+    }
+  }
+
+  /** Insert a new request as a sibling immediately after the node with `nodeId`. */
+  #addRequestAfter(nodeId) {
+    const request = {
+      id: crypto.randomUUID(),
+      type: "request",
+      name: "New Request",
+      method: "GET",
+      url: "",
+    };
+    this.#items = this.#insertNodeAfter(this.#items, nodeId, request);
+    this.#rerender();
+    this.#emitChange();
+    const li = this.#el.querySelector(`[data-id="${CSS.escape(request.id)}"]`);
+    if (li) this.#selectRequest(request, li);
+  }
+
+  /** Insert a new folder as a sibling immediately after the node with `nodeId`. */
+  #addFolderAfter(nodeId) {
+    const folder = {
+      id: crypto.randomUUID(),
+      type: "collection",
+      name: "New Folder",
+      children: [],
+    };
+    this.#items = this.#insertNodeAfter(this.#items, nodeId, folder);
     this.#rerender();
     this.#emitChange();
     const li = this.#el.querySelector(`[data-id="${CSS.escape(folder.id)}"]`);
@@ -644,7 +709,7 @@ export class TreeView {
   #insertChild(nodes, parentId, child) {
     return nodes.map((node) => {
       if (node.id === parentId) {
-        return { ...node, children: [...(node.children ?? []), child] };
+        return { ...node, children: [child, ...(node.children ?? [])] };
       }
       if (Array.isArray(node.children) && node.children.length > 0) {
         return {
@@ -1046,6 +1111,7 @@ export class TreeView {
       // Single click anywhere on the row → select / highlight the row only (no toggle).
       row.addEventListener("click", () => {
         this.#activeCollectionId = node.id;
+        this.#selectedId = null;
         this.#setActiveRow(li);
       });
 
