@@ -347,6 +347,9 @@ mark.tree-highlight {
 }
 
 .req-method-select {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   height: 30px;
   padding: 0 var(--space-2);
   background: var(--color-surface-1);
@@ -358,6 +361,17 @@ mark.tree-highlight {
   font-weight: 700;
   cursor: pointer;
   min-width: 90px;
+}
+
+.req-method-select__label {
+  flex: 1;
+}
+
+.req-method-select__chevron {
+  opacity: 0.45;
+  flex-shrink: 0;
+  width: 6px;
+  height: 4px;
 }
 
 /* Colour-code the selected method */
@@ -381,6 +395,109 @@ mark.tree-highlight {
 }
 .req-method-select[data-method="options"] {
   color: var(--color-method-options);
+}
+
+/* ── Method picker dropdown (.req-method-menu) ────────────────────────────── */
+
+.req-method-menu {
+  position: fixed;
+  z-index: 900;
+  min-width: 90px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-md);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.15);
+  padding: var(--space-1) 0;
+  user-select: none;
+  animation: ctxmenu-open 0.08s ease-out;
+}
+
+.req-method-menu__item {
+  display: flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--color-text);
+  transition: background-color var(--transition-fast);
+}
+
+.req-method-menu__item:hover {
+  background-color: var(--color-surface-2);
+}
+
+.req-method-menu__item-check {
+  width: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--color-method-get);
+}
+
+.req-method-menu__check-icon {
+  display: none;
+}
+
+.req-method-menu__item--selected .req-method-menu__check-icon {
+  display: block;
+}
+
+.req-method-menu__item[data-method="get"] {
+  color: var(--color-method-get);
+}
+.req-method-menu__item[data-method="post"] {
+  color: var(--color-method-post);
+}
+.req-method-menu__item[data-method="put"] {
+  color: var(--color-method-put);
+}
+.req-method-menu__item[data-method="patch"] {
+  color: var(--color-method-patch);
+}
+.req-method-menu__item[data-method="delete"] {
+  color: var(--color-method-delete);
+}
+.req-method-menu__item[data-method="head"] {
+  color: var(--color-method-head);
+}
+.req-method-menu__item[data-method="options"] {
+  color: var(--color-method-options);
+}
+
+.req-method-menu__separator {
+  height: 1px;
+  background: var(--color-surface-2);
+  margin: var(--space-1) 0;
+}
+
+.req-method-menu__custom-row {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+}
+
+.req-method-menu__custom-input {
+  flex: 1;
+  padding: var(--space-1) 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text);
+  text-transform: uppercase;
+  min-width: 0;
+}
+
+.req-method-menu__custom-input::placeholder {
+  color: var(--color-subtext);
+  font-weight: 400;
 }
 
 .req-url-input {

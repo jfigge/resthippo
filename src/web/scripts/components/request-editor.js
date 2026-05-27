@@ -829,23 +829,126 @@ export class RequestEditor {
     bar.className = "req-url-bar";
 
     // Method selector
-    const methodSel = document.createElement("select");
+    const methodLabel = document.createElement("span");
+    methodLabel.className = "req-method-select__label";
+    methodLabel.textContent = this.#method;
+
+    const methodSel = document.createElement("button");
     methodSel.className = "req-method-select";
     methodSel.setAttribute("aria-label", "HTTP Method");
-    HTTP_METHODS.forEach((m) => {
-      const opt = document.createElement("option");
-      opt.value = m;
-      opt.textContent = m;
-      methodSel.appendChild(opt);
-    });
-    methodSel.value = this.#method;
+    methodSel.setAttribute("aria-haspopup", "listbox");
+    methodSel.type = "button";
     methodSel.dataset.method = this.#method.toLowerCase();
-    methodSel.addEventListener("change", () => {
-      this.#method = methodSel.value;
-      methodSel.dataset.method = this.#method.toLowerCase();
-      if (this._sendBtn)
-        this._sendBtn.dataset.method = this.#method.toLowerCase();
-      this.#dispatchRequestUpdated();
+    methodSel.appendChild(methodLabel);
+    methodSel.insertAdjacentHTML(
+      "beforeend",
+      `<svg class="req-method-select__chevron" viewBox="0 0 6 4" fill="currentColor" aria-hidden="true"><path d="M0 0 6 0 3 4Z"/></svg>`,
+    );
+
+    let _methodMenu = null;
+    let _methodMenuHandler = null;
+
+    const _closeMethodMenu = () => {
+      if (!_methodMenu) return;
+      _methodMenu.remove();
+      _methodMenu = null;
+      if (_methodMenuHandler) {
+        document.removeEventListener("mousedown", _methodMenuHandler, {
+          capture: true,
+        });
+        _methodMenuHandler = null;
+      }
+    };
+
+    methodSel.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      if (_methodMenu) {
+        _closeMethodMenu();
+        return;
+      }
+
+      const menu = document.createElement("div");
+      menu.className = "req-method-menu";
+      menu.setAttribute("role", "listbox");
+      menu.setAttribute("aria-label", "HTTP Method");
+      menu.addEventListener("mousedown", (ev) => ev.preventDefault());
+
+      const _CHECK = `<svg class="req-method-menu__check-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+      HTTP_METHODS.forEach((m) => {
+        const item = document.createElement("div");
+        item.className = "req-method-menu__item";
+        item.setAttribute("role", "option");
+        item.setAttribute("aria-selected", String(m === this.#method));
+        item.dataset.method = m.toLowerCase();
+        if (m === this.#method)
+          item.classList.add("req-method-menu__item--selected");
+        item.innerHTML = `<span class="req-method-menu__item-check" aria-hidden="true">${_CHECK}</span><span class="req-method-menu__item-label">${m}</span>`;
+        item.addEventListener("mousedown", (ev) => {
+          ev.preventDefault();
+          this.#method = m;
+          methodLabel.textContent = m;
+          methodSel.dataset.method = m.toLowerCase();
+          if (this._sendBtn)
+            this._sendBtn.dataset.method = m.toLowerCase();
+          _closeMethodMenu();
+          this.#dispatchRequestUpdated();
+        });
+        menu.appendChild(item);
+      });
+
+      const sep = document.createElement("div");
+      sep.className = "req-method-menu__separator";
+      menu.appendChild(sep);
+
+      const isCustom = !HTTP_METHODS.includes(this.#method);
+      const customRow = document.createElement("div");
+      customRow.className = "req-method-menu__custom-row";
+      customRow.innerHTML = `<span class="req-method-menu__item-check" aria-hidden="true">${_CHECK}</span>`;
+      if (isCustom) customRow.classList.add("req-method-menu__item--selected");
+
+      const customInput = document.createElement("input");
+      customInput.className = "req-method-menu__custom-input";
+      customInput.type = "text";
+      customInput.placeholder = "Custom…";
+      customInput.setAttribute("aria-label", "Custom HTTP method");
+      if (!HTTP_METHODS.includes(this.#method)) customInput.value = this.#method;
+      customInput.addEventListener("input", () => {
+        customInput.value = customInput.value.toUpperCase();
+      });
+      customInput.addEventListener("mousedown", (ev) => ev.stopPropagation());
+      customInput.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter") return;
+        const m = customInput.value.trim().toUpperCase();
+        if (!m) return;
+        this.#method = m;
+        methodLabel.textContent = m;
+        methodSel.dataset.method = m.toLowerCase();
+        if (this._sendBtn) this._sendBtn.dataset.method = m.toLowerCase();
+        _closeMethodMenu();
+        this.#dispatchRequestUpdated();
+      });
+      customRow.appendChild(customInput);
+      menu.appendChild(customRow);
+
+      const r = methodSel.getBoundingClientRect();
+      menu.style.cssText = `left:${r.left}px; top:${r.bottom + 4}px;`;
+      document.body.appendChild(menu);
+      _methodMenu = menu;
+
+      _methodMenuHandler = (ev) => {
+        if (
+          !menu.contains(ev.target) &&
+          ev.target !== methodSel &&
+          !methodSel.contains(ev.target)
+        ) {
+          _closeMethodMenu();
+        }
+      };
+      document.addEventListener("mousedown", _methodMenuHandler, {
+        capture: true,
+      });
     });
 
     // URL pill editor — replaces the plain <input type="url">
@@ -901,6 +1004,7 @@ export class RequestEditor {
     this.#el.appendChild(bar);
 
     this._methodSel = methodSel;
+    this._methodSelLabel = methodLabel;
     this._sendBtn = sendBtn;
     // Keep _urlInput as a compatibility shim pointing at the editor's element
     // so any external code that reads _urlInput.focus() still works.
@@ -4885,7 +4989,7 @@ export class RequestEditor {
 
     if (node.method) {
       this.#method = node.method;
-      this._methodSel.value = node.method;
+      this._methodSelLabel.textContent = node.method;
       this._methodSel.dataset.method = node.method.toLowerCase();
       this._sendBtn.dataset.method = node.method.toLowerCase();
     }
