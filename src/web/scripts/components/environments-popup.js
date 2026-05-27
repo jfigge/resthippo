@@ -347,7 +347,9 @@ export class EnvironmentsPopup {
   }
 
   #envDragTargetAfter(envList, y) {
-    const draggableItems = [...envList.querySelectorAll(".env-list-item[draggable='true']")];
+    const draggableItems = [
+      ...envList.querySelectorAll(".env-list-item[draggable='true']"),
+    ];
     return draggableItems.reduce(
       (closest, child) => {
         const box = child.getBoundingClientRect();
@@ -443,7 +445,9 @@ export class EnvironmentsPopup {
         this.#envDragId = id;
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", id);
-        requestAnimationFrame(() => li.classList.add("env-list-item--dragging"));
+        requestAnimationFrame(() =>
+          li.classList.add("env-list-item--dragging"),
+        );
       });
       li.addEventListener("dragend", () => {
         li.classList.remove("env-list-item--dragging");
