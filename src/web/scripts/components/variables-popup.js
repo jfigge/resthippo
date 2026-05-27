@@ -45,11 +45,6 @@ export class VariablesPopup {
   /** @type {{ id:string, name:string, value:string }[]} */
   #rows = [];
 
-  // drag state
-  #dragSrcId = null;
-  #dragHandled = false;
-  /** @type {HTMLElement} */ #phantom;
-
   /** @type {number|null} */ #saveTimer = null;
   /** @type {Function|null} */ #resetCleanup = null;
 
@@ -60,7 +55,6 @@ export class VariablesPopup {
 
   constructor() {
     this.#el = this.#build();
-    this.#phantom = this.#buildPhantom();
   }
 
   get element() {
@@ -166,7 +160,7 @@ export class VariablesPopup {
         ></textarea>
         <div class="vars-kv-wrap" style="display:none">
           <div class="vars-kv-header params-header-row">
-            <span></span><span>Name</span><span class="params-col-value">Value</span><span></span>
+            <span>Name</span><span class="params-col-value">Value</span><span></span>
           </div>
           <div class="vars-kv-list params-list" aria-label="Variables"></div>
         </div>
@@ -211,54 +205,7 @@ export class VariablesPopup {
       }
     });
 
-    // List-level drag events (fires even when cursor is over the phantom)
-    this.#kvListEl.addEventListener("dragover", (e) => {
-      if (!this.#dragSrcId) {
-        this.#phantom?.remove();
-        return;
-      }
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      if (!this.#kvListEl.contains(this.#phantom)) {
-        this.#kvListEl.appendChild(this.#phantom);
-      }
-    });
-
-    this.#kvListEl.addEventListener("drop", (e) => {
-      e.preventDefault();
-      if (!this.#dragSrcId) return;
-      this.#dragHandled = true;
-      const children = [...this.#kvListEl.children];
-      const phIdx = children.indexOf(this.#phantom);
-      if (phIdx === -1) {
-        this.#finalizeDrag();
-        return;
-      }
-      const rowEls = children.filter((c) =>
-        c.classList.contains("vars-kv-row"),
-      );
-      const insertAt = rowEls.filter((r) => children.indexOf(r) < phIdx).length;
-      const srcIdx = this.#rows.findIndex((r) => r.id === this.#dragSrcId);
-      if (srcIdx !== -1) {
-        const [moved] = this.#rows.splice(srcIdx, 1);
-        this.#rows.splice(
-          insertAt > srcIdx ? insertAt - 1 : insertAt,
-          0,
-          moved,
-        );
-        this.#renderRows();
-        this.#saveFromRows();
-      }
-      this.#finalizeDrag();
-    });
-
     return el;
-  }
-
-  #buildPhantom() {
-    const ph = document.createElement("div");
-    ph.className = "params-drop-phantom";
-    return ph;
   }
 
   // ── Mode switching ──────────────────────────────────────────────────────────
@@ -370,17 +317,6 @@ export class VariablesPopup {
     const el = document.createElement("div");
     el.className = "vars-kv-row params-row";
     el.dataset.id = row.id;
-    el.draggable = true;
-
-    const handle = document.createElement("span");
-    handle.className = "params-drag-handle";
-    handle.setAttribute("aria-hidden", "true");
-    handle.title = "Drag to reorder";
-    handle.innerHTML = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
-      <circle cx="3" cy="3"  r="1.4"/><circle cx="7" cy="3"  r="1.4"/>
-      <circle cx="3" cy="8"  r="1.4"/><circle cx="7" cy="8"  r="1.4"/>
-      <circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/>
-    </svg>`;
 
     const nameIn = document.createElement("input");
     nameIn.type = "text";
@@ -431,49 +367,10 @@ export class VariablesPopup {
       this.#saveFromRows();
     });
 
-    el.addEventListener("dragstart", (e) => {
-      this.#dragSrcId = row.id;
-      this.#dragHandled = false;
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", row.id);
-      requestAnimationFrame(() => {
-        if (!this.#dragSrcId) return; // dragend already fired — skip hide
-        el.parentElement?.insertBefore(this.#phantom, el);
-        el.style.display = "none";
-      });
-    });
-
-    el.addEventListener("dragover", (e) => {
-      if (!this.#dragSrcId || this.#dragSrcId === row.id) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      const rect = el.getBoundingClientRect();
-      const after = (e.clientY - rect.top) / rect.height >= 0.5;
-      el.parentElement?.insertBefore(
-        this.#phantom,
-        after ? el.nextSibling : el,
-      );
-    });
-
-    el.addEventListener("dragend", () => {
-      if (!this.#dragHandled) {
-        el.style.display = "";
-        this.#phantom.remove();
-      }
-      this.#finalizeDrag();
-    });
-
-    el.appendChild(handle);
     el.appendChild(nameIn);
     el.appendChild(valIn);
     el.appendChild(del);
     return el;
-  }
-
-  #finalizeDrag() {
-    this.#dragSrcId = null;
-    this.#dragHandled = false;
-    this.#phantom.remove();
   }
 
   #addRow() {

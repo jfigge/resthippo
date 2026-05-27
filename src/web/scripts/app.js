@@ -614,6 +614,7 @@ let currentEnvironments = {
 const envPopupState = () => ({
   collections: currentColls.collections,
   activeCollectionId: currentColls.activeCollectionId,
+  bulkEditor: currentSettings.varsBulkEditor ?? true,
 });
 
 function initHeader() {
@@ -675,37 +676,6 @@ function initHeader() {
   _ctrlGroup
     .querySelector("#btn-collection-ctrl")
     .addEventListener("contextmenu", _openCollCtxMenu);
-}
-
-/** Open the native OS context menu for the active collection. */
-async function _showCollContextMenu(x, y) {
-  const actions = {
-    rename: () => envPopup.openWithRename(envPopupState()),
-    variables: () => {
-      const activeColl = currentColls.collections.find(
-        (c) => c.id === currentColls.activeCollectionId,
-      );
-      if (!activeColl) return;
-      varsPopup.open({
-        envId: activeColl.id,
-        envName: activeColl.name,
-        variables: activeColl.variables ?? {},
-        bulkEditor: currentSettings.varsBulkEditor ?? true,
-      });
-    },
-  };
-
-  const clickedId = await window.wurl.ui.contextMenu({
-    items: [
-      { id: "rename", label: "Rename" },
-      { type: "separator" },
-      { id: "variables", label: "Variables" },
-    ],
-    x,
-    y,
-  });
-
-  if (clickedId) actions[clickedId]?.();
 }
 
 // ─── Event bus ────────────────────────────────────────────────────────────────
@@ -1922,6 +1892,8 @@ function applySettings(settings) {
   if (requestEditor) requestEditor.applySettings(settings);
   if (responseViewer) responseViewer.applySettings(settings);
   if (varsPopup) varsPopup.applySettings(settings);
+  if (envPopup) envPopup.applySettings(settings);
+  if (environmentsPopup) environmentsPopup.applySettings(settings);
   if (treeView)
     treeView.setDoubleClickExecute(settings.doubleClickExecute ?? false);
   setPickerDebounceMs(settings.pickerDebounceMs ?? 200);

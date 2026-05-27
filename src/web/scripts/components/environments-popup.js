@@ -72,10 +72,6 @@ export class EnvironmentsPopup {
   #isBulkMode = true;
   /** @type {{ id:string, name:string, value:string }[]} */
   #rows = [];
-  /** @type {HTMLElement} */
-  #phantom;
-  #dragSrcId = null;
-  #dragHandled = false;
 
   // ── Environment-list drag state ────────────────────────────────────────────
   #envDragId = null;
@@ -88,10 +84,13 @@ export class EnvironmentsPopup {
 
   static #SAVE_MS = 500;
 
+  /** @type {boolean} */
+  #removeHeaders = false;
+
   constructor() {
     this.#el = this.#build();
-    this.#phantom = this.#buildPhantom();
     this.#envPhantom = this.#buildEnvPhantom();
+    this.#initResize(this.#el);
   }
 
   get element() {
@@ -99,6 +98,16 @@ export class EnvironmentsPopup {
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
+
+  /**
+   * @param {{ removeHeaders?: boolean }} settings
+   */
+  applySettings(settings) {
+    if (settings.removeHeaders !== undefined) {
+      this.#removeHeaders = settings.removeHeaders;
+      this.#applyRemoveHeaders();
+    }
+  }
 
   /**
    * Open the popup seeded with the current environments data.
@@ -120,6 +129,7 @@ export class EnvironmentsPopup {
     this.#renderList();
     this.#loadEditorForSelected();
     PopupManager.open(this);
+    this.#applyRemoveHeaders();
   }
 
   /**
@@ -144,6 +154,11 @@ export class EnvironmentsPopup {
   /** Required by PopupManager. */
   onMaskClick() {
     this.#doClose();
+  }
+
+  #applyRemoveHeaders() {
+    const hdr = this.#el.querySelector(".env-kv-header");
+    if (hdr) hdr.style.display = this.#removeHeaders ? "none" : "";
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -195,7 +210,7 @@ export class EnvironmentsPopup {
           ></textarea>
           <div class="env-kv-wrap" style="display:none">
             <div class="env-kv-header params-header-row">
-              <span></span><span>Name</span><span class="params-col-value">Value</span><span></span>
+              <span>Name</span><span class="params-col-value">Value</span><span></span>
             </div>
             <div class="env-kv-list params-list" aria-label="Variables"></div>
           </div>
@@ -251,42 +266,6 @@ export class EnvironmentsPopup {
         e.stopPropagation();
         this.#doClose();
       }
-    });
-
-    const kvList = el.querySelector(".env-kv-list");
-    kvList.addEventListener("dragover", (e) => {
-      if (!this.#dragSrcId) {
-        this.#phantom?.remove();
-        return;
-      }
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      if (!kvList.contains(this.#phantom)) kvList.appendChild(this.#phantom);
-    });
-    kvList.addEventListener("drop", (e) => {
-      e.preventDefault();
-      if (!this.#dragSrcId) return;
-      this.#dragHandled = true;
-      const children = [...kvList.children];
-      const phIdx = children.indexOf(this.#phantom);
-      if (phIdx === -1) {
-        this.#finalizeDrag();
-        return;
-      }
-      const rowEls = children.filter((c) => c.classList.contains("env-kv-row"));
-      const insertAt = rowEls.filter((r) => children.indexOf(r) < phIdx).length;
-      const srcIdx = this.#rows.findIndex((r) => r.id === this.#dragSrcId);
-      if (srcIdx !== -1) {
-        const [moved] = this.#rows.splice(srcIdx, 1);
-        this.#rows.splice(
-          insertAt > srcIdx ? insertAt - 1 : insertAt,
-          0,
-          moved,
-        );
-        this.#renderRows();
-        this.#saveFromRows();
-      }
-      this.#finalizeDrag();
     });
 
     const envList = el.querySelector(".env-list");
@@ -361,12 +340,6 @@ export class EnvironmentsPopup {
       },
       { offset: Number.NEGATIVE_INFINITY, element: null },
     ).element;
-  }
-
-  #buildPhantom() {
-    const ph = document.createElement("div");
-    ph.className = "params-drop-phantom";
-    return ph;
   }
 
   #buildEnvPhantom() {
@@ -792,17 +765,6 @@ export class EnvironmentsPopup {
     const el = document.createElement("div");
     el.className = "env-kv-row params-row";
     el.dataset.id = row.id;
-    el.draggable = true;
-
-    const handle = document.createElement("span");
-    handle.className = "params-drag-handle";
-    handle.setAttribute("aria-hidden", "true");
-    handle.title = "Drag to reorder";
-    handle.innerHTML = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
-      <circle cx="3" cy="3"  r="1.4"/><circle cx="7" cy="3"  r="1.4"/>
-      <circle cx="3" cy="8"  r="1.4"/><circle cx="7" cy="8"  r="1.4"/>
-      <circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/>
-    </svg>`;
 
     const nameIn = document.createElement("input");
     nameIn.type = "text";
@@ -853,47 +815,10 @@ export class EnvironmentsPopup {
       this.#saveFromRows();
     });
 
-    el.addEventListener("dragstart", (e) => {
-      this.#dragSrcId = row.id;
-      this.#dragHandled = false;
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", row.id);
-      requestAnimationFrame(() => {
-        if (!this.#dragSrcId) return;
-        el.parentElement?.insertBefore(this.#phantom, el);
-        el.style.display = "none";
-      });
-    });
-    el.addEventListener("dragover", (e) => {
-      if (!this.#dragSrcId || this.#dragSrcId === row.id) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      const rect = el.getBoundingClientRect();
-      const after = (e.clientY - rect.top) / rect.height >= 0.5;
-      el.parentElement?.insertBefore(
-        this.#phantom,
-        after ? el.nextSibling : el,
-      );
-    });
-    el.addEventListener("dragend", () => {
-      if (!this.#dragHandled) {
-        el.style.display = "";
-        this.#phantom.remove();
-      }
-      this.#finalizeDrag();
-    });
-
-    el.appendChild(handle);
     el.appendChild(nameIn);
     el.appendChild(valIn);
     el.appendChild(del);
     return el;
-  }
-
-  #finalizeDrag() {
-    this.#dragSrcId = null;
-    this.#dragHandled = false;
-    this.#phantom.remove();
   }
 
   #addRow() {
@@ -1013,6 +938,41 @@ export class EnvironmentsPopup {
     this.#flushEditorSave();
     this.#cancelResetConfirm();
     PopupManager.close();
+  }
+
+  // ── Resize ─────────────────────────────────────────────────────────────────
+
+  #initResize(el) {
+    const handle = document.createElement("div");
+    handle.className = "popup-resize-handle";
+    handle.setAttribute("aria-hidden", "true");
+    handle.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+      <circle cx="9" cy="9" r="1.4"/><circle cx="5" cy="9" r="1.4"/><circle cx="9" cy="5" r="1.4"/>
+    </svg>`;
+    el.appendChild(handle);
+
+    handle.addEventListener("mousedown", (startEvt) => {
+      startEvt.preventDefault();
+      startEvt.stopPropagation();
+      const rect = el.getBoundingClientRect();
+      const minW = rect.width;
+      const minH = rect.height;
+      // Center stays fixed at 50vw/50vh — width = 2 × (mouseX − centerX)
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      el.style.maxWidth = "none";
+      el.style.maxHeight = "none";
+      const onMove = (e) => {
+        el.style.width = `${Math.max(minW, 2 * (e.clientX - centerX))}px`;
+        el.style.height = `${Math.max(minH, 2 * (e.clientY - centerY))}px`;
+      };
+      const onUp = () => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    });
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────

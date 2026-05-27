@@ -1,23 +1,22 @@
 /**
- * collections-popup.js — collections selector popup
+ * collections-popup.js — collections selector + inline variable editor
  *
- * Allows the user to:
- *   • View all collections (the active one is marked with a checkmark)
- *   • Select a collection (switches the active tree-view data)
- *   • Add a new collection (empty collections)
- *   • Clone a collection (deep-copies all collections under a new name)
- *   • Delete a collection (disabled when only 1 remains)
+ * Two-section popup:
+ *   Top:    Collection selector (active one marked with a checkmark;
+ *           add / clone / rename / delete actions)
+ *   Bottom: Inline key/value editor with bulk-textarea / KV-row toggle
  *
- * The popup stays open across operations so the user can make multiple
- * changes.  Each action dispatches a custom event on window; app.js
- * handles the state mutation and calls popup.update() to refresh the list.
+ * Clicking a collection row both activates it (for tree-view data) and
+ * loads its variables into the inline editor.
  *
- * Events dispatched:
+ * Events dispatched on window:
  *   wurl:coll-select  { id }                    — switch active collection
  *   wurl:coll-add     { name }                  — create new empty collection
  *   wurl:coll-clone   { sourceId, name }        — clone a collection
  *   wurl:coll-rename  { id, name }              — rename a collection
  *   wurl:coll-delete  { id }                    — delete a collection
+ *   wurl:vars-save    { envId, variables }       — debounced 500ms auto-save
+ *   wurl:vars-bulk-editor-changed { bulkEditor } — toggle changed
  */
 
 "use strict";
@@ -59,23 +58,43 @@ export class CollectionsPopup {
   /** @type {HTMLElement} */
   #el;
 
-  /** @type {{id: string, name: string}[]} */
+  /** @type {{id: string, name: string, variables?: object}[]} */
   #collections = [];
 
   /** @type {string|null} */
   #activeId = null;
 
+  /** ID currently shown in the variable editor */
+  #selectedId = null;
+
+  // ── Name-input form state ──────────────────────────────────────────────────
   /**
-   * Tracks which action the name-input row is performing.
    * null | "add" | { type: "clone", sourceId: string, sourceName: string }
+   *       | { type: "rename", id: string, currentName: string }
    */
   #pendingAction = null;
-
-  /** @type {number|null} — handle returned by setTimeout for the error-class removal */
+  /** @type {number|null} */
   #nameErrorTimer = null;
+
+  // ── Variable-editor state ──────────────────────────────────────────────────
+  #isBulkMode = true;
+  /** @type {{ id:string, name:string, value:string }[]} */
+  #rows = [];
+  /** @type {number|null} */
+  #saveTimer = null;
+  /** vars snapshot per collection when first loaded — used by Reset */
+  #initialCollectionVars = new Map();
+  /** @type {Function|null} */
+  #resetCleanup = null;
+
+  static #SAVE_MS = 500;
+
+  /** @type {boolean} */
+  #removeHeaders = false;
 
   constructor() {
     this.#el = this.#build();
+    this.#initResize(this.#el);
   }
 
   /** Root DOM element — required by PopupManager. */
@@ -86,49 +105,89 @@ export class CollectionsPopup {
   // ── Public API ─────────────────────────────────────────────────────────────
 
   /**
+   * @param {{ removeHeaders?: boolean }} settings
+   */
+  applySettings(settings) {
+    if (settings.removeHeaders !== undefined) {
+      this.#removeHeaders = settings.removeHeaders;
+      this.#applyRemoveHeaders();
+    }
+  }
+
+  /**
    * Open the popup and immediately begin renaming the specified collection.
-   * Used by external callers (e.g. the nav-panel context menu).
-   * @param {{ collections: object[], activeCollectionId: string }} state
-   * @param {string} collectionId  — the collection to rename (defaults to active)
+   * @param {{ collections: object[], activeCollectionId: string, bulkEditor?: boolean }} state
+   * @param {string} collectionId
    */
   openWithRename(
-    { collections, activeCollectionId },
+    { collections, activeCollectionId, bulkEditor },
     collectionId = activeCollectionId,
   ) {
-    this.open({ collections, activeCollectionId });
+    this.open({ collections, activeCollectionId, bulkEditor });
     const coll = this.#collections.find((e) => e.id === collectionId);
     if (coll) this.#startRename(coll);
   }
 
   /**
-   * Open the popup, seeded with the current app state.
-   * @param {{ collections: object[], activeCollectionId: string }} state
+   * Open the popup seeded with the current app state.
+   * @param {{ collections: object[], activeCollectionId: string, bulkEditor?: boolean }} state
    */
-  open({ collections, activeCollectionId }) {
+  open({ collections, activeCollectionId, bulkEditor = true }) {
     this.#collections = collections.map((e) => ({ ...e }));
     this.#activeId = activeCollectionId;
+    this.#selectedId = activeCollectionId;
     this.#pendingAction = null;
-    this.#renderList();
+    this.#isBulkMode = bulkEditor;
+    this.#el.querySelector(".coll-bulk-toggle").checked = bulkEditor;
+
+    clearTimeout(this.#saveTimer);
+    this.#cancelResetConfirm();
+    this.#initialCollectionVars.clear();
+
     this.#setNameInputVisible(false);
+    this.#renderList();
+    this.#loadEditorForSelected();
     PopupManager.open(this);
+    this.#applyRemoveHeaders();
   }
 
   /**
    * Refresh the list without closing the popup.
    * Called by app.js after any collection mutation.
-   * @param {{ collections: object[], activeCollectionId: string }} state
+   * @param {{ collections: object[], activeCollectionId: string, bulkEditor?: boolean }} state
    */
   update({ collections, activeCollectionId }) {
+    const activeChanged = activeCollectionId !== this.#activeId;
     this.#collections = collections.map((e) => ({ ...e }));
     this.#activeId = activeCollectionId;
     this.#pendingAction = null;
-    this.#renderList();
     this.#setNameInputVisible(false);
+    this.#renderList();
+
+    // If the selected collection was deleted, fall back to active
+    const selectedExists = this.#collections.some(
+      (c) => c.id === this.#selectedId,
+    );
+    if (!selectedExists) {
+      this.#selectedId = activeCollectionId;
+      this.#loadEditorForSelected();
+      return;
+    }
+
+    // After a collection switch, reload with freshly-loaded variables
+    if (activeChanged && this.#selectedId === activeCollectionId) {
+      this.#loadEditorForSelected();
+    }
   }
 
   /** Called by PopupManager when the user clicks the overlay mask. */
   onMaskClick() {
-    PopupManager.close();
+    this.#doClose();
+  }
+
+  #applyRemoveHeaders() {
+    const hdr = this.#el.querySelector(".coll-kv-header");
+    if (hdr) hdr.style.display = this.#removeHeaders ? "none" : "";
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -146,33 +205,62 @@ export class CollectionsPopup {
         <button class="popup-close" aria-label="Close collections" title="Close">✕</button>
       </div>
       <div class="popup-body coll-popup-body">
-        <div class="coll-name-input-row">
-          <input
-            class="coll-name-input"
-            type="text"
-            placeholder="Collection name…"
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <button class="popup-btn popup-btn--primary coll-name-ok" disabled>Add</button>
-          <button class="popup-btn popup-btn--secondary coll-name-cancel">Cancel</button>
+        <div class="coll-selector-wrap">
+          <div class="coll-name-input-row">
+            <input
+              class="coll-name-input"
+              type="text"
+              placeholder="Collection name…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button class="popup-btn popup-btn--primary coll-name-ok" disabled>Add</button>
+            <button class="popup-btn popup-btn--secondary coll-name-cancel">Cancel</button>
+          </div>
+          <ul class="coll-list" role="listbox" aria-label="Collections"></ul>
         </div>
-        <ul class="coll-list" role="listbox" aria-label="Collections"></ul>
+        <div class="coll-vars-section">
+          <div class="coll-vars-toolbar">
+            <span class="coll-active-label">Variables</span>
+            <label class="params-toolbar-toggle-label coll-bulk-label"
+                   title="Toggle between bulk text editor and key/value row editor">
+              <input type="checkbox" class="params-toolbar-toggle coll-bulk-toggle" checked>
+              Bulk editor
+            </label>
+            <button class="icon-btn coll-add-btn" title="Add variable" aria-label="Add variable" style="display:none">+</button>
+            <span class="coll-vars-hint">One  name=value  per line</span>
+          </div>
+          <textarea
+            class="body-text-editor coll-textarea"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="name=value&#10;baseUrl=https://example.com&#10;apiKey=abc123"
+            aria-label="Variables editor"
+          ></textarea>
+          <div class="coll-kv-wrap" style="display:none">
+            <div class="coll-kv-header params-header-row">
+              <span>Name</span><span class="params-col-value">Value</span><span></span>
+            </div>
+            <div class="coll-kv-list params-list" aria-label="Variables"></div>
+          </div>
+        </div>
       </div>
-      <div class="popup-footer">
+      <div class="popup-footer coll-popup-footer">
         <button class="popup-btn popup-btn--secondary coll-new-btn">+ New Collection</button>
+        <button class="popup-btn popup-btn--secondary coll-reset-btn"
+                title="Reset variables to the values they had when this dialog was opened">Reset</button>
         <button class="popup-btn popup-btn--primary js-close">Close</button>
       </div>
     `;
 
-    // Header close
+    // Header / footer close
     el.querySelector(".popup-close").addEventListener("click", () =>
-      PopupManager.close(),
+      this.#doClose(),
     );
-    // Footer close
     el.querySelector(".js-close").addEventListener("click", () =>
-      PopupManager.close(),
+      this.#doClose(),
     );
+
     // New collection
     el.querySelector(".coll-new-btn").addEventListener("click", () =>
       this.#startAdd(),
@@ -193,6 +281,27 @@ export class CollectionsPopup {
     nameOkBtn.addEventListener("click", () => this.#commitName());
     cancelBtn.addEventListener("click", () => this.#setNameInputVisible(false));
 
+    // Variable editor controls
+    el.querySelector(".coll-bulk-toggle").addEventListener("change", () =>
+      this.#handleBulkToggle(),
+    );
+    el.querySelector(".coll-textarea").addEventListener("input", () =>
+      this.#scheduleSave(),
+    );
+    el.querySelector(".coll-add-btn").addEventListener("click", () =>
+      this.#addRow(),
+    );
+    el.querySelector(".coll-reset-btn").addEventListener("click", () =>
+      this.#handleReset(),
+    );
+
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !this.#resetCleanup) {
+        e.stopPropagation();
+        this.#doClose();
+      }
+    });
+
     return el;
   }
 
@@ -205,26 +314,26 @@ export class CollectionsPopup {
 
     this.#collections.forEach((collection) => {
       const isActive = collection.id === this.#activeId;
+      const isSelected = collection.id === this.#selectedId;
 
       const li = document.createElement("li");
       li.className =
-        "coll-list-item" + (isActive ? " coll-list-item--active" : "");
+        "coll-list-item" +
+        (isActive ? " coll-list-item--active" : "") +
+        (isSelected && !isActive ? " coll-list-item--selected" : "");
       li.setAttribute("role", "option");
       li.setAttribute("aria-selected", String(isActive));
 
-      // Checkmark column
       const check = document.createElement("span");
       check.className = "coll-list-item__check";
       check.innerHTML = isActive ? ICON_CHECK : "";
 
-      // Name button (clicking selects the collection)
       const nameBtn = document.createElement("button");
       nameBtn.className = "coll-list-item__name";
       nameBtn.textContent = collection.name;
       nameBtn.setAttribute("aria-label", `Select ${collection.name}`);
       nameBtn.addEventListener("click", () => this.#selectColl(collection.id));
 
-      // Action buttons
       const actions = document.createElement("div");
       actions.className = "coll-list-item__actions";
 
@@ -342,13 +451,11 @@ export class CollectionsPopup {
 
     const action = this.#pendingAction;
 
-    // For rename: if the name hasn't changed just close silently
     if (action?.type === "rename" && name === action.currentName) {
       this.#setNameInputVisible(false);
       return;
     }
 
-    // Uniqueness check (case-insensitive); for rename, exclude the collection being renamed
     const isDuplicate = this.#collections.some((e) => {
       if (action?.type === "rename" && e.id === action.id) return false;
       return e.name.toLowerCase() === name.toLowerCase();
@@ -368,10 +475,12 @@ export class CollectionsPopup {
     this.#setNameInputVisible(false);
 
     if (action === "add") {
+      this.#flushEditorSave();
       window.dispatchEvent(
         new CustomEvent("wurl:coll-add", { detail: { name }, bubbles: true }),
       );
     } else if (action?.type === "clone") {
+      this.#flushEditorSave();
       window.dispatchEvent(
         new CustomEvent("wurl:coll-clone", {
           detail: { sourceId: action.sourceId, name },
@@ -388,13 +497,19 @@ export class CollectionsPopup {
     }
   }
 
-  // ── Actions ────────────────────────────────────────────────────────────────
+  // ── Collection selection & deletion ───────────────────────────────────────
 
   #selectColl(id) {
-    if (id === this.#activeId) return;
-    window.dispatchEvent(
-      new CustomEvent("wurl:coll-select", { detail: { id }, bubbles: true }),
-    );
+    if (id === this.#selectedId) return;
+    this.#flushEditorSave();
+    this.#selectedId = id;
+    this.#renderList();
+    this.#loadEditorForSelected();
+    if (id !== this.#activeId) {
+      window.dispatchEvent(
+        new CustomEvent("wurl:coll-select", { detail: { id }, bubbles: true }),
+      );
+    }
   }
 
   #confirmDelete(coll) {
@@ -411,6 +526,339 @@ export class CollectionsPopup {
           }),
         );
       },
+    });
+  }
+
+  // ── Variable editor ────────────────────────────────────────────────────────
+
+  #loadEditorForSelected() {
+    const vars = this.#getSelectedVars();
+
+    // Save initial snapshot for Reset (only on first load per collection)
+    if (!this.#initialCollectionVars.has(this.#selectedId)) {
+      this.#initialCollectionVars.set(this.#selectedId, { ...vars });
+    }
+
+    const label = this.#el.querySelector(".coll-active-label");
+    if (label) {
+      const coll = this.#collections.find((c) => c.id === this.#selectedId);
+      label.textContent = coll ? `${coll.name} Variables` : "Variables";
+    }
+
+    clearTimeout(this.#saveTimer);
+    this.#cancelResetConfirm();
+
+    if (this.#isBulkMode) {
+      this.#el.querySelector(".coll-textarea").value = this.#varsToText(vars);
+    } else {
+      this.#rows = this.#varsToRows(vars);
+      this.#renderRows();
+    }
+    this.#applyMode();
+  }
+
+  #getSelectedVars() {
+    return (
+      this.#collections.find((c) => c.id === this.#selectedId)?.variables ?? {}
+    );
+  }
+
+  // ── Mode switching ─────────────────────────────────────────────────────────
+
+  #applyMode() {
+    const bulk = this.#isBulkMode;
+    const textarea = this.#el.querySelector(".coll-textarea");
+    const kvWrap = this.#el.querySelector(".coll-kv-wrap");
+    const hintEl = this.#el.querySelector(".coll-vars-hint");
+    const addBtn = this.#el.querySelector(".coll-add-btn");
+    textarea.style.display = bulk ? "" : "none";
+    kvWrap.style.display = bulk ? "none" : "";
+    if (hintEl) hintEl.style.display = bulk ? "" : "none";
+    if (addBtn) addBtn.style.display = bulk ? "none" : "";
+  }
+
+  #handleBulkToggle() {
+    const nowBulk = this.#el.querySelector(".coll-bulk-toggle").checked;
+    if (nowBulk && !this.#isBulkMode) {
+      this.#el.querySelector(".coll-textarea").value = this.#varsToText(
+        this.#rowsToObject(),
+      );
+    } else if (!nowBulk && this.#isBulkMode) {
+      this.#rows = this.#varsToRows(
+        this.#textToVars(this.#el.querySelector(".coll-textarea").value),
+      );
+    }
+    this.#isBulkMode = nowBulk;
+    this.#applyMode();
+    if (nowBulk) {
+      requestAnimationFrame(() =>
+        this.#el.querySelector(".coll-textarea").focus(),
+      );
+    } else {
+      this.#renderRows();
+      this.#saveFromRows();
+    }
+    window.dispatchEvent(
+      new CustomEvent("wurl:vars-bulk-editor-changed", {
+        detail: { bulkEditor: nowBulk },
+        bubbles: true,
+      }),
+    );
+  }
+
+  // ── Conversion helpers ─────────────────────────────────────────────────────
+
+  #varsToText(vars) {
+    return Object.entries(vars)
+      .map(([k, v]) => `${k}=${v}`)
+      .join("\n");
+  }
+
+  #textToVars(text) {
+    const out = {};
+    for (const line of text.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx === -1) continue;
+      const key = trimmed.slice(0, eqIdx).trim();
+      const val = trimmed.slice(eqIdx + 1);
+      if (key) out[key] = val;
+    }
+    return out;
+  }
+
+  #varsToRows(vars) {
+    return Object.entries(vars).map(([name, value]) => ({
+      id: crypto.randomUUID(),
+      name,
+      value: typeof value === "string" ? value : JSON.stringify(value),
+    }));
+  }
+
+  #rowsToObject() {
+    const out = {};
+    for (const r of this.#rows) {
+      if (r.name.trim()) out[r.name] = r.value;
+    }
+    return out;
+  }
+
+  // ── KV row rendering ───────────────────────────────────────────────────────
+
+  #renderRows() {
+    const kvList = this.#el.querySelector(".coll-kv-list");
+    kvList.innerHTML = "";
+    if (this.#rows.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "params-empty";
+      empty.textContent = "No variables — click  +  to add one.";
+      kvList.appendChild(empty);
+      return;
+    }
+    this.#rows.forEach((row) => kvList.appendChild(this.#buildRow(row)));
+  }
+
+  #buildRow(row) {
+    const el = document.createElement("div");
+    el.className = "coll-kv-row params-row";
+    el.dataset.id = row.id;
+
+    const nameIn = document.createElement("input");
+    nameIn.type = "text";
+    nameIn.className = "params-input params-name";
+    nameIn.placeholder = "Name";
+    nameIn.value = row.name;
+    nameIn.setAttribute("aria-label", "Variable name");
+    nameIn.setAttribute("autocomplete", "off");
+    nameIn.addEventListener("input", () => {
+      row.name = nameIn.value;
+      this.#saveFromRows();
+    });
+    nameIn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.#addRow();
+      }
+    });
+
+    const valIn = document.createElement("input");
+    valIn.type = "text";
+    valIn.className = "params-input params-value";
+    valIn.placeholder = "Value";
+    valIn.value = row.value;
+    valIn.setAttribute("aria-label", "Variable value");
+    valIn.addEventListener("input", () => {
+      row.value = valIn.value;
+      this.#saveFromRows();
+    });
+    valIn.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.#addRow();
+      }
+    });
+
+    const del = document.createElement("button");
+    del.className = "icon-btn params-delete-btn";
+    del.title = "Delete variable";
+    del.setAttribute("aria-label", "Delete variable");
+    del.innerHTML = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
+    </svg>`;
+    del.addEventListener("click", () => {
+      this.#rows = this.#rows.filter((r) => r.id !== row.id);
+      this.#renderRows();
+      this.#saveFromRows();
+    });
+
+    el.appendChild(nameIn);
+    el.appendChild(valIn);
+    el.appendChild(del);
+    return el;
+  }
+
+  #addRow() {
+    const row = { id: crypto.randomUUID(), name: "", value: "" };
+    this.#rows.push(row);
+    this.#renderRows();
+    const rows = this.#el
+      .querySelector(".coll-kv-list")
+      .querySelectorAll(".coll-kv-row");
+    if (rows.length)
+      rows[rows.length - 1].querySelector(".params-name")?.focus();
+  }
+
+  // ── Save ───────────────────────────────────────────────────────────────────
+
+  #scheduleSave() {
+    clearTimeout(this.#saveTimer);
+    this.#saveTimer = setTimeout(
+      () => this.#saveFromBulk(),
+      CollectionsPopup.#SAVE_MS,
+    );
+  }
+
+  #saveFromBulk() {
+    this.#dispatchVarsSave(
+      this.#textToVars(this.#el.querySelector(".coll-textarea").value),
+    );
+  }
+
+  #saveFromRows() {
+    this.#dispatchVarsSave(this.#rowsToObject());
+  }
+
+  #flushEditorSave() {
+    clearTimeout(this.#saveTimer);
+    if (this.#isBulkMode) this.#saveFromBulk();
+    else this.#saveFromRows();
+  }
+
+  #dispatchVarsSave(variables) {
+    if (!this.#selectedId) return;
+    // Update in-memory collection state
+    this.#collections = this.#collections.map((c) =>
+      c.id === this.#selectedId ? { ...c, variables } : c,
+    );
+    window.dispatchEvent(
+      new CustomEvent("wurl:vars-save", {
+        detail: { envId: this.#selectedId, variables },
+        bubbles: true,
+      }),
+    );
+  }
+
+  // ── Reset ──────────────────────────────────────────────────────────────────
+
+  #handleReset() {
+    if (this.#resetCleanup) {
+      this.#cancelResetConfirm();
+      const initVars = this.#getInitialVars();
+      if (this.#isBulkMode) {
+        this.#el.querySelector(".coll-textarea").value =
+          this.#varsToText(initVars);
+        this.#saveFromBulk();
+      } else {
+        this.#rows = this.#varsToRows(initVars);
+        this.#renderRows();
+        this.#saveFromRows();
+      }
+      return;
+    }
+
+    const resetBtn = this.#el.querySelector(".coll-reset-btn");
+    resetBtn.textContent = "Confirm?";
+    resetBtn.classList.replace("popup-btn--secondary", "popup-btn--warning");
+
+    const restore = () => {
+      resetBtn.textContent = "Reset";
+      resetBtn.classList.replace("popup-btn--warning", "popup-btn--secondary");
+      document.removeEventListener("keydown", onEsc, true);
+      document.removeEventListener("mousedown", onOutside, true);
+      this.#resetCleanup = null;
+    };
+    const onEsc = (e) => {
+      if (e.key === "Escape") restore();
+    };
+    const onOutside = (e) => {
+      if (!resetBtn.contains(e.target)) restore();
+    };
+
+    document.addEventListener("keydown", onEsc, true);
+    document.addEventListener("mousedown", onOutside, true);
+    this.#resetCleanup = restore;
+  }
+
+  #getInitialVars() {
+    return this.#initialCollectionVars.get(this.#selectedId) ?? {};
+  }
+
+  #cancelResetConfirm() {
+    if (this.#resetCleanup) this.#resetCleanup();
+  }
+
+  // ── Close ──────────────────────────────────────────────────────────────────
+
+  #doClose() {
+    this.#flushEditorSave();
+    this.#cancelResetConfirm();
+    PopupManager.close();
+  }
+
+  // ── Resize ─────────────────────────────────────────────────────────────────
+
+  #initResize(el) {
+    const handle = document.createElement("div");
+    handle.className = "popup-resize-handle";
+    handle.setAttribute("aria-hidden", "true");
+    handle.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+      <circle cx="9" cy="9" r="1.4"/><circle cx="5" cy="9" r="1.4"/><circle cx="9" cy="5" r="1.4"/>
+    </svg>`;
+    el.appendChild(handle);
+
+    handle.addEventListener("mousedown", (startEvt) => {
+      startEvt.preventDefault();
+      startEvt.stopPropagation();
+      const rect = el.getBoundingClientRect();
+      const minW = rect.width;
+      const minH = rect.height;
+      // Center stays fixed at 50vw/50vh — width = 2 × (mouseX − centerX)
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      el.style.maxWidth = "none";
+      el.style.maxHeight = "none";
+      const onMove = (e) => {
+        el.style.width = `${Math.max(minW, 2 * (e.clientX - centerX))}px`;
+        el.style.height = `${Math.max(minH, 2 * (e.clientY - centerY))}px`;
+      };
+      const onUp = () => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
     });
   }
 

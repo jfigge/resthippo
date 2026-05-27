@@ -95,6 +95,7 @@ export class LayoutPicker {
   bindTrigger(btn) {
     this.#syncTrigger(btn);
     btn.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
       e.preventDefault();
       this.#menu ? this.#closeMenu() : this.#openMenu(btn);
     });

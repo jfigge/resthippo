@@ -2175,6 +2175,28 @@ mark.tree-highlight {
   flex-shrink: 0;
 }
 
+/* Popup resize handle */
+.popup-resize-handle {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 14px;
+  height: 14px;
+  cursor: se-resize;
+  color: var(--color-subtext);
+  opacity: 0.3;
+  transition: opacity var(--transition-fast);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.popup-resize-handle:hover {
+  opacity: 0.7;
+}
+
 /* Popup buttons */
 .popup-btn {
   height: 32px;
@@ -2338,14 +2360,29 @@ mark.tree-highlight {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .coll-popup {
-  width: 380px;
+  width: 480px;
+  min-height: 420px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .coll-popup-body {
-  padding: var(--space-2) 0;
-  min-height: 80px;
-  max-height: 400px;
+  padding: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Collection selector (top pane) ─────────────────────────────────────── */
+.coll-selector-wrap {
+  max-height: 220px;
   overflow-y: auto;
+  border-bottom: 1px solid var(--color-surface-2);
+  flex-shrink: 0;
 }
 
 /* ── Name input row (hidden by default, shown when adding/cloning) ─────────── */
@@ -2416,6 +2453,10 @@ mark.tree-highlight {
   background-color: var(--color-surface-0);
 }
 
+.coll-list-item--selected {
+  background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
 .coll-list-item__check {
   width: 18px;
   flex-shrink: 0;
@@ -2459,7 +2500,8 @@ mark.tree-highlight {
 }
 
 .coll-list-item:hover .coll-list-item__actions,
-.coll-list-item--active .coll-list-item__actions {
+.coll-list-item--active .coll-list-item__actions,
+.coll-list-item--selected .coll-list-item__actions {
   opacity: 1;
 }
 
@@ -2494,6 +2536,74 @@ mark.tree-highlight {
   opacity: 0.3;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+/* ── Variable editor (bottom pane) ──────────────────────────────────────── */
+.coll-vars-section {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.coll-vars-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-mantle);
+  flex-shrink: 0;
+  min-height: 30px;
+}
+
+.coll-active-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.coll-vars-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+  font-style: italic;
+  margin-left: auto;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.coll-bulk-label {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.coll-textarea {
+  flex: 1 1 auto;
+  min-height: 0;
+  resize: none;
+}
+
+.coll-kv-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.coll-kv-header.params-header-row,
+.coll-kv-row.params-row {
+  grid-template-columns: 1fr 1fr 28px;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.coll-popup-footer {
+  justify-content: space-between;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2593,10 +2703,10 @@ mark.tree-highlight {
   overflow: hidden;
 }
 
-/* KV header + rows use a 3-column grid (handle | name | value | delete) */
+/* KV header + rows use a 3-column grid (name | value | delete) */
 .vars-kv-header.params-header-row,
 .vars-kv-row.params-row {
-  grid-template-columns: 24px 1fr 1fr 28px;
+  grid-template-columns: 1fr 1fr 28px;
 }
 
 .vars-add-btn {
@@ -2832,7 +2942,7 @@ mark.tree-highlight {
 
 .env-kv-header.params-header-row,
 .env-kv-row.params-row {
-  grid-template-columns: 24px 1fr 1fr 28px;
+  grid-template-columns: 1fr 1fr 28px;
 }
 
 .env-add-btn {
