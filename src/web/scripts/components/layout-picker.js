@@ -64,6 +64,10 @@ const _CHEVRON = `<svg class="layout-picker__chevron" viewBox="0 0 6 4"
   <path d="M0 0 6 0 3 4Z"/>
 </svg>`;
 
+const _CHECK = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+    aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+
 // ── LayoutPicker ─────────────────────────────────────────────────────────────
 
 export class LayoutPicker {
@@ -148,7 +152,7 @@ export class LayoutPicker {
         item.classList.add("layout-picker__item--selected");
 
       item.innerHTML = `
-        <span class="layout-picker__item-check" aria-hidden="true"></span>
+        <span class="layout-picker__item-check" aria-hidden="true">${_CHECK}</span>
         <span class="layout-picker__item-icon">${LAYOUT_ICONS[i]}</span>
         <span class="layout-picker__item-label">${LAYOUT_LABELS[i]}</span>
       `;

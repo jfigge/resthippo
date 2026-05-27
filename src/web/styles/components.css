@@ -3388,7 +3388,7 @@ input[type="checkbox"]:disabled {
   z-index: 900;
   min-width: 195px;
   background: var(--color-surface-1);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-md);
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.3),
@@ -3402,14 +3402,16 @@ input[type="checkbox"]:disabled {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 6px var(--space-3);
+  padding: var(--space-1) var(--space-3);
   cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
   color: var(--color-text);
-  transition: background-color var(--transition-fast);
 }
 
 .layout-picker__item:hover {
-  background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  background-color: var(--color-surface-2);
 }
 
 .layout-picker__item--selected {
@@ -3420,12 +3422,17 @@ input[type="checkbox"]:disabled {
 .layout-picker__item-check {
   width: 14px;
   flex-shrink: 0;
-  font-size: var(--font-size-sm);
-  font-weight: 700;
+  display: flex;
+  align-items: center;
+  color: var(--color-accent);
 }
 
-.layout-picker__item--selected .layout-picker__item-check::before {
-  content: "✓";
+.layout-picker__item-check svg {
+  display: none;
+}
+
+.layout-picker__item--selected .layout-picker__item-check svg {
+  display: block;
 }
 
 .layout-picker__item-icon {

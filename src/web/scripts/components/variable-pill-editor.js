@@ -295,6 +295,28 @@ export class VariablePillEditor {
       found ? "variable-pill--known" : "variable-pill--unknown",
     ].join(" ");
 
+    span.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      PillEditorPopup.open({
+        type: "variable",
+        rawValue: `{{${span.dataset.variable}}}`,
+        getContext: this.#getContext,
+        onCommit: (newRaw) => {
+          const match = /^\{\{([^{}]+)\}\}$/.exec(newRaw);
+          if (!match) return;
+          const newName = match[1];
+          span.dataset.variable = newName;
+          span.textContent = newName;
+          span.title = `{{${newName}}}`;
+          const { found: f } = resolveVariable(newName, this.#getContext());
+          span.classList.toggle("variable-pill--known", f);
+          span.classList.toggle("variable-pill--unknown", !f);
+          this.#emitChange();
+        },
+      });
+    });
+
     span.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -340,6 +362,44 @@ export class VariablePillEditor {
     span.textContent = funcDef?.label ?? name;
     span.title = rawToken;
     span.className = "variable-pill function-pill";
+
+    span.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const currentArgs = JSON.parse(span.dataset.fnArgs ?? "[]");
+      PillEditorPopup.open({
+        type: "function",
+        funcName: span.dataset.function,
+        funcDef: registry[span.dataset.function],
+        rawArgs: currentArgs,
+        getContext: this.#getContext,
+        getItems: this.#getItems,
+        getPreview: async (args) => {
+          const fn = logicMap[span.dataset.function];
+          if (!fn) return null;
+          const fnName = span.dataset.function;
+          if (
+            this.#ensureResponseCaches &&
+            (fnName === "response" ||
+              fnName === "responseHeader" ||
+              fnName === "responseStatus")
+          ) {
+            const name = args[0];
+            if (name) await this.#ensureResponseCaches([name]);
+          }
+          return String(await fn(args, this.#getContext()));
+        },
+        onCommit: (newRawToken) => {
+          const m = /^\{\{([^{}]+)\}\}$/.exec(newRawToken);
+          if (!m) return;
+          const parsed = parseFunctionCall(m[1]);
+          if (!parsed) return;
+          span.dataset.fnArgs = JSON.stringify(parsed.rawArgs);
+          span.title = newRawToken;
+          this.#emitChange();
+        },
+      });
+    });
 
     span.addEventListener("contextmenu", (e) => {
       e.preventDefault();
