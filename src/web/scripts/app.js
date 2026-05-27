@@ -36,7 +36,7 @@ import {
   deleteHistory,
   trimHistory,
 } from "./data-store.js";
-import { buildFolderChain } from "./components/variable-resolver.js";
+import { buildFolderChain, resolveStringAsync } from "./components/variable-resolver.js";
 import { setPickerDebounceMs } from "./components/variable-pill-editor.js";
 import { parseImport } from "./import/index.js";
 import { exportToPostman } from "./export/postman.js";
@@ -1378,22 +1378,31 @@ function initEventBus() {
   let _responseStatus = {};
 
   // Lazy-load response caches when a request is executed that references another request
-  requestEditor?.setEnsureResponseCaches(async (names) => {
+  requestEditor?.setEnsureResponseCaches(async (refs, ctx) => {
     const allRequests = getAllRequests(treeView?.getItems() ?? []);
     await Promise.all(
-      names.map(async (name) => {
+      refs.map(async ({ name, mode }) => {
         const req = allRequests.find((r) => r.name === name);
         if (!req) return;
-        if (!_historyLoaded.has(req.id)) {
-          await _loadRequestHistory(req.id);
-          _historyLoaded.add(req.id);
-        }
-        const entries = _requestHistory.get(req.id) ?? [];
-        const latest = entries[0];
-        if (latest) {
-          _responseCache[name] = latest.response?.body ?? "";
-          _responseHeaders[name] = latest.response?.headers ?? {};
-          _responseStatus[name] = latest.response?.status ?? 0;
+        if (mode === "run-immediately") {
+          const node = _findNodeById(treeView?.getItems() ?? [], req.id);
+          if (!node) return;
+          const result = await _executeRequestNode(node, ctx);
+          _responseCache[name] = result.body;
+          _responseHeaders[name] = result.headers;
+          _responseStatus[name] = result.status;
+        } else {
+          if (!_historyLoaded.has(req.id)) {
+            await _loadRequestHistory(req.id);
+            _historyLoaded.add(req.id);
+          }
+          const histEntries = _requestHistory.get(req.id) ?? [];
+          const latest = histEntries[0];
+          if (latest) {
+            _responseCache[name] = latest.response?.body ?? "";
+            _responseHeaders[name] = latest.response?.headers ?? {};
+            _responseStatus[name] = latest.response?.status ?? 0;
+          }
         }
       }),
     );
@@ -1946,6 +1955,148 @@ function _findNodeById(items, id) {
     }
   }
   return null;
+}
+
+/**
+ * Resolve and execute a request tree node using the given variable context.
+ * Used by the "Run immediately before" refresh mode on request-output functions.
+ * Returns { body, headers, status }. On failure returns empty values rather than throwing.
+ */
+async function _executeRequestNode(node, ctx) {
+  const rv = (s) => resolveStringAsync(s, ctx);
+
+  // Resolve URL + query params
+  let finalUrl = await rv(node.url ?? "");
+  const enabledParams = (node.params ?? []).filter(
+    (p) => p.enabled && (p.name ?? "").trim(),
+  );
+  if (enabledParams.length) {
+    const pairs = await Promise.all(
+      enabledParams.map(
+        async (p) =>
+          `${encodeURIComponent(await rv(p.name))}=${encodeURIComponent(await rv(p.value))}`,
+      ),
+    );
+    finalUrl += (finalUrl.includes("?") ? "&" : "?") + pairs.join("&");
+  }
+
+  // Resolve headers
+  const headers = {};
+  for (const h of (node.headers ?? []).filter(
+    (h) => h.enabled && (h.name ?? "").trim(),
+  )) {
+    headers[(await rv(h.name)).trim()] = await rv(h.value);
+  }
+
+  // Inject auth headers for basic and bearer; skip oauth2/aws-iam
+  if (node.authEnabled !== false) {
+    if (node.authType === "basic") {
+      const u = await rv(node.authBasic?.username ?? "");
+      const p = await rv(node.authBasic?.password ?? "");
+      if (u || p) headers["Authorization"] = `Basic ${btoa(`${u}:${p}`)}`;
+    } else if (node.authType === "bearer") {
+      const t = await rv(node.authBearer?.token ?? "");
+      if (t) headers["Authorization"] = `Bearer ${t}`;
+    }
+  }
+
+  // Build body
+  const noBodyMethods = new Set(["GET", "HEAD"]);
+  let body = null;
+  const method = node.method ?? "GET";
+  if (!noBodyMethods.has(method)) {
+    switch (node.bodyType) {
+      case "json":
+      case "yaml":
+      case "xml":
+      case "text": {
+        const raw = (node.bodyText ?? "").trim();
+        if (raw) {
+          body = await rv(node.bodyText);
+          if (!headers["Content-Type"]) {
+            const ctMap = {
+              json: "application/json",
+              yaml: "application/x-yaml",
+              xml: "application/xml",
+              text: "text/plain",
+            };
+            headers["Content-Type"] = ctMap[node.bodyType];
+          }
+        }
+        break;
+      }
+      case "form-urlencoded": {
+        const sp = new URLSearchParams();
+        for (const r of (node.bodyFormRows ?? []).filter(
+          (r) => r.enabled && (r.name ?? "").trim(),
+        )) {
+          sp.append(await rv(r.name), await rv(r.value));
+        }
+        body = sp.toString();
+        if (!headers["Content-Type"])
+          headers["Content-Type"] = "application/x-www-form-urlencoded";
+        break;
+      }
+      case "form-data": {
+        const boundary = `----WurlBoundary${Date.now()}`;
+        const rows = (node.bodyFormRows ?? []).filter(
+          (r) => r.enabled && (r.name ?? "").trim(),
+        );
+        if (rows.length) {
+          const parts = (
+            await Promise.all(
+              rows.map(
+                async (r) =>
+                  `--${boundary}\r\nContent-Disposition: form-data; name="${await rv(r.name)}"\r\n\r\n${await rv(r.value)}`,
+              ),
+            )
+          ).join("\r\n");
+          body = `${parts}\r\n--${boundary}--`;
+          if (!headers["Content-Type"])
+            headers["Content-Type"] = `multipart/form-data; boundary=${boundary}`;
+        }
+        break;
+      }
+    }
+  }
+
+  const nativeDesc = {
+    method,
+    url: finalUrl,
+    headers,
+    body,
+    bodyFilePath: null,
+    timeout: currentSettings.timeout ?? 30000,
+    followRedirects: currentSettings.followRedirects ?? true,
+    verifySsl: currentSettings.verifySsl ?? true,
+    awsIam: null,
+    proxy:
+      currentSettings.proxyEnabled && currentSettings.proxyUrl
+        ? currentSettings.proxyUrl
+        : null,
+  };
+
+  try {
+    let result;
+    if (window.wurl?.isElectron === true) {
+      result = await window.wurl.http.execute(nativeDesc);
+    } else {
+      const res = await fetch("/api/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nativeDesc),
+      });
+      if (!res.ok) throw new Error(`Execute API returned HTTP ${res.status}`);
+      result = await res.json();
+    }
+    return {
+      body: result.body ?? "",
+      headers: result.headers ?? {},
+      status: result.status ?? 0,
+    };
+  } catch {
+    return { body: "", headers: {}, status: 0 };
+  }
 }
 
 /** Count all request nodes recursively in a collection tree. */

@@ -130,6 +130,13 @@ export const registry = {
         default: ".",
         placeholder: ".data.token",
       },
+      {
+        name: "executionMode",
+        label: "Refresh mode",
+        type: "enum",
+        options: ["Use last result", "Run immediately before"],
+        default: "Use last result",
+      },
     ],
   },
   responseHeader: {
@@ -143,6 +150,13 @@ export const registry = {
         default: "",
       },
       { name: "headerName", label: "Header name", type: "string", default: "" },
+      {
+        name: "executionMode",
+        label: "Refresh mode",
+        type: "enum",
+        options: ["Use last result", "Run immediately before"],
+        default: "Use last result",
+      },
     ],
   },
   responseStatus: {
@@ -154,6 +168,13 @@ export const registry = {
         label: "Request",
         type: "request-picker",
         default: "",
+      },
+      {
+        name: "executionMode",
+        label: "Refresh mode",
+        type: "enum",
+        options: ["Use last result", "Run immediately before"],
+        default: "Use last result",
       },
     ],
   },

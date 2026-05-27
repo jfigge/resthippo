@@ -13,6 +13,8 @@ import {
   resolveStringAsync,
   collectTemplateVariables,
   tokenize,
+  parseFunctionCall,
+  isFunctionCall,
 } from "./variable-resolver.js";
 import { PopupManager } from "../popup-manager.js";
 import Prism from "../vendor/prism.js";
@@ -647,15 +649,28 @@ async function _fetchJson(url) {
   }
 }
 
-function _extractResponseFunctionNames(templates) {
-  const names = new Set();
-  const re = /\{\{\s*response(?:Header|Status)?\s*\(\s*["']([^"']+)["']/g;
+function _extractResponseFunctionRefs(templates) {
+  const RESPONSE_FNS = new Set(["response", "responseHeader", "responseStatus"]);
+  const map = new Map();
   for (const tpl of templates) {
-    re.lastIndex = 0;
-    let m;
-    while ((m = re.exec(tpl)) !== null) names.add(m[1]);
+    if (!tpl) continue;
+    for (const tok of tokenize(tpl)) {
+      if (tok.type !== "variable") continue;
+      if (!isFunctionCall(tok.content)) continue;
+      const parsed = parseFunctionCall(tok.content);
+      if (!parsed || !RESPONSE_FNS.has(parsed.name)) continue;
+      const reqName = parsed.rawArgs[0] ?? "";
+      if (!reqName) continue;
+      const modeArgIdx = parsed.name === "responseStatus" ? 1 : 2;
+      const rawMode = parsed.rawArgs[modeArgIdx] ?? "";
+      const mode =
+        rawMode === "Run immediately before" ? "run-immediately" : "use-last-result";
+      if (!map.has(reqName) || mode === "run-immediately") {
+        map.set(reqName, mode);
+      }
+    }
   }
-  return [...names];
+  return [...map.entries()].map(([name, mode]) => ({ name, mode }));
 }
 
 export class RequestEditor {
@@ -4607,10 +4622,8 @@ export class RequestEditor {
 
     // Preload response caches for any cross-request references before resolution
     if (this.#ensureResponseCaches) {
-      const refNames = _extractResponseFunctionNames(
-        this.#gatherRequestTemplates(),
-      );
-      if (refNames.length) await this.#ensureResponseCaches(refNames);
+      const refs = _extractResponseFunctionRefs(this.#gatherRequestTemplates());
+      if (refs.length) await this.#ensureResponseCaches(refs, this.#variableContext);
     }
 
     const baseUrl = await rv(rawUrl);
