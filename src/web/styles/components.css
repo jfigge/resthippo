@@ -3404,6 +3404,15 @@ input[type="checkbox"]:disabled {
   user-select: none;
 }
 
+.pill-picker__subsection {
+  padding: 2px var(--space-3) 2px var(--space-5);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-overlay-0);
+  pointer-events: none;
+  user-select: none;
+}
+
 .pill-picker__item {
   display: flex;
   align-items: baseline;
@@ -3411,6 +3420,10 @@ input[type="checkbox"]:disabled {
   padding: 4px var(--space-3) 4px var(--space-5);
   cursor: pointer;
   user-select: none;
+}
+
+.pill-picker__item--indented {
+  padding-left: calc(var(--space-5) + var(--space-3));
 }
 
 .pill-picker__item--active {

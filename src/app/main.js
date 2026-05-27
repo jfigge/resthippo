@@ -39,6 +39,7 @@ let _devServerProcess = null;
 // Tracks the main BrowserWindow and an optional WebContentsView overlay that
 // renders live HTML responses inside the response body pane.
 let _mainWin = null; // set once createWindow() runs
+let _aboutWin = null; // singleton about window
 let _htmlPreviewView = null; // WebContentsView instance, created lazily
 let _htmlPreviewAdded = false; // whether the view is currently a child of contentView
 
@@ -1432,28 +1433,56 @@ function readRevisionInfo() {
 }
 
 function showAboutDialog() {
-  const rev = readRevisionInfo();
-  const buildLines = rev
-    ? [
-        `Version:  ${rev.VERSION ?? "—"}`,
-        `Branch:   ${rev.BRANCH ?? "—"}`,
-        `Commit:   ${rev.COMMIT ?? "—"}`,
-      ]
-    : ["Version:  dev build"];
+  // Bring existing window to front rather than opening a second one
+  if (_aboutWin) {
+    _aboutWin.focus();
+    return;
+  }
 
-  dialog.showMessageBox(_mainWin ?? undefined, {
+  const rev = readRevisionInfo();
+
+  // Read the current theme so the about window matches the app's colour scheme
+  let theme = "mocha";
+  try {
+    const manifest = getStores().collectionStore().getManifest();
+    theme = manifest?.settings?.theme ?? "mocha";
+  } catch {
+    /* fall back to default theme */
+  }
+
+  // Build query params carrying dynamic data into the static HTML page
+  const query = { theme };
+  if (rev) {
+    if (rev.VERSION) query.version = rev.VERSION;
+    if (rev.BRANCH) query.branch = rev.BRANCH;
+    if (rev.COMMIT) query.commit = rev.COMMIT;
+  }
+
+  _aboutWin = new BrowserWindow({
+    width: 360,
+    height: 480,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    autoHideMenuBar: true,
     title: "About wurl",
-    message: "wurl",
-    detail: [
-      "Web URL REST API Client",
-      "A desktop HTTP testing tool",
-      "",
-      ...buildLines,
-      "",
-      "Created by Jason, coded by Claude",
-    ].join("\n"),
-    buttons: ["OK"],
     icon: appIcon,
+    backgroundColor: "#1e1e2e",
+    parent: _mainWin ?? undefined,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  _aboutWin.loadFile(path.join(__dirname, "..", "web", "about.html"), {
+    query,
+  });
+
+  _aboutWin.once("closed", () => {
+    _aboutWin = null;
   });
 }
 

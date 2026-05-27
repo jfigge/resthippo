@@ -649,20 +649,44 @@ export class VariablePillEditor {
 
   #getPickerVariables() {
     const ctx = this.#getContext();
-    const seen = new Set();
-    if (ctx?.folderChain) {
-      for (const folder of ctx.folderChain) {
-        if (folder?.variables)
-          Object.keys(folder.variables)
-            .sort()
-            .forEach((k) => seen.add(k));
+    const scopes = [];
+
+    // Global variables (lowest priority — listed first)
+    if (ctx?.globalVariables) {
+      const vars = Object.keys(ctx.globalVariables).sort();
+      if (vars.length) scopes.push({ label: "Global", variables: vars });
+    }
+
+    // Named environment variables
+    if (ctx?.environmentVariables) {
+      const vars = Object.keys(ctx.environmentVariables).sort();
+      if (vars.length) {
+        const label = ctx.activeEnvironmentName || "Environment";
+        scopes.push({ label, variables: vars });
       }
     }
-    if (ctx?.envVariables)
-      Object.keys(ctx.envVariables)
-        .sort()
-        .forEach((k) => seen.add(k));
-    return [...seen];
+
+    // Collection-level variables
+    if (ctx?.envVariables) {
+      const vars = Object.keys(ctx.envVariables).sort();
+      if (vars.length) {
+        const label = ctx.envName || "Collection";
+        scopes.push({ label, variables: vars });
+      }
+    }
+
+    // Folder chain — reversed so outermost folder is first, direct parent last
+    if (ctx?.folderChain?.length) {
+      for (const folder of [...ctx.folderChain].reverse()) {
+        if (folder?.variables) {
+          const vars = Object.keys(folder.variables).sort();
+          if (vars.length)
+            scopes.push({ label: folder.name ?? "Folder", variables: vars });
+        }
+      }
+    }
+
+    return scopes;
   }
 
   #getPickerFunctions() {

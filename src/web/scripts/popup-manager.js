@@ -504,7 +504,7 @@ export const PopupManager = {
    *   title   — Dialog title (default: "Info")
    *   message — Message text shown in the dialog body
    */
-  notify({ title = "Info", message = "" } = {}) {
+  notify({ title = "Info", message = "", autoCloseMs = 0 } = {}) {
     const { dlg, dismiss } = _showOneShotDialog({
       cssClass: "popup-notify",
       role: "dialog",
@@ -527,6 +527,8 @@ export const PopupManager = {
     dlg
       .querySelector("[data-action='ok']")
       .addEventListener("click", () => dismiss());
+
+    if (autoCloseMs > 0) setTimeout(() => dismiss(), autoCloseMs);
   },
 
   /**
