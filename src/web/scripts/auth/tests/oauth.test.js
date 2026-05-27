@@ -27,7 +27,6 @@ import { generateCodeVerifier, generateCodeChallenge } from "../utils/pkce.js";
 import { generateState, validateState, discardState } from "../utils/state.js";
 import {
   buildUrl,
-  parseUrlParams,
   extractAuthCode,
   extractImplicitToken,
 } from "../utils/url.js";
@@ -39,7 +38,6 @@ import {
   fromTokenErrorResponse,
 } from "../types/oauth-errors.js";
 import {
-  createOAuthResult,
   oauthResultFromTokenResponse,
   oauthResultFromError,
   validateOAuthConfig,

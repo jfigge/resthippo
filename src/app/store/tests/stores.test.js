@@ -18,11 +18,7 @@ const path = require("path");
 const { Stores } = require("../stores");
 const { Paths } = require("../paths");
 const { Resolver } = require("../resolver");
-const { CollectionStore } = require("../collection-store");
 const { CollectionsStore } = require("../collections-store");
-const { TreeStore } = require("../tree-store");
-const { RequestStore } = require("../request-store");
-const { HistoryStore } = require("../history-store");
 
 // ── Helper: temp directory lifecycle ──────────────────────────────────────────
 

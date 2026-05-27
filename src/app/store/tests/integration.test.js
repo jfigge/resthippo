@@ -545,7 +545,7 @@ describe("History — add, list, retrieve response, delete", () => {
   });
 
   test("deleteHistory then subsequent listHistory is consistent", () => {
-    const e1 = stores.history.addHistory(REQ, {
+    stores.history.addHistory(REQ, {
       id: "keep-a",
       timestamp: new Date(1_700_000_001_000).toISOString(),
       status: 200,
@@ -557,7 +557,7 @@ describe("History — add, list, retrieve response, delete", () => {
       status: 404,
       durationMs: 2,
     });
-    const e3 = stores.history.addHistory(REQ, {
+    stores.history.addHistory(REQ, {
       id: "keep-b",
       timestamp: new Date(1_700_000_003_000).toISOString(),
       status: 201,
@@ -696,11 +696,11 @@ describe("Multi-collection isolation", () => {
     stores.collections.saveCollections("colA", { version: 1, collections: [] });
     stores.collections.saveCollections("colB", { version: 1, collections: [] });
 
-    const rA = stores.requests.createRequest(
+    stores.requests.createRequest(
       "colA",
       makeRequest({ id: "req-a", name: "Collection A Request" }),
     );
-    const rB = stores.requests.createRequest(
+    stores.requests.createRequest(
       "colB",
       makeRequest({ id: "req-b", name: "Collection B Request" }),
     );
@@ -724,14 +724,8 @@ describe("Multi-collection isolation", () => {
     stores.collections.saveCollections("colA", { version: 1, collections: [] });
     stores.collections.saveCollections("colB", { version: 1, collections: [] });
 
-    const rA = stores.requests.createRequest(
-      "colA",
-      makeRequest({ id: "req-col-a" }),
-    );
-    const rB = stores.requests.createRequest(
-      "colB",
-      makeRequest({ id: "req-col-b" }),
-    );
+    stores.requests.createRequest("colA", makeRequest({ id: "req-col-a" }));
+    stores.requests.createRequest("colB", makeRequest({ id: "req-col-b" }));
 
     stores.history.addHistory(
       "req-col-a",

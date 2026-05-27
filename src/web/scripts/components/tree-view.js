@@ -1354,7 +1354,7 @@ export class TreeView {
         `wurl:collapsed:${this.#storageKey}`,
         JSON.stringify([...this.#collapsedIds]),
       );
-    } catch (_) {
+    } catch {
       /* quota exceeded or private browsing — ignore */
     }
   }
@@ -1364,7 +1364,7 @@ export class TreeView {
     try {
       const raw = localStorage.getItem(`wurl:collapsed:${this.#storageKey}`);
       return raw ? JSON.parse(raw) : [];
-    } catch (_) {
+    } catch {
       return [];
     }
   }

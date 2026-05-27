@@ -413,7 +413,7 @@ function safeCall(channel, fn, fallback = null) {
           let redirectUrl;
           try {
             redirectUrl = new URL(location, rawUrl).toString();
-          } catch (_) {
+          } catch {
             redirectUrl = location;
           }
 
@@ -708,7 +708,7 @@ function safeCall(channel, fn, fallback = null) {
               popup.webContents.stop();
               popup.close();
             }
-          } catch (_e) {
+          } catch {
             /* already destroyed */
           }
           resolve(result);

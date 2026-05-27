@@ -23,7 +23,7 @@ module.exports = [
     },
     rules: {
       // Relax a few rules that are common in vanilla-JS frontend code
-      "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", ignoreRestSiblings: true }],
     },
   },
 
@@ -39,7 +39,7 @@ module.exports = [
       },
     },
     rules: {
-      "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", ignoreRestSiblings: true }],
     },
   },
 ];

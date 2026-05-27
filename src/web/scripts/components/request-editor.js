@@ -2138,7 +2138,6 @@ export class RequestEditor {
   #dispatchAuthUpdated() {
     if (!this.#currentNodeId) return;
     // Exclude runtime-only token fields — acquired tokens must not be persisted.
-    // eslint-disable-next-line no-unused-vars
     const {
       token: _t,
       refreshToken: _rt,
@@ -4973,7 +4972,6 @@ export class RequestEditor {
     // Runtime-only token fields (token, refreshToken, expiresAt) are intentionally
     // excluded from the spread so previously-persisted tokens are never restored.
     {
-      // eslint-disable-next-line no-unused-vars
       const {
         token: _t,
         refreshToken: _rt,
