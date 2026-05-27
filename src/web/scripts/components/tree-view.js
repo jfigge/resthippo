@@ -623,7 +623,7 @@ export class TreeView {
         PopupManager.notify({
           title: "Copied to Clipboard",
           message: "The cURL command has been copied to your clipboard.",
-          autoCloseMs: 1000,
+          autoCloseMs: 1500,
         });
       })
       .catch(() => {
