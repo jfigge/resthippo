@@ -2089,6 +2089,48 @@ async function _executeRequestNode(node, ctx) {
       if (!res.ok) throw new Error(`Execute API returned HTTP ${res.status}`);
       result = await res.json();
     }
+
+    // Record a timeline entry for genuine HTTP responses (status > 0).
+    // Network-level failures (status === 0) are not recorded.
+    if (result && !(result.error && result.status === 0) && node.id && _maxHistory > 0) {
+      const histId = crypto.randomUUID();
+      const nowMs = Date.now();
+      const reqSnapshot = { method, url: finalUrl, headers, body };
+      const resp = {
+        request: reqSnapshot,
+        status: result.status ?? 0,
+        statusText: result.statusText ?? "",
+        headers: result.headers ?? {},
+        cookies: result.cookies ?? [],
+        body: result.body ?? "",
+        elapsed: result.elapsed ?? 0,
+        size: result.size ?? 0,
+        consoleLog: result.consoleLog ?? [],
+      };
+      const reqNode = _buildSnapshot(node);
+
+      if (!_historyLoaded.has(node.id)) {
+        await _loadRequestHistory(node.id);
+        _historyLoaded.add(node.id);
+      }
+      const entries = _requestHistory.get(node.id) ?? [];
+      entries.unshift({ id: histId, requestNode: reqNode, requestUrl: finalUrl, response: resp, timestamp: nowMs });
+      addHistory(
+        node.id,
+        { id: histId, timestamp: nowMs, status: resp.status, statusText: resp.statusText,
+          elapsed: resp.elapsed, size: resp.size, requestUrl: finalUrl, requestNode: reqNode },
+        { headers: resp.headers, cookies: resp.cookies, body: resp.body, consoleLog: resp.consoleLog },
+      );
+      while (entries.length > _maxHistory) {
+        const old = entries.pop();
+        if (old?.id) deleteHistory(node.id, old.id);
+      }
+      _requestHistory.set(node.id, entries);
+    }
+
+    if (result.error && result.status === 0) {
+      return { body: "", headers: {}, status: 0 };
+    }
     return {
       body: result.body ?? "",
       headers: result.headers ?? {},
