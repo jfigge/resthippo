@@ -649,6 +649,11 @@ async function _fetchJson(url) {
   }
 }
 
+/** Percent-encode the domain and path of a resolved URL. */
+function _encodeBaseUrl(url) {
+  try { return new URL(url).href; } catch { return url; }
+}
+
 function _extractResponseFunctionRefs(templates) {
   const RESPONSE_FNS = new Set(["response", "responseHeader", "responseStatus"]);
   const map = new Map();
@@ -4062,7 +4067,7 @@ export class RequestEditor {
         return resolveStringAsync(raw, ctx);
       }),
     );
-    const base = urlParts.join("");
+    const base = _encodeBaseUrl(urlParts.join(""));
 
     const enabled = this.#params.filter((p) => p.enabled && p.name.trim());
     if (!enabled.length) return base;
@@ -4626,7 +4631,7 @@ export class RequestEditor {
       if (refs.length) await this.#ensureResponseCaches(refs, this.#variableContext);
     }
 
-    const baseUrl = await rv(rawUrl);
+    const baseUrl = _encodeBaseUrl(await rv(rawUrl));
 
     // ── 1. URL — append enabled, non-blank query parameters ──────────────
     const enabledParams = this.#params.filter(

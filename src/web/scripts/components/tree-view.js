@@ -848,7 +848,7 @@ export class TreeView {
       };
       const rv = (s) => resolveString(s ?? "", nodeContext);
 
-      const baseUrl = rv(node.url || "<url>");
+      const baseUrl = this.#encodeBaseUrl(rv(node.url || "<url>"));
 
       // ── 1. URL — append enabled, non-blank query parameters ──────────────
       const params = Array.isArray(node.params) ? node.params : [];
@@ -1346,6 +1346,11 @@ export class TreeView {
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  /** Percent-encode the domain and path of a resolved URL. */
+  #encodeBaseUrl(url) {
+    try { return new URL(url).href; } catch { return url; }
   }
 
   #saveCollapsedState() {
