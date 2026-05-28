@@ -83,7 +83,10 @@ export class VariablePillEditor {
   // listener in destroy(). Without removal each new editor leaks its listener,
   // and there are several per request — they pile up as the user navigates.
   #onSelectionChange = () => {
-    if (this.#isFocused) this.#scrollToSelectionEnd();
+    if (this.#isFocused) {
+      this.#scrollToSelectionEnd();
+      this.#syncPillSelection();
+    }
   };
 
   // ── Undo / redo ────────────────────────────────────────────────────────────
@@ -132,7 +135,10 @@ export class VariablePillEditor {
     el.addEventListener("blur", () => {
       this.#isFocused = false;
       this.#closePicker();
+      for (const p of el.querySelectorAll(".variable-pill--selected"))
+        p.classList.remove("variable-pill--selected");
     });
+    el.addEventListener("mouseup", () => this.#normalizeAfterMouse());
     document.addEventListener("selectionchange", this.#onSelectionChange);
     this.#el = el;
   }
@@ -502,6 +508,7 @@ export class VariablePillEditor {
   }
 
   #onEditorInput() {
+    this.#ensureEdgePadding();
     this.#tryConvertAtCaret();
     this.#emitChange();
     this.#schedulePicker();
@@ -644,6 +651,24 @@ export class VariablePillEditor {
       this.#el.scrollLeft += caretRight - er.right + PAD;
     } else if (caretLeft < er.left + PAD) {
       this.#el.scrollLeft -= er.left + PAD - caretLeft;
+    }
+  }
+
+  /**
+   * Toggle .variable-pill--selected on every pill that falls inside the
+   * current selection range.  Called on every selectionchange while focused.
+   */
+  #syncPillSelection() {
+    const sel = window.getSelection();
+    const hasRange = sel && sel.rangeCount > 0 && !sel.isCollapsed;
+    const range = hasRange ? sel.getRangeAt(0) : null;
+
+    for (const pill of this.#el.querySelectorAll(".variable-pill")) {
+      const selected =
+        range !== null &&
+        range.comparePoint(pill, 0) <= 0 &&
+        range.comparePoint(pill, pill.childNodes.length) >= 0;
+      pill.classList.toggle("variable-pill--selected", selected);
     }
   }
 
@@ -811,8 +836,14 @@ export class VariablePillEditor {
       const pill = this.#pillBeforeCaret(range);
       if (pill) {
         e.preventDefault();
+        const logical = this.#domToLogical(
+          range.startContainer,
+          range.startOffset,
+        );
         pill.remove();
         this.#ensureEdgePadding();
+        const pos = this.#logicalToDom(Math.max(0, logical - 1));
+        this.#setCollapsedCaret(pos.node, pos.offset);
         this.#emitChange();
         return;
       }
@@ -822,152 +853,84 @@ export class VariablePillEditor {
       const pill = this.#pillAfterCaret(range);
       if (pill) {
         e.preventDefault();
+        const logical = this.#domToLogical(
+          range.startContainer,
+          range.startOffset,
+        );
         pill.remove();
         this.#ensureEdgePadding();
+        const pos = this.#logicalToDom(logical);
+        this.#setCollapsedCaret(pos.node, pos.offset);
         this.#emitChange();
         return;
       }
     }
 
-    // ZWS guard nodes (\u200B) are invisible but count as cursor positions.
-    // The handlers below ensure every ArrowLeft / ArrowRight either:
-    //   (a) escapes a ZWS-only node the caret is already inside, or
-    //   (b) skips a ZWS-only node the caret is about to enter (look-ahead).
-    // Both cases also skip an immediately adjacent pill so the user never
-    // needs more than one keystroke to cross an invisible guard.
-    if (e.key === "ArrowLeft" && range.collapsed) {
-      const { startContainer, startOffset } = range;
-      if (
-        startContainer.nodeType === Node.TEXT_NODE &&
-        this.#el.contains(startContainer)
-      ) {
-        // (a) Already inside a ZWS-only node \u2014 escape leftward past any adjacent pill.
-        if (startContainer.textContent.replace(/\u200B/g, "") === "") {
-          e.preventDefault();
-          const prevPill = startContainer.previousSibling?.classList?.contains(
-            "variable-pill",
-          )
-            ? startContainer.previousSibling
-            : null;
-          const anchor = prevPill
-            ? prevPill.previousSibling
-            : startContainer.previousSibling;
-          const nr = document.createRange();
-          if (anchor?.nodeType === Node.TEXT_NODE) {
-            nr.setStart(anchor, anchor.textContent.length);
-          } else if (anchor) {
-            nr.setStart(this.#el, [...this.#el.childNodes].indexOf(anchor) + 1);
-          } else {
-            nr.setStart(this.#el, 0);
-          }
-          nr.collapse(true);
-          sel.removeAllRanges();
-          sel.addRange(nr);
-          return;
-        }
+    // Arrow keys — logical navigation that treats pills as atomic units.
+    // Every Left / Right press moves exactly one logical position.  Pills
+    // count as one position; ZWS guard characters count as zero.  Shift
+    // extends the selection; without Shift a non-collapsed selection
+    // collapses to its near or far end without moving further.
+    if (
+      (e.key === "ArrowLeft" || e.key === "ArrowRight") &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.altKey
+    ) {
+      e.preventDefault();
+      const dir = e.key === "ArrowRight" ? 1 : -1;
+      const max = this.#logicalLength();
 
-        // (b) At the start of real text whose previous pill is backed by a ZWS guard \u2014
-        //     the browser would skip the pill and drop into the ZWS; pre-empt that.
-        if (startOffset === 0) {
-          const prevPill = startContainer.previousSibling?.classList?.contains(
-            "variable-pill",
-          )
-            ? startContainer.previousSibling
-            : null;
-          if (prevPill) {
-            const guardNode = prevPill.previousSibling;
-            if (
-              guardNode?.nodeType === Node.TEXT_NODE &&
-              guardNode.textContent.replace(/\u200B/g, "") === ""
-            ) {
-              e.preventDefault();
-              const anchor = guardNode.previousSibling;
-              const nr = document.createRange();
-              if (anchor?.nodeType === Node.TEXT_NODE) {
-                nr.setStart(anchor, anchor.textContent.length);
-              } else {
-                nr.setStart(this.#el, 0);
-              }
-              nr.collapse(true);
-              sel.removeAllRanges();
-              sel.addRange(nr);
-              return;
-            }
-          }
-        }
+      if (e.shiftKey) {
+        // Extend or shrink the selection by one logical position.
+        const anchorLog = this.#domToLogical(sel.anchorNode, sel.anchorOffset);
+        const focusLog = this.#domToLogical(sel.focusNode, sel.focusOffset);
+        const newFocus = Math.max(0, Math.min(max, focusLog + dir));
+        const anchorDOM = this.#logicalToDom(anchorLog);
+        const focusDOM = this.#logicalToDom(newFocus);
+        sel.setBaseAndExtent(
+          anchorDOM.node,
+          anchorDOM.offset,
+          focusDOM.node,
+          focusDOM.offset,
+        );
+      } else if (!sel.isCollapsed) {
+        // Collapse to the near or far end of the existing selection.
+        const aLog = this.#domToLogical(sel.anchorNode, sel.anchorOffset);
+        const fLog = this.#domToLogical(sel.focusNode, sel.focusOffset);
+        const target =
+          dir === 1 ? Math.max(aLog, fLog) : Math.min(aLog, fLog);
+        const pos = this.#logicalToDom(target);
+        this.#setCollapsedCaret(pos.node, pos.offset);
+      } else {
+        // Move caret one logical position.
+        const cur = this.#domToLogical(sel.focusNode, sel.focusOffset);
+        const next = Math.max(0, Math.min(max, cur + dir));
+        const pos = this.#logicalToDom(next);
+        this.#setCollapsedCaret(pos.node, pos.offset);
       }
+      return;
     }
 
-    if (e.key === "ArrowRight" && range.collapsed) {
-      const { startContainer, startOffset } = range;
-      if (
-        startContainer.nodeType === Node.TEXT_NODE &&
-        this.#el.contains(startContainer)
-      ) {
-        // (a) Already inside a ZWS-only node \u2014 escape rightward past any adjacent pill.
-        if (startContainer.textContent.replace(/\u200B/g, "") === "") {
-          e.preventDefault();
-          const nextPill = startContainer.nextSibling?.classList?.contains(
-            "variable-pill",
-          )
-            ? startContainer.nextSibling
-            : null;
-          const anchor = nextPill
-            ? nextPill.nextSibling
-            : startContainer.nextSibling;
-          const nr = document.createRange();
-          if (anchor?.nodeType === Node.TEXT_NODE) {
-            nr.setStart(anchor, 0);
-          } else if (anchor) {
-            nr.setStart(this.#el, [...this.#el.childNodes].indexOf(anchor));
-          } else {
-            // No real content to the right \u2014 move to the absolute end.
-            const last = this.#el.lastChild;
-            if (last?.nodeType === Node.TEXT_NODE) {
-              nr.setStart(last, last.textContent.length);
-            } else if (last) {
-              nr.setStartAfter(last);
-            } else {
-              nr.setStart(this.#el, 0);
-            }
-          }
-          nr.collapse(true);
-          sel.removeAllRanges();
-          sel.addRange(nr);
-          return;
-        }
+    // Home / End — jump to logical start or end.
+    if ((e.key === "Home" || e.key === "End") && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const target = e.key === "Home" ? 0 : this.#logicalLength();
+      const pos = this.#logicalToDom(target);
 
-        // (b) At the end of real text whose next pill is followed by a ZWS guard \u2014
-        //     the browser would skip the pill and drop into the ZWS; pre-empt that.
-        if (startOffset === startContainer.textContent.length) {
-          const nextPill = startContainer.nextSibling?.classList?.contains(
-            "variable-pill",
-          )
-            ? startContainer.nextSibling
-            : null;
-          if (nextPill) {
-            const guardNode = nextPill.nextSibling;
-            if (
-              guardNode?.nodeType === Node.TEXT_NODE &&
-              guardNode.textContent.replace(/\u200B/g, "") === ""
-            ) {
-              e.preventDefault();
-              const anchor = guardNode.nextSibling;
-              const nr = document.createRange();
-              if (anchor?.nodeType === Node.TEXT_NODE) {
-                nr.setStart(anchor, 0);
-              } else {
-                // Guard is last child \u2014 end of editor.
-                nr.setStart(guardNode, guardNode.textContent.length);
-              }
-              nr.collapse(true);
-              sel.removeAllRanges();
-              sel.addRange(nr);
-              return;
-            }
-          }
-        }
+      if (e.shiftKey) {
+        const anchorLog = this.#domToLogical(sel.anchorNode, sel.anchorOffset);
+        const anchorDOM = this.#logicalToDom(anchorLog);
+        sel.setBaseAndExtent(
+          anchorDOM.node,
+          anchorDOM.offset,
+          pos.node,
+          pos.offset,
+        );
+      } else {
+        this.#setCollapsedCaret(pos.node, pos.offset);
       }
+      return;
     }
   }
 
@@ -1055,9 +1018,13 @@ export class VariablePillEditor {
       }
       return null;
     }
-    if (startContainer.nodeType === Node.TEXT_NODE && startOffset === 0) {
-      const prev = startContainer.previousSibling;
-      if (prev?.classList?.contains("variable-pill")) return prev;
+    if (startContainer.nodeType === Node.TEXT_NODE) {
+      // "Effectively at start" when every char before the offset is ZWS.
+      const before = startContainer.textContent.slice(0, startOffset);
+      if (before.replace(/\u200B/g, "") === "") {
+        const prev = startContainer.previousSibling;
+        if (prev?.classList?.contains("variable-pill")) return prev;
+      }
     }
     return null;
   }
@@ -1069,14 +1036,184 @@ export class VariablePillEditor {
       if (next?.classList?.contains("variable-pill")) return next;
       return null;
     }
-    if (
-      startContainer.nodeType === Node.TEXT_NODE &&
-      startOffset === startContainer.textContent.length
-    ) {
-      const next = startContainer.nextSibling;
-      if (next?.classList?.contains("variable-pill")) return next;
+    if (startContainer.nodeType === Node.TEXT_NODE) {
+      // "Effectively at end" when every char after the offset is ZWS.
+      const after = startContainer.textContent.slice(startOffset);
+      if (after.replace(/\u200B/g, "") === "") {
+        const next = startContainer.nextSibling;
+        if (next?.classList?.contains("variable-pill")) return next;
+      }
     }
     return null;
+  }
+
+  // ── Logical position model ─────────────────────────────────────────────────
+  //
+  // The editor content is modelled as a flat sequence of "logical characters"
+  // where every non-ZWS text character counts as 1 and every pill counts as 1.
+  // ZWS guard characters (\u200B) count as 0.
+  //
+  // #domToLogical maps a DOM position to a logical index, #logicalToDom maps
+  // back.  Together they let arrow-key navigation, selection extension, Home /
+  // End, and post-mouse normalisation operate on a clean abstraction that
+  // automatically hides ZWS padding and pill boundaries.
+
+  /** True when `node` is a text node containing nothing but zero-width spaces. */
+  #isZwsOnly(node) {
+    return (
+      node.nodeType === Node.TEXT_NODE &&
+      node.textContent.replace(/\u200B/g, "") === ""
+    );
+  }
+
+  /** Total logical characters in the editor (non-ZWS text + 1 per pill). */
+  #logicalLength() {
+    let len = 0;
+    for (const child of this.#el.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        for (const ch of child.textContent) {
+          if (ch !== "\u200B") len++;
+        }
+      } else if (child.classList?.contains("variable-pill")) {
+        len++;
+      }
+    }
+    return len;
+  }
+
+  /** Map a DOM position (node + offset) to a zero-based logical index. */
+  #domToLogical(targetNode, targetOffset) {
+    if (!targetNode || !this.#el.contains(targetNode)) return 0;
+
+    // Position at editor element level — count complete children up to offset.
+    if (targetNode === this.#el) {
+      let logical = 0;
+      const limit = Math.min(targetOffset, this.#el.childNodes.length);
+      for (let i = 0; i < limit; i++) {
+        const child = this.#el.childNodes[i];
+        if (child.nodeType === Node.TEXT_NODE) {
+          for (const ch of child.textContent) {
+            if (ch !== "\u200B") logical++;
+          }
+        } else if (child.classList?.contains("variable-pill")) {
+          logical++;
+        }
+      }
+      return logical;
+    }
+
+    // Position inside a child node — walk children until we find the target.
+    let logical = 0;
+    for (const child of this.#el.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        if (child === targetNode) {
+          const text = child.textContent;
+          for (let i = 0; i < Math.min(targetOffset, text.length); i++) {
+            if (text[i] !== "\u200B") logical++;
+          }
+          return logical;
+        }
+        for (const ch of child.textContent) {
+          if (ch !== "\u200B") logical++;
+        }
+      } else if (child.classList?.contains("variable-pill")) {
+        if (child === targetNode || child.contains(targetNode)) return logical;
+        logical++;
+      }
+    }
+    return logical;
+  }
+
+  /**
+   * Map a logical index back to a DOM position {node, offset}.
+   * The returned offset always lands after any leading ZWS so the caret
+   * is placed at a visually meaningful position.
+   */
+  #logicalToDom(pos) {
+    let remaining = Math.max(0, pos);
+
+    for (const child of this.#el.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const text = child.textContent;
+        for (let i = 0; i < text.length; i++) {
+          if (text[i] !== "\u200B") {
+            if (remaining === 0) return { node: child, offset: i };
+            remaining--;
+          }
+        }
+        // Exhausted this node — if remaining is 0, position at its end.
+        if (remaining === 0) return { node: child, offset: text.length };
+      } else if (child.classList?.contains("variable-pill")) {
+        if (remaining === 0) {
+          // "Before this pill" — land at the end of the preceding text node.
+          const prev = child.previousSibling;
+          if (prev?.nodeType === Node.TEXT_NODE) {
+            return { node: prev, offset: prev.textContent.length };
+          }
+          const idx = [...this.#el.childNodes].indexOf(child);
+          return { node: this.#el, offset: idx };
+        }
+        remaining--;
+      }
+    }
+
+    // Past the end — position at end of the last child.
+    const last = this.#el.lastChild;
+    if (last?.nodeType === Node.TEXT_NODE) {
+      return { node: last, offset: last.textContent.length };
+    }
+    return { node: this.#el, offset: this.#el.childNodes.length };
+  }
+
+  /** Collapse the selection to a single caret at the given DOM position. */
+  #setCollapsedCaret(node, offset) {
+    const sel = window.getSelection();
+    if (!sel) return;
+    const range = document.createRange();
+    range.setStart(node, offset);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  /**
+   * After a mouse interaction (click or drag), snap the caret / selection
+   * endpoints out of ZWS-only guard nodes onto real content positions.
+   * Uses the logical model so the normalisation is always consistent with
+   * keyboard navigation.
+   */
+  #normalizeAfterMouse() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    if (!this.#el.contains(sel.anchorNode)) return;
+
+    const anchorLog = this.#domToLogical(sel.anchorNode, sel.anchorOffset);
+    const focusLog = this.#domToLogical(sel.focusNode, sel.focusOffset);
+    const anchorDOM = this.#logicalToDom(anchorLog);
+    const focusDOM = this.#logicalToDom(focusLog);
+
+    if (sel.isCollapsed) {
+      if (
+        focusDOM.node !== sel.focusNode ||
+        focusDOM.offset !== sel.focusOffset
+      ) {
+        this.#setCollapsedCaret(focusDOM.node, focusDOM.offset);
+      }
+    } else {
+      if (
+        anchorDOM.node !== sel.anchorNode ||
+        anchorDOM.offset !== sel.anchorOffset ||
+        focusDOM.node !== sel.focusNode ||
+        focusDOM.offset !== sel.focusOffset
+      ) {
+        sel.setBaseAndExtent(
+          anchorDOM.node,
+          anchorDOM.offset,
+          focusDOM.node,
+          focusDOM.offset,
+        );
+      }
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
