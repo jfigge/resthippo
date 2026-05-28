@@ -574,6 +574,7 @@ mark.tree-highlight {
   font-size: var(--font-size-sm);
   font-weight: 700;
   cursor: pointer;
+  border-color: var(--color-accent);
   white-space: nowrap;
   flex-shrink: 0;
   transition:
@@ -3722,7 +3723,6 @@ input[type="checkbox"]:disabled {
 
 .env-picker__trigger--active {
   color: var(--color-accent);
-  border-color: var(--color-accent);
 }
 
 .env-picker__globe {

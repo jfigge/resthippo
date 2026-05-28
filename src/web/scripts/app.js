@@ -297,6 +297,9 @@ function initComponents() {
 const SPLITTER_MIN_NAV = 100;
 const SPLITTER_MIN_RES = 100;
 const SPLITTER_MIN_ROWRES = 120;
+// Minimum panel width that keeps the 4-button ctrl group (Collections, Env,
+// Layout, Settings) fully visible when "Remove headers" is active.
+const SPLITTER_MIN_CTRL = 200;
 
 let splitterSizes = {
   nav: 300,
@@ -444,10 +447,17 @@ function initSplitters() {
     getSize: () => splitterSizes.nav,
     setSize: (v) => {
       const appMain = getAppMain();
-      const max =
-        getEffectiveSplitterMode() === "portrait"
-          ? appMain.clientHeight * 0.5
-          : appMain.clientWidth * 0.5;
+      const portrait = getEffectiveSplitterMode() === "portrait";
+      let max = portrait
+        ? appMain.clientHeight * 0.5
+        : appMain.clientWidth * 0.5;
+      if (
+        !portrait &&
+        currentSettings.removeHeaders &&
+        (_currentLayout === 2 || _currentLayout === 3)
+      ) {
+        max = Math.min(max, appMain.clientWidth - SPLITTER_MIN_CTRL);
+      }
       splitterSizes.nav = Math.min(max, Math.max(SPLITTER_MIN_NAV, v));
       applyGridVars();
     },
@@ -469,7 +479,11 @@ function initSplitters() {
       const appMain = getAppMain();
       if (getEffectiveSplitterMode() === "landscape") {
         const max = appMain.clientWidth * 0.5;
-        splitterSizes.res = Math.min(max, Math.max(SPLITTER_MIN_RES, v));
+        const min =
+          currentSettings.removeHeaders && _currentLayout === 1
+            ? Math.max(SPLITTER_MIN_RES, SPLITTER_MIN_CTRL)
+            : SPLITTER_MIN_RES;
+        splitterSizes.res = Math.min(max, Math.max(min, v));
       } else {
         const max = appMain.clientHeight * 0.5;
         splitterSizes.rowRes = Math.min(max, Math.max(SPLITTER_MIN_ROWRES, v));
