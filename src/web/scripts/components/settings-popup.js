@@ -71,158 +71,161 @@ export class SettingsPopup {
         <!-- Appearance ──────────────────────────────────────────────── -->
         <div class="settings-section">
           <h3 class="settings-section-title">Appearance</h3>
+          <div class="settings-grid">
+            <div class="settings-row">
+              <label class="settings-label" for="setting-theme">Theme</label>
+              <select class="settings-select" id="setting-theme">
+                <optgroup label="Dark">
+                  <option value="mocha">Mocha</option>
+                  <option value="grey-dark">Grey</option>
+                  <option value="yellow">Yellow</option>
+                  <option value="green">Green</option>
+                  <option value="blue">Blue</option>
+                  <option value="red">Red</option>
+                </optgroup>
+                <optgroup label="Light">
+                  <option value="latte">Latte</option>
+                  <option value="grey-light">Grey</option>
+                  <option value="yellow-light">Yellow</option>
+                  <option value="green-light">Green</option>
+                  <option value="blue-light">Blue</option>
+                  <option value="red-light">Red</option>
+                </optgroup>
+              </select>
+            </div>
 
-          <div class="settings-row">
-            <label class="settings-label" for="setting-theme">Theme</label>
-            <select class="settings-select" id="setting-theme">
-              <optgroup label="Dark">
-                <option value="mocha">Mocha</option>
-                <option value="grey-dark">Grey</option>
-                <option value="yellow">Yellow</option>
-                <option value="green">Green</option>
-                <option value="blue">Blue</option>
-                <option value="red">Red</option>
-              </optgroup>
-              <optgroup label="Light">
-                <option value="latte">Latte</option>
-                <option value="grey-light">Grey</option>
-                <option value="yellow-light">Yellow</option>
-                <option value="green-light">Green</option>
-                <option value="blue-light">Blue</option>
-                <option value="red-light">Red</option>
-              </optgroup>
-            </select>
-          </div>
+            <div class="settings-row">
+              <label class="settings-label" for="setting-font-size">Editor font size</label>
+              <select class="settings-select" id="setting-font-size">
+                <option value="11">11 px</option>
+                <option value="12">12 px</option>
+                <option value="13">13 px</option>
+                <option value="14">14 px</option>
+                <option value="16">16 px</option>
+                <option value="18">18 px</option>
+              </select>
+            </div>
 
-          <div class="settings-row">
-            <label class="settings-label" for="setting-font-size">Editor font size</label>
-            <select class="settings-select" id="setting-font-size">
-              <option value="11">11 px</option>
-              <option value="12">12 px</option>
-              <option value="13">13 px</option>
-              <option value="14">14 px</option>
-              <option value="16">16 px</option>
-              <option value="18">18 px</option>
-            </select>
-          </div>
+            <div class="settings-row">
+              <label class="settings-label" for="setting-font-family">UI font</label>
+              <select class="settings-select" id="setting-font-family">
+                <option value="inter">Inter</option>
+                <option value="system">System Default</option>
+                <option value="sf-pro">SF Pro (macOS)</option>
+                <option value="segoe">Segoe UI (Windows)</option>
+                <option value="ubuntu">Ubuntu (Linux)</option>
+                <option value="roboto">Roboto</option>
+              </select>
+            </div>
 
-          <div class="settings-row">
-            <label class="settings-label" for="setting-font-family">UI font</label>
-            <select class="settings-select" id="setting-font-family">
-              <option value="inter">Inter</option>
-              <option value="system">System Default</option>
-              <option value="sf-pro">SF Pro (macOS)</option>
-              <option value="segoe">Segoe UI (Windows)</option>
-              <option value="ubuntu">Ubuntu (Linux)</option>
-              <option value="roboto">Roboto</option>
-            </select>
-          </div>
-
-          <div class="settings-row settings-row--toggle" id="setting-remove-headers-row">
-            <label class="settings-label" for="setting-remove-headers">Remove headers</label>
-            <input
-              class="settings-toggle"
-              id="setting-remove-headers"
-              type="checkbox"
-            />
+            <div class="settings-row settings-row--toggle" id="setting-remove-headers-row">
+              <label class="settings-label" for="setting-remove-headers">Remove headers</label>
+              <input
+                class="settings-toggle"
+                id="setting-remove-headers"
+                type="checkbox"
+              />
+            </div>
           </div>
         </div>
 
         <!-- Request ──────────────────────────────────────────────────── -->
         <div class="settings-section">
           <h3 class="settings-section-title">Request</h3>
+          <div class="settings-grid">
+            <div class="settings-row">
+              <label class="settings-label" for="setting-timeout">Timeout (ms)</label>
+              <input
+                class="settings-input"
+                id="setting-timeout"
+                type="number"
+                min="0"
+                max="300000"
+                step="1000"
+              />
+            </div>
 
-          <div class="settings-row">
-            <label class="settings-label" for="setting-timeout">Timeout (ms)</label>
-            <input
-              class="settings-input"
-              id="setting-timeout"
-              type="number"
-              min="0"
-              max="300000"
-              step="1000"
-            />
-          </div>
+            <div class="settings-row">
+              <label class="settings-label" for="setting-picker-debounce">Picker debounce (ms)</label>
+              <input
+                class="settings-input"
+                id="setting-picker-debounce"
+                type="number"
+                min="0"
+                max="2000"
+                step="50"
+                value="200"
+              />
+            </div>
 
-          <div class="settings-row settings-row--toggle">
-            <label class="settings-label" for="setting-follow-redirects">Follow redirects</label>
-            <input
-              class="settings-toggle"
-              id="setting-follow-redirects"
-              type="checkbox"
-            />
-          </div>
+            <div class="settings-row settings-row--toggle">
+              <label class="settings-label" for="setting-follow-redirects">Follow redirects</label>
+              <input
+                class="settings-toggle"
+                id="setting-follow-redirects"
+                type="checkbox"
+              />
+            </div>
 
-          <div class="settings-row settings-row--toggle">
-            <label class="settings-label" for="setting-dblclick-execute">Double-click requests to execute</label>
-            <input
-              class="settings-toggle"
-              id="setting-dblclick-execute"
-              type="checkbox"
-            />
-          </div>
+            <div class="settings-row settings-row--toggle">
+              <label class="settings-label" for="setting-dblclick-execute">Double-click requests to execute</label>
+              <input
+                class="settings-toggle"
+                id="setting-dblclick-execute"
+                type="checkbox"
+              />
+            </div>
 
-          <div class="settings-row settings-row--toggle">
-            <label class="settings-label" for="setting-verify-ssl">Verify SSL certificates</label>
-            <input
-              class="settings-toggle"
-              id="setting-verify-ssl"
-              type="checkbox"
-            />
-          </div>
-
-          <div class="settings-row">
-            <label class="settings-label" for="setting-picker-debounce">Picker debounce (ms)</label>
-            <input
-              class="settings-input"
-              id="setting-picker-debounce"
-              type="number"
-              min="0"
-              max="2000"
-              step="50"
-              value="200"
-            />
-          </div>
-        </div>
-
-        <!-- Proxy ───────────────────────────────────────────────────── -->
-        <div class="settings-section">
-          <h3 class="settings-section-title">Proxy</h3>
-
-          <div class="settings-row settings-row--toggle">
-            <label class="settings-label" for="setting-proxy-enabled">Enable proxy</label>
-            <input class="settings-toggle" id="setting-proxy-enabled" type="checkbox" />
-          </div>
-
-          <div class="settings-row">
-            <label class="settings-label" for="setting-proxy-url">Proxy URL</label>
-            <input
-              class="settings-input"
-              id="setting-proxy-url"
-              type="url"
-              placeholder="http://proxy:8080"
-            />
+            <div class="settings-row settings-row--toggle">
+              <label class="settings-label" for="setting-verify-ssl">Verify SSL certificates</label>
+              <input
+                class="settings-toggle"
+                id="setting-verify-ssl"
+                type="checkbox"
+              />
+            </div>
           </div>
         </div>
 
-        <!-- History ──────────────────────────────────────────────────── -->
-        <div class="settings-section">
-          <h3 class="settings-section-title">History</h3>
+        <!-- Proxy + History ──────────────────────────────────────────── -->
+        <div class="settings-sections-row">
+          <div class="settings-section">
+            <h3 class="settings-section-title">Proxy</h3>
 
-          <div class="settings-row">
-            <label class="settings-label" for="setting-history-count">Timeline entries</label>
-            <select class="settings-select" id="setting-history-count">
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-              <option value="6">6</option>
-              <option value="7">7</option>
-              <option value="8">8</option>
-              <option value="9">9</option>
-              <option value="10">10</option>
-            </select>
+            <div class="settings-row settings-row--toggle">
+              <label class="settings-label" for="setting-proxy-enabled">Enable proxy</label>
+              <input class="settings-toggle" id="setting-proxy-enabled" type="checkbox" />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-label" for="setting-proxy-url">Proxy URL</label>
+              <input
+                class="settings-input"
+                id="setting-proxy-url"
+                type="url"
+                placeholder="http://proxy:8080"
+              />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3 class="settings-section-title">History</h3>
+
+            <div class="settings-row">
+              <label class="settings-label" for="setting-history-count">Timeline entries</label>
+              <select class="settings-select" id="setting-history-count">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
