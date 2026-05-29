@@ -14,8 +14,8 @@
 .tree-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
 }
@@ -24,7 +24,7 @@
   flex: 1;
   min-width: 0;
   height: 30px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   background: var(--color-surface-0);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -60,23 +60,23 @@
 .tree-list {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-1) 0;
+  padding: 0;
 }
 
 .tree-list--nested {
-  padding-left: var(--space-4);
+  padding-left: var(--space-5);
 }
 
 /* Tree node rows */
 .tree-node__row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2);
   cursor: pointer;
   font-size: var(--font-size-sm);
   border-radius: var(--radius-sm);
-  margin: 1px var(--space-1);
+  margin: 1px var(--space-2);
   transition: background-color var(--transition-fast);
   user-select: none;
 }
@@ -187,8 +187,8 @@ mark.tree-highlight {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--space-6);
-  gap: var(--space-2);
+  padding: var(--space-7);
+  gap: var(--space-3);
   color: var(--color-overlay-0);
   font-size: var(--font-size-sm);
 }
@@ -215,7 +215,7 @@ mark.tree-highlight {
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.3),
     0 1px 3px rgba(0, 0, 0, 0.15);
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
   display: flex;
   flex-direction: column;
   animation: ctxmenu-open 0.08s ease-out;
@@ -235,7 +235,7 @@ mark.tree-highlight {
 .tree-ctxmenu__item {
   width: 100%;
   text-align: left;
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-4);
   font-family: var(--font-ui);
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -268,8 +268,8 @@ mark.tree-highlight {
   /* Inset from the menu edges so the button shape is clearly visible */
   display: block;
   width: auto;
-  margin: var(--space-1) var(--space-3);
-  padding: var(--space-1) var(--space-4);
+  margin: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-5);
 
   /* Filled warning-amber appearance */
   background-color: var(--color-warning);
@@ -294,14 +294,14 @@ mark.tree-highlight {
 .tree-ctxmenu__separator {
   height: 1px;
   background: var(--color-surface-2);
-  margin: var(--space-1) 0;
+  margin: var(--space-2) 0;
 }
 
 /* ── Drag phantom (drop target placeholder) ──────────────────────────────── */
 
 .tree-drop-phantom {
   height: 28px;
-  margin: 1px var(--space-1);
+  margin: 1px var(--space-2);
   background: var(--color-surface-2);
   border: 2px dashed var(--color-overlay-0);
   border-radius: var(--radius-sm);
@@ -316,7 +316,7 @@ mark.tree-highlight {
   flex: 1;
   min-width: 0;
   height: 20px;
-  padding: 0 var(--space-1);
+  padding: 0 var(--space-2);
   background: var(--color-surface-1);
   border: 1px solid var(--color-accent);
   border-radius: 2px;
@@ -339,8 +339,8 @@ mark.tree-highlight {
 .req-url-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-surface-0);
   flex-shrink: 0;
@@ -349,9 +349,9 @@ mark.tree-highlight {
 .req-method-select {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   height: 30px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -409,7 +409,7 @@ mark.tree-highlight {
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.3),
     0 1px 3px rgba(0, 0, 0, 0.15);
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
   user-select: none;
   animation: ctxmenu-open 0.08s ease-out;
 }
@@ -417,7 +417,7 @@ mark.tree-highlight {
 .req-method-menu__item {
   display: flex;
   align-items: center;
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-4);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   font-weight: 700;
@@ -472,18 +472,18 @@ mark.tree-highlight {
 .req-method-menu__separator {
   height: 1px;
   background: var(--color-surface-2);
-  margin: var(--space-1) 0;
+  margin: var(--space-2) 0;
 }
 
 .req-method-menu__custom-row {
   display: flex;
   align-items: center;
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-4);
 }
 
 .req-method-menu__custom-input {
   flex: 1;
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
   background: transparent;
   border: none;
   outline: none;
@@ -503,7 +503,7 @@ mark.tree-highlight {
 .req-url-input {
   flex: 1;
   height: 30px;
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-4);
   background: var(--color-base);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -533,7 +533,7 @@ mark.tree-highlight {
   border-color: var(--color-surface-2);
   /* Match original height and padding */
   min-height: 30px;
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-4);
   /* Font size matches the original req-url-input */
   font-size: var(--font-size-base);
   /* Grow to fill the bar (flex:1 already on .req-url-input) */
@@ -565,7 +565,7 @@ mark.tree-highlight {
 
 .req-send-btn {
   height: 30px;
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-5);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -629,7 +629,7 @@ mark.tree-highlight {
 }
 
 .req-tab-btn {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   font-size: var(--font-size-sm);
   color: var(--color-subtext);
   border-bottom: 2px solid transparent;
@@ -687,7 +687,7 @@ mark.tree-highlight {
 .body-text-editor {
   flex: 1;
   width: 100%;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-5);
   background: var(--color-base);
   color: var(--color-text);
   font-family: var(--font-mono), monospace;
@@ -705,7 +705,7 @@ mark.tree-highlight {
 }
 
 .body-validate-badge {
-  padding-left: var(--space-3);
+  padding-left: var(--space-4);
 }
 
 /* ── Syntax-highlighting overlay for JSON / YAML / XML body editors ─────── */
@@ -729,7 +729,7 @@ mark.tree-highlight {
   position: absolute;
   inset: 0;
   margin: 0;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-5);
   font-family: var(--font-mono), monospace;
   font-size: var(--font-size-sm);
   line-height: 1.6;
@@ -764,11 +764,11 @@ mark.tree-highlight {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   border: 2px dashed var(--color-surface-2);
   border-radius: var(--radius-md);
-  margin: var(--space-4);
-  padding: var(--space-6);
+  margin: var(--space-5);
+  padding: var(--space-7);
   color: var(--color-overlay-0);
   transition:
     border-color var(--transition-fast),
@@ -802,7 +802,7 @@ mark.tree-highlight {
 
 .body-file-browse-btn {
   height: 30px;
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-5);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -810,7 +810,7 @@ mark.tree-highlight {
   font-size: var(--font-size-sm);
   font-weight: 600;
   cursor: pointer;
-  margin-top: var(--space-1);
+  margin-top: var(--space-2);
   transition:
     background-color var(--transition-fast),
     border-color var(--transition-fast);
@@ -825,12 +825,12 @@ mark.tree-highlight {
 .body-file-chosen {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--space-4);
+  padding: var(--space-5);
   background: var(--color-surface-0);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-md);
-  margin: var(--space-4);
+  margin: var(--space-5);
 }
 
 .body-file-chosen__icon {
@@ -850,7 +850,7 @@ mark.tree-highlight {
 
 .body-file-reset-btn {
   height: 26px;
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-4);
   background: transparent;
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -874,7 +874,7 @@ mark.tree-highlight {
 /* ── Prettify button (sits in the type-selector bar, left side) ──────────── */
 .body-prettify-btn {
   height: 26px;
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-4);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -910,7 +910,7 @@ mark.tree-highlight {
 /* Body-type selector in the toolbar */
 .body-type-select {
   height: 26px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -934,8 +934,8 @@ mark.tree-highlight {
 .params-url-preview {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-base);
   flex-shrink: 0;
@@ -950,7 +950,7 @@ mark.tree-highlight {
   flex: 1;
   min-width: 0;
   height: 26px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   background: var(--color-surface-0);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -976,7 +976,7 @@ mark.tree-highlight {
 .params-url-preview__copy-btn {
   flex-shrink: 0;
   height: 26px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   font-size: var(--font-size-xs);
   font-weight: 600;
   border-radius: var(--radius-sm);
@@ -997,8 +997,8 @@ mark.tree-highlight {
 .params-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   flex-shrink: 0;
@@ -1041,7 +1041,7 @@ mark.tree-highlight {
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
-  padding: 0 var(--space-1);
+  padding: 0 var(--space-2);
   height: 28px;
 }
 .params-toolbar-toggle-label.is-hidden {
@@ -1051,8 +1051,8 @@ mark.tree-highlight {
 .body-form-toolbar-group {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  margin-left: var(--space-2);
+  gap: var(--space-2);
+  margin-left: var(--space-3);
 }
 .body-form-toolbar-group.is-hidden {
   display: none;
@@ -1070,7 +1070,7 @@ mark.tree-highlight {
 .params-delete-all-btn {
   width: auto;
   height: 24px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   font-size: var(--font-size-xs);
   font-weight: 600;
   border-radius: var(--radius-sm);
@@ -1081,8 +1081,8 @@ mark.tree-highlight {
   display: grid;
   grid-template-columns: 24px 28px 1fr 1fr 28px;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-surface-0);
   flex-shrink: 0;
@@ -1099,14 +1099,14 @@ mark.tree-highlight {
 
 /* Indent the Value headers to match the input's internal padding */
 .params-col-value {
-  padding-left: var(--space-2);
+  padding-left: var(--space-3);
 }
 
 /* Scrollable list */
 .params-list {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
 }
 
 /* Parameter rows */
@@ -1114,9 +1114,9 @@ mark.tree-highlight {
   display: grid;
   grid-template-columns: 24px 28px 1fr 1fr 28px;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   border-radius: var(--radius-sm);
-  margin: 0 var(--space-1);
+  margin: 0 var(--space-2);
   transition: background-color var(--transition-fast);
 }
 
@@ -1127,7 +1127,7 @@ mark.tree-highlight {
 /* Drop phantom placeholder shown while dragging a param row */
 .params-drop-phantom {
   height: 26px;
-  margin: 0 var(--space-1);
+  margin: 0 var(--space-2);
   background: var(--color-surface-2);
   border: 2px dashed var(--color-overlay-0);
   border-radius: var(--radius-sm);
@@ -1175,7 +1175,7 @@ mark.tree-highlight {
 .params-input {
   width: 100%;
   height: 24px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--color-text);
@@ -1214,7 +1214,7 @@ mark.tree-highlight {
   max-height: 180px;
   overflow-y: auto;
   display: none;
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
 }
 
 .hdr-autocomplete--visible {
@@ -1222,7 +1222,7 @@ mark.tree-highlight {
 }
 
 .hdr-autocomplete__item {
-  padding: 3px var(--space-2);
+  padding: 3px var(--space-3);
   font-size: var(--font-size-sm);
   font-family: var(--font-mono), monospace;
   color: var(--color-text);
@@ -1268,7 +1268,7 @@ mark.tree-highlight {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-6);
+  padding: var(--space-7);
   color: var(--color-overlay-0);
   font-size: var(--font-size-sm);
   font-style: italic;
@@ -1280,10 +1280,10 @@ mark.tree-highlight {
 
 /* Scrollable form container inside the auth content area */
 .auth-form {
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-5) var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
   overflow-y: auto;
   flex: 1;
 }
@@ -1300,7 +1300,7 @@ mark.tree-highlight {
   display: grid;
   grid-template-columns: 150px 1fr;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .auth-field__label {
@@ -1315,7 +1315,7 @@ mark.tree-highlight {
 .auth-field__input {
   width: 100%;
   height: 30px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -1391,7 +1391,7 @@ mark.tree-highlight {
 /* Password input + show/hide toggle side by side */
 .auth-pwd-wrapper {
   display: flex;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .auth-pwd-wrapper .auth-field__input {
@@ -1402,7 +1402,7 @@ mark.tree-highlight {
 .auth-pwd-toggle {
   flex-shrink: 0;
   height: 30px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -1430,9 +1430,9 @@ mark.tree-highlight {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-overlay-0);
-  padding-bottom: var(--space-2);
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--color-surface-2);
-  margin-top: var(--space-1);
+  margin-top: var(--space-2);
 }
 
 /* ── Advanced toggle row ─────────────────────────────────────────────────── */
@@ -1444,17 +1444,17 @@ mark.tree-highlight {
  * and gets its pill appearance from the universal input[type="checkbox"] rule.
  */
 .auth-field--advanced-toggle {
-  padding: var(--space-2) 0 var(--space-1);
+  padding: var(--space-3) 0 var(--space-2);
   border-top: 1px solid var(--color-surface-2);
-  margin-top: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 /* Token display box */
 .auth-token-display {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3);
+  gap: var(--space-4);
+  padding: var(--space-4);
   background: var(--color-surface-0);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -1473,7 +1473,7 @@ mark.tree-highlight {
 .auth-token-btn-group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
@@ -1482,16 +1482,16 @@ mark.tree-highlight {
 .auth-get-token-row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) 0 var(--space-2);
+  gap: var(--space-4);
+  padding: var(--space-4) 0 var(--space-3);
   border-top: 1px solid var(--color-surface-2);
-  margin-top: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 .auth-get-token-btn {
   flex-shrink: 0;
   height: 28px;
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-5);
   font-size: var(--font-size-sm);
   font-weight: 600;
   border-radius: var(--radius-sm);
@@ -1536,7 +1536,7 @@ mark.tree-highlight {
 
 .auth-discover-btn {
   height: 24px;
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-4);
   font-size: var(--font-size-xs);
   font-weight: 600;
   border-radius: var(--radius-sm);
@@ -1549,7 +1549,7 @@ mark.tree-highlight {
     background-color var(--transition-fast),
     border-color var(--transition-fast),
     color var(--transition-fast);
-  margin-right: var(--space-2);
+  margin-right: var(--space-3);
 }
 
 .auth-discover-btn:hover {
@@ -1568,7 +1568,7 @@ mark.tree-highlight {
 .discover-dialog-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .discover-dialog-desc {
@@ -1598,7 +1598,7 @@ mark.tree-highlight {
 .discover-dialog-input {
   width: 100%;
   height: 34px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   background: var(--color-surface-0);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -1620,8 +1620,8 @@ mark.tree-highlight {
 }
 
 .discover-dialog-error {
-  margin-top: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--color-error) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-error) 40%, transparent);
@@ -1649,8 +1649,8 @@ mark.tree-highlight {
 .res-status-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   font-size: var(--font-size-sm);
@@ -1687,7 +1687,7 @@ mark.tree-highlight {
 
 .res-meta {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-4);
   color: var(--color-overlay-0);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
@@ -1707,7 +1707,7 @@ mark.tree-highlight {
 }
 
 .res-tab-btn {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   font-size: var(--font-size-sm);
   color: var(--color-subtext);
   border-bottom: 2px solid transparent;
@@ -1781,10 +1781,10 @@ mark.tree-highlight {
 /* Response body — monospace pre block */
 .res-body-pre {
   margin: 0;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
-  line-height: 1.6;
+  line-height: 1.2;
   color: var(--color-text);
   white-space: pre-wrap;
   word-break: break-all;
@@ -1799,7 +1799,7 @@ mark.tree-highlight {
 }
 
 .res-headers-table td {
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--color-surface-0);
   vertical-align: top;
 }
@@ -1832,7 +1832,7 @@ mark.tree-highlight {
   font-size: var(--font-size-xs);
   color: var(--color-overlay-0);
   font-style: italic;
-  margin-top: var(--space-2);
+  margin-top: var(--space-3);
   max-width: 480px;
   text-align: center;
   line-height: 1.5;
@@ -1847,8 +1847,8 @@ mark.tree-highlight {
 .res-search-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   flex-shrink: 0;
@@ -1873,7 +1873,7 @@ mark.tree-highlight {
   flex: 1;
   min-width: 0;
   height: 26px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   background: var(--color-surface-0);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -1895,7 +1895,7 @@ mark.tree-highlight {
 .res-search-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
@@ -1909,7 +1909,7 @@ mark.tree-highlight {
   justify-content: center;
   min-width: 26px;
   height: 26px;
-  padding: 0 var(--space-1);
+  padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
   color: var(--color-subtext);
   background: transparent;
@@ -1974,7 +1974,7 @@ mark.tree-highlight {
 /* ── Console tab — verbose request/response log ────────────────────────────  */
 .res-console-pre {
   margin: 0;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-5);
   font-family: var(--font-mono), monospace;
   font-size: var(--font-size-xs);
   line-height: 1.7;
@@ -2016,13 +2016,13 @@ mark.tree-highlight {
 .timeline-list {
   display: flex;
   flex-direction: column;
-  padding: var(--space-2) 0;
+  padding: var(--space-3) 0;
 }
 
 .timeline-item {
   display: flex;
   flex-direction: column;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   width: 100%;
   text-align: left;
   background: transparent;
@@ -2036,15 +2036,15 @@ mark.tree-highlight {
 .timeline-timestamp {
   font-size: var(--font-size-xs);
   color: var(--color-overlay-0);
-  margin-bottom: var(--space-1);
+  margin-bottom: var(--space-2);
 }
 
 .timeline-record {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
   font-size: calc(var(--font-size-sm) * 0.85);
-  margin-left: var(--space-3);
+  margin-left: var(--space-4);
 }
 
 .timeline-item:hover {
@@ -2082,7 +2082,7 @@ mark.tree-highlight {
 
 .timeline-meta {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-4);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   color: var(--color-overlay-0);
@@ -2102,7 +2102,7 @@ mark.tree-highlight {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  padding: var(--space-1) 0 var(--space-2);
+  padding: var(--space-2) 0 var(--space-3);
   overscroll-behavior: contain;
 }
 
@@ -2110,7 +2110,7 @@ mark.tree-highlight {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-2) var(--space-1) var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
   font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -2121,7 +2121,7 @@ mark.tree-highlight {
 
 .timeline-tooltip__section + .timeline-tooltip__section {
   border-top: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
-  margin-top: var(--space-1);
+  margin-top: var(--space-2);
 }
 
 .timeline-tooltip__copy-btn {
@@ -2148,7 +2148,7 @@ mark.tree-highlight {
 }
 
 .timeline-tooltip__value {
-  padding: 1px var(--space-3) 1px var(--space-5);
+  padding: 1px var(--space-4) 1px var(--space-6);
   font-size: var(--font-size-xs);
   color: var(--color-text);
   word-break: break-all;
@@ -2156,14 +2156,14 @@ mark.tree-highlight {
 }
 
 .timeline-tooltip__none {
-  padding: 1px var(--space-3) 1px var(--space-5);
+  padding: 1px var(--space-4) 1px var(--space-6);
   font-size: var(--font-size-xs);
   color: var(--color-overlay-0);
   font-style: italic;
 }
 
 .timeline-tooltip__kv {
-  padding: 1px var(--space-3) 1px var(--space-5);
+  padding: 1px var(--space-4) 1px var(--space-6);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   color: var(--color-text);
@@ -2232,8 +2232,8 @@ mark.tree-highlight {
 .popup-header {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -2277,7 +2277,7 @@ mark.tree-highlight {
 .popup-body {
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: var(--space-4);
+  padding: var(--space-5);
 }
 
 /* Popup footer */
@@ -2285,8 +2285,8 @@ mark.tree-highlight {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
@@ -2318,7 +2318,7 @@ mark.tree-highlight {
 /* Popup buttons */
 .popup-btn {
   height: 32px;
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-5);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -2401,7 +2401,7 @@ mark.tree-highlight {
 }
 
 .settings-section {
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-6);
 }
 
 .settings-section:last-child {
@@ -2414,16 +2414,16 @@ mark.tree-highlight {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-overlay-0);
-  margin: 0 0 var(--space-3) 0;
-  padding-bottom: var(--space-2);
+  margin: 0 0 var(--space-4) 0;
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--color-surface-2);
 }
 
 .settings-row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) 0;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
 }
 
 .settings-row + .settings-row {
@@ -2440,7 +2440,7 @@ mark.tree-highlight {
 .settings-select,
 .settings-input {
   height: 30px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -2507,11 +2507,11 @@ mark.tree-highlight {
 .coll-name-input-row {
   display: none;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
   background: var(--color-surface-0);
   border-bottom: 1px solid var(--color-surface-2);
-  margin-bottom: var(--space-1);
+  margin-bottom: var(--space-2);
 }
 
 .coll-name-input-row--visible {
@@ -2521,7 +2521,7 @@ mark.tree-highlight {
 .coll-name-input {
   flex: 1;
   height: 30px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -2549,17 +2549,17 @@ mark.tree-highlight {
 /* ── Collection list ──────────────────────────────────────────────────────── */
 .coll-list {
   list-style: none;
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
   margin: 0;
 }
 
 .coll-list-item {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-sm);
-  margin: 1px var(--space-2);
+  margin: 1px var(--space-3);
   transition: background-color var(--transition-fast);
 }
 
@@ -2610,7 +2610,7 @@ mark.tree-highlight {
 
 .coll-list-item__actions {
   display: flex;
-  gap: var(--space-1);
+  gap: var(--space-2);
   flex-shrink: 0;
   /* Show actions only on hover */
   opacity: 0;
@@ -2668,8 +2668,8 @@ mark.tree-highlight {
 .coll-vars-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   flex-shrink: 0;
@@ -2760,8 +2760,8 @@ mark.tree-highlight {
 .vars-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   flex-shrink: 0;
@@ -2830,10 +2830,10 @@ mark.tree-highlight {
 .vars-add-btn {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   font-size: var(--font-size-lg);
   color: var(--color-subtext);
-  padding: var(--space-2);
+  padding: var(--space-3);
 }
 
 .vars-add-btn:hover {
@@ -2875,11 +2875,11 @@ mark.tree-highlight {
 .env-name-input-row {
   display: none;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
   background: var(--color-surface-0);
   border-bottom: 1px solid var(--color-surface-2);
-  margin-bottom: var(--space-1);
+  margin-bottom: var(--space-2);
 }
 
 .env-name-input-row--visible {
@@ -2889,7 +2889,7 @@ mark.tree-highlight {
 .env-name-input {
   flex: 1;
   height: 30px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
@@ -2918,17 +2918,17 @@ mark.tree-highlight {
 /* ── Environment list ─────────────────────────────────────────────────────── */
 .env-list {
   list-style: none;
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
   margin: 0;
 }
 
 .env-list-item {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-sm);
-  margin: 1px var(--space-2);
+  margin: 1px var(--space-3);
   transition: background-color var(--transition-fast);
 }
 
@@ -2979,7 +2979,7 @@ mark.tree-highlight {
 
 .env-list-item__actions {
   display: flex;
-  gap: var(--space-1);
+  gap: var(--space-2);
   flex-shrink: 0;
   opacity: 0;
   transition: opacity var(--transition-fast);
@@ -3017,8 +3017,8 @@ mark.tree-highlight {
 .env-vars-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   flex-shrink: 0;
@@ -3067,10 +3067,10 @@ mark.tree-highlight {
 .env-add-btn {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   font-size: var(--font-size-lg);
   color: var(--color-subtext);
-  padding: var(--space-2);
+  padding: var(--space-3);
 }
 
 .env-add-btn:hover {
@@ -3090,7 +3090,7 @@ mark.tree-highlight {
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
-  padding: 1px var(--space-2);
+  padding: 1px var(--space-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3292,7 +3292,7 @@ input[type="checkbox"]:disabled {
 .var-warn-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .var-warn-desc {
@@ -3305,10 +3305,10 @@ input[type="checkbox"]:disabled {
 .var-warn-list {
   list-style: none;
   margin: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   max-height: 240px;
   overflow-y: auto;
   border: 1px solid var(--color-surface-2);
@@ -3319,7 +3319,7 @@ input[type="checkbox"]:disabled {
 .var-warn-item {
   display: flex;
   align-items: baseline;
-  gap: var(--space-2);
+  gap: var(--space-3);
   font-size: var(--font-size-sm);
   min-width: 0;
 }
@@ -3364,13 +3364,13 @@ input[type="checkbox"]:disabled {
 .pill-editor-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .pill-editor-field-row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .pill-editor-type-label {
@@ -3389,7 +3389,7 @@ input[type="checkbox"]:disabled {
   font-size: var(--font-size-xs);
   color: var(--color-error);
   min-height: 1em;
-  padding-left: calc(64px + var(--space-3)); /* align under the input */
+  padding-left: calc(64px + var(--space-4)); /* align under the input */
 }
 
 .pill-editor-divider {
@@ -3401,7 +3401,7 @@ input[type="checkbox"]:disabled {
 .pill-editor-preview {
   display: flex;
   align-items: baseline;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .pill-editor-preview-label {
@@ -3428,8 +3428,8 @@ input[type="checkbox"]:disabled {
 .pill-editor-func-header {
   display: flex;
   align-items: baseline;
-  gap: var(--space-2);
-  padding: var(--space-1) 0;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
 }
 
 .pill-editor-func-name {
@@ -3447,13 +3447,13 @@ input[type="checkbox"]:disabled {
 .pill-editor-params {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .pill-editor-param-row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .pill-editor-param-label {
@@ -3474,7 +3474,7 @@ input[type="checkbox"]:disabled {
   color: var(--color-subtext);
   font-style: italic;
   margin: 0;
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
 }
 
 /* Variable suggestions list in pill editor popup */
@@ -3488,7 +3488,7 @@ input[type="checkbox"]:disabled {
 }
 
 .pill-editor-var-item {
-  padding: 4px var(--space-3);
+  padding: 4px var(--space-4);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   cursor: pointer;
@@ -3502,7 +3502,7 @@ input[type="checkbox"]:disabled {
 }
 
 .pill-editor-var-empty {
-  padding: var(--space-3);
+  padding: var(--space-4);
   font-size: var(--font-size-sm);
   color: var(--color-subtext);
   font-style: italic;
@@ -3520,13 +3520,13 @@ input[type="checkbox"]:disabled {
   background: var(--color-surface-1);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: var(--space-1);
-  padding: var(--space-1) 0;
+  box-shadow: var(--space-2);
+  padding: var(--space-2) 0;
   overscroll-behavior: contain;
 }
 
 .pill-picker__section {
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-4);
   font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -3537,7 +3537,7 @@ input[type="checkbox"]:disabled {
 }
 
 .pill-picker__subsection {
-  padding: 2px var(--space-3) 2px var(--space-5);
+  padding: 2px var(--space-4) 2px var(--space-6);
   font-size: var(--font-size-xs);
   font-weight: 500;
   color: var(--color-overlay-0);
@@ -3548,14 +3548,14 @@ input[type="checkbox"]:disabled {
 .pill-picker__item {
   display: flex;
   align-items: baseline;
-  gap: var(--space-2);
-  padding: 4px var(--space-3) 4px var(--space-5);
+  gap: var(--space-3);
+  padding: 4px var(--space-4) 4px var(--space-6);
   cursor: pointer;
   user-select: none;
 }
 
 .pill-picker__item--indented {
-  padding-left: calc(var(--space-5) + var(--space-3));
+  padding-left: calc(var(--space-6) + var(--space-4));
 }
 
 .pill-picker__item--active {
@@ -3584,7 +3584,7 @@ input[type="checkbox"]:disabled {
 }
 
 .pill-picker__empty {
-  padding: var(--space-3);
+  padding: var(--space-4);
   font-size: var(--font-size-sm);
   color: var(--color-subtext);
   font-style: italic;
@@ -3649,7 +3649,7 @@ input[type="checkbox"]:disabled {
   box-shadow:
     0 4px 12px rgba(0, 0, 0, 0.3),
     0 1px 3px rgba(0, 0, 0, 0.15);
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
   user-select: none;
   animation: ctxmenu-open 0.08s ease-out;
 }
@@ -3657,8 +3657,8 @@ input[type="checkbox"]:disabled {
 .layout-picker__item {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
   cursor: pointer;
   font-family: var(--font-ui);
   font-size: var(--font-size-sm);
@@ -3715,7 +3715,7 @@ input[type="checkbox"]:disabled {
   align-items: center;
   gap: 4px;
   height: 30px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
