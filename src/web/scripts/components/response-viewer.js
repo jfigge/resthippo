@@ -348,6 +348,7 @@ export class ResponseViewer {
       if (tab.id === "body") {
         btn.textContent = "Body";
         btn.dataset.method = this.#currentMethod;
+        btn.title = "Secondary click for options";   
         btn.classList.add(
           this.#renderMode === "raw"
             ? "res-tab-btn--raw-mode"
