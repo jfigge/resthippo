@@ -951,6 +951,12 @@ function initEventBus() {
     }
   });
 
+  // Reset the editor when the last request is deleted and there is nothing left to select.
+  window.addEventListener("wurl:request-cleared", () => {
+    _selectedNode = null;
+    _clearRequestEditor();
+  });
+
   // Persist settings immediately whenever any control in the popup changes.
   // Merge into currentSettings so fields not emitted by the popup (splitters,
   // selectedRequestIds, historyCount) are not silently dropped on each save.

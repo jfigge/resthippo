@@ -12,6 +12,7 @@
  *   wurl:request-selected    { detail: node }   — user clicked a request
  *   wurl:collections-changed { detail: items }  — tree was mutated (add/remove)
  *   wurl:folder-vars-open    { nodeId, folderName, variables } — user opened folder vars
+ *   wurl:request-cleared     (no detail)        — last request deleted; editor should reset
  */
 
 "use strict";
@@ -535,6 +536,11 @@ export class TreeView {
     this.#items = this.#insertNodeAfter(this.#items, nodeId, clone);
     this.#rerender();
     this.#emitChange();
+
+    if (clone.type === "request") {
+      const li = this.#el.querySelector(`[data-id="${CSS.escape(clone.id)}"]`);
+      if (li) this.#selectRequest(clone, li);
+    }
   }
 
   /** Remove the node with `nodeId` from the tree at any nesting depth. */
@@ -543,12 +549,51 @@ export class TreeView {
     // caller (app.js) can remove the backing files from the backend.
     const deleted = this.#findNode(this.#items, nodeId);
     const requestIds = deleted ? this.#collectRequestIds(deleted) : [];
+    const deletedIdSet = new Set(requestIds);
+
+    // If the currently selected request is being deleted, find the next
+    // closest request in depth-first order so we can auto-select it.
+    let nextToSelect = null;
+    const selectedWillBeDeleted =
+      this.#selectedId != null && deletedIdSet.has(this.#selectedId);
+    if (selectedWillBeDeleted) {
+      const allRequests = this.#getFlatRequests();
+      const deletedIndices = allRequests.reduce((acc, r, i) => {
+        if (deletedIdSet.has(r.id)) acc.push(i);
+        return acc;
+      }, []);
+      if (deletedIndices.length > 0) {
+        const last = deletedIndices[deletedIndices.length - 1];
+        const first = deletedIndices[0];
+        nextToSelect =
+          allRequests.slice(last + 1).find((r) => !deletedIdSet.has(r.id)) ??
+          allRequests
+            .slice(0, first)
+            .reverse()
+            .find((r) => !deletedIdSet.has(r.id)) ??
+          null;
+      }
+    }
 
     this.#items = this.#removeNode(this.#items, nodeId);
     if (this.#activeCollectionId === nodeId) this.#activeCollectionId = null;
+    if (selectedWillBeDeleted) this.#selectedId = null;
     this.#syncButtonState();
     this.#rerender();
     this.#emitChange();
+
+    if (selectedWillBeDeleted) {
+      if (nextToSelect) {
+        const li = this.#el.querySelector(
+          `[data-id="${CSS.escape(nextToSelect.id)}"]`,
+        );
+        if (li) this.#selectRequest(nextToSelect, li);
+      } else {
+        window.dispatchEvent(
+          new CustomEvent("wurl:request-cleared", { bubbles: true }),
+        );
+      }
+    }
 
     if (requestIds.length > 0) {
       window.dispatchEvent(
@@ -1039,6 +1084,19 @@ export class TreeView {
       }
     }
     return requests;
+  }
+
+  /** Return all request nodes in depth-first (visual) order across the whole tree. */
+  #getFlatRequests(nodes = this.#items) {
+    const result = [];
+    for (const node of nodes) {
+      if (node.type === "request") {
+        result.push(node);
+      } else if (Array.isArray(node.children)) {
+        result.push(...this.#getFlatRequests(node.children));
+      }
+    }
+    return result;
   }
 
   // ── Rendering ───────────────────────────────────────────────────────────
