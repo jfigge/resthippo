@@ -197,8 +197,8 @@ help:
 	@echo "    launch        build and launch the mac electron app"
 	@echo ""
 	@echo "Available targets for mock server"
-	@echo "    mock-start    Build and start mock server on :8888"
-	@echo "    mock-stop     Stop mock server"
+	@echo "    mock-up       Build and start mock server on :8888"
+	@echo "    mock-down     Stop mock server"
 	@echo "    mock-build    Build mock server binary"
 	@echo ""
 	@echo "Available targets for keycloak"
@@ -432,7 +432,7 @@ reset: stop
 # -----------------------------------------------------------------------------
 # Mock server (Go) — MIME type test API on http://localhost:8888
 # -----------------------------------------------------------------------------
-.PHONY: mock-build mock-start mock-stop
+.PHONY: mock-build mock-up mock-down
 
 mock-build:
 	@echo "Building mock server..."
@@ -445,6 +445,8 @@ mock-up: mock-build
 	@sleep 0.3
 	@echo "  GET http://localhost:$(MOCK_PORT)/mimes"
 	@echo "  GET http://localhost:$(MOCK_PORT)/mimes/<type>"
+	@echo "  GET http://localhost:$(MOCK_PORT)/status"
+	@echo "  GET http://localhost:$(MOCK_PORT)/status/<code>"
 	@echo "--------------------------------"
 
 mock-down:

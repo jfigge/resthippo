@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -33,10 +34,29 @@ var mimes = []struct{ Type, Body string }{
 		"export class MockClient {\n  #base;\n  constructor(base) { this.#base = base; }\n  async get(path) { return (await fetch(this.#base + path)).json(); }\n  async mimes() { return this.get('/mimes'); }\n}\n"},
 }
 
+var statuses = []int{
+	100, 101, 102, 103,
+	200, 201, 202, 203, 204, 205, 206, 207, 208, 226,
+	300, 301, 302, 303, 304, 307, 308,
+	400, 401, 402, 403, 404, 405, 406, 407, 408, 409,
+	410, 411, 412, 413, 414, 415, 416, 417, 418,
+	421, 422, 423, 424, 425, 426, 428, 429, 431, 451,
+	500, 501, 502, 503, 504, 505, 506, 507, 508, 510, 511,
+}
+
+// subtype strips the primary type prefix, e.g. "application/json" → "json"
+func subtype(t string) string {
+	if i := strings.IndexByte(t, '/'); i >= 0 {
+		return t[i+1:]
+	}
+	return t
+}
+
 func main() {
-	idx := make(map[string]int, len(mimes))
+	// build mime index keyed by subtype ("json", "vnd.api+json", etc.)
+	mimeIdx := make(map[string]int, len(mimes))
 	for i, m := range mimes {
-		idx[strings.ToLower(m.Type)] = i
+		mimeIdx[subtype(m.Type)] = i
 	}
 
 	http.HandleFunc("/mimes", func(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +66,7 @@ func main() {
 		}
 		keys := make([]string, len(mimes))
 		for i, m := range mimes {
-			keys[i] = strings.ToLower(m.Type)
+			keys[i] = subtype(m.Type)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(keys)
@@ -54,14 +74,48 @@ func main() {
 
 	http.HandleFunc("/mimes/", func(w http.ResponseWriter, r *http.Request) {
 		key := strings.TrimPrefix(r.URL.Path, "/mimes/")
-		key = strings.ToLower(key)
-		i, ok := idx[key]
+		i, ok := mimeIdx[key]
 		if !ok {
 			http.Error(w, "unknown mime type", http.StatusNotFound)
 			return
 		}
 		w.Header().Set("Content-Type", mimes[i].Type)
 		fmt.Fprint(w, mimes[i].Body)
+	})
+
+	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/status" {
+			http.NotFound(w, r)
+			return
+		}
+		type entry struct {
+			Code int    `json:"code"`
+			Text string `json:"text"`
+		}
+		list := make([]entry, len(statuses))
+		for i, code := range statuses {
+			list[i] = entry{code, http.StatusText(code)}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(list)
+	})
+
+	http.HandleFunc("/status/", func(w http.ResponseWriter, r *http.Request) {
+		s := strings.TrimPrefix(r.URL.Path, "/status/")
+		code, err := strconv.Atoi(s)
+		if err != nil || http.StatusText(code) == "" {
+			http.Error(w, "unknown status code", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(code)
+		// 204 No Content and 304 Not Modified must have no body
+		if code != http.StatusNoContent && code != http.StatusNotModified {
+			json.NewEncoder(w).Encode(map[string]any{
+				"status": code,
+				"text":   http.StatusText(code),
+			})
+		}
 	})
 
 	fmt.Fprintln(os.Stderr, "mock server listening on", addr)
