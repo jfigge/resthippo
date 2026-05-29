@@ -3,7 +3,7 @@
  *
  * Displays the result of a wurl:send-request in one of three views:
  *
- *  1. JSON / YAML / XML  — raw text or pretty-printed + syntax-highlighted depending on renderMode
+ *  1. JSON / YAML / XML / CSS / JavaScript  — raw text or pretty-printed + syntax-highlighted depending on renderMode
  *  2. HTML               — raw text with syntax highlighting (raw mode) or live browser preview (preview mode)
  *                          • Electron: WebContentsView that loads the request URL
  *                          • Dev/browser: <iframe src=requestUrl> placeholder
@@ -28,7 +28,7 @@ const TABS = [
 /**
  * Classify a Content-Type header value into one of the rendering categories.
  * @param {string} ct  - raw Content-Type value (may include charset/boundary)
- * @returns {"json"|"yaml"|"xml"|"html"|"other"}
+ * @returns {"json"|"yaml"|"xml"|"html"|"css"|"javascript"|"other"}
  */
 function classifyContentType(ct) {
   const base = (ct ?? "").toLowerCase().split(";")[0].trim();
@@ -36,6 +36,15 @@ function classifyContentType(ct) {
   if (base.includes("yaml")) return "yaml";
   if (base.includes("xml")) return "xml";
   if (base === "text/html" || base === "application/xhtml+xml") return "html";
+  if (base === "text/css") return "css";
+  if (
+    base === "text/javascript" ||
+    base === "application/javascript" ||
+    base === "application/x-javascript" ||
+    base === "application/ecmascript" ||
+    base === "text/ecmascript"
+  )
+    return "javascript";
   return "other";
 }
 
@@ -309,6 +318,15 @@ export class ResponseViewer {
     } else if (kind === "xml") {
       ext = "xml";
       filterName = "XML";
+    } else if (kind === "css") {
+      ext = "css";
+      filterName = "CSS";
+    } else if (kind === "javascript") {
+      ext = "js";
+      filterName = "JavaScript";
+    } else if (kind === "yaml") {
+      ext = "yaml";
+      filterName = "YAML";
     }
 
     const url = resp.requestUrl ?? "";
@@ -348,7 +366,7 @@ export class ResponseViewer {
       if (tab.id === "body") {
         btn.textContent = "Body";
         btn.dataset.method = this.#currentMethod;
-        btn.title = "Secondary click for options";   
+        btn.title = "Secondary click for options";
         btn.classList.add(
           this.#renderMode === "raw"
             ? "res-tab-btn--raw-mode"
@@ -813,6 +831,12 @@ export class ResponseViewer {
       } else if (category === "html") {
         displayText = response.body;
         prismLang = "markup";
+      } else if (category === "css") {
+        displayText = response.body;
+        prismLang = "css";
+      } else if (category === "javascript") {
+        displayText = response.body;
+        prismLang = "javascript";
       } else {
         displayText = response.body;
       }

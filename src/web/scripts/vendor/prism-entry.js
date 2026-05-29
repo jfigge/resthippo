@@ -2,7 +2,9 @@
  * prism-entry.js — Prism.js bundle entry point
  *
  * Imports Prism core plus the language grammars needed by the response viewer:
- *   - markup  (XML + HTML)
+ *   - markup     (XML + HTML; must come first — css/javascript extend it)
+ *   - css
+ *   - javascript
  *   - json
  *   - yaml
  *
@@ -15,7 +17,9 @@
  */
 
 import Prism from "prismjs";
-import "prismjs/components/prism-markup"; // XML + HTML (must come before JSON/YAML)
+import "prismjs/components/prism-markup"; // XML + HTML (must come before css/javascript)
+import "prismjs/components/prism-css";
+import "prismjs/components/prism-javascript";
 import "prismjs/components/prism-json";
 import "prismjs/components/prism-yaml";
 

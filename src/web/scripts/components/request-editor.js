@@ -651,11 +651,19 @@ async function _fetchJson(url) {
 
 /** Percent-encode the domain and path of a resolved URL. */
 function _encodeBaseUrl(url) {
-  try { return new URL(url).href; } catch { return url; }
+  try {
+    return new URL(url).href;
+  } catch {
+    return url;
+  }
 }
 
 function _extractResponseFunctionRefs(templates) {
-  const RESPONSE_FNS = new Set(["response", "responseHeader", "responseStatus"]);
+  const RESPONSE_FNS = new Set([
+    "response",
+    "responseHeader",
+    "responseStatus",
+  ]);
   const map = new Map();
   for (const tpl of templates) {
     if (!tpl) continue;
@@ -669,7 +677,9 @@ function _extractResponseFunctionRefs(templates) {
       const modeArgIdx = parsed.name === "responseStatus" ? 1 : 2;
       const rawMode = parsed.rawArgs[modeArgIdx] ?? "";
       const mode =
-        rawMode === "Run immediately before" ? "run-immediately" : "use-last-result";
+        rawMode === "Run immediately before"
+          ? "run-immediately"
+          : "use-last-result";
       if (!map.has(reqName) || mode === "run-immediately") {
         map.set(reqName, mode);
       }
@@ -910,8 +920,7 @@ export class RequestEditor {
           this.#method = m;
           methodLabel.textContent = m;
           methodSel.dataset.method = m.toLowerCase();
-          if (this._sendBtn)
-            this._sendBtn.dataset.method = m.toLowerCase();
+          if (this._sendBtn) this._sendBtn.dataset.method = m.toLowerCase();
           _closeMethodMenu();
           this.#dispatchRequestUpdated();
         });
@@ -933,7 +942,8 @@ export class RequestEditor {
       customInput.type = "text";
       customInput.placeholder = "Custom…";
       customInput.setAttribute("aria-label", "Custom HTTP method");
-      if (!HTTP_METHODS.includes(this.#method)) customInput.value = this.#method;
+      if (!HTTP_METHODS.includes(this.#method))
+        customInput.value = this.#method;
       customInput.addEventListener("input", () => {
         customInput.value = customInput.value.toUpperCase();
       });
@@ -4628,7 +4638,8 @@ export class RequestEditor {
     // Preload response caches for any cross-request references before resolution
     if (this.#ensureResponseCaches) {
       const refs = _extractResponseFunctionRefs(this.#gatherRequestTemplates());
-      if (refs.length) await this.#ensureResponseCaches(refs, this.#variableContext);
+      if (refs.length)
+        await this.#ensureResponseCaches(refs, this.#variableContext);
     }
 
     const baseUrl = _encodeBaseUrl(await rv(rawUrl));

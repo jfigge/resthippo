@@ -898,8 +898,7 @@ export class VariablePillEditor {
         // Collapse to the near or far end of the existing selection.
         const aLog = this.#domToLogical(sel.anchorNode, sel.anchorOffset);
         const fLog = this.#domToLogical(sel.focusNode, sel.focusOffset);
-        const target =
-          dir === 1 ? Math.max(aLog, fLog) : Math.min(aLog, fLog);
+        const target = dir === 1 ? Math.max(aLog, fLog) : Math.min(aLog, fLog);
         const pos = this.#logicalToDom(target);
         this.#setCollapsedCaret(pos.node, pos.offset);
       } else {

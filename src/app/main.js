@@ -1344,7 +1344,6 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
   } else {
     // Production / debug: load bundled web assets from disk
     win.loadFile(path.join(__dirname, "..", "web", "index.html"));
-    if (isDebug) win.webContents.openDevTools({ mode: "detach" });
   }
 
   // Disable Chromium's built-in visual zoom (pinch / ctrl+wheel) so the app

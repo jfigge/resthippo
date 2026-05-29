@@ -36,7 +36,10 @@ import {
   deleteHistory,
   trimHistory,
 } from "./data-store.js";
-import { buildFolderChain, resolveStringAsync } from "./components/variable-resolver.js";
+import {
+  buildFolderChain,
+  resolveStringAsync,
+} from "./components/variable-resolver.js";
 import { setPickerDebounceMs } from "./components/variable-pill-editor.js";
 import { parseImport } from "./import/index.js";
 import { exportToPostman } from "./export/postman.js";
@@ -2067,7 +2070,8 @@ async function _executeRequestNode(node, ctx) {
           ).join("\r\n");
           body = `${parts}\r\n--${boundary}--`;
           if (!headers["Content-Type"])
-            headers["Content-Type"] = `multipart/form-data; boundary=${boundary}`;
+            headers["Content-Type"] =
+              `multipart/form-data; boundary=${boundary}`;
         }
         break;
       }
@@ -2106,7 +2110,12 @@ async function _executeRequestNode(node, ctx) {
 
     // Record a timeline entry for genuine HTTP responses (status > 0).
     // Network-level failures (status === 0) are not recorded.
-    if (result && !(result.error && result.status === 0) && node.id && _maxHistory > 0) {
+    if (
+      result &&
+      !(result.error && result.status === 0) &&
+      node.id &&
+      _maxHistory > 0
+    ) {
       const histId = crypto.randomUUID();
       const nowMs = Date.now();
       const reqSnapshot = { method, url: finalUrl, headers, body };
@@ -2128,12 +2137,31 @@ async function _executeRequestNode(node, ctx) {
         _historyLoaded.add(node.id);
       }
       const entries = _requestHistory.get(node.id) ?? [];
-      entries.unshift({ id: histId, requestNode: reqNode, requestUrl: finalUrl, response: resp, timestamp: nowMs });
+      entries.unshift({
+        id: histId,
+        requestNode: reqNode,
+        requestUrl: finalUrl,
+        response: resp,
+        timestamp: nowMs,
+      });
       addHistory(
         node.id,
-        { id: histId, timestamp: nowMs, status: resp.status, statusText: resp.statusText,
-          elapsed: resp.elapsed, size: resp.size, requestUrl: finalUrl, requestNode: reqNode },
-        { headers: resp.headers, cookies: resp.cookies, body: resp.body, consoleLog: resp.consoleLog },
+        {
+          id: histId,
+          timestamp: nowMs,
+          status: resp.status,
+          statusText: resp.statusText,
+          elapsed: resp.elapsed,
+          size: resp.size,
+          requestUrl: finalUrl,
+          requestNode: reqNode,
+        },
+        {
+          headers: resp.headers,
+          cookies: resp.cookies,
+          body: resp.body,
+          consoleLog: resp.consoleLog,
+        },
       );
       while (entries.length > _maxHistory) {
         const old = entries.pop();

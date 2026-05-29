@@ -1350,7 +1350,11 @@ export class TreeView {
 
   /** Percent-encode the domain and path of a resolved URL. */
   #encodeBaseUrl(url) {
-    try { return new URL(url).href; } catch { return url; }
+    try {
+      return new URL(url).href;
+    } catch {
+      return url;
+    }
   }
 
   #saveCollapsedState() {
