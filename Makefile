@@ -16,6 +16,9 @@ DATA_DIR        ?= $(WORKSPACE)/data
 SRC_DIR         ?= $(WORKSPACE)/src
 WEB_DIR         ?= $(WORKSPACE)/src/web
 APP_DIR         ?= $(WORKSPACE)/src/app
+MOCK_DIR        ?= $(WORKSPACE)/mock
+MOCK_PID        ?= $(MOCK_DIR)/.mock.pid
+MOCK_PORT       ?= 8888
 
 # -----------------------------------------------------------------------------
 # Keycloak Configuration
@@ -192,6 +195,11 @@ help:
 	@echo "    version       Print version string"
 	@echo "    info          Print full build information"
 	@echo "    launch        build and launch the mac electron app"
+	@echo ""
+	@echo "Available targets for mock server"
+	@echo "    mock-start    Build and start mock server on :8888"
+	@echo "    mock-stop     Stop mock server"
+	@echo "    mock-build    Build mock server binary"
 	@echo ""
 	@echo "Available targets for keycloak"
 	@echo "    start         Start Keycloak in dev mode"
@@ -421,6 +429,33 @@ reset: stop
 	@docker volume rm $(CONTAINER_NAME)-data >/dev/null 2>&1 || true
 	@echo "Cleanup complete"
 
+# -----------------------------------------------------------------------------
+# Mock server (Go) — MIME type test API on http://localhost:8888
+# -----------------------------------------------------------------------------
+.PHONY: mock-build mock-start mock-stop
+
+mock-build:
+	@echo "Building mock server..."
+	@cd $(MOCK_DIR) && go build -o mock-server .
+	@echo "--------------------------------"
+
+mock-up: mock-build
+	@echo "Starting mock server on http://localhost:$(MOCK_PORT)..."
+	@$(MOCK_DIR)/mock-server 2>$(MOCK_DIR)/.mock.log & echo $$! > $(MOCK_PID)
+	@sleep 0.3
+	@echo "  GET http://localhost:$(MOCK_PORT)/mimes"
+	@echo "  GET http://localhost:$(MOCK_PORT)/mimes/<type>"
+	@echo "--------------------------------"
+
+mock-down:
+	@if [ -f $(MOCK_PID) ]; then \
+		kill $$(cat $(MOCK_PID)) 2>/dev/null; \
+		rm -f $(MOCK_PID); \
+		echo "Mock server stopped"; \
+	else \
+		echo "Mock server not running"; \
+	fi
+
 # ─── Phony ────────────────────────────────────────────────────────────────────
 .PHONY: all version info \
         fmt \
@@ -432,3 +467,5 @@ reset: stop
         dist dist-mac dist-linux dist-win \
         vendor-yaml vendor-prism \
         clean help launch
+		mock-up mock-down mock-build \
+		start wait bootstrap creds stop reset kc

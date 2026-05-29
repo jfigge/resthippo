@@ -20,6 +20,11 @@ src/npm-debug.log*
 # ── Electron builder cache ────────────────────────────────────────────────────
 .electron-builder-cache/
 
+# ── Mock server ───────────────────────────────────────────────────────────────
+mock/mock-server
+mock/.mock.pid
+mock/.mock.log
+
 # ── Data and local test files ─────────────────────────────────────────────────
 data/collections.json
 CLAUDE.md
