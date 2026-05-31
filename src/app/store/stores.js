@@ -16,6 +16,7 @@
  */
 "use strict";
 
+const io = require("./io");
 const { Paths } = require("./paths");
 const { Resolver } = require("./resolver");
 const { CollectionStore } = require("./collection-store");
@@ -32,6 +33,9 @@ class Stores {
   constructor(dataDir) {
     this._paths = new Paths(dataDir);
     this._resolver = new Resolver(this._paths);
+
+    // Sweep orphaned temp files left by any prior crashed write before stores run.
+    io.gcOrphanTempFiles(this._paths.dataDir);
 
     this._collectionStore = new CollectionStore(this._paths);
     this._collectionsStore = new CollectionsStore(this._paths, this._resolver);
