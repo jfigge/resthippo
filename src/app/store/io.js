@@ -9,6 +9,7 @@
 const fs = require("fs");
 const path = require("path");
 const { randomUUID } = require("crypto");
+const { migrate } = require("./migrations");
 
 // ── Directory helpers ─────────────────────────────────────────────────────────
 
@@ -47,22 +48,29 @@ function atomicWrite(filePath, data) {
 
 /**
  * Write `obj` as pretty-printed JSON to `filePath`, atomically.
+ *
+ * Object documents are stamped with the current schema version before writing
+ * (see migrations.js); arrays and non-objects are written unchanged.
  * @param {string} filePath
  * @param {*} obj
  */
 function writeJSON(filePath, obj) {
-  atomicWrite(filePath, JSON.stringify(obj, null, 2));
+  atomicWrite(filePath, JSON.stringify(migrate(obj), null, 2));
 }
 
 /**
  * Read and parse JSON from `filePath`.
+ *
+ * Object documents are run forward through any pending schema migrations and
+ * stamped with the current schema version in memory (the upgraded form is
+ * persisted lazily on the next save, not eagerly rewritten here).
  * Returns `null` silently if the file does not exist.
  * @param {string} filePath
  * @returns {*}
  */
 function readJSON(filePath) {
   try {
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
+    return migrate(JSON.parse(fs.readFileSync(filePath, "utf8")));
   } catch (err) {
     if (err.code === "ENOENT") return null;
     throw err;
