@@ -117,6 +117,17 @@ function decryptRequest(obj) {
   return _applyToRequest(obj, decryptString);
 }
 
+/**
+ * Blank out every secret field in a request object.
+ *
+ * Used when exporting a backup without secrets: secret values are replaced with
+ * the empty string regardless of whether they were stored as plaintext or
+ * keystore ciphertext, so nothing sensitive can leak out of this machine.
+ */
+function redactRequest(obj) {
+  return _applyToRequest(obj, () => "");
+}
+
 // ── Settings-level helpers ────────────────────────────────────────────────────
 
 /** Encrypt the proxyUrl field in a settings object before writing to disk. */
@@ -135,6 +146,14 @@ function decryptSettings(settings) {
   return out;
 }
 
+/** Blank out the proxyUrl secret field in a settings object. */
+function redactSettings(settings) {
+  if (!settings || typeof settings !== "object") return settings;
+  const out = { ...settings };
+  if (out.proxyUrl !== undefined) out.proxyUrl = "";
+  return out;
+}
+
 module.exports = {
   isAvailable,
   isEncrypted,
@@ -142,6 +161,8 @@ module.exports = {
   decryptString,
   encryptRequest,
   decryptRequest,
+  redactRequest,
   encryptSettings,
   decryptSettings,
+  redactSettings,
 };

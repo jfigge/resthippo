@@ -1410,6 +1410,158 @@ ipcMain.handle("import:open-file", async () => {
   return { filename: path.basename(result.filePaths[0]), content };
 });
 
+// ─── Backup (export-all / import-all) ─────────────────────────────────────────
+// The whole flow — secret-handling prompt, native dialogs, FS I/O and store
+// access — lives here in the main process; the renderer is never involved.
+
+/** YYYY-MM-DD for a default backup filename. */
+function _backupDateStamp() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * Export the entire workspace to a single `wurl-backup` JSON file.
+ *
+ * Asks first whether to include secrets. By default secrets are redacted; the
+ * checkbox enables a "this machine only" export that keeps keystore ciphertext
+ * (which cannot be decrypted on another machine).
+ */
+async function exportBackup() {
+  const win = _mainWin && !_mainWin.isDestroyed() ? _mainWin : undefined;
+
+  const choice = await dialog.showMessageBox(win, {
+    type: "question",
+    icon: appIcon,
+    buttons: ["Backup", "Cancel"],
+    defaultId: 0,
+    cancelId: 1,
+    title: "Create Backup",
+    message: "Back up all collections, environments and settings?",
+    detail:
+      "Secrets (passwords, tokens, keys) are removed by default so the backup " +
+      "is safe to share or move between machines.\n\n" +
+      "Including secrets keeps them encrypted with this machine's keystore — " +
+      "the resulting file will only restore correctly on THIS machine.",
+    checkboxLabel: "Include secrets (this machine only)",
+    checkboxChecked: false,
+  });
+  if (choice.response !== 0) return;
+
+  const includeSecrets = choice.checkboxChecked === true;
+
+  const save = await dialog.showSaveDialog(win, {
+    title: "Create Backup",
+    defaultPath: `wurl-backup-${_backupDateStamp()}.json`,
+    filters: [{ name: "wurl Backup", extensions: ["json"] }],
+  });
+  if (save.canceled || !save.filePath) return;
+
+  try {
+    const envelope = getStores().backupStore().exportAll({ includeSecrets });
+    await fs.promises.writeFile(
+      save.filePath,
+      JSON.stringify(envelope, null, 2),
+      "utf-8",
+    );
+    await dialog.showMessageBox(win, {
+      type: "info",
+      icon: appIcon,
+      buttons: ["OK"],
+      title: "Backup Created",
+      message: "Backup created successfully.",
+      detail: includeSecrets
+        ? "Secrets are included and encrypted to this machine."
+        : "Secrets were removed from this backup.",
+    });
+  } catch (err) {
+    console.error("[main] backup export error:", err.message);
+    await dialog.showMessageBox(win, {
+      type: "error",
+      icon: appIcon,
+      buttons: ["OK"],
+      title: "Create Backup Failed",
+      message: "Could not create the backup.",
+      detail: err.message,
+    });
+  }
+}
+
+/**
+ * Restore a `wurl-backup` file, prompting for merge-vs-replace, then reloading
+ * the window so the renderer picks up the restored workspace.
+ */
+async function importBackup() {
+  const win = _mainWin && !_mainWin.isDestroyed() ? _mainWin : undefined;
+
+  const open = await dialog.showOpenDialog(win, {
+    title: "Restore Backup",
+    filters: [{ name: "wurl Backup", extensions: ["json"] }],
+    properties: ["openFile"],
+  });
+  if (open.canceled || open.filePaths.length === 0) return;
+
+  let envelope;
+  try {
+    const raw = await fs.promises.readFile(open.filePaths[0], "utf-8");
+    envelope = JSON.parse(raw);
+  } catch (err) {
+    await dialog.showMessageBox(win, {
+      type: "error",
+      icon: appIcon,
+      buttons: ["OK"],
+      title: "Restore Backup Failed",
+      message: "Could not read the backup file.",
+      detail: err.message,
+    });
+    return;
+  }
+
+  const choice = await dialog.showMessageBox(win, {
+    type: "question",
+    buttons: ["Merge", "Replace", "Cancel"],
+    defaultId: 0,
+    cancelId: 2,
+    icon: appIcon,
+    title: "Restore Backup",
+    message: "How should this backup be applied?",
+    detail:
+      "Merge — add the backup's collections and environments to your current " +
+      "workspace (existing items with the same id are overwritten).\n\n" +
+      "Replace — delete all current collections and environments first, then " +
+      "restore only what's in the backup.",
+  });
+  if (choice.response === 2) return;
+  const mode = choice.response === 1 ? "replace" : "merge";
+
+  try {
+    const result = getStores().backupStore().importAll(envelope, { mode });
+    if (win) win.webContents.reload();
+    await dialog.showMessageBox(win, {
+      type: "info",
+      icon: appIcon,
+      buttons: ["OK"],
+      title: "Backup Restored",
+      message: "Backup restored successfully.",
+      detail: `Restored ${result.collections} collection(s) and ${result.requests} request(s).`,
+    });
+  } catch (err) {
+    console.error("[main] backup import error:", err.message);
+    await dialog.showMessageBox(win, {
+      type: "error",
+      icon: appIcon,
+      buttons: ["OK"],
+      title: "Restore Backup Failed",
+      message: "Could not restore the backup.",
+      detail:
+        err.code === "INVALID_BACKUP"
+          ? "The selected file is not a valid wurl backup."
+          : err.message,
+    });
+  }
+}
+
 // ─── About dialog ─────────────────────────────────────────────────────────────
 function readRevisionInfo() {
   const candidates = [
@@ -1602,6 +1754,19 @@ function buildMenu() {
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
               _mainWin.webContents.send("menu:import");
+          },
+        },
+        { type: "separator" },
+        {
+          label: "Create Backup…",
+          click: () => {
+            exportBackup();
+          },
+        },
+        {
+          label: "Restore Backup…",
+          click: () => {
+            importBackup();
           },
         },
       ],

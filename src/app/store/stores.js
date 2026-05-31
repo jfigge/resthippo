@@ -25,6 +25,7 @@ const { TreeStore } = require("./tree-store");
 const { RequestStore } = require("./request-store");
 const { HistoryStore } = require("./history-store");
 const { EnvironmentStore } = require("./environment-store");
+const { BackupStore } = require("./backup");
 
 class Stores {
   /**
@@ -43,6 +44,7 @@ class Stores {
     this._requestStore = new RequestStore(this._paths, this._resolver);
     this._historyStore = new HistoryStore(this._paths, this._resolver);
     this._environmentStore = new EnvironmentStore(this._paths);
+    this._backupStore = new BackupStore(this._paths, this._resolver);
   }
 
   /** Manifest store — GET/PUT global collections + settings. */
@@ -76,6 +78,11 @@ class Stores {
   /** Global + named environment variables store. */
   environmentStore() {
     return this._environmentStore;
+  }
+
+  /** Whole-workspace backup export / import store. */
+  backupStore() {
+    return this._backupStore;
   }
 }
 
