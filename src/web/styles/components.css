@@ -1474,6 +1474,17 @@ html.show-method-icons .req-method-menu__item-label::before {
   font-style: italic;
 }
 
+/* Inline notice shown when a stored secret could not be decrypted. */
+.auth-field--decrypt-error .auth-field__input {
+  border-color: var(--color-error);
+}
+
+.auth-field__decrypt-warning {
+  grid-column: 2;
+  font-size: var(--font-size-xs);
+  color: var(--color-error);
+}
+
 /* Password input + show/hide toggle side by side */
 .auth-pwd-wrapper {
   display: flex;

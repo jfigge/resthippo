@@ -752,6 +752,10 @@ export class RequestEditor {
     service: "",
     sessionToken: "",
   };
+  // Secret field paths (e.g. "authBasic.password") whose stored ciphertext could
+  // not be decrypted on load — the main process flags these via `_decryptErrors`.
+  // Used to render an inline "couldn't decrypt — re-enter" notice on the field.
+  #decryptErrors = new Set();
   #authContentEl = null;
   #authTypeBarEl = null;
   #discoverBtnEl = null;
@@ -1490,6 +1494,7 @@ export class RequestEditor {
       this.#buildAuthPillField("Password", {
         placeholder: "Password",
         value: this.#authBasic.password,
+        decryptPath: "authBasic.password",
         onInput: (v) => {
           this.#authBasic.password = v;
           this.#dispatchAuthUpdated();
@@ -1509,6 +1514,7 @@ export class RequestEditor {
       this.#buildAuthPillField("Token", {
         placeholder: "Enter your bearer token…",
         value: this.#authBearer.token,
+        decryptPath: "authBearer.token",
         onInput: (v) => {
           this.#authBearer.token = v;
           this.#dispatchAuthUpdated();
@@ -1587,6 +1593,7 @@ export class RequestEditor {
         this.#buildAuthPillField("Client Secret", {
           placeholder: "Client Secret",
           value: this.#authOAuth2.clientSecret,
+          decryptPath: "authOAuth2.clientSecret",
           onInput: (v) => {
             this.#authOAuth2.clientSecret = v;
             this.#dispatchAuthUpdated();
@@ -1648,6 +1655,7 @@ export class RequestEditor {
         this.#buildAuthPillField("Username", {
           placeholder: "Username",
           value: this.#authOAuth2.username ?? "",
+          decryptPath: "authOAuth2.username",
           onInput: (v) => {
             this.#authOAuth2.username = v;
             this.#dispatchAuthUpdated();
@@ -1658,6 +1666,7 @@ export class RequestEditor {
         this.#buildAuthPillField("Password", {
           placeholder: "Password",
           value: this.#authOAuth2.password ?? "",
+          decryptPath: "authOAuth2.password",
           onInput: (v) => {
             this.#authOAuth2.password = v;
             this.#dispatchAuthUpdated();
@@ -1970,6 +1979,7 @@ export class RequestEditor {
       this.#buildAuthPillField("Access Key ID", {
         placeholder: "AKIAIOSFODNN7EXAMPLE",
         value: this.#authAwsIam.accessKeyId,
+        decryptPath: "authAwsIam.accessKeyId",
         onInput: (v) => {
           this.#authAwsIam.accessKeyId = v;
           this.#dispatchAuthUpdated();
@@ -1981,6 +1991,7 @@ export class RequestEditor {
       this.#buildAuthPillField("Secret Access Key", {
         placeholder: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
         value: this.#authAwsIam.secretAccessKey,
+        decryptPath: "authAwsIam.secretAccessKey",
         onInput: (v) => {
           this.#authAwsIam.secretAccessKey = v;
           this.#dispatchAuthUpdated();
@@ -2014,6 +2025,7 @@ export class RequestEditor {
       this.#buildAuthPillField("Session Token", {
         placeholder: "Optional — for temporary / STS credentials",
         value: this.#authAwsIam.sessionToken,
+        decryptPath: "authAwsIam.sessionToken",
         onInput: (v) => {
           this.#authAwsIam.sessionToken = v;
           this.#dispatchAuthUpdated();
@@ -2076,10 +2088,13 @@ export class RequestEditor {
    */
   #buildAuthPillField(
     label,
-    { placeholder = "", value = "", onInput, hint } = {},
+    { placeholder = "", value = "", onInput, hint, decryptPath } = {},
   ) {
     const wrapper = document.createElement("div");
     wrapper.className = "auth-field";
+
+    const failedDecrypt = decryptPath && this.#decryptErrors.has(decryptPath);
+    if (failedDecrypt) wrapper.classList.add("auth-field--decrypt-error");
 
     const lbl = document.createElement("label");
     lbl.className = "auth-field__label";
@@ -2105,6 +2120,14 @@ export class RequestEditor {
       hintEl.className = "auth-field__hint";
       hintEl.textContent = hint;
       wrapper.appendChild(hintEl);
+    }
+
+    if (failedDecrypt) {
+      const warnEl = document.createElement("span");
+      warnEl.className = "auth-field__decrypt-warning";
+      warnEl.textContent =
+        "Couldn't decrypt — re-enter this value to restore it.";
+      wrapper.appendChild(warnEl);
     }
 
     return wrapper;
@@ -5025,6 +5048,9 @@ export class RequestEditor {
    */
   load(node) {
     this.#currentNodeId = node.id ?? null;
+    this.#decryptErrors = new Set(
+      Array.isArray(node._decryptErrors) ? node._decryptErrors : [],
+    );
 
     // Cancel any in-progress inline confirm on the Delete All buttons.
     this._paramsDeleteAllCleanup?.();

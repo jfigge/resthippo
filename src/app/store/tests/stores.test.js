@@ -19,6 +19,7 @@ const { Stores } = require("../stores");
 const { Paths } = require("../paths");
 const { Resolver } = require("../resolver");
 const { CollectionsStore } = require("../collections-store");
+const { _setSafeStorage } = require("../crypto");
 
 // ── Helper: temp directory lifecycle ──────────────────────────────────────────
 
@@ -393,6 +394,81 @@ describe("RequestStore", () => {
       () => reqStore.deleteRequest("ghost"),
       (err) => err.code === "NOT_FOUND",
     );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RequestStore — decrypt-failure clobber guard
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("RequestStore decrypt-failure clobber guard", () => {
+  let tmpDir;
+  let reqStore;
+  const COL = "col-clobber";
+  const REQ = "req-clobber";
+
+  // Reversible mock: encrypts on write, decrypts on read. Used so createRequest
+  // produces a real enc:v1: ciphertext on disk that we can later observe.
+  const reversible = {
+    isEncryptionAvailable: () => true,
+    encryptString: (s) => Buffer.from(`PT:${s}`, "utf8"),
+    decryptString: (buf) => buf.toString("utf8").slice(3),
+  };
+
+  // Throwing mock: reports available but cannot decrypt (simulates a corrupted
+  // blob / keystore mismatch). encryptString still works so non-secret fields
+  // re-encrypt normally on save.
+  const throwing = {
+    isEncryptionAvailable: () => true,
+    encryptString: (s) => Buffer.from(`PT:${s}`, "utf8"),
+    decryptString: () => {
+      throw new Error("boom");
+    },
+  };
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    const ss = new Stores(tmpDir);
+    reqStore = ss.requestStore();
+    ss.collectionsStore().saveCollections(COL, { version: 1, collections: [] });
+  });
+
+  afterEach(() => {
+    _setSafeStorage(null);
+    rmTmpDir(tmpDir);
+  });
+
+  test("a failed decrypt does not clobber recoverable ciphertext on save", () => {
+    // 1. Store a request with an encrypted secret using the reversible mock.
+    _setSafeStorage(reversible);
+    reqStore.createRequest(
+      COL,
+      makeRequest({
+        id: REQ,
+        authBasic: { username: "u", password: "topsecret" },
+      }),
+    );
+
+    const reqPath = new Paths(tmpDir).requestPath(COL, REQ);
+    const onDisk = JSON.parse(fs.readFileSync(reqPath, "utf8"));
+    const storedCipher = onDisk.authBasic.password;
+    assert.ok(
+      storedCipher.startsWith("enc:v1:"),
+      "password should be stored as ciphertext",
+    );
+
+    // 2. Decryption now fails; patch a non-secret field (auth block untouched).
+    _setSafeStorage(throwing);
+    reqStore.updateRequest(REQ, { name: "Renamed" });
+
+    // 3. The original ciphertext must survive — not be blanked over.
+    const after = JSON.parse(fs.readFileSync(reqPath, "utf8"));
+    assert.equal(
+      after.authBasic.password,
+      storedCipher,
+      "recoverable ciphertext must be preserved after a failed decrypt + save",
+    );
+    assert.equal(after.name, "Renamed", "non-secret patch should still apply");
   });
 });
 

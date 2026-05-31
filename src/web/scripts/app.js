@@ -282,6 +282,31 @@ function initComponents() {
   panelResponse.mount(responseViewer);
 
   requestEditor.setGetItems(() => getAllRequests(treeView?.getItems() ?? []));
+
+  // TEMP DEBUG — preview the decrypt-failure inline UI without a real failure.
+  // From DevTools:  __previewDecrypt()  re-loads the selected request with every
+  // secret path flagged (only the visible auth type's fields will show the
+  // notice), or pass specific paths, e.g. __previewDecrypt(["authBasic.password"]).
+  // Not for production: remove with `git checkout src/web/scripts/app.js`.
+  let _lastSelectedNode = null;
+  window.addEventListener("wurl:request-selected", (e) => {
+    _lastSelectedNode = e.detail;
+  });
+  window.__previewDecrypt = (paths) => {
+    if (!_lastSelectedNode) return "Select a request in the tree first.";
+    const all = [
+      "authBasic.password",
+      "authBearer.token",
+      "authOAuth2.clientSecret",
+      "authOAuth2.username",
+      "authOAuth2.password",
+      "authAwsIam.accessKeyId",
+      "authAwsIam.secretAccessKey",
+      "authAwsIam.sessionToken",
+    ];
+    requestEditor.load({ ..._lastSelectedNode, _decryptErrors: paths ?? all });
+    return "Loaded with decrypt-error markers. Switch auth type to see each.";
+  };
 }
 
 // ─── Splitters ────────────────────────────────────────────────────────────────

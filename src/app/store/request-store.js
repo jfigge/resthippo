@@ -130,14 +130,32 @@ class RequestStore {
 
     // Decrypt before merging so the patch (plaintext from the renderer) is
     // applied to plaintext values; then re-encrypt the merged result for storage.
-    const updated = { ...decryptRequest(existing) };
+    const decrypted = decryptRequest(existing);
+    const failedPaths = decrypted._decryptErrors ?? [];
+    const updated = { ...decrypted };
+    delete updated._decryptErrors;
     for (const field of PATCHABLE_FIELDS) {
       if (patch[field] !== undefined) {
         updated[field] = patch[field];
       }
     }
 
-    writeJSON(reqPath, encryptRequest(updated));
+    const encrypted = encryptRequest(updated);
+
+    // Clobber guard: a field that failed to decrypt was blanked above, so
+    // re-encrypting would persist an empty value over recoverable ciphertext.
+    // For each failed secret field that the caller did NOT explicitly re-supply
+    // (the whole auth block is absent from the patch), restore the original
+    // stored ciphertext so a transient keystore failure can't destroy a secret.
+    for (const path of failedPaths) {
+      const [parent, field] = path.split(".");
+      if (patch[parent] !== undefined) continue; // user is overwriting on purpose
+      const original = existing[parent]?.[field];
+      if (original === undefined) continue;
+      encrypted[parent] = { ...encrypted[parent], [field]: original };
+    }
+
+    writeJSON(reqPath, encrypted);
     return updated;
   }
 

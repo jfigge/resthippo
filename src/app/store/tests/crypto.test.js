@@ -11,10 +11,12 @@
  */
 "use strict";
 
-const { describe, it } = require("node:test");
+const { describe, it, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  DecryptError,
+  _setSafeStorage,
   isAvailable,
   isEncrypted,
   encryptString,
@@ -62,8 +64,15 @@ describe("encryptString / decryptString (no-op mode)", () => {
     assert.equal(decryptString("plaintext"), "plaintext");
   });
 
-  it("decryptString passes through enc:v1: values when safeStorage absent", () => {
-    assert.equal(decryptString("enc:v1:abc123"), "enc:v1:abc123");
+  it("decryptString throws DecryptError for enc:v1: values when safeStorage absent", () => {
+    assert.throws(
+      () => decryptString("enc:v1:abc123"),
+      (err) => {
+        assert.ok(err instanceof DecryptError);
+        assert.equal(err.reason, "encryption-unavailable");
+        return true;
+      },
+    );
   });
 });
 
@@ -132,9 +141,18 @@ describe("decryptRequest (no-op mode)", () => {
     assert.deepEqual(decryptRequest(req), req);
   });
 
-  it("passes through enc:v1: values when safeStorage absent", () => {
+  it("blanks enc:v1: values and records them in _decryptErrors when safeStorage absent", () => {
     const req = { authBasic: { username: "u", password: "enc:v1:abc123" } };
-    assert.equal(decryptRequest(req).authBasic.password, "enc:v1:abc123");
+    const out = decryptRequest(req);
+    assert.equal(out.authBasic.password, "");
+    assert.deepEqual(out._decryptErrors, ["authBasic.password"]);
+  });
+
+  it("does not throw and leaves no marker for a fully plaintext request", () => {
+    const req = { id: "r1", authBearer: { token: "plain" } };
+    const out = decryptRequest(req);
+    assert.equal(out.authBearer.token, "plain");
+    assert.ok(!("_decryptErrors" in out));
   });
 
   it("does not mutate the original object", () => {
@@ -161,9 +179,11 @@ describe("encryptSettings / decryptSettings (no-op mode)", () => {
     assert.equal(decryptSettings(settings).proxyUrl, "http://proxy:8080");
   });
 
-  it("decryptSettings passes through enc:v1: proxyUrl when safeStorage absent", () => {
+  it("decryptSettings blanks enc:v1: proxyUrl and records it when safeStorage absent", () => {
     const settings = { proxyUrl: "enc:v1:abc123" };
-    assert.equal(decryptSettings(settings).proxyUrl, "enc:v1:abc123");
+    const out = decryptSettings(settings);
+    assert.equal(out.proxyUrl, "");
+    assert.deepEqual(out._decryptErrors, ["proxyUrl"]);
   });
 
   it("handles missing proxyUrl without error", () => {
@@ -175,5 +195,84 @@ describe("encryptSettings / decryptSettings (no-op mode)", () => {
   it("handles null/undefined input gracefully", () => {
     assert.equal(encryptSettings(null), null);
     assert.equal(decryptSettings(undefined), undefined);
+  });
+});
+
+/**
+ * Forces the decrypt-failure branch by injecting a mock safeStorage that
+ * reports encryption as available but throws on decryptString() — simulating a
+ * corrupted blob, a keystore/profile mismatch, or a rotated key. Verifies that
+ * failures surface (typed error + non-silent marker) instead of silently
+ * returning a blank or stale-ciphertext value.
+ */
+describe("decrypt failure branch (mock safeStorage that throws)", () => {
+  // Mock that is "available" but cannot decrypt anything.
+  const throwingSafeStorage = {
+    isEncryptionAvailable: () => true,
+    encryptString: (s) => Buffer.from(s, "utf8"),
+    decryptString: () => {
+      throw new Error("boom");
+    },
+  };
+
+  afterEach(() => {
+    // Restore the real (absent) state so other suites keep their no-op mode.
+    _setSafeStorage(null);
+  });
+
+  it("decryptString throws a DecryptError with reason 'decrypt-failed'", () => {
+    _setSafeStorage(throwingSafeStorage);
+    assert.throws(
+      () => decryptString("enc:v1:" + Buffer.from("x").toString("base64")),
+      (err) => {
+        assert.ok(err instanceof DecryptError);
+        assert.equal(err.reason, "decrypt-failed");
+        return true;
+      },
+    );
+  });
+
+  it("decryptRequest blanks the field, records the path, and does not throw", () => {
+    _setSafeStorage(throwingSafeStorage);
+    const req = {
+      id: "r1",
+      authBasic: { username: "u", password: "enc:v1:abc" },
+      authBearer: { token: "enc:v1:def" },
+    };
+    let out;
+    assert.doesNotThrow(() => {
+      out = decryptRequest(req);
+    });
+    assert.equal(out.authBasic.password, "");
+    assert.equal(out.authBearer.token, "");
+    assert.deepEqual(out._decryptErrors, [
+      "authBasic.password",
+      "authBearer.token",
+    ]);
+    // Original object is never mutated.
+    assert.equal(req.authBasic.password, "enc:v1:abc");
+  });
+
+  it("decryptSettings blanks proxyUrl, records it, and does not throw", () => {
+    _setSafeStorage(throwingSafeStorage);
+    const settings = { theme: "dark", proxyUrl: "enc:v1:abc" };
+    let out;
+    assert.doesNotThrow(() => {
+      out = decryptSettings(settings);
+    });
+    assert.equal(out.proxyUrl, "");
+    assert.deepEqual(out._decryptErrors, ["proxyUrl"]);
+    assert.equal(settings.proxyUrl, "enc:v1:abc");
+  });
+
+  it("encryptRequest strips the _decryptErrors marker so it is never persisted", () => {
+    _setSafeStorage(throwingSafeStorage);
+    const decrypted = decryptRequest({
+      id: "r1",
+      authBasic: { username: "u", password: "enc:v1:abc" },
+    });
+    assert.ok("_decryptErrors" in decrypted);
+    const reencrypted = encryptRequest(decrypted);
+    assert.ok(!("_decryptErrors" in reencrypted));
   });
 });
