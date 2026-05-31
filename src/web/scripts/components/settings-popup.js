@@ -128,6 +128,15 @@ export class SettingsPopup {
                 type="checkbox"
               />
             </div>
+
+            <div class="settings-row settings-row--toggle">
+              <label class="settings-label" for="setting-wrap-response-text">Wrap response text</label>
+              <input
+                class="settings-toggle"
+                id="setting-wrap-response-text"
+                type="checkbox"
+              />
+            </div>
           </section>
 
           <!-- Request ──────────────────────────────────────────────────── -->
@@ -387,6 +396,8 @@ export class SettingsPopup {
         parseInt(this.#el.querySelector("#setting-font-size").value, 10) || 13,
       fontFamily: this.#el.querySelector("#setting-font-family").value,
       removeHeaders: this.#el.querySelector("#setting-remove-headers").checked,
+      wrapResponseText: this.#el.querySelector("#setting-wrap-response-text")
+        .checked,
       timeout:
         parseInt(this.#el.querySelector("#setting-timeout").value, 10) || 0,
       followRedirects: this.#el.querySelector("#setting-follow-redirects")
@@ -491,6 +502,10 @@ export class SettingsPopup {
     }
     // Always refresh the tooltip so it matches the current checkbox state
     this.#updateRemoveHeadersTitle();
+    if (settings.wrapResponseText !== undefined) {
+      this.#el.querySelector("#setting-wrap-response-text").checked =
+        settings.wrapResponseText;
+    }
     if (settings.timeout !== undefined) {
       this.#el.querySelector("#setting-timeout").value = String(
         settings.timeout,

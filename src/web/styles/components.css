@@ -1790,6 +1790,13 @@ mark.tree-highlight {
   word-break: break-all;
 }
 
+/* No-wrap (Styled mode): keep long lines intact and scroll horizontally */
+.res-body-pre--no-wrap {
+  white-space: pre;
+  word-break: normal;
+  overflow-x: auto;
+}
+
 /* Headers table */
 .res-headers-table {
   width: 100%;

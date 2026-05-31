@@ -100,6 +100,7 @@ export class ResponseViewer {
   #el;
   #activeTab = "body";
   #renderMode = "styled"; // "styled" | "raw"
+  #wrapResponseText = true; // wrap long lines in Styled mode (settings-controlled)
   #lastResponse = null; // cached so mode changes can re-render
 
   // Cached pane references (set once in #renderTabContent)
@@ -273,6 +274,14 @@ export class ResponseViewer {
       this.#renderMode = mode;
       this.#updateBodyTabStyle();
     }
+    if (settings.wrapResponseText !== undefined) {
+      const changed = this.#wrapResponseText !== settings.wrapResponseText;
+      this.#wrapResponseText = settings.wrapResponseText;
+      // Re-render so the wrap class on the body pane reflects the new value
+      if (changed && this.#lastResponse) {
+        this.#renderBodyPane(this.#lastResponse);
+      }
+    }
   }
 
   /** Root DOM element — pass to Panel.mount(). */
@@ -408,6 +417,15 @@ export class ResponseViewer {
     // Cache direct references to the body and preview panes
     this.#bodyPane = content.querySelector("#res-tab-body");
     this.#previewPane = content.querySelector("#res-tab-preview");
+
+    // Right-click on the rendered body text → Copy (+ Wrap toggle when Styled)
+    this.#bodyPane.addEventListener("contextmenu", (e) => {
+      const pre = this.#bodyPane.querySelector(".res-body-pre");
+      if (!pre || !pre.contains(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.#showBodyTextContextMenu(e.clientX, e.clientY);
+    });
 
     // Initial empty state in body pane
     this.#bodyPane.appendChild(this.#emptyState());
@@ -768,6 +786,41 @@ export class ResponseViewer {
     }
   }
 
+  /**
+   * Context menu for the rendered body text — Copy the current selection, plus
+   * a "Wrap" toggle when in Styled mode. Copy works in both Styled and Raw.
+   */
+  async #showBodyTextContextMenu(x, y) {
+    const selectedText = window.getSelection()?.toString() ?? "";
+    const items = [{ id: "copy", label: "Copy", enabled: !!selectedText }];
+    // Styled mode → offer the wrap toggle (Raw is never wrapped via this menu)
+    if (this.#renderMode !== "raw") {
+      items.push(
+        { type: "separator" },
+        {
+          id: "wrap",
+          label: "Wrap",
+          type: "checkbox",
+          checked: this.#wrapResponseText,
+        },
+      );
+    }
+    const clickedId = await window.wurl.ui.contextMenu({ items, x, y });
+    if (clickedId === "copy") {
+      if (selectedText) {
+        navigator.clipboard.writeText(selectedText).catch(() => {});
+      }
+    } else if (clickedId === "wrap") {
+      // Invert and persist via the shared settings channel; app.js re-applies
+      // the setting (which re-renders this pane with the new wrap state).
+      window.dispatchEvent(
+        new CustomEvent("wurl:settings-changed", {
+          detail: { wrapResponseText: !this.#wrapResponseText },
+        }),
+      );
+    }
+  }
+
   #setRenderMode(mode) {
     if (this.#renderMode === mode) return;
     this.#renderMode = mode;
@@ -814,6 +867,11 @@ export class ResponseViewer {
     const pre = document.createElement("pre");
     pre.className = "res-body-pre";
     pre.tabIndex = 0;
+
+    // Wrap setting only affects Styled mode; leave Raw untouched.
+    if (this.#renderMode !== "raw" && !this.#wrapResponseText) {
+      pre.classList.add("res-body-pre--no-wrap");
+    }
 
     let prismLang = null;
     let displayText;
