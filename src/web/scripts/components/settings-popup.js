@@ -203,6 +203,15 @@ export class SettingsPopup {
                 type="checkbox"
               />
             </div>
+
+            <div class="settings-row settings-row--toggle">
+              <label class="settings-label" for="setting-use-cookie-jar">Use cookie jar</label>
+              <input
+                class="settings-toggle"
+                id="setting-use-cookie-jar"
+                type="checkbox"
+              />
+            </div>
           </section>
 
           <!-- Proxy ────────────────────────────────────────────────────── -->
@@ -415,6 +424,7 @@ export class SettingsPopup {
       doubleClickExecute: this.#el.querySelector("#setting-dblclick-execute")
         .checked,
       verifySsl: this.#el.querySelector("#setting-verify-ssl").checked,
+      useCookieJar: this.#el.querySelector("#setting-use-cookie-jar").checked,
       pickerDebounceMs:
         parseInt(
           this.#el.querySelector("#setting-picker-debounce").value,
@@ -536,6 +546,10 @@ export class SettingsPopup {
     if (settings.verifySsl !== undefined) {
       this.#el.querySelector("#setting-verify-ssl").checked =
         settings.verifySsl;
+    }
+    if (settings.useCookieJar !== undefined) {
+      this.#el.querySelector("#setting-use-cookie-jar").checked =
+        settings.useCookieJar;
     }
     if (settings.pickerDebounceMs !== undefined) {
       this.#el.querySelector("#setting-picker-debounce").value = String(

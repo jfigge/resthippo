@@ -225,6 +225,36 @@ function safeCall(channel, fn, fallback = null) {
       getStores().environmentStore().saveEnvironments(data);
     }),
   );
+
+  // ── Persistent cookie jar (per collection) ───────────────────────────────────
+  // Capture/attachment happens automatically inside http:execute; these handlers
+  // back the cookie-manager UI (view / edit / delete / clear).
+
+  ipcMain.handle("store:cookies:list", (_event, collectionId) =>
+    safeCall(
+      "store:cookies:list",
+      () => getStores().cookieStore().listCookies(collectionId),
+      [],
+    ),
+  );
+
+  ipcMain.handle("store:cookies:upsert", (_event, collectionId, cookie) =>
+    safeCall("store:cookies:upsert", () => {
+      getStores().cookieStore().upsertCookie(collectionId, cookie);
+    }),
+  );
+
+  ipcMain.handle("store:cookies:delete", (_event, collectionId, ident) =>
+    safeCall("store:cookies:delete", () => {
+      getStores().cookieStore().deleteCookie(collectionId, ident);
+    }),
+  );
+
+  ipcMain.handle("store:cookies:clear", (_event, collectionId) =>
+    safeCall("store:cookies:clear", () => {
+      getStores().cookieStore().clearJar(collectionId);
+    }),
+  );
 })();
 
 // ─── HTTP Execute IPC ─────────────────────────────────────────────────────────
@@ -254,6 +284,8 @@ function safeCall(channel, fn, fallback = null) {
       maxRedirects = 10,
       awsIam = null,
       proxy = null,
+      collectionId = null,
+      useCookieJar = true,
     } = desc;
 
     return new Promise((resolve) => {
@@ -286,6 +318,30 @@ function safeCall(channel, fn, fallback = null) {
       // ── Resolve body ───────────────────────────────────────────────────────
       const reqHeaders = { ...headers };
       let bodyBuffer = null;
+
+      // ── Attach matching jar cookies ─────────────────────────────────────────
+      // The jar lives in the main process; selectCookies() only returns cookies
+      // whose domain/path/secure/expiry match this URL, so cookies are never
+      // sent across non-matching domains. A user-set Cookie header is preserved
+      // and the jar's cookies are merged in after it.
+      if (useCookieJar && collectionId) {
+        const jarHeader = safeCall(
+          "cookie attach",
+          () => getStores().cookieStore().cookieHeaderFor(collectionId, rawUrl),
+          "",
+        );
+        if (jarHeader) {
+          const existingKey = Object.keys(reqHeaders).find(
+            (k) => k.toLowerCase() === "cookie",
+          );
+          if (existingKey && reqHeaders[existingKey]) {
+            reqHeaders[existingKey] =
+              `${reqHeaders[existingKey]}; ${jarHeader}`;
+          } else {
+            reqHeaders[existingKey || "Cookie"] = jarHeader;
+          }
+        }
+      }
 
       if (redirects === 0) {
         if (bodyFilePath) {
@@ -368,6 +424,9 @@ function safeCall(channel, fn, fallback = null) {
 
         // ── Redirect handling ────────────────────────────────────────────────
         if (followRedirects && [301, 302, 303, 307, 308].includes(code)) {
+          // Capture the redirect's own Set-Cookie (login flows set their session
+          // cookie on the 302 before bouncing to the authenticated page).
+          captureCookies(useCookieJar, collectionId, rawUrl, res.headers);
           const location = res.headers["location"];
           consoleLog.push(`< ${httpVersion} ${code} ${phrase}`);
           Object.entries(res.headers).forEach(([k, v]) => {
@@ -469,6 +528,8 @@ function safeCall(channel, fn, fallback = null) {
           consoleLog.push(
             `* Connection to host ${parsed.hostname} left intact`,
           );
+
+          captureCookies(useCookieJar, collectionId, rawUrl, res.headers);
 
           resolve({
             status: code,
@@ -584,6 +645,27 @@ function safeCall(channel, fn, fallback = null) {
   function extractCookies(hdrs) {
     const sc = hdrs["set-cookie"];
     return Array.isArray(sc) ? sc : sc ? [sc] : [];
+  }
+
+  /**
+   * Persist any Set-Cookie headers from a response into the collection's jar.
+   * No-op when the jar is bypassed, no collection is in scope, or there are no
+   * cookies. Called for both terminal and intermediate (redirect) responses so
+   * login→redirect flows capture their session cookie. Storage lives entirely
+   * in the main process; cross-domain cookies are rejected by cookie-jar.js.
+   *
+   * @param {boolean} useCookieJar   per-request jar toggle
+   * @param {string|null} collectionId
+   * @param {string} url             the URL this response came from
+   * @param {object} resHeaders      Node response headers
+   */
+  function captureCookies(useCookieJar, collectionId, url, resHeaders) {
+    if (!useCookieJar || !collectionId) return;
+    const lines = extractCookies(resHeaders);
+    if (lines.length === 0) return;
+    safeCall("cookie capture", () => {
+      getStores().cookieStore().captureSetCookies(collectionId, url, lines);
+    });
   }
 
   // ── IPC handler ─────────────────────────────────────────────────────────────

@@ -25,6 +25,7 @@ const { TreeStore } = require("./tree-store");
 const { RequestStore } = require("./request-store");
 const { HistoryStore } = require("./history-store");
 const { EnvironmentStore } = require("./environment-store");
+const { CookieStore } = require("./cookie-store");
 const { BackupStore } = require("./backup");
 
 class Stores {
@@ -44,6 +45,7 @@ class Stores {
     this._requestStore = new RequestStore(this._paths, this._resolver);
     this._historyStore = new HistoryStore(this._paths, this._resolver);
     this._environmentStore = new EnvironmentStore(this._paths);
+    this._cookieStore = new CookieStore(this._paths);
     this._backupStore = new BackupStore(this._paths, this._resolver);
   }
 
@@ -78,6 +80,11 @@ class Stores {
   /** Global + named environment variables store. */
   environmentStore() {
     return this._environmentStore;
+  }
+
+  /** Per-collection persistent cookie jar. */
+  cookieStore() {
+    return this._cookieStore;
   }
 
   /** Whole-workspace backup export / import store. */

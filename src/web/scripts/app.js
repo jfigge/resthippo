@@ -19,6 +19,7 @@ import { SettingsPopup } from "./components/settings-popup.js";
 import { CollectionsPopup } from "./components/collections-popup.js";
 import { VariablesPopup } from "./components/variables-popup.js";
 import { EnvironmentsPopup } from "./components/environments-popup.js";
+import { CookiesPopup } from "./components/cookies-popup.js";
 import { EnvPicker } from "./components/env-picker.js";
 import {
   loadAll,
@@ -282,31 +283,6 @@ function initComponents() {
   panelResponse.mount(responseViewer);
 
   requestEditor.setGetItems(() => getAllRequests(treeView?.getItems() ?? []));
-
-  // TEMP DEBUG — preview the decrypt-failure inline UI without a real failure.
-  // From DevTools:  __previewDecrypt()  re-loads the selected request with every
-  // secret path flagged (only the visible auth type's fields will show the
-  // notice), or pass specific paths, e.g. __previewDecrypt(["authBasic.password"]).
-  // Not for production: remove with `git checkout src/web/scripts/app.js`.
-  let _lastSelectedNode = null;
-  window.addEventListener("wurl:request-selected", (e) => {
-    _lastSelectedNode = e.detail;
-  });
-  window.__previewDecrypt = (paths) => {
-    if (!_lastSelectedNode) return "Select a request in the tree first.";
-    const all = [
-      "authBasic.password",
-      "authBearer.token",
-      "authOAuth2.clientSecret",
-      "authOAuth2.username",
-      "authOAuth2.password",
-      "authAwsIam.accessKeyId",
-      "authAwsIam.secretAccessKey",
-      "authAwsIam.sessionToken",
-    ];
-    requestEditor.load({ ..._lastSelectedNode, _decryptErrors: paths ?? all });
-    return "Loaded with decrypt-error markers. Switch auth type to see each.";
-  };
 }
 
 // ─── Splitters ────────────────────────────────────────────────────────────────
@@ -623,6 +599,7 @@ const settingsPopup = new SettingsPopup();
 const envPopup = new CollectionsPopup();
 const varsPopup = new VariablesPopup();
 const environmentsPopup = new EnvironmentsPopup();
+const cookiesPopup = new CookiesPopup();
 const envPicker = new EnvPicker({
   onManage: () =>
     environmentsPopup.open(currentEnvironments, {
@@ -652,6 +629,23 @@ let currentEnvironments = {
   environments: [],
 };
 
+/**
+ * Open the cookie manager for the active collection. The jar is keyed by
+ * collection on disk, so a collection must be active to have a jar to manage.
+ */
+function openCookiesPopup() {
+  const id = currentColls.activeCollectionId ?? null;
+  const active = currentColls.collections.find((c) => c.id === id);
+  if (!id) {
+    PopupManager.notify({
+      title: "No Collection Selected",
+      message: "Select or create a collection to manage its cookies.",
+    });
+    return;
+  }
+  cookiesPopup.open(id, { name: active?.name ?? "" });
+}
+
 /** Map currentColls to the shape CollectionsPopup expects. */
 const envPopupState = () => ({
   collections: currentColls.collections,
@@ -668,6 +662,14 @@ function initHeader() {
   document.getElementById("btn-settings-nav").addEventListener("click", () => {
     settingsPopup.open(currentSettings);
   });
+
+  // Cookie manager — header bar + remove-headers bar
+  document
+    .getElementById("btn-cookies")
+    .addEventListener("click", () => openCookiesPopup());
+  document
+    .getElementById("btn-cookies-nav")
+    .addEventListener("click", () => openCookiesPopup());
 
   // Layout picker — header bar + remove-headers bar
   layoutPicker.bindTrigger(document.getElementById("btn-layout"));
@@ -1576,6 +1578,11 @@ function initEventBus() {
         currentSettings.proxyEnabled && currentSettings.proxyUrl
           ? currentSettings.proxyUrl
           : null,
+      // Cookie jar (Feature 09): the main process captures Set-Cookie into the
+      // active collection's jar and attaches matching cookies on send. Governed
+      // by the global `useCookieJar` setting (toggled via the Send-button menu).
+      collectionId: currentColls.activeCollectionId ?? null,
+      useCookieJar: currentSettings.useCookieJar !== false,
     };
 
     // ── Choose execution path ────────────────────────────────────────────────
@@ -2188,6 +2195,8 @@ async function _executeRequestNode(node, ctx) {
     followRedirects: currentSettings.followRedirects ?? true,
     verifySsl: currentSettings.verifySsl ?? true,
     awsIam: null,
+    collectionId: currentColls.activeCollectionId ?? null,
+    useCookieJar: currentSettings.useCookieJar !== false,
     proxy:
       currentSettings.proxyEnabled && currentSettings.proxyUrl
         ? currentSettings.proxyUrl

@@ -706,6 +706,51 @@ html.show-method-icons .req-method-menu__item-label::before {
   background: var(--color-surface-2);
 }
 
+/* ── Send split-button (Send + dropdown caret) ───────────────────────────── */
+.req-send-group {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+/* Inside the split-button, the Send button gives up its right edge to the caret. */
+.req-send-group .req-send-btn {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+}
+
+.req-send-caret {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 30px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-accent);
+  border-left: 1px solid var(--color-surface-2);
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+  color: var(--color-accent);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast);
+}
+
+.req-send-caret:hover {
+  background: var(--color-surface-2);
+}
+.req-send-caret:active {
+  background: var(--color-surface-2);
+  opacity: 0.8;
+}
+
+.req-send-caret__chevron {
+  width: 6px;
+  height: 4px;
+  opacity: 0.7;
+}
+
 /* Tab strip */
 .req-tab-strip {
   display: flex;
@@ -3947,4 +3992,200 @@ input[type="checkbox"]:disabled {
 
 .res-search-nav-btn {
   min-width: 10px;
+}
+
+/* ── Cookie-jar manager popup (Feature 09) ─────────────────────────────────── */
+.cookies-popup {
+  width: 560px;
+  min-height: 380px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Collection name beside the title; muted, never steals room from the title. */
+.cookies-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.cookies-popup-body {
+  padding: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.cookies-list {
+  list-style: none;
+  padding: var(--space-2) 0;
+  margin: 0;
+}
+
+.cookies-empty {
+  padding: var(--space-6) var(--space-5);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+  font-style: italic;
+}
+
+.cookies-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  margin: 1px var(--space-3);
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast);
+}
+
+.cookies-row:hover {
+  background-color: var(--color-surface-1);
+}
+
+.cookies-row--editing {
+  background-color: var(--color-surface-0);
+}
+
+.cookies-row--editing:hover {
+  background-color: var(--color-surface-0);
+}
+
+.cookies-row-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.cookies-nv {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cookies-name {
+  color: var(--color-accent);
+}
+
+.cookies-value {
+  color: var(--color-text);
+}
+
+.cookies-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.cookies-row-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-subtext);
+}
+
+.cookies-scope {
+  font-family: var(--font-mono);
+}
+
+.cookies-flags {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cookies-flag {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  color: var(--color-subtext);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+/* ── Inline edit form ──────────────────────────────────────────────────────── */
+.cookies-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.cookies-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cookies-field > span {
+  font-size: var(--font-size-xs);
+  color: var(--color-subtext);
+}
+
+.cookies-field input,
+.cookies-field select {
+  height: 30px;
+  padding: 0 var(--space-3);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  box-sizing: border-box;
+  transition: border-color var(--transition-fast);
+}
+
+.cookies-field input:focus,
+.cookies-field select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-base);
+}
+
+.cookies-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.cookies-checkbox input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.cookies-edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.cookies-popup-footer {
+  justify-content: space-between;
+}
+
+.cookies-clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

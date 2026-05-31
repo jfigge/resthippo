@@ -178,6 +178,27 @@ contextBridge.exposeInMainWorld("wurl", {
       /** @param {object} data @returns {Promise<void>} */
       save: (data) => ipcRenderer.invoke("store:environments:save", data),
     },
+
+    /**
+     * Per-collection persistent cookie jar. Capture/attachment of cookies on
+     * requests happens automatically inside the main process; these calls back
+     * the cookie-manager UI (view / edit / delete / clear). A jar entry is
+     * { name, value, domain, path, hostOnly, secure, httpOnly, sameSite, expires, creation }.
+     */
+    cookies: {
+      /** @param {string} collectionId @returns {Promise<object[]>} */
+      list: (collectionId) =>
+        ipcRenderer.invoke("store:cookies:list", collectionId),
+      /** @param {string} collectionId @param {object} cookie @returns {Promise<void>} */
+      upsert: (collectionId, cookie) =>
+        ipcRenderer.invoke("store:cookies:upsert", collectionId, cookie),
+      /** @param {string} collectionId @param {{name,domain,path}} ident @returns {Promise<void>} */
+      delete: (collectionId, ident) =>
+        ipcRenderer.invoke("store:cookies:delete", collectionId, ident),
+      /** @param {string} collectionId @returns {Promise<void>} */
+      clear: (collectionId) =>
+        ipcRenderer.invoke("store:cookies:clear", collectionId),
+    },
   },
 
   /**

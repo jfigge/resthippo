@@ -48,6 +48,7 @@ const DEFAULT_SETTINGS = {
   timeout: 30000,
   followRedirects: true,
   verifySsl: true,
+  useCookieJar: true,
   proxyEnabled: false,
   proxyUrl: "",
   splitterNav: 240,

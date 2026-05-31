@@ -8,6 +8,7 @@
  *     <collectionId>/
  *       metadata.json                    ← collection id + collection-level variables
  *       tree.json                        ← lightweight nav tree (no request bodies)
+ *       cookies.json                     ← persistent cookie jar (captured Set-Cookie)
  *       requests/
  *         <requestId>.json               ← one file per request
  *       history/
@@ -63,6 +64,11 @@ class Paths {
   /** Lightweight navigation tree (folder hierarchy + requestRef IDs). */
   treePath(collId) {
     return path.join(this.collectionDir(collId), "tree.json");
+  }
+
+  /** Per-collection cookie jar (captured Set-Cookie state). */
+  cookiesPath(collId) {
+    return path.join(this.collectionDir(collId), "cookies.json");
   }
 
   // ── Per-request paths ───────────────────────────────────────────────────────
