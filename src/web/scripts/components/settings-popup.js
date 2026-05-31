@@ -129,6 +129,15 @@ export class SettingsPopup {
               />
             </div>
 
+            <div class="settings-row settings-row--toggle" id="setting-method-icons-row" title="Show an icon for each HTTP method instead of its name">
+              <label class="settings-label" for="setting-method-icons">Method icons</label>
+              <input
+                class="settings-toggle"
+                id="setting-method-icons"
+                type="checkbox"
+              />
+            </div>
+
             <div class="settings-row settings-row--toggle">
               <label class="settings-label" for="setting-wrap-response-text">Wrap response text</label>
               <input
@@ -396,6 +405,7 @@ export class SettingsPopup {
         parseInt(this.#el.querySelector("#setting-font-size").value, 10) || 13,
       fontFamily: this.#el.querySelector("#setting-font-family").value,
       removeHeaders: this.#el.querySelector("#setting-remove-headers").checked,
+      methodIcons: this.#el.querySelector("#setting-method-icons").checked,
       wrapResponseText: this.#el.querySelector("#setting-wrap-response-text")
         .checked,
       timeout:
@@ -502,6 +512,10 @@ export class SettingsPopup {
     }
     // Always refresh the tooltip so it matches the current checkbox state
     this.#updateRemoveHeadersTitle();
+    if (settings.methodIcons !== undefined) {
+      this.#el.querySelector("#setting-method-icons").checked =
+        settings.methodIcons;
+    }
     if (settings.wrapResponseText !== undefined) {
       this.#el.querySelector("#setting-wrap-response-text").checked =
         settings.wrapResponseText;

@@ -1223,11 +1223,18 @@ export class TreeView {
     } else {
       // Request item
       li.classList.add("tree-node--request");
-      const methodClass = `method--${(node.method ?? "GET").toLowerCase()}`;
+      const method = node.method ?? "GET";
+      const methodClass = `method--${method.toLowerCase()}`;
       li.dataset.url = (node.url ?? "").toLowerCase();
+      // In icon mode the badge shows a glyph, so name it via a tooltip.
+      const methodTitle = document.documentElement.classList.contains(
+        "show-method-icons",
+      )
+        ? ` title="${this.#escape(method)}"`
+        : "";
       li.innerHTML = `
         <div class="tree-node__row" tabindex="0">
-          <span class="tree-node__method ${methodClass}">${node.method ?? "GET"}</span>
+          <span class="tree-node__method ${methodClass}"${methodTitle}>${method}</span>
           <span class="tree-node__label">${this.#escape(node.name)}</span>
         </div>
       `;
@@ -1666,6 +1673,13 @@ export class TreeView {
         if (badge) {
           badge.textContent = fields.method;
           badge.className = `tree-node__method method--${fields.method.toLowerCase()}`;
+          if (
+            document.documentElement.classList.contains("show-method-icons")
+          ) {
+            badge.title = fields.method;
+          } else {
+            badge.removeAttribute("title");
+          }
         }
       }
       if (fields.url != null) {

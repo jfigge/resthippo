@@ -181,6 +181,88 @@ mark.tree-highlight {
   color: var(--color-method-options);
 }
 
+/* ── HTTP method icons ──────────────────────────────────────────────────────
+   When html.show-method-icons is set (the "Method icons" appearance toggle),
+   the textual method name is hidden and replaced by a glyph masked with
+   currentColor, so each icon keeps its per-method colour. --method-icon is
+   inherited from whichever element carries the method identity (the badge
+   class in the tree, the data-method attribute on the URL-bar selector and
+   the picker rows). Glyphs: GET=download-in-circle, POST=envelope, PUT=save,
+   PATCH=pencil, DELETE=trash, HEAD=eye (headers only), OPTIONS=sliders. Any
+   non-standard / user-defined method falls back to --method-icon-custom. */
+:root {
+  --method-icon-get: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M8 12l4 4 4-4'/%3E%3Cpath d='M12 8v8'/%3E%3C/svg%3E");
+  --method-icon-post: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'/%3E%3C/svg%3E");
+  --method-icon-put: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z'/%3E%3Cpath d='M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7'/%3E%3Cpath d='M7 3v4a1 1 0 0 0 1 1h7'/%3E%3C/svg%3E");
+  --method-icon-patch: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9'/%3E%3Cpath d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'/%3E%3C/svg%3E");
+  --method-icon-delete: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6'/%3E%3Cpath d='M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/%3E%3Cpath d='M10 11v6'/%3E%3Cpath d='M14 11v6'/%3E%3C/svg%3E");
+  --method-icon-head: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+  --method-icon-options: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 4H14'/%3E%3Cpath d='M10 4H3'/%3E%3Cpath d='M21 12H12'/%3E%3Cpath d='M8 12H3'/%3E%3Cpath d='M21 20H16'/%3E%3Cpath d='M12 20H3'/%3E%3Cpath d='M14 2v4'/%3E%3Cpath d='M8 10v4'/%3E%3Cpath d='M16 18v4'/%3E%3C/svg%3E");
+  /* Fallback for any non-standard / user-defined method (PURGE, LINK, etc.) */
+  --method-icon-custom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 18l6-6-6-6'/%3E%3Cpath d='M8 6l-6 6 6 6'/%3E%3C/svg%3E");
+}
+
+.method--get,
+.req-method-select[data-method="get"],
+.req-method-menu__item[data-method="get"] {
+  --method-icon: var(--method-icon-get);
+}
+.method--post,
+.req-method-select[data-method="post"],
+.req-method-menu__item[data-method="post"] {
+  --method-icon: var(--method-icon-post);
+}
+.method--put,
+.req-method-select[data-method="put"],
+.req-method-menu__item[data-method="put"] {
+  --method-icon: var(--method-icon-put);
+}
+.method--patch,
+.req-method-select[data-method="patch"],
+.req-method-menu__item[data-method="patch"] {
+  --method-icon: var(--method-icon-patch);
+}
+.method--delete,
+.req-method-select[data-method="delete"],
+.req-method-menu__item[data-method="delete"] {
+  --method-icon: var(--method-icon-delete);
+}
+.method--head,
+.req-method-select[data-method="head"],
+.req-method-menu__item[data-method="head"] {
+  --method-icon: var(--method-icon-head);
+}
+.method--options,
+.req-method-select[data-method="options"],
+.req-method-menu__item[data-method="options"] {
+  --method-icon: var(--method-icon-options);
+}
+
+/* Hide the text and tighten the tree badge so icons line up in a narrow column */
+html.show-method-icons .tree-node__method,
+html.show-method-icons .req-method-select__label,
+html.show-method-icons .req-method-menu__item-label {
+  font-size: 0;
+}
+html.show-method-icons .tree-node__method {
+  min-width: 0;
+  padding: 1px 4px;
+}
+
+html.show-method-icons .tree-node__method::before,
+html.show-method-icons .req-method-select__label::before,
+html.show-method-icons .req-method-menu__item-label::before {
+  content: "";
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  vertical-align: middle;
+  background-color: currentColor;
+  -webkit-mask: var(--method-icon, var(--method-icon-custom)) center / contain
+    no-repeat;
+  mask: var(--method-icon, var(--method-icon-custom)) center / contain no-repeat;
+}
+
 /* Empty state */
 .tree-empty {
   display: flex;
@@ -360,11 +442,12 @@ mark.tree-highlight {
   font-size: var(--font-size-sm);
   font-weight: 700;
   cursor: pointer;
-  min-width: 90px;
+  /* Size to content: narrow & uniform when showing icons, name-width otherwise. */
+  flex: 0 0 auto;
 }
 
 .req-method-select__label {
-  flex: 1;
+  flex: 0 0 auto;
 }
 
 .req-method-select__chevron {
@@ -402,7 +485,10 @@ mark.tree-highlight {
 .req-method-menu {
   position: fixed;
   z-index: 900;
+  /* Hug the widest row (longest method name or the custom input). */
+  width: max-content;
   min-width: 90px;
+  max-width: 280px;
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-md);

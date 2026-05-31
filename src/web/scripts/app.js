@@ -2002,6 +2002,24 @@ function applySettings(settings) {
     // Place ctrl-group in the layout-appropriate container (replaces nav-settings-bar)
     placeCtrlGroup(_currentLayout, remove);
   }
+
+  // Method icons — replace textual HTTP method names with iconography app-wide.
+  // CSS keys off html.show-method-icons; each method keeps its own colour.
+  if (settings.methodIcons !== undefined) {
+    const iconsOn = !!settings.methodIcons;
+    document.documentElement.classList.toggle("show-method-icons", iconsOn);
+    // Sync tooltips on already-rendered method glyphs (tree badges + the URL-bar
+    // method button). Tooltips only apply in icon mode; clear them otherwise.
+    document.querySelectorAll(".tree-node__method").forEach((el) => {
+      if (iconsOn) el.title = el.textContent;
+      else el.removeAttribute("title");
+    });
+    document.querySelectorAll(".req-method-select").forEach((el) => {
+      const label = el.querySelector(".req-method-select__label");
+      if (iconsOn && label) el.title = label.textContent;
+      else el.removeAttribute("title");
+    });
+  }
 }
 
 /** Walk the item tree and collect all request nodes as { id, name } pairs. */

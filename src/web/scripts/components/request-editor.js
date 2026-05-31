@@ -869,6 +869,10 @@ export class RequestEditor {
     methodSel.setAttribute("aria-haspopup", "listbox");
     methodSel.type = "button";
     methodSel.dataset.method = this.#method.toLowerCase();
+    // Tooltip names the method when the button shows a glyph instead of text.
+    if (document.documentElement.classList.contains("show-method-icons")) {
+      methodSel.title = this.#method;
+    }
     methodSel.appendChild(methodLabel);
     methodSel.insertAdjacentHTML(
       "beforeend",
@@ -912,6 +916,9 @@ export class RequestEditor {
         item.setAttribute("role", "option");
         item.setAttribute("aria-selected", String(m === this.#method));
         item.dataset.method = m.toLowerCase();
+        // In icon mode the row shows a glyph, so name it via a tooltip.
+        if (document.documentElement.classList.contains("show-method-icons"))
+          item.title = m;
         if (m === this.#method)
           item.classList.add("req-method-menu__item--selected");
         item.innerHTML = `<span class="req-method-menu__item-check" aria-hidden="true">${_CHECK}</span><span class="req-method-menu__item-label">${m}</span>`;
@@ -940,6 +947,9 @@ export class RequestEditor {
       const customInput = document.createElement("input");
       customInput.className = "req-method-menu__custom-input";
       customInput.type = "text";
+      // size=1 keeps the input from dictating the menu's max-content width;
+      // flex:1 then grows it to fill the width set by the widest method row.
+      customInput.size = 1;
       customInput.placeholder = "Custom…";
       customInput.setAttribute("aria-label", "Custom HTTP method");
       if (!HTTP_METHODS.includes(this.#method))
@@ -955,6 +965,11 @@ export class RequestEditor {
         this.#method = m;
         methodLabel.textContent = m;
         methodSel.dataset.method = m.toLowerCase();
+        if (document.documentElement.classList.contains("show-method-icons")) {
+          methodSel.title = m;
+        } else {
+          methodSel.removeAttribute("title");
+        }
         if (this._sendBtn) this._sendBtn.dataset.method = m.toLowerCase();
         _closeMethodMenu();
         this.#dispatchRequestUpdated();

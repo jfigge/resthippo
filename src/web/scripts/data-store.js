@@ -58,6 +58,7 @@ const DEFAULT_SETTINGS = {
   varsBulkEditor: true,
   selectedRequestIds: {},
   responseBodyRenderMode: "styled",
+  methodIcons: false,
   wrapResponseText: true,
   oauth2Advanced: false,
   historyCount: 5,
