@@ -27,4 +27,5 @@ mock/.mock.log
 
 # ── Data and local test files ─────────────────────────────────────────────────
 data/collections.json
+features/
 CLAUDE.md
