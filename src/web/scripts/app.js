@@ -987,6 +987,27 @@ function initEventBus() {
     _dispatchTimelineUpdate(_selectedNode?.id);
   });
 
+  window.addEventListener("wurl:theme-preview", (e) => {
+    if (e.detail) _applyCustomThemeVars(e.detail);
+    else applySettings(currentSettings);
+  });
+
+  window.addEventListener("wurl:custom-themes-changed", (e) => {
+    currentSettings = { ...currentSettings, customThemes: e.detail };
+    settingsPopup.refreshThemeList(e.detail);
+    saveSettings(currentSettings);
+  });
+
+  window.addEventListener("wurl:theme-apply", (e) => {
+    currentSettings = { ...currentSettings, theme: e.detail };
+    applySettings(currentSettings);
+    saveSettings(currentSettings);
+    settingsPopup.load({
+      theme: e.detail,
+      customThemes: currentSettings.customThemes,
+    });
+  });
+
   // Replay a historical entry: restore the request editor state and display the
   // saved response without actually re-running the request.
   window.addEventListener("wurl:timeline-select", (e) => {
@@ -1885,10 +1906,40 @@ const FONT_STACKS = {
   roboto: '"Roboto", "Helvetica Neue", system-ui, sans-serif',
 };
 
+function _applyCustomThemeVars(theme) {
+  document.documentElement.dataset.theme = "custom";
+  let styleEl = document.getElementById("wurl-custom-theme");
+  if (!styleEl) {
+    styleEl = document.createElement("style");
+    styleEl.id = "wurl-custom-theme";
+    document.head.appendChild(styleEl);
+  }
+  const vars = Object.entries(theme.vars)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join("\n");
+  styleEl.textContent = `:root[data-theme="custom"] {\n  color-scheme: ${theme.colorScheme};\n${vars}\n}`;
+}
+
 function applySettings(settings) {
   // Theme — stored as a data attribute so CSS [data-theme="latte"] etc. applies
-  if (settings.theme) {
-    document.documentElement.dataset.theme = settings.theme;
+  const BUILT_IN_THEMES = new Set([
+    "mocha",
+    "grey-dark",
+    "latte",
+    "grey-light",
+  ]);
+  const themeId = settings.theme ?? "mocha";
+  if (BUILT_IN_THEMES.has(themeId)) {
+    document.documentElement.dataset.theme = themeId;
+    document.getElementById("wurl-custom-theme")?.remove();
+  } else {
+    const custom = (settings.customThemes ?? []).find((t) => t.id === themeId);
+    if (custom) {
+      _applyCustomThemeVars(custom);
+    } else {
+      document.documentElement.dataset.theme = "mocha";
+      document.getElementById("wurl-custom-theme")?.remove();
+    }
   }
   // Font size — sets --font-size-base; all other sizes (xs, sm, md, lg, xl)
   // are defined as calc(base ± Npx) in theme.css so the whole UI scales.

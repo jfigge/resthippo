@@ -22,6 +22,24 @@ ipcRenderer.on("menu:import", () => {
   window.dispatchEvent(new CustomEvent("wurl:import-requested"));
 });
 
+ipcRenderer.on("theme:preview", (_event, themeData) => {
+  window.dispatchEvent(
+    new CustomEvent("wurl:theme-preview", { detail: themeData }),
+  );
+});
+
+ipcRenderer.on("theme:editor:notify", (_event, customThemes) => {
+  window.dispatchEvent(
+    new CustomEvent("wurl:custom-themes-changed", { detail: customThemes }),
+  );
+});
+
+ipcRenderer.on("theme:editor:apply", (_event, themeId) => {
+  window.dispatchEvent(
+    new CustomEvent("wurl:theme-apply", { detail: themeId }),
+  );
+});
+
 contextBridge.exposeInMainWorld("wurl", {
   /**
    * Explicit sentinel that the renderer uses to detect the Electron environment.
@@ -270,5 +288,7 @@ contextBridge.exposeInMainWorld("wurl", {
     /** Show a Cut / Copy / Paste / Select All menu for the focused text input. */
     editContextMenu: (x, y) =>
       ipcRenderer.invoke("ui:edit-context-menu", { x, y }),
+
+    openThemeEditor: () => ipcRenderer.invoke("ui:open-theme-editor"),
   },
 });

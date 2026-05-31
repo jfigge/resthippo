@@ -78,19 +78,13 @@ export class SettingsPopup {
                 <optgroup label="Dark">
                   <option value="mocha">Mocha</option>
                   <option value="grey-dark">Grey</option>
-                  <option value="yellow">Yellow</option>
-                  <option value="green">Green</option>
-                  <option value="blue">Blue</option>
-                  <option value="red">Red</option>
                 </optgroup>
                 <optgroup label="Light">
                   <option value="latte">Latte</option>
                   <option value="grey-light">Grey</option>
-                  <option value="yellow-light">Yellow</option>
-                  <option value="green-light">Green</option>
-                  <option value="blue-light">Blue</option>
-                  <option value="red-light">Red</option>
                 </optgroup>
+                <option disabled>──────────</option>
+                <option value="__theme-editor__">Theme Editor…</option>
               </select>
             </div>
 
@@ -246,8 +240,28 @@ export class SettingsPopup {
     // "change" for selects and checkboxes (which have no meaningful "input").
     // historyCount is intentionally excluded: it is only committed when the
     // user clicks Close (not X or Escape), so it needs deferred handling.
+    // Theme select — intercept the special "Theme Editor…" sentinel value.
+    const themeSelect = this.#el.querySelector("#setting-theme");
+    let _prevTheme = themeSelect.value;
+    themeSelect.addEventListener("mousedown", () => {
+      _prevTheme = themeSelect.value;
+    });
+    themeSelect.addEventListener("change", () => {
+      if (themeSelect.value === "__theme-editor__") {
+        themeSelect.value = _prevTheme;
+        window.wurl.ui.openThemeEditor?.();
+        return;
+      }
+      _prevTheme = themeSelect.value;
+      this.#emitChange();
+    });
+
     this.#el.querySelectorAll("select").forEach((control) => {
-      if (control.id === "setting-history-count") return;
+      if (
+        control.id === "setting-history-count" ||
+        control.id === "setting-theme"
+      )
+        return;
       control.addEventListener("change", () => this.#emitChange());
     });
     this.#el.querySelectorAll("input[type='checkbox']").forEach((control) => {
@@ -378,6 +392,7 @@ export class SettingsPopup {
    */
   open(settings = {}) {
     this.#openHistoryCount = settings.historyCount ?? 5;
+    this.refreshThemeList(settings.customThemes ?? []);
     this.#applyValues(settings);
     PopupManager.open(this);
     // Scope the Escape handler to the open lifecycle. PopupManager.close()
@@ -396,7 +411,32 @@ export class SettingsPopup {
    * @param {object} settings
    */
   load(settings = {}) {
+    if (settings.customThemes !== undefined)
+      this.refreshThemeList(settings.customThemes);
     this.#applyValues(settings);
+  }
+
+  refreshThemeList(customThemes = []) {
+    const sel = this.#el.querySelector("#setting-theme");
+    const saved = sel.value;
+    sel.querySelector("optgroup[data-custom]")?.remove();
+    if (!customThemes.length) {
+      sel.value = saved;
+      return;
+    }
+    const group = document.createElement("optgroup");
+    group.label = "Custom";
+    group.dataset.custom = "";
+    for (const t of customThemes) {
+      const opt = document.createElement("option");
+      opt.value = t.id;
+      opt.textContent = t.name;
+      group.appendChild(opt);
+    }
+    // Keep separator + "Theme Editor…" pinned at the bottom.
+    const separator = sel.querySelector("option[disabled]");
+    sel.insertBefore(group, separator ?? null);
+    sel.value = saved;
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────

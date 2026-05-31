@@ -60,6 +60,7 @@ const DEFAULT_SETTINGS = {
   responseBodyRenderMode: "styled",
   oauth2Advanced: false,
   historyCount: 5,
+  customThemes: [],
 };
 
 // ── In-memory caches ──────────────────────────────────────────────────────────

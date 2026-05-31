@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <title>Theme Editor — wurl</title>
+    <link rel="stylesheet" href="styles/reset.css" />
+    <link rel="stylesheet" href="styles/theme.css" />
+    <link rel="stylesheet" href="styles/theme-editor.css" />
+  </head>
+  <body>
+    <div id="theme-editor-root">
+      <aside id="sidebar">
+        <div id="sidebar-header">
+          <span class="sidebar-title">Themes</span>
+          <div class="sidebar-btns">
+            <button
+              class="sidebar-btn"
+              id="btn-import-theme"
+              title="Import theme from file"
+            >
+              Import
+            </button>
+            <button class="sidebar-btn sidebar-btn--primary" id="btn-new-theme">
+              + New
+            </button>
+          </div>
+        </div>
+        <ul id="theme-list"></ul>
+      </aside>
+      <main id="editor-panel" class="empty">
+        <div id="editor-header">
+          <input type="text" id="theme-name" placeholder="Theme name…" />
+          <div id="editor-actions">
+            <label class="color-scheme-label">
+              <span>Mode</span>
+              <select id="theme-scheme">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+              </select>
+            </label>
+            <button class="editor-btn" id="btn-export">Export</button>
+            <button class="editor-btn" id="btn-clone">Clone</button>
+            <button class="editor-btn btn-danger" id="btn-delete">
+              Delete
+            </button>
+            <button class="editor-btn" id="btn-apply">Apply</button>
+            <button class="editor-btn btn-primary" id="btn-save">Save</button>
+          </div>
+        </div>
+        <div id="color-grid"></div>
+        <div id="empty-state">Select a theme to edit, or create a new one.</div>
+      </main>
+    </div>
+    <script>
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const theme = params.get("theme");
+        if (theme) document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+    <script type="module" src="scripts/theme-editor.js"></script>
+  </body>
+</html>

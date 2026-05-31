@@ -40,6 +40,7 @@ let _devServerProcess = null;
 // renders live HTML responses inside the response body pane.
 let _mainWin = null; // set once createWindow() runs
 let _aboutWin = null; // singleton about window
+let _themeEditorWin = null; // singleton theme editor window
 let _htmlPreviewView = null; // WebContentsView instance, created lazily
 let _htmlPreviewAdded = false; // whether the view is currently a child of contentView
 
@@ -1485,6 +1486,94 @@ function showAboutDialog() {
   });
 }
 
+// ─── Theme editor ─────────────────────────────────────────────────────────────
+function showThemeEditor() {
+  if (_themeEditorWin) {
+    _themeEditorWin.focus();
+    return;
+  }
+  let theme = "mocha";
+  try {
+    const manifest = getStores().collectionStore().getManifest();
+    theme = manifest?.settings?.theme ?? "mocha";
+  } catch {}
+  _themeEditorWin = new BrowserWindow({
+    width: 900,
+    height: 640,
+    minWidth: 700,
+    minHeight: 480,
+    resizable: true,
+    autoHideMenuBar: true,
+    title: "Theme Editor — wurl",
+    icon: appIcon,
+    backgroundColor: "#1e1e2e",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      preload: path.join(__dirname, "preload-theme-editor.js"),
+    },
+  });
+  _themeEditorWin.loadFile(
+    path.join(__dirname, "..", "web", "theme-editor.html"),
+    { query: { theme } },
+  );
+  _themeEditorWin.once("closed", () => {
+    _themeEditorWin = null;
+  });
+}
+
+(function initThemeEditorIPC() {
+  ipcMain.handle("ui:open-theme-editor", () => showThemeEditor());
+  ipcMain.on("theme:preview", (_e, themeData) => {
+    if (_mainWin && !_mainWin.isDestroyed())
+      _mainWin.webContents.send("theme:preview", themeData);
+  });
+  ipcMain.on("theme:editor:notify", (_e, customThemes) => {
+    if (_mainWin && !_mainWin.isDestroyed())
+      _mainWin.webContents.send("theme:editor:notify", customThemes);
+  });
+  ipcMain.on("theme:editor:apply", (_e, themeId) => {
+    if (_mainWin && !_mainWin.isDestroyed())
+      _mainWin.webContents.send("theme:editor:apply", themeId);
+  });
+
+  ipcMain.handle("theme:export", async (_e, themeData) => {
+    const safe = (themeData.name ?? "theme").replace(/[^a-z0-9_\- ]/gi, "_");
+    const { canceled, filePath } = await dialog.showSaveDialog(
+      _themeEditorWin ?? _mainWin ?? undefined,
+      {
+        title: "Export Theme",
+        defaultPath: `${safe}.wurl-theme.json`,
+        filters: [{ name: "wurl Theme", extensions: ["json"] }],
+      },
+    );
+    if (canceled || !filePath) return false;
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify({ "wurl-theme": "1", ...themeData }, null, 2),
+    );
+    return true;
+  });
+
+  ipcMain.handle("theme:import", async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(
+      _themeEditorWin ?? _mainWin ?? undefined,
+      {
+        title: "Import Theme",
+        filters: [{ name: "wurl Theme", extensions: ["json"] }],
+        properties: ["openFile"],
+      },
+    );
+    if (canceled || !filePaths.length) return null;
+    try {
+      return JSON.parse(fs.readFileSync(filePaths[0], "utf-8"));
+    } catch {
+      return null;
+    }
+  });
+})();
+
 // ─── Application menu ─────────────────────────────────────────────────────────
 function buildMenu() {
   const template = [
@@ -1493,6 +1582,7 @@ function buildMenu() {
       // keep wurl app menu first on macOS
       submenu: [
         { label: "About wurl", click: showAboutDialog },
+        { label: "Theme Editor…", click: showThemeEditor },
         { type: "separator" },
         { role: "services" },
         { type: "separator" },
