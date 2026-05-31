@@ -2397,18 +2397,74 @@ mark.tree-highlight {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .settings-popup {
-  width: 680px;
+  width: 560px;
+  height: 440px;
 }
 
-.settings-section {
-  margin-bottom: var(--space-6);
+/* Master-detail body: left nav list + right single-column panel. */
+.settings-popup-body {
+  display: flex;
+  padding: 0;
+  overflow: hidden;
 }
 
-.settings-section:last-child {
-  margin-bottom: 0;
+/* ── Left navigation list ──────────────────────────────────────────────── */
+.settings-nav {
+  flex: 0 0 160px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-3);
+  background: var(--color-mantle);
+  border-right: 1px solid var(--color-surface-2);
+  overflow-y: auto;
 }
 
-.settings-section-title {
+.settings-nav-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-subtext);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.settings-nav-item:hover {
+  background: var(--color-surface-1);
+  color: var(--color-text);
+}
+
+.settings-nav-item.is-active {
+  background: var(--color-accent);
+  color: var(--color-crust);
+  font-weight: 600;
+}
+
+/* ── Right-hand panel ──────────────────────────────────────────────────── */
+.settings-panels {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--space-5);
+}
+
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-panel[hidden] {
+  display: none;
+}
+
+.settings-panel-title {
   font-size: var(--font-size-xs);
   font-weight: 700;
   text-transform: uppercase;
@@ -2471,51 +2527,6 @@ mark.tree-highlight {
 
 .settings-toggle {
   /* Dimensions / cursor / accent-color handled by universal slider rule. */
-}
-
-/* Two-column grid for a settings section body */
-.settings-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-
-.settings-grid .settings-row {
-  padding: var(--space-3) var(--space-4);
-}
-
-/* Remove adjacent-sibling border inside the grid — padding provides separation */
-.settings-grid .settings-row + .settings-row {
-  border-top: none;
-}
-
-/* Vertical column divider on left-column (odd) items */
-.settings-grid .settings-row:nth-child(odd) {
-  border-top: none;
-  border-right: none;
-}
-
-/* Odd last item has no right-column neighbor — drop the divider */
-.settings-grid .settings-row:last-child:nth-child(odd) {
-  border-right: none;
-}
-
-/* Truncate labels that are too long for a narrow grid column */
-.settings-grid .settings-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-/* Pair two small sections side-by-side (e.g. Proxy + History) */
-.settings-sections-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-6);
-}
-
-.settings-sections-row .settings-section {
-  margin-bottom: 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

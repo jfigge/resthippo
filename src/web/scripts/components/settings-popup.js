@@ -67,11 +67,21 @@ export class SettingsPopup {
         <button class="popup-close" aria-label="Close settings" title="Close">✕</button>
       </div>
 
-      <div class="popup-body">
-        <!-- Appearance ──────────────────────────────────────────────── -->
-        <div class="settings-section">
-          <h3 class="settings-section-title">Appearance</h3>
-          <div class="settings-grid">
+      <div class="popup-body settings-popup-body">
+        <!-- Left navigation list — one entry per settings panel -->
+        <nav class="settings-nav" role="tablist" aria-label="Settings sections">
+          <button class="settings-nav-item is-active" type="button" role="tab" aria-selected="true" data-panel="appearance">Appearance</button>
+          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="request">Request</button>
+          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="proxy">Proxy</button>
+          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="history">History</button>
+        </nav>
+
+        <!-- Right-hand stack of single-column panels; only the active one shows -->
+        <div class="settings-panels">
+          <!-- Appearance ──────────────────────────────────────────────── -->
+          <section class="settings-panel is-active" role="tabpanel" data-panel="appearance">
+            <h3 class="settings-panel-title">Appearance</h3>
+
             <div class="settings-row">
               <label class="settings-label" for="setting-theme">Theme</label>
               <select class="settings-select" id="setting-theme">
@@ -83,8 +93,6 @@ export class SettingsPopup {
                   <option value="latte">Latte</option>
                   <option value="grey-light">Grey</option>
                 </optgroup>
-                <option disabled>──────────</option>
-                <option value="__theme-editor__">Theme Editor…</option>
               </select>
             </div>
 
@@ -120,13 +128,12 @@ export class SettingsPopup {
                 type="checkbox"
               />
             </div>
-          </div>
-        </div>
+          </section>
 
-        <!-- Request ──────────────────────────────────────────────────── -->
-        <div class="settings-section">
-          <h3 class="settings-section-title">Request</h3>
-          <div class="settings-grid">
+          <!-- Request ──────────────────────────────────────────────────── -->
+          <section class="settings-panel" role="tabpanel" data-panel="request" hidden>
+            <h3 class="settings-panel-title">Request</h3>
+
             <div class="settings-row">
               <label class="settings-label" for="setting-timeout">Timeout (ms)</label>
               <input
@@ -178,13 +185,11 @@ export class SettingsPopup {
                 type="checkbox"
               />
             </div>
-          </div>
-        </div>
+          </section>
 
-        <!-- Proxy + History ──────────────────────────────────────────── -->
-        <div class="settings-sections-row">
-          <div class="settings-section">
-            <h3 class="settings-section-title">Proxy</h3>
+          <!-- Proxy ────────────────────────────────────────────────────── -->
+          <section class="settings-panel" role="tabpanel" data-panel="proxy" hidden>
+            <h3 class="settings-panel-title">Proxy</h3>
 
             <div class="settings-row settings-row--toggle">
               <label class="settings-label" for="setting-proxy-enabled">Enable proxy</label>
@@ -200,10 +205,11 @@ export class SettingsPopup {
                 placeholder="http://proxy:8080"
               />
             </div>
-          </div>
+          </section>
 
-          <div class="settings-section">
-            <h3 class="settings-section-title">History</h3>
+          <!-- History ──────────────────────────────────────────────────── -->
+          <section class="settings-panel" role="tabpanel" data-panel="history" hidden>
+            <h3 class="settings-panel-title">History</h3>
 
             <div class="settings-row">
               <label class="settings-label" for="setting-history-count">Timeline entries</label>
@@ -220,7 +226,7 @@ export class SettingsPopup {
                 <option value="10">10</option>
               </select>
             </div>
-          </div>
+          </section>
         </div>
       </div>
 
@@ -235,6 +241,11 @@ export class SettingsPopup {
   // ── Events ─────────────────────────────────────────────────────────────────
 
   #bindEvents() {
+    // Left-nav: clicking an entry reveals its panel and hides the rest.
+    this.#el.querySelectorAll(".settings-nav-item").forEach((item) => {
+      item.addEventListener("click", () => this.#showPanel(item.dataset.panel));
+    });
+
     // Auto-save on every user interaction — no explicit Save needed.
     // Use "input" for text/number inputs (fires on every keystroke) and
     // "change" for selects and checkboxes (which have no meaningful "input").
@@ -306,6 +317,24 @@ export class SettingsPopup {
   }
 
   // ── Internal helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Reveal the panel identified by `name` and mark its nav entry active,
+   * hiding all other panels. Falls back gracefully if `name` is unknown.
+   * @param {string} name
+   */
+  #showPanel(name) {
+    this.#el.querySelectorAll(".settings-nav-item").forEach((item) => {
+      const active = item.dataset.panel === name;
+      item.classList.toggle("is-active", active);
+      item.setAttribute("aria-selected", String(active));
+    });
+    this.#el.querySelectorAll(".settings-panel").forEach((panel) => {
+      const active = panel.dataset.panel === name;
+      panel.classList.toggle("is-active", active);
+      panel.hidden = !active;
+    });
+  }
 
   /**
    * Sync the tooltip on the "Remove headers" row to reflect the current state.
@@ -394,6 +423,7 @@ export class SettingsPopup {
     this.#openHistoryCount = settings.historyCount ?? 5;
     this.refreshThemeList(settings.customThemes ?? []);
     this.#applyValues(settings);
+    this.#showPanel("appearance");
     PopupManager.open(this);
     // Scope the Escape handler to the open lifecycle. PopupManager.close()
     // dispatches "wurl:popup-closed" via _hideMask(), which fires for every
