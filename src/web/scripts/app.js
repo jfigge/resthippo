@@ -19,7 +19,6 @@ import { SettingsPopup } from "./components/settings-popup.js";
 import { CollectionsPopup } from "./components/collections-popup.js";
 import { VariablesPopup } from "./components/variables-popup.js";
 import { EnvironmentsPopup } from "./components/environments-popup.js";
-import { CookiesPopup } from "./components/cookies-popup.js";
 import { EnvPicker } from "./components/env-picker.js";
 import {
   loadAll,
@@ -393,7 +392,7 @@ function buildCtrlGroup() {
     </button>
     <button class="env-picker__trigger" id="btn-env-picker-ctrl"
         title="Environment" aria-label="Select environment"
-        aria-haspopup="listbox"></button>
+        aria-haspopup="dialog"></button>
     <button class="layout-picker__trigger" id="btn-layout-ctrl"
         aria-haspopup="listbox" aria-label="Change layout" title="Change layout"></button>
     <button class="header-icon-btn" id="btn-settings-ctrl"
@@ -600,7 +599,6 @@ const settingsPopup = new SettingsPopup();
 const envPopup = new CollectionsPopup();
 const varsPopup = new VariablesPopup();
 const environmentsPopup = new EnvironmentsPopup();
-const cookiesPopup = new CookiesPopup();
 const envPicker = new EnvPicker({
   onManage: () =>
     environmentsPopup.open(currentEnvironments, {
@@ -630,23 +628,6 @@ let currentEnvironments = {
   environments: [],
 };
 
-/**
- * Open the cookie manager for the active collection. The jar is keyed by
- * collection on disk, so a collection must be active to have a jar to manage.
- */
-function openCookiesPopup() {
-  const id = currentColls.activeCollectionId ?? null;
-  const active = currentColls.collections.find((c) => c.id === id);
-  if (!id) {
-    PopupManager.notify({
-      title: "No Collection Selected",
-      message: "Select or create a collection to manage its cookies.",
-    });
-    return;
-  }
-  cookiesPopup.open(id, { name: active?.name ?? "" });
-}
-
 /** Map currentColls to the shape CollectionsPopup expects. */
 const envPopupState = () => ({
   collections: currentColls.collections,
@@ -663,14 +644,6 @@ function initHeader() {
   document.getElementById("btn-settings-nav").addEventListener("click", () => {
     settingsPopup.open(currentSettings);
   });
-
-  // Cookie manager — header bar + remove-headers bar
-  document
-    .getElementById("btn-cookies")
-    .addEventListener("click", () => openCookiesPopup());
-  document
-    .getElementById("btn-cookies-nav")
-    .addEventListener("click", () => openCookiesPopup());
 
   // Layout picker — header bar + remove-headers bar
   layoutPicker.bindTrigger(document.getElementById("btn-layout"));
@@ -1177,54 +1150,6 @@ function initEventBus() {
 
     treeView.setStorageKey(newColl.id);
     treeView.setItems([]);
-    _selectedNode = null;
-    _clearRequestEditor();
-    setNavPanelTitle(newColl.name);
-    envPopup.update(envPopupState());
-  });
-
-  /** Clone a collection: deep-copy its items with new UUIDs, then switch. */
-  window.addEventListener("wurl:coll-clone", async (e) => {
-    const { sourceId, name } = e.detail;
-    const newColl = { id: crypto.randomUUID(), name };
-
-    // Load source items (if source is currently active, use the live tree)
-    let sourceItems;
-    let sourceVariables;
-    if (sourceId === currentColls.activeCollectionId) {
-      sourceItems = treeView ? treeView.getItems() : [];
-      sourceVariables =
-        currentColls.collections.find((c) => c.id === sourceId)?.variables ??
-        {};
-    } else {
-      const loaded = await loadCollectionData(sourceId);
-      sourceItems = loaded.items;
-      sourceVariables = loaded.variables ?? {};
-    }
-
-    // Deep-clone items with new UUIDs; copy variables directly
-    const cloned = sourceItems.map(_deepCloneWithNewIds);
-    const clonedVariables = { ...sourceVariables };
-
-    // Save cloned items + variables and switch to the new collection
-    await saveCollectionData(newColl.id, cloned, clonedVariables);
-    if (treeView)
-      await saveCollectionData(
-        currentColls.activeCollectionId,
-        treeView.getItems(),
-      );
-
-    const collections = [
-      ...currentColls.collections,
-      { ...newColl, variables: clonedVariables },
-    ];
-    setActiveCollection(newColl.id);
-    currentColls = { collections, activeCollectionId: newColl.id };
-
-    await saveManifest({ collections, activeCollectionId: newColl.id });
-
-    treeView.setStorageKey(newColl.id);
-    treeView.setItems(cloned);
     _selectedNode = null;
     _clearRequestEditor();
     setNavPanelTitle(newColl.name);
@@ -1927,31 +1852,6 @@ function _dispatchTimelineUpdate(requestId, isRequestSwitch = false) {
       },
     }),
   );
-}
-
-/** Deep-clone a tree node, assigning fresh UUIDs throughout. */
-function _deepCloneWithNewIds(node) {
-  const clone = { ...node, id: crypto.randomUUID() };
-  if (Array.isArray(node.children)) {
-    clone.children = node.children.map(_deepCloneWithNewIds);
-  }
-  // Regenerate IDs for request-level row arrays
-  if (Array.isArray(node.bodyFormRows)) {
-    clone.bodyFormRows = node.bodyFormRows.map((r) => ({
-      ...r,
-      id: crypto.randomUUID(),
-    }));
-  }
-  if (Array.isArray(node.params)) {
-    clone.params = node.params.map((r) => ({ ...r, id: crypto.randomUUID() }));
-  }
-  if (Array.isArray(node.headers)) {
-    clone.headers = node.headers.map((r) => ({
-      ...r,
-      id: crypto.randomUUID(),
-    }));
-  }
-  return clone;
 }
 
 /**

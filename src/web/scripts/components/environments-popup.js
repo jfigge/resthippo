@@ -1,16 +1,21 @@
 /**
  * environments-popup.js — Global and named environment variable sets
  *
- * Two-section popup:
- *   Top:    Environment selector (Global always first; named envs below with
- *           rename/delete; + New Environment button)
- *   Bottom: Inline key/value editor with bulk-textarea / KV-row toggle
+ * Settings-style two-pane layout (mirrors collections-popup.js):
+ *   Left pane:  a sidebar listing every environment. A toolbar at the top holds
+ *               an add ([+]) button. Global is always first and cannot be
+ *               renamed, deleted, or reordered; named environments can be
+ *               dragged to reorder and edited inline (Enter confirms, Escape
+ *               cancels). The active environment is marked with a checkmark.
+ *   Right pane: a tabbed panel for the selected environment:
+ *               • Variables — the inline key/value editor (bulk-textarea /
+ *                 KV-row toggle) plus a reset button.
  *
  * Clicking a row both activates the environment (for variable resolution) and
  * loads its variables into the editor.
  *
  * Events dispatched on window:
- *   wurl:environments-changed { data }          — add / rename / delete
+ *   wurl:environments-changed { data }          — add / rename / delete / reorder
  *   wurl:env-activate         { id }            — row selected (null = Global)
  *   wurl:env-vars-save        { id, variables } — debounced 500ms auto-save
  *   wurl:env-bulk-editor-changed { bulkEditor } — toggle changed
@@ -33,14 +38,15 @@ const ICON_RENAME = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
 </svg>`;
 
+// Per-item delete uses the app-standard [X] glyph (matches .params-delete-btn
+// throughout the app), not a trash can.
 const ICON_DELETE = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-  aria-hidden="true">
-  <polyline points="3 6 5 6 21 6"/>
-  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-  <path d="M10 11v6"/><path d="M14 11v6"/>
-  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-</svg>`;
+  aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>`;
+
+const ICON_ADD = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+  aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
 
 // ── EnvironmentsPopup ─────────────────────────────────────────────────────────
 
@@ -56,17 +62,22 @@ export class EnvironmentsPopup {
     environments: [],
   };
 
-  /** Snapshot at open() for the Reset button */
-  #initialData = null;
-
   /** ID currently shown in the variable editor (null = Global) */
   #selectedId = null;
 
-  // ── Name-input form state ──────────────────────────────────────────────────
-  /** null | "add" | { type: "rename", id: string, currentName: string } */
-  #pendingAction = null;
+  /** Which right-pane tab is showing: "vars" */
+  #activeTab = "vars";
+
+  // ── Inline name-edit state ─────────────────────────────────────────────────
+  /**
+   * null | { mode: "add" }
+   *      | { mode: "rename", id: string, currentName: string }
+   */
+  #editState = null;
   /** @type {number|null} */
   #nameErrorTimer = null;
+  /** Guards the inline input's blur-cancel while a commit is re-rendering. */
+  #committing = false;
 
   // ── Variable-editor state ──────────────────────────────────────────────────
   #isBulkMode = true;
@@ -79,8 +90,6 @@ export class EnvironmentsPopup {
   #envPhantom;
   /** @type {number|null} */
   #saveTimer = null;
-  /** @type {Function|null} */
-  #resetCleanup = null;
 
   static #SAVE_MS = 500;
 
@@ -116,16 +125,14 @@ export class EnvironmentsPopup {
    */
   open(data, { bulkEditor = true } = {}) {
     this.#data = this.#clone(data);
-    this.#initialData = this.#clone(data);
     this.#selectedId = data.activeEnvironmentId ?? null;
-    this.#pendingAction = null;
+    this.#editState = null;
     this.#isBulkMode = bulkEditor;
     this.#el.querySelector(".env-bulk-toggle").checked = bulkEditor;
 
     clearTimeout(this.#saveTimer);
-    this.#cancelResetConfirm();
 
-    this.#setNameInputVisible(false);
+    this.#showPanel("vars");
     this.#renderList();
     this.#loadEditorForSelected();
     PopupManager.open(this);
@@ -146,8 +153,7 @@ export class EnvironmentsPopup {
       this.#loadEditorForSelected();
     }
     this.#data = this.#clone(data);
-    this.#pendingAction = null;
-    this.#setNameInputVisible(false);
+    this.#editState = null;
     this.#renderList();
   }
 
@@ -176,78 +182,70 @@ export class EnvironmentsPopup {
         <button class="popup-close" aria-label="Close environments" title="Close">✕</button>
       </div>
       <div class="popup-body env-popup-body">
-        <div class="env-selector-wrap">
-          <div class="env-name-input-row">
-            <input
-              class="env-name-input"
-              type="text"
-              placeholder="Environment name…"
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <button class="popup-btn popup-btn--primary env-name-ok" disabled>Add</button>
-            <button class="popup-btn popup-btn--secondary env-name-cancel">Cancel</button>
+        <div class="env-sidebar">
+          <div class="env-sidebar-toolbar">
+            <button class="icon-btn env-new-btn" title="Add environment" aria-label="Add environment">${ICON_ADD}</button>
           </div>
           <ul class="env-list" role="listbox" aria-label="Environments"></ul>
         </div>
-        <div class="env-vars-section">
-          <div class="env-vars-toolbar">
-            <span class="env-active-label">Global Variables</span>
-            <label class="params-toolbar-toggle-label env-bulk-label"
-                   title="Toggle between bulk text editor and key/value row editor">
-              <input type="checkbox" class="params-toolbar-toggle env-bulk-toggle" checked>
-              Bulk editor
-            </label>
-            <button class="icon-btn env-add-btn" title="Add variable" aria-label="Add variable" style="display:none">+</button>
-            <span class="env-vars-hint">One  name=value  per line</span>
+        <div class="env-main">
+          <div class="env-tabs" role="tablist" aria-label="Environment editor">
+            <button class="env-tab is-active" role="tab" aria-selected="true"
+                    data-panel="vars" type="button">Variables</button>
           </div>
-          <textarea
-            class="body-text-editor env-textarea"
-            spellcheck="false"
-            autocomplete="off"
-            placeholder="name=value&#10;baseUrl=https://example.com&#10;apiKey=abc123"
-            aria-label="Variables editor"
-          ></textarea>
-          <div class="env-kv-wrap" style="display:none">
-            <div class="env-kv-header params-header-row">
-              <span>Name</span><span class="params-col-value">Value</span><span></span>
-            </div>
-            <div class="env-kv-list params-list" aria-label="Variables"></div>
+          <div class="env-panels">
+            <section class="env-panel env-panel--vars is-active"
+                     data-panel="vars" role="tabpanel" aria-label="Variables">
+              <div class="env-vars-toolbar">
+                <label class="params-toolbar-toggle-label env-bulk-label"
+                       title="Toggle between bulk text editor and key/value row editor">
+                  <input type="checkbox" class="params-toolbar-toggle env-bulk-toggle" checked>
+                  Bulk editor
+                </label>
+                <button class="icon-btn params-toolbar-btn env-add-btn" title="Add variable" aria-label="Add variable" style="display:none"><span class="icon">＋</span></button>
+                <span class="env-vars-hint">One  name=value  per line</span>
+              </div>
+              <textarea
+                class="body-text-editor env-textarea"
+                spellcheck="false"
+                autocomplete="off"
+                placeholder="name=value&#10;baseUrl=https://example.com&#10;apiKey=abc123"
+                aria-label="Variables editor"
+              ></textarea>
+              <div class="env-kv-wrap" style="display:none">
+                <div class="env-kv-header params-header-row">
+                  <span>Name</span><span class="params-col-value">Value</span><span></span>
+                </div>
+                <div class="env-kv-list params-list" aria-label="Variables"></div>
+              </div>
+            </section>
           </div>
         </div>
       </div>
       <div class="popup-footer env-popup-footer">
-        <button class="popup-btn popup-btn--secondary env-new-btn">+ New Environment</button>
-        <button class="popup-btn popup-btn--secondary env-reset-btn"
-                title="Reset variables to the values they had when this dialog was opened">Reset</button>
         <button class="popup-btn popup-btn--primary js-close">Close</button>
       </div>
     `;
 
+    // Header / footer close
     el.querySelector(".popup-close").addEventListener("click", () =>
       this.#doClose(),
     );
     el.querySelector(".js-close").addEventListener("click", () =>
       this.#doClose(),
     );
+
+    // Sidebar toolbar
     el.querySelector(".env-new-btn").addEventListener("click", () =>
       this.#startAdd(),
     );
 
-    const nameInput = el.querySelector(".env-name-input");
-    const nameOkBtn = el.querySelector(".env-name-ok");
-    const cancelBtn = el.querySelector(".env-name-cancel");
+    // Tabs
+    el.querySelectorAll(".env-tab").forEach((tab) =>
+      tab.addEventListener("click", () => this.#showPanel(tab.dataset.panel)),
+    );
 
-    nameInput.addEventListener("input", () => {
-      nameOkBtn.disabled = !nameInput.value.trim();
-    });
-    nameInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !nameOkBtn.disabled) nameOkBtn.click();
-      if (e.key === "Escape") cancelBtn.click();
-    });
-    nameOkBtn.addEventListener("click", () => this.#commitName());
-    cancelBtn.addEventListener("click", () => this.#setNameInputVisible(false));
-
+    // Variable editor controls
     el.querySelector(".env-bulk-toggle").addEventListener("change", () =>
       this.#handleBulkToggle(),
     );
@@ -257,12 +255,9 @@ export class EnvironmentsPopup {
     el.querySelector(".env-add-btn").addEventListener("click", () =>
       this.#addRow(),
     );
-    el.querySelector(".env-reset-btn").addEventListener("click", () =>
-      this.#handleReset(),
-    );
 
     el.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !this.#resetCleanup) {
+      if (e.key === "Escape") {
         e.stopPropagation();
         this.#doClose();
       }
@@ -325,6 +320,22 @@ export class EnvironmentsPopup {
     return el;
   }
 
+  // ── Tab switching ──────────────────────────────────────────────────────────
+
+  #showPanel(name) {
+    this.#activeTab = name;
+    this.#el.querySelectorAll(".env-tab").forEach((tab) => {
+      const active = tab.dataset.panel === name;
+      tab.classList.toggle("is-active", active);
+      tab.setAttribute("aria-selected", String(active));
+    });
+    this.#el.querySelectorAll(".env-panel").forEach((panel) => {
+      const active = panel.dataset.panel === name;
+      panel.classList.toggle("is-active", active);
+      panel.hidden = !active;
+    });
+  }
+
   #envDragTargetAfter(envList, y) {
     const draggableItems = [
       ...envList.querySelectorAll(".env-list-item[draggable='true']"),
@@ -354,7 +365,7 @@ export class EnvironmentsPopup {
     const ul = this.#el.querySelector(".env-list");
     ul.innerHTML = "";
 
-    // Global row — always first, never has rename/delete
+    // Global row — always first, never has rename/delete/reorder
     ul.appendChild(
       this.#buildEnvRow({
         id: null,
@@ -365,7 +376,18 @@ export class EnvironmentsPopup {
       }),
     );
 
+    const state = this.#editState;
     for (const env of this.#data.environments) {
+      if (state?.mode === "rename" && state.id === env.id) {
+        ul.appendChild(
+          this.#buildEditingItem({
+            placeholder: "Environment name…",
+            defaultValue: env.name,
+            active: env.id === this.#data.activeEnvironmentId,
+          }),
+        );
+        continue;
+      }
       ul.appendChild(
         this.#buildEnvRow({
           id: env.id,
@@ -375,6 +397,16 @@ export class EnvironmentsPopup {
           isGlobal: false,
         }),
       );
+    }
+
+    // Add appends a fresh inline-edited entry at the bottom, where the new
+    // environment will naturally land. Escape removes it.
+    if (state?.mode === "add") {
+      const item = this.#buildEditingItem({
+        placeholder: "New environment name…",
+      });
+      ul.appendChild(item);
+      requestAnimationFrame(() => item.scrollIntoView({ block: "nearest" }));
     }
   }
 
@@ -464,89 +496,118 @@ export class EnvironmentsPopup {
     return li;
   }
 
-  // ── Name-input form ────────────────────────────────────────────────────────
+  // ── Inline name editing ──────────────────────────────────────────────────────
 
-  #setNameInputVisible(
-    visible,
-    {
-      placeholder = "Environment name…",
-      defaultValue = "",
-      okLabel = "Add",
-    } = {},
-  ) {
-    const row = this.#el.querySelector(".env-name-input-row");
-    const input = this.#el.querySelector(".env-name-input");
-    const okBtn = this.#el.querySelector(".env-name-ok");
-    const newBtn = this.#el.querySelector(".env-new-btn");
+  #buildEditingItem({ placeholder, defaultValue = "", active = false }) {
+    const li = document.createElement("li");
+    li.className =
+      "env-list-item env-list-item--editing" +
+      (active ? " env-list-item--active" : "");
 
-    if (visible) {
-      input.placeholder = placeholder;
-      input.value = defaultValue;
-      okBtn.textContent = okLabel;
-      okBtn.disabled = !defaultValue.trim();
-      input.classList.remove("env-name-input--error");
-      row.classList.add("env-name-input-row--visible");
-      newBtn.disabled = true;
-      requestAnimationFrame(() => {
-        input.focus();
-        input.select();
-      });
-    } else {
-      clearTimeout(this.#nameErrorTimer);
-      this.#nameErrorTimer = null;
-      row.classList.remove("env-name-input-row--visible");
-      input.value = "";
-      okBtn.textContent = "Add";
-      newBtn.disabled = false;
-      this.#pendingAction = null;
-    }
+    const check = document.createElement("span");
+    check.className = "env-list-item__check";
+    check.innerHTML = active ? ICON_CHECK : "";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "env-name-input env-inline-input";
+    input.placeholder = placeholder;
+    input.value = defaultValue;
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.setAttribute("aria-label", "Environment name");
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.#commitInline(input);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        this.#cancelInlineEdit();
+      }
+    });
+    input.addEventListener("blur", () => {
+      // Defer so a successful Enter commit (which re-renders) wins the race.
+      setTimeout(() => {
+        if (this.#editState && !this.#committing) this.#cancelInlineEdit();
+      }, 120);
+    });
+
+    li.appendChild(check);
+    li.appendChild(input);
+
+    requestAnimationFrame(() => {
+      input.focus();
+      input.select();
+    });
+
+    return li;
   }
 
   #startAdd() {
-    this.#pendingAction = "add";
-    this.#setNameInputVisible(true, { placeholder: "New environment name…" });
+    this.#editState = { mode: "add" };
+    this.#renderList();
   }
 
   #startRename(env) {
-    this.#pendingAction = { type: "rename", id: env.id, currentName: env.name };
-    this.#setNameInputVisible(true, {
-      placeholder: "Environment name…",
-      defaultValue: env.name,
-      okLabel: "Rename",
-    });
+    this.#editState = {
+      mode: "rename",
+      id: env.id,
+      currentName: env.name,
+    };
+    this.#renderList();
   }
 
-  #commitName() {
-    const input = this.#el.querySelector(".env-name-input");
+  #cancelInlineEdit() {
+    clearTimeout(this.#nameErrorTimer);
+    this.#nameErrorTimer = null;
+    this.#editState = null;
+    this.#renderList();
+  }
+
+  #flagNameError(input) {
+    input.classList.add("env-name-input--error");
+    input.title = "An environment with this name already exists.";
+    clearTimeout(this.#nameErrorTimer);
+    this.#nameErrorTimer = setTimeout(() => {
+      input.classList.remove("env-name-input--error");
+      input.title = "";
+      this.#nameErrorTimer = null;
+    }, 1500);
+  }
+
+  #commitInline(input) {
     const name = input.value.trim().toUpperCase();
-    if (!name) return;
+    const action = this.#editState;
+    if (!action) return;
 
-    const action = this.#pendingAction;
+    if (!name) {
+      this.#cancelInlineEdit();
+      return;
+    }
 
-    if (action?.type === "rename" && name === action.currentName) {
-      this.#setNameInputVisible(false);
+    if (action.mode === "rename" && name === action.currentName) {
+      this.#cancelInlineEdit();
       return;
     }
 
     const isDuplicate = this.#data.environments.some((e) => {
-      if (action?.type === "rename" && e.id === action.id) return false;
+      if (action.mode === "rename" && e.id === action.id) return false;
       return e.name.toLowerCase() === name.toLowerCase();
     });
     if (isDuplicate) {
-      input.classList.add("env-name-input--error");
-      input.title = "An environment with this name already exists.";
-      clearTimeout(this.#nameErrorTimer);
-      this.#nameErrorTimer = setTimeout(() => {
-        input.classList.remove("env-name-input--error");
-        input.title = "";
-        this.#nameErrorTimer = null;
-      }, 1500);
+      this.#flagNameError(input);
       return;
     }
 
-    this.#setNameInputVisible(false);
+    // Re-render is about to remove the input; suppress the blur-cancel it fires.
+    this.#committing = true;
+    this.#editState = null;
+    clearTimeout(this.#nameErrorTimer);
+    this.#nameErrorTimer = null;
 
-    if (action === "add") {
+    if (action.mode === "add") {
       const id = crypto.randomUUID();
       const newEnv = { id, name, variables: {} };
       const newData = {
@@ -564,7 +625,7 @@ export class EnvironmentsPopup {
           bubbles: true,
         }),
       );
-    } else if (action?.type === "rename") {
+    } else if (action.mode === "rename") {
       const newData = {
         ...this.#data,
         environments: this.#data.environments.map((e) =>
@@ -573,6 +634,7 @@ export class EnvironmentsPopup {
       };
       this.#data = newData;
       this.#renderList();
+      this.#loadEditorForSelected();
       window.dispatchEvent(
         new CustomEvent("wurl:environments-changed", {
           detail: { data: this.#clone(newData) },
@@ -580,6 +642,8 @@ export class EnvironmentsPopup {
         }),
       );
     }
+
+    this.#committing = false;
   }
 
   // ── Environment selection & deletion ───────────────────────────────────────
@@ -587,6 +651,7 @@ export class EnvironmentsPopup {
   #selectEnv(id) {
     if (id === this.#selectedId) return;
     this.#flushEditorSave();
+    this.#editState = null;
     this.#selectedId = id;
     this.#data = { ...this.#data, activeEnvironmentId: id };
     this.#renderList();
@@ -635,18 +700,8 @@ export class EnvironmentsPopup {
 
   #loadEditorForSelected() {
     const vars = this.#getSelectedVars();
-    const label = this.#el.querySelector(".env-active-label");
-    if (label) {
-      const envName =
-        this.#selectedId === null
-          ? null
-          : this.#data.environments.find((e) => e.id === this.#selectedId)
-              ?.name;
-      label.textContent = envName ? `${envName} Variables` : "Global Variables";
-    }
 
     clearTimeout(this.#saveTimer);
-    this.#cancelResetConfirm();
 
     if (this.#isBulkMode) {
       this.#el.querySelector(".env-textarea").value = this.#varsToText(vars);
@@ -877,66 +932,10 @@ export class EnvironmentsPopup {
     );
   }
 
-  // ── Reset ──────────────────────────────────────────────────────────────────
-
-  #handleReset() {
-    if (this.#resetCleanup) {
-      this.#cancelResetConfirm();
-      const initVars = this.#getInitialVars();
-      if (this.#isBulkMode) {
-        this.#el.querySelector(".env-textarea").value =
-          this.#varsToText(initVars);
-        this.#saveFromBulk();
-      } else {
-        this.#rows = this.#varsToRows(initVars);
-        this.#renderRows();
-        this.#saveFromRows();
-      }
-      return;
-    }
-
-    const resetBtn = this.#el.querySelector(".env-reset-btn");
-    resetBtn.textContent = "Confirm?";
-    resetBtn.classList.replace("popup-btn--secondary", "popup-btn--warning");
-
-    const restore = () => {
-      resetBtn.textContent = "Reset";
-      resetBtn.classList.replace("popup-btn--warning", "popup-btn--secondary");
-      document.removeEventListener("keydown", onEsc, true);
-      document.removeEventListener("mousedown", onOutside, true);
-      this.#resetCleanup = null;
-    };
-    const onEsc = (e) => {
-      if (e.key === "Escape") restore();
-    };
-    const onOutside = (e) => {
-      if (!resetBtn.contains(e.target)) restore();
-    };
-
-    document.addEventListener("keydown", onEsc, true);
-    document.addEventListener("mousedown", onOutside, true);
-    this.#resetCleanup = restore;
-  }
-
-  #getInitialVars() {
-    if (!this.#initialData) return {};
-    if (this.#selectedId === null)
-      return this.#initialData.globalVariables ?? {};
-    return (
-      this.#initialData.environments?.find((e) => e.id === this.#selectedId)
-        ?.variables ?? {}
-    );
-  }
-
-  #cancelResetConfirm() {
-    if (this.#resetCleanup) this.#resetCleanup();
-  }
-
   // ── Close ──────────────────────────────────────────────────────────────────
 
   #doClose() {
     this.#flushEditorSave();
-    this.#cancelResetConfirm();
     PopupManager.close();
   }
 

@@ -28,16 +28,12 @@ export class VariablesPopup {
   /** @type {HTMLTextAreaElement} */ #textareaEl;
   /** @type {HTMLElement} */ #kvWrapEl;
   /** @type {HTMLElement} */ #kvListEl;
-  /** @type {HTMLButtonElement} */ #resetBtn;
   /** @type {HTMLButtonElement} */ #closeHeaderBtn;
   /** @type {HTMLButtonElement} */ #closeFooterBtn;
   /** @type {HTMLElement} */ #hintEl;
   /** @type {HTMLButtonElement} */ #addBtnEl;
 
   /** @type {string|null} */ #envId = null;
-
-  /** name=value text captured at open() — used by Reset. */
-  #initialText = "";
 
   /** true = textarea (bulk); false = KV rows */
   #isBulkMode = true;
@@ -46,7 +42,6 @@ export class VariablesPopup {
   #rows = [];
 
   /** @type {number|null} */ #saveTimer = null;
-  /** @type {Function|null} */ #resetCleanup = null;
 
   /** Whether the "Remove headers" setting is active. */
   #removeHeaders = false;
@@ -88,17 +83,13 @@ export class VariablesPopup {
         ? variables
         : {};
 
-    // Snapshot for Reset
-    this.#initialText = this.#varsToText(vars);
-
-    this.#cancelResetConfirm();
     clearTimeout(this.#saveTimer);
 
     this.#isBulkMode = bulkEditor;
     this.#bulkToggleEl.checked = this.#isBulkMode;
 
     if (this.#isBulkMode) {
-      this.#textareaEl.value = this.#initialText;
+      this.#textareaEl.value = this.#varsToText(vars);
       this.#applyMode();
     } else {
       this.#rows = this.#varsToRows(vars);
@@ -166,8 +157,6 @@ export class VariablesPopup {
         </div>
       </div>
       <div class="popup-footer vars-popup-footer">
-        <button class="popup-btn popup-btn--secondary vars-reset-btn"
-                title="Reset variables to the values they had when this dialog was opened">Reset</button>
         <button class="popup-btn popup-btn--primary vars-close-btn"
                 title="Save and close">Close</button>
       </div>
@@ -178,7 +167,6 @@ export class VariablesPopup {
     this.#textareaEl = el.querySelector(".vars-textarea");
     this.#kvWrapEl = el.querySelector(".vars-kv-wrap");
     this.#kvListEl = el.querySelector(".vars-kv-list");
-    this.#resetBtn = el.querySelector(".vars-reset-btn");
     this.#closeHeaderBtn = el.querySelector(".popup-close");
     this.#closeFooterBtn = el.querySelector(".vars-close-btn");
     this.#hintEl = el.querySelector(".vars-hint");
@@ -193,13 +181,10 @@ export class VariablesPopup {
     el.querySelector(".vars-add-btn").addEventListener("click", () =>
       this.#addRow(),
     );
-    this.#resetBtn.addEventListener("click", () => this.#handleReset());
 
-    // Escape closes the popup (unless the Reset confirm state is active,
-    // in which case the document-level Escape handler in #handleReset takes
-    // priority and cancels the confirm instead).
+    // Escape closes the popup.
     el.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !this.#resetCleanup) {
+      if (e.key === "Escape") {
         e.stopPropagation();
         this.#doClose();
       }
@@ -411,59 +396,10 @@ export class VariablesPopup {
     );
   }
 
-  // ── Reset ───────────────────────────────────────────────────────────────────
-
-  #handleReset() {
-    if (this.#resetCleanup) {
-      this.#cancelResetConfirm();
-      if (this.#isBulkMode) {
-        this.#textareaEl.value = this.#initialText;
-        this.#saveFromBulk();
-      } else {
-        this.#rows = this.#varsToRows(this.#textToVars(this.#initialText));
-        this.#renderRows();
-        this.#saveFromRows();
-      }
-      return;
-    }
-
-    this.#resetBtn.textContent = "Confirm?";
-    this.#resetBtn.classList.replace(
-      "popup-btn--secondary",
-      "popup-btn--warning",
-    );
-
-    const restore = () => {
-      this.#resetBtn.textContent = "Reset";
-      this.#resetBtn.classList.replace(
-        "popup-btn--warning",
-        "popup-btn--secondary",
-      );
-      document.removeEventListener("keydown", onEsc, true);
-      document.removeEventListener("mousedown", onOutside, true);
-      this.#resetCleanup = null;
-    };
-    const onEsc = (e) => {
-      if (e.key === "Escape") restore();
-    };
-    const onOutside = (e) => {
-      if (!this.#resetBtn.contains(e.target)) restore();
-    };
-
-    document.addEventListener("keydown", onEsc, true);
-    document.addEventListener("mousedown", onOutside, true);
-    this.#resetCleanup = restore;
-  }
-
-  #cancelResetConfirm() {
-    if (this.#resetCleanup) this.#resetCleanup();
-  }
-
   // ── Close ───────────────────────────────────────────────────────────────────
 
   #doClose() {
     clearTimeout(this.#saveTimer);
-    this.#cancelResetConfirm();
     if (this.#isBulkMode) this.#saveFromBulk();
     else this.#saveFromRows();
     PopupManager.close();

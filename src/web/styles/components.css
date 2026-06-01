@@ -41,8 +41,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
   border-radius: var(--radius-sm);
   color: var(--color-subtext);
   font-size: 14px;
@@ -2770,44 +2768,133 @@ html.show-method-icons .req-method-menu__item-label::before {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .coll-popup {
-  width: 480px;
+  width: 720px;
+  height: 520px;
+  min-width: 620px;
   min-height: 420px;
+  max-width: 90vw;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
+/* Master-detail body: left sidebar list + right tabbed panel. */
 .coll-popup-body {
   padding: 0;
   flex: 1 1 auto;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   overflow: hidden;
   min-height: 0;
 }
 
-/* ── Collection selector (top pane) ─────────────────────────────────────── */
-.coll-selector-wrap {
-  max-height: 220px;
-  overflow-y: auto;
+/* ── Left sidebar (collection list + toolbar) ─────────────────────────────── */
+.coll-sidebar {
+  flex: 0 0 240px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-mantle);
+  border-right: 1px solid var(--color-surface-2);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.coll-sidebar-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
   border-bottom: 1px solid var(--color-surface-2);
   flex-shrink: 0;
 }
 
-/* ── Name input row (hidden by default, shown when adding/cloning) ─────────── */
-.coll-name-input-row {
-  display: none;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4) var(--space-4);
-  background: var(--color-surface-0);
-  border-bottom: 1px solid var(--color-surface-2);
-  margin-bottom: var(--space-2);
+/* .coll-new-btn inherits the shared .icon-btn appearance
+   (matching .coll-add-btn); only the cursor is extra. */
+.coll-new-btn {
+  cursor: pointer;
 }
 
-.coll-name-input-row--visible {
+/* ── Right-hand main pane (tabs + panels) ─────────────────────────────────── */
+.coll-main {
+  flex: 1 1 auto;
   display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.coll-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3) 0;
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-mantle);
+  flex-shrink: 0;
+}
+
+.coll-tab {
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-subtext);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.coll-tab:hover {
+  color: var(--color-text);
+}
+
+.coll-tab.is-active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+  font-weight: 600;
+}
+
+.coll-panels {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.coll-panel {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.coll-panel[hidden] {
+  display: none;
+}
+
+/* ── Cookies panel toolbar ────────────────────────────────────────────────── */
+.coll-cookies-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-mantle);
+  flex-shrink: 0;
+  min-height: 30px;
+}
+
+/* The Cookies panel's list scrolls within the panel. */
+.coll-panel--cookies .cookies-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .coll-name-input {
@@ -2821,6 +2908,13 @@ html.show-method-icons .req-method-menu__item-label::before {
   font-size: var(--font-size-sm);
   transition: border-color var(--transition-fast);
   box-sizing: border-box;
+}
+
+/* Inline name edit sits inside a list row — fill the available width. */
+.coll-inline-input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
 }
 
 .coll-name-input:focus {
@@ -2948,15 +3042,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   pointer-events: none;
 }
 
-/* ── Variable editor (bottom pane) ──────────────────────────────────────── */
-.coll-vars-section {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-}
-
+/* ── Variable editor (Variables panel) ──────────────────────────────────── */
 .coll-vars-toolbar {
   display: flex;
   align-items: center;
@@ -2966,16 +3052,6 @@ html.show-method-icons .req-method-menu__item-label::before {
   background: var(--color-mantle);
   flex-shrink: 0;
   min-height: 30px;
-}
-
-.coll-active-label {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
 }
 
 .coll-vars-hint {
@@ -3013,7 +3089,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 /* ── Footer ──────────────────────────────────────────────────────────────── */
 .coll-popup-footer {
-  justify-content: space-between;
+  justify-content: flex-end;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -3139,43 +3215,114 @@ html.show-method-icons .req-method-menu__item-label::before {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .environments-popup {
-  width: 480px;
+  width: 720px;
+  height: 520px;
+  min-width: 620px;
   min-height: 420px;
+  max-width: 90vw;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
+/* Master-detail body: left sidebar list + right tabbed panel. */
 .env-popup-body {
   padding: 0;
   flex: 1 1 auto;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   overflow: hidden;
   min-height: 0;
 }
 
-/* ── Environment selector (top pane) ─────────────────────────────────────── */
-.env-selector-wrap {
-  max-height: 220px;
-  overflow-y: auto;
+/* ── Left sidebar (environment list + toolbar) ────────────────────────────── */
+.env-sidebar {
+  flex: 0 0 240px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-mantle);
+  border-right: 1px solid var(--color-surface-2);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.env-sidebar-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
   border-bottom: 1px solid var(--color-surface-2);
   flex-shrink: 0;
 }
 
-.env-name-input-row {
-  display: none;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4) var(--space-4);
-  background: var(--color-surface-0);
-  border-bottom: 1px solid var(--color-surface-2);
-  margin-bottom: var(--space-2);
+/* .env-new-btn inherits the shared .icon-btn appearance (matching
+   .env-add-btn); only the cursor is extra. */
+.env-new-btn {
+  cursor: pointer;
 }
 
-.env-name-input-row--visible {
+/* ── Right-hand main pane (tabs + panels) ─────────────────────────────────── */
+.env-main {
+  flex: 1 1 auto;
   display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.env-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3) 0;
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-mantle);
+  flex-shrink: 0;
+}
+
+.env-tab {
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-subtext);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.env-tab:hover {
+  color: var(--color-text);
+}
+
+.env-tab.is-active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+  font-weight: 600;
+}
+
+.env-panels {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.env-panel {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.env-panel[hidden] {
+  display: none;
 }
 
 .env-name-input {
@@ -3190,6 +3337,13 @@ html.show-method-icons .req-method-menu__item-label::before {
   transition: border-color var(--transition-fast);
   box-sizing: border-box;
   text-transform: uppercase;
+}
+
+/* Inline name edit sits inside a list row — fill the available width. */
+.env-inline-input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
 }
 
 .env-name-input:focus {
@@ -3278,6 +3432,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 .env-list-item:hover .env-list-item__actions,
+.env-list-item--active .env-list-item__actions,
 .env-list-item--selected .env-list-item__actions {
   opacity: 1;
 }
@@ -3297,15 +3452,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   opacity: 0.4;
 }
 
-/* ── Variable editor (bottom pane) ───────────────────────────────────────── */
-.env-vars-section {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-}
-
+/* ── Variable editor (Variables panel) ────────────────────────────────────── */
 .env-vars-toolbar {
   display: flex;
   align-items: center;
@@ -3315,16 +3462,6 @@ html.show-method-icons .req-method-menu__item-label::before {
   background: var(--color-mantle);
   flex-shrink: 0;
   min-height: 30px;
-}
-
-.env-active-label {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
 }
 
 .env-vars-hint {
@@ -3356,22 +3493,9 @@ html.show-method-icons .req-method-menu__item-label::before {
   grid-template-columns: 1fr 1fr 28px;
 }
 
-.env-add-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-lg);
-  color: var(--color-subtext);
-  padding: var(--space-3);
-}
-
-.env-add-btn:hover {
-  color: var(--color-text);
-}
-
 /* ── Footer ──────────────────────────────────────────────────────────────── */
 .env-popup-footer {
-  justify-content: space-between;
+  justify-content: flex-end;
 }
 
 /* ── Active environment badge in the nav panel header ────────────────────── */
@@ -4046,15 +4170,6 @@ input[type="checkbox"]:disabled {
   max-width: 120px;
 }
 
-.env-picker__chevron {
-  opacity: 0.45;
-  flex-shrink: 0;
-  width: 6px;
-  height: 4px;
-}
-
-/* Dropdown menu */
-
 /* ── Notes tab ────────────────────────────────────────────────────────────── */
 
 /*
@@ -4081,34 +4196,7 @@ input[type="checkbox"]:disabled {
   min-width: 10px;
 }
 
-/* ── Cookie-jar manager popup (Feature 09) ─────────────────────────────────── */
-.cookies-popup {
-  width: 560px;
-  min-height: 380px;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* Collection name beside the title; muted, never steals room from the title. */
-.cookies-subtitle {
-  font-size: var(--font-size-sm);
-  color: var(--color-subtext);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-shrink: 1;
-  min-width: 0;
-}
-
-.cookies-popup-body {
-  padding: 0;
-  flex: 1 1 auto;
-  overflow-y: auto;
-  min-height: 0;
-}
-
+/* ── Cookie-jar manager (Collections popup → Cookies tab) ──────────────────── */
 .cookies-list {
   list-style: none;
   padding: var(--space-2) 0;
@@ -4268,11 +4356,38 @@ input[type="checkbox"]:disabled {
   margin-top: var(--space-3);
 }
 
-.cookies-popup-footer {
-  justify-content: space-between;
+/* Clear All shares the .icon-btn appearance; cursor + danger hover + disabled
+   state mirror the per-row delete affordances. */
+/* Mirrors the timeline "Delete All" control (.timeline-action--clear-all). */
+.cookies-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: 1px var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  color: var(--color-overlay-0);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.cookies-clear-btn:hover,
+.cookies-clear-btn:focus-visible {
+  color: var(--color-error);
+  background: var(--color-surface-1);
+  outline: none;
 }
 
 .cookies-clear-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.3;
   cursor: not-allowed;
+  pointer-events: none;
 }
