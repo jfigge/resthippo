@@ -48,7 +48,6 @@ const DEFAULT_SETTINGS = {
   timeout: 30000,
   followRedirects: true,
   verifySsl: true,
-  useCookieJar: true,
   proxyEnabled: false,
   proxyUrl: "",
   splitterNav: 240,
@@ -224,6 +223,13 @@ export async function loadAll() {
     if (!collections.find((c) => c.id === activeId)) {
       activeId = collections[0].id;
     }
+
+    // Normalize the per-collection "send cookies" flag (default on). Persisted
+    // in the manifest alongside id/name; consulted on each request send.
+    collections = collections.map((c) => ({
+      ...c,
+      sendCookies: c.sendCookies !== false,
+    }));
 
     _manifest = {
       version: 2,

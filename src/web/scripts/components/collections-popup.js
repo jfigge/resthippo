@@ -110,6 +110,8 @@ export class CollectionsPopup {
    * @type {{name:string,domain:string,path:string}|null}
    */
   #editingCookieIdent = null;
+  /** True while a blank "new cookie" editor row is shown at the top of the list. */
+  #addingCookie = false;
 
   constructor() {
     this.#el = this.#build();
@@ -162,6 +164,7 @@ export class CollectionsPopup {
     clearTimeout(this.#saveTimer);
 
     this.#editingCookieIdent = null;
+    this.#addingCookie = false;
     this.#cookies = [];
 
     this.#renderList();
@@ -190,6 +193,7 @@ export class CollectionsPopup {
     if (!selectedExists) {
       this.#selectedId = activeCollectionId;
       this.#editingCookieIdent = null;
+      this.#addingCookie = false;
       this.#loadEditorForSelected();
       if (this.#activeTab === "cookies") this.#reloadCookies();
       return;
@@ -269,6 +273,12 @@ export class CollectionsPopup {
             <section class="coll-panel coll-panel--cookies"
                      data-panel="cookies" role="tabpanel" aria-label="Cookies" hidden>
               <div class="coll-cookies-toolbar">
+                <label class="params-toolbar-toggle-label cookies-send-label"
+                       title="Attach this collection's cookies to every request it sends">
+                  <input type="checkbox" class="params-toolbar-toggle cookies-send-toggle">
+                  Send cookies
+                </label>
+                <button class="icon-btn cookies-add-btn" title="Add cookie" aria-label="Add cookie">${ICON_ADD}</button>
                 <button class="cookies-clear-btn"
                         title="Clear all — remove every cookie in this collection's jar"
                         aria-label="Clear all cookies" type="button">Delete All</button>
@@ -313,8 +323,14 @@ export class CollectionsPopup {
     );
 
     // Cookies controls
+    el.querySelector(".cookies-add-btn").addEventListener("click", () =>
+      this.#startAddCookie(),
+    );
     el.querySelector(".cookies-clear-btn").addEventListener("click", () =>
       this.#confirmClearCookies(),
+    );
+    el.querySelector(".cookies-send-toggle").addEventListener("change", (e) =>
+      this.#handleSendCookiesToggle(e.target.checked),
     );
 
     el.addEventListener("keydown", (e) => {
@@ -565,6 +581,7 @@ export class CollectionsPopup {
     this.#editState = null;
     this.#selectedId = id;
     this.#editingCookieIdent = null;
+    this.#addingCookie = false;
     this.#renderList();
     this.#loadEditorForSelected();
     if (this.#activeTab === "cookies") this.#reloadCookies();
@@ -823,6 +840,23 @@ export class CollectionsPopup {
 
   // ── Cookies tab ──────────────────────────────────────────────────────────────
 
+  /**
+   * Toggle whether the selected collection attaches its cookie jar to requests.
+   * Updates in-memory state and asks app.js to persist it in the manifest.
+   */
+  #handleSendCookiesToggle(checked) {
+    if (!this.#selectedId) return;
+    this.#collections = this.#collections.map((c) =>
+      c.id === this.#selectedId ? { ...c, sendCookies: checked } : c,
+    );
+    window.dispatchEvent(
+      new CustomEvent("wurl:coll-send-cookies", {
+        detail: { id: this.#selectedId, sendCookies: checked },
+        bubbles: true,
+      }),
+    );
+  }
+
   async #reloadCookies() {
     if (!this.#selectedId) {
       this.#cookies = [];
@@ -841,19 +875,33 @@ export class CollectionsPopup {
   #renderCookies() {
     const list = this.#el.querySelector(".cookies-list");
     const clearBtn = this.#el.querySelector(".cookies-clear-btn");
+    const sendToggle = this.#el.querySelector(".cookies-send-toggle");
     list.innerHTML = "";
 
+    // Reflect the selected collection's "send cookies" flag (default on).
+    const selected = this.#collections.find((c) => c.id === this.#selectedId);
+    sendToggle.checked = selected ? selected.sendCookies !== false : true;
+    sendToggle.disabled = !this.#selectedId;
+
+    const addBtn = this.#el.querySelector(".cookies-add-btn");
     if (!this.#selectedId) {
       list.innerHTML = `<li class="cookies-empty">Select a collection to manage its cookies.</li>`;
       clearBtn.disabled = true;
+      if (addBtn) addBtn.disabled = true;
       return;
     }
-    if (this.#cookies.length === 0) {
+    if (addBtn) addBtn.disabled = false;
+    clearBtn.disabled = this.#cookies.length === 0;
+
+    // A pending "add" shows a blank editor row at the top of the jar.
+    if (this.#addingCookie) {
+      list.appendChild(this.#buildCookieEditRow(this.#blankCookie(), true));
+    }
+
+    if (this.#cookies.length === 0 && !this.#addingCookie) {
       list.innerHTML = `<li class="cookies-empty">No cookies stored for this collection.</li>`;
-      clearBtn.disabled = true;
       return;
     }
-    clearBtn.disabled = false;
 
     for (const cookie of this.#cookies) {
       list.appendChild(
@@ -862,6 +910,29 @@ export class CollectionsPopup {
           : this.#buildCookieViewRow(cookie),
       );
     }
+  }
+
+  /** Starts an inline add: a blank editor row at the top of the list. */
+  #startAddCookie() {
+    if (!this.#selectedId) return;
+    this.#editingCookieIdent = null;
+    this.#addingCookie = true;
+    this.#renderCookies();
+    this.#el.querySelector(".cookies-row--editing .cookies-in-name")?.focus();
+  }
+
+  /** A fresh, persistent (non-session) cookie scoped to nothing yet. */
+  #blankCookie() {
+    return {
+      name: "",
+      value: "",
+      domain: "",
+      path: "/",
+      secure: false,
+      httpOnly: false,
+      sameSite: null,
+      expires: null,
+    };
   }
 
   #buildCookieViewRow(cookie) {
@@ -904,7 +975,7 @@ export class CollectionsPopup {
     return li;
   }
 
-  #buildCookieEditRow(cookie) {
+  #buildCookieEditRow(cookie, isNew = false) {
     const li = document.createElement("li");
     li.className = "cookies-row cookies-row--editing";
 
@@ -954,17 +1025,18 @@ export class CollectionsPopup {
     `;
 
     li.querySelector(".cookies-edit-cancel").addEventListener("click", () => {
-      this.#editingCookieIdent = null;
+      if (isNew) this.#addingCookie = false;
+      else this.#editingCookieIdent = null;
       this.#renderCookies();
     });
     li.querySelector(".cookies-edit-save").addEventListener("click", () =>
-      this.#saveCookieEdit(cookie, li),
+      this.#saveCookieEdit(cookie, li, isNew),
     );
 
     return li;
   }
 
-  async #saveCookieEdit(original, li) {
+  async #saveCookieEdit(original, li, isNew = false) {
     const name = li.querySelector(".cookies-in-name").value.trim();
     const domain = li
       .querySelector(".cookies-in-domain")
@@ -1004,8 +1076,9 @@ export class CollectionsPopup {
 
     try {
       // A changed identity is a different jar key, so remove the old entry
-      // first rather than leaving a stale duplicate behind.
-      if (identityChanged) {
+      // first rather than leaving a stale duplicate behind. New cookies have
+      // no prior key, so there is nothing to remove.
+      if (!isNew && identityChanged) {
         await window.wurl.store.cookies.delete(this.#selectedId, oldIdent);
       }
       await window.wurl.store.cookies.upsert(this.#selectedId, updated);
@@ -1014,7 +1087,8 @@ export class CollectionsPopup {
       return;
     }
 
-    this.#editingCookieIdent = null;
+    if (isNew) this.#addingCookie = false;
+    else this.#editingCookieIdent = null;
     await this.#reloadCookies();
   }
 

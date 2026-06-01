@@ -704,49 +704,11 @@ html.show-method-icons .req-method-menu__item-label::before {
   background: var(--color-surface-2);
 }
 
-/* ── Send split-button (Send + dropdown caret) ───────────────────────────── */
+/* ── Send button ─────────────────────────────────────────────────────────── */
 .req-send-group {
   display: flex;
   align-items: stretch;
   flex-shrink: 0;
-}
-
-/* Inside the split-button, the Send button gives up its right edge to the caret. */
-.req-send-group .req-send-btn {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  border-right: none;
-}
-
-.req-send-caret {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 30px;
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-accent);
-  border-left: 1px solid var(--color-surface-2);
-  border-top-right-radius: var(--radius-sm);
-  border-bottom-right-radius: var(--radius-sm);
-  color: var(--color-accent);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background-color var(--transition-fast);
-}
-
-.req-send-caret:hover {
-  background: var(--color-surface-2);
-}
-.req-send-caret:active {
-  background: var(--color-surface-2);
-  opacity: 0.8;
-}
-
-.req-send-caret__chevron {
-  width: 6px;
-  height: 4px;
-  opacity: 0.7;
 }
 
 /* Tab strip */
@@ -2890,6 +2852,11 @@ html.show-method-icons .req-method-menu__item-label::before {
   min-height: 30px;
 }
 
+/* "Send cookies" sits at the left; "Delete All" is pushed to the right. */
+.coll-cookies-toolbar .cookies-clear-btn {
+  margin-left: auto;
+}
+
 /* The Cookies panel's list scrolls within the panel. */
 .coll-panel--cookies .cookies-list {
   flex: 1 1 auto;
@@ -4322,8 +4289,8 @@ input[type="checkbox"]:disabled {
 }
 
 .cookies-checkbox input {
-  width: 14px;
-  height: 14px;
+  width: 28px;
+  height: 17px;
   accent-color: var(--color-accent);
   cursor: pointer;
 }

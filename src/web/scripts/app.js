@@ -1131,7 +1131,7 @@ function initEventBus() {
   /** Add a new (empty) collection and switch to it. */
   window.addEventListener("wurl:coll-add", async (e) => {
     const { name } = e.detail;
-    const newColl = { id: crypto.randomUUID(), name };
+    const newColl = { id: crypto.randomUUID(), name, sendCookies: true };
     const collections = [...currentColls.collections, newColl];
 
     // Save empty items for the new collection
@@ -1254,6 +1254,23 @@ function initEventBus() {
     _refreshEditorVariableContext(
       currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
     );
+  });
+
+  /**
+   * Persist a collection's "send cookies" flag (whether its cookie jar is
+   * attached to outgoing requests). Stored in the manifest alongside id/name.
+   */
+  window.addEventListener("wurl:coll-send-cookies", async (e) => {
+    const { id, sendCookies } = e.detail;
+    const collections = currentColls.collections.map((coll) =>
+      coll.id === id ? { ...coll, sendCookies } : coll,
+    );
+    currentColls = { ...currentColls, collections };
+    await saveManifest({
+      collections,
+      activeCollectionId: currentColls.activeCollectionId,
+    });
+    envPopup.update(envPopupState());
   });
 
   /** Persist the Bulk Editor toggle preference into settings. */
@@ -1533,9 +1550,9 @@ function initEventBus() {
           : null,
       // Cookie jar (Feature 09): the main process captures Set-Cookie into the
       // active collection's jar and attaches matching cookies on send. Governed
-      // by the global `useCookieJar` setting (toggled via the Send-button menu).
+      // per-collection by the "Send cookies" checkbox in the Collections editor.
       collectionId: currentColls.activeCollectionId ?? null,
-      useCookieJar: currentSettings.useCookieJar !== false,
+      useCookieJar: _collSendCookies(currentColls.activeCollectionId),
     };
 
     // ── Choose execution path ────────────────────────────────────────────────
@@ -1681,6 +1698,15 @@ async function initCollections() {
 /** Return the name of a collection by id, falling back to a default. */
 function _collName(collections, id) {
   return collections.find((c) => c.id === id)?.name ?? "Collections";
+}
+
+/**
+ * Whether the given collection should attach its cookie jar to requests.
+ * Defaults to true when unset or when no collection is active.
+ */
+function _collSendCookies(id) {
+  const coll = currentColls.collections.find((c) => c.id === id);
+  return coll ? coll.sendCookies !== false : true;
 }
 
 /** Update the nav panel's title text. */
@@ -2128,7 +2154,7 @@ async function _executeRequestNode(node, ctx) {
     verifySsl: currentSettings.verifySsl ?? true,
     awsIam: null,
     collectionId: currentColls.activeCollectionId ?? null,
-    useCookieJar: currentSettings.useCookieJar !== false,
+    useCookieJar: _collSendCookies(currentColls.activeCollectionId),
     proxy:
       currentSettings.proxyEnabled && currentSettings.proxyUrl
         ? currentSettings.proxyUrl

@@ -695,10 +695,6 @@ export class RequestEditor {
   #url = "";
   #activeTab = "params";
   #currentNodeId = null;
-  // Mirror of the global `useCookieJar` setting (default on). Kept in sync via
-  // applySettings(); surfaced as a checkable item in the Send-button dropdown
-  // menu. Toggling that item updates the global setting (not per-request).
-  #useCookieJar = true;
 
   // Params state
   #params = []; // [{ id, name, value, enabled }]
@@ -1021,8 +1017,9 @@ export class RequestEditor {
     });
     this.#urlPillEditor = urlEditor;
 
-    // Send / Cancel button — paired with a dropdown caret (split button) that
-    // opens a native OS context menu for per-operation request customisation.
+    // Send / Cancel button. Whether the collection's cookie jar is attached to
+    // each request is governed per-collection via the Collections editor's
+    // "Send cookies" checkbox (not a per-request toggle here).
     const sendGroup = document.createElement("div");
     sendGroup.className = "req-send-group";
 
@@ -1038,16 +1035,6 @@ export class RequestEditor {
         this.#sendRequest();
       }
     });
-
-    const sendCaret = document.createElement("button");
-    sendCaret.type = "button";
-    sendCaret.className = "req-send-caret";
-    sendCaret.title = "Request options";
-    sendCaret.setAttribute("aria-label", "Request options");
-    sendCaret.setAttribute("aria-haspopup", "menu");
-    sendCaret.innerHTML = `<svg class="req-send-caret__chevron" viewBox="0 0 6 4" fill="currentColor" aria-hidden="true"><path d="M0 0 6 0 3 4Z"/></svg>`;
-    sendCaret.addEventListener("click", (e) => this.#openSendMenu(e));
-    this._sendCaret = sendCaret;
 
     // Track in-flight state to toggle the button
     window.addEventListener("wurl:request-loading", () => {
@@ -1066,7 +1053,6 @@ export class RequestEditor {
     window.addEventListener("wurl:request-error", resetSendBtn);
 
     sendGroup.appendChild(sendBtn);
-    sendGroup.appendChild(sendCaret);
 
     bar.appendChild(methodSel);
     bar.appendChild(urlEditor.element);
@@ -4647,41 +4633,6 @@ export class RequestEditor {
     );
   }
 
-  // Open the native OS context menu anchored under the Send-button caret. The
-  // menu surfaces rarely-changed, per-operation request options. Toggling an
-  // item updates the corresponding GLOBAL setting (persisted via app.js).
-  async #openSendMenu(ev) {
-    ev.preventDefault();
-    ev.stopPropagation();
-    const rect = ev.currentTarget.getBoundingClientRect();
-    const choice = await window.wurl.ui.contextMenu({
-      items: [
-        {
-          id: "toggle-cookie-jar",
-          label: "Use cookie jar",
-          type: "checkbox",
-          checked: this.#useCookieJar,
-        },
-      ],
-      x: Math.round(rect.left),
-      y: Math.round(rect.bottom),
-    });
-    if (choice === "toggle-cookie-jar") {
-      this.#useCookieJar = !this.#useCookieJar;
-      this.#dispatchCookieJarUpdated();
-    }
-  }
-
-  // Persist the cookie-jar preference as a GLOBAL setting. app.js merges the
-  // partial detail into currentSettings, then re-applies + saves.
-  #dispatchCookieJarUpdated() {
-    window.dispatchEvent(
-      new CustomEvent("wurl:settings-changed", {
-        detail: { useCookieJar: this.#useCookieJar },
-      }),
-    );
-  }
-
   // ── Send ─────────────────────────────────────────────────────────────────
   async #sendRequest(force = false) {
     const rawUrl = this.#urlPillEditor.getValue().trim();
@@ -5089,9 +5040,6 @@ export class RequestEditor {
     if (settings.removeHeaders != null) {
       this.#removeHeaders = !!settings.removeHeaders;
       this.#applyBodyFormHeaderRow();
-    }
-    if (settings.useCookieJar != null) {
-      this.#useCookieJar = settings.useCookieJar !== false;
     }
   }
 
