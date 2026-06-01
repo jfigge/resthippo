@@ -17,14 +17,10 @@ import {
   isFunctionCall,
 } from "./variable-resolver.js";
 import { PopupManager } from "../popup-manager.js";
+import { icon } from "../icons.js";
+import { wireDeleteConfirm } from "../delete-confirm.js";
 import Prism from "../vendor/prism.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
-
-// Per-row data delete uses a trash-can glyph (matches .params-delete-btn rows
-// throughout the app). Entity/dialog [X] glyphs are separate.
-const ICON_TRASH = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-  aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
 
 // Standard HTTP request headers offered in the header-name combo box.
 // Custom values are always accepted too (free-text input).
@@ -886,7 +882,7 @@ export class RequestEditor {
     methodSel.appendChild(methodLabel);
     methodSel.insertAdjacentHTML(
       "beforeend",
-      `<svg class="req-method-select__chevron" viewBox="0 0 6 4" fill="currentColor" aria-hidden="true"><path d="M0 0 6 0 3 4Z"/></svg>`,
+      icon("caret", { size: null, className: "req-method-select__chevron" }),
     );
 
     let _methodMenu = null;
@@ -918,7 +914,10 @@ export class RequestEditor {
       menu.setAttribute("aria-label", "HTTP Method");
       menu.addEventListener("mousedown", (ev) => ev.preventDefault());
 
-      const _CHECK = `<svg class="req-method-menu__check-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+      const _CHECK = icon("check", {
+        size: 12,
+        className: "req-method-menu__check-icon",
+      });
 
       HTTP_METHODS.forEach((m) => {
         const item = document.createElement("div");
@@ -2365,7 +2364,7 @@ export class RequestEditor {
     dlg.innerHTML = `
       <div class="popup-header">
         <span class="popup-title">Discover OpenID Configuration</span>
-        <button class="popup-close" aria-label="Close" data-action="close" title="Close"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        <button class="popup-close" aria-label="Close" data-action="close" title="Close">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body discover-dialog-body">
         <p class="discover-dialog-desc">
@@ -2622,7 +2621,7 @@ export class RequestEditor {
     addBtn.className = "icon-btn params-toolbar-btn";
     addBtn.title = "Add field";
     addBtn.setAttribute("aria-label", "Add field");
-    addBtn.innerHTML = `<span class="icon">＋</span>`;
+    addBtn.innerHTML = `<span class="icon">${icon("add", { size: 15 })}</span>`;
     addBtn.addEventListener("click", () => {
       this.#bodyFormRows.push({
         id: crypto.randomUUID(),
@@ -2831,11 +2830,7 @@ export class RequestEditor {
     const handle = document.createElement("span");
     handle.className = "params-drag-handle";
     handle.setAttribute("aria-hidden", "true");
-    handle.innerHTML = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
-      <circle cx="3" cy="3"  r="1.4"/><circle cx="7" cy="3"  r="1.4"/>
-      <circle cx="3" cy="8"  r="1.4"/><circle cx="7" cy="8"  r="1.4"/>
-      <circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/>
-    </svg>`;
+    handle.innerHTML = icon("drag", { width: 10, height: 16 });
 
     // Checkbox
     const cb = document.createElement("input");
@@ -2907,8 +2902,7 @@ export class RequestEditor {
     delBtn.className = "icon-btn params-delete-btn";
     delBtn.title = "Delete field";
     delBtn.setAttribute("aria-label", "Delete field");
-    delBtn.innerHTML = ICON_TRASH;
-    delBtn.addEventListener("click", () => {
+    wireDeleteConfirm(delBtn, () => {
       this.#bodyFormRows = rows.filter((r) => r.id !== row.id);
       this.#renderBodyContent();
       this.#dispatchBodyUpdated();
@@ -3222,9 +3216,9 @@ export class RequestEditor {
     const zone = document.createElement("div");
     zone.className = "body-file-zone";
 
-    const icon = document.createElement("div");
-    icon.className = "body-file-zone__icon";
-    icon.innerHTML = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none"
+    const iconEl = document.createElement("div");
+    iconEl.className = "body-file-zone__icon";
+    iconEl.innerHTML = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none"
         stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
       <rect x="6" y="4" width="28" height="32" rx="3"/>
       <polyline points="24,4 24,14 34,14"/>
@@ -3279,7 +3273,7 @@ export class RequestEditor {
       this.#dispatchBodyUpdated();
     });
 
-    zone.appendChild(icon);
+    zone.appendChild(iconEl);
     zone.appendChild(label);
     zone.appendChild(sub);
     zone.appendChild(browseBtn);
@@ -3369,7 +3363,7 @@ export class RequestEditor {
     addBtn.className = "icon-btn params-toolbar-btn";
     addBtn.title = "Add parameter";
     addBtn.setAttribute("aria-label", "Add parameter");
-    addBtn.innerHTML = `<span class="icon">＋</span>`;
+    addBtn.innerHTML = `<span class="icon">${icon("add", { size: 15 })}</span>`;
     addBtn.addEventListener("click", () => this.#addParam());
 
     const deleteAllBtn = document.createElement("button");
@@ -3537,7 +3531,7 @@ export class RequestEditor {
     addBtn.className = "icon-btn params-toolbar-btn";
     addBtn.title = "Add header";
     addBtn.setAttribute("aria-label", "Add header");
-    addBtn.innerHTML = `<span class="icon">＋</span>`;
+    addBtn.innerHTML = `<span class="icon">${icon("add", { size: 15 })}</span>`;
     addBtn.addEventListener("click", () => this.#addHeader());
 
     const deleteAllBtn = document.createElement("button");
@@ -3746,11 +3740,7 @@ export class RequestEditor {
     handle.className = "params-drag-handle";
     handle.setAttribute("aria-hidden", "true");
     handle.title = "Drag to reorder";
-    handle.innerHTML = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
-      <circle cx="3" cy="3"  r="1.4"/><circle cx="7" cy="3"  r="1.4"/>
-      <circle cx="3" cy="8"  r="1.4"/><circle cx="7" cy="8"  r="1.4"/>
-      <circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/>
-    </svg>`;
+    handle.innerHTML = icon("drag", { width: 10, height: 16 });
 
     // ── Enabled checkbox ─────────────────────────────────────────────────
     const checkbox = document.createElement("input");
@@ -3924,8 +3914,7 @@ export class RequestEditor {
     deleteBtn.className = "icon-btn params-delete-btn";
     deleteBtn.title = "Delete header";
     deleteBtn.setAttribute("aria-label", "Delete header");
-    deleteBtn.innerHTML = ICON_TRASH;
-    deleteBtn.addEventListener("click", () => this.#deleteHeader(header.id));
+    wireDeleteConfirm(deleteBtn, () => this.#deleteHeader(header.id));
 
     // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
     row.addEventListener("dragstart", (e) => {
@@ -4165,11 +4154,7 @@ export class RequestEditor {
     handle.className = "params-drag-handle";
     handle.setAttribute("aria-hidden", "true");
     handle.title = "Drag to reorder";
-    handle.innerHTML = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
-      <circle cx="3" cy="3"  r="1.4"/><circle cx="7" cy="3"  r="1.4"/>
-      <circle cx="3" cy="8"  r="1.4"/><circle cx="7" cy="8"  r="1.4"/>
-      <circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/>
-    </svg>`;
+    handle.innerHTML = icon("drag", { width: 10, height: 16 });
 
     // ── Enabled checkbox ─────────────────────────────────────────────────
     const checkbox = document.createElement("input");
@@ -4229,8 +4214,7 @@ export class RequestEditor {
     deleteBtn.className = "icon-btn params-delete-btn";
     deleteBtn.title = "Delete parameter";
     deleteBtn.setAttribute("aria-label", "Delete parameter");
-    deleteBtn.innerHTML = ICON_TRASH;
-    deleteBtn.addEventListener("click", () => this.#deleteParam(param.id));
+    wireDeleteConfirm(deleteBtn, () => this.#deleteParam(param.id));
 
     // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
 

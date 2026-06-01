@@ -68,6 +68,14 @@
   --space-6: 24px;
   --space-7: 32px;
 
+  /* ── Control heights ─────────────────────────────────────────────────── */
+  /* Canonical heights for interactive controls (buttons, inputs, selects).
+     Use these instead of hardcoded pixel heights so controls stay aligned. */
+  --control-h-xs: 24px; /* dense table-row inputs / delete buttons        */
+  --control-h-sm: 26px; /* compact toolbar buttons / popup close          */
+  --control-h-md: 30px; /* default field & button height                  */
+  --control-h-lg: 32px; /* prominent dialog action buttons                */
+
   /* ── Radii ───────────────────────────────────────────────────────────── */
   --radius-sm: 4px;
   --radius-md: 6px;

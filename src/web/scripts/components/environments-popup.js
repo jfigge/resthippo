@@ -24,33 +24,14 @@
 "use strict";
 
 import { PopupManager } from "../popup-manager.js";
+import { icon } from "../icons.js";
+import { wireDeleteConfirm } from "../delete-confirm.js";
 
 // ── SVG icons ─────────────────────────────────────────────────────────────────
 
-const ICON_CHECK = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-  aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
-
-const ICON_RENAME = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-  aria-hidden="true">
-  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-</svg>`;
-
-// Entity delete (e.g. a whole environment) uses the [X] glyph.
-const ICON_DELETE = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-  aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>`;
-
-// Per-row data delete (e.g. an environment variable) uses a trash-can glyph.
-const ICON_TRASH = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-  aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
-
-const ICON_ADD = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-  aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+const ICON_CHECK = icon("check", { size: 13 });
+const ICON_RENAME = icon("rename", { size: 13 });
+const ICON_ADD = icon("add", { size: 15 });
 
 // ── EnvironmentsPopup ─────────────────────────────────────────────────────────
 
@@ -183,7 +164,7 @@ export class EnvironmentsPopup {
     el.innerHTML = `
       <div class="popup-header">
         <span class="popup-title">Environments</span>
-        <button class="popup-close" aria-label="Close environments" title="Close"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        <button class="popup-close" aria-label="Close environments" title="Close">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body env-popup-body">
         <div class="env-sidebar">
@@ -206,7 +187,7 @@ export class EnvironmentsPopup {
                   <input type="checkbox" class="params-toolbar-toggle env-bulk-toggle" checked>
                   Bulk editor
                 </label>
-                <button class="icon-btn params-toolbar-btn env-add-btn" title="Add variable" aria-label="Add variable" style="display:none"><span class="icon">＋</span></button>
+                <button class="icon-btn params-toolbar-btn env-add-btn" title="Add variable" aria-label="Add variable" style="display:none"><span class="icon">${icon("add", { size: 15 })}</span></button>
                 <span class="env-vars-hint">One  name=value  per line</span>
               </div>
               <textarea
@@ -443,11 +424,7 @@ export class EnvironmentsPopup {
       handle.className = "params-drag-handle env-list-item__drag";
       handle.setAttribute("aria-hidden", "true");
       handle.title = "Drag to reorder";
-      handle.innerHTML = `<svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
-        <circle cx="3" cy="3"  r="1.4"/><circle cx="7" cy="3"  r="1.4"/>
-        <circle cx="3" cy="8"  r="1.4"/><circle cx="7" cy="8"  r="1.4"/>
-        <circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/>
-      </svg>`;
+      handle.innerHTML = icon("drag", { width: 10, height: 16 });
       li.appendChild(handle);
 
       li.addEventListener("dragstart", (e) => {
@@ -485,7 +462,7 @@ export class EnvironmentsPopup {
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "coll-action-btn coll-action-btn--danger";
       deleteBtn.title = "Delete environment";
-      deleteBtn.innerHTML = ICON_DELETE;
+      deleteBtn.innerHTML = icon("trash", { size: 13 });
       deleteBtn.setAttribute("aria-label", `Delete ${name}`);
       deleteBtn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -669,35 +646,33 @@ export class EnvironmentsPopup {
   }
 
   #confirmDelete(env) {
-    PopupManager.confirm({
+    PopupManager.confirmDelete({
       title: "Delete Environment?",
-      message: `Delete "<strong>${this.#escape(env.name)}</strong>" and all its variables? This cannot be undone.`,
-      confirmLabel: "Delete",
-      confirmClass: "popup-btn--danger",
-      onConfirm: () => {
-        const wasSelected = this.#selectedId === env.id;
-        const wasActive = this.#data.activeEnvironmentId === env.id;
-        const newData = {
-          ...this.#data,
-          environments: this.#data.environments.filter((e) => e.id !== env.id),
-          activeEnvironmentId: wasActive
-            ? null
-            : this.#data.activeEnvironmentId,
-        };
-        this.#data = newData;
-        if (wasSelected) {
-          this.#selectedId = null;
-          this.#loadEditorForSelected();
-        }
-        this.#renderList();
-        window.dispatchEvent(
-          new CustomEvent("wurl:environments-changed", {
-            detail: { data: this.#clone(newData) },
-            bubbles: true,
-          }),
-        );
-      },
+      message: `Delete the environment "${env.name}" and all its variables?`,
+      onConfirm: () => this.#deleteEnvironment(env),
     });
+  }
+
+  #deleteEnvironment(env) {
+    const wasSelected = this.#selectedId === env.id;
+    const wasActive = this.#data.activeEnvironmentId === env.id;
+    const newData = {
+      ...this.#data,
+      environments: this.#data.environments.filter((e) => e.id !== env.id),
+      activeEnvironmentId: wasActive ? null : this.#data.activeEnvironmentId,
+    };
+    this.#data = newData;
+    if (wasSelected) {
+      this.#selectedId = null;
+      this.#loadEditorForSelected();
+    }
+    this.#renderList();
+    window.dispatchEvent(
+      new CustomEvent("wurl:environments-changed", {
+        detail: { data: this.#clone(newData) },
+        bubbles: true,
+      }),
+    );
   }
 
   // ── Variable editor ────────────────────────────────────────────────────────
@@ -864,8 +839,7 @@ export class EnvironmentsPopup {
     del.className = "icon-btn params-delete-btn";
     del.title = "Delete variable";
     del.setAttribute("aria-label", "Delete variable");
-    del.innerHTML = ICON_TRASH;
-    del.addEventListener("click", () => {
+    wireDeleteConfirm(del, () => {
       this.#rows = this.#rows.filter((r) => r.id !== row.id);
       this.#renderRows();
       this.#saveFromRows();
@@ -946,9 +920,7 @@ export class EnvironmentsPopup {
     const handle = document.createElement("div");
     handle.className = "popup-resize-handle";
     handle.setAttribute("aria-hidden", "true");
-    handle.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-      <circle cx="9" cy="9" r="1.4"/><circle cx="5" cy="9" r="1.4"/><circle cx="9" cy="5" r="1.4"/>
-    </svg>`;
+    handle.innerHTML = icon("resizeGrip", { size: 14 });
     el.appendChild(handle);
 
     handle.addEventListener("mousedown", (startEvt) => {
@@ -976,14 +948,6 @@ export class EnvironmentsPopup {
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-
-  #escape(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
 
   #clone(obj) {
     return JSON.parse(JSON.stringify(obj));

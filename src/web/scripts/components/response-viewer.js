@@ -13,6 +13,8 @@
 "use strict";
 
 import Prism from "../vendor/prism.js";
+import { icon } from "../icons.js";
+import { wireDeleteConfirm } from "../delete-confirm.js";
 
 const TABS = [
   { id: "body", label: "Body" },
@@ -93,8 +95,8 @@ function prettyXml(xml) {
 // ── ResponseViewer class ──────────────────────────────────────────────────────
 
 export class ResponseViewer {
-  static #SVG_COPY = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-  static #SVG_CHECK = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+  static #SVG_COPY = icon("copy", { size: 18 });
+  static #SVG_CHECK = icon("check", { size: 18 });
 
   /** @type {HTMLElement} */
   #el;
@@ -477,10 +479,7 @@ export class ResponseViewer {
     prevBtn.title = "Previous match (Shift+Enter)";
     prevBtn.setAttribute("aria-label", "Previous match");
     prevBtn.disabled = true;
-    prevBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-         <polyline points="18 15 12 9 6 15"/>
-       </svg>`;
+    prevBtn.innerHTML = icon("chevronUp", { size: 12 });
 
     // Next-match button (down arrow)
     const nextBtn = document.createElement("button");
@@ -488,10 +487,7 @@ export class ResponseViewer {
     nextBtn.title = "Next match (Enter)";
     nextBtn.setAttribute("aria-label", "Next match");
     nextBtn.disabled = true;
-    nextBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-         <polyline points="6 9 12 15 18 9"/>
-       </svg>`;
+    nextBtn.innerHTML = icon("chevronDown", { size: 12 });
 
     // Case-sensitivity toggle
     const caseBtn = document.createElement("button");
@@ -514,7 +510,7 @@ export class ResponseViewer {
     closeBtn.className = "res-search-btn res-search-close-btn";
     closeBtn.title = "Close search (Escape)";
     closeBtn.setAttribute("aria-label", "Close search");
-    closeBtn.textContent = "✕";
+    closeBtn.innerHTML = icon("close", { size: 12 });
 
     actions.appendChild(prevBtn);
     actions.appendChild(nextBtn);
@@ -1521,17 +1517,15 @@ export class ResponseViewer {
         clearAll.setAttribute("role", "button");
         clearAll.setAttribute("tabindex", "0");
         clearAll.title = "Delete all history for this request";
-        clearAll.textContent = "Delete All";
-        const onClearAll = (ev) => {
-          ev.stopPropagation();
-          clearTimeout(this.#tooltipTimer);
-          this.#hideTooltip();
-          this.#clearTimeline();
-        };
-        clearAll.addEventListener("click", onClearAll);
-        clearAll.addEventListener("keydown", (ev) => {
-          if (ev.key === "Enter" || ev.key === " ") onClearAll(ev);
-        });
+        wireDeleteConfirm(
+          clearAll,
+          () => {
+            clearTimeout(this.#tooltipTimer);
+            this.#hideTooltip();
+            this.#clearTimeline();
+          },
+          { restingHtml: "Delete All", confirmHtml: "Confirm?" },
+        );
         actions.appendChild(clearAll);
       }
 
@@ -1541,18 +1535,29 @@ export class ResponseViewer {
       del.setAttribute("tabindex", "0");
       del.title = "Delete this entry";
       del.setAttribute("aria-label", "Delete this entry");
-      del.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
-      const onDelete = (ev) => {
-        ev.stopPropagation();
-        clearTimeout(this.#tooltipTimer);
-        this.#hideTooltip();
-        this.#deleteTimelineEntry(entry.id);
-      };
-      del.addEventListener("click", onDelete);
-      del.addEventListener("keydown", (ev) => {
-        if (ev.key === "Enter" || ev.key === " ") onDelete(ev);
-      });
+      wireDeleteConfirm(
+        del,
+        () => {
+          clearTimeout(this.#tooltipTimer);
+          this.#hideTooltip();
+          this.#deleteTimelineEntry(entry.id);
+        },
+        { size: 12 },
+      );
       actions.appendChild(del);
+
+      // The row tooltip must not appear while the cursor is over the action
+      // buttons (Delete All / trashcan). Cancel any pending/visible tooltip on
+      // enter, and re-arm it on leave so moving back onto the row body works.
+      actions.addEventListener("mouseenter", () => {
+        clearTimeout(this.#tooltipTimer);
+        this.#tooltipTimer = null;
+        this.#hideTooltip();
+      });
+      actions.addEventListener("mouseleave", (e) => {
+        this.#tooltipCursor = { x: e.clientX, y: e.clientY };
+        this.#tooltipTimer = setTimeout(() => this.#showTooltip(entry), 600);
+      });
 
       item.appendChild(actions);
 

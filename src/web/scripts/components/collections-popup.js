@@ -31,34 +31,14 @@
 "use strict";
 
 import { PopupManager } from "../popup-manager.js";
+import { icon } from "../icons.js";
+import { wireDeleteConfirm } from "../delete-confirm.js";
 
 // ── SVG icons ─────────────────────────────────────────────────────────────────
 
-const ICON_CHECK = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-  aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
-
-const ICON_RENAME = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-  aria-hidden="true">
-  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-</svg>`;
-
-// Entity delete (e.g. a whole collection) uses the [X] glyph.
-const ICON_DELETE = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-  aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>`;
-
-// Per-row data delete (e.g. a cookie) uses a trash-can glyph.
-const ICON_TRASH = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-  aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
-
-const ICON_ADD = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-  aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
-
+const ICON_CHECK = icon("check", { size: 13 });
+const ICON_RENAME = icon("rename", { size: 13 });
+const ICON_ADD = icon("add", { size: 15 });
 // Cookie edit reuses the rename pencil so the two managers stay visually consistent.
 const ICON_EDIT = ICON_RENAME;
 
@@ -232,7 +212,7 @@ export class CollectionsPopup {
     el.innerHTML = `
       <div class="popup-header">
         <span class="popup-title">Collections</span>
-        <button class="popup-close" aria-label="Close collections" title="Close"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        <button class="popup-close" aria-label="Close collections" title="Close">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body coll-popup-body">
         <div class="coll-sidebar">
@@ -257,7 +237,7 @@ export class CollectionsPopup {
                   <input type="checkbox" class="params-toolbar-toggle coll-bulk-toggle" checked>
                   Bulk editor
                 </label>
-                <button class="icon-btn params-toolbar-btn coll-add-btn" title="Add variable" aria-label="Add variable" style="display:none"><span class="icon">＋</span></button>
+                <button class="icon-btn params-toolbar-btn coll-add-btn" title="Add variable" aria-label="Add variable" style="display:none"><span class="icon">${icon("add", { size: 15 })}</span></button>
                 <span class="coll-vars-hint">One  name=value  per line</span>
               </div>
               <textarea
@@ -435,7 +415,7 @@ export class CollectionsPopup {
     deleteBtn.title =
       count <= 1 ? "Cannot delete the only collection" : "Delete collection";
     deleteBtn.disabled = count <= 1;
-    deleteBtn.innerHTML = ICON_DELETE;
+    deleteBtn.innerHTML = icon("trash", { size: 13 });
     deleteBtn.setAttribute("aria-label", `Delete ${collection.name}`);
     deleteBtn.addEventListener("click", () => this.#confirmDelete(collection));
 
@@ -597,20 +577,20 @@ export class CollectionsPopup {
   }
 
   #confirmDelete(coll) {
-    PopupManager.confirm({
+    PopupManager.confirmDelete({
       title: "Delete Collection?",
-      message: `Delete "<strong>${this.#escape(coll.name)}</strong>" and all its requests? This cannot be undone.`,
-      confirmLabel: "Delete",
-      confirmClass: "popup-btn--danger",
-      onConfirm: () => {
-        window.dispatchEvent(
-          new CustomEvent("wurl:coll-delete", {
-            detail: { id: coll.id },
-            bubbles: true,
-          }),
-        );
-      },
+      message: `Delete the collection "${coll.name}" and all its requests?`,
+      onConfirm: () => this.#deleteCollection(coll),
     });
+  }
+
+  #deleteCollection(coll) {
+    window.dispatchEvent(
+      new CustomEvent("wurl:coll-delete", {
+        detail: { id: coll.id },
+        bubbles: true,
+      }),
+    );
   }
 
   // ── Variable editor ────────────────────────────────────────────────────────
@@ -775,11 +755,7 @@ export class CollectionsPopup {
     del.className = "icon-btn params-delete-btn";
     del.title = "Delete variable";
     del.setAttribute("aria-label", "Delete variable");
-    del.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>
-    </svg>`;
-    del.addEventListener("click", () => {
+    wireDeleteConfirm(del, () => {
       this.#rows = this.#rows.filter((r) => r.id !== row.id);
       this.#renderRows();
       this.#saveFromRows();
@@ -958,7 +934,7 @@ export class CollectionsPopup {
         </span>
         <div class="cookies-row-actions">
           <button class="icon-btn cookies-edit" title="Edit cookie" aria-label="Edit cookie">${ICON_EDIT}</button>
-          <button class="icon-btn params-delete-btn cookies-delete" title="Delete cookie" aria-label="Delete cookie">${ICON_TRASH}</button>
+          <button class="icon-btn params-delete-btn cookies-delete" title="Delete cookie" aria-label="Delete cookie"></button>
         </div>
       </div>
       <div class="cookies-row-meta">
@@ -972,8 +948,8 @@ export class CollectionsPopup {
       this.#editingCookieIdent = this.#identOf(cookie);
       this.#renderCookies();
     });
-    li.querySelector(".cookies-delete").addEventListener("click", () =>
-      this.#confirmDeleteCookie(cookie),
+    wireDeleteConfirm(li.querySelector(".cookies-delete"), () =>
+      this.#deleteCookie(cookie),
     );
 
     return li;
@@ -1096,25 +1072,17 @@ export class CollectionsPopup {
     await this.#reloadCookies();
   }
 
-  #confirmDeleteCookie(cookie) {
-    PopupManager.confirm({
-      title: "Delete Cookie?",
-      message: `Delete "<strong>${this.#escape(cookie.name)}</strong>" for <strong>${this.#escape(cookie.domain)}${this.#escape(cookie.path)}</strong>? It will no longer be sent on matching requests.`,
-      confirmLabel: "Delete",
-      confirmClass: "popup-btn--danger",
-      onConfirm: async () => {
-        try {
-          await window.wurl.store.cookies.delete(
-            this.#selectedId,
-            this.#identOf(cookie),
-          );
-        } catch {
-          return;
-        }
-        if (this.#isEditingCookie(cookie)) this.#editingCookieIdent = null;
-        await this.#reloadCookies();
-      },
-    });
+  async #deleteCookie(cookie) {
+    try {
+      await window.wurl.store.cookies.delete(
+        this.#selectedId,
+        this.#identOf(cookie),
+      );
+    } catch {
+      return;
+    }
+    if (this.#isEditingCookie(cookie)) this.#editingCookieIdent = null;
+    await this.#reloadCookies();
   }
 
   #confirmClearCookies() {
@@ -1189,9 +1157,7 @@ export class CollectionsPopup {
     const handle = document.createElement("div");
     handle.className = "popup-resize-handle";
     handle.setAttribute("aria-hidden", "true");
-    handle.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-      <circle cx="9" cy="9" r="1.4"/><circle cx="5" cy="9" r="1.4"/><circle cx="9" cy="5" r="1.4"/>
-    </svg>`;
+    handle.innerHTML = icon("resizeGrip", { size: 14 });
     el.appendChild(handle);
 
     // True lower bounds — keep the sidebar, tabs, and panels usable.

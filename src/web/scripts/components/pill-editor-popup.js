@@ -1,6 +1,7 @@
 "use strict";
 
 import { PopupManager } from "../popup-manager.js";
+import { icon } from "../icons.js";
 import { resolveVariable } from "./variable-resolver.js";
 
 const TYPE_LABELS = {
@@ -135,7 +136,7 @@ export class PillEditorPopup {
     el.innerHTML = `
       <div class="popup-header">
         <span class="popup-title">${this.#esc(label)} editor</span>
-        <button class="popup-close" aria-label="Close" title="Close"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        <button class="popup-close" aria-label="Close" title="Close">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body pill-editor-body">
         ${bodyHtml}

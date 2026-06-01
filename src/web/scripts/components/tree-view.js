@@ -18,6 +18,7 @@
 "use strict";
 
 import { PopupManager } from "../popup-manager.js";
+import { icon } from "../icons.js";
 import {
   resolveString,
   buildFolderChain,
@@ -25,8 +26,14 @@ import {
 } from "./variable-resolver.js";
 
 // SVG folder icons (Feather-style, stroke-based)
-const ICON_FOLDER_CLOSED = `<svg class="tree-folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
-const ICON_FOLDER_OPEN = `<svg class="tree-folder-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><polyline points="2 10 12 10 17 15 22 10"/></svg>`;
+const ICON_FOLDER_CLOSED = icon("folderClosed", {
+  size: 14,
+  className: "tree-folder-icon",
+});
+const ICON_FOLDER_OPEN = icon("folderOpen", {
+  size: 14,
+  className: "tree-folder-icon",
+});
 
 export class TreeView {
   /** @type {HTMLElement} */
@@ -186,7 +193,7 @@ export class TreeView {
     btnNewCollection.className = "icon-btn";
     btnNewCollection.title = "New Collection";
     btnNewCollection.setAttribute("aria-label", "New Collection");
-    btnNewCollection.innerHTML = `<span class="icon">📁</span>`;
+    btnNewCollection.innerHTML = `<span class="icon">${icon("folderClosed", { size: 16 })}</span>`;
     btnNewCollection.addEventListener("click", () => this.#addCollection());
 
     // New Request button — disabled until at least one collection exists
@@ -194,7 +201,7 @@ export class TreeView {
     this.#btnNewRequest.className = "icon-btn";
     this.#btnNewRequest.title = "New Request";
     this.#btnNewRequest.setAttribute("aria-label", "New Request");
-    this.#btnNewRequest.innerHTML = `<span class="icon">＋</span>`;
+    this.#btnNewRequest.innerHTML = `<span class="icon">${icon("add", { size: 16 })}</span>`;
     this.#btnNewRequest.disabled = true;
     this.#btnNewRequest.addEventListener("click", () => this.#addRequest());
 
@@ -1134,7 +1141,7 @@ export class TreeView {
       const empty = document.createElement("li");
       empty.className = "tree-empty";
       empty.innerHTML =
-        '<span class="placeholder-icon">📭</span>' +
+        `<span class="placeholder-icon">${icon("folderOpen", { size: 24 })}</span>` +
         "<span>No collections yet</span>";
       listEl.appendChild(empty);
     } else {

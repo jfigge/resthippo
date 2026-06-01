@@ -1,5 +1,7 @@
 "use strict";
 
+import { icon } from "../icons.js";
+
 /**
  * layout-picker.js — Panel-layout selector
  *
@@ -59,14 +61,12 @@ const LAYOUT_LABELS = {
   4: "All stacked",
 };
 
-const _CHEVRON = `<svg class="layout-picker__chevron" viewBox="0 0 6 4"
-    fill="currentColor" aria-hidden="true">
-  <path d="M0 0 6 0 3 4Z"/>
-</svg>`;
+const _CHEVRON = icon("caret", {
+  size: null,
+  className: "layout-picker__chevron",
+});
 
-const _CHECK = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-    aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+const _CHECK = icon("check", { size: 12 });
 
 // ── LayoutPicker ─────────────────────────────────────────────────────────────
 

@@ -328,6 +328,7 @@ export const PopupManager = {
    * @param {{
    *   title?:        string,
    *   message:       string,
+   *   note?:         string,
    *   confirmLabel?: string,
    *   confirmClass?: string,
    *   onConfirm:     () => void,
@@ -336,10 +337,14 @@ export const PopupManager = {
   confirm({
     title = "Are you sure?",
     message,
+    note,
     confirmLabel = "Confirm",
     confirmClass = "popup-btn--danger",
     onConfirm,
   }) {
+    const noteHtml = note
+      ? `<p class="popup-confirm-note">${_esc(note)}</p>`
+      : "";
     const { dlg, dismiss } = _showOneShotDialog({
       cssClass: "popup-confirm",
       role: "alertdialog",
@@ -350,6 +355,7 @@ export const PopupManager = {
         </div>
         <div class="popup-body popup-confirm-body">
           <p>${_esc(message)}</p>
+          ${noteHtml}
         </div>
         <div class="popup-footer">
           <button class="popup-btn popup-btn--secondary" data-action="cancel">Cancel</button>
@@ -366,6 +372,31 @@ export const PopupManager = {
     dlg
       .querySelector("[data-action='confirm']")
       .addEventListener("click", () => dismiss(onConfirm));
+  },
+
+  /**
+   * Confirm a destructive entity delete (a whole collection, environment, …).
+   *
+   * The single shared entry point for the heavier deletes that still warrant a
+   * blocking dialog — callers supply only the entity-specific title and lead
+   * message; the shared backup reminder is appended for every one so they all
+   * warn the same way.
+   *
+   * @param {{
+   *   title:     string,
+   *   message:   string,
+   *   onConfirm: () => void,
+   * }} opts
+   */
+  confirmDelete({ title, message, onConfirm }) {
+    this.confirm({
+      title,
+      message,
+      note: "Take a backup beforehand if you may need to restore it — this cannot be undone otherwise.",
+      confirmLabel: "Delete",
+      confirmClass: "popup-btn--danger",
+      onConfirm,
+    });
   },
 
   /**

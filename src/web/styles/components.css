@@ -1,6 +1,70 @@
 /* components.css — Styles for TreeView, RequestEditor, and ResponseViewer */
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   BASE CONTROLS
+   Canonical building blocks for buttons and text inputs. Component-specific
+   classes layer their own colours/sizing on top of these — heights come from
+   the --control-h-* tokens (theme.css) so every control aligns to one scale.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Text button: height + horizontal padding + typography. Pair with a colour
+   modifier (e.g. .popup-btn--primary) for fill/border treatment. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-h-md);
+  padding: 0 var(--space-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Text input / select. Component classes may override height (e.g. dense
+   table rows use --control-h-xs) and background. */
+.input {
+  width: 100%;
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-1);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  box-sizing: border-box;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-base);
+}
+
+.input::placeholder {
+  color: var(--color-overlay-0);
+  font-style: italic;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    TREE VIEW
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -23,7 +87,7 @@
 .tree-search {
   flex: 1;
   min-width: 0;
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 var(--space-3);
   background: var(--color-surface-0);
   border: 1px solid var(--color-surface-2);
@@ -36,14 +100,19 @@
   color: var(--color-overlay-0);
 }
 
-/* Icon buttons */
+/* Icon buttons — square, icon-only. The header bar reuses this via
+   .header-icon-btn (layout.css), which only adds an explicit size + drag
+   region on top of these shared rules. */
 .icon-btn {
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
   border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--color-subtext);
   font-size: 14px;
+  cursor: pointer;
   transition:
     background-color var(--transition-fast),
     color var(--transition-fast);
@@ -430,7 +499,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -586,7 +655,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .req-url-input {
   flex: 1;
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 var(--space-4);
   background: var(--color-base);
   border: 1px solid var(--color-surface-2);
@@ -616,7 +685,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   background: var(--color-base);
   border-color: var(--color-surface-2);
   /* Match original height and padding */
-  min-height: 30px;
+  min-height: var(--control-h-md);
   padding: var(--space-2) var(--space-4);
   /* Font size matches the original req-url-input */
   font-size: var(--font-size-base);
@@ -648,7 +717,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 .req-send-btn {
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 var(--space-5);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -892,7 +961,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 .body-file-browse-btn {
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 var(--space-5);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -940,7 +1009,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 .body-file-reset-btn {
-  height: 26px;
+  height: var(--control-h-sm);
   padding: 0 var(--space-4);
   background: transparent;
   border: 1px solid var(--color-surface-2);
@@ -964,7 +1033,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 /* ── Prettify button (sits in the type-selector bar, left side) ──────────── */
 .body-prettify-btn {
-  height: 26px;
+  height: var(--control-h-sm);
   padding: 0 var(--space-4);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -1000,7 +1069,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 /* Body-type selector in the toolbar */
 .body-type-select {
-  height: 26px;
+  height: var(--control-h-sm);
   padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -1040,7 +1109,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 .params-url-preview__input {
   flex: 1;
   min-width: 0;
-  height: 26px;
+  height: var(--control-h-sm);
   padding: 0 var(--space-3);
   background: var(--color-surface-0);
   border: 1px solid var(--color-surface-2);
@@ -1066,7 +1135,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .params-url-preview__copy-btn {
   flex-shrink: 0;
-  height: 26px;
+  height: var(--control-h-sm);
   padding: 0 var(--space-3);
   font-size: var(--font-size-xs);
   font-weight: 600;
@@ -1097,7 +1166,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .params-toolbar-btn {
   width: 28px;
-  height: 28px;
+  height: var(--control-h-sm);
   color: var(--color-subtext);
 }
 
@@ -1133,7 +1202,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   user-select: none;
   white-space: nowrap;
   padding: 0 var(--space-2);
-  height: 28px;
+  height: var(--control-h-sm);
 }
 .params-toolbar-toggle-label.is-hidden {
   display: none;
@@ -1160,7 +1229,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .params-delete-all-btn {
   width: auto;
-  height: 24px;
+  height: var(--control-h-xs);
   padding: 0 var(--space-3);
   font-size: var(--font-size-xs);
   font-weight: 600;
@@ -1217,7 +1286,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 /* Drop phantom placeholder shown while dragging a param row */
 .params-drop-phantom {
-  height: 26px;
+  height: var(--control-h-sm);
   margin: 0 var(--space-2);
   background: var(--color-surface-2);
   border: 2px dashed var(--color-overlay-0);
@@ -1265,7 +1334,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 /* Name / value inputs */
 .params-input {
   width: 100%;
-  height: 24px;
+  height: var(--control-h-xs);
   padding: 0 var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -1340,7 +1409,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 /* Delete button */
 .params-delete-btn {
   width: 26px;
-  height: 26px;
+  height: var(--control-h-sm);
   justify-self: center;
   color: var(--color-subtext);
   border-radius: var(--radius-sm);
@@ -1352,6 +1421,15 @@ html.show-method-icons .req-method-menu__item-label::before {
 .params-delete-btn:hover {
   color: var(--color-error);
   background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
+}
+
+/* Armed delete confirm: the trash icon has become a "?" awaiting a second,
+ * confirming click. Shared by every trash-delete control (see
+ * delete-confirm.js); holds the warning colour even on hover. */
+.is-confirming-delete,
+.is-confirming-delete:hover {
+  color: var(--color-warning);
+  background-color: color-mix(in srgb, var(--color-warning) 15%, transparent);
 }
 
 /* Empty state */
@@ -1405,7 +1483,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .auth-field__input {
   width: 100%;
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -1437,7 +1515,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 /* Pill editor variant of auth-field__input — overrides params-input sizing */
 .pill-editor.auth-field__input {
   height: auto;
-  min-height: 30px;
+  min-height: var(--control-h-md);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -1503,7 +1581,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .auth-pwd-toggle {
   flex-shrink: 0;
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -1592,7 +1670,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .auth-get-token-btn {
   flex-shrink: 0;
-  height: 28px;
+  height: var(--control-h-sm);
   padding: 0 var(--space-5);
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -1637,7 +1715,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 /* ── Discover button (in auth params-toolbar) ────────────────────────────── */
 
 .auth-discover-btn {
-  height: 24px;
+  height: var(--control-h-xs);
   padding: 0 var(--space-4);
   font-size: var(--font-size-xs);
   font-weight: 600;
@@ -1699,7 +1777,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .discover-dialog-input {
   width: 100%;
-  height: 34px;
+  height: var(--control-h-md);
   padding: 0 var(--space-3);
   background: var(--color-surface-0);
   border: 1px solid var(--color-surface-2);
@@ -2020,7 +2098,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 .res-search-input {
   flex: 1;
   min-width: 0;
-  height: 26px;
+  height: var(--control-h-sm);
   padding: 0 var(--space-3);
   background: var(--color-surface-0);
   border: 1px solid var(--color-surface-2);
@@ -2056,7 +2134,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   align-items: center;
   justify-content: center;
   min-width: 26px;
-  height: 26px;
+  height: var(--control-h-sm);
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
   color: var(--color-subtext);
@@ -2295,7 +2373,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   max-height: 420px;
   overflow-y: auto;
   background: var(--color-surface-1);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-md);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   padding: var(--space-2) 0 var(--space-3);
@@ -2316,7 +2394,8 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 .timeline-tooltip__section + .timeline-tooltip__section {
-  border-top: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+  border-top: 1px solid
+    color-mix(in srgb, var(--color-surface-2) 50%, transparent);
   margin-top: var(--space-2);
 }
 
@@ -2450,8 +2529,8 @@ html.show-method-icons .req-method-menu__item-label::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
   border-radius: var(--radius-sm);
   color: var(--color-subtext);
   background: transparent;
@@ -2511,15 +2590,22 @@ html.show-method-icons .req-method-menu__item-label::before {
   opacity: 0.7;
 }
 
-/* Popup buttons */
+/* Popup buttons — the canonical dialog action button (.btn at the lg height).
+   Colour treatment comes from the --primary / --secondary / --danger / --warning
+   modifiers below. */
 .popup-btn {
-  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-h-lg);
   padding: 0 var(--space-5);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   font-weight: 600;
   cursor: pointer;
   border: 1px solid transparent;
+  box-sizing: border-box;
   transition:
     opacity var(--transition-fast),
     background-color var(--transition-fast),
@@ -2569,6 +2655,13 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .popup-confirm-body p {
   margin: 0;
+}
+
+/* Backup reminder on entity-delete dialogs (see PopupManager.confirmDelete). */
+.popup-confirm-note {
+  margin-top: var(--space-2);
+  color: var(--color-warning);
+  font-size: var(--font-size-sm);
 }
 
 /* Notify (info) popup */
@@ -2691,7 +2784,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .settings-select,
 .settings-input {
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -2849,7 +2942,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   flex-shrink: 0;
-  min-height: 30px;
+  min-height: var(--control-h-md);
 }
 
 /* "Send cookies" sits at the left; "Delete All" is pushed to the right. */
@@ -2866,7 +2959,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .coll-name-input {
   flex: 1;
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -2881,7 +2974,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 .coll-inline-input {
   flex: 1;
   min-width: 0;
-  height: 26px;
+  height: var(--control-h-sm);
 }
 
 .coll-name-input:focus {
@@ -2981,7 +3074,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   align-items: center;
   justify-content: center;
   width: 26px;
-  height: 26px;
+  height: var(--control-h-sm);
   border-radius: var(--radius-sm);
   color: var(--color-subtext);
   background: transparent;
@@ -3018,7 +3111,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   flex-shrink: 0;
-  min-height: 30px;
+  min-height: var(--control-h-md);
 }
 
 .coll-vars-hint {
@@ -3100,7 +3193,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   flex-shrink: 0;
-  min-height: 30px;
+  min-height: var(--control-h-md);
 }
 
 /* Dimmed hint text on the right side of the toolbar */
@@ -3274,7 +3367,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .env-name-input {
   flex: 1;
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -3290,7 +3383,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 .env-inline-input {
   flex: 1;
   min-width: 0;
-  height: 26px;
+  height: var(--control-h-sm);
 }
 
 .env-name-input:focus {
@@ -3408,7 +3501,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   flex-shrink: 0;
-  min-height: 30px;
+  min-height: var(--control-h-md);
 }
 
 .env-vars-hint {
@@ -3528,7 +3621,7 @@ input[type="checkbox"]:disabled {
 .pill-editor.params-input {
   /* Override <input> height with min-height so multi-pill rows can grow */
   height: auto;
-  min-height: 24px;
+  min-height: var(--control-h-xs);
   /* Center content vertically when there is only one line */
   /* display: flex;*/
   /* flex-wrap: wrap; */
@@ -3844,7 +3937,7 @@ input[type="checkbox"]:disabled {
 .pill-editor-var-suggestions {
   max-height: 200px;
   overflow-y: auto;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
   overscroll-behavior: contain;
   outline: none;
@@ -3881,9 +3974,11 @@ input[type="checkbox"]:disabled {
   max-height: 260px;
   overflow-y: auto;
   background: var(--color-surface-1);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-md);
-  box-shadow: var(--space-2);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.15);
   padding: var(--space-2) 0;
   overscroll-behavior: contain;
 }
@@ -3961,7 +4056,7 @@ input[type="checkbox"]:disabled {
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 6px;
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -4077,7 +4172,7 @@ input[type="checkbox"]:disabled {
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -4159,6 +4254,7 @@ input[type="checkbox"]:disabled {
 }
 
 .cookies-row {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -4166,6 +4262,16 @@ input[type="checkbox"]:disabled {
   margin: 1px var(--space-3);
   border-radius: var(--radius-sm);
   transition: background-color var(--transition-fast);
+}
+
+.cookies-row:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background-color: var(--color-surface-2);
 }
 
 .cookies-row:hover {
@@ -4261,7 +4367,7 @@ input[type="checkbox"]:disabled {
 
 .cookies-field input,
 .cookies-field select {
-  height: 30px;
+  height: var(--control-h-md);
   padding: 0 var(--space-3);
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);

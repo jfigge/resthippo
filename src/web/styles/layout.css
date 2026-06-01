@@ -50,25 +50,13 @@
   -webkit-app-region: no-drag;
 }
 
+/* Shares the .icon-btn base (components.css); markup is
+   class="icon-btn header-icon-btn". Only the explicit size, drag region and
+   pressed state are header-specific. */
 .header-icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-sm);
-  color: var(--color-subtext);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition:
-    background-color var(--transition-fast),
-    color var(--transition-fast);
-}
-
-.header-icon-btn:hover {
-  background-color: var(--color-surface-1);
-  color: var(--color-text);
+  width: var(--control-h-md);
+  height: var(--control-h-md);
+  -webkit-app-region: no-drag;
 }
 
 .header-icon-btn:active {

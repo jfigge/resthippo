@@ -380,9 +380,9 @@ function buildCtrlGroup() {
   group.className = "header-ctrl-group";
   group.innerHTML = `
     <span class="ctrl-divider" aria-hidden="true"></span>
-    <button class="header-icon-btn" id="btn-collection-ctrl"
+    <button class="icon-btn header-icon-btn" id="btn-collection-ctrl"
         title="Collections" aria-label="Open Collections">
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
            fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <polygon points="12 2 2 7 12 12 22 7 12 2"/>
@@ -395,7 +395,7 @@ function buildCtrlGroup() {
         aria-haspopup="dialog"></button>
     <button class="layout-picker__trigger" id="btn-layout-ctrl"
         aria-haspopup="listbox" aria-label="Change layout" title="Change layout"></button>
-    <button class="header-icon-btn" id="btn-settings-ctrl"
+    <button class="icon-btn header-icon-btn" id="btn-settings-ctrl"
         title="Settings" aria-label="Open settings">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
            fill="none" stroke="currentColor" stroke-width="2"

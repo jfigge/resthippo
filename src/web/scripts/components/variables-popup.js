@@ -20,12 +20,8 @@
 "use strict";
 
 import { PopupManager } from "../popup-manager.js";
-
-// Per-row data delete uses a trash-can glyph (matches .params-delete-btn rows
-// throughout the app).
-const ICON_TRASH = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-  aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
+import { icon } from "../icons.js";
+import { wireDeleteConfirm } from "../delete-confirm.js";
 
 export class VariablesPopup {
   /** @type {HTMLElement} */ #el;
@@ -136,7 +132,7 @@ export class VariablesPopup {
     el.innerHTML = `
       <div class="popup-header">
         <span class="popup-title vars-popup-title">Variables</span>
-        <button class="popup-close" aria-label="Close" title="Close"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+        <button class="popup-close" aria-label="Close" title="Close">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body vars-popup-body">
         <div class="vars-toolbar">
@@ -145,7 +141,7 @@ export class VariablesPopup {
             <input type="checkbox" class="params-toolbar-toggle vars-bulk-toggle" checked>
             Bulk editor
           </label>
-          <button class="icon-btn params-toolbar-btn vars-add-btn" title="Add variable" aria-label="Add variable" style="display:none"><span class="icon">＋</span></button>
+          <button class="icon-btn params-toolbar-btn vars-add-btn" title="Add variable" aria-label="Add variable" style="display:none"><span class="icon">${icon("add", { size: 15 })}</span></button>
           <span class="vars-hint">One  name=value  per line</span>
         </div>
         <textarea
@@ -163,7 +159,7 @@ export class VariablesPopup {
         </div>
       </div>
       <div class="popup-footer vars-popup-footer">
-        <button class="popup-btn popup-btn--primary vars-close-btn"
+        <button class="popup-btn popup-btn--primary js-close"
                 title="Save and close">Close</button>
       </div>
     `;
@@ -174,7 +170,7 @@ export class VariablesPopup {
     this.#kvWrapEl = el.querySelector(".vars-kv-wrap");
     this.#kvListEl = el.querySelector(".vars-kv-list");
     this.#closeHeaderBtn = el.querySelector(".popup-close");
-    this.#closeFooterBtn = el.querySelector(".vars-close-btn");
+    this.#closeFooterBtn = el.querySelector(".js-close");
     this.#hintEl = el.querySelector(".vars-hint");
     this.#addBtnEl = el.querySelector(".vars-add-btn");
 
@@ -348,8 +344,7 @@ export class VariablesPopup {
     del.className = "icon-btn params-delete-btn";
     del.title = "Delete variable";
     del.setAttribute("aria-label", "Delete variable");
-    del.innerHTML = ICON_TRASH;
-    del.addEventListener("click", () => {
+    wireDeleteConfirm(del, () => {
       this.#rows = this.#rows.filter((r) => r.id !== row.id);
       this.#renderRows();
       this.#saveFromRows();
