@@ -78,7 +78,7 @@
   --transition-normal: 200ms ease;
 
   /* ── Splitter ────────────────────────────────────────────────────────── */
-  --splitter-size: 4px;
+  --splitter-size: 2px;
   --splitter-hit: 12px;
 
   /* ── Panel default sizes ─────────────────────────────────────────────── */
