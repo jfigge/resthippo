@@ -20,6 +20,12 @@ import { PopupManager } from "../popup-manager.js";
 import Prism from "../vendor/prism.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
 
+// Per-row data delete uses a trash-can glyph (matches .params-delete-btn rows
+// throughout the app). Entity/dialog [X] glyphs are separate.
+const ICON_TRASH = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+  aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
+
 // Standard HTTP request headers offered in the header-name combo box.
 // Custom values are always accepted too (free-text input).
 const STANDARD_HEADERS_DICT = {
@@ -2900,10 +2906,8 @@ export class RequestEditor {
     const delBtn = document.createElement("button");
     delBtn.className = "icon-btn params-delete-btn";
     delBtn.title = "Delete field";
-    delBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round">
-      <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
-    </svg>`;
+    delBtn.setAttribute("aria-label", "Delete field");
+    delBtn.innerHTML = ICON_TRASH;
     delBtn.addEventListener("click", () => {
       this.#bodyFormRows = rows.filter((r) => r.id !== row.id);
       this.#renderBodyContent();
@@ -3920,10 +3924,7 @@ export class RequestEditor {
     deleteBtn.className = "icon-btn params-delete-btn";
     deleteBtn.title = "Delete header";
     deleteBtn.setAttribute("aria-label", "Delete header");
-    deleteBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round">
-      <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
-    </svg>`;
+    deleteBtn.innerHTML = ICON_TRASH;
     deleteBtn.addEventListener("click", () => this.#deleteHeader(header.id));
 
     // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
@@ -4228,10 +4229,7 @@ export class RequestEditor {
     deleteBtn.className = "icon-btn params-delete-btn";
     deleteBtn.title = "Delete parameter";
     deleteBtn.setAttribute("aria-label", "Delete parameter");
-    deleteBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round">
-      <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
-    </svg>`;
+    deleteBtn.innerHTML = ICON_TRASH;
     deleteBtn.addEventListener("click", () => this.#deleteParam(param.id));
 
     // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────

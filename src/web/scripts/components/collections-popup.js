@@ -45,11 +45,15 @@ const ICON_RENAME = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
 </svg>`;
 
-// Per-item delete uses the app-standard [X] glyph (matches .params-delete-btn
-// throughout the app), not a trash can.
+// Entity delete (e.g. a whole collection) uses the [X] glyph.
 const ICON_DELETE = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
   aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>`;
+
+// Per-row data delete (e.g. a cookie) uses a trash-can glyph.
+const ICON_TRASH = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+  aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
 
 const ICON_ADD = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none"
   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -954,7 +958,7 @@ export class CollectionsPopup {
         </span>
         <div class="cookies-row-actions">
           <button class="icon-btn cookies-edit" title="Edit cookie" aria-label="Edit cookie">${ICON_EDIT}</button>
-          <button class="icon-btn cookies-delete" title="Delete cookie" aria-label="Delete cookie">${ICON_DELETE}</button>
+          <button class="icon-btn params-delete-btn cookies-delete" title="Delete cookie" aria-label="Delete cookie">${ICON_TRASH}</button>
         </div>
       </div>
       <div class="cookies-row-meta">
