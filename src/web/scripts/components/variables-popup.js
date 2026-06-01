@@ -130,7 +130,7 @@ export class VariablesPopup {
     el.innerHTML = `
       <div class="popup-header">
         <span class="popup-title vars-popup-title">Variables</span>
-        <button class="popup-close" aria-label="Close" title="Close">✕</button>
+        <button class="popup-close" aria-label="Close" title="Close"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
       </div>
       <div class="popup-body vars-popup-body">
         <div class="vars-toolbar">
@@ -139,7 +139,7 @@ export class VariablesPopup {
             <input type="checkbox" class="params-toolbar-toggle vars-bulk-toggle" checked>
             Bulk editor
           </label>
-          <button class="icon-btn vars-add-btn" title="Add variable" aria-label="Add variable" style="display:none">+</button>
+          <button class="icon-btn params-toolbar-btn vars-add-btn" title="Add variable" aria-label="Add variable" style="display:none"><span class="icon">＋</span></button>
           <span class="vars-hint">One  name=value  per line</span>
         </div>
         <textarea
@@ -342,9 +342,9 @@ export class VariablesPopup {
     del.className = "icon-btn params-delete-btn";
     del.title = "Delete variable";
     del.setAttribute("aria-label", "Delete variable");
-    del.innerHTML = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none"
-        stroke="currentColor" stroke-width="2" stroke-linecap="round">
-      <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
+    del.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>
     </svg>`;
     del.addEventListener("click", () => {
       this.#rows = this.#rows.filter((r) => r.id !== row.id);
