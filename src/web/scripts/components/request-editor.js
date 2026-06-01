@@ -9,6 +9,7 @@ import {
   stringify as stringifyYaml,
 } from "../vendor/yaml.js";
 import { VariablePillEditor } from "./variable-pill-editor.js";
+import { wrapSecretField } from "./secret-field.js";
 import {
   resolveStringAsync,
   collectTemplateVariables,
@@ -49,6 +50,7 @@ const STANDARD_HEADERS_DICT = {
     "Basic <base64(username:password)>",
     "Bearer <token>",
     "Digest <credentials>",
+    "NTLM <base64(message)>",
     "Negotiate <token>",
     "OAuth <token>",
     "AWS4-HMAC-SHA256 Credential=<credential>, SignedHeaders=<headers>, Signature=<signature>",
@@ -129,6 +131,7 @@ const STANDARD_HEADERS_DICT = {
     "Basic <base64(username:password)>",
     "Bearer <token>",
     "Digest <credentials>",
+    "NTLM <base64(message)>",
     "Negotiate <token>",
   ],
 
@@ -754,6 +757,21 @@ export class RequestEditor {
     service: "",
     sessionToken: "",
   };
+  #authApiKey = {
+    name: "", // header name or query-param key (e.g. "X-API-Key")
+    value: "", // the secret key value (encrypted at rest)
+    addTo: "header", // "header" | "query"
+  };
+  #authDigest = {
+    username: "",
+    password: "", // encrypted at rest; challenge/response runs in the main process
+  };
+  #authNtlm = {
+    username: "",
+    password: "", // encrypted at rest; the NTLM handshake runs in the main process
+    domain: "", // optional NT domain (or use DOMAIN\username in the username field)
+    workstation: "", // optional client workstation name
+  };
   // Secret field paths (e.g. "authBasic.password") whose stored ciphertext could
   // not be decrypted on load — the main process flags these via `_decryptErrors`.
   // Used to render an inline "couldn't decrypt — re-enter" notice on the field.
@@ -1175,9 +1193,12 @@ export class RequestEditor {
     typeSelect.innerHTML = `
       <optgroup label="Auth Types">
         <option value="basic">Basic</option>
+        <option value="bearer">Bearer Token</option>
+        <option value="apikey">API Key</option>
+        <option value="digest">Digest</option>
+        <option value="ntlm">NTLM</option>
         <option value="oauth2">OAuth 2.0</option>
         <option value="aws-iam">AWS IAM</option>
-        <option value="bearer">Bearer Token</option>
       </optgroup>
       <optgroup label="Other">
         <option value="none">None</option>
@@ -1296,6 +1317,12 @@ export class RequestEditor {
         return this.#renderAuthBasic(el);
       case "bearer":
         return this.#renderAuthBearer(el);
+      case "apikey":
+        return this.#renderAuthApiKey(el);
+      case "digest":
+        return this.#renderAuthDigest(el);
+      case "ntlm":
+        return this.#renderAuthNtlm(el);
       case "oauth2":
         return this.#renderAuthOAuth2(el);
       case "aws-iam":
@@ -1320,6 +1347,27 @@ export class RequestEditor {
 
       case "bearer":
         return [{ key: "token", value: this.#authBearer.token }];
+
+      case "apikey":
+        return [
+          { key: "name", value: this.#authApiKey.name },
+          { key: "value", value: this.#authApiKey.value },
+          { key: "addTo", value: this.#authApiKey.addTo },
+        ];
+
+      case "digest":
+        return [
+          { key: "username", value: this.#authDigest.username },
+          { key: "password", value: this.#authDigest.password },
+        ];
+
+      case "ntlm":
+        return [
+          { key: "username", value: this.#authNtlm.username },
+          { key: "password", value: this.#authNtlm.password },
+          { key: "domain", value: this.#authNtlm.domain },
+          { key: "workstation", value: this.#authNtlm.workstation },
+        ];
 
       case "aws-iam":
         return [
@@ -1467,6 +1515,27 @@ export class RequestEditor {
         case "bearer":
           if (key === "token") this.#authBearer.token = v;
           break;
+        case "apikey":
+          if (key === "addTo") {
+            // Constrain to the two valid targets so the select can't desync.
+            if (v === "header" || v === "query") this.#authApiKey.addTo = v;
+          } else if (key === "name" || key === "value") {
+            this.#authApiKey[key] = v;
+          }
+          break;
+        case "digest":
+          if (key === "username" || key === "password")
+            this.#authDigest[key] = v;
+          break;
+        case "ntlm":
+          if (
+            key === "username" ||
+            key === "password" ||
+            key === "domain" ||
+            key === "workstation"
+          )
+            this.#authNtlm[key] = v;
+          break;
         case "aws-iam":
           if (key in this.#authAwsIam) this.#authAwsIam[key] = v;
           break;
@@ -1532,6 +1601,138 @@ export class RequestEditor {
           this.#dispatchAuthUpdated();
         },
         hint: "Sent as: Authorization: Bearer <token>",
+      }),
+    );
+
+    el.appendChild(form);
+  }
+
+  // ── API Key ───────────────────────────────────────────────────────────────
+  #renderAuthApiKey(el) {
+    const form = document.createElement("div");
+    form.className = "auth-form";
+
+    form.appendChild(
+      this.#buildAuthPillField("Key", {
+        placeholder: "e.g. X-API-Key",
+        value: this.#authApiKey.name,
+        onInput: (v) => {
+          this.#authApiKey.name = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
+
+    form.appendChild(
+      this.#buildAuthPillField("Value", {
+        placeholder: "Enter your API key…",
+        value: this.#authApiKey.value,
+        decryptPath: "authApiKey.value",
+        onInput: (v) => {
+          this.#authApiKey.value = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
+
+    form.appendChild(
+      this.#buildAuthFieldSelect("Add to", {
+        options: [
+          { value: "header", label: "Header" },
+          { value: "query", label: "Query Params" },
+        ],
+        value: this.#authApiKey.addTo,
+        ariaLabel: "Add API key to",
+        onInput: (v) => {
+          this.#authApiKey.addTo = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
+
+    el.appendChild(form);
+  }
+
+  // ── Digest ────────────────────────────────────────────────────────────────
+  #renderAuthDigest(el) {
+    const form = document.createElement("div");
+    form.className = "auth-form";
+
+    form.appendChild(
+      this.#buildAuthPillField("Username", {
+        placeholder: "Username",
+        value: this.#authDigest.username,
+        onInput: (v) => {
+          this.#authDigest.username = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
+
+    form.appendChild(
+      this.#buildAuthPillField("Password", {
+        placeholder: "Password",
+        value: this.#authDigest.password,
+        decryptPath: "authDigest.password",
+        onInput: (v) => {
+          this.#authDigest.password = v;
+          this.#dispatchAuthUpdated();
+        },
+        hint: "Challenge/response (RFC 2617 / 7616) is negotiated when the request is sent.",
+      }),
+    );
+
+    el.appendChild(form);
+  }
+
+  // ── NTLM ──────────────────────────────────────────────────────────────────
+  #renderAuthNtlm(el) {
+    const form = document.createElement("div");
+    form.className = "auth-form";
+
+    form.appendChild(
+      this.#buildAuthPillField("Username", {
+        placeholder: "Username (or DOMAIN\\username)",
+        value: this.#authNtlm.username,
+        onInput: (v) => {
+          this.#authNtlm.username = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
+
+    form.appendChild(
+      this.#buildAuthPillField("Password", {
+        placeholder: "Password",
+        value: this.#authNtlm.password,
+        decryptPath: "authNtlm.password",
+        onInput: (v) => {
+          this.#authNtlm.password = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
+
+    form.appendChild(
+      this.#buildAuthPillField("Domain", {
+        placeholder: "NT domain (optional)",
+        value: this.#authNtlm.domain,
+        onInput: (v) => {
+          this.#authNtlm.domain = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
+
+    form.appendChild(
+      this.#buildAuthPillField("Workstation", {
+        placeholder: "Client workstation name (optional)",
+        value: this.#authNtlm.workstation,
+        onInput: (v) => {
+          this.#authNtlm.workstation = v;
+          this.#dispatchAuthUpdated();
+        },
+        hint: "The NTLM handshake (MS-NLMP) is negotiated over a single keep-alive connection when the request is sent.",
       }),
     );
 
@@ -2125,7 +2326,11 @@ export class RequestEditor {
     this.#authPillEditors.push(editor);
 
     wrapper.appendChild(lbl);
-    wrapper.appendChild(editor.element);
+    // Encrypted-at-rest fields (those with a decryptPath) are masked behind a
+    // reveal control; non-secret pill fields render the editor bare.
+    wrapper.appendChild(
+      decryptPath ? wrapSecretField(editor.element) : editor.element,
+    );
 
     if (hint) {
       const hintEl = document.createElement("span");
@@ -2141,57 +2346,6 @@ export class RequestEditor {
         "Couldn't decrypt — re-enter this value to restore it.";
       wrapper.appendChild(warnEl);
     }
-
-    return wrapper;
-  }
-
-  /**
-   * Build a labeled password input with a show/hide toggle button.
-   * @param {string} label
-   * @param {{ placeholder?, value?, onInput? }} opts
-   */
-  #buildAuthFieldPassword(
-    label,
-    { placeholder = "", value = "", onInput } = {},
-  ) {
-    const wrapper = document.createElement("div");
-    wrapper.className = "auth-field";
-
-    const lbl = document.createElement("label");
-    lbl.className = "auth-field__label";
-    lbl.textContent = label;
-
-    const inputWrap = document.createElement("div");
-    inputWrap.className = "auth-pwd-wrapper";
-
-    const input = document.createElement("input");
-    input.type = "password";
-    input.className = "auth-field__input";
-    input.placeholder = placeholder;
-    input.value = value;
-    // Descriptive name prevents password managers from treating this as a login
-    // credential field.  "new-password" is the only autocomplete value Chrome
-    // reliably respects to suppress the save-credentials popup for non-login fields.
-    input.name = `wurl-auth-${label.toLowerCase().replace(/\s+/g, "-")}`;
-    input.setAttribute("autocomplete", "new-password");
-    input.setAttribute("aria-label", label);
-    if (onInput) input.addEventListener("input", () => onInput(input.value));
-
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "auth-pwd-toggle";
-    toggle.textContent = "Show";
-    toggle.title = "Toggle visibility";
-    toggle.addEventListener("click", () => {
-      const hidden = input.type === "password";
-      input.type = hidden ? "text" : "password";
-      toggle.textContent = hidden ? "Hide" : "Show";
-    });
-
-    inputWrap.appendChild(input);
-    inputWrap.appendChild(toggle);
-    wrapper.appendChild(lbl);
-    wrapper.appendChild(inputWrap);
 
     return wrapper;
   }
@@ -2336,6 +2490,9 @@ export class RequestEditor {
           authType: this.#authType,
           authBasic: { ...this.#authBasic },
           authBearer: { ...this.#authBearer },
+          authApiKey: { ...this.#authApiKey },
+          authDigest: { ...this.#authDigest },
+          authNtlm: { ...this.#authNtlm },
           authOAuth2: oauth2Persisted,
           authAwsIam: { ...this.#authAwsIam },
         },
@@ -4696,6 +4853,8 @@ export class RequestEditor {
 
     // ── 3. Auth — inject Authorization (or other) headers if enabled ──────
     let awsIam = null;
+    let authDigest = null;
+    let authNtlm = null;
     if (this.#authEnabled && this.#authType !== "none") {
       switch (this.#authType) {
         case "basic": {
@@ -4712,6 +4871,48 @@ export class RequestEditor {
             headers["Authorization"] =
               `Bearer ${await rv(this.#authBearer.token)}`;
           break;
+        case "apikey": {
+          const name = (await rv(this.#authApiKey.name ?? "")).trim();
+          const value = await rv(this.#authApiKey.value ?? "");
+          if (name) {
+            if (this.#authApiKey.addTo === "query") {
+              const qs = `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
+              finalUrl += (finalUrl.includes("?") ? "&" : "?") + qs;
+            } else {
+              headers[name] = value;
+            }
+          }
+          break;
+        }
+        case "digest": {
+          // The challenge/response round-trip (RFC 2617 / 7616) is stateful and
+          // must run in the main process where the request executes. Resolve the
+          // credentials here and pass them through; no header is set up-front.
+          const username = await rv(this.#authDigest.username ?? "");
+          if (username) {
+            authDigest = {
+              username,
+              password: await rv(this.#authDigest.password ?? ""),
+            };
+          }
+          break;
+        }
+        case "ntlm": {
+          // The NTLM handshake (MS-NLMP) is connection-bound and stateful: the
+          // Type 1/2/3 exchange must run in the main process over a single
+          // keep-alive socket. Resolve the credentials here and pass them
+          // through; no Authorization header is set up-front.
+          const username = await rv(this.#authNtlm.username ?? "");
+          if (username) {
+            authNtlm = {
+              username,
+              password: await rv(this.#authNtlm.password ?? ""),
+              domain: await rv(this.#authNtlm.domain ?? ""),
+              workstation: await rv(this.#authNtlm.workstation ?? ""),
+            };
+          }
+          break;
+        }
         case "oauth2": {
           // ── User-supplied Authorization header wins ──────────────────────
           // If the user explicitly added a non-blank Authorization header in
@@ -4913,6 +5114,8 @@ export class RequestEditor {
           body,
           bodyFilePath,
           awsIam,
+          authDigest,
+          authNtlm,
         },
         bubbles: true,
       }),
@@ -4939,6 +5142,16 @@ export class RequestEditor {
     if (this.#authEnabled && this.#authType !== "none") {
       t.push(this.#authBasic?.username ?? "", this.#authBasic?.password ?? "");
       t.push(this.#authBearer?.token ?? "");
+      t.push(
+        this.#authDigest?.username ?? "",
+        this.#authDigest?.password ?? "",
+      );
+      t.push(
+        this.#authNtlm?.username ?? "",
+        this.#authNtlm?.password ?? "",
+        this.#authNtlm?.domain ?? "",
+        this.#authNtlm?.workstation ?? "",
+      );
       t.push(this.#authOAuth2?.token ?? "");
     }
     // Only scan fields that will actually be sent — avoids false-positive
@@ -5129,6 +5342,24 @@ export class RequestEditor {
     this.#authEnabled = node.authEnabled ?? true;
     this.#authBasic = { username: "", password: "", ...(node.authBasic ?? {}) };
     this.#authBearer = { token: "", ...(node.authBearer ?? {}) };
+    this.#authApiKey = {
+      name: "",
+      value: "",
+      addTo: "header",
+      ...(node.authApiKey ?? {}),
+    };
+    this.#authDigest = {
+      username: "",
+      password: "",
+      ...(node.authDigest ?? {}),
+    };
+    this.#authNtlm = {
+      username: "",
+      password: "",
+      domain: "",
+      workstation: "",
+      ...(node.authNtlm ?? {}),
+    };
     // Merge saved fields — default advanced fields to empty string / known defaults.
     // OIDC discovery fields are restored from the persisted node data so previously
     // discovered configurations survive a request reload.
@@ -5229,6 +5460,24 @@ export class RequestEditor {
       };
     } else if (node.authType === "bearer") {
       node.authBearer = { token: kv.token ?? "" };
+    } else if (node.authType === "apikey") {
+      node.authApiKey = {
+        name: kv.name ?? "",
+        value: kv.value ?? "",
+        addTo: kv.addTo === "query" ? "query" : "header",
+      };
+    } else if (node.authType === "digest") {
+      node.authDigest = {
+        username: kv.username ?? "",
+        password: kv.password ?? "",
+      };
+    } else if (node.authType === "ntlm") {
+      node.authNtlm = {
+        username: kv.username ?? "",
+        password: kv.password ?? "",
+        domain: kv.domain ?? "",
+        workstation: kv.workstation ?? "",
+      };
     } else if (node.authType === "oauth2") {
       node.authOAuth2 = {
         grantType: kv.grantType ?? "client_credentials",

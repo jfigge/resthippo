@@ -12,7 +12,7 @@
 
 /**
  * Canonical OAuth 2.0 / OpenID Connect error codes.
- * Values are the exact strings the spec defines (RFC 6749, RFC 8628, OIDC Core).
+ * Values are the exact strings the spec defines (RFC 6749, OIDC Core).
  */
 export const OAuthErrorCode = Object.freeze({
   // RFC 6749 §5.2  Token Error Response

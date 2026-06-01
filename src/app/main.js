@@ -24,6 +24,17 @@ const { URL } = require("url");
 const { Stores } = require("./store/stores");
 const aws4 = require("aws4");
 const { HttpsProxyAgent } = require("https-proxy-agent");
+const {
+  parseChallenge,
+  selectDigestChallenge,
+  buildAuthorization: buildDigestAuthorization,
+} = require("./auth/digest");
+const {
+  createType1Message,
+  selectNtlmChallenge,
+  decodeType2Message,
+  createType3Message,
+} = require("./auth/ntlm");
 
 const isDev = process.argv.includes("--dev");
 const isDebug = process.argv.includes("--hot-reload");
@@ -289,6 +300,8 @@ function safeCall(channel, fn, fallback = null) {
       verifySsl = true,
       maxRedirects = 10,
       awsIam = null,
+      authDigest = null,
+      authNtlm = null,
       proxy = null,
       collectionId = null,
       useCookieJar = true,
@@ -321,6 +334,53 @@ function safeCall(channel, fn, fallback = null) {
       const port = parsed.port ? parseInt(parsed.port, 10) : defaultPort;
       const effectiveMethod = method.toUpperCase();
 
+      // ── NTLM negotiate (MS-NLMP) ──────────────────────────────────────────
+      // NTLM is connection-bound: the Type 2 challenge and the Type 3 response
+      // MUST travel on ONE keep-alive socket. We drive the handshake by
+      // recursion with a dedicated single-socket agent (_ntlmAgent) threaded
+      // through both legs so they share the connection. This first entry sends
+      // the Type 1 negotiate (no body); the 401 it earns carries Type 2, which
+      // the response handler answers with Type 3 + the real body. The agent is
+      // destroyed once the whole chain settles, so no keep-alive socket leaks.
+      if (
+        authNtlm?.username &&
+        redirects === 0 &&
+        !desc._ntlmNegotiate &&
+        !desc._ntlmAuthorized
+      ) {
+        const ntlmAgent = new lib.Agent({
+          keepAlive: true,
+          maxSockets: 1,
+          maxFreeSockets: 1,
+        });
+        if (proxy) {
+          consoleLog.push(
+            "* NTLM handshake bypasses the configured proxy (target-server auth)",
+          );
+        }
+        const negHeaders = { ...headers };
+        for (const k of Object.keys(negHeaders)) {
+          if (k.toLowerCase() === "authorization") delete negHeaders[k];
+        }
+        negHeaders.Authorization = createType1Message();
+        negHeaders["Content-Length"] = "0"; // negotiate leg carries no body
+        doRequest(
+          {
+            ...desc,
+            headers: negHeaders,
+            _ntlmNegotiate: true,
+            _ntlmAgent: ntlmAgent,
+          },
+          consoleLog,
+          startTime,
+          redirects,
+        ).then((result) => {
+          ntlmAgent.destroy();
+          resolve(result);
+        });
+        return;
+      }
+
       // ── Resolve body ───────────────────────────────────────────────────────
       const reqHeaders = { ...headers };
       let bodyBuffer = null;
@@ -349,7 +409,7 @@ function safeCall(channel, fn, fallback = null) {
         }
       }
 
-      if (redirects === 0) {
+      if (redirects === 0 && !desc._ntlmNegotiate) {
         if (bodyFilePath) {
           try {
             bodyBuffer = fs.readFileSync(bodyFilePath);
@@ -421,7 +481,11 @@ function safeCall(channel, fn, fallback = null) {
         headers: reqHeaders,
         timeout,
         rejectUnauthorized: verifySsl,
-        ...(proxy ? { agent: new HttpsProxyAgent(proxy) } : {}),
+        ...(desc._ntlmAgent
+          ? { agent: desc._ntlmAgent }
+          : proxy
+            ? { agent: new HttpsProxyAgent(proxy) }
+            : {}),
       };
 
       const req = lib.request(options, (res) => {
@@ -512,6 +576,125 @@ function safeCall(channel, fn, fallback = null) {
             redirects + 1,
           ).then(resolve);
           return;
+        }
+
+        // ── Digest auth challenge (RFC 2617 / RFC 7616) ──────────────────────
+        // Digest is not connection-bound — the nonce travels in this 401's
+        // WWW-Authenticate header — so we answer it as a one-shot retry that
+        // recomputes the Authorization header and re-sends. The _digestRetried
+        // guard stops a loop when the credentials themselves are wrong (the
+        // second 401 falls through to be surfaced normally). The challenge is
+        // read from res.rawHeaders so a value containing commas survives intact.
+        if (code === 401 && authDigest?.username && !desc._digestRetried) {
+          const challenge = parseChallenge(
+            selectDigestChallenge(
+              rawHeaderValues(res.rawHeaders, "www-authenticate"),
+            ),
+          );
+          const digestHeader = challenge
+            ? buildDigestAuthorization({
+                method: effectiveMethod,
+                uri: parsed.pathname + parsed.search,
+                username: authDigest.username,
+                password: authDigest.password || "",
+                challenge,
+                entityBody: bodyBuffer,
+              })
+            : null;
+          if (digestHeader) {
+            consoleLog.push(`< ${httpVersion} ${code} ${phrase}`);
+            Object.entries(res.headers).forEach(([k, v]) => {
+              const vals = Array.isArray(v) ? v : [v];
+              vals.forEach((vi) => consoleLog.push(`< ${k}: ${vi}`));
+            });
+            consoleLog.push("<");
+            consoleLog.push("");
+            consoleLog.push(
+              "* Server requested Digest auth — re-sending with credentials",
+            );
+            // Some servers pin the nonce to a session cookie set on the 401.
+            captureCookies(useCookieJar, collectionId, rawUrl, res.headers);
+            res.resume(); // drain the challenge body
+
+            // Rebuild from the ORIGINAL desc headers (not reqHeaders) so the
+            // recursion re-merges the cookie jar once; replace any stale
+            // Authorization with the freshly computed Digest credential.
+            const retryHeaders = { ...headers };
+            for (const k of Object.keys(retryHeaders)) {
+              if (k.toLowerCase() === "authorization") delete retryHeaders[k];
+            }
+            retryHeaders.Authorization = digestHeader;
+
+            doRequest(
+              { ...desc, headers: retryHeaders, _digestRetried: true },
+              consoleLog,
+              startTime,
+              redirects,
+            ).then(resolve);
+            return;
+          }
+          // Unsatisfiable challenge (no Digest offer, missing realm/nonce, or an
+          // algorithm we don't implement): fall through and surface the 401.
+        }
+
+        // ── NTLM challenge → response (MS-NLMP) ──────────────────────────────
+        // The negotiate (Type 1) leg always earns a 401 carrying the Type 2
+        // challenge in WWW-Authenticate. We read it from rawHeaders (a blob
+        // contains '=' padding), compute Type 3, and re-send on the SAME pinned
+        // socket (_ntlmAgent) — this leg carries the real request body. The
+        // _ntlmAuthorized flag stops a loop: a second 401 (bad credentials)
+        // falls through and is surfaced normally. If the server omits a Type 2
+        // blob we also fall through and surface the 401.
+        if (code === 401 && desc._ntlmNegotiate && authNtlm?.username) {
+          const type2b64 = selectNtlmChallenge(
+            rawHeaderValues(res.rawHeaders, "www-authenticate"),
+          );
+          const type2 = type2b64 ? decodeType2Message(type2b64) : null;
+          if (type2) {
+            consoleLog.push(`< ${httpVersion} ${code} ${phrase}`);
+            Object.entries(res.headers).forEach(([k, v]) => {
+              const vals = Array.isArray(v) ? v : [v];
+              vals.forEach((vi) => consoleLog.push(`< ${k}: ${vi}`));
+            });
+            consoleLog.push("<");
+            consoleLog.push("");
+            consoleLog.push(
+              "* Server sent NTLM challenge — answering on the same connection",
+            );
+            captureCookies(useCookieJar, collectionId, rawUrl, res.headers);
+            res.resume(); // drain the challenge body; keep the socket alive
+
+            const type3 = createType3Message({
+              type2,
+              username: authNtlm.username,
+              password: authNtlm.password || "",
+              domain: authNtlm.domain || "",
+              workstation: authNtlm.workstation || "",
+            });
+
+            // Rebuild from the ORIGINAL headers so the cookie jar re-merges
+            // once and the negotiate leg's Content-Length:0 is dropped; the
+            // body (suppressed on the negotiate leg) is sent on this leg.
+            const authHeaders = { ...headers };
+            for (const k of Object.keys(authHeaders)) {
+              if (k.toLowerCase() === "authorization") delete authHeaders[k];
+            }
+            authHeaders.Authorization = type3;
+
+            doRequest(
+              {
+                ...desc,
+                headers: authHeaders,
+                _ntlmNegotiate: false,
+                _ntlmAuthorized: true,
+              },
+              consoleLog,
+              startTime,
+              redirects,
+            ).then(resolve);
+            return;
+          }
+          // No usable Type 2 challenge — fall through and surface the 401.
         }
 
         // ── Normal response ──────────────────────────────────────────────────
@@ -644,6 +827,29 @@ function safeCall(channel, fn, fallback = null) {
     Object.entries(hdrs).forEach(([k, v]) => {
       out[k] = Array.isArray(v) ? v.join(", ") : v;
     });
+    return out;
+  }
+
+  /**
+   * Collect every value for header `name` (case-insensitive) from Node's
+   * `res.rawHeaders` flat [name, value, name, value, …] array. Unlike the
+   * joined `res.headers` map, this keeps duplicate WWW-Authenticate challenges
+   * separate, so a Digest challenge that itself contains commas is not
+   * corrupted by header folding.
+   *
+   * @param {string[]} rawHeaders  res.rawHeaders
+   * @param {string} name          header name to match
+   * @returns {string[]}
+   */
+  function rawHeaderValues(rawHeaders, name) {
+    const out = [];
+    if (!Array.isArray(rawHeaders)) return out;
+    const target = name.toLowerCase();
+    for (let i = 0; i + 1 < rawHeaders.length; i += 2) {
+      if (String(rawHeaders[i]).toLowerCase() === target) {
+        out.push(rawHeaders[i + 1]);
+      }
+    }
     return out;
   }
 

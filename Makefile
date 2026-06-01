@@ -76,11 +76,16 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-oauth
+test: test-js test-auth test-oauth
 
 test-js:
 	@echo "Running JavaScript store tests..."
 	@node --test $(APP_DIR)/store/tests/stores.test.js $(APP_DIR)/store/tests/crypto.test.js $(APP_DIR)/store/tests/integration.test.js $(APP_DIR)/store/tests/migrations.test.js $(APP_DIR)/store/tests/io-locking.test.js $(APP_DIR)/store/tests/backup.test.js
+	@echo "--------------------------------"
+
+test-auth:
+	@echo "Running main-process auth tests..."
+	@node --test $(APP_DIR)/auth/tests/digest.test.js $(APP_DIR)/auth/tests/ntlm.test.js
 	@echo "--------------------------------"
 
 test-oauth:

@@ -1544,6 +1544,8 @@ function initEventBus() {
       followRedirects: currentSettings.followRedirects ?? true,
       verifySsl: currentSettings.verifySsl ?? true,
       awsIam: descriptor.awsIam ?? null,
+      authDigest: descriptor.authDigest ?? null,
+      authNtlm: descriptor.authNtlm ?? null,
       proxy:
         currentSettings.proxyEnabled && currentSettings.proxyUrl
           ? currentSettings.proxyUrl
@@ -2070,7 +2072,12 @@ async function _executeRequestNode(node, ctx) {
     headers[(await rv(h.name)).trim()] = await rv(h.value);
   }
 
-  // Inject auth headers for basic and bearer; skip oauth2/aws-iam
+  // Inject auth headers for basic and bearer; skip oauth2/aws-iam.
+  // Digest and NTLM can't set a header up-front (they need the server's 401
+  // challenge), so resolve their credentials and pass them to the native layer,
+  // which runs the stateful challenge/response in the main process.
+  let authDigest = null;
+  let authNtlm = null;
   if (node.authEnabled !== false) {
     if (node.authType === "basic") {
       const u = await rv(node.authBasic?.username ?? "");
@@ -2079,6 +2086,24 @@ async function _executeRequestNode(node, ctx) {
     } else if (node.authType === "bearer") {
       const t = await rv(node.authBearer?.token ?? "");
       if (t) headers["Authorization"] = `Bearer ${t}`;
+    } else if (node.authType === "digest") {
+      const username = await rv(node.authDigest?.username ?? "");
+      if (username) {
+        authDigest = {
+          username,
+          password: await rv(node.authDigest?.password ?? ""),
+        };
+      }
+    } else if (node.authType === "ntlm") {
+      const username = await rv(node.authNtlm?.username ?? "");
+      if (username) {
+        authNtlm = {
+          username,
+          password: await rv(node.authNtlm?.password ?? ""),
+          domain: await rv(node.authNtlm?.domain ?? ""),
+          workstation: await rv(node.authNtlm?.workstation ?? ""),
+        };
+      }
     }
   }
 
@@ -2153,6 +2178,8 @@ async function _executeRequestNode(node, ctx) {
     followRedirects: currentSettings.followRedirects ?? true,
     verifySsl: currentSettings.verifySsl ?? true,
     awsIam: null,
+    authDigest,
+    authNtlm,
     collectionId: currentColls.activeCollectionId ?? null,
     useCookieJar: _collSendCookies(currentColls.activeCollectionId),
     proxy:

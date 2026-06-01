@@ -142,6 +142,9 @@ function _logDecryptFailure(kind, id, fields, reason) {
 const REQUEST_SECRET_PATHS = [
   ["authBasic", "password"],
   ["authBearer", "token"],
+  ["authApiKey", "value"],
+  ["authDigest", "password"],
+  ["authNtlm", "password"],
   ["authOAuth2", "clientSecret"],
   ["authOAuth2", "token"],
   ["authOAuth2", "refreshToken"],

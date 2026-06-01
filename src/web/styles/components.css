@@ -1568,36 +1568,51 @@ html.show-method-icons .req-method-menu__item-label::before {
   color: var(--color-error);
 }
 
-/* Password input + show/hide toggle side by side */
-.auth-pwd-wrapper {
+/* ── Secret field (mask/reveal) ──────────────────────────────────────────────
+ * Shared control for any encrypted-at-rest value (auth secrets, proxy URL).
+ * The field is masked by default via -webkit-text-security (Chromium/Electron)
+ * so it works on both plain <input>s and the contenteditable pill editor.
+ * Variable pills stay legible — only raw secret text is masked.
+ */
+.secret-field {
   display: flex;
+  align-items: flex-start;
   gap: var(--space-2);
 }
 
-.auth-pwd-wrapper .auth-field__input {
+.secret-field .secret-field__input {
   flex: 1;
   min-width: 0;
 }
 
-.auth-pwd-toggle {
+.secret-field.is-masked .secret-field__input {
+  -webkit-text-security: disc;
+}
+
+.secret-field.is-masked .secret-field__input .variable-pill {
+  -webkit-text-security: none;
+}
+
+.secret-field__toggle {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-md);
   height: var(--control-h-md);
-  padding: 0 var(--space-3);
+  padding: 0;
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
   color: var(--color-subtext);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
   cursor: pointer;
-  white-space: nowrap;
   transition:
     border-color var(--transition-fast),
     color var(--transition-fast),
     background-color var(--transition-fast);
 }
 
-.auth-pwd-toggle:hover {
+.secret-field__toggle:hover {
   border-color: var(--color-accent);
   color: var(--color-accent);
   background: var(--color-base);

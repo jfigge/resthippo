@@ -16,7 +16,6 @@ export const GrantType = Object.freeze({
   PASSWORD: "password",
   IMPLICIT: "implicit",
   REFRESH_TOKEN: "refresh_token",
-  DEVICE_CODE: "urn:ietf:params:oauth:grant-type:device_code",
 });
 
 /** How client credentials are transmitted to the token endpoint. */

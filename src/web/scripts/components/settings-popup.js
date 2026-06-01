@@ -18,6 +18,7 @@
 
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
+import { wrapSecretField } from "./secret-field.js";
 
 export class SettingsPopup {
   /** @type {HTMLElement} */
@@ -253,6 +254,16 @@ export class SettingsPopup {
         <button class="popup-btn popup-btn--primary js-close">Close</button>
       </div>
     `;
+
+    // The proxy URL is stored encrypted at rest, so mask it behind the shared
+    // reveal control like the auth secrets.
+    const proxyUrl = el.querySelector("#setting-proxy-url");
+    const proxyParent = proxyUrl.parentNode;
+    const proxyNext = proxyUrl.nextSibling;
+    // wrapSecretField moves proxyUrl into the wrapper, so capture its slot
+    // first, then insert the wrapper back where the input used to be.
+    const wrapped = wrapSecretField(proxyUrl);
+    proxyParent.insertBefore(wrapped, proxyNext);
 
     return el;
   }
