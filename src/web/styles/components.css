@@ -1959,6 +1959,45 @@ html.show-method-icons .req-method-menu__item-label::before {
   width: 35%;
 }
 
+/* Headers: split evenly down the middle, wrapping long entries within each cell */
+.res-headers-table--split {
+  table-layout: fixed;
+}
+
+.res-headers-table--split td,
+.res-headers-table--split td:first-child {
+  width: 50%;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Cookies: three equal-width columns (Name / Attributes / Value), wrapping as needed */
+.res-headers-table--thirds {
+  table-layout: fixed;
+}
+
+.res-headers-table--thirds th,
+.res-headers-table--thirds td,
+.res-headers-table--thirds td:first-child {
+  width: 33.333%;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Cookie value cell — wrap state mirrors the "Wrap response text" setting.
+   Default keeps the value on one line so the table scrolls off to the right;
+   the --wrap modifier lets long values wrap within the cell. */
+.res-cookie-value {
+  white-space: nowrap;
+}
+
+.res-cookie-value--wrap {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* Spinner animation */
 @keyframes spin {
   to {

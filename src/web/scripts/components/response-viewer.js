@@ -283,9 +283,11 @@ export class ResponseViewer {
     if (settings.wrapResponseText !== undefined) {
       const changed = this.#wrapResponseText !== settings.wrapResponseText;
       this.#wrapResponseText = settings.wrapResponseText;
-      // Re-render so the wrap class on the body pane reflects the new value
+      // Re-render so the wrap class on the body pane and cookie values reflect
+      // the new value
       if (changed && this.#lastResponse) {
         this.#renderBodyPane(this.#lastResponse);
+        this.#renderCookiesPane(this.#lastResponse.cookies);
       }
     }
   }
@@ -1365,7 +1367,7 @@ export class ResponseViewer {
     const headersPane = this._tabContent.querySelector("#res-tab-headers");
     headersPane.innerHTML = "";
     const table = document.createElement("table");
-    table.className = "res-headers-table";
+    table.className = "res-headers-table res-headers-table--split";
     Object.entries(headers).forEach(([k, v]) => {
       const row = table.insertRow();
       row.insertCell().textContent = k;
@@ -1374,11 +1376,28 @@ export class ResponseViewer {
     headersPane.appendChild(table);
 
     // ── Cookies pane ───────────────────────────────────────────────────────
+    this.#renderCookiesPane(cookies);
+
+    // ── Console pane ───────────────────────────────────────────────────────
+    this.#renderConsole(consoleLog);
+  }
+
+  /**
+   * Render the Cookies tab from the response's raw Set-Cookie strings.
+   *
+   * The Value column mirrors the "Wrap response text" setting: when wrapping is
+   * enabled each cookie value wraps within its cell; when disabled the value
+   * stays on one line and the table scrolls horizontally off to the right.
+   *
+   * @param {string[]} cookies  - raw Set-Cookie header values
+   */
+  #renderCookiesPane(cookies = []) {
     const cookiesPane = this._tabContent.querySelector("#res-tab-cookies");
+    if (!cookiesPane) return;
     cookiesPane.innerHTML = "";
     if (cookies.length > 0) {
       const ct = document.createElement("table");
-      ct.className = "res-headers-table";
+      ct.className = "res-headers-table res-headers-table--thirds";
       // Header row
       const hdr = ct.insertRow();
       ["Name", "Attributes", "Value"].forEach((lbl) => {
@@ -1403,7 +1422,11 @@ export class ResponseViewer {
         row.title = raw;
         row.insertCell().textContent = name;
         row.insertCell().textContent = attrs.join("; ");
-        row.insertCell().textContent = value;
+        const valueCell = row.insertCell();
+        valueCell.textContent = value;
+        valueCell.className = this.#wrapResponseText
+          ? "res-cookie-value res-cookie-value--wrap"
+          : "res-cookie-value";
       });
       cookiesPane.appendChild(ct);
     } else {
@@ -1412,9 +1435,6 @@ export class ResponseViewer {
       empty.innerHTML = "<span>No cookies were set by this response</span>";
       cookiesPane.appendChild(empty);
     }
-
-    // ── Console pane ───────────────────────────────────────────────────────
-    this.#renderConsole(consoleLog);
   }
 
   // ── Timeline rendering ────────────────────────────────────────────────────

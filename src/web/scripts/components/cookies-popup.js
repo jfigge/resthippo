@@ -436,19 +436,24 @@ export class CookiesPopup {
     </svg>`;
     el.appendChild(handle);
 
+    // True lower bounds — keep header, list, and footer usable.
+    const MIN_W = 360;
+    const MIN_H = 300;
+
     handle.addEventListener("mousedown", (startEvt) => {
       startEvt.preventDefault();
       startEvt.stopPropagation();
       const rect = el.getBoundingClientRect();
-      const minW = rect.width;
-      const minH = rect.height;
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       el.style.maxWidth = "none";
       el.style.maxHeight = "none";
+      // Drop the CSS floor so inline width/height can shrink below it.
+      el.style.minWidth = `${MIN_W}px`;
+      el.style.minHeight = `${MIN_H}px`;
       const onMove = (e) => {
-        el.style.width = `${Math.max(minW, 2 * (e.clientX - centerX))}px`;
-        el.style.height = `${Math.max(minH, 2 * (e.clientY - centerY))}px`;
+        el.style.width = `${Math.max(MIN_W, 2 * (e.clientX - centerX))}px`;
+        el.style.height = `${Math.max(MIN_H, 2 * (e.clientY - centerY))}px`;
       };
       const onUp = () => {
         window.removeEventListener("mousemove", onMove);
