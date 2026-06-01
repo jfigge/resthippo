@@ -136,6 +136,7 @@ export class ResponseViewer {
   // Timeline state
   #timelineEntries = []; // current list of HistoryEntry objects (newest first)
   #timelineSelected = -1; // index of the selected entry (-1 = none)
+  #requestId = null; // id of the request whose timeline is shown (for delete/clear)
   #timestampTimer = null; // setInterval handle for live timestamp updates
   #tooltipEl = null; // singleton hover tooltip for timeline entries
   #tooltipTimer = null; // setTimeout handle for hint delay
@@ -173,6 +174,7 @@ export class ResponseViewer {
     // safe to update the body display here rather than racing on a microtask.
     window.addEventListener("wurl:timeline-update", (e) => {
       this.#timelineEntries = e.detail?.entries ?? [];
+      this.#requestId = e.detail?.requestId ?? null;
       this.#timelineSelected = -1;
       this.#renderTimeline();
       if (e.detail?.isRequestSwitch) {
@@ -189,6 +191,10 @@ export class ResponseViewer {
         } else {
           this.#clearToEmpty();
         }
+      } else if (!this.#timelineEntries.length) {
+        // History was cleared (last entry deleted or "Delete All") without a
+        // request switch — wipe the response panes and status bar too.
+        this.#clearToEmpty();
       }
     });
 
@@ -1481,6 +1487,54 @@ export class ResponseViewer {
       item.appendChild(ts);
       item.appendChild(record);
 
+      // Per-entry actions: every entry gets a ✕ to delete itself; the latest
+      // entry (idx 0) additionally gets a "Delete All" to clear the whole
+      // history. Nested controls are <span role="button"> because the row is
+      // itself a <button> (nested <button> is invalid HTML).
+      const actions = document.createElement("span");
+      actions.className = "timeline-actions";
+
+      if (idx === 0) {
+        item.classList.add("timeline-item--latest");
+        const clearAll = document.createElement("span");
+        clearAll.className = "timeline-action timeline-action--clear-all";
+        clearAll.setAttribute("role", "button");
+        clearAll.setAttribute("tabindex", "0");
+        clearAll.title = "Delete all history for this request";
+        clearAll.textContent = "Delete All";
+        const onClearAll = (ev) => {
+          ev.stopPropagation();
+          clearTimeout(this.#tooltipTimer);
+          this.#hideTooltip();
+          this.#clearTimeline();
+        };
+        clearAll.addEventListener("click", onClearAll);
+        clearAll.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter" || ev.key === " ") onClearAll(ev);
+        });
+        actions.appendChild(clearAll);
+      }
+
+      const del = document.createElement("span");
+      del.className = "timeline-action timeline-action--delete";
+      del.setAttribute("role", "button");
+      del.setAttribute("tabindex", "0");
+      del.title = "Delete this entry";
+      del.textContent = "✕";
+      const onDelete = (ev) => {
+        ev.stopPropagation();
+        clearTimeout(this.#tooltipTimer);
+        this.#hideTooltip();
+        this.#deleteTimelineEntry(entry.id);
+      };
+      del.addEventListener("click", onDelete);
+      del.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") onDelete(ev);
+      });
+      actions.appendChild(del);
+
+      item.appendChild(actions);
+
       item.addEventListener("click", () => {
         this.#timelineSelected = idx;
         this.#renderTimeline();
@@ -1515,6 +1569,30 @@ export class ResponseViewer {
     });
 
     pane.appendChild(list);
+  }
+
+  /**
+   * Delete a single timeline entry. Delegates to app.js (owner of history
+   * state + storage) which removes the on-disk files and re-dispatches
+   * wurl:timeline-update so the pane re-renders.
+   */
+  #deleteTimelineEntry(historyId) {
+    if (!this.#requestId || !historyId) return;
+    window.dispatchEvent(
+      new CustomEvent("wurl:timeline-delete-entry", {
+        detail: { requestId: this.#requestId, historyId },
+      }),
+    );
+  }
+
+  /** Clear the entire run history for the current request (delegated to app.js). */
+  #clearTimeline() {
+    if (!this.#requestId) return;
+    window.dispatchEvent(
+      new CustomEvent("wurl:timeline-clear", {
+        detail: { requestId: this.#requestId },
+      }),
+    );
   }
 
   // ── Timeline entry tooltip ────────────────────────────────────────────────

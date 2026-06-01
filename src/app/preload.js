@@ -159,6 +159,13 @@ contextBridge.exposeInMainWorld("wurl", {
       delete: (requestId, historyId) =>
         ipcRenderer.invoke("store:history:delete", requestId, historyId),
       /**
+       * Delete every history entry and response payload for a request.
+       * @param {string} requestId
+       * @returns {Promise<void>}
+       */
+      clear: (requestId) =>
+        ipcRenderer.invoke("store:history:clear", requestId),
+      /**
        * Trim all on-disk history across every collection to at most maxEntries
        * per request.  Sweeps directories the renderer may not have loaded yet.
        * @param {number} maxEntries

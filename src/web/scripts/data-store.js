@@ -496,6 +496,29 @@ export async function deleteHistory(requestId, historyId) {
 }
 
 /**
+ * Permanently delete ALL history entries and response payloads for a request.
+ *
+ * @param {string} requestId
+ * @returns {Promise<void>}
+ */
+export async function clearHistory(requestId) {
+  try {
+    if (isElectron()) {
+      await window.wurl.store.history.clear(requestId);
+      return;
+    }
+    await fetch(`/api/requests/${encodeURIComponent(requestId)}/history`, {
+      method: "DELETE",
+    });
+  } catch (err) {
+    console.warn(
+      `[data-store] clearHistory(${requestId}) failed:`,
+      err.message,
+    );
+  }
+}
+
+/**
  * Trim all persisted history across every request to at most maxEntries per request.
  * Covers requests whose history has never been loaded into the renderer's memory.
  *

@@ -199,6 +199,12 @@ function safeCall(channel, fn, fallback = null) {
     ),
   );
 
+  ipcMain.handle("store:history:clear", (_event, requestId) =>
+    safeCall("store:history:clear", () =>
+      getStores().historyStore().clearHistory(requestId),
+    ),
+  );
+
   ipcMain.handle("store:history:trim", (_event, maxEntries) =>
     safeCall("store:history:trim", () =>
       getStores().historyStore().trimAllHistory(maxEntries),

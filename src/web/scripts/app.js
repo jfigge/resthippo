@@ -35,6 +35,7 @@ import {
   addHistory,
   getHistoryResponse,
   deleteHistory,
+  clearHistory,
   trimHistory,
 } from "./data-store.js";
 import {
@@ -978,6 +979,33 @@ function initEventBus() {
     }
   });
 
+  // Remove a single timeline entry (the ✕ on a timeline row). Updates the
+  // in-memory list, deletes the on-disk metadata + response payload, then
+  // re-dispatches so the timeline pane re-renders.
+  window.addEventListener("wurl:timeline-delete-entry", (e) => {
+    const { requestId, historyId } = e.detail ?? {};
+    if (!requestId || !historyId) return;
+    const entries = _requestHistory.get(requestId);
+    if (entries) {
+      const idx = entries.findIndex((en) => en.id === historyId);
+      if (idx >= 0) entries.splice(idx, 1);
+    }
+    deleteHistory(requestId, historyId);
+    if (requestId === _selectedNode?.id) _dispatchTimelineUpdate(requestId);
+  });
+
+  // Clear a request's entire run history. Fired by the "Delete All" button on
+  // the latest timeline entry and by the tree "Clear Run History" context item.
+  // Removes every on-disk history + response file for the request.
+  window.addEventListener("wurl:timeline-clear", (e) => {
+    const requestId = e.detail?.requestId;
+    if (!requestId) return;
+    _requestHistory.set(requestId, []);
+    _historyLoaded.add(requestId);
+    clearHistory(requestId);
+    if (requestId === _selectedNode?.id) _dispatchTimelineUpdate(requestId);
+  });
+
   // Reset the editor when the last request is deleted and there is nothing left to select.
   window.addEventListener("wurl:request-cleared", () => {
     _selectedNode = null;
@@ -1892,7 +1920,11 @@ function _dispatchTimelineUpdate(requestId, isRequestSwitch = false) {
   const entries = requestId ? (_requestHistory.get(requestId) ?? []) : [];
   window.dispatchEvent(
     new CustomEvent("wurl:timeline-update", {
-      detail: { entries: [...entries], isRequestSwitch },
+      detail: {
+        requestId: requestId ?? null,
+        entries: [...entries],
+        isRequestSwitch,
+      },
     }),
   );
 }

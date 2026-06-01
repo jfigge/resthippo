@@ -200,6 +200,34 @@ class HistoryStore {
     }
   }
 
+  // ── Clear ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Permanently delete ALL history entries and response payloads for a request
+   * by removing its history and response directories outright.
+   * Silently ignores missing directories.
+   *
+   * @param {string} requestId
+   */
+  clearHistory(requestId) {
+    validateID(requestId, "requestId");
+    const collId = this._resolver.resolve(requestId);
+
+    const histDir = this._paths.historyDir(collId, requestId);
+    const respDir = this._paths.responsesDir(collId, requestId);
+
+    try {
+      fs.rmSync(histDir, { recursive: true, force: true });
+    } catch {
+      /* missing history dir is fine */
+    }
+    try {
+      fs.rmSync(respDir, { recursive: true, force: true });
+    } catch {
+      /* missing responses dir is fine */
+    }
+  }
+
   // ── Trim ────────────────────────────────────────────────────────────────────
 
   /**

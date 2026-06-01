@@ -270,6 +270,12 @@ export class TreeView {
             rename: () => this.#renameNode(node.id),
             duplicate: () => this.#duplicateNode(node.id),
             "generate-curl": () => this.#generateCurl(node),
+            "clear-history": () =>
+              window.dispatchEvent(
+                new CustomEvent("wurl:timeline-clear", {
+                  detail: { requestId: node.id },
+                }),
+              ),
             delete: () => this.#deleteNode(node.id),
           };
 
@@ -296,6 +302,17 @@ export class TreeView {
             { type: "separator" },
             { id: "duplicate", label: "Duplicate" },
             { id: "generate-curl", label: "Generate cURL" },
+            // Requests carry run history; offer to clear it. danger:true wires
+            // the two-click "Confirm?" safety net automatically.
+            ...(node.type === "request"
+              ? [
+                  {
+                    id: "clear-history",
+                    label: "Clear Run History",
+                    danger: true,
+                  },
+                ]
+              : []),
             { type: "separator" },
             { id: "delete", label: "Delete", danger: true },
           ];

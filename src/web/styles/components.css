@@ -2169,6 +2169,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 .timeline-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   padding: var(--space-3) var(--space-4);
@@ -2180,6 +2181,53 @@ html.show-method-icons .req-method-menu__item-label::before {
   cursor: pointer;
   color: var(--color-subtext);
   transition: background-color var(--transition-fast);
+}
+
+/* Per-entry actions (✕ delete, Delete All) pinned to the top-right corner.
+   Hidden until the row is hovered; the latest entry keeps its actions visible
+   so "Delete All" is always discoverable. */
+.timeline-actions {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.timeline-item:hover .timeline-actions,
+.timeline-item:focus-within .timeline-actions,
+.timeline-item--latest .timeline-actions {
+  opacity: 1;
+}
+
+.timeline-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  color: var(--color-overlay-0);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.timeline-action:hover,
+.timeline-action:focus-visible {
+  color: var(--color-error);
+  background: var(--color-surface-1);
+  outline: none;
+}
+
+.timeline-action--clear-all {
+  font-family: var(--font-mono);
 }
 
 .timeline-timestamp {
