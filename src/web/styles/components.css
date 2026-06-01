@@ -4059,7 +4059,7 @@ input[type="checkbox"]:disabled {
   position: fixed;
   z-index: 900;
   min-width: 195px;
-  background: var(--color-surface-1);
+  background: var(--color-surface-0);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-md);
   box-shadow:
