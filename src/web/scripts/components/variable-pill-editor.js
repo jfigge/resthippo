@@ -700,15 +700,20 @@ export class VariablePillEditor {
       }
     }
 
-    // Folder chain — reversed so outermost folder is first, direct parent last
+    // Folder chain — child folders override their parents, so when several
+    // folders in the chain define the same name only the innermost is ever
+    // reachable. Present the reachable set as a single "Folders" list of unique
+    // names rather than one subsection per folder (which would surface
+    // superseded, unselectable duplicates).
     if (ctx?.folderChain?.length) {
-      for (const folder of [...ctx.folderChain].reverse()) {
+      const names = new Set();
+      for (const folder of ctx.folderChain) {
         if (folder?.variables) {
-          const vars = Object.keys(folder.variables).sort();
-          if (vars.length)
-            scopes.push({ label: folder.name ?? "Folder", variables: vars });
+          for (const name of Object.keys(folder.variables)) names.add(name);
         }
       }
+      if (names.size)
+        scopes.push({ label: "Folders", variables: [...names].sort() });
     }
 
     return scopes;
