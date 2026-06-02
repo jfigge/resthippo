@@ -1,5 +1,10 @@
 "use strict";
 
+// Authentication credentials are always treated as secrets and redacted on
+// export: the field is preserved (so the importing tool keeps the auth scheme
+// and prompts for the missing value) but the secret itself is stripped. Only
+// the genuinely sensitive fields are blanked — identifiers like username,
+// clientId, URLs, and scope round-trip intact.
 function exportAuth(node) {
   if (!node.authEnabled || !node.authType || node.authType === "none") {
     return { type: "noauth" };
@@ -11,16 +16,14 @@ function exportAuth(node) {
       type: "basic",
       basic: [
         { key: "username", value: b.username ?? "", type: "string" },
-        { key: "password", value: b.password ?? "", type: "string" },
+        { key: "password", value: "", type: "string" },
       ],
     };
   }
   if (type === "bearer") {
     return {
       type: "bearer",
-      bearer: [
-        { key: "token", value: node.authBearer?.token ?? "", type: "string" },
-      ],
+      bearer: [{ key: "token", value: "", type: "string" }],
     };
   }
   if (type === "oauth2") {
@@ -34,7 +37,7 @@ function exportAuth(node) {
           type: "string",
         },
         { key: "clientId", value: o.clientId ?? "", type: "string" },
-        { key: "clientSecret", value: o.clientSecret ?? "", type: "string" },
+        { key: "clientSecret", value: "", type: "string" },
         {
           key: "accessTokenUrl",
           value: o.accessTokenUrl ?? "",
@@ -89,12 +92,49 @@ function exportBody(node) {
   return undefined;
 }
 
+/**
+ * Convert a wurl variable list to Postman `variable` entries.
+ *
+ * Folder variables are stored canonically as an array of
+ * { name, value, secure }; Postman wants { key, value }. Entries with an empty
+ * name are skipped. Returns [] for missing/empty input so callers can drop the
+ * field entirely when there is nothing to emit.
+ *
+ * Secure variables are redacted: the key is preserved so the collection
+ * structure round-trips, but the secret value is stripped and the entry is
+ * flagged as a Postman secret (`type: "secret"`) so the receiving tool masks
+ * it rather than treating the empty value as intentional.
+ *
+ * @param {Array|undefined} list
+ * @returns {{ key: string, value: string, type?: string }[]}
+ */
+function exportVariables(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const v of list) {
+    if (!v || typeof v !== "object") continue;
+    const key = String(v.name ?? "").trim();
+    if (!key) continue;
+    if (v.secure) {
+      out.push({ key, value: "", type: "secret" });
+    } else {
+      out.push({ key, value: String(v.value ?? "") });
+    }
+  }
+  return out;
+}
+
 function exportItem(node) {
   if (node.type === "collection") {
-    return {
+    const item = {
       name: node.name ?? "Folder",
       item: (node.children ?? []).map(exportItem).filter(Boolean),
     };
+    // Postman v2.1 item-groups (folders) carry their own `variable` array;
+    // include it so folder-scoped variables survive the round-trip.
+    const variable = exportVariables(node.variables);
+    if (variable.length) item.variable = variable;
+    return item;
   }
   if (node.type === "request") {
     const req = {
@@ -125,11 +165,13 @@ function exportItem(node) {
 /**
  * Serialize a wurl collection to a Postman v2.1 JSON string.
  *
- * @param {object}   collection  Wurl collection node (type: "collection")
- * @param {object}   [variables] Environment-level variables to embed
+ * @param {object} collection  Wurl collection node (type: "collection")
+ * @param {Array}  [variables] Collection-level variables in canonical array
+ *                             shape ({ name, value, secure }); secure entries
+ *                             are redacted on export.
  * @returns {string} Formatted JSON
  */
-export function exportToPostman(collection, variables = {}) {
+export function exportToPostman(collection, variables = []) {
   return JSON.stringify(
     {
       info: {
@@ -142,10 +184,7 @@ export function exportToPostman(collection, variables = {}) {
           "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
       },
       item: (collection.children ?? []).map(exportItem).filter(Boolean),
-      variable: Object.entries(variables).map(([key, value]) => ({
-        key,
-        value: String(value),
-      })),
+      variable: exportVariables(variables),
     },
     null,
     2,

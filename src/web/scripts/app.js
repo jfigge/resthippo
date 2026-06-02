@@ -2320,11 +2320,12 @@ async function handleExport(collection) {
     return;
   }
 
-  let variables = {};
+  let variables = [];
   try {
     const data = await loadCollectionData(currentColls.activeCollectionId);
-    // Stored as a canonical array; the Postman exporter consumes a map.
-    variables = varsArrayToMap(data.variables);
+    // Pass the canonical array through so the exporter sees the `secure` flag
+    // and can redact secret values rather than emitting them.
+    variables = normalizeVariables(data.variables);
   } catch {
     /* non-fatal — export without collection variables */
   }

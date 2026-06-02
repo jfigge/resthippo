@@ -76,7 +76,7 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-auth test-oauth
+test: test-js test-auth test-oauth test-export
 
 test-js:
 	@echo "Running JavaScript store tests..."
@@ -91,6 +91,11 @@ test-auth:
 test-oauth:
 	@echo "Running OAuth 2.0 unit tests..."
 	@node --experimental-vm-modules $(WEB_DIR)/scripts/auth/tests/oauth.test.js
+	@echo "--------------------------------"
+
+test-export:
+	@echo "Running export redaction tests..."
+	@node --test $(WEB_DIR)/scripts/export/tests/postman.test.js
 	@echo "--------------------------------"
 
 # ─── Development ──────────────────────────────────────────────────────────────
