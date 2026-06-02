@@ -45,6 +45,7 @@ import { setPickerDebounceMs } from "./components/variable-pill-editor.js";
 import {
   normalizeVariables,
   varsArrayToMap,
+  varsArrayToSecureSet,
 } from "./components/variable-shape.js";
 import { parseImport } from "./import/index.js";
 import { exportToPostman } from "./export/postman.js";
@@ -1359,11 +1360,14 @@ function initEventBus() {
     ).map((folder) => ({
       ...folder,
       variables: varsArrayToMap(folder.variables),
+      // Parallel set of secret names — the map above drops the secure flag.
+      secureVariables: varsArrayToSecureSet(folder.variables),
     }));
     const activeColl = currentColls.collections.find(
       (coll) => coll.id === currentColls.activeCollectionId,
     );
     const envVariables = varsArrayToMap(activeColl?.variables);
+    const secureEnvVariables = varsArrayToSecureSet(activeColl?.variables);
     const node =
       _selectedNode ??
       (id && treeView ? _findNodeById(treeView.getItems(), id) : null);
@@ -1373,12 +1377,21 @@ function initEventBus() {
       (e) => e.id === activeEnvId,
     );
     const environmentVariables = varsArrayToMap(activeEnv?.variables);
+    const secureEnvironmentVariables = varsArrayToSecureSet(
+      activeEnv?.variables,
+    );
     const globalVariables = varsArrayToMap(currentEnvironments.globalVariables);
+    const secureGlobalVariables = varsArrayToSecureSet(
+      currentEnvironments.globalVariables,
+    );
 
     requestEditor.setVariableContext({
       envVariables,
+      secureEnvVariables,
       environmentVariables,
+      secureEnvironmentVariables,
       globalVariables,
+      secureGlobalVariables,
       folderChain,
       envName: activeColl?.name ?? "",
       activeEnvironmentName: activeEnv?.name ?? "",

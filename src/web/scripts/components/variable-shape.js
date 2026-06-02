@@ -9,8 +9,9 @@
  * variable-resolver context (which intentionally consumes maps). These two
  * tolerant adapters bridge the two representations:
  *
- *   normalizeVariables(input) → array   — upgrade map | array | null to canonical
- *   varsArrayToMap(input)     → map      — flatten canonical (or legacy map) to a map
+ *   normalizeVariables(input)    → array  — upgrade map | array | null to canonical
+ *   varsArrayToMap(input)        → map     — flatten canonical (or legacy map) to a map
+ *   varsArrayToSecureSet(input)  → Set     — names flagged secure (the map drops this)
  *
  * Both accept either shape so callers never have to branch on the input form.
  */
@@ -77,6 +78,32 @@ export function varsArrayToMap(input) {
   }
   if (input && typeof input === "object") return { ...input };
   return {};
+}
+
+/**
+ * Collect the names of variables flagged `secure`.
+ *
+ * `varsArrayToMap` deliberately drops the `secure` flag (the resolver consumes
+ * plain { name: value } maps), so callers that need to know which resolved
+ * names are secret build a parallel set with this helper.
+ *
+ * - Array  → names whose entry has a truthy `secure` flag.
+ * - Object → empty set (legacy maps carry no secure info).
+ * - null / other → empty set.
+ *
+ * @param {Array|object|null|undefined} input
+ * @returns {Set<string>}
+ */
+export function varsArrayToSecureSet(input) {
+  const out = new Set();
+  if (Array.isArray(input)) {
+    for (const entry of input) {
+      if (!entry || typeof entry !== "object" || !entry.secure) continue;
+      const name = String(entry.name ?? "").trim();
+      if (name) out.add(name);
+    }
+  }
+  return out;
 }
 
 /** Coerce a variable value to a string for display/editing. */

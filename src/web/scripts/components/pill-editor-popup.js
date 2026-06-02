@@ -48,6 +48,12 @@ export class PillEditorPopup {
   #errorEl = null;
   #previewValueEl = null;
   #previewSeq = 0; // monotonic counter — guards against stale async preview results
+  #revealBtn = null; // eye toggle — shown only for secure variables
+  #previewRaw = null; // last resolved value (null = undefined / not found)
+  #previewSecure = false; // whether the resolved variable is stored as a secret
+  #secretRevealed = false; // whether the secret is currently shown in clear text
+  #secretRevealTimer = null; // auto-remask timer handle
+  static #REVEAL_MS = 30000; // secrets auto-remask 30s after reveal
 
   constructor({
     type = "variable",
@@ -88,6 +94,7 @@ export class PillEditorPopup {
 
     this.#errorEl = this.#el.querySelector(".pill-editor-error");
     this.#previewValueEl = this.#el.querySelector(".pill-editor-preview-value");
+    this.#revealBtn = this.#el.querySelector(".pill-editor-preview-reveal");
     this.#bindEvents();
     this.#updatePreview();
   }
@@ -144,6 +151,7 @@ export class PillEditorPopup {
         <div class="pill-editor-preview">
           <span class="pill-editor-preview-label">Live Preview</span>
           <span class="pill-editor-preview-value pill-editor-preview--undefined">—</span>
+          <button class="pill-editor-preview-reveal secret-field__toggle" type="button" tabindex="-1" hidden></button>
         </div>
       </div>
       <div class="popup-footer">
@@ -269,18 +277,20 @@ export class PillEditorPopup {
 
   #collectVarNames(ctx) {
     const seen = new Set();
+    const add = (obj) => {
+      if (obj)
+        Object.keys(obj)
+          .sort()
+          .forEach((k) => seen.add(k));
+    };
+    // Match the resolver's four scopes: folder chain → collection →
+    // environment → global. Omitting any scope hides variables defined there.
     if (ctx?.folderChain) {
-      for (const folder of ctx.folderChain) {
-        if (folder?.variables)
-          Object.keys(folder.variables)
-            .sort()
-            .forEach((k) => seen.add(k));
-      }
+      for (const folder of ctx.folderChain) add(folder?.variables);
     }
-    if (ctx?.envVariables)
-      Object.keys(ctx.envVariables)
-        .sort()
-        .forEach((k) => seen.add(k));
+    add(ctx?.envVariables);
+    add(ctx?.environmentVariables);
+    add(ctx?.globalVariables);
     return [...seen];
   }
 
@@ -342,6 +352,18 @@ export class PillEditorPopup {
     this.#el
       .querySelector(".js-done")
       .addEventListener("click", () => this.#tryCommit());
+
+    if (this.#revealBtn) {
+      this.#revealBtn.addEventListener("click", () => this.#toggleReveal());
+    }
+
+    // Clear any pending auto-remask timer once the popup is dismissed (via any
+    // path — Done, Cancel, Escape, or mask click).
+    const onClosed = () => {
+      this.#clearRevealTimer();
+      window.removeEventListener("wurl:popup-closed", onClosed);
+    };
+    window.addEventListener("wurl:popup-closed", onClosed);
   }
 
   // ── Commit ─────────────────────────────────────────────────────────────────
@@ -383,9 +405,12 @@ export class PillEditorPopup {
         this.#setPreview(null);
         return;
       }
-      const { found, value } = resolveVariable(name, this.#getContext());
+      const { found, value, secure } = resolveVariable(
+        name,
+        this.#getContext(),
+      );
       if (seq === this.#previewSeq)
-        this.#setPreview(found ? String(value ?? "") : null);
+        this.#setPreview(found ? String(value ?? "") : null, secure);
     } else if (this.#type === "function" && this.#getPreview) {
       try {
         const result = await this.#getPreview(this.#getParamArgs());
@@ -399,14 +424,80 @@ export class PillEditorPopup {
     }
   }
 
-  #setPreview(value) {
+  /**
+   * Update the preview to show `value` (null = undefined / not found).
+   * Secure variables are masked as `***` until the user reveals them via the
+   * eye toggle; switching variables resets any in-progress reveal.
+   *
+   * @param {string|null} value
+   * @param {boolean} [secure]
+   */
+  #setPreview(value, secure = false) {
+    this.#previewRaw = value;
+    this.#previewSecure = !!secure && value !== null;
+    // Any selection change cancels a prior reveal so secrets never leak across
+    // variables.
+    this.#clearRevealTimer();
+    this.#secretRevealed = false;
+    this.#renderPreview();
+  }
+
+  /** Paint the preview value + eye toggle from the current state. */
+  #renderPreview() {
+    const value = this.#previewRaw;
+
+    if (this.#revealBtn) this.#revealBtn.hidden = !this.#previewSecure;
+    this.#updateRevealBtn();
+
     if (value === null) {
       this.#previewValueEl.textContent = "Undefined";
       this.#previewValueEl.classList.add("pill-editor-preview--undefined");
+      return;
+    }
+
+    this.#previewValueEl.classList.remove("pill-editor-preview--undefined");
+    if (this.#previewSecure && !this.#secretRevealed) {
+      this.#previewValueEl.textContent = "***";
     } else {
       this.#previewValueEl.textContent =
         value === "" ? "(empty string)" : value;
-      this.#previewValueEl.classList.remove("pill-editor-preview--undefined");
+    }
+  }
+
+  /** Reveal a masked secret for 30s, or re-mask immediately if already shown. */
+  #toggleReveal() {
+    if (!this.#previewSecure) return;
+    if (this.#secretRevealed) {
+      this.#clearRevealTimer();
+      this.#secretRevealed = false;
+      this.#renderPreview();
+      return;
+    }
+    this.#secretRevealed = true;
+    this.#renderPreview();
+    this.#secretRevealTimer = setTimeout(() => {
+      this.#secretRevealTimer = null;
+      this.#secretRevealed = false;
+      this.#renderPreview();
+    }, PillEditorPopup.#REVEAL_MS);
+  }
+
+  /** Sync the eye toggle's icon / accessible label to the reveal state. */
+  #updateRevealBtn() {
+    if (!this.#revealBtn || this.#revealBtn.hidden) return;
+    // Masked → offer "reveal" (open eye); revealed → offer "hide".
+    this.#revealBtn.innerHTML = icon(this.#secretRevealed ? "eyeOff" : "eye");
+    const action = this.#secretRevealed ? "Hide value" : "Reveal value";
+    this.#revealBtn.title = action;
+    this.#revealBtn.setAttribute("aria-label", action);
+    this.#revealBtn.setAttribute("aria-pressed", String(this.#secretRevealed));
+  }
+
+  /** Cancel a pending auto-remask timer, if any. */
+  #clearRevealTimer() {
+    if (this.#secretRevealTimer) {
+      clearTimeout(this.#secretRevealTimer);
+      this.#secretRevealTimer = null;
     }
   }
 

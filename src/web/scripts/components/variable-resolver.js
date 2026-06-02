@@ -8,6 +8,12 @@
  *     envVariables?:         { name: value, … }   — collection-level
  *     folderChain?:          [ { variables: {…} }, … ] — highest; nearest-ancestor first
  *   }
+ *
+ * Each scope may carry a parallel `secure*` Set naming the variables stored as
+ * secrets (folder entries use `secureVariables`; collection/environment/global
+ * use `secureEnvVariables` / `secureEnvironmentVariables` / `secureGlobalVariables`).
+ * resolveVariable() reports a `secure` flag for the winning scope so callers can
+ * mask secret values.
  */
 
 "use strict";
@@ -77,18 +83,23 @@ export function parseFunctionCall(content) {
  *
  * @param {string} name
  * @param {{ globalVariables?: object, environmentVariables?: object, envVariables?: object, folderChain?: object[] } | null} context
- * @returns {{ found: boolean, value: any, source: 'folder' | 'collection' | 'environment' | 'global' | null }}
+ * @returns {{ found: boolean, value: any, source: 'folder' | 'collection' | 'environment' | 'global' | null, secure: boolean }}
  */
 export function resolveVariable(name, context) {
   if (!name || !context)
-    return { found: false, value: undefined, source: null };
+    return { found: false, value: undefined, source: null, secure: false };
 
   // 1. Walk folder chain nearest-to-farthest
   if (Array.isArray(context.folderChain)) {
     for (const folder of context.folderChain) {
       const vars = folder?.variables;
       if (vars && Object.prototype.hasOwnProperty.call(vars, name)) {
-        return { found: true, value: vars[name], source: "folder" };
+        return {
+          found: true,
+          value: vars[name],
+          source: "folder",
+          secure: !!folder?.secureVariables?.has?.(name),
+        };
       }
     }
   }
@@ -96,22 +107,37 @@ export function resolveVariable(name, context) {
   // 2. Collection-level variables
   const envVars = context.envVariables ?? {};
   if (Object.prototype.hasOwnProperty.call(envVars, name)) {
-    return { found: true, value: envVars[name], source: "collection" };
+    return {
+      found: true,
+      value: envVars[name],
+      source: "collection",
+      secure: !!context.secureEnvVariables?.has?.(name),
+    };
   }
 
   // 3. Selected environment variables
   const environmentVars = context.environmentVariables ?? {};
   if (Object.prototype.hasOwnProperty.call(environmentVars, name)) {
-    return { found: true, value: environmentVars[name], source: "environment" };
+    return {
+      found: true,
+      value: environmentVars[name],
+      source: "environment",
+      secure: !!context.secureEnvironmentVariables?.has?.(name),
+    };
   }
 
   // 4. Global variables
   const globalVars = context.globalVariables ?? {};
   if (Object.prototype.hasOwnProperty.call(globalVars, name)) {
-    return { found: true, value: globalVars[name], source: "global" };
+    return {
+      found: true,
+      value: globalVars[name],
+      source: "global",
+      secure: !!context.secureGlobalVariables?.has?.(name),
+    };
   }
 
-  return { found: false, value: undefined, source: null };
+  return { found: false, value: undefined, source: null, secure: false };
 }
 
 /**

@@ -4255,8 +4255,11 @@ input[type="checkbox"]:disabled {
 
 .pill-editor-preview {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-4);
+  /* Reserve the reveal button's height at all times so the row doesn't grow
+     when the eye toggle appears for secure variables. */
+  min-height: var(--control-h-xs);
 }
 
 .pill-editor-preview-label {
@@ -4277,6 +4280,19 @@ input[type="checkbox"]:disabled {
 .pill-editor-preview--undefined {
   color: var(--color-overlay-0);
   font-style: italic;
+}
+
+/* Eye toggle that reveals a masked secret value in the preview. */
+.pill-editor-preview-reveal {
+  align-self: center;
+  margin-left: auto;
+}
+
+/* The shared `.secret-field__toggle` sets `display: flex`, which (as an author
+   rule) overrides the UA `[hidden] { display: none }` — leaving an empty button
+   visible for non-secure variables. Re-assert hiding when `hidden` is set. */
+.pill-editor-preview-reveal[hidden] {
+  display: none;
 }
 
 /* Function-type popup extensions */
