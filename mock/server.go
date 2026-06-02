@@ -32,6 +32,8 @@ var mimes = []struct{ Type, Body string }{
 		"function fetchData(url) {\n  return fetch(url)\n    .then(r => r.json())\n    .then(data => {\n      console.log('Received:', data);\n      return data;\n    });\n}\n\nfetchData('http://localhost:8888/mimes').then(console.log);\n"},
 	{"application/ecmascript",
 		"export class MockClient {\n  #base;\n  constructor(base) { this.#base = base; }\n  async get(path) { return (await fetch(this.#base + path)).json(); }\n  async mimes() { return this.get('/mimes'); }\n}\n"},
+	{"text/markdown",
+		"# wurl Mock Server\n\nA **mock response** from the wurl test server.\n\n## Supported MIME types\n\n- `application/json`\n- `application/yaml`\n- `application/xml`\n- `text/html`\n- `text/css`\n- `text/markdown`\n\n## Example\n\n```js\nfetch('http://localhost:8888/mimes/text/markdown')\n  .then(r => r.text())\n  .then(console.log);\n```\n\n> See the [/mimes](http://localhost:8888/mimes) endpoint for the full list.\n\n| Code | Meaning |\n| ---- | ------- |\n| 200  | OK      |\n| 404  | Not Found |\n"},
 }
 
 var statuses = []int{

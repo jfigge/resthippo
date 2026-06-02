@@ -2033,6 +2033,143 @@ html.show-method-icons .req-method-menu__item-label::before {
   overflow-x: auto;
 }
 
+/* ── Rendered markdown (Styled mode) ───────────────────────────────────────
+ * Rich HTML produced by marked + DOMPurify.  Overrides the monospace/pre
+ * defaults of .res-body-pre and styles the common block elements with theme
+ * tokens. */
+.res-body-md {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+  line-height: 1.6;
+  white-space: normal;
+  word-break: normal;
+  overflow-x: auto;
+}
+
+.res-body-md > :first-child {
+  margin-top: 0;
+}
+
+.res-body-md > :last-child {
+  margin-bottom: 0;
+}
+
+.res-body-md h1,
+.res-body-md h2,
+.res-body-md h3,
+.res-body-md h4,
+.res-body-md h5,
+.res-body-md h6 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-text);
+}
+
+.res-body-md h1 {
+  font-size: 1.6em;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-surface-2);
+}
+
+.res-body-md h2 {
+  font-size: 1.35em;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--color-surface-2);
+}
+
+.res-body-md h3 {
+  font-size: 1.15em;
+}
+
+.res-body-md h4 {
+  font-size: 1em;
+}
+
+.res-body-md p {
+  margin: 0 0 var(--space-3);
+}
+
+.res-body-md ul,
+.res-body-md ol {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-5);
+}
+
+.res-body-md li {
+  margin: var(--space-1) 0;
+}
+
+.res-body-md li > ul,
+.res-body-md li > ol {
+  margin: var(--space-1) 0;
+}
+
+.res-body-md a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.res-body-md a:hover {
+  text-decoration: underline;
+}
+
+.res-body-md code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  padding: 0.15em 0.35em;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+}
+
+.res-body-md pre {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  overflow-x: auto;
+}
+
+.res-body-md pre code {
+  padding: 0;
+  font-size: var(--font-size-sm);
+  background: none;
+}
+
+.res-body-md blockquote {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  border-left: 3px solid var(--color-surface-2);
+  color: var(--color-subtext);
+}
+
+.res-body-md hr {
+  margin: var(--space-4) 0;
+  border: none;
+  border-top: 1px solid var(--color-surface-2);
+}
+
+.res-body-md table {
+  margin: 0 0 var(--space-3);
+  border-collapse: collapse;
+}
+
+.res-body-md th,
+.res-body-md td {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-surface-2);
+  text-align: left;
+}
+
+.res-body-md th {
+  font-weight: 600;
+  background: var(--color-surface-2);
+}
+
+.res-body-md img {
+  max-width: 100%;
+}
+
 /* ── Foldable body (Styled JSON / XML) ─────────────────────────────────────
  * The body is rendered as one row per source line; structural lines carry a
  * fold toggle in a left gutter, and collapsed rows are hidden (not removed) so

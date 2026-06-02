@@ -13,6 +13,7 @@
 "use strict";
 
 import Prism from "../vendor/prism.js";
+import renderMarkdown from "../vendor/markdown.js";
 import { icon } from "../icons.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
 
@@ -30,13 +31,35 @@ const TABS = [
 /**
  * Classify a Content-Type header value into one of the rendering categories.
  * @param {string} ct  - raw Content-Type value (may include charset/boundary)
- * @returns {"json"|"yaml"|"xml"|"html"|"css"|"javascript"|"other"}
+/**
+ * Map a markdown fenced-code info-string (the word after ```) to a Prism
+ * grammar id.  Anything unlisted is left un-highlighted.
+ */
+const MD_CODE_LANG = {
+  js: "javascript",
+  javascript: "javascript",
+  jsx: "javascript",
+  mjs: "javascript",
+  ts: "javascript",
+  json: "json",
+  yaml: "yaml",
+  yml: "yaml",
+  xml: "markup",
+  html: "markup",
+  svg: "markup",
+  markup: "markup",
+  css: "css",
+};
+
+/**
+ * @returns {"json"|"yaml"|"xml"|"html"|"markdown"|"css"|"javascript"|"other"}
  */
 function classifyContentType(ct) {
   const base = (ct ?? "").toLowerCase().split(";")[0].trim();
   if (base.includes("json")) return "json";
   if (base.includes("yaml")) return "yaml";
   if (base.includes("xml")) return "xml";
+  if (base === "text/markdown" || base === "text/x-markdown") return "markdown";
   if (base === "text/html" || base === "application/xhtml+xml") return "html";
   if (base === "text/css") return "css";
   if (
@@ -1005,6 +1028,32 @@ export class ResponseViewer {
     this.#clearHighlights();
     pane.innerHTML = "";
 
+    // ── Markdown rendering ────────────────────────────────────────────────
+    // Styled markdown becomes sanitized rich HTML (marked + DOMPurify); its
+    // fenced code blocks are then re-highlighted with the bundled Prism.
+    // Raw mode falls through to the verbatim <pre> path below.
+    if (this.#renderMode !== "raw" && category === "markdown") {
+      this.#foldReveal = null;
+      const md = document.createElement("div");
+      // Keep the .res-body-pre class so select-all, copy and search machinery
+      // (which query `.res-body-pre`) keep working on the rendered block.
+      md.className = "res-body-pre res-body-md";
+      md.tabIndex = 0;
+      md.innerHTML = renderMarkdown(response.body ?? "");
+      this.#highlightMarkdownCode(md);
+      pane.appendChild(md);
+
+      // Re-apply an active search query (the pane was just rebuilt).
+      if (
+        this.#searchBar &&
+        !this.#searchBar.hidden &&
+        this.#searchInput?.value.trim()
+      ) {
+        this.#runSearch();
+      }
+      return;
+    }
+
     // ── Text rendering ────────────────────────────────────────────────────
     // Styled: syntax-highlight all recognised types.
     // Raw:    verbatim plain text for every type.
@@ -1086,6 +1135,27 @@ export class ResponseViewer {
       this.#searchInput?.value.trim()
     ) {
       this.#runSearch();
+    }
+  }
+
+  /**
+   * Re-highlight the fenced code blocks inside a rendered-markdown container
+   * with the bundled Prism.  marked emits `<pre><code class="language-xxx">`
+   * with the source as escaped text; we map the info-string to a Prism grammar
+   * and replace the block's HTML with the highlighted version.
+   *
+   * @param {HTMLElement} root  - the rendered-markdown container
+   */
+  #highlightMarkdownCode(root) {
+    const blocks = root.querySelectorAll('pre > code[class*="language-"]');
+    for (const code of blocks) {
+      const cls = /language-([\w-]+)/.exec(code.className)?.[1] ?? "";
+      const prismLang = MD_CODE_LANG[cls.toLowerCase()];
+      const grammar = prismLang ? Prism.languages[prismLang] : null;
+      if (!grammar) continue;
+      // textContent is the decoded source (marked escaped it into the markup).
+      code.innerHTML = Prism.highlight(code.textContent, grammar, prismLang);
+      code.className = `language-${prismLang}`;
     }
   }
 

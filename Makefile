@@ -149,6 +149,11 @@ vendor-prism:
 	@cd $(SRC_DIR); npm run vendor-prism
 	@echo "--------------------------------"
 
+vendor-markdown:
+	@echo "Bundling Markdown (marked + DOMPurify) vendor file..."
+	@cd $(SRC_DIR); npm run vendor-markdown
+	@echo "--------------------------------"
+
 # ─── Distribution packages ────────────────────────────────────────────────────
 dist:
 	@echo "Building full distribution packages..."
@@ -196,6 +201,7 @@ help:
 	@echo "    dist-win      Build Windows installer"
 	@echo "    vendor-yaml   Bundle yaml npm pkg → web/scripts/vendor/yaml.js"
 	@echo "    vendor-prism  Bundle Prism.js → web/scripts/vendor/prism.js"
+	@echo "    vendor-markdown  Bundle marked+DOMPurify → web/scripts/vendor/markdown.js"
 	@echo "    fmt           Format JS/CSS/HTML (prettier)"
 	@echo "    lint          Lint JS (eslint)"
 	@echo "    test          Run all JavaScript + OAuth tests"
@@ -477,7 +483,7 @@ mock-down:
         build build-mac build-linux build-win \
         build-setup build-install \
         dist dist-mac dist-linux dist-win \
-        vendor-yaml vendor-prism \
+        vendor-yaml vendor-prism vendor-markdown \
         clean help launch
 		mock-up mock-down mock-build \
 		start wait bootstrap creds stop reset kc
