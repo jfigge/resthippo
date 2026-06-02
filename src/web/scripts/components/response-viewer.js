@@ -92,6 +92,139 @@ function prettyXml(xml) {
   }
 }
 
+// ── Simple HTML pretty-printer ────────────────────────────────────────────────
+
+// Void elements have no closing tag and never open a nesting level, so — unlike
+// in XML — encountering one must NOT increase indent depth.
+const HTML_VOID = new Set([
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "param",
+  "source",
+  "track",
+  "wbr",
+]);
+// Elements whose content is opaque text, not markup, and so must be emitted
+// verbatim rather than tokenised into child tags.
+const HTML_RAW = new Set(["script", "style", "pre", "textarea"]);
+
+/**
+ * Pretty-print HTML into one-tag-per-line, indented source so the styled body
+ * view can fold it by indentation (the same machinery as JSON/XML/YAML).
+ *
+ * The browser's own HTML parser does the heavy lifting via DOMParser — that
+ * handles void elements, raw-text elements, comments and malformed markup
+ * correctly, where the XML tokeniser (prettyXml) would mis-nest. The output is
+ * a normalised, reflowed view; the Raw tab and HTML Preview keep full fidelity.
+ */
+function prettyHtml(html) {
+  try {
+    const INDENT = "  ";
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    if (!doc || !doc.documentElement) return html;
+
+    const escAttr = (v) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    const escText = (v) =>
+      v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    const openTag = (el) => {
+      const attrs = Array.from(el.attributes)
+        .map((a) =>
+          a.value === "" ? ` ${a.name}` : ` ${a.name}="${escAttr(a.value)}"`,
+        )
+        .join("");
+      return `<${el.tagName.toLowerCase()}${attrs}>`;
+    };
+
+    const out = [];
+    // Emit str across lines, prefixing each with pad so fold nesting stays
+    // intact (every emitted line is at least as indented as its parent line).
+    const pushLines = (str, pad) => {
+      for (const line of str.replace(/\r\n/g, "\n").split("\n")) {
+        out.push(pad + line);
+      }
+    };
+
+    const renderElement = (node, depth) => {
+      const pad = INDENT.repeat(depth);
+      const tag = node.tagName.toLowerCase();
+
+      if (HTML_VOID.has(tag)) {
+        out.push(pad + openTag(node));
+        return;
+      }
+
+      if (HTML_RAW.has(tag)) {
+        const open = openTag(node);
+        const close = `</${tag}>`;
+        const raw = node.textContent ?? "";
+        if (!raw.trim()) {
+          out.push(pad + open + close);
+          return;
+        }
+        out.push(pad + open);
+        // script/style are code (CDATA-like, kept literal); pre/textarea are
+        // text and must be re-escaped to valid source.
+        const body = tag === "script" || tag === "style" ? raw : escText(raw);
+        pushLines(body, INDENT.repeat(depth + 1));
+        out.push(pad + close);
+        return;
+      }
+
+      const kids = Array.from(node.childNodes);
+      if (kids.length === 0) {
+        out.push(pad + openTag(node) + close(tag));
+        return;
+      }
+      // A lone text child stays inline: <title>Hello</title>.
+      if (kids.length === 1 && kids[0].nodeType === Node.TEXT_NODE) {
+        const t = kids[0].textContent.trim();
+        out.push(pad + openTag(node) + (t ? escText(t) : "") + close(tag));
+        return;
+      }
+
+      out.push(pad + openTag(node));
+      for (const child of kids) renderChild(child, depth + 1);
+      out.push(pad + close(tag));
+    };
+
+    const close = (tag) => `</${tag}>`;
+
+    const renderChild = (child, depth) => {
+      const pad = INDENT.repeat(depth);
+      switch (child.nodeType) {
+        case Node.ELEMENT_NODE:
+          renderElement(child, depth);
+          break;
+        case Node.TEXT_NODE: {
+          const t = child.textContent.trim();
+          if (t) out.push(pad + escText(t));
+          break;
+        }
+        case Node.COMMENT_NODE:
+          pushLines(`<!--${child.textContent}-->`, pad);
+          break;
+        default:
+          break;
+      }
+    };
+
+    if (doc.doctype) out.push(`<!DOCTYPE ${doc.doctype.name}>`);
+    renderElement(doc.documentElement, 0);
+    return out.join("\n");
+  } catch {
+    return html;
+  }
+}
+
 // ── ResponseViewer class ──────────────────────────────────────────────────────
 
 export class ResponseViewer {
@@ -134,6 +267,7 @@ export class ResponseViewer {
   #regexBtn = null; // .* toggle button
   #searchMatches = []; // current <mark> elements
   #searchCurrent = -1; // index of the active (focused) match
+  #foldReveal = null; // fn(lineEl) that expands collapsed folds around a line, or null when the body isn't a foldable view
 
   // Timeline state
   #timelineEntries = []; // current list of HistoryEntry objects (newest first)
@@ -605,6 +739,14 @@ export class ResponseViewer {
 
     const mark = this.#searchMatches[this.#searchCurrent];
     mark.classList.add("res-search-highlight--current");
+
+    // In the foldable JSON/XML view the match may sit inside a collapsed fold;
+    // open the enclosing folds so the row is visible before scrolling to it.
+    if (this.#foldReveal) {
+      const lineEl = mark.closest(".res-fold-line");
+      if (lineEl) this.#foldReveal(lineEl);
+    }
+
     mark.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 
@@ -891,7 +1033,7 @@ export class ResponseViewer {
         displayText = this.#prettyBody(response.body, "xml");
         prismLang = "markup";
       } else if (category === "html") {
-        displayText = response.body;
+        displayText = this.#prettyBody(response.body, "html");
         prismLang = "markup";
       } else if (category === "css") {
         displayText = response.body;
@@ -907,7 +1049,21 @@ export class ResponseViewer {
       displayText = response.body;
     }
 
-    if (prismLang) {
+    // Styled JSON/XML/YAML/HTML/CSS/JS get a collapsible, line-based render with
+    // a fold gutter; everything else is a single highlighted (or plain) block.
+    this.#foldReveal = null;
+    const foldable =
+      this.#renderMode !== "raw" &&
+      (category === "json" ||
+        category === "xml" ||
+        category === "yaml" ||
+        category === "html" ||
+        category === "css" ||
+        category === "javascript");
+
+    if (foldable) {
+      this.#renderFoldableCode(pre, displayText, prismLang);
+    } else if (prismLang) {
       const grammar = Prism.languages[prismLang];
       const code = document.createElement("code");
       code.className = `language-${prismLang}`;
@@ -931,6 +1087,155 @@ export class ResponseViewer {
     ) {
       this.#runSearch();
     }
+  }
+
+  /**
+   * Render an indentation-structured body (JSON / XML / YAML / HTML / CSS / JS)
+   * as a stack of foldable lines.
+   *
+   * Structure is read purely from leading whitespace: JSON, XML and HTML arrive
+   * 2-space-indented from #prettyBody, while YAML, CSS and JavaScript are folded
+   * on whatever indentation they were sent with (a minified, single-line body
+   * simply yields no folds).  Each line becomes a flex row of
+   * [fold-gutter][highlighted code]; a line whose next non-blank line is more
+   * deeply indented opens a fold whose range runs until indentation returns to
+   * that line's depth.
+   *
+   * Highlighting is applied per line.  For JSON/XML/YAML/HTML this is exact —
+   * structural tokens stay within a single line.  CSS and JS may carry tokens
+   * that straddle a newline (block comments in both, template literals in JS);
+   * those spans are only approximately coloured line-by-line, but the text is
+   * always intact (Prism escapes each line independently).
+   *
+   * The full text stays in the DOM even when folded (rows are hidden, not
+   * removed) so find-in-response, select-all and copy keep working; #foldReveal
+   * lets the search navigator open folds around a match.
+   *
+   * @param {HTMLPreElement} pre   the body <pre> to populate
+   * @param {string} text          body text (pretty-printed for JSON/XML/HTML)
+   * @param {string} prismLang     Prism language id
+   *                               ("json"|"markup"|"yaml"|"css"|"javascript")
+   */
+  #renderFoldableCode(pre, text, prismLang) {
+    const grammar = prismLang ? Prism.languages[prismLang] : null;
+    const lines = text.split("\n");
+
+    // Very large bodies: skip the per-line machinery and fall back to one block.
+    const MAX_FOLD_LINES = 5000;
+    if (lines.length > MAX_FOLD_LINES) {
+      const code = document.createElement("code");
+      code.className = `language-${prismLang}`;
+      if (grammar) code.innerHTML = Prism.highlight(text, grammar, prismLang);
+      else code.textContent = text;
+      pre.appendChild(code);
+      return;
+    }
+
+    pre.classList.add("res-body-pre--folding");
+
+    // Leading-space depth per line; blank lines are continuations (null).
+    const indent = lines.map((line) => {
+      if (line.trim() === "") return null;
+      return line.length - line.trimStart().length;
+    });
+
+    // foldEnd[i] = inclusive index of the last child line of opener i.
+    const foldEnd = new Map();
+    for (let i = 0; i < lines.length; i++) {
+      const depth = indent[i];
+      if (depth === null) continue;
+      let next = i + 1;
+      while (next < lines.length && indent[next] === null) next++;
+      if (next < lines.length && indent[next] > depth) {
+        let end = i;
+        for (
+          let k = i + 1;
+          k < lines.length && (indent[k] === null || indent[k] > depth);
+          k++
+        ) {
+          if (indent[k] !== null) end = k;
+        }
+        foldEnd.set(i, end);
+      }
+    }
+
+    const lineEls = [];
+    const collapsed = new Set();
+
+    // Recompute row visibility. Nested fold ranges are guaranteed to nest (they
+    // derive from indentation), so a single "hidden through" watermark suffices.
+    const applyFolds = () => {
+      let coverEnd = -1;
+      for (let i = 0; i < lineEls.length; i++) {
+        if (i <= coverEnd) {
+          lineEls[i].hidden = true;
+          continue;
+        }
+        lineEls[i].hidden = false;
+        if (collapsed.has(i)) {
+          const end = foldEnd.get(i);
+          if (end !== undefined && end > coverEnd) coverEnd = end;
+        }
+      }
+    };
+
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < lines.length; i++) {
+      const lineEl = document.createElement("div");
+      lineEl.className = "res-fold-line";
+      lineEl.dataset.line = String(i);
+
+      const gutter = document.createElement("span");
+      gutter.className = "res-fold-gutter";
+
+      if (foldEnd.has(i)) {
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "res-fold-toggle";
+        toggle.setAttribute("aria-label", "Toggle fold");
+        toggle.setAttribute("aria-expanded", "true");
+        toggle.innerHTML = icon("caret", { size: null });
+        toggle.addEventListener("click", () => {
+          const nowCollapsed = !collapsed.has(i);
+          if (nowCollapsed) collapsed.add(i);
+          else collapsed.delete(i);
+          lineEl.classList.toggle("res-fold-line--collapsed", nowCollapsed);
+          toggle.setAttribute("aria-expanded", String(!nowCollapsed));
+          applyFolds();
+        });
+        gutter.appendChild(toggle);
+      }
+
+      const code = document.createElement("span");
+      code.className = `res-fold-code language-${prismLang}`;
+      if (grammar)
+        code.innerHTML = Prism.highlight(lines[i], grammar, prismLang);
+      else code.textContent = lines[i];
+
+      lineEl.append(gutter, code);
+      frag.appendChild(lineEl);
+      lineEls.push(lineEl);
+    }
+    pre.appendChild(frag);
+
+    // Let the search navigator open every collapsed fold enclosing a match line.
+    this.#foldReveal = (lineEl) => {
+      const idx = Number(lineEl?.dataset?.line);
+      if (Number.isNaN(idx)) return;
+      let changed = false;
+      for (const opener of [...collapsed]) {
+        const end = foldEnd.get(opener);
+        if (opener < idx && end !== undefined && idx <= end) {
+          collapsed.delete(opener);
+          lineEls[opener].classList.remove("res-fold-line--collapsed");
+          lineEls[opener]
+            .querySelector(".res-fold-toggle")
+            ?.setAttribute("aria-expanded", "true");
+          changed = true;
+        }
+      }
+      if (changed) applyFolds();
+    };
   }
 
   // ── HTML preview helpers ──────────────────────────────────────────────────
@@ -1136,7 +1441,7 @@ export class ResponseViewer {
    * Falls back to the raw body if parsing fails.
    *
    * @param {string} body
-   * @param {"json"|"yaml"|"xml"} category
+   * @param {"json"|"yaml"|"xml"|"html"} category
    */
   #prettyBody(body, category) {
     try {
@@ -1145,6 +1450,9 @@ export class ResponseViewer {
       }
       if (category === "xml") {
         return prettyXml(body);
+      }
+      if (category === "html") {
+        return prettyHtml(body);
       }
       // YAML is typically already human-readable; return as-is.
     } catch {

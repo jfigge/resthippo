@@ -2033,6 +2033,90 @@ html.show-method-icons .req-method-menu__item-label::before {
   overflow-x: auto;
 }
 
+/* ── Foldable body (Styled JSON / XML) ─────────────────────────────────────
+ * The body is rendered as one row per source line; structural lines carry a
+ * fold toggle in a left gutter, and collapsed rows are hidden (not removed) so
+ * search / select-all / copy still see the full text. */
+.res-body-pre--folding {
+  padding-left: 0;
+}
+
+.res-fold-line {
+  display: flex;
+  align-items: flex-start;
+}
+
+.res-fold-line[hidden] {
+  display: none;
+}
+
+.res-fold-gutter {
+  flex: 0 0 auto;
+  width: calc(var(--space-3) + var(--space-3));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.res-fold-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1.4em;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-overlay-0);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.res-fold-toggle:hover {
+  color: var(--color-text);
+}
+
+.res-fold-toggle svg {
+  width: 8px;
+  height: 6px;
+}
+
+/* Collapsed: rotate the down-caret to point right, and mark the elision. */
+.res-fold-line--collapsed .res-fold-toggle {
+  transform: rotate(-90deg);
+}
+
+.res-fold-line--collapsed .res-fold-code::after {
+  content: " ⋯";
+  color: var(--color-overlay-0);
+}
+
+.res-fold-code {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Honour the no-wrap setting: keep each line intact; the <pre> scrolls.
+ * The row grows to its content width (min-width keeps short rows full-bleed so
+ * hover / selection still spans the pane). */
+.res-body-pre--no-wrap .res-fold-line {
+  width: max-content;
+  min-width: 100%;
+}
+
+.res-body-pre--no-wrap .res-fold-code {
+  white-space: pre;
+  word-break: normal;
+}
+
+/* Keep empty rows from collapsing to zero height. */
+.res-fold-code:empty::before {
+  content: "\200b";
+}
+
 /* Headers table */
 .res-headers-table {
   width: 100%;

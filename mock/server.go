@@ -44,19 +44,11 @@ var statuses = []int{
 	500, 501, 502, 503, 504, 505, 506, 507, 508, 510, 511,
 }
 
-// subtype strips the primary type prefix, e.g. "application/json" → "json"
-func subtype(t string) string {
-	if i := strings.IndexByte(t, '/'); i >= 0 {
-		return t[i+1:]
-	}
-	return t
-}
-
 func main() {
 	// build mime index keyed by subtype ("json", "vnd.api+json", etc.)
 	mimeIdx := make(map[string]int, len(mimes))
 	for i, m := range mimes {
-		mimeIdx[subtype(m.Type)] = i
+		mimeIdx[strings.ToLower(m.Type)] = i
 	}
 
 	http.HandleFunc("/mimes", func(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +58,7 @@ func main() {
 		}
 		keys := make([]string, len(mimes))
 		for i, m := range mimes {
-			keys[i] = subtype(m.Type)
+			keys[i] = strings.ToLower(m.Type)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(keys)
