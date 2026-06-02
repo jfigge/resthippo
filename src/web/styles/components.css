@@ -2780,6 +2780,17 @@ html.show-method-icons .req-method-menu__item-label::before {
   background: var(--color-surface-2);
 }
 
+.backup-mode-option--expandable {
+  flex-direction: column;
+}
+
+.backup-mode-head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  cursor: pointer;
+}
+
 .backup-mode-option input[type="radio"] {
   margin-top: 2px;
   accent-color: var(--color-accent);
@@ -2806,7 +2817,8 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .backup-pw-fields {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  padding-left: 20px;
   gap: var(--space-3);
 }
 

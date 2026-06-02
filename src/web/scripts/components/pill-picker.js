@@ -100,22 +100,24 @@ export class PillPicker {
     this.#items = [];
 
     // ── Variables ──────────────────────────────────────────────────────────
-    const matchedScopes = variables
-      .map(({ label, variables: vars }) => ({
-        label,
-        variables: vars.filter((v) => v.toLowerCase().includes(q)),
-      }))
-      .filter(({ variables: vars }) => vars.length > 0);
+    // Flatten every scope into a single de-duplicated set of names, preserving
+    // first-seen order. No per-scope subsection headers are shown.
+    const seen = new Set();
+    const matchedNames = [];
+    for (const { variables: vars } of variables) {
+      for (const name of vars) {
+        if (seen.has(name) || !name.toLowerCase().includes(q)) continue;
+        seen.add(name);
+        matchedNames.push(name);
+      }
+    }
 
-    if (matchedScopes.length) {
+    if (matchedNames.length) {
       this.#el.appendChild(this.#sectionHeader("Variables"));
-      for (const { label, variables: scopeVars } of matchedScopes) {
-        this.#el.appendChild(this.#subsectionHeader(label));
-        for (const name of scopeVars) {
-          const item = { type: "variable", name, rawToken: `{{${name}}}` };
-          this.#items.push(item);
-          this.#el.appendChild(this.#itemEl(item, name, "", true));
-        }
+      for (const name of matchedNames) {
+        const item = { type: "variable", name, rawToken: `{{${name}}}` };
+        this.#items.push(item);
+        this.#el.appendChild(this.#itemEl(item, name, ""));
       }
     }
 
@@ -179,17 +181,9 @@ export class PillPicker {
     return h;
   }
 
-  #subsectionHeader(label) {
-    const h = document.createElement("div");
-    h.className = "pill-picker__subsection";
-    h.textContent = label;
-    return h;
-  }
-
-  #itemEl(item, primary, secondary, indented = false) {
+  #itemEl(item, primary, secondary) {
     const el = document.createElement("div");
-    el.className =
-      "pill-picker__item" + (indented ? " pill-picker__item--indented" : "");
+    el.className = "pill-picker__item";
     el.setAttribute("role", "option");
     el.dataset.idx = String(this.#items.length - 1); // assigned before calling
 

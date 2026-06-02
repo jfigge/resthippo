@@ -89,17 +89,23 @@ export class BackupModal {
         <div class="backup-mode-group" role="radiogroup" aria-label="Secret handling">
           ${this.#modeOption("none", "Redacted", "Remove all secrets. Safe to share or move between machines.", true)}
           ${this.#modeOption("machine", "This machine only", "Keep secrets encrypted with this machine's keystore. Restores only on this machine.", false)}
-          ${this.#modeOption("password", "Password-protected", "Keep secrets encrypted with a password. Restores anywhere using that password.", false)}
-        </div>
-        <div class="backup-pw-fields" hidden>
-          <label class="backup-field">
-            <span class="backup-field-label">Password</span>
-            <input class="settings-input backup-input js-pw" type="password" autocomplete="new-password" spellcheck="false" />
-          </label>
-          <label class="backup-field">
-            <span class="backup-field-label">Confirm password</span>
-            <input class="settings-input backup-input js-pw-confirm" type="password" autocomplete="new-password" spellcheck="false" />
-          </label>
+          ${this.#modeOption(
+            "password",
+            "Password-protected",
+            "Keep secrets encrypted with a password. Restores anywhere using that password.",
+            false,
+            `
+          <div class="backup-pw-fields" hidden>
+            <label class="backup-field">
+              <span class="backup-field-label">Password</span>
+              <input class="settings-input backup-input js-pw" type="password" autocomplete="new-password" spellcheck="false" />
+            </label>
+            <label class="backup-field">
+              <span class="backup-field-label">Confirm password</span>
+              <input class="settings-input backup-input js-pw-confirm" type="password" autocomplete="new-password" spellcheck="false" />
+            </label>
+          </div>`,
+          )}
         </div>
         <div class="backup-error" role="alert" aria-live="polite"></div>
       </div>
@@ -148,17 +154,29 @@ export class BackupModal {
     return el;
   }
 
-  #modeOption(value, label, desc, checked) {
+  #modeOption(value, label, desc, checked, extra = "") {
     const group =
       this.#variant === "export" ? "backup-secret-mode" : "backup-restore-mode";
-    return `
-      <label class="backup-mode-option">
+    const head = `
+      <label class="backup-mode-head">
         <input type="radio" name="${group}" value="${value}"${checked ? " checked" : ""} />
         <span class="backup-mode-text">
           <span class="backup-mode-label">${this.#esc(label)}</span>
           <span class="backup-mode-desc">${this.#esc(desc)}</span>
         </span>
       </label>
+    `;
+    // A bare option is a single clickable label; an option carrying extra
+    // content (e.g. the password fields) becomes a column container so the
+    // fields nest inside the card without sitting inside the label itself.
+    if (!extra) {
+      return `<label class="backup-mode-option">${head}</label>`;
+    }
+    return `
+      <div class="backup-mode-option backup-mode-option--expandable">
+        ${head}
+        ${extra}
+      </div>
     `;
   }
 
