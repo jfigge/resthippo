@@ -1362,6 +1362,47 @@ html.show-method-icons .req-method-menu__item-label::before {
   font-style: italic;
 }
 
+/* ── Secure variable row controls (per-row lock + reveal) ─────────────────────
+ * The value cell holds the value input plus an inline reveal (eye) toggle that
+ * is only shown for rows marked secure. Masking is purely visual via the
+ * Chromium-only -webkit-text-security property; bulk (textarea) mode is never
+ * masked. The lock button lives in its own grid column beside the delete btn. */
+.params-value-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.params-value-wrap .params-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.params-value--masked {
+  -webkit-text-security: disc;
+}
+
+.params-reveal-btn {
+  width: 22px;
+  height: var(--control-h-xs);
+  flex-shrink: 0;
+}
+
+.params-secure-btn {
+  width: 26px;
+  height: var(--control-h-sm);
+  justify-self: center;
+}
+
+.params-secure-btn.is-active {
+  color: var(--color-accent);
+}
+
+.params-secure-btn.is-active:hover {
+  color: var(--color-accent);
+}
+
 /* ── Header-name autocomplete dropdown ───────────────────────────────────── */
 
 .hdr-autocomplete {
@@ -1598,8 +1639,8 @@ html.show-method-icons .req-method-menu__item-label::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--control-h-md);
-  height: var(--control-h-md);
+  width: var(--control-h-xs);
+  height: var(--control-h-xs);
   padding: 0;
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -1976,10 +2017,10 @@ html.show-method-icons .req-method-menu__item-label::before {
 /* Response body — monospace pre block */
 .res-body-pre {
   margin: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
-  line-height: 1.2;
+  line-height: 1.4;
   color: var(--color-text);
   white-space: pre-wrap;
   word-break: break-all;
@@ -2697,6 +2738,116 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   BACKUP MODAL (create / restore)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.backup-modal {
+  min-width: 420px;
+  max-width: 480px;
+}
+
+.backup-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.backup-intro {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+  line-height: 1.5;
+}
+
+.backup-mode-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.backup-mode-option {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-1);
+  cursor: pointer;
+}
+
+.backup-mode-option:hover {
+  background: var(--color-surface-2);
+}
+
+.backup-mode-option input[type="radio"] {
+  margin-top: 2px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.backup-mode-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.backup-mode-label {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.backup-mode-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+  line-height: 1.4;
+}
+
+.backup-pw-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.backup-pw-fields[hidden] {
+  display: none;
+}
+
+.backup-hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+  line-height: 1.5;
+}
+
+.backup-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.backup-field-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+}
+
+.backup-input {
+  width: 100%;
+}
+
+.backup-error {
+  min-height: var(--font-size-base);
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+  line-height: 1.4;
+}
+
+.backup-error:empty {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    SETTINGS POPUP
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -3159,7 +3310,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .coll-kv-header.params-header-row,
 .coll-kv-row.params-row {
-  grid-template-columns: 1fr 1fr 28px;
+  grid-template-columns: 1fr 1fr 28px 28px;
 }
 
 /* ── Footer ──────────────────────────────────────────────────────────────── */
@@ -3262,7 +3413,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 /* KV header + rows use a 3-column grid (name | value | delete) */
 .vars-kv-header.params-header-row,
 .vars-kv-row.params-row {
-  grid-template-columns: 1fr 1fr 28px;
+  grid-template-columns: 1fr 1fr 28px 28px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -3545,7 +3696,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .env-kv-header.params-header-row,
 .env-kv-row.params-row {
-  grid-template-columns: 1fr 1fr 28px;
+  grid-template-columns: 1fr 1fr 28px 28px;
 }
 
 /* ── Footer ──────────────────────────────────────────────────────────────── */

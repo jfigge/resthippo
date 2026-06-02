@@ -20,7 +20,13 @@
 "use strict";
 
 const { readJSON, writeJSON, ensureDir, validateID } = require("./io");
-const { encryptRequest, decryptRequest } = require("./crypto");
+const {
+  encryptRequest,
+  decryptRequest,
+  encryptVariables,
+  decryptVariables,
+  restoreUndecryptableVariables,
+} = require("./crypto");
 
 class CollectionsStore {
   /**
@@ -49,13 +55,15 @@ class CollectionsStore {
       return { version: 1, collections: [] };
     }
 
+    const variables = decryptVariables(meta.variables ?? [], "collection", id);
+
     const tree = readJSON(this._paths.treePath(id));
     if (tree === null) {
-      return { version: 1, collections: [], variables: meta.variables ?? {} };
+      return { version: 1, collections: [], variables };
     }
 
     const collections = this._buildLegacyCollections(id, tree.children ?? []);
-    return { version: 1, collections, variables: meta.variables ?? {} };
+    return { version: 1, collections, variables };
   }
 
   // ── Write ───────────────────────────────────────────────────────────────────
@@ -71,21 +79,33 @@ class CollectionsStore {
     validateID(id, "collectionId");
 
     const collections = Array.isArray(data.collections) ? data.collections : [];
-    const variables =
-      data.variables && typeof data.variables === "object"
-        ? data.variables
-        : {};
+    const incomingVars = Array.isArray(data.variables) ? data.variables : [];
+
+    // Read existing on-disk data first so the clobber guard can restore still-
+    // recoverable ciphertext for any secure value the caller left blank because
+    // it had failed to decrypt — a transient keystore failure must never wipe a
+    // secret. This applies to collection-level variables (metadata) and to each
+    // folder's variables (correlated by folder id in the existing tree).
+    const existingMeta = readJSON(this._paths.metadataPath(id));
+    const existingTree = readJSON(this._paths.treePath(id));
+    const existingFolderVars = new Map();
+    this._collectFolderVars(existingTree?.children ?? [], existingFolderVars);
 
     ensureDir(this._paths.collectionDir(id));
     ensureDir(this._paths.requestsDir(id));
 
-    // Write metadata (collection-level variables).
+    // Write metadata (collection-level variables, secrets encrypted at rest).
+    const variables = restoreUndecryptableVariables(
+      encryptVariables(incomingVars),
+      incomingVars,
+      existingMeta?.variables,
+    );
     writeJSON(this._paths.metadataPath(id), { id, variables });
 
     // Decompose collections into tree nodes + individual request files.
     const reqFiles = {};
     const treeNodes = collections.map((coll) =>
-      this._decomposeCollDoc(coll, reqFiles),
+      this._decomposeCollDoc(coll, reqFiles, existingFolderVars),
     );
 
     // Write tree (no request bodies).
@@ -115,7 +135,7 @@ class CollectionsStore {
         id: n.id,
         type: "collection",
         name: n.name,
-        variables: n.variables ?? {},
+        variables: decryptVariables(n.variables ?? [], "folder", n.id),
         children: this._buildLegacyChildren(collId, n.children ?? []),
       }));
   }
@@ -132,12 +152,25 @@ class CollectionsStore {
           id: node.id,
           type: "collection",
           name: node.name,
-          variables: node.variables ?? {},
+          variables: decryptVariables(node.variables ?? [], "folder", node.id),
           children: this._buildLegacyChildren(collId, node.children ?? []),
         });
       }
     }
     return result;
+  }
+
+  /**
+   * Recursively map folder id → its raw on-disk variable list across an internal
+   * tree's nodes. Used so the save-path clobber guard can match each folder's
+   * incoming variables against the ciphertext currently on disk.
+   */
+  _collectFolderVars(nodes, out) {
+    for (const node of nodes ?? []) {
+      if (!node || node.type !== "folder") continue;
+      if (node.id != null) out.set(node.id, node.variables);
+      this._collectFolderVars(node.children ?? [], out);
+    }
   }
 
   // ── Private: decomposition ──────────────────────────────────────────────────
@@ -150,12 +183,17 @@ class CollectionsStore {
    * @param {object} reqFiles mutable { reqId → reqData } accumulator
    * @returns {object} internalTreeNode
    */
-  _decomposeCollDoc(coll, reqFiles) {
+  _decomposeCollDoc(coll, reqFiles, existingFolderVars) {
+    const incomingVars = Array.isArray(coll.variables) ? coll.variables : [];
     const node = {
       id: coll.id,
       type: "folder",
       name: coll.name,
-      variables: coll.variables ?? {},
+      variables: restoreUndecryptableVariables(
+        encryptVariables(incomingVars),
+        incomingVars,
+        existingFolderVars?.get(coll.id),
+      ),
       children: [],
     };
     for (const child of coll.children ?? []) {
@@ -163,7 +201,9 @@ class CollectionsStore {
         node.children.push({ id: child.id, type: "requestRef" });
         reqFiles[child.id] = child;
       } else if (child.type === "collection") {
-        node.children.push(this._decomposeCollDoc(child, reqFiles));
+        node.children.push(
+          this._decomposeCollDoc(child, reqFiles, existingFolderVars),
+        );
       }
     }
     return node;

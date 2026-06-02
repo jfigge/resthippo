@@ -26,6 +26,7 @@
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
+import { normalizeVariables } from "./variable-shape.js";
 
 // ── SVG icons ─────────────────────────────────────────────────────────────────
 
@@ -42,7 +43,7 @@ export class EnvironmentsPopup {
   /** Full environments data — kept in sync with app.js via events */
   #data = {
     version: 1,
-    globalVariables: {},
+    globalVariables: [],
     activeEnvironmentId: null,
     environments: [],
   };
@@ -66,7 +67,7 @@ export class EnvironmentsPopup {
 
   // ── Variable-editor state ──────────────────────────────────────────────────
   #isBulkMode = true;
-  /** @type {{ id:string, name:string, value:string }[]} */
+  /** @type {{ id:string, name:string, value:string, secure:boolean }[]} */
   #rows = [];
 
   // ── Environment-list drag state ────────────────────────────────────────────
@@ -77,6 +78,9 @@ export class EnvironmentsPopup {
   #saveTimer = null;
 
   static #SAVE_MS = 500;
+
+  /** Auto re-mask a revealed secure value after this many ms. */
+  static #REVEAL_MS = 30000;
 
   /** @type {boolean} */
   #removeHeaders = false;
@@ -188,7 +192,7 @@ export class EnvironmentsPopup {
                   Bulk editor
                 </label>
                 <button class="icon-btn params-toolbar-btn env-add-btn" title="Add variable" aria-label="Add variable" style="display:none"><span class="icon">${icon("add", { size: 15 })}</span></button>
-                <span class="env-vars-hint">One  name=value  per line</span>
+                <span class="env-vars-hint">One  name=value  per line · prefix  $  for secure</span>
               </div>
               <textarea
                 class="body-text-editor env-textarea"
@@ -199,7 +203,7 @@ export class EnvironmentsPopup {
               ></textarea>
               <div class="env-kv-wrap" style="display:none">
                 <div class="env-kv-header params-header-row">
-                  <span>Name</span><span class="params-col-value">Value</span><span></span>
+                  <span>Name</span><span class="params-col-value">Value</span><span></span><span></span>
                 </div>
                 <div class="env-kv-list params-list" aria-label="Variables"></div>
               </div>
@@ -590,7 +594,7 @@ export class EnvironmentsPopup {
 
     if (action.mode === "add") {
       const id = crypto.randomUUID();
-      const newEnv = { id, name, variables: {} };
+      const newEnv = { id, name, variables: [] };
       const newData = {
         ...this.#data,
         environments: [...this.#data.environments, newEnv],
@@ -678,7 +682,7 @@ export class EnvironmentsPopup {
   // ── Variable editor ────────────────────────────────────────────────────────
 
   #loadEditorForSelected() {
-    const vars = this.#getSelectedVars();
+    const vars = normalizeVariables(this.#getSelectedVars());
 
     clearTimeout(this.#saveTimer);
 
@@ -692,10 +696,10 @@ export class EnvironmentsPopup {
   }
 
   #getSelectedVars() {
-    if (this.#selectedId === null) return this.#data.globalVariables ?? {};
+    if (this.#selectedId === null) return this.#data.globalVariables ?? [];
     return (
       this.#data.environments.find((e) => e.id === this.#selectedId)
-        ?.variables ?? {}
+        ?.variables ?? []
     );
   }
 
@@ -717,7 +721,7 @@ export class EnvironmentsPopup {
     const nowBulk = this.#el.querySelector(".env-bulk-toggle").checked;
     if (nowBulk && !this.#isBulkMode) {
       this.#el.querySelector(".env-textarea").value = this.#varsToText(
-        this.#rowsToObject(),
+        this.#rowsToArray(),
       );
     } else if (!nowBulk && this.#isBulkMode) {
       this.#rows = this.#varsToRows(
@@ -744,38 +748,48 @@ export class EnvironmentsPopup {
 
   // ── Conversion helpers ─────────────────────────────────────────────────────
 
+  // Secure variables round-trip through the bulk editor as a "$ "
+  // (dollar + space) line prefix.
   #varsToText(vars) {
-    return Object.entries(vars)
-      .map(([k, v]) => `${k}=${v}`)
+    return vars
+      .map((v) => `${v.secure ? "$ " : ""}${v.name}=${v.value}`)
       .join("\n");
   }
 
   #textToVars(text) {
-    const out = {};
+    const out = [];
     for (const line of text.split("\n")) {
-      const trimmed = line.trim();
+      let trimmed = line.trim();
       if (!trimmed) continue;
+      let secure = false;
+      if (trimmed.startsWith("$ ")) {
+        secure = true;
+        trimmed = trimmed.slice(1).trim();
+      }
       const eqIdx = trimmed.indexOf("=");
       if (eqIdx === -1) continue;
       const key = trimmed.slice(0, eqIdx).trim();
       const val = trimmed.slice(eqIdx + 1);
-      if (key) out[key] = val;
+      if (key) out.push({ name: key, value: val, secure });
     }
     return out;
   }
 
   #varsToRows(vars) {
-    return Object.entries(vars).map(([name, value]) => ({
+    return vars.map((v) => ({
       id: crypto.randomUUID(),
-      name,
-      value: typeof value === "string" ? value : JSON.stringify(value),
+      name: v.name,
+      value: v.value,
+      secure: !!v.secure,
     }));
   }
 
-  #rowsToObject() {
-    const out = {};
+  #rowsToArray() {
+    const out = [];
     for (const r of this.#rows) {
-      if (r.name.trim()) out[r.name] = r.value;
+      if (r.name.trim()) {
+        out.push({ name: r.name, value: r.value, secure: !!r.secure });
+      }
     }
     return out;
   }
@@ -818,6 +832,9 @@ export class EnvironmentsPopup {
       }
     });
 
+    const valWrap = document.createElement("div");
+    valWrap.className = "params-value-wrap";
+
     const valIn = document.createElement("input");
     valIn.type = "text";
     valIn.className = "params-input params-value";
@@ -835,6 +852,64 @@ export class EnvironmentsPopup {
       }
     });
 
+    // Inline reveal (eye) toggle — only shown for secure rows.
+    const reveal = document.createElement("button");
+    reveal.type = "button";
+    reveal.className = "icon-btn params-reveal-btn";
+    reveal.setAttribute("tabindex", "-1");
+
+    let revealed = false;
+    let revealTimer = null;
+    const applyMask = () => {
+      const masked = !!row.secure && !revealed;
+      valIn.classList.toggle("params-value--masked", masked);
+      reveal.style.display = row.secure ? "" : "none";
+      reveal.innerHTML = icon(revealed ? "eyeOff" : "eye", { size: 14 });
+      const action = revealed ? "Hide value" : "Reveal value";
+      reveal.title = action;
+      reveal.setAttribute("aria-label", action);
+      reveal.setAttribute("aria-pressed", String(revealed));
+    };
+    reveal.addEventListener("click", () => {
+      revealed = !revealed;
+      clearTimeout(revealTimer);
+      if (revealed) {
+        revealTimer = setTimeout(() => {
+          revealed = false;
+          applyMask();
+        }, EnvironmentsPopup.#REVEAL_MS);
+      }
+      applyMask();
+    });
+
+    valWrap.appendChild(valIn);
+    valWrap.appendChild(reveal);
+
+    // Per-row secure (lock) toggle — encrypts the value at rest.
+    const secure = document.createElement("button");
+    secure.type = "button";
+    secure.className = "icon-btn params-secure-btn";
+    const applySecure = () => {
+      secure.classList.toggle("is-active", !!row.secure);
+      secure.innerHTML = icon(row.secure ? "lock" : "lockOpen", { size: 14 });
+      const label = row.secure
+        ? "Secure (encrypted at rest)"
+        : "Mark variable secure";
+      secure.title = label;
+      secure.setAttribute("aria-label", label);
+      secure.setAttribute("aria-pressed", String(!!row.secure));
+    };
+    secure.addEventListener("click", () => {
+      row.secure = !row.secure;
+      if (!row.secure) {
+        revealed = false;
+        clearTimeout(revealTimer);
+      }
+      applySecure();
+      applyMask();
+      this.#saveFromRows();
+    });
+
     const del = document.createElement("button");
     del.className = "icon-btn params-delete-btn";
     del.title = "Delete variable";
@@ -846,13 +921,17 @@ export class EnvironmentsPopup {
     });
 
     el.appendChild(nameIn);
-    el.appendChild(valIn);
+    el.appendChild(valWrap);
+    el.appendChild(secure);
     el.appendChild(del);
+
+    applySecure();
+    applyMask();
     return el;
   }
 
   #addRow() {
-    const row = { id: crypto.randomUUID(), name: "", value: "" };
+    const row = { id: crypto.randomUUID(), name: "", value: "", secure: false };
     this.#rows.push(row);
     this.#renderRows();
     const rows = this.#el
@@ -879,7 +958,7 @@ export class EnvironmentsPopup {
   }
 
   #saveFromRows() {
-    this.#dispatchVarsSave(this.#rowsToObject());
+    this.#dispatchVarsSave(this.#rowsToArray());
   }
 
   #flushEditorSave() {

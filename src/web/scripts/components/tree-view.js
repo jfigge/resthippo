@@ -24,6 +24,7 @@ import {
   buildFolderChain,
   collectTemplateVariables,
 } from "./variable-resolver.js";
+import { varsArrayToMap } from "./variable-shape.js";
 
 // SVG folder icons (Feather-style, stroke-based)
 const ICON_FOLDER_CLOSED = icon("folderClosed", {
@@ -255,7 +256,7 @@ export class TreeView {
                   detail: {
                     nodeId: liveNode.id,
                     folderName: liveNode.name,
-                    variables: liveNode.variables ?? {},
+                    variables: liveNode.variables ?? [],
                   },
                   bubbles: true,
                 }),
@@ -666,7 +667,7 @@ export class TreeView {
     if (!force && liveNode.type === "request") {
       prebuiltContext = {
         envVariables: this.#envVariables,
-        folderChain: buildFolderChain(this.#items, liveNode.id),
+        folderChain: this.#resolverFolderChain(liveNode.id),
       };
       const allVars = collectTemplateVariables(
         this.#gatherNodeTemplates(liveNode),
@@ -913,7 +914,7 @@ export class TreeView {
       // folder-chain tree traversal is not repeated for the same node.
       const nodeContext = prebuiltContext ?? {
         envVariables: this.#envVariables,
-        folderChain: buildFolderChain(this.#items, node.id),
+        folderChain: this.#resolverFolderChain(node.id),
       };
       const rv = (s) => resolveString(s ?? "", nodeContext);
 
@@ -1095,6 +1096,20 @@ export class TreeView {
         .join("\n\n");
     }
     return "";
+  }
+
+  /**
+   * Build the folder chain for variable resolution, converting each node's
+   * canonical array `.variables` into the { name: value } map the resolver
+   * consumes. The resolver context is the boundary where arrays flatten to maps.
+   * @param {string} nodeId
+   * @returns {object[]}  folder-chain nodes with map-shaped `.variables`
+   */
+  #resolverFolderChain(nodeId) {
+    return buildFolderChain(this.#items, nodeId).map((folder) => ({
+      ...folder,
+      variables: varsArrayToMap(folder.variables),
+    }));
   }
 
   /** Recursively collect all request nodes within a subtree. */

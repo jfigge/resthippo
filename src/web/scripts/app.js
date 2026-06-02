@@ -42,9 +42,14 @@ import {
   resolveStringAsync,
 } from "./components/variable-resolver.js";
 import { setPickerDebounceMs } from "./components/variable-pill-editor.js";
+import {
+  normalizeVariables,
+  varsArrayToMap,
+} from "./components/variable-shape.js";
 import { parseImport } from "./import/index.js";
 import { exportToPostman } from "./export/postman.js";
 import { PopupManager } from "./popup-manager.js";
+import { BackupModal } from "./components/backup-modal.js";
 
 // ─── History state ────────────────────────────────────────────────────────────
 // Per-request in-memory execution history. Keyed by request node ID.
@@ -623,7 +628,7 @@ let currentColls = {
 /** Live environment state — kept in sync with data-store. */
 let currentEnvironments = {
   version: 1,
-  globalVariables: {},
+  globalVariables: [],
   activeEnvironmentId: null,
   environments: [],
 };
@@ -935,6 +940,16 @@ function initEventBus() {
   // Triggered by the toolbar button in tree-view or the File > Import menu item.
   window.addEventListener("wurl:import-requested", () => handleImport());
 
+  // Whole-workspace backup create/restore. Triggered by the File menu items,
+  // which signal the renderer so the theme-styled BackupModal can collect the
+  // secret mode and any password before main does the file I/O and encryption.
+  window.addEventListener("wurl:backup-export-requested", () =>
+    BackupModal.openExport(),
+  );
+  window.addEventListener("wurl:backup-import-requested", () =>
+    BackupModal.openImport(),
+  );
+
   // Export a collection to a Postman v2.1 JSON file.
   // Triggered by "Export Collection…" in the collection context menu.
   window.addEventListener("wurl:export-collection", (e) =>
@@ -1117,7 +1132,7 @@ function initEventBus() {
     currentColls = {
       ...currentColls,
       collections: currentColls.collections.map((coll) =>
-        coll.id === id ? { ...coll, variables: variables ?? {} } : coll,
+        coll.id === id ? { ...coll, variables: variables ?? [] } : coll,
       ),
     };
 
@@ -1199,7 +1214,7 @@ function initEventBus() {
       setNavPanelTitle(_collName(collections, activeId));
       // Attach variables in memory
       collections = collections.map((coll) =>
-        coll.id === activeId ? { ...coll, variables: variables ?? {} } : coll,
+        coll.id === activeId ? { ...coll, variables: variables ?? [] } : coll,
       );
     } else {
       setActiveCollection(activeId);
@@ -1218,7 +1233,7 @@ function initEventBus() {
     varsPopup.open({
       envId: nodeId,
       envName: folderName,
-      variables: variables ?? {},
+      variables: variables ?? [],
       bulkEditor: currentSettings.varsBulkEditor ?? true,
     });
   });
@@ -1337,12 +1352,18 @@ function initEventBus() {
       nodeId ??
       currentSettings.selectedRequestIds?.[currentColls.activeCollectionId] ??
       null;
-    const folderChain =
-      treeView && id ? buildFolderChain(treeView.getItems(), id) : [];
+    // Variables are stored canonically as arrays; the resolver consumes maps,
+    // so flatten each scope (and every folder-chain node) here at the boundary.
+    const folderChain = (
+      treeView && id ? buildFolderChain(treeView.getItems(), id) : []
+    ).map((folder) => ({
+      ...folder,
+      variables: varsArrayToMap(folder.variables),
+    }));
     const activeColl = currentColls.collections.find(
       (coll) => coll.id === currentColls.activeCollectionId,
     );
-    const envVariables = activeColl?.variables ?? {};
+    const envVariables = varsArrayToMap(activeColl?.variables);
     const node =
       _selectedNode ??
       (id && treeView ? _findNodeById(treeView.getItems(), id) : null);
@@ -1351,8 +1372,8 @@ function initEventBus() {
     const activeEnv = currentEnvironments.environments.find(
       (e) => e.id === activeEnvId,
     );
-    const environmentVariables = activeEnv?.variables ?? {};
-    const globalVariables = currentEnvironments.globalVariables ?? {};
+    const environmentVariables = varsArrayToMap(activeEnv?.variables);
+    const globalVariables = varsArrayToMap(currentEnvironments.globalVariables);
 
     requestEditor.setVariableContext({
       envVariables,
@@ -1683,7 +1704,7 @@ async function initCollections() {
   // Seed collection state — attach loaded variables to the active collection object
   const collsWithVars = collections.map((coll) =>
     coll.id === activeCollectionId
-      ? { ...coll, variables: variables ?? {} }
+      ? { ...coll, variables: variables ?? [] }
       : coll,
   );
   currentColls = { collections: collsWithVars, activeCollectionId };
@@ -2302,7 +2323,8 @@ async function handleExport(collection) {
   let variables = {};
   try {
     const data = await loadCollectionData(currentColls.activeCollectionId);
-    variables = data.variables ?? {};
+    // Stored as a canonical array; the Postman exporter consumes a map.
+    variables = varsArrayToMap(data.variables);
   } catch {
     /* non-fatal — export without collection variables */
   }
@@ -2371,12 +2393,19 @@ async function handleImport() {
   if (treeView) treeView.setItems(newItems);
 
   try {
-    if (variables && Object.keys(variables).length > 0) {
-      // Merge import variables with existing ones — existing values take precedence.
-      const { variables: current } = await loadCollectionData(activeId);
-      const merged = { ...variables, ...current };
+    const incoming = normalizeVariables(variables);
+    if (incoming.length > 0) {
+      // Merge import variables with existing ones — existing values take
+      // precedence. Both are kept in the canonical array shape; conflicts are
+      // resolved by name with the current entry winning.
+      const { variables: currentRaw } = await loadCollectionData(activeId);
+      const byName = new Map();
+      for (const entry of incoming) byName.set(entry.name, entry);
+      for (const entry of normalizeVariables(currentRaw))
+        byName.set(entry.name, entry);
+      const merged = [...byName.values()];
       await saveCollectionData(activeId, newItems, merged);
-      if (treeView) treeView.setEnvVariables(merged);
+      if (treeView) treeView.setEnvVariables(varsArrayToMap(merged));
     } else {
       await saveCollectionData(activeId, newItems);
     }

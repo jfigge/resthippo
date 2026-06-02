@@ -22,6 +22,14 @@ ipcRenderer.on("menu:import", () => {
   window.dispatchEvent(new CustomEvent("wurl:import-requested"));
 });
 
+ipcRenderer.on("menu:backup-export", () => {
+  window.dispatchEvent(new CustomEvent("wurl:backup-export-requested"));
+});
+
+ipcRenderer.on("menu:backup-import", () => {
+  window.dispatchEvent(new CustomEvent("wurl:backup-import-requested"));
+});
+
 ipcRenderer.on("theme:preview", (_event, themeData) => {
   window.dispatchEvent(
     new CustomEvent("wurl:theme-preview", { detail: themeData }),
@@ -293,6 +301,33 @@ contextBridge.exposeInMainWorld("wurl", {
   export: {
     saveFile: (filename, content, filters) =>
       ipcRenderer.invoke("export:save-file", { filename, content, filters }),
+  },
+
+  /**
+   * Whole-workspace backup. The main process owns the native file dialogs, all
+   * encryption and every secret value; the renderer only collects the secret
+   * mode and (for password mode) the plaintext password it passes back here.
+   */
+  backup: {
+    /**
+     * Create a backup. `opts.mode` is "none" | "machine" | "password";
+     * `opts.password` is required for password mode.
+     * @returns {Promise<{ ok: boolean, canceled?: boolean, error?: string }>}
+     */
+    export: (opts) => ipcRenderer.invoke("backup:export", opts),
+    /**
+     * Pick and validate a backup file. Returns its path and secret mode so the
+     * renderer can decide whether to prompt for a password.
+     * @returns {Promise<{ ok: boolean, canceled?: boolean, filePath?: string,
+     *                      secretsMode?: string, error?: string }>}
+     */
+    prepareImport: () => ipcRenderer.invoke("backup:prepare-import"),
+    /**
+     * Apply a backup. `opts.mode` is "merge" | "replace"; `opts.password` is
+     * needed only to recover password-protected secrets.
+     * @returns {Promise<{ ok: boolean, reason?: string, error?: string }>}
+     */
+    import: (opts) => ipcRenderer.invoke("backup:import", opts),
   },
 
   /**

@@ -1705,8 +1705,11 @@ ipcMain.handle("import:open-file", async () => {
 });
 
 // ─── Backup (export-all / import-all) ─────────────────────────────────────────
-// The whole flow — secret-handling prompt, native dialogs, FS I/O and store
-// access — lives here in the main process; the renderer is never involved.
+// The renderer owns the user-facing flow: a theme-styled modal collects the
+// secret mode (none / machine / password) and any password, then drives these
+// IPC handlers. The main process still owns the native file dialogs, all FS I/O,
+// the store access and every encryption step — secrets never reach the renderer.
+// The renderer only ever passes back the plaintext password it collected.
 
 /** YYYY-MM-DD for a default backup filename. */
 function _backupDateStamp() {
@@ -1715,45 +1718,39 @@ function _backupDateStamp() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** The live main window, or undefined if it has gone away. */
+function _backupWin() {
+  return _mainWin && !_mainWin.isDestroyed() ? _mainWin : undefined;
+}
+
+/** Success-dialog detail line describing what was done with secrets. */
+function _exportDetail(mode) {
+  if (mode === "password")
+    return "Secrets are included and encrypted with your password.";
+  if (mode === "machine")
+    return "Secrets are included and encrypted to this machine.";
+  return "Secrets were removed from this backup.";
+}
+
 /**
- * Export the entire workspace to a single `wurl-backup` JSON file.
+ * Create a backup. The renderer modal supplies the chosen secret mode and, for
+ * password mode, the password. This runs the native save dialog, writes the
+ * file, and shows the native success/error box.
  *
- * Asks first whether to include secrets. By default secrets are redacted; the
- * checkbox enables a "this machine only" export that keeps keystore ciphertext
- * (which cannot be decrypted on another machine).
+ * @returns {Promise<{ ok: boolean, canceled?: boolean, error?: string }>}
  */
-async function exportBackup() {
-  const win = _mainWin && !_mainWin.isDestroyed() ? _mainWin : undefined;
-
-  const choice = await dialog.showMessageBox(win, {
-    type: "question",
-    icon: appIcon,
-    buttons: ["Backup", "Cancel"],
-    defaultId: 0,
-    cancelId: 1,
-    title: "Create Backup",
-    message: "Back up all collections, environments and settings?",
-    detail:
-      "Secrets (passwords, tokens, keys) are removed by default so the backup " +
-      "is safe to share or move between machines.\n\n" +
-      "Including secrets keeps them encrypted with this machine's keystore — " +
-      "the resulting file will only restore correctly on THIS machine.",
-    checkboxLabel: "Include secrets (this machine only)",
-    checkboxChecked: false,
-  });
-  if (choice.response !== 0) return;
-
-  const includeSecrets = choice.checkboxChecked === true;
+ipcMain.handle("backup:export", async (_event, { mode, password } = {}) => {
+  const win = _backupWin();
 
   const save = await dialog.showSaveDialog(win, {
     title: "Create Backup",
     defaultPath: `wurl-backup-${_backupDateStamp()}.json`,
     filters: [{ name: "wurl Backup", extensions: ["json"] }],
   });
-  if (save.canceled || !save.filePath) return;
+  if (save.canceled || !save.filePath) return { ok: false, canceled: true };
 
   try {
-    const envelope = getStores().backupStore().exportAll({ includeSecrets });
+    const envelope = getStores().backupStore().exportAll({ mode, password });
     await fs.promises.writeFile(
       save.filePath,
       JSON.stringify(envelope, null, 2),
@@ -1765,10 +1762,9 @@ async function exportBackup() {
       buttons: ["OK"],
       title: "Backup Created",
       message: "Backup created successfully.",
-      detail: includeSecrets
-        ? "Secrets are included and encrypted to this machine."
-        : "Secrets were removed from this backup.",
+      detail: _exportDetail(mode),
     });
+    return { ok: true };
   } catch (err) {
     console.error("[main] backup export error:", err.message);
     await dialog.showMessageBox(win, {
@@ -1779,82 +1775,109 @@ async function exportBackup() {
       message: "Could not create the backup.",
       detail: err.message,
     });
+    return { ok: false, error: err.message };
   }
-}
+});
 
 /**
- * Restore a `wurl-backup` file, prompting for merge-vs-replace, then reloading
- * the window so the renderer picks up the restored workspace.
+ * Import step 1 — pick and read the backup file. Returns the file path and its
+ * secret mode so the renderer modal can decide whether to offer a password
+ * field. The envelope itself (which may hold secrets) stays in the main process.
+ *
+ * @returns {Promise<{ ok: boolean, canceled?: boolean, filePath?: string,
+ *                      secretsMode?: string, error?: string }>}
  */
-async function importBackup() {
-  const win = _mainWin && !_mainWin.isDestroyed() ? _mainWin : undefined;
+ipcMain.handle("backup:prepare-import", async () => {
+  const win = _backupWin();
 
   const open = await dialog.showOpenDialog(win, {
     title: "Restore Backup",
     filters: [{ name: "wurl Backup", extensions: ["json"] }],
     properties: ["openFile"],
   });
-  if (open.canceled || open.filePaths.length === 0) return;
+  if (open.canceled || open.filePaths.length === 0)
+    return { ok: false, canceled: true };
 
-  let envelope;
+  const filePath = open.filePaths[0];
   try {
-    const raw = await fs.promises.readFile(open.filePaths[0], "utf-8");
-    envelope = JSON.parse(raw);
-  } catch (err) {
-    await dialog.showMessageBox(win, {
-      type: "error",
-      icon: appIcon,
-      buttons: ["OK"],
-      title: "Restore Backup Failed",
-      message: "Could not read the backup file.",
-      detail: err.message,
-    });
-    return;
+    const raw = await fs.promises.readFile(filePath, "utf-8");
+    const envelope = JSON.parse(raw);
+    if (!envelope || envelope.kind !== "wurl-backup") {
+      return {
+        ok: false,
+        error: "The selected file is not a valid wurl backup.",
+      };
+    }
+    const secretsMode =
+      envelope.secretsMode ?? (envelope.secretsIncluded ? "machine" : "none");
+    return { ok: true, filePath, secretsMode };
+  } catch {
+    return { ok: false, error: "Could not read the backup file." };
   }
+});
 
-  const choice = await dialog.showMessageBox(win, {
-    type: "question",
-    buttons: ["Merge", "Replace", "Cancel"],
-    defaultId: 0,
-    cancelId: 2,
-    icon: appIcon,
-    title: "Restore Backup",
-    message: "How should this backup be applied?",
-    detail:
-      "Merge — add the backup's collections and environments to your current " +
-      "workspace (existing items with the same id are overwritten).\n\n" +
-      "Replace — delete all current collections and environments first, then " +
-      "restore only what's in the backup.",
-  });
-  if (choice.response === 2) return;
-  const mode = choice.response === 1 ? "replace" : "merge";
+/**
+ * Import step 2 — apply the chosen backup with merge/replace and an optional
+ * password (required only to recover password-protected secrets; omitting it
+ * clears those secret values while keeping the variables marked secure). On a
+ * wrong password this returns `{ ok:false, reason:"bad-password" }` so the
+ * renderer can keep its modal open and re-prompt. On success the window reloads.
+ *
+ * @returns {Promise<{ ok: boolean, reason?: string, error?: string }>}
+ */
+ipcMain.handle(
+  "backup:import",
+  async (_event, { filePath, mode, password } = {}) => {
+    const win = _backupWin();
 
-  try {
-    const result = getStores().backupStore().importAll(envelope, { mode });
-    if (win) win.webContents.reload();
-    await dialog.showMessageBox(win, {
-      type: "info",
-      icon: appIcon,
-      buttons: ["OK"],
-      title: "Backup Restored",
-      message: "Backup restored successfully.",
-      detail: `Restored ${result.collections} collection(s) and ${result.requests} request(s).`,
-    });
-  } catch (err) {
-    console.error("[main] backup import error:", err.message);
-    await dialog.showMessageBox(win, {
-      type: "error",
-      icon: appIcon,
-      buttons: ["OK"],
-      title: "Restore Backup Failed",
-      message: "Could not restore the backup.",
-      detail:
+    let envelope;
+    try {
+      const raw = await fs.promises.readFile(filePath, "utf-8");
+      envelope = JSON.parse(raw);
+    } catch {
+      return { ok: false, error: "Could not read the backup file." };
+    }
+
+    try {
+      const result = getStores()
+        .backupStore()
+        .importAll(envelope, {
+          mode: mode === "replace" ? "replace" : "merge",
+          password,
+        });
+      if (win) win.webContents.reload();
+      // The reload tears down the renderer modal, so report success natively.
+      await dialog.showMessageBox(win, {
+        type: "info",
+        icon: appIcon,
+        buttons: ["OK"],
+        title: "Backup Restored",
+        message: "Backup restored successfully.",
+        detail: `Restored ${result.collections} collection(s) and ${result.requests} request(s).`,
+      });
+      return { ok: true };
+    } catch (err) {
+      if (err && err.reason === "bad-password") {
+        // Leave the modal open so the renderer can re-prompt for the password.
+        return { ok: false, reason: "bad-password" };
+      }
+      console.error("[main] backup import error:", err.message);
+      const detail =
         err.code === "INVALID_BACKUP"
           ? "The selected file is not a valid wurl backup."
-          : err.message,
-    });
-  }
-}
+          : err.message;
+      await dialog.showMessageBox(win, {
+        type: "error",
+        icon: appIcon,
+        buttons: ["OK"],
+        title: "Restore Backup Failed",
+        message: "Could not restore the backup.",
+        detail,
+      });
+      return { ok: false, error: detail };
+    }
+  },
+);
 
 // ─── About dialog ─────────────────────────────────────────────────────────────
 function readRevisionInfo() {
@@ -2054,13 +2077,15 @@ function buildMenu() {
         {
           label: "Create Backup…",
           click: () => {
-            exportBackup();
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:backup-export");
           },
         },
         {
           label: "Restore Backup…",
           click: () => {
-            importBackup();
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:backup-import");
           },
         },
       ],

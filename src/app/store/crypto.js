@@ -270,9 +270,345 @@ function redactSettings(settings) {
   return out;
 }
 
+// ── Variable-list helpers ─────────────────────────────────────────────────────
+//
+// Variables use the canonical array shape [{ name, value, secure }]. Only the
+// value of an entry with `secure: true` is sensitive; non-secure entries pass
+// through untouched.
+//
+// IMPORTANT shape note: requests/settings carry their decrypt-failure marker on
+// the container object (`_decryptErrors`). Variables are an ARRAY, and extra
+// non-index properties on an array do NOT survive structured-clone IPC or JSON.
+// So a per-entry `decryptError` field is recorded on the failing entry object
+// instead, which round-trips to the renderer intact.
+
+/** Encrypt the value of every secure variable before writing to disk. */
+function encryptVariables(list) {
+  if (!Array.isArray(list)) return list;
+  return list.map((entry) => {
+    if (!entry || typeof entry !== "object") return entry;
+    const out = { ...entry };
+    // The `decryptError` marker is a read-side artifact; never persist it.
+    if ("decryptError" in out) delete out.decryptError;
+    if (entry.secure) out.value = encryptString(entry.value);
+    return out;
+  });
+}
+
+/**
+ * Decrypt the value of every secure variable after reading from disk.
+ *
+ * Mirrors decryptRequest: a value that fails to decrypt is blanked and the
+ * failure recorded on a per-entry `decryptError` field (so it survives
+ * structured-clone IPC to the renderer), rather than passing stale ciphertext
+ * through. A single structured warning is logged for the whole list. The input
+ * is never mutated. A list with no secrets / no failures round-trips unchanged.
+ *
+ * @param {Array} list   canonical variable array
+ * @param {string} [kind] log context, e.g. "globalVariables" | "environment"
+ * @param {string|null} [id] owning object id, when known
+ */
+function decryptVariables(list, kind = "variables", id = null) {
+  if (!Array.isArray(list)) return list;
+  const failed = [];
+  let lastReason = null;
+  const out = list.map((entry) => {
+    if (!entry || typeof entry !== "object" || !isEncrypted(entry.value)) {
+      return entry;
+    }
+    try {
+      return { ...entry, value: decryptString(entry.value) };
+    } catch (err) {
+      if (!(err instanceof DecryptError)) throw err;
+      failed.push(entry.name);
+      lastReason = err.reason;
+      return { ...entry, value: "", decryptError: err.reason };
+    }
+  });
+  if (failed.length) _logDecryptFailure(kind, id, failed, lastReason);
+  return out;
+}
+
+/** Blank out the value of every secure variable (export without secrets). */
+function redactVariables(list) {
+  if (!Array.isArray(list)) return list;
+  return list.map((entry) => {
+    if (!entry || typeof entry !== "object" || !entry.secure) return entry;
+    return { ...entry, value: "" };
+  });
+}
+
+/**
+ * Re-encryption clobber guard for variable lists (the array twin of the request
+ * store's anti-clobber logic).
+ *
+ * When a secure value failed to decrypt on read, decryptVariables blanked it and
+ * tagged the entry with `decryptError`. If the renderer saves the list back
+ * unchanged, encryptVariables would re-encrypt that blank and destroy the
+ * still-recoverable on-disk ciphertext. This restores the original ciphertext
+ * for any entry that the caller left blank because it had failed to decrypt and
+ * the user did not re-enter — so a transient keystore failure can never wipe a
+ * secret.
+ *
+ * @param {Array} encrypted  freshly encrypted list (from encryptVariables)
+ * @param {Array} incoming   the list as received from the caller (carries markers)
+ * @param {Array} existing   the current on-disk list (ciphertext)
+ * @returns {Array} a new list with recoverable ciphertext restored
+ */
+function restoreUndecryptableVariables(encrypted, incoming, existing) {
+  if (!Array.isArray(encrypted)) return encrypted;
+  const incomingByName = new Map();
+  for (const e of Array.isArray(incoming) ? incoming : []) {
+    if (e && typeof e === "object" && e.name != null) {
+      incomingByName.set(e.name, e);
+    }
+  }
+  const existingByName = new Map();
+  for (const e of Array.isArray(existing) ? existing : []) {
+    if (e && typeof e === "object" && e.name != null) {
+      existingByName.set(e.name, e);
+    }
+  }
+  return encrypted.map((entry) => {
+    if (!entry || typeof entry !== "object") return entry;
+    const inc = incomingByName.get(entry.name);
+    // Only guard entries the caller flagged as a failed read and left blank.
+    if (!inc || !inc.decryptError) return entry;
+    if (inc.value !== "" && inc.value != null) return entry; // user re-entered
+    const original = existingByName.get(entry.name);
+    if (!original || !isEncrypted(original.value)) return entry;
+    return { ...entry, value: original.value };
+  });
+}
+
+// ── Password-based portable encryption (encp:v1:) ─────────────────────────────
+//
+// The keystore helpers above bind ciphertext to one machine's OS keystore, so an
+// "enc:v1:" value cannot be restored elsewhere. For a PORTABLE backup that still
+// carries secrets, each value is re-encrypted under a key derived from a user
+// password (PBKDF2-HMAC-SHA256) and sealed with AES-256-GCM. Such values are
+// tagged "encp:v1:" so they are self-identifying and distinct from the keystore
+// family.
+//
+// Wire format after the prefix is base64 of:  salt(16) | iv(12) | tag(16) | ct
+// Each value embeds its own salt + iv, so it is independently decryptable with
+// the password alone — no envelope-level state.
+
+const nodeCrypto = require("crypto");
+
+const PASSWORD_PREFIX = "encp:v1:";
+const PBKDF2_ITERATIONS = 210000; // OWASP 2023 floor for PBKDF2-HMAC-SHA256
+const PBKDF2_DIGEST = "sha256";
+const PBKDF2_KEYLEN = 32; // 256-bit AES key
+const SALT_LEN = 16;
+const IV_LEN = 12; // GCM standard nonce length
+const TAG_LEN = 16;
+
+/**
+ * Tagged error for password-based decryption failures. Like {@link DecryptError}
+ * it carries only a machine-readable `reason`, never secret material, so it is
+ * safe to log and surface.
+ */
+class PasswordError extends Error {
+  /** @param {"bad-password"|"malformed"} reason */
+  constructor(reason) {
+    super(`password decrypt failed: ${reason}`);
+    this.name = "PasswordError";
+    this.reason = reason;
+  }
+}
+
+/** Returns true when `value` was produced by encryptWithPassword(). */
+function isPasswordEncrypted(value) {
+  return typeof value === "string" && value.startsWith(PASSWORD_PREFIX);
+}
+
+/**
+ * Encrypt a plaintext secret under a user password (portable, machine-independent).
+ *
+ * Empty / falsy input is returned unchanged; an already-portable value is returned
+ * unchanged (idempotent). Each call derives a fresh key from a random salt.
+ *
+ * @param {string} plaintext
+ * @param {string} password
+ * @returns {string} "encp:v1:"-tagged base64 blob
+ * @throws {PasswordError} when no password is supplied
+ */
+function encryptWithPassword(plaintext, password) {
+  if (!plaintext) return plaintext;
+  if (isPasswordEncrypted(plaintext)) return plaintext;
+  if (typeof password !== "string" || password.length === 0) {
+    throw new PasswordError("malformed");
+  }
+  const salt = nodeCrypto.randomBytes(SALT_LEN);
+  const iv = nodeCrypto.randomBytes(IV_LEN);
+  const key = nodeCrypto.pbkdf2Sync(
+    password,
+    salt,
+    PBKDF2_ITERATIONS,
+    PBKDF2_KEYLEN,
+    PBKDF2_DIGEST,
+  );
+  const cipher = nodeCrypto.createCipheriv("aes-256-gcm", key, iv);
+  const ct = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return (
+    PASSWORD_PREFIX + Buffer.concat([salt, iv, tag, ct]).toString("base64")
+  );
+}
+
+/**
+ * Decrypt a value produced by encryptWithPassword().
+ *
+ * Values without the "encp:v1:" prefix are returned unchanged. A structurally
+ * malformed blob throws PasswordError("malformed"); a wrong password (GCM auth
+ * failure) throws PasswordError("bad-password").
+ *
+ * @param {string} value
+ * @param {string} password
+ * @returns {string} plaintext
+ * @throws {PasswordError}
+ */
+function decryptWithPassword(value, password) {
+  if (!isPasswordEncrypted(value)) return value;
+  if (typeof password !== "string" || password.length === 0) {
+    throw new PasswordError("bad-password");
+  }
+  const blob = Buffer.from(value.slice(PASSWORD_PREFIX.length), "base64");
+  if (blob.length < SALT_LEN + IV_LEN + TAG_LEN) {
+    throw new PasswordError("malformed");
+  }
+  const salt = blob.subarray(0, SALT_LEN);
+  const iv = blob.subarray(SALT_LEN, SALT_LEN + IV_LEN);
+  const tag = blob.subarray(SALT_LEN + IV_LEN, SALT_LEN + IV_LEN + TAG_LEN);
+  const ct = blob.subarray(SALT_LEN + IV_LEN + TAG_LEN);
+  const key = nodeCrypto.pbkdf2Sync(
+    password,
+    salt,
+    PBKDF2_ITERATIONS,
+    PBKDF2_KEYLEN,
+    PBKDF2_DIGEST,
+  );
+  const decipher = nodeCrypto.createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+  try {
+    return Buffer.concat([decipher.update(ct), decipher.final()]).toString(
+      "utf8",
+    );
+  } catch {
+    throw new PasswordError("bad-password");
+  }
+}
+
+// ── Portable (password) export / import transforms ────────────────────────────
+//
+// These bridge the two ciphertext families for a backup. On export a secret is
+// taken from its at-rest form — keystore "enc:v1:", or plaintext when the
+// keystore was unavailable at write time — to portable "encp:v1:". On import a
+// secret is either decrypted back to plaintext (password supplied) or CLEARED to
+// "" (no password); clearing keeps the surrounding structure (e.g. a variable's
+// `secure` flag) while dropping only the value.
+
+/**
+ * Take one at-rest secret to its portable (password-encrypted) form. Keystore
+ * ciphertext is decrypted on this machine first. An unrecoverable keystore value
+ * (DecryptError) is dropped to "" so a portable backup never carries
+ * machine-bound ciphertext that nothing could ever read.
+ */
+function _toPortable(value, password) {
+  if (!value) return value;
+  if (isPasswordEncrypted(value)) return value;
+  let plain = value;
+  if (isEncrypted(value)) {
+    try {
+      plain = decryptString(value);
+    } catch (err) {
+      if (err instanceof DecryptError) return "";
+      throw err;
+    }
+  }
+  return encryptWithPassword(plain, password);
+}
+
+/**
+ * Reverse of {@link _toPortable} for import. With a password, portable ciphertext
+ * is decrypted to plaintext; without one it is cleared to "". Non-portable values
+ * (plaintext) pass through unchanged.
+ */
+function _fromPortable(value, password) {
+  if (!isPasswordEncrypted(value)) return value;
+  if (!password) return "";
+  return decryptWithPassword(value, password);
+}
+
+/** Re-encrypt a request's secret fields under a password for a portable export. */
+function exportRequestSecrets(obj, password) {
+  return _applyToRequest(obj, (v) => _toPortable(v, password));
+}
+
+/** Decrypt (password) or clear (no password) a request's portable secrets on import. */
+function importRequestSecrets(obj, password) {
+  return _applyToRequest(obj, (v) => _fromPortable(v, password));
+}
+
+/** Re-encrypt settings.proxyUrl under a password for a portable export. */
+function exportSettingsSecrets(settings, password) {
+  if (!settings || typeof settings !== "object") return settings;
+  const out = { ...settings };
+  if (out.proxyUrl !== undefined) {
+    out.proxyUrl = _toPortable(out.proxyUrl, password);
+  }
+  return out;
+}
+
+/** Decrypt (password) or clear (no password) settings.proxyUrl on import. */
+function importSettingsSecrets(settings, password) {
+  if (!settings || typeof settings !== "object") return settings;
+  const out = { ...settings };
+  if (out.proxyUrl !== undefined) {
+    out.proxyUrl = _fromPortable(out.proxyUrl, password);
+  }
+  return out;
+}
+
+/** Re-encrypt every secure variable's value under a password for a portable export. */
+function exportVariableSecrets(list, password) {
+  if (!Array.isArray(list)) return list;
+  return list.map((entry) => {
+    if (!entry || typeof entry !== "object" || !entry.secure) return entry;
+    const out = { ...entry, value: _toPortable(entry.value, password) };
+    // The `decryptError` marker is a read-side artifact; never let it escape.
+    if ("decryptError" in out) delete out.decryptError;
+    return out;
+  });
+}
+
+/**
+ * Decrypt (password) or clear (no password) every secure variable's value on
+ * import. Without a password the entry keeps `secure: true` but its value is
+ * blanked — the secret simply has to be re-entered.
+ */
+function importVariableSecrets(list, password) {
+  if (!Array.isArray(list)) return list;
+  return list.map((entry) => {
+    if (!entry || typeof entry !== "object" || !entry.secure) return entry;
+    return { ...entry, value: _fromPortable(entry.value, password) };
+  });
+}
+
 module.exports = {
   DecryptError,
+  PasswordError,
   _setSafeStorage,
+  isPasswordEncrypted,
+  encryptWithPassword,
+  decryptWithPassword,
+  exportRequestSecrets,
+  importRequestSecrets,
+  exportSettingsSecrets,
+  importSettingsSecrets,
+  exportVariableSecrets,
+  importVariableSecrets,
   isAvailable,
   isEncrypted,
   encryptString,
@@ -283,4 +619,8 @@ module.exports = {
   encryptSettings,
   decryptSettings,
   redactSettings,
+  encryptVariables,
+  decryptVariables,
+  redactVariables,
+  restoreUndecryptableVariables,
 };

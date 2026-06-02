@@ -117,13 +117,15 @@ describe("CollectionsStore", () => {
     const req = makeRequest({ id: "r1", name: "First", method: "POST" });
     const data = {
       version: 1,
-      variables: { baseUrl: "https://api.example.com" },
+      variables: [
+        { name: "baseUrl", value: "https://api.example.com", secure: false },
+      ],
       collections: [
         {
           id: "col-1",
           type: "collection",
           name: "My API",
-          variables: { v: "1" },
+          variables: [{ name: "v", value: "1", secure: false }],
           children: [req],
         },
       ],
@@ -133,7 +135,10 @@ describe("CollectionsStore", () => {
     const loaded = store.getCollections("env-x");
 
     assert.equal(loaded.version, 1);
-    assert.equal(loaded.variables.baseUrl, "https://api.example.com");
+    assert.equal(
+      loaded.variables.find((v) => v.name === "baseUrl").value,
+      "https://api.example.com",
+    );
     assert.equal(loaded.collections.length, 1);
     assert.equal(loaded.collections[0].name, "My API");
     assert.equal(loaded.collections[0].children.length, 1);
@@ -183,13 +188,13 @@ describe("CollectionsStore", () => {
           id: "outer",
           type: "collection",
           name: "Outer",
-          variables: { a: "1" },
+          variables: [{ name: "a", value: "1", secure: false }],
           children: [
             {
               id: "inner",
               type: "collection",
               name: "Inner",
-              variables: { b: "2" },
+              variables: [{ name: "b", value: "2", secure: false }],
               children: [inner],
             },
           ],
@@ -198,8 +203,15 @@ describe("CollectionsStore", () => {
     };
     store.saveCollections("env-nested", data);
     const loaded = store.getCollections("env-nested");
-    assert.equal(loaded.collections[0].variables.a, "1");
-    assert.equal(loaded.collections[0].children[0].variables.b, "2");
+    assert.equal(
+      loaded.collections[0].variables.find((v) => v.name === "a").value,
+      "1",
+    );
+    assert.equal(
+      loaded.collections[0].children[0].variables.find((v) => v.name === "b")
+        .value,
+      "2",
+    );
   });
 });
 

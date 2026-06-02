@@ -22,6 +22,7 @@ const { Stores } = require("../stores");
 const { Paths } = require("../paths");
 const { Resolver } = require("../resolver");
 const { validateID } = require("../io");
+const { _setSafeStorage, isEncrypted } = require("../crypto");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -102,7 +103,7 @@ describe("EnvironmentStore — first-run defaults", () => {
 
   test("getEnvironments returns empty global variables by default", () => {
     const env = envStore.getEnvironments();
-    assert.deepEqual(env.globalVariables, {});
+    assert.deepEqual(env.globalVariables, []);
   });
 
   test("getEnvironments returns null activeEnvironmentId by default", () => {
@@ -123,77 +124,98 @@ describe("EnvironmentStore — save and load round-trip", () => {
   test("saves and retrieves global variables", () => {
     const data = {
       version: 1,
-      globalVariables: { baseUrl: "https://api.example.com", apiKey: "abc123" },
+      globalVariables: [
+        { name: "baseUrl", value: "https://api.example.com", secure: false },
+        { name: "apiKey", value: "abc123", secure: false },
+      ],
       activeEnvironmentId: null,
       environments: [],
     };
     envStore.saveEnvironments(data);
     const loaded = envStore.getEnvironments();
-    assert.equal(loaded.globalVariables.baseUrl, "https://api.example.com");
-    assert.equal(loaded.globalVariables.apiKey, "abc123");
+    assert.equal(
+      loaded.globalVariables.find((v) => v.name === "baseUrl").value,
+      "https://api.example.com",
+    );
+    assert.equal(
+      loaded.globalVariables.find((v) => v.name === "apiKey").value,
+      "abc123",
+    );
   });
 
   test("saves and retrieves named environments", () => {
     const data = {
       version: 1,
-      globalVariables: {},
+      globalVariables: [],
       activeEnvironmentId: "env-staging",
       environments: [
         {
           id: "env-dev",
           name: "Development",
-          variables: { host: "dev.api.com" },
+          variables: [{ name: "host", value: "dev.api.com", secure: false }],
         },
         {
           id: "env-staging",
           name: "Staging",
-          variables: { host: "stg.api.com" },
+          variables: [{ name: "host", value: "stg.api.com", secure: false }],
         },
-        { id: "env-prod", name: "Production", variables: { host: "api.com" } },
+        {
+          id: "env-prod",
+          name: "Production",
+          variables: [{ name: "host", value: "api.com", secure: false }],
+        },
       ],
     };
     envStore.saveEnvironments(data);
     const loaded = envStore.getEnvironments();
     assert.equal(loaded.environments.length, 3);
     assert.equal(loaded.activeEnvironmentId, "env-staging");
-    assert.equal(loaded.environments[1].variables.host, "stg.api.com");
+    assert.equal(
+      loaded.environments[1].variables.find((v) => v.name === "host").value,
+      "stg.api.com",
+    );
   });
 
   test("overwrites previous data on repeated saves", () => {
     envStore.saveEnvironments({
       version: 1,
-      globalVariables: { x: "1" },
+      globalVariables: [{ name: "x", value: "1", secure: false }],
       activeEnvironmentId: null,
       environments: [],
     });
     envStore.saveEnvironments({
       version: 1,
-      globalVariables: { x: "2" },
+      globalVariables: [{ name: "x", value: "2", secure: false }],
       activeEnvironmentId: null,
       environments: [],
     });
     const loaded = envStore.getEnvironments();
-    assert.equal(loaded.globalVariables.x, "2");
+    assert.equal(loaded.globalVariables.find((v) => v.name === "x").value, "2");
   });
 
   test("persists across separate store instances (cross-session)", () => {
     envStore.saveEnvironments({
       version: 1,
-      globalVariables: { token: "session-token" },
+      globalVariables: [
+        { name: "token", value: "session-token", secure: false },
+      ],
       activeEnvironmentId: "env-1",
-      environments: [{ id: "env-1", name: "Prod", variables: {} }],
+      environments: [{ id: "env-1", name: "Prod", variables: [] }],
     });
 
     const freshStore = new Stores(tmpDir).environmentStore();
     const loaded = freshStore.getEnvironments();
-    assert.equal(loaded.globalVariables.token, "session-token");
+    assert.equal(
+      loaded.globalVariables.find((v) => v.name === "token").value,
+      "session-token",
+    );
     assert.equal(loaded.activeEnvironmentId, "env-1");
   });
 
   test("handles large variable sets without truncation", () => {
-    const variables = {};
+    const variables = [];
     for (let i = 0; i < 200; i++) {
-      variables[`key${i}`] = `value${i}`;
+      variables.push({ name: `key${i}`, value: `value${i}`, secure: false });
     }
     envStore.saveEnvironments({
       version: 1,
@@ -202,8 +224,11 @@ describe("EnvironmentStore — save and load round-trip", () => {
       environments: [],
     });
     const loaded = envStore.getEnvironments();
-    assert.equal(Object.keys(loaded.globalVariables).length, 200);
-    assert.equal(loaded.globalVariables.key199, "value199");
+    assert.equal(loaded.globalVariables.length, 200);
+    assert.equal(
+      loaded.globalVariables.find((v) => v.name === "key199").value,
+      "value199",
+    );
   });
 });
 
@@ -756,14 +781,14 @@ describe("Multi-collection isolation", () => {
   test("collections data is scoped per collection ID", () => {
     stores.collections.saveCollections("colX", {
       version: 1,
-      variables: { env: "X" },
+      variables: [{ name: "env", value: "X", secure: false }],
       collections: [
         { id: "root-x", type: "collection", name: "Root X", children: [] },
       ],
     });
     stores.collections.saveCollections("colY", {
       version: 1,
-      variables: { env: "Y" },
+      variables: [{ name: "env", value: "Y", secure: false }],
       collections: [
         { id: "root-y", type: "collection", name: "Root Y", children: [] },
       ],
@@ -772,8 +797,8 @@ describe("Multi-collection isolation", () => {
     const x = stores.collections.getCollections("colX");
     const y = stores.collections.getCollections("colY");
 
-    assert.equal(x.variables.env, "X");
-    assert.equal(y.variables.env, "Y");
+    assert.equal(x.variables.find((v) => v.name === "env").value, "X");
+    assert.equal(y.variables.find((v) => v.name === "env").value, "Y");
     assert.equal(x.collections[0].name, "Root X");
     assert.equal(y.collections[0].name, "Root Y");
   });
@@ -1282,73 +1307,97 @@ describe("Variable scoping — collections and nested folders", () => {
   test("collection-level variables persist and are distinct from other collections", () => {
     stores.collections.saveCollections("colVarA", {
       version: 1,
-      variables: { base: "https://a.com", key: "keyA" },
+      variables: [
+        { name: "base", value: "https://a.com", secure: false },
+        { name: "key", value: "keyA", secure: false },
+      ],
       collections: [],
     });
     stores.collections.saveCollections("colVarB", {
       version: 1,
-      variables: { base: "https://b.com", key: "keyB" },
+      variables: [
+        { name: "base", value: "https://b.com", secure: false },
+        { name: "key", value: "keyB", secure: false },
+      ],
       collections: [],
     });
 
     const a = stores.collections.getCollections("colVarA");
     const b = stores.collections.getCollections("colVarB");
 
-    assert.equal(a.variables.base, "https://a.com");
-    assert.equal(b.variables.base, "https://b.com");
-    assert.notEqual(a.variables.key, b.variables.key);
+    assert.equal(
+      a.variables.find((v) => v.name === "base").value,
+      "https://a.com",
+    );
+    assert.equal(
+      b.variables.find((v) => v.name === "base").value,
+      "https://b.com",
+    );
+    assert.notEqual(
+      a.variables.find((v) => v.name === "key").value,
+      b.variables.find((v) => v.name === "key").value,
+    );
   });
 
   test("folder-level variables within a collection are preserved", () => {
     stores.collections.saveCollections("colVarFolders", {
       version: 1,
-      variables: { global: "gval" },
+      variables: [{ name: "global", value: "gval", secure: false }],
       collections: [
         {
           id: "f1",
           type: "collection",
           name: "Users Folder",
-          variables: { scope: "users" },
+          variables: [{ name: "scope", value: "users", secure: false }],
           children: [],
         },
         {
           id: "f2",
           type: "collection",
           name: "Admin Folder",
-          variables: { scope: "admin" },
+          variables: [{ name: "scope", value: "admin", secure: false }],
           children: [],
         },
       ],
     });
 
     const loaded = stores.collections.getCollections("colVarFolders");
-    assert.equal(loaded.variables.global, "gval");
-    assert.equal(loaded.collections[0].variables.scope, "users");
-    assert.equal(loaded.collections[1].variables.scope, "admin");
+    assert.equal(
+      loaded.variables.find((v) => v.name === "global").value,
+      "gval",
+    );
+    assert.equal(
+      loaded.collections[0].variables.find((v) => v.name === "scope").value,
+      "users",
+    );
+    assert.equal(
+      loaded.collections[1].variables.find((v) => v.name === "scope").value,
+      "admin",
+    );
   });
 
   test("deeply nested folder variables are preserved at all levels", () => {
     stores.collections.saveCollections("colVarDeep", {
       version: 1,
-      variables: { level: "root" },
+      variables: [{ name: "level", value: "root", secure: false }],
       collections: [
         {
           id: "l1",
           type: "collection",
           name: "Level 1",
-          variables: { level: "one" },
+          variables: [{ name: "level", value: "one", secure: false }],
           children: [
             {
               id: "l2",
               type: "collection",
               name: "Level 2",
-              variables: { level: "two" },
+              variables: [{ name: "level", value: "two", secure: false }],
               children: [
                 {
                   id: "l3",
                   type: "collection",
                   name: "Level 3",
-                  variables: { level: "three" },
+                  variables: [{ name: "level", value: "three", secure: false }],
                   children: [],
                 },
               ],
@@ -1359,13 +1408,11 @@ describe("Variable scoping — collections and nested folders", () => {
     });
 
     const loaded = stores.collections.getCollections("colVarDeep");
-    assert.equal(loaded.variables.level, "root");
-    assert.equal(loaded.collections[0].variables.level, "one");
-    assert.equal(loaded.collections[0].children[0].variables.level, "two");
-    assert.equal(
-      loaded.collections[0].children[0].children[0].variables.level,
-      "three",
-    );
+    const lvl = (node) => node.variables.find((v) => v.name === "level").value;
+    assert.equal(lvl(loaded), "root");
+    assert.equal(lvl(loaded.collections[0]), "one");
+    assert.equal(lvl(loaded.collections[0].children[0]), "two");
+    assert.equal(lvl(loaded.collections[0].children[0].children[0]), "three");
   });
 });
 
@@ -1498,12 +1545,211 @@ describe("Edge cases — boundary conditions", () => {
     const envStore = stores.environments;
     envStore.saveEnvironments({
       version: 1,
-      globalVariables: {},
+      globalVariables: [],
       activeEnvironmentId: null,
       environments: [],
     });
     const loaded = envStore.getEnvironments();
-    assert.deepEqual(loaded.globalVariables, {});
+    assert.deepEqual(loaded.globalVariables, []);
     assert.deepEqual(loaded.environments, []);
+  });
+});
+
+// =============================================================================
+// Secure variables — at-rest encryption through the store layer
+//
+// These suites inject a reversible mock safeStorage so the stores actually
+// encrypt secure values on save and decrypt them on read. They assert the
+// two invariants Phase 2 must guarantee:
+//   1. Secure values are ciphertext on disk; non-secure values are plaintext.
+//   2. The store returns plaintext to the renderer (decrypt-on-read).
+// plus the clobber guard: a blank, decrypt-failed value echoed back on save
+// must not wipe the still-recoverable on-disk ciphertext.
+// =============================================================================
+
+describe("Secure variables — at-rest encryption (reversible mock)", () => {
+  let tmpDir, stores;
+
+  // Reversible mock: round-trips a string through a base64 buffer so the
+  // encrypt → on-disk → decrypt path runs without a real OS keystore.
+  const reversibleSafeStorage = {
+    isEncryptionAvailable: () => true,
+    encryptString: (s) => Buffer.from(s, "utf8"),
+    decryptString: (buf) => Buffer.from(buf).toString("utf8"),
+  };
+
+  function readRaw(p) {
+    return JSON.parse(fs.readFileSync(p, "utf8"));
+  }
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    stores = makeStores(tmpDir);
+    _setSafeStorage(reversibleSafeStorage);
+  });
+  afterEach(() => {
+    _setSafeStorage(null);
+    rmTmpDir(tmpDir);
+  });
+
+  test("environment secure value is ciphertext on disk, plaintext on read", () => {
+    stores.environments.saveEnvironments({
+      version: 1,
+      globalVariables: [
+        { name: "base", value: "https://api.example.com", secure: false },
+        { name: "apiKey", value: "s3cr3t", secure: true },
+      ],
+      activeEnvironmentId: null,
+      environments: [
+        {
+          id: "env-1",
+          name: "Prod",
+          variables: [{ name: "token", value: "tok-123", secure: true }],
+        },
+      ],
+    });
+
+    // On disk: secure values encrypted, non-secure left as plaintext.
+    const raw = readRaw(new Paths(tmpDir).environmentsPath());
+    assert.equal(
+      raw.globalVariables.find((v) => v.name === "base").value,
+      "https://api.example.com",
+    );
+    assert.ok(
+      isEncrypted(raw.globalVariables.find((v) => v.name === "apiKey").value),
+    );
+    assert.ok(
+      isEncrypted(
+        raw.environments[0].variables.find((v) => v.name === "token").value,
+      ),
+    );
+
+    // On read: store decrypts back to plaintext, no failure markers.
+    const loaded = stores.environments.getEnvironments();
+    assert.equal(
+      loaded.globalVariables.find((v) => v.name === "apiKey").value,
+      "s3cr3t",
+    );
+    assert.equal(
+      loaded.environments[0].variables.find((v) => v.name === "token").value,
+      "tok-123",
+    );
+    assert.ok(!loaded.globalVariables.some((v) => "decryptError" in v));
+  });
+
+  test("collection + folder secure values are ciphertext on disk, plaintext on read", () => {
+    stores.collections.saveCollections("colSecure", {
+      version: 1,
+      variables: [
+        { name: "base", value: "https://x", secure: false },
+        { name: "key", value: "coll-secret", secure: true },
+      ],
+      collections: [
+        {
+          id: "folder-1",
+          type: "collection",
+          name: "Folder",
+          variables: [{ name: "fkey", value: "folder-secret", secure: true }],
+          children: [],
+        },
+      ],
+    });
+
+    const paths = new Paths(tmpDir);
+    const meta = readRaw(paths.metadataPath("colSecure"));
+    assert.equal(
+      meta.variables.find((v) => v.name === "base").value,
+      "https://x",
+    );
+    assert.ok(isEncrypted(meta.variables.find((v) => v.name === "key").value));
+
+    const tree = readRaw(paths.treePath("colSecure"));
+    const folderNode = tree.children.find((n) => n.id === "folder-1");
+    assert.ok(
+      isEncrypted(folderNode.variables.find((v) => v.name === "fkey").value),
+    );
+
+    const loaded = stores.collections.getCollections("colSecure");
+    assert.equal(
+      loaded.variables.find((v) => v.name === "key").value,
+      "coll-secret",
+    );
+    assert.equal(
+      loaded.collections[0].variables.find((v) => v.name === "fkey").value,
+      "folder-secret",
+    );
+  });
+
+  test("clobber guard: a blank decrypt-failed value does not wipe on-disk ciphertext", () => {
+    // First save establishes recoverable ciphertext on disk.
+    stores.environments.saveEnvironments({
+      version: 1,
+      globalVariables: [{ name: "apiKey", value: "s3cr3t", secure: true }],
+      activeEnvironmentId: null,
+      environments: [],
+    });
+
+    // Simulate the renderer echoing back a value that had failed to decrypt:
+    // blank value carrying the per-entry decryptError marker.
+    stores.environments.saveEnvironments({
+      version: 1,
+      globalVariables: [
+        {
+          name: "apiKey",
+          value: "",
+          secure: true,
+          decryptError: "decrypt-failed",
+        },
+      ],
+      activeEnvironmentId: null,
+      environments: [],
+    });
+
+    // The on-disk ciphertext was preserved, so a healthy read still decrypts it.
+    const loaded = stores.environments.getEnvironments();
+    assert.equal(
+      loaded.globalVariables.find((v) => v.name === "apiKey").value,
+      "s3cr3t",
+    );
+  });
+
+  test("user re-entry overrides on-disk ciphertext (no spurious clobber-guard restore)", () => {
+    stores.environments.saveEnvironments({
+      version: 1,
+      globalVariables: [{ name: "apiKey", value: "old-secret", secure: true }],
+      activeEnvironmentId: null,
+      environments: [],
+    });
+    stores.environments.saveEnvironments({
+      version: 1,
+      globalVariables: [{ name: "apiKey", value: "new-secret", secure: true }],
+      activeEnvironmentId: null,
+      environments: [],
+    });
+    const loaded = stores.environments.getEnvironments();
+    assert.equal(
+      loaded.globalVariables.find((v) => v.name === "apiKey").value,
+      "new-secret",
+    );
+  });
+
+  test("decryptError marker is never persisted to disk", () => {
+    stores.environments.saveEnvironments({
+      version: 1,
+      globalVariables: [
+        {
+          name: "apiKey",
+          value: "s3cr3t",
+          secure: true,
+          decryptError: "decrypt-failed",
+        },
+      ],
+      activeEnvironmentId: null,
+      environments: [],
+    });
+    const raw = readRaw(new Paths(tmpDir).environmentsPath());
+    assert.ok(
+      !("decryptError" in raw.globalVariables.find((v) => v.name === "apiKey")),
+    );
   });
 });

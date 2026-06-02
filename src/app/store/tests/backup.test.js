@@ -18,7 +18,10 @@ const path = require("path");
 
 const { Stores } = require("../stores");
 const { BACKUP_KIND } = require("../backup");
+const { PasswordError } = require("../crypto");
 const { CURRENT_SCHEMA_VERSION } = require("../migrations");
+
+const PW = "correct horse battery staple";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -54,13 +57,18 @@ function seedWorkspace(stores) {
 
   stores.collectionsStore().saveCollections("coll-1", {
     version: 1,
-    variables: { base: "https://api.test" },
+    variables: [
+      { name: "base", value: "https://api.test", secure: false },
+      { name: "apiKey", value: "sk-collection-secret", secure: true },
+    ],
     collections: [
       {
         id: "folder-1",
         type: "collection",
         name: "Folder",
-        variables: {},
+        variables: [
+          { name: "folderKey", value: "folder-secret", secure: true },
+        ],
         children: [makeRequest()],
       },
     ],
@@ -68,9 +76,21 @@ function seedWorkspace(stores) {
 
   stores.environmentStore().saveEnvironments({
     version: 1,
-    globalVariables: { region: "eu" },
+    globalVariables: [
+      { name: "region", value: "eu", secure: false },
+      { name: "globalToken", value: "glob-secret", secure: true },
+    ],
     activeEnvironmentId: "env-1",
-    environments: [{ id: "env-1", name: "Dev", variables: { host: "dev" } }],
+    environments: [
+      {
+        id: "env-1",
+        name: "Dev",
+        variables: [
+          { name: "host", value: "dev", secure: false },
+          { name: "envSecret", value: "env-secret-val", secure: true },
+        ],
+      },
+    ],
   });
 }
 
@@ -82,6 +102,21 @@ function findRequest(nodes, id) {
     if (nested) return nested;
   }
   return null;
+}
+
+/** Recursively find a folder node by id within a legacy collection blob. */
+function findFolder(nodes, id) {
+  for (const node of nodes ?? []) {
+    if (node.id === id && node.type !== "request") return node;
+    const nested = findFolder(node.children, id);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+/** Value of a named variable in a list (array shape). */
+function varValue(list, name) {
+  return (list ?? []).find((v) => v.name === name)?.value;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -191,7 +226,10 @@ describe("BackupStore.importAll", () => {
       const req = findRequest(blob.collections, "req-1");
       assert.ok(req, "request should be restored");
       assert.equal(req.authBasic.password, "s3cret-pw");
-      assert.equal(blob.variables.base, "https://api.test");
+      assert.equal(
+        blob.variables.find((v) => v.name === "base").value,
+        "https://api.test",
+      );
 
       // Manifest + settings.
       const manifest = dest.collectionStore().getManifest();
@@ -201,7 +239,10 @@ describe("BackupStore.importAll", () => {
       // Environments.
       const envs = dest.environmentStore().getEnvironments();
       assert.equal(envs.environments[0].name, "Dev");
-      assert.equal(envs.globalVariables.region, "eu");
+      assert.equal(
+        envs.globalVariables.find((v) => v.name === "region").value,
+        "eu",
+      );
     } finally {
       rmTmpDir(destDir);
     }
@@ -293,5 +334,147 @@ describe("BackupStore.importAll", () => {
     assert.throws(() => dest.backupStore().importAll(null), {
       code: "INVALID_BACKUP",
     });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Password-protected (portable) backups
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("BackupStore password mode", () => {
+  let srcDir;
+  let src;
+
+  beforeEach(() => {
+    srcDir = makeTmpDir();
+    src = new Stores(srcDir);
+    seedWorkspace(src);
+  });
+
+  afterEach(() => rmTmpDir(srcDir));
+
+  test("requires a password to export in password mode", () => {
+    assert.throws(() => src.backupStore().exportAll({ mode: "password" }), {
+      message: /password is required/,
+    });
+  });
+
+  test("encrypts all secret locations as portable ciphertext", () => {
+    const env = src.backupStore().exportAll({ mode: "password", password: PW });
+
+    assert.equal(env.secretsMode, "password");
+    assert.equal(env.secretsIncluded, true);
+
+    const meta = env.collections[0].metadata;
+    assert.equal(varValue(meta.variables, "base"), "https://api.test"); // non-secret kept
+    assert.match(varValue(meta.variables, "apiKey"), /^encp:v1:/);
+
+    const folder = findFolder(env.collections[0].tree.children, "folder-1");
+    assert.match(varValue(folder.variables, "folderKey"), /^encp:v1:/);
+
+    assert.match(
+      varValue(env.environments.globalVariables, "globalToken"),
+      /^encp:v1:/,
+    );
+    assert.match(
+      varValue(env.environments.environments[0].variables, "envSecret"),
+      /^encp:v1:/,
+    );
+
+    const req =
+      findRequest(env.collections[0].requests, "req-1") ??
+      env.collections[0].requests[0];
+    assert.match(req.authBasic.password, /^encp:v1:/);
+    assert.match(env.manifest.settings.proxyUrl, /^encp:v1:/);
+  });
+
+  test("never leaks a plaintext secret in a password export", () => {
+    const serialized = JSON.stringify(
+      src.backupStore().exportAll({ mode: "password", password: PW }),
+    );
+    for (const secret of [
+      "sk-collection-secret",
+      "folder-secret",
+      "glob-secret",
+      "env-secret-val",
+      "s3cret-pw",
+      "proxy.secret",
+    ]) {
+      assert.ok(!serialized.includes(secret), `leaked ${secret}`);
+    }
+  });
+
+  test("round-trips secrets with the correct password", () => {
+    const env = src.backupStore().exportAll({ mode: "password", password: PW });
+
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      dest.backupStore().importAll(env, { mode: "replace", password: PW });
+
+      const blob = dest.collectionsStore().getCollections("coll-1");
+      assert.equal(varValue(blob.variables, "apiKey"), "sk-collection-secret");
+      const folder = findFolder(blob.collections, "folder-1");
+      assert.equal(varValue(folder.variables, "folderKey"), "folder-secret");
+      const req = findRequest(blob.collections, "req-1");
+      assert.equal(req.authBasic.password, "s3cret-pw");
+
+      const envs = dest.environmentStore().getEnvironments();
+      assert.equal(
+        varValue(envs.globalVariables, "globalToken"),
+        "glob-secret",
+      );
+      assert.equal(
+        varValue(envs.environments[0].variables, "envSecret"),
+        "env-secret-val",
+      );
+
+      assert.equal(
+        dest.collectionStore().getManifest().settings.proxyUrl,
+        "http://proxy.secret",
+      );
+    } finally {
+      rmTmpDir(destDir);
+    }
+  });
+
+  test("import without a password clears secrets but keeps the secure flag", () => {
+    const env = src.backupStore().exportAll({ mode: "password", password: PW });
+
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      dest.backupStore().importAll(env, { mode: "replace" }); // no password
+
+      const blob = dest.collectionsStore().getCollections("coll-1");
+      const apiKey = blob.variables.find((v) => v.name === "apiKey");
+      assert.equal(apiKey.value, "");
+      assert.equal(apiKey.secure, true);
+      // Non-secret survives untouched.
+      assert.equal(varValue(blob.variables, "base"), "https://api.test");
+
+      const req = findRequest(blob.collections, "req-1");
+      assert.equal(req.authBasic.password, "");
+    } finally {
+      rmTmpDir(destDir);
+    }
+  });
+
+  test("import with the wrong password throws PasswordError", () => {
+    const env = src.backupStore().exportAll({ mode: "password", password: PW });
+
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      assert.throws(
+        () =>
+          dest
+            .backupStore()
+            .importAll(env, { mode: "replace", password: "wrong" }),
+        (err) => err instanceof PasswordError && err.reason === "bad-password",
+      );
+    } finally {
+      rmTmpDir(destDir);
+    }
   });
 });

@@ -22,6 +22,7 @@
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
+import { normalizeVariables } from "./variable-shape.js";
 
 export class VariablesPopup {
   /** @type {HTMLElement} */ #el;
@@ -40,7 +41,7 @@ export class VariablesPopup {
   /** true = textarea (bulk); false = KV rows */
   #isBulkMode = true;
 
-  /** @type {{ id:string, name:string, value:string }[]} */
+  /** @type {{ id:string, name:string, value:string, secure:boolean }[]} */
   #rows = [];
 
   /** @type {number|null} */ #saveTimer = null;
@@ -49,6 +50,9 @@ export class VariablesPopup {
   #removeHeaders = false;
 
   static #SAVE_MS = 500;
+
+  /** Auto re-mask a revealed secure value after this many ms. */
+  static #REVEAL_MS = 30000;
 
   constructor() {
     this.#el = this.#build();
@@ -73,17 +77,14 @@ export class VariablesPopup {
   }
 
   /**
-   * @param {{ envId:string, envName:string, variables:object, bulkEditor?:boolean }} opts
+   * @param {{ envId:string, envName:string, variables:Array|object, bulkEditor?:boolean }} opts
    */
   open({ envId, envName, variables, bulkEditor = true }) {
     this.#envId = envId;
     this.#titleEl.textContent = `Variables — ${envName}`;
     this.#el.setAttribute("aria-label", `Variables — ${envName}`);
 
-    const vars =
-      variables && typeof variables === "object" && !Array.isArray(variables)
-        ? variables
-        : {};
+    const vars = normalizeVariables(variables);
 
     clearTimeout(this.#saveTimer);
 
@@ -142,7 +143,7 @@ export class VariablesPopup {
             Bulk editor
           </label>
           <button class="icon-btn params-toolbar-btn vars-add-btn" title="Add variable" aria-label="Add variable" style="display:none"><span class="icon">${icon("add", { size: 15 })}</span></button>
-          <span class="vars-hint">One  name=value  per line</span>
+          <span class="vars-hint">One  name=value  per line · prefix  $  for secure</span>
         </div>
         <textarea
           class="body-text-editor vars-textarea"
@@ -153,7 +154,7 @@ export class VariablesPopup {
         ></textarea>
         <div class="vars-kv-wrap" style="display:none">
           <div class="vars-kv-header params-header-row">
-            <span>Name</span><span class="params-col-value">Value</span><span></span>
+            <span>Name</span><span class="params-col-value">Value</span><span></span><span></span>
           </div>
           <div class="vars-kv-list params-list" aria-label="Variables"></div>
         </div>
@@ -210,7 +211,7 @@ export class VariablesPopup {
 
     if (nowBulk && !this.#isBulkMode) {
       // Table → Bulk: serialise rows to text
-      this.#textareaEl.value = this.#varsToText(this.#rowsToObject());
+      this.#textareaEl.value = this.#varsToText(this.#rowsToArray());
     } else if (!nowBulk && this.#isBulkMode) {
       // Bulk → Table: parse text to rows
       this.#rows = this.#varsToRows(this.#textToVars(this.#textareaEl.value));
@@ -237,49 +238,61 @@ export class VariablesPopup {
   // ── Conversion helpers ──────────────────────────────────────────────────────
 
   /**
-   * Convert a variables object to multi-line  name=value  text.
-   * @param {object} vars
+   * Convert a canonical variables array to multi-line  name=value  text.
+   * Secure variables are prefixed with "$ " (dollar + space) so the bulk
+   * editor round-trips the secure flag.
+   * @param {{name:string,value:string,secure:boolean}[]} vars
    * @returns {string}
    */
   #varsToText(vars) {
-    return Object.entries(vars)
-      .map(([k, v]) => `${k}=${v}`)
+    return vars
+      .map((v) => `${v.secure ? "$ " : ""}${v.name}=${v.value}`)
       .join("\n");
   }
 
   /**
-   * Parse multi-line  name=value  text into a plain object.
-   * Lines without '=' are silently ignored.
+   * Parse multi-line  name=value  text into a canonical variables array.
+   * A leading "$ " (dollar + space) marks the variable secure. Lines without
+   * '=' are silently ignored.
    * @param {string} text
-   * @returns {object}
+   * @returns {{name:string,value:string,secure:boolean}[]}
    */
   #textToVars(text) {
-    const out = {};
+    const out = [];
     for (const line of text.split("\n")) {
-      const trimmed = line.trim();
+      let trimmed = line.trim();
       if (!trimmed) continue;
+      let secure = false;
+      if (trimmed.startsWith("$ ")) {
+        secure = true;
+        trimmed = trimmed.slice(1).trim();
+      }
       const eqIdx = trimmed.indexOf("=");
       if (eqIdx === -1) continue;
       const key = trimmed.slice(0, eqIdx).trim();
       const val = trimmed.slice(eqIdx + 1);
-      if (key) out[key] = val;
+      if (key) out.push({ name: key, value: val, secure });
     }
     return out;
   }
 
-  /** Convert a variables object to a rows array. */
+  /** Convert a canonical variables array to an editor rows array. */
   #varsToRows(vars) {
-    return Object.entries(vars).map(([name, value]) => ({
+    return vars.map((v) => ({
       id: crypto.randomUUID(),
-      name,
-      value: typeof value === "string" ? value : JSON.stringify(value),
+      name: v.name,
+      value: v.value,
+      secure: !!v.secure,
     }));
   }
 
-  #rowsToObject() {
-    const out = {};
+  /** Serialise the editor rows back to a canonical variables array. */
+  #rowsToArray() {
+    const out = [];
     for (const r of this.#rows) {
-      if (r.name.trim()) out[r.name] = r.value;
+      if (r.name.trim()) {
+        out.push({ name: r.name, value: r.value, secure: !!r.secure });
+      }
     }
     return out;
   }
@@ -323,6 +336,9 @@ export class VariablesPopup {
       }
     });
 
+    const valWrap = document.createElement("div");
+    valWrap.className = "params-value-wrap";
+
     const valIn = document.createElement("input");
     valIn.type = "text";
     valIn.className = "params-input params-value";
@@ -340,6 +356,64 @@ export class VariablesPopup {
       }
     });
 
+    // Inline reveal (eye) toggle — only shown for secure rows.
+    const reveal = document.createElement("button");
+    reveal.type = "button";
+    reveal.className = "icon-btn params-reveal-btn";
+    reveal.setAttribute("tabindex", "-1");
+
+    let revealed = false;
+    let revealTimer = null;
+    const applyMask = () => {
+      const masked = !!row.secure && !revealed;
+      valIn.classList.toggle("params-value--masked", masked);
+      reveal.style.display = row.secure ? "" : "none";
+      reveal.innerHTML = icon(revealed ? "eyeOff" : "eye", { size: 14 });
+      const action = revealed ? "Hide value" : "Reveal value";
+      reveal.title = action;
+      reveal.setAttribute("aria-label", action);
+      reveal.setAttribute("aria-pressed", String(revealed));
+    };
+    reveal.addEventListener("click", () => {
+      revealed = !revealed;
+      clearTimeout(revealTimer);
+      if (revealed) {
+        revealTimer = setTimeout(() => {
+          revealed = false;
+          applyMask();
+        }, VariablesPopup.#REVEAL_MS);
+      }
+      applyMask();
+    });
+
+    valWrap.appendChild(valIn);
+    valWrap.appendChild(reveal);
+
+    // Per-row secure (lock) toggle — encrypts the value at rest.
+    const secure = document.createElement("button");
+    secure.type = "button";
+    secure.className = "icon-btn params-secure-btn";
+    const applySecure = () => {
+      secure.classList.toggle("is-active", !!row.secure);
+      secure.innerHTML = icon(row.secure ? "lock" : "lockOpen", { size: 14 });
+      const label = row.secure
+        ? "Secure (encrypted at rest)"
+        : "Mark variable secure";
+      secure.title = label;
+      secure.setAttribute("aria-label", label);
+      secure.setAttribute("aria-pressed", String(!!row.secure));
+    };
+    secure.addEventListener("click", () => {
+      row.secure = !row.secure;
+      if (!row.secure) {
+        revealed = false;
+        clearTimeout(revealTimer);
+      }
+      applySecure();
+      applyMask();
+      this.#saveFromRows();
+    });
+
     const del = document.createElement("button");
     del.className = "icon-btn params-delete-btn";
     del.title = "Delete variable";
@@ -351,13 +425,17 @@ export class VariablesPopup {
     });
 
     el.appendChild(nameIn);
-    el.appendChild(valIn);
+    el.appendChild(valWrap);
+    el.appendChild(secure);
     el.appendChild(del);
+
+    applySecure();
+    applyMask();
     return el;
   }
 
   #addRow() {
-    const row = { id: crypto.randomUUID(), name: "", value: "" };
+    const row = { id: crypto.randomUUID(), name: "", value: "", secure: false };
     this.#rows.push(row);
     this.#renderRows();
     const rows = this.#kvListEl.querySelectorAll(".vars-kv-row");
@@ -382,7 +460,7 @@ export class VariablesPopup {
 
   #saveFromRows() {
     if (!this.#envId) return;
-    this.#dispatchSave(this.#rowsToObject());
+    this.#dispatchSave(this.#rowsToArray());
   }
 
   #dispatchSave(variables) {
