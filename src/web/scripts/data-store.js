@@ -97,39 +97,61 @@ function isElectron() {
   );
 }
 
-// ── Low-level manifest I/O ────────────────────────────────────────────────────
-
-async function _loadManifest() {
+/**
+ * Run a store operation across either transport with uniform error handling.
+ * Executes `electronFn` under Electron, otherwise `httpFn`; on any thrown error
+ * logs a warning tagged with `label` and resolves to `fallback`.
+ *
+ * @template T
+ * @param {string}          label       Identifier used in the warning message
+ * @param {() => Promise<T>} electronFn  Electron (IPC) transport path
+ * @param {() => Promise<T>} httpFn      Go dev-server (fetch) transport path
+ * @param {T}               [fallback]   Value returned when the operation fails
+ * @returns {Promise<T>}
+ */
+async function storeCall(label, electronFn, httpFn, fallback) {
   try {
-    if (isElectron()) return await window.wurl.store.manifest.get();
-    const res = await fetch("/api/collections");
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    return await (isElectron() ? electronFn() : httpFn());
   } catch (err) {
-    console.warn("[data-store] manifest load failed:", err.message);
-    return {
-      version: 2,
-      collections: [],
-      activeCollectionId: null,
-      settings: {},
-    };
+    console.warn(`[data-store] ${label} failed:`, err.message);
+    return fallback;
   }
 }
 
+/**
+ * Fetch a URL and parse a JSON body, throwing on a non-OK status.
+ * @param {string} url
+ * @param {RequestInit} [opts]
+ * @returns {Promise<any>}
+ */
+async function httpJson(url, opts) {
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// ── Low-level manifest I/O ────────────────────────────────────────────────────
+
+async function _loadManifest() {
+  return storeCall(
+    "manifest load",
+    () => window.wurl.store.manifest.get(),
+    () => httpJson("/api/collections"),
+    { version: 2, collections: [], activeCollectionId: null, settings: {} },
+  );
+}
+
 async function _persistManifest() {
-  try {
-    if (isElectron()) {
-      await window.wurl.store.manifest.save(_manifest);
-      return;
-    }
-    await fetch("/api/collections", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(_manifest),
-    });
-  } catch (err) {
-    console.warn("[data-store] manifest save failed:", err.message);
-  }
+  return storeCall(
+    "manifest save",
+    () => window.wurl.store.manifest.save(_manifest),
+    () =>
+      fetch("/api/collections", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(_manifest),
+      }),
+  );
 }
 
 // ── Low-level per-collection I/O ──────────────────────────────────────────────
@@ -137,54 +159,34 @@ async function _persistManifest() {
 // It is assembled from / decomposed into the new per-file layout transparently.
 
 async function _loadEnvFile(collectionId) {
-  try {
-    let raw;
-    if (isElectron()) {
-      raw = await window.wurl.store.env.get(collectionId);
-    } else {
-      const res = await fetch(
-        `/api/env?id=${encodeURIComponent(collectionId)}`,
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      raw = await res.json();
-    }
-    return {
-      items: Array.isArray(raw?.collections) ? raw.collections : [],
-      variables:
-        raw?.variables && typeof raw.variables === "object"
-          ? raw.variables
-          : {},
-    };
-  } catch (err) {
-    console.warn(
-      `[data-store] env load failed (${collectionId}):`,
-      err.message,
-    );
-    return { items: [], variables: {} };
-  }
+  const normalize = (raw) => ({
+    items: Array.isArray(raw?.collections) ? raw.collections : [],
+    variables:
+      raw?.variables && typeof raw.variables === "object" ? raw.variables : {},
+  });
+  return storeCall(
+    `env load (${collectionId})`,
+    async () => normalize(await window.wurl.store.env.get(collectionId)),
+    async () =>
+      normalize(
+        await httpJson(`/api/env?id=${encodeURIComponent(collectionId)}`),
+      ),
+    { items: [], variables: {} },
+  );
 }
 
 async function _saveEnvFile(collectionId, items, variables = {}) {
-  try {
-    if (isElectron()) {
-      await window.wurl.store.env.save(collectionId, {
-        version: 1,
-        collections: items,
-        variables,
-      });
-      return;
-    }
-    await fetch(`/api/env?id=${encodeURIComponent(collectionId)}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ version: 1, collections: items, variables }),
-    });
-  } catch (err) {
-    console.warn(
-      `[data-store] env save failed (${collectionId}):`,
-      err.message,
-    );
-  }
+  const blob = { version: 1, collections: items, variables };
+  return storeCall(
+    `env save (${collectionId})`,
+    () => window.wurl.store.env.save(collectionId, blob),
+    () =>
+      fetch(`/api/env?id=${encodeURIComponent(collectionId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(blob),
+      }),
+  );
 }
 
 // ── Public: core API ──────────────────────────────────────────────────────────
@@ -380,17 +382,12 @@ export async function saveCollectionVariables(collectionId, variables) {
  * @returns {Promise<void>}
  */
 export async function deleteRequest(id) {
-  try {
-    if (isElectron()) {
-      await window.wurl.store.requests.delete(id);
-      return;
-    }
-    await fetch(`/api/requests/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-  } catch (err) {
-    console.warn(`[data-store] deleteRequest(${id}) failed:`, err.message);
-  }
+  return storeCall(
+    `deleteRequest(${id})`,
+    () => window.wurl.store.requests.delete(id),
+    () =>
+      fetch(`/api/requests/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  );
 }
 
 // ── Public: request history API ───────────────────────────────────────────────
@@ -403,22 +400,20 @@ export async function deleteRequest(id) {
  * @returns {Promise<{ items: object[], nextCursor: string }>}
  */
 export async function listHistory(requestId, options = {}) {
-  try {
-    if (isElectron())
-      return await window.wurl.store.history.list(requestId, options);
-    const params = new URLSearchParams();
-    if (options.limit) params.set("limit", String(options.limit));
-    if (options.cursor) params.set("cursor", options.cursor);
-    const qs = params.toString() ? `?${params}` : "";
-    const res = await fetch(
-      `/api/requests/${encodeURIComponent(requestId)}/history${qs}`,
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.warn(`[data-store] listHistory(${requestId}) failed:`, err.message);
-    return { items: [], nextCursor: "" };
-  }
+  return storeCall(
+    `listHistory(${requestId})`,
+    () => window.wurl.store.history.list(requestId, options),
+    () => {
+      const params = new URLSearchParams();
+      if (options.limit) params.set("limit", String(options.limit));
+      if (options.cursor) params.set("cursor", options.cursor);
+      const qs = params.toString() ? `?${params}` : "";
+      return httpJson(
+        `/api/requests/${encodeURIComponent(requestId)}/history${qs}`,
+      );
+    },
+    { items: [], nextCursor: "" },
+  );
 }
 
 /**
@@ -430,24 +425,17 @@ export async function listHistory(requestId, options = {}) {
  * @returns {Promise<object|null>}  Stored entry
  */
 export async function addHistory(requestId, entry, response) {
-  try {
-    if (isElectron())
-      return await window.wurl.store.history.add(requestId, entry, response);
-    const payload = response ? { ...entry, response } : entry;
-    const res = await fetch(
-      `/api/requests/${encodeURIComponent(requestId)}/history`,
-      {
+  return storeCall(
+    `addHistory(${requestId})`,
+    () => window.wurl.store.history.add(requestId, entry, response),
+    () =>
+      httpJson(`/api/requests/${encodeURIComponent(requestId)}/history`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.warn(`[data-store] addHistory(${requestId}) failed:`, err.message);
-    return null;
-  }
+        body: JSON.stringify(response ? { ...entry, response } : entry),
+      }),
+    null,
+  );
 }
 
 /**
@@ -458,22 +446,19 @@ export async function addHistory(requestId, entry, response) {
  * @returns {Promise<object|null>}
  */
 export async function getHistoryResponse(requestId, historyId) {
-  try {
-    if (isElectron())
-      return await window.wurl.store.history.getResponse(requestId, historyId);
-    const res = await fetch(
-      `/api/requests/${encodeURIComponent(requestId)}/history/${encodeURIComponent(historyId)}/response`,
-    );
-    if (res.status === 404) return null;
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.warn(
-      `[data-store] getHistoryResponse(${requestId}, ${historyId}) failed:`,
-      err.message,
-    );
-    return null;
-  }
+  return storeCall(
+    `getHistoryResponse(${requestId}, ${historyId})`,
+    () => window.wurl.store.history.getResponse(requestId, historyId),
+    async () => {
+      const res = await fetch(
+        `/api/requests/${encodeURIComponent(requestId)}/history/${encodeURIComponent(historyId)}/response`,
+      );
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    },
+    null,
+  );
 }
 
 /**
@@ -484,21 +469,15 @@ export async function getHistoryResponse(requestId, historyId) {
  * @returns {Promise<void>}
  */
 export async function deleteHistory(requestId, historyId) {
-  try {
-    if (isElectron()) {
-      await window.wurl.store.history.delete(requestId, historyId);
-      return;
-    }
-    await fetch(
-      `/api/requests/${encodeURIComponent(requestId)}/history/${encodeURIComponent(historyId)}`,
-      { method: "DELETE" },
-    );
-  } catch (err) {
-    console.warn(
-      `[data-store] deleteHistory(${requestId}, ${historyId}) failed:`,
-      err.message,
-    );
-  }
+  return storeCall(
+    `deleteHistory(${requestId}, ${historyId})`,
+    () => window.wurl.store.history.delete(requestId, historyId),
+    () =>
+      fetch(
+        `/api/requests/${encodeURIComponent(requestId)}/history/${encodeURIComponent(historyId)}`,
+        { method: "DELETE" },
+      ),
+  );
 }
 
 /**
@@ -508,20 +487,14 @@ export async function deleteHistory(requestId, historyId) {
  * @returns {Promise<void>}
  */
 export async function clearHistory(requestId) {
-  try {
-    if (isElectron()) {
-      await window.wurl.store.history.clear(requestId);
-      return;
-    }
-    await fetch(`/api/requests/${encodeURIComponent(requestId)}/history`, {
-      method: "DELETE",
-    });
-  } catch (err) {
-    console.warn(
-      `[data-store] clearHistory(${requestId}) failed:`,
-      err.message,
-    );
-  }
+  return storeCall(
+    `clearHistory(${requestId})`,
+    () => window.wurl.store.history.clear(requestId),
+    () =>
+      fetch(`/api/requests/${encodeURIComponent(requestId)}/history`, {
+        method: "DELETE",
+      }),
+  );
 }
 
 /**
@@ -532,16 +505,10 @@ export async function clearHistory(requestId) {
  * @returns {Promise<void>}
  */
 export async function trimHistory(maxEntries) {
-  try {
-    if (isElectron()) {
-      await window.wurl.store.history.trim(maxEntries);
-      return;
-    }
+  return storeCall(
+    `trimHistory(${maxEntries})`,
+    () => window.wurl.store.history.trim(maxEntries),
     // No Go dev-server equivalent — history trimming is a main-process concern.
-  } catch (err) {
-    console.warn(
-      `[data-store] trimHistory(${maxEntries}) failed:`,
-      err.message,
-    );
-  }
+    () => {},
+  );
 }

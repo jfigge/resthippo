@@ -9,15 +9,9 @@
 
 "use strict";
 
-import { postTokenRequest } from "../network/electron-network.js";
-import {
-  oauthResultFromTokenResponse,
-  oauthResultFromError,
-} from "../types/oauth-types.js";
-import {
-  configurationError,
-  fromTokenErrorResponse,
-} from "../types/oauth-errors.js";
+import { applyClientAuth, requestToken } from "./token-exchange.js";
+import { oauthResultFromError } from "../types/oauth-types.js";
+import { configurationError } from "../types/oauth-errors.js";
 
 /**
  * Execute the Client Credentials flow.
@@ -30,7 +24,7 @@ import {
  * @returns {Promise<import('../types/oauth-types').OAuthResult>}
  */
 export async function clientCredentialsFlow(config) {
-  // ── Validate ─────────────────────────────────────────────────────────────
+  // ── Validate ──────────────────────────────────────────────────────────────
   if (!config.clientId?.trim())
     return oauthResultFromError(configurationError("Client ID is required."));
   if (!config.accessTokenUrl?.trim())
@@ -38,7 +32,7 @@ export async function clientCredentialsFlow(config) {
       configurationError("Access Token URL is required."),
     );
 
-  // ── Build parameters ──────────────────────────────────────────────────────
+  // ── Build parameters ────────────────────────────────────────────────────────
   const params = { grant_type: "client_credentials" };
 
   if (config.scope?.trim()) params.scope = config.scope.trim();
@@ -52,49 +46,10 @@ export async function clientCredentialsFlow(config) {
     }
   }
 
-  // ── Client authentication ─────────────────────────────────────────────────
+  // ── Client authentication ────────────────────────────────────────────────────
   const headers = {};
-  const clientId = config.clientId.trim();
-  const credMethod = config.credentials ?? "header";
+  applyClientAuth(params, headers, config);
 
-  params.client_id = clientId;
-  if (credMethod === "body") {
-    if (config.clientSecret?.trim()) {
-      params.client_secret = config.clientSecret.trim();
-    }
-  } else {
-    // Default: Authorization: Basic header
-    if (config.clientSecret?.trim()) {
-      const encoded = btoa(`${clientId}:${config.clientSecret.trim()}`);
-      headers["Authorization"] = `Basic ${encoded}`;
-    }
-  }
-
-  // ── Execute ──────────────────────────���────────────────────────────────────
-  let response;
-  try {
-    response = await postTokenRequest(config.accessTokenUrl.trim(), params, {
-      headers,
-      verifySsl: config.verifySsl !== false,
-      timeout: config.timeout ?? 30_000,
-    });
-  } catch (err) {
-    return oauthResultFromError(err);
-  }
-
-  // ── Handle error response ────────────────────────────────��────────────────
-  if (response.error || response.httpStatus >= 400) {
-    return oauthResultFromError(
-      fromTokenErrorResponse(response, response.httpStatus),
-    );
-  }
-
-  // ── Validate minimum success fields ───────────────────────────────────────
-  if (!response.access_token) {
-    return oauthResultFromError(
-      configurationError("Token endpoint did not return an access_token."),
-    );
-  }
-
-  return oauthResultFromTokenResponse(response);
+  // ── Execute ──────────────────────────────────────────────────────────────────
+  return requestToken(config.accessTokenUrl.trim(), params, headers, config);
 }

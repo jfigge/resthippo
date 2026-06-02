@@ -43,6 +43,13 @@
   --color-method-head: #f9e2af;
   --color-method-options: #94e2d5;
 
+  /* ── Derived tints ───────────────────────────────────────────────────── */
+  /* Destructive / dismiss controls (delete, danger, close) share one
+     error-tinted hover fill. The inner var(--color-error) resolves per-theme
+     at the use site, so this single definition stays theme-reactive across
+     every palette without per-theme redefinition. */
+  --tint-error-hover: color-mix(in srgb, var(--color-error) 15%, transparent);
+
   /* ── Typography ──────────────────────────────────────────────────────── */
   --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
@@ -84,6 +91,15 @@
   /* ── Transitions ─────────────────────────────────────────────────────── */
   --transition-fast: 120ms ease;
   --transition-normal: 200ms ease;
+
+  /* ── Elevation (drop shadows) ────────────────────────────────────────── */
+  /* Three tiers shared by every floating surface. --shadow-menu is the
+     two-layer shadow used by context menus and pickers; --shadow-float the
+     single-layer lift for autocomplete/tooltip panels; --shadow-modal the
+     heaviest, reserved for centred dialogs. */
+  --shadow-menu: 0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
+  --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
 
   /* ── Splitter ────────────────────────────────────────────────────────── */
   --splitter-size: 2px;

@@ -17,16 +17,9 @@
 
 "use strict";
 
-// ── Private state ─────────────────────────────────────────────────────────────
+import { escapeHtml } from "./utils/html.js";
 
-/** HTML-escape helper — prevents XSS when inserting caller-supplied strings into innerHTML. */
-function _esc(s) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+// ── Private state ─────────────────────────────────────────────────────────────
 
 /** @type {{ element: HTMLElement, onMaskClick?: () => void } | null} */
 let _activePopup = null;
@@ -343,23 +336,23 @@ export const PopupManager = {
     onConfirm,
   }) {
     const noteHtml = note
-      ? `<p class="popup-confirm-note">${_esc(note)}</p>`
+      ? `<p class="popup-confirm-note">${escapeHtml(note)}</p>`
       : "";
     const { dlg, dismiss } = _showOneShotDialog({
       cssClass: "popup-confirm",
       role: "alertdialog",
-      ariaLabel: _esc(title),
+      ariaLabel: escapeHtml(title),
       innerHTML: `
         <div class="popup-header">
-          <span class="popup-title">${_esc(title)}</span>
+          <span class="popup-title">${escapeHtml(title)}</span>
         </div>
         <div class="popup-body popup-confirm-body">
-          <p>${_esc(message)}</p>
+          <p>${escapeHtml(message)}</p>
           ${noteHtml}
         </div>
         <div class="popup-footer">
           <button class="popup-btn popup-btn--secondary" data-action="cancel">Cancel</button>
-          <button class="popup-btn ${confirmClass}"      data-action="confirm">${_esc(confirmLabel)}</button>
+          <button class="popup-btn ${confirmClass}"      data-action="confirm">${escapeHtml(confirmLabel)}</button>
         </div>
       `,
       focusSel: "[data-action='cancel']",
@@ -488,11 +481,11 @@ export const PopupManager = {
     const itemsHtml = variables
       .map((v) => {
         const valueCell = v.found
-          ? `<span class="var-warn-value var-warn-value--known">${_esc(v.value)}</span>`
+          ? `<span class="var-warn-value var-warn-value--known">${escapeHtml(v.value)}</span>`
           : `<span class="var-warn-value var-warn-value--unknown">?</span>`;
         return `
         <li class="var-warn-item">
-          <span class="var-warn-name">{{${_esc(v.name)}}}</span>
+          <span class="var-warn-name">{{${escapeHtml(v.name)}}}</span>
           <span class="var-warn-arrow">→</span>
           ${valueCell}
         </li>`;
@@ -513,7 +506,7 @@ export const PopupManager = {
         </div>
         <div class="popup-footer">
           <button class="popup-btn popup-btn--secondary" data-action="cancel">Cancel</button>
-          <button class="popup-btn popup-btn--warning"   data-action="proceed">${_esc(actionLabel)}</button>
+          <button class="popup-btn popup-btn--warning"   data-action="proceed">${escapeHtml(actionLabel)}</button>
         </div>
       `,
       focusSel: "[data-action='cancel']",
@@ -539,13 +532,13 @@ export const PopupManager = {
     const { dlg, dismiss } = _showOneShotDialog({
       cssClass: "popup-notify",
       role: "dialog",
-      ariaLabel: _esc(title),
+      ariaLabel: escapeHtml(title),
       innerHTML: `
         <div class="popup-header">
-          <span class="popup-title">${_esc(title)}</span>
+          <span class="popup-title">${escapeHtml(title)}</span>
         </div>
         <div class="popup-body popup-notify-body">
-          ${message ? `<p>${_esc(message)}</p>` : ""}
+          ${message ? `<p>${escapeHtml(message)}</p>` : ""}
         </div>
         <div class="popup-footer">
           <button class="popup-btn popup-btn--primary" data-action="ok">OK</button>

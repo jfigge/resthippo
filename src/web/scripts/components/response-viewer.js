@@ -15,6 +15,7 @@
 import Prism from "../vendor/prism.js";
 import renderMarkdown from "../vendor/markdown.js";
 import { icon } from "../icons.js";
+import { escapeHtml } from "../utils/html.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
 
 const TABS = [
@@ -477,11 +478,7 @@ export class ResponseViewer {
     const resp = this.#lastResponse;
     if (!resp?.body) return;
 
-    const ct =
-      Object.entries(resp.headers ?? {}).find(
-        ([k]) => k.toLowerCase() === "content-type",
-      )?.[1] ?? "";
-    const kind = classifyContentType(ct);
+    const kind = classifyContentType(this.#contentTypeOf(resp.headers));
 
     let ext = "txt";
     let filterName = "Text";
@@ -891,22 +888,50 @@ export class ResponseViewer {
     this.#updateNavButtons();
   }
 
-  #emptyState() {
+  /**
+   * Build a `.panel-placeholder` element — the empty/loading/error message a
+   * pane shows before (or instead of) real content. Every placeholder across
+   * the viewer is built here so the markup (optional emoji icon span + text
+   * span) stays identical; callers vary only the icon, text, and extra classes.
+   * `text` is escaped, so dynamic strings (e.g. an error message) are safe; the
+   * static call sites pass plain prose that escapes to itself.
+   *
+   * @param {object}  opts
+   * @param {string} [opts.icon]       emoji for the icon span (omitted if falsy)
+   * @param {string}  opts.text        message text (escaped)
+   * @param {string} [opts.className]  extra class(es) on the placeholder div
+   * @param {string} [opts.iconClass]  extra class(es) on the icon span
+   * @returns {HTMLDivElement}
+   */
+  #placeholder({ icon, text, className = "", iconClass = "" } = {}) {
     const el = document.createElement("div");
-    el.className = "panel-placeholder";
-    el.innerHTML =
-      '<span class="placeholder-icon">📡</span>' +
-      "<span>Send a request to see the response</span>";
+    el.className = className
+      ? `panel-placeholder ${className}`
+      : "panel-placeholder";
+    const parts = [];
+    if (icon) {
+      const ic = iconClass
+        ? `placeholder-icon ${iconClass}`
+        : "placeholder-icon";
+      parts.push(`<span class="${ic}">${icon}</span>`);
+    }
+    parts.push(`<span>${escapeHtml(text)}</span>`);
+    el.innerHTML = parts.join("");
     return el;
   }
 
+  #emptyState() {
+    return this.#placeholder({
+      icon: "📡",
+      text: "Send a request to see the response",
+    });
+  }
+
   #consolePlaceholder() {
-    const el = document.createElement("div");
-    el.className = "panel-placeholder";
-    el.innerHTML =
-      '<span class="placeholder-icon">🖥️</span>' +
-      "<span>Verbose output from each request will appear here</span>";
-    return el;
+    return this.#placeholder({
+      icon: "🖥️",
+      text: "Verbose output from each request will appear here",
+    });
   }
 
   // ── Body context menu ─────────────────────────────────────────────────────
@@ -1009,6 +1034,56 @@ export class ResponseViewer {
   // ── Render body pane ──────────────────────────────────────────────────────
 
   /**
+   * Resolve the Content-Type header value case-insensitively.
+   *
+   * Node.js (Electron) lowercases all header names while browsers may preserve
+   * title-case; searching case-insensitively lets the same lookup work in both
+   * environments. Returns "" when no Content-Type header is present.
+   *
+   * @param {object} headers  - response header map
+   * @returns {string} the raw Content-Type value (with params), or ""
+   */
+  #contentTypeOf(headers) {
+    return (
+      Object.entries(headers ?? {}).find(
+        ([k]) => k.toLowerCase() === "content-type",
+      )?.[1] ?? ""
+    );
+  }
+
+  /**
+   * Fill an element with Prism-highlighted markup when a grammar is available,
+   * otherwise with plain text. Centralises the highlight/plain fork shared by
+   * every code-rendering path.
+   *
+   * @param {HTMLElement} el      target (<code> block or per-line <span>)
+   * @param {string} text         source text to render
+   * @param {string} prismLang    Prism language id (the highlight hint)
+   * @param {object} [grammar]    resolved Prism grammar; defaults to the lookup
+   *                              for prismLang. Pass an already-resolved grammar
+   *                              in hot loops to skip the per-call lookup.
+   */
+  #fillHighlighted(el, text, prismLang, grammar = Prism.languages[prismLang]) {
+    if (grammar) el.innerHTML = Prism.highlight(text, grammar, prismLang);
+    else el.textContent = text;
+  }
+
+  /**
+   * Append a `<code class="language-…">` block to a <pre>, highlighted via
+   * #fillHighlighted.
+   *
+   * @param {HTMLPreElement} pre   the <pre> to append to
+   * @param {string} text          source text
+   * @param {string} prismLang     Prism language id
+   */
+  #appendCodeBlock(pre, text, prismLang) {
+    const code = document.createElement("code");
+    code.className = `language-${prismLang}`;
+    this.#fillHighlighted(code, text, prismLang);
+    pre.appendChild(code);
+  }
+
+  /**
    * Main body-pane renderer — routes to text, HTML iframe, or Electron overlay
    * depending on content type and render mode.
    *
@@ -1016,14 +1091,7 @@ export class ResponseViewer {
    */
   #renderBodyPane(response) {
     const pane = this.#bodyPane;
-    // Node.js (Electron) lowercases all header names; browsers may preserve
-    // title-case.  Search case-insensitively so both environments work.
-    const hdrs = response.headers ?? {};
-    const ct =
-      Object.entries(hdrs).find(
-        ([k]) => k.toLowerCase() === "content-type",
-      )?.[1] ?? "";
-    const category = classifyContentType(ct);
+    const category = classifyContentType(this.#contentTypeOf(response.headers));
 
     this.#clearHighlights();
     pane.innerHTML = "";
@@ -1113,15 +1181,7 @@ export class ResponseViewer {
     if (foldable) {
       this.#renderFoldableCode(pre, displayText, prismLang);
     } else if (prismLang) {
-      const grammar = Prism.languages[prismLang];
-      const code = document.createElement("code");
-      code.className = `language-${prismLang}`;
-      if (grammar) {
-        code.innerHTML = Prism.highlight(displayText, grammar, prismLang);
-      } else {
-        code.textContent = displayText;
-      }
-      pre.appendChild(code);
+      this.#appendCodeBlock(pre, displayText, prismLang);
     } else {
       pre.textContent = displayText;
     }
@@ -1154,7 +1214,7 @@ export class ResponseViewer {
       const grammar = prismLang ? Prism.languages[prismLang] : null;
       if (!grammar) continue;
       // textContent is the decoded source (marked escaped it into the markup).
-      code.innerHTML = Prism.highlight(code.textContent, grammar, prismLang);
+      this.#fillHighlighted(code, code.textContent, prismLang, grammar);
       code.className = `language-${prismLang}`;
     }
   }
@@ -1193,11 +1253,7 @@ export class ResponseViewer {
     // Very large bodies: skip the per-line machinery and fall back to one block.
     const MAX_FOLD_LINES = 5000;
     if (lines.length > MAX_FOLD_LINES) {
-      const code = document.createElement("code");
-      code.className = `language-${prismLang}`;
-      if (grammar) code.innerHTML = Prism.highlight(text, grammar, prismLang);
-      else code.textContent = text;
-      pre.appendChild(code);
+      this.#appendCodeBlock(pre, text, prismLang);
       return;
     }
 
@@ -1278,9 +1334,7 @@ export class ResponseViewer {
 
       const code = document.createElement("span");
       code.className = `res-fold-code language-${prismLang}`;
-      if (grammar)
-        code.innerHTML = Prism.highlight(lines[i], grammar, prismLang);
-      else code.textContent = lines[i];
+      this.#fillHighlighted(code, lines[i], prismLang, grammar);
 
       lineEl.append(gutter, code);
       frag.appendChild(lineEl);
@@ -1367,12 +1421,14 @@ export class ResponseViewer {
     this.#htmlPreviewActive = true;
 
     // Show a lightweight loading indicator inside the pane while the URL loads.
-    const placeholder = document.createElement("div");
-    placeholder.className = "panel-placeholder res-html-loading";
-    placeholder.innerHTML =
-      '<span class="placeholder-icon res-spinner">⏳</span>' +
-      "<span>Loading preview…</span>";
-    pane.appendChild(placeholder);
+    pane.appendChild(
+      this.#placeholder({
+        icon: "⏳",
+        text: "Loading preview…",
+        className: "res-html-loading",
+        iconClass: "res-spinner",
+      }),
+    );
 
     // Keep the overlay positioned correctly when the panel splitter moves
     // (pane width/height changes) or font-size changes (pane grows/shrinks as
@@ -1601,12 +1657,13 @@ export class ResponseViewer {
     this.#setStatus("", "", "", "");
     const bodyPane = this.#bodyPane;
     bodyPane.innerHTML = "";
-    const loading = document.createElement("div");
-    loading.className = "panel-placeholder";
-    loading.innerHTML =
-      '<span class="placeholder-icon res-spinner">⏳</span>' +
-      "<span>Sending request…</span>";
-    bodyPane.appendChild(loading);
+    bodyPane.appendChild(
+      this.#placeholder({
+        icon: "⏳",
+        text: "Sending request…",
+        iconClass: "res-spinner",
+      }),
+    );
 
     // Clear console pane on each new request
     this.#renderConsole([]);
@@ -1629,11 +1686,10 @@ export class ResponseViewer {
     // Body pane — show error placeholder
     const bodyPane = this.#bodyPane;
     bodyPane.innerHTML = "";
-    const err = document.createElement("div");
-    err.className = "panel-placeholder";
-    err.innerHTML =
-      '<span class="placeholder-icon">⚠️</span>' +
-      `<span>${this.#escapeHtml(detail?.message ?? "Request failed")}</span>`;
+    const err = this.#placeholder({
+      icon: "⚠️",
+      text: detail?.message ?? "Request failed",
+    });
     if (detail?.hint) {
       const hint = document.createElement("span");
       hint.className = "res-error-hint";
@@ -1716,11 +1772,8 @@ export class ResponseViewer {
     if (request.method) this.#setCurrentMethod(request.method);
 
     // Show the Preview tab only for HTML responses.
-    const ct =
-      Object.entries(headers).find(
-        ([k]) => k.toLowerCase() === "content-type",
-      )?.[1] ?? "";
-    this.#isHtmlResponse = classifyContentType(ct) === "html";
+    this.#isHtmlResponse =
+      classifyContentType(this.#contentTypeOf(headers)) === "html";
     this.#setPreviewTabVisible(this.#isHtmlResponse);
 
     // Status bar
@@ -1804,10 +1857,9 @@ export class ResponseViewer {
       });
       cookiesPane.appendChild(ct);
     } else {
-      const empty = document.createElement("div");
-      empty.className = "panel-placeholder";
-      empty.innerHTML = "<span>No cookies were set by this response</span>";
-      cookiesPane.appendChild(empty);
+      cookiesPane.appendChild(
+        this.#placeholder({ text: "No cookies were set by this response" }),
+      );
     }
   }
 
@@ -1822,12 +1874,12 @@ export class ResponseViewer {
     pane.innerHTML = "";
 
     if (!this.#timelineEntries.length) {
-      const empty = document.createElement("div");
-      empty.className = "panel-placeholder";
-      empty.innerHTML =
-        '<span class="placeholder-icon">🕓</span>' +
-        "<span>No history yet — send a request to record an entry</span>";
-      pane.appendChild(empty);
+      pane.appendChild(
+        this.#placeholder({
+          icon: "🕓",
+          text: "No history yet — send a request to record an entry",
+        }),
+      );
       return;
     }
 
@@ -2328,12 +2380,5 @@ export class ResponseViewer {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  }
-
-  #escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
   }
 }

@@ -25,6 +25,7 @@
 
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
+import { deepClone } from "../utils/clone.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
 import { normalizeVariables } from "./variable-shape.js";
 
@@ -113,7 +114,7 @@ export class EnvironmentsPopup {
    * @param {{ bulkEditor?: boolean }} [opts]
    */
   open(data, { bulkEditor = true } = {}) {
-    this.#data = this.#clone(data);
+    this.#data = deepClone(data);
     this.#selectedId = data.activeEnvironmentId ?? null;
     this.#editState = null;
     this.#isBulkMode = bulkEditor;
@@ -141,7 +142,7 @@ export class EnvironmentsPopup {
       this.#selectedId = null;
       this.#loadEditorForSelected();
     }
-    this.#data = this.#clone(data);
+    this.#data = deepClone(data);
     this.#editState = null;
     this.#renderList();
   }
@@ -296,7 +297,7 @@ export class EnvironmentsPopup {
       this.#renderList();
       window.dispatchEvent(
         new CustomEvent("wurl:environments-changed", {
-          detail: { data: this.#clone(this.#data) },
+          detail: { data: deepClone(this.#data) },
         }),
       );
     });
@@ -606,7 +607,7 @@ export class EnvironmentsPopup {
       this.#loadEditorForSelected();
       window.dispatchEvent(
         new CustomEvent("wurl:environments-changed", {
-          detail: { data: this.#clone(newData) },
+          detail: { data: deepClone(newData) },
           bubbles: true,
         }),
       );
@@ -622,7 +623,7 @@ export class EnvironmentsPopup {
       this.#loadEditorForSelected();
       window.dispatchEvent(
         new CustomEvent("wurl:environments-changed", {
-          detail: { data: this.#clone(newData) },
+          detail: { data: deepClone(newData) },
           bubbles: true,
         }),
       );
@@ -673,7 +674,7 @@ export class EnvironmentsPopup {
     this.#renderList();
     window.dispatchEvent(
       new CustomEvent("wurl:environments-changed", {
-        detail: { data: this.#clone(newData) },
+        detail: { data: deepClone(newData) },
         bubbles: true,
       }),
     );
@@ -1024,11 +1025,5 @@ export class EnvironmentsPopup {
       window.addEventListener("mousemove", onMove);
       window.addEventListener("mouseup", onUp);
     });
-  }
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
-  #clone(obj) {
-    return JSON.parse(JSON.stringify(obj));
   }
 }

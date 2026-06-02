@@ -14,12 +14,14 @@
 import { LayoutPicker } from "./components/layout-picker.js";
 import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
+import { buildRequestPayload } from "./components/request-payload.js";
 import { ResponseViewer } from "./components/response-viewer.js";
 import { SettingsPopup } from "./components/settings-popup.js";
 import { CollectionsPopup } from "./components/collections-popup.js";
 import { VariablesPopup } from "./components/variables-popup.js";
 import { EnvironmentsPopup } from "./components/environments-popup.js";
 import { EnvPicker } from "./components/env-picker.js";
+import { deepClone } from "./utils/clone.js";
 import {
   loadAll,
   saveCollections,
@@ -862,7 +864,7 @@ function initEventBus() {
     const histId = crypto.randomUUID();
     const nowMs = Date.now();
     const reqUrl = _lastRequestSnapshot.url ?? "";
-    const reqNode = JSON.parse(JSON.stringify(node));
+    const reqNode = deepClone(node);
     const resp = {
       request: e.detail.request ?? {},
       error: {
@@ -2082,136 +2084,55 @@ function _findNodeById(items, id) {
  */
 async function _executeRequestNode(node, ctx) {
   const rv = (s) => resolveStringAsync(s, ctx);
-
-  // Resolve URL + query params
-  let finalUrl = await rv(node.url ?? "");
-  const enabledParams = (node.params ?? []).filter(
-    (p) => p.enabled && (p.name ?? "").trim(),
-  );
-  if (enabledParams.length) {
-    const pairs = await Promise.all(
-      enabledParams.map(
-        async (p) =>
-          `${encodeURIComponent(await rv(p.name))}=${encodeURIComponent(await rv(p.value))}`,
-      ),
-    );
-    finalUrl += (finalUrl.includes("?") ? "&" : "?") + pairs.join("&");
-  }
-
-  // Resolve headers
-  const headers = {};
-  for (const h of (node.headers ?? []).filter(
-    (h) => h.enabled && (h.name ?? "").trim(),
-  )) {
-    headers[(await rv(h.name)).trim()] = await rv(h.value);
-  }
-
-  // Inject auth headers for basic and bearer; skip oauth2/aws-iam.
-  // Digest and NTLM can't set a header up-front (they need the server's 401
-  // challenge), so resolve their credentials and pass them to the native layer,
-  // which runs the stateful challenge/response in the main process.
-  let authDigest = null;
-  let authNtlm = null;
-  if (node.authEnabled !== false) {
-    if (node.authType === "basic") {
-      const u = await rv(node.authBasic?.username ?? "");
-      const p = await rv(node.authBasic?.password ?? "");
-      if (u || p) headers["Authorization"] = `Basic ${btoa(`${u}:${p}`)}`;
-    } else if (node.authType === "bearer") {
-      const t = await rv(node.authBearer?.token ?? "");
-      if (t) headers["Authorization"] = `Bearer ${t}`;
-    } else if (node.authType === "digest") {
-      const username = await rv(node.authDigest?.username ?? "");
-      if (username) {
-        authDigest = {
-          username,
-          password: await rv(node.authDigest?.password ?? ""),
-        };
-      }
-    } else if (node.authType === "ntlm") {
-      const username = await rv(node.authNtlm?.username ?? "");
-      if (username) {
-        authNtlm = {
-          username,
-          password: await rv(node.authNtlm?.password ?? ""),
-          domain: await rv(node.authNtlm?.domain ?? ""),
-          workstation: await rv(node.authNtlm?.workstation ?? ""),
-        };
-      }
-    }
-  }
-
-  // Build body
-  const noBodyMethods = new Set(["GET", "HEAD"]);
-  let body = null;
   const method = node.method ?? "GET";
-  if (!noBodyMethods.has(method)) {
-    switch (node.bodyType) {
-      case "json":
-      case "yaml":
-      case "xml":
-      case "text": {
-        const raw = (node.bodyText ?? "").trim();
-        if (raw) {
-          body = await rv(node.bodyText);
-          if (!headers["Content-Type"]) {
-            const ctMap = {
-              json: "application/json",
-              yaml: "application/x-yaml",
-              xml: "application/xml",
-              text: "text/plain",
-            };
-            headers["Content-Type"] = ctMap[node.bodyType];
-          }
-        }
-        break;
-      }
-      case "form-urlencoded": {
-        const sp = new URLSearchParams();
-        for (const r of (node.bodyFormRows ?? []).filter(
-          (r) => r.enabled && (r.name ?? "").trim(),
-        )) {
-          sp.append(await rv(r.name), await rv(r.value));
-        }
-        body = sp.toString();
-        if (!headers["Content-Type"])
-          headers["Content-Type"] = "application/x-www-form-urlencoded";
-        break;
-      }
-      case "form-data": {
-        const boundary = `----WurlBoundary${Date.now()}`;
-        const rows = (node.bodyFormRows ?? []).filter(
-          (r) => r.enabled && (r.name ?? "").trim(),
-        );
-        if (rows.length) {
-          const parts = (
-            await Promise.all(
-              rows.map(
-                async (r) =>
-                  `--${boundary}\r\nContent-Disposition: form-data; name="${await rv(r.name)}"\r\n\r\n${await rv(r.value)}`,
-              ),
-            )
-          ).join("\r\n");
-          body = `${parts}\r\n--${boundary}--`;
-          if (!headers["Content-Type"])
-            headers["Content-Type"] =
-              `multipart/form-data; boundary=${boundary}`;
-        }
-        break;
-      }
-    }
-  }
+
+  // Resolve URL/params, headers, auth (basic/bearer/apikey/digest/ntlm/aws-iam)
+  // and body via the same builder the interactive editor uses. Two prefetch-
+  // specific policies differ from the editor and are encoded in the spec below:
+  //   • the base URL is NOT percent-encoded (urlBase is the raw resolved value);
+  //   • there is no file body (bodyFile: null) — prefetch never uploads a file.
+  // OAuth2 stays unsupported here (the builder has no oauth2 transform, and its
+  // token acquisition is interactive), matching the previous behaviour.
+  const {
+    finalUrl,
+    headers,
+    body,
+    bodyFilePath,
+    awsIam,
+    authDigest,
+    authNtlm,
+  } = await buildRequestPayload(
+    {
+      method,
+      urlBase: await rv(node.url ?? ""),
+      params: node.params,
+      headers: node.headers,
+      authEnabled: node.authEnabled !== false,
+      authType: node.authType,
+      authBasic: node.authBasic,
+      authBearer: node.authBearer,
+      authApiKey: node.authApiKey,
+      authDigest: node.authDigest,
+      authNtlm: node.authNtlm,
+      authAwsIam: node.authAwsIam,
+      bodyType: node.bodyType,
+      bodyText: node.bodyText,
+      bodyFormRows: node.bodyFormRows,
+      bodyFile: null,
+    },
+    rv,
+  );
 
   const nativeDesc = {
     method,
     url: finalUrl,
     headers,
     body,
-    bodyFilePath: null,
+    bodyFilePath,
     timeout: currentSettings.timeout ?? 30000,
     followRedirects: currentSettings.followRedirects ?? true,
     verifySsl: currentSettings.verifySsl ?? true,
-    awsIam: null,
+    awsIam,
     authDigest,
     authNtlm,
     collectionId: currentColls.activeCollectionId ?? null,

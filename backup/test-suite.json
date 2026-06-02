@@ -1,0 +1,2559 @@
+{
+  "kind": "wurl-backup",
+  "schemaVersion": 1,
+  "exportedAt": "2026-06-02T18:34:05.509Z",
+  "secretsIncluded": true,
+  "secretsMode": "password",
+  "manifest": {
+    "version": 2,
+    "collections": [
+      {
+        "id": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+        "name": "COLLECTION",
+        "sendCookies": true
+      },
+      {
+        "id": "33234f80-1e60-4abe-a0b9-c472ada25b39",
+        "name": "Test",
+        "sendCookies": true
+      }
+    ],
+    "activeCollectionId": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+    "settings": {
+      "theme": "grey-dark",
+      "fontSize": 13,
+      "fontFamily": "ubuntu",
+      "layout": 1,
+      "timeout": 30000,
+      "followRedirects": true,
+      "verifySsl": true,
+      "proxyEnabled": false,
+      "proxyUrl": "",
+      "splitterNav": 270,
+      "splitterRes": 380,
+      "splitterRowRes": 464.5,
+      "listHeaders": true,
+      "showUrlPreview": true,
+      "varsBulkEditor": false,
+      "selectedRequestIds": {
+        "089f9b40-d3e1-485d-8fdc-eda146c29ef5": "657d58d0-907c-4954-aa12-45b516ea7d6a",
+        "77494ffc-ca28-4f10-ab71-afb35df7bad2": "e48b72f7-a415-4102-99a2-bca806e15d63"
+      },
+      "responseBodyRenderMode": "styled",
+      "methodIcons": false,
+      "wrapResponseText": true,
+      "oauth2Advanced": true,
+      "historyCount": 5,
+      "customThemes": [],
+      "useCookieJar": true,
+      "selectedRequestId": null,
+      "removeHeaders": true,
+      "doubleClickExecute": false,
+      "pickerDebounceMs": 200
+    },
+    "schemaVersion": 1
+  },
+  "environments": {
+    "version": 1,
+    "globalVariables": [
+      {
+        "name": "G",
+        "value": "1",
+        "secure": false
+      },
+      {
+        "name": "E",
+        "value": "Global",
+        "secure": false
+      }
+    ],
+    "activeEnvironmentId": "6740ff29-a741-4968-b788-5d1d73a06182",
+    "environments": [
+      {
+        "id": "6740ff29-a741-4968-b788-5d1d73a06182",
+        "name": "DEV",
+        "variables": [
+          {
+            "name": "E",
+            "value": "dev",
+            "secure": false
+          },
+          {
+            "name": "F",
+            "value": "f",
+            "secure": false
+          }
+        ]
+      },
+      {
+        "id": "3485da4c-7f59-4e87-b668-af71c1c8d7d9",
+        "name": "QA",
+        "variables": [
+          {
+            "name": "E",
+            "value": "qa",
+            "secure": false
+          }
+        ]
+      }
+    ],
+    "schemaVersion": 1
+  },
+  "collections": [
+    {
+      "id": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+      "metadata": {
+        "id": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+        "variables": [
+          {
+            "name": "domain",
+            "value": "qateradatacloud.com",
+            "secure": false
+          }
+        ],
+        "schemaVersion": 1
+      },
+      "tree": {
+        "children": [
+          {
+            "id": "6adadee8-6a39-4f4d-ac12-9a11f550f398",
+            "type": "folder",
+            "name": "Parent",
+            "variables": [
+              {
+                "name": "pass",
+                "value": "encp:v1:xpXawnrD1bGFWHrQPAYn0TqG3uc5Z5/08IYfq4i8ntqc5Mj5460GdyFos2O7f+BH",
+                "secure": true
+              },
+              {
+                "name": "folder",
+                "value": "parent",
+                "secure": false
+              }
+            ],
+            "children": [
+              {
+                "id": "b24a3c6b-8977-413c-97e9-1b93f56377cb",
+                "type": "requestRef"
+              },
+              {
+                "id": "2f6aff5a-2b76-4c5a-9556-1aee27e31b18",
+                "type": "folder",
+                "name": "Child",
+                "variables": [
+                  {
+                    "name": "secret",
+                    "value": "encp:v1:G8wKu+J6v4PFyEuwFUUA2xtTJ9Zrg4Wioac8LQFww9ugWcAD4IJGu5Ss88uVXPrnGwI=",
+                    "secure": true
+                  },
+                  {
+                    "name": "folder",
+                    "value": "child",
+                    "secure": false
+                  }
+                ],
+                "children": [
+                  {
+                    "id": "3cbd509c-d91f-4524-a793-0a23d37b0d2c",
+                    "type": "requestRef"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "fc4c3eb9-132c-47ee-91b9-3598fc1dfde8",
+            "type": "folder",
+            "name": "UI",
+            "variables": [
+              {
+                "name": "sdAS",
+                "value": "asdaS",
+                "secure": false
+              }
+            ],
+            "children": [
+              {
+                "id": "2c3c8456-633f-441c-8a00-bf3952bca5f7",
+                "type": "requestRef"
+              },
+              {
+                "id": "b9c5c781-1a9e-40e5-aa6c-80390d20bf4a",
+                "type": "requestRef"
+              },
+              {
+                "id": "9fa85454-54f8-4d59-8e75-d08fafa862b2",
+                "type": "requestRef"
+              },
+              {
+                "id": "dc374cfc-d9ca-434b-832a-1e6bbcfff21e",
+                "type": "requestRef"
+              },
+              {
+                "id": "bf3d5600-7e58-4183-ba42-7f6fa35a52d9",
+                "type": "requestRef"
+              },
+              {
+                "id": "2e5339d4-747b-46d0-b1be-fbf397188cac",
+                "type": "requestRef"
+              },
+              {
+                "id": "b7bb54e4-e3f2-4ba4-a5fe-46002de1a639",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "c0809748-a602-4692-87c1-d1f0ed2a1b63",
+            "type": "folder",
+            "name": "Rest",
+            "variables": [],
+            "children": [
+              {
+                "id": "67399eca-1585-446e-948a-b38f042b3476",
+                "type": "requestRef"
+              },
+              {
+                "id": "e48b72f7-a415-4102-99a2-bca806e15d63",
+                "type": "requestRef"
+              },
+              {
+                "id": "32ff6585-3729-49b0-b334-3d3e440a9500",
+                "type": "requestRef"
+              },
+              {
+                "id": "333c4be6-a060-48b2-9ea6-06a833a29157",
+                "type": "requestRef"
+              },
+              {
+                "id": "3e9baffb-2f8b-4965-93e8-da3632a8adc1",
+                "type": "requestRef"
+              },
+              {
+                "id": "ada08b1b-a3e2-4832-904d-14c2f7e5e782",
+                "type": "folder",
+                "name": "Functions",
+                "variables": [],
+                "children": [
+                  {
+                    "id": "b667be1c-88c0-4218-b913-3b0659c5650e",
+                    "type": "folder",
+                    "name": "Functions",
+                    "variables": [],
+                    "children": [
+                      {
+                        "id": "44bcda46-1981-49de-9e93-d425cff5146d",
+                        "type": "requestRef"
+                      },
+                      {
+                        "id": "71876e43-15e0-435a-a37c-f0b925adcf27",
+                        "type": "requestRef"
+                      },
+                      {
+                        "id": "e49e970d-cc22-465e-96e0-fd3abfbd8d5b",
+                        "type": "requestRef"
+                      },
+                      {
+                        "id": "bcc8ab64-db19-4681-9bc7-72ca4e4801d4",
+                        "type": "requestRef"
+                      },
+                      {
+                        "id": "7b41691d-e1c0-470d-b7f9-c39bfcdfd4eb",
+                        "type": "requestRef"
+                      },
+                      {
+                        "id": "f6e3d5c4-b9ee-4112-88d4-d3b41f94cf2c",
+                        "type": "requestRef"
+                      },
+                      {
+                        "id": "caee13ce-3831-44cc-937d-03b5c6cdcb3c",
+                        "type": "requestRef"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "6afa0304-c911-4b84-aa84-299e25eacb6c",
+                    "type": "folder",
+                    "name": "Context",
+                    "variables": [],
+                    "children": [
+                      {
+                        "id": "5d9e83d5-3522-4e31-af6e-6d2e2de74fac",
+                        "type": "requestRef"
+                      },
+                      {
+                        "id": "829e2111-99d3-4844-b16c-bd2b8d656b97",
+                        "type": "requestRef"
+                      },
+                      {
+                        "id": "09e569cb-dbca-4e92-bfeb-35aac2f20b2b",
+                        "type": "requestRef"
+                      },
+                      {
+                        "id": "e95a5265-80fc-46fd-bbc6-e33b92e2d27b",
+                        "type": "requestRef"
+                      },
+                      {
+                        "id": "08e6dddd-9875-4fd1-87d3-b98cbde409e7",
+                        "type": "requestRef"
+                      },
+                      {
+                        "id": "2ecb79ce-7f4b-45c7-b7ea-a2d2b8bdc4ae",
+                        "type": "requestRef"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "31fc04ad-edcf-4b02-851d-74f8c03433a9",
+                    "type": "folder",
+                    "name": "Response",
+                    "variables": [],
+                    "children": [
+                      {
+                        "id": "9004c668-1953-46ce-b117-3adde977882c",
+                        "type": "requestRef"
+                      },
+                      {
+                        "id": "a0372511-3463-4fce-9b1a-639e81443762",
+                        "type": "requestRef"
+                      },
+                      {
+                        "id": "33c23da6-e200-4edd-a3af-ec15e64f22e1",
+                        "type": "requestRef"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "31591f91-a7f2-422d-b469-e6d127074540",
+                "type": "folder",
+                "name": "Statuses",
+                "variables": [],
+                "children": [
+                  {
+                    "id": "67f4e36a-ad41-4cdc-a80c-cc73122e8cdf",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "57aa2ad8-dedf-4cf7-bab5-1a37aea897df",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "9e0e8fdc-499a-475f-9c81-5e16b17c7193",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "b1abf554-7501-4fc6-8482-9563958e6a65",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "62e93fcc-1acb-4f4c-97ec-21f9b592a8d3",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "972cf49b-29cb-4777-9902-82f487b942ae",
+                    "type": "requestRef"
+                  }
+                ]
+              },
+              {
+                "id": "da6c5563-d08f-41d9-9bf2-3f905327173a",
+                "type": "folder",
+                "name": "Mime",
+                "variables": [],
+                "children": [
+                  {
+                    "id": "8cdca1d6-68b9-4670-a296-015bf1820b1a",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "bf489378-ae6f-4428-8129-ac5cd73a1eb6",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "6e3984ac-a783-428d-b99f-aaf8538a5ed1",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "f22cc187-2b9c-43c6-822f-97400985a841",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "83652cc8-c756-443f-9292-d76a7ca2b869",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "02f1fe16-8545-4eda-b5d5-f3992aadc640",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "2f48edc0-3c1c-433b-9171-1c72e88f7fc2",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "bafab2b7-f4ef-49c6-a172-e3275bd15d6f",
+                    "type": "requestRef"
+                  }
+                ]
+              },
+              {
+                "id": "120661df-2804-4187-81d6-e22db2f17ae9",
+                "type": "folder",
+                "name": "Methods",
+                "variables": [],
+                "children": [
+                  {
+                    "id": "8d50f223-5a4b-40da-a0c5-816a82aff5e6",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "a4b3e64a-189b-46e9-8775-391bfadd9deb",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "cdd04d87-b3b7-47ee-a2f7-a534495e7d5b",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "a78ae507-9847-4e85-953a-9a48d48ec157",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "e4a05436-625d-4c10-900f-fb85bbd0087c",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "edc83124-ba65-4b4f-b6cd-142c03a5b29f",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "bb51258c-2575-4a4c-afb5-5981e631ff3e",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "ef47205c-ef74-4366-a172-6c7bf7ffef6e",
+                    "type": "requestRef"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "63a24864-4330-4e80-9ad7-ab5459489762",
+            "type": "folder",
+            "name": "Authorization",
+            "variables": [],
+            "children": [
+              {
+                "id": "09a5a4ce-0051-4156-b025-ba7a681d298e",
+                "type": "requestRef"
+              },
+              {
+                "id": "08466827-2fd1-4292-b641-291f05433dfd",
+                "type": "requestRef"
+              },
+              {
+                "id": "e7f59944-8890-4cee-909a-402d85bb4d8d",
+                "type": "requestRef"
+              },
+              {
+                "id": "657d58d0-907c-4954-aa12-45b516ea7d6a",
+                "type": "requestRef"
+              },
+              {
+                "id": "86e9a2ca-1bd4-4569-ac0c-21c5dcadbc64",
+                "type": "requestRef"
+              },
+              {
+                "id": "f00bf082-bc43-4ba2-9d8e-62d6cd49de74",
+                "type": "folder",
+                "name": "OAuth2",
+                "variables": [],
+                "children": [
+                  {
+                    "id": "59f4338d-c6e4-43ed-9e56-8bb2dd30cf4a",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "fca529ad-ed0a-4b7f-ac03-db605299ba2c",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "514dc2a0-7885-4db8-a77b-5ef8afcc788e",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "0ea9a45d-71af-4ce4-99d1-c2334f18eb95",
+                    "type": "requestRef"
+                  },
+                  {
+                    "id": "af477318-caa4-44a0-b268-3b96b92b5a50",
+                    "type": "requestRef"
+                  }
+                ]
+              },
+              {
+                "id": "eff31f9b-00f7-4de9-9453-9bf7c9716787",
+                "type": "requestRef"
+              },
+              {
+                "id": "35b8dade-69e0-4e23-b485-c040fdedfbd3",
+                "type": "requestRef"
+              }
+            ]
+          }
+        ],
+        "schemaVersion": 1
+      },
+      "requests": [
+        {
+          "id": "02f1fe16-8545-4eda-b5d5-f3992aadc640",
+          "type": "request",
+          "name": "text/css",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "08466827-2fd1-4292-b641-291f05433dfd",
+          "type": "request",
+          "name": "Basic",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/{{requestName()}}",
+          "authEnabled": true,
+          "authType": "basic",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:vLlgbn4aDZuqKzTK6oDmSRGdexFASFtNQ3zlADDQRs2ms0/sIw0Q+UCyiRmHBonpyuGu4g=="
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "notes": "Basic\nBearer\nAPI Key\nDigest\nAWS CLI\nNTLM"
+        },
+        {
+          "id": "08e6dddd-9875-4fd1-87d3-b98cbde409e7",
+          "type": "request",
+          "name": "Request Name",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{requestName()}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "09a5a4ce-0051-4156-b025-ba7a681d298e",
+          "type": "request",
+          "name": "All auth types",
+          "method": "GET",
+          "url": "http://localhost:8888/auth",
+          "authEnabled": true,
+          "authType": "apikey",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:ZlEmlLmxmJZG1GssGH+ZqapegsnYL9A9Eq6tvq7HWwHMAwuVjxV9Bi71daYsJRaYzeZiHw=="
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "notes": "Basic\nBearer\nAPI Key\nDigest\nAWS CLI\nNTLM"
+        },
+        {
+          "id": "09e569cb-dbca-4e92-bfeb-35aac2f20b2b",
+          "type": "request",
+          "name": "Environment Name",
+          "method": "POST",
+          "url": "https://echo.free.beeceptor.com/{{environmentName()}}",
+          "bodyType": "json",
+          "bodyFormRows": [],
+          "bodyText": "{\n  \"sdsd\": 1\n}",
+          "bodyFilePath": "",
+          "preRequestScript": "",
+          "afterResponseScript": "",
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1
+        },
+        {
+          "id": "0ea9a45d-71af-4ce4-99d1-c2334f18eb95",
+          "type": "request",
+          "name": "Resource Owner Password",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/bearer",
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "password",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1
+        },
+        {
+          "id": "2c3c8456-633f-441c-8a00-bf3952bca5f7",
+          "type": "request",
+          "name": "Swagger",
+          "method": "GET",
+          "url": "https://rc.preprod.global-network-service.qateradatacloud.com/swagger/#",
+          "params": [],
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1,
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": ""
+        },
+        {
+          "id": "2e5339d4-747b-46d0-b1be-fbf397188cac",
+          "type": "request",
+          "name": "ChatGPT",
+          "method": "GET",
+          "url": "https://chatgpt.com",
+          "schemaVersion": 1
+        },
+        {
+          "id": "2ecb79ce-7f4b-45c7-b7ea-a2d2b8bdc4ae",
+          "type": "request",
+          "name": "New Request",
+          "method": "GET",
+          "url": "{{",
+          "schemaVersion": 1
+        },
+        {
+          "id": "2f48edc0-3c1c-433b-9171-1c72e88f7fc2",
+          "type": "request",
+          "name": "text/javascript",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "32ff6585-3729-49b0-b334-3d3e440a9500",
+          "type": "request",
+          "name": "Client",
+          "method": "POST",
+          "url": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "83656dfc-7c1d-4849-ba68-e2e796c8e922",
+              "name": "grant_type",
+              "value": "client_credentials",
+              "enabled": true
+            },
+            {
+              "id": "a00ad237-d9c5-48c6-8a68-a96e9f24cf54",
+              "name": "client_id",
+              "value": "client-credentials-client",
+              "enabled": true
+            },
+            {
+              "id": "4e8c3151-ed47-4742-aa5c-908bfe2ca292",
+              "name": "client_secret",
+              "value": "super-secret-client-value",
+              "enabled": true
+            }
+          ],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "params": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "notes": "",
+          "schemaVersion": 1
+        },
+        {
+          "id": "333c4be6-a060-48b2-9ea6-06a833a29157",
+          "type": "request",
+          "name": "Get User",
+          "method": "GET",
+          "url": "https://jsonplaceholder.typicode.com/users/1",
+          "schemaVersion": 1
+        },
+        {
+          "id": "33c23da6-e200-4edd-a3af-ec15e64f22e1",
+          "type": "request",
+          "name": "Response HTTP status",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{responseStatus(\"Client\")}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "35b8dade-69e0-4e23-b485-c040fdedfbd3",
+          "type": "request",
+          "name": "NTLM",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/{{requestName()}}",
+          "authEnabled": true,
+          "authType": "ntlm",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "implicit",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1,
+          "authNtlm": {
+            "username": "user",
+            "password": "encp:v1:0ZAwKahwZbKZS5k7jx8/uYsIJidyTQlv1BUAo9lr6Lk+lnOLh6IbYXAtFLhgU+jRABy9BA==",
+            "domain": "localhost",
+            "workstation": "apollo"
+          }
+        },
+        {
+          "id": "3cbd509c-d91f-4524-a793-0a23d37b0d2c",
+          "type": "request",
+          "name": "Echo",
+          "method": "PUT",
+          "url": "https://echo.free.beeceptor.com/{{folder}}/2/{{pass}}",
+          "params": [
+            {
+              "id": "1f71a741-bc2b-4e17-be26-e150fba6a66b",
+              "name": "fred",
+              "value": "{{pass}}",
+              "enabled": true
+            }
+          ],
+          "headers": [],
+          "bodyType": "json",
+          "bodyFormRows": [],
+          "bodyText": "{\n  \"G\": \"{{G}}\",\n  \"E\": \"{{E}}\",\n  \"F\": \"{{F}}\"\n}",
+          "bodyFilePath": "",
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:dvGTLk88qYB08oqPYl5DOm2CE1/t4quwVQEA2CmX9qnmFtwhmecNvp5YzzGukrCJ57qQBQ=="
+          },
+          "authBearer": {
+            "token": "encp:v1:VRj63MgL8uElxLWO27DvZ51YyvcZExZXwX5sii2u4oDc4D3OmsKSG+NQ7YpkowkJtw=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "oauth-code-client",
+            "clientSecret": "encp:v1:L4OgoaFRjEPnFEwMMp6owUsT0Z3D7hYRLj3C0vH84SBRlaizUVKYOABABccrQYvc15i7TJ5iquNTjjAs+QPNGc+FzhqD",
+            "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+            "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+            "scope": "email profile openid",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "http://localhost:3000/callback",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "notes": "",
+          "schemaVersion": 1,
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          }
+        },
+        {
+          "id": "3e9baffb-2f8b-4965-93e8-da3632a8adc1",
+          "type": "request",
+          "name": "Status",
+          "method": "GET",
+          "url": "{{gns_url}}/networks/status/0c12ebf7-0830-4b8e-956a-875782fb1a7c",
+          "authEnabled": true,
+          "authType": "bearer",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": "encp:v1:fsaV7+LrI48PspsVzgnTP1HSyK3mt27myKiGjNAJv/cTBPsa4j9Sr8x1/hrbJ8++52WWglcA8KKbPP1Sdos2IkM/FjcBFZQCRMf1ayAI+D25CcZuQMbVcx3QRRCP7Xy9UT0mfOQoZTQqRwlF"
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "params": [],
+          "schemaVersion": 1,
+          "notes": ""
+        },
+        {
+          "id": "44bcda46-1981-49de-9e93-d425cff5146d",
+          "type": "request",
+          "name": "UUIDv4",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{uuid()}}",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:mbMGisEW7rB1awg6cQq33rGS9Dbl6OQBXe//wCWDsKFkK7VVULj/8lGPDzEY+JlRC4uckA=="
+          },
+          "authBearer": {
+            "token": "encp:v1:/mcgmqiAkKeOwrcR7VXL/TnpdMxoYlmnjofI5gAOASogJQqzaUb3EN1N+2SWtfAHRA=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "a24a1b71-efa5-4abf-978f-f60cf02ddfd2",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "5296ee10-bb3d-4097-97e4-4ec43e02325c",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 1
+        },
+        {
+          "id": "514dc2a0-7885-4db8-a77b-5ef8afcc788e",
+          "type": "request",
+          "name": "Client Credentials",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/bearer",
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1
+        },
+        {
+          "id": "57aa2ad8-dedf-4cf7-bab5-1a37aea897df",
+          "type": "request",
+          "name": "100",
+          "method": "GET",
+          "url": "http://localhost:8888/status/{{requestName()}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "59f4338d-c6e4-43ed-9e56-8bb2dd30cf4a",
+          "type": "request",
+          "name": "Authorization Code-CC",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/bearer",
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "oauth-code-client",
+            "clientSecret": "encp:v1:tLZyvVZshL+1dAomkma7vs2VedPZ885S+h6vkkLA19nwq+tV42AdJq53uyH7Jwx2nXsn4uqYzzUNM3PdUIIaBhAAX/j+",
+            "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+            "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+            "scope": "email",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "http://localhost:3000/callback",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1,
+          "headers": [
+            {
+              "id": "6fb3c523-d9dc-483a-8c7b-04a18f774cc6",
+              "name": "",
+              "value": "",
+              "enabled": true
+            }
+          ],
+          "params": [
+            {
+              "id": "690b57ba-78bc-4668-b02c-6b51856873b2",
+              "name": "",
+              "value": "{{",
+              "enabled": true
+            }
+          ]
+        },
+        {
+          "id": "5d9e83d5-3522-4e31-af6e-6d2e2de74fac",
+          "type": "request",
+          "name": "Folder Name",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{folderName(\"0\")}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "62e93fcc-1acb-4f4c-97ec-21f9b592a8d3",
+          "type": "request",
+          "name": "404",
+          "method": "GET",
+          "url": "http://localhost:8888/status/{{requestName()}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "657d58d0-907c-4954-aa12-45b516ea7d6a",
+          "type": "request",
+          "name": "ApiKey",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/{{requestName()}}",
+          "authEnabled": true,
+          "authType": "apikey",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "X-Auth-Token",
+            "value": "encp:v1:y8K5mN3Onawurnq4k6N7j4HHV6EA4GXXLz5HIEV9/wt3xsmkz/06JmZAGsB+mx3ZEg==",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          }
+        },
+        {
+          "id": "67399eca-1585-446e-948a-b38f042b3476",
+          "type": "request",
+          "name": "Health",
+          "method": "GET",
+          "url": "https://rc.preprod.global-network-service.{{domain}}/health",
+          "schemaVersion": 1,
+          "useCookieJar": true
+        },
+        {
+          "id": "67f4e36a-ad41-4cdc-a80c-cc73122e8cdf",
+          "type": "request",
+          "name": "All status types",
+          "method": "GET",
+          "url": "http://localhost:8888/status",
+          "schemaVersion": 1
+        },
+        {
+          "id": "6e3984ac-a783-428d-b99f-aaf8538a5ed1",
+          "type": "request",
+          "name": "application/yaml",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 1,
+          "params": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "bodyType": "no-body",
+          "notes": "",
+          "bodyText": ""
+        },
+        {
+          "id": "71876e43-15e0-435a-a37c-f0b925adcf27",
+          "type": "request",
+          "name": "Format",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{now(\"ISO\")}}",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:8Yy61qPEDBh3ZoAIJdmvPu9bjo/Vb9Qi8AhRBMFcE1XX9GBOiOc43BrRu2YWE2UwZ1pcvQ=="
+          },
+          "authBearer": {
+            "token": "encp:v1:iKUUk8f88WfN25ELofxehXGFZbLZI3zaNsna3WnnH3hzZ3hrjrLD0geE2xchz3z1nA=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "51d9ad0d-2c1c-4a95-ba6e-c090a174f990",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "e743d51f-974a-4f8e-80fb-1fcdb33a546e",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 1
+        },
+        {
+          "id": "7b41691d-e1c0-470d-b7f9-c39bfcdfd4eb",
+          "type": "request",
+          "name": "URL Percent encode",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{urlDecode(\"%64\")}}",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:DJOaQ+qIhT/99Bszeid6tD39kgYryKL8ewik+JmFFwgPtKUyYosjdNeXaCKeMoCCSTTCYg=="
+          },
+          "authBearer": {
+            "token": "encp:v1:0sxl5tAiIinX+KFsnpFwi9Td3JUuxgpdiuvKzD+jWe0f/GcMFVq9CV83MTxdMmMJHQ=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "3d5eee13-2379-4efb-b9f7-cbf157b2d100",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "3a32304d-fc36-4858-b411-fc4ac3ed5b4a",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 1
+        },
+        {
+          "id": "829e2111-99d3-4844-b16c-bd2b8d656b97",
+          "type": "request",
+          "name": "Collection Name",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{collectionName()}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "83652cc8-c756-443f-9292-d76a7ca2b869",
+          "type": "request",
+          "name": "text/html",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "86e9a2ca-1bd4-4569-ac0c-21c5dcadbc64",
+          "type": "request",
+          "name": "Digest",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/{{requestName()}}",
+          "authEnabled": true,
+          "authType": "digest",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "user",
+            "password": "encp:v1:RlCcsABX+kCZURiWobdVAbqT/sqJArRy7fztQj/ULb6O8SvprYQZqvA10K9mznekQgeLEw=="
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          }
+        },
+        {
+          "id": "8cdca1d6-68b9-4670-a296-015bf1820b1a",
+          "type": "request",
+          "name": "All Mime Types",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes",
+          "schemaVersion": 1
+        },
+        {
+          "id": "8d50f223-5a4b-40da-a0c5-816a82aff5e6",
+          "type": "request",
+          "name": "GET",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com",
+          "schemaVersion": 1,
+          "authEnabled": true,
+          "authType": "basic",
+          "authBasic": {
+            "username": "test",
+            "password": "encp:v1:dTYWzGiquin3d0LY/9caNrx0ljUiqLJHcXyj3Zhg8+jLxv1KpZKVz98CcUtBLmOo+B8="
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          }
+        },
+        {
+          "id": "9004c668-1953-46ce-b117-3adde977882c",
+          "type": "request",
+          "name": "Response Body",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{response(\"Client\", \".access_token\")}}",
+          "params": [],
+          "schemaVersion": 1
+        },
+        {
+          "id": "972cf49b-29cb-4777-9902-82f487b942ae",
+          "type": "request",
+          "name": "500",
+          "method": "GET",
+          "url": "http://localhost:8888/status/{{requestName()}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "9e0e8fdc-499a-475f-9c81-5e16b17c7193",
+          "type": "request",
+          "name": "200",
+          "method": "GET",
+          "url": "http://localhost:8888/status/{{requestName()}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "9fa85454-54f8-4d59-8e75-d08fafa862b2",
+          "type": "request",
+          "name": "Animated",
+          "method": "GET",
+          "url": "https://qodeinteractive.com/magazine/{{domain}}scroll-triggered-animations/",
+          "schemaVersion": 1
+        },
+        {
+          "id": "a0372511-3463-4fce-9b1a-639e81443762",
+          "type": "request",
+          "name": "Response Header",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{responseHeader(\"Client\", \"content-type\")}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "a4b3e64a-189b-46e9-8775-391bfadd9deb",
+          "type": "request",
+          "name": "POST",
+          "method": "POST",
+          "url": "https://echo.free.beeceptor.com",
+          "schemaVersion": 1
+        },
+        {
+          "id": "a78ae507-9847-4e85-953a-9a48d48ec157",
+          "type": "request",
+          "name": "PATCH",
+          "method": "PATCH",
+          "url": "https://echo.free.beeceptor.com",
+          "schemaVersion": 1
+        },
+        {
+          "id": "af477318-caa4-44a0-b268-3b96b92b5a50",
+          "type": "request",
+          "name": "Implicit",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/bearer",
+          "schemaVersion": 1,
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "implicit",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          }
+        },
+        {
+          "id": "b1abf554-7501-4fc6-8482-9563958e6a65",
+          "type": "request",
+          "name": "303",
+          "method": "GET",
+          "url": "http://localhost:8888/status/{{requestName()}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "b24a3c6b-8977-413c-97e9-1b93f56377cb",
+          "type": "request",
+          "name": "Echo",
+          "method": "POST",
+          "url": "https://echo.free.beeceptor.com/{{folder}}",
+          "params": [
+            {
+              "id": "5ae99245-5e86-48dd-b559-052b5dacb485",
+              "name": "foo",
+              "value": "bar",
+              "enabled": true
+            },
+            {
+              "id": "5e4e61d2-0bc4-448f-8d42-7820fb5e1d76",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "3813734b-cbfb-4963-9b82-831d8df0a988",
+              "name": "dsafadsfasdf",
+              "value": "4",
+              "enabled": true
+            }
+          ],
+          "headers": [],
+          "authEnabled": true,
+          "authType": "bearer",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1
+        },
+        {
+          "id": "b7bb54e4-e3f2-4ba4-a5fe-46002de1a639",
+          "type": "request",
+          "name": "Bad Certificate",
+          "method": "GET",
+          "url": "https://expired.badssl.com/",
+          "schemaVersion": 1
+        },
+        {
+          "id": "b9c5c781-1a9e-40e5-aa6c-80390d20bf4a",
+          "type": "request",
+          "name": "Google",
+          "method": "GET",
+          "url": "https://google.com",
+          "headers": [],
+          "schemaVersion": 1,
+          "useCookieJar": false,
+          "params": [],
+          "authType": "none",
+          "authEnabled": true,
+          "bodyType": "no-body",
+          "notes": "",
+          "bodyText": ""
+        },
+        {
+          "id": "bafab2b7-f4ef-49c6-a172-e3275bd15d6f",
+          "type": "request",
+          "name": "text/markdown",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 1,
+          "params": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "bodyType": "no-body",
+          "notes": "",
+          "bodyText": ""
+        },
+        {
+          "id": "bb51258c-2575-4a4c-afb5-5981e631ff3e",
+          "type": "request",
+          "name": "OPTIONS",
+          "method": "OPTIONS",
+          "url": "https://echo.free.beeceptor.com",
+          "schemaVersion": 1
+        },
+        {
+          "id": "bcc8ab64-db19-4681-9bc7-72ca4e4801d4",
+          "type": "request",
+          "name": "Base64 Decode",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{base64decode(\"dXNlcm5hbWUvcGFzc3dvcmQ=\")}}",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:oQRpQxqngJXHBPoAg/hp/ifAyIo+qw8hSZ/+Sp+AtwW5WdKsXGkjRzBbws6zVUQoLPSpxA=="
+          },
+          "authBearer": {
+            "token": "encp:v1:I0RPS7n/lBr0sKZRccjk7RYoRB7VFD84And2w6i41wnEdh215c4Lj4puuBuw5++qzQ=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "693136ba-f9f1-4298-9308-e56192cf78b8",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "8912cab0-509c-4a5d-a56c-9df6fa628dc3",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 1
+        },
+        {
+          "id": "bf3d5600-7e58-4183-ba42-7f6fa35a52d9",
+          "type": "request",
+          "name": "Claude",
+          "method": "GET",
+          "url": "https://claude.ai/settings/usage",
+          "authEnabled": false,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1
+        },
+        {
+          "id": "bf489378-ae6f-4428-8129-ac5cd73a1eb6",
+          "type": "request",
+          "name": "application/json",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 1,
+          "authEnabled": true,
+          "authType": "apikey",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          }
+        },
+        {
+          "id": "caee13ce-3831-44cc-937d-03b5c6cdcb3c",
+          "type": "request",
+          "name": "Random Int",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{randomInt(\"0\", \"100\")}}",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:8Ab9TxgQKPWrwPYMma17obvuhs7/4nr3JCdnhNY8g3Uf6pjwZgiy0Qcj5lXV+UYtcIHhiA=="
+          },
+          "authBearer": {
+            "token": "encp:v1:4U5StEbc+lli2s5XGKk6AirpZ8um39QQyEwWdrbcy+oHeQFsaUb7ERFZTRuhVf1uHA=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "49a081a3-d9a9-40ee-8d33-b54861999f08",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "d7c232c3-1882-43bf-bc8e-a2f82ded569f",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 1
+        },
+        {
+          "id": "cdd04d87-b3b7-47ee-a2f7-a534495e7d5b",
+          "type": "request",
+          "name": "PUT",
+          "method": "PUT",
+          "url": "https://echo.free.beeceptor.com",
+          "schemaVersion": 1
+        },
+        {
+          "id": "dc374cfc-d9ca-434b-832a-1e6bbcfff21e",
+          "type": "request",
+          "name": "Balls",
+          "method": "GET",
+          "url": "https://bouncyballs.org",
+          "schemaVersion": 1
+        },
+        {
+          "id": "e48b72f7-a415-4102-99a2-bca806e15d63",
+          "type": "request",
+          "name": "Token",
+          "method": "POST",
+          "url": "https://login-dev.qacustomer.teradata.com/as/token.oauth2",
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "b93f202b-12ca-4db4-895c-f087eece8b5e",
+              "name": "grant_type",
+              "value": "password",
+              "enabled": true
+            },
+            {
+              "id": "27b59a41-7bf6-44d3-80ec-a04b4bc6f355",
+              "name": "username",
+              "value": "{{username}}",
+              "enabled": true
+            },
+            {
+              "id": "fbc15143-3393-4be2-add4-17297f264a3a",
+              "name": "password",
+              "value": "aQOANeHfwiS0jEvu1V2NBlXa3B1Qdi8R",
+              "enabled": true
+            },
+            {
+              "id": "482ede68-e23f-433c-b46c-72aa240dd3de",
+              "name": "scope",
+              "value": "openid profile email",
+              "enabled": true
+            },
+            {
+              "id": "7334a844-c1e8-4d11-a315-c0c30aa37095",
+              "name": "client_id",
+              "value": "sso-confidential",
+              "enabled": true
+            },
+            {
+              "id": "aa0772b5-e85c-44bc-b148-80207e8a1f83",
+              "name": "client_secret",
+              "value": "El5B3JmIPKKy1E6l8Gvh5M7pZHG6wo1uqAZo1yP7nyyoqd6lhsAzxiNcqRYL5cvB",
+              "enabled": true
+            }
+          ],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "oauth-code-client",
+            "clientSecret": "encp:v1:eURnC4yzV7bgQYJvSfPpsiGSW+RhiO0MFUj5Dxvui0rNqozxxF3jGRgnu4jgcV+o14E64QIdvNc1W4ZX4pHbJIWpYfRT",
+            "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+            "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+            "scope": "email profile openid",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "http://localhost:3000/callback",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "params": [
+            {
+              "id": "a2114c27-e519-47ac-9be2-414980829967",
+              "name": "",
+              "value": "",
+              "enabled": true
+            }
+          ],
+          "headers": [],
+          "notes": "",
+          "schemaVersion": 1
+        },
+        {
+          "id": "e49e970d-cc22-465e-96e0-fd3abfbd8d5b",
+          "type": "request",
+          "name": "Base64 Encode",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{base64encode(\"username/password\")}}",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:WPRAdEdfABM5Iz7/bceXjSwtrTTvZRgzflawukSozwHkzjnLxOFuQfR6nT5LKLAWbNwK8g=="
+          },
+          "authBearer": {
+            "token": "encp:v1:ixZQiqqzV8rfpbE+kB5HoegxzMQZJP6RIGXIx95bxrcTnaNzr/fVgLsBuFQOJgBkcw=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "289bfe45-2ac9-4e88-9a67-ab3a06e20f1f",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "fb13b13e-0abf-493d-8c37-a9df9a502a39",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 1
+        },
+        {
+          "id": "e4a05436-625d-4c10-900f-fb85bbd0087c",
+          "type": "request",
+          "name": "DELETE",
+          "method": "DELETE",
+          "url": "https://echo.free.beeceptor.com",
+          "schemaVersion": 1
+        },
+        {
+          "id": "e7f59944-8890-4cee-909a-402d85bb4d8d",
+          "type": "request",
+          "name": "Bearer",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/{{requestName()}}",
+          "authEnabled": true,
+          "authType": "bearer",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:IVqzAs3J6F78GQFKVq81D7HtqoSCsADrQtNzJ1QsaKnhGE7U+Xpjxy7ZVe/F5vpLMLiFJA=="
+          },
+          "authBearer": {
+            "token": "encp:v1:WiGaish/A9e25taCOkCR6xmchzMvGqxvW7Miy0vKyhoGsCbJTYhNjfjiSovCwc8+ed4y4A=="
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          }
+        },
+        {
+          "id": "e95a5265-80fc-46fd-bbc6-e33b92e2d27b",
+          "type": "request",
+          "name": "Environment Variable",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{environmentVariable(\"USER\")}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "edc83124-ba65-4b4f-b6cd-142c03a5b29f",
+          "type": "request",
+          "name": "HEAD",
+          "method": "HEAD",
+          "url": "https://echo.free.beeceptor.com",
+          "schemaVersion": 1
+        },
+        {
+          "id": "ef47205c-ef74-4366-a172-6c7bf7ffef6e",
+          "type": "request",
+          "name": "CUSTOM",
+          "method": "BANANA",
+          "url": "https://echo.free.beeceptor.com",
+          "schemaVersion": 1
+        },
+        {
+          "id": "eff31f9b-00f7-4de9-9453-9bf7c9716787",
+          "type": "request",
+          "name": "AWS",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/{{requestName()}}",
+          "authEnabled": true,
+          "authType": "aws-iam",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "implicit",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "encp:v1:6tSe41BFit6Xs3g+zL/zr0/GRgG63Un6acrNBXFi/wCZMlzzW1aQkHmmvRbWNGM/mEBxXU9vPQ==",
+            "secretAccessKey": "encp:v1:u2o41Fxa3jvVGrGLnWtIXjYFa/I1hvQbjnBtXxC0p+dpDnhe9S2OmvQj5JW7r5IIs5jwxwuXzk4dcpo=",
+            "region": "us-east-1",
+            "service": "execute-api",
+            "sessionToken": "encp:v1:nYinF1T6IFJoYDf5h3CrW4wV6vMc18tCDRVvReuPAwRzOFxmb7KKNauNckjT1MUpM1WOhPd4800="
+          },
+          "schemaVersion": 1,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          }
+        },
+        {
+          "id": "f22cc187-2b9c-43c6-822f-97400985a841",
+          "type": "request",
+          "name": "application/xml",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 1
+        },
+        {
+          "id": "f6e3d5c4-b9ee-4112-88d4-d3b41f94cf2c",
+          "type": "request",
+          "name": "URL Percent decode",
+          "method": "GET",
+          "url": "https://echo.free.beeceptor.com/{{urlEncode(\"QW ER\")}}",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:CEz/mq2HU0kUl0FcNfI9sAtFN5Ik4bOuXQy+UJnKM1VCyhcP7K+H89HDFGDezTTY4juoag=="
+          },
+          "authBearer": {
+            "token": "encp:v1:cdo7/n1UFR7BlMyk05N3ZcLu2n1yc75TzDXQTYc39G7MeHC2XAOFOMj7gI+xPTf5AA=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "514168cf-b3bb-4172-a778-e4612a618e26",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "33a2d985-18c5-47bd-a783-bb82f3c21cd1",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 1
+        },
+        {
+          "id": "fca529ad-ed0a-4b7f-ac03-db605299ba2c",
+          "type": "request",
+          "name": "Authorization Code-PK",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/bearer",
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "public",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 1
+        }
+      ]
+    },
+    {
+      "id": "2c129834-ba11-4eaa-b6eb-ef9a99ee9a44",
+      "metadata": {
+        "id": "2c129834-ba11-4eaa-b6eb-ef9a99ee9a44",
+        "variables": {},
+        "schemaVersion": 1
+      },
+      "tree": {
+        "children": [],
+        "schemaVersion": 1
+      },
+      "requests": []
+    },
+    {
+      "id": "33234f80-1e60-4abe-a0b9-c472ada25b39",
+      "metadata": {
+        "id": "33234f80-1e60-4abe-a0b9-c472ada25b39",
+        "variables": [],
+        "schemaVersion": 1
+      },
+      "tree": {
+        "children": [],
+        "schemaVersion": 1
+      },
+      "requests": []
+    },
+    {
+      "id": "77494ffc-ca28-4f10-ab71-afb35df7bad2",
+      "metadata": {
+        "id": "77494ffc-ca28-4f10-ab71-afb35df7bad2",
+        "variables": {},
+        "schemaVersion": 1
+      },
+      "tree": {
+        "children": [],
+        "schemaVersion": 1
+      },
+      "requests": []
+    }
+  ]
+}

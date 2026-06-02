@@ -2,6 +2,7 @@
 
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
+import { escapeHtml } from "../utils/html.js";
 
 /**
  * BackupModal — theme-styled modal for creating and restoring whole-workspace
@@ -161,8 +162,8 @@ export class BackupModal {
       <label class="backup-mode-head">
         <input type="radio" name="${group}" value="${value}"${checked ? " checked" : ""} />
         <span class="backup-mode-text">
-          <span class="backup-mode-label">${this.#esc(label)}</span>
-          <span class="backup-mode-desc">${this.#esc(desc)}</span>
+          <span class="backup-mode-label">${escapeHtml(label)}</span>
+          <span class="backup-mode-desc">${escapeHtml(desc)}</span>
         </span>
       </label>
     `;
@@ -319,12 +320,4 @@ export class BackupModal {
   }
 
   // ── Utils ───────────────────────────────────────────────────────────────────
-
-  #esc(s) {
-    return String(s ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
 }

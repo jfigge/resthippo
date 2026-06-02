@@ -10,6 +10,8 @@
 
 "use strict";
 
+import { base64UrlEncode } from "./base64url.js";
+
 // Allowed characters in a PKCE code verifier (RFC 7636 §4.1)
 const VERIFIER_CHARS =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
@@ -53,18 +55,5 @@ export function generateCodeVerifier(length = 64) {
 export async function generateCodeChallenge(verifier) {
   const encoded = new TextEncoder().encode(verifier);
   const digest = await crypto.subtle.digest("SHA-256", encoded);
-  return _base64urlEncode(digest);
-}
-
-/**
- * Encode an ArrayBuffer as base64url (no "=" padding, URL-safe alphabet).
- *
- * @param {ArrayBuffer} buffer
- * @returns {string}
- */
-function _base64urlEncode(buffer) {
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  return base64UrlEncode(digest);
 }

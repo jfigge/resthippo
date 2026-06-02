@@ -54,7 +54,9 @@ export async function implicitFlow(config) {
   try {
     new URL(config.authUrl.trim());
   } catch {
-    return createOAuthResult({ success: true });
+    return oauthResultFromError(
+      configurationError("Auth URL is not a valid URL."),
+    );
   }
 
   const redirectUri = config.redirectUri?.trim() || DEFAULT_REDIRECT_URI;

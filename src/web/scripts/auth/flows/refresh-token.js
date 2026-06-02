@@ -10,15 +10,9 @@
 
 "use strict";
 
-import { postTokenRequest } from "../network/electron-network.js";
-import {
-  oauthResultFromTokenResponse,
-  oauthResultFromError,
-} from "../types/oauth-types.js";
-import {
-  configurationError,
-  fromTokenErrorResponse,
-} from "../types/oauth-errors.js";
+import { basicAuthHeader, requestToken } from "./token-exchange.js";
+import { oauthResultFromError } from "../types/oauth-types.js";
+import { configurationError } from "../types/oauth-errors.js";
 
 /**
  * Execute the Refresh Token grant.
@@ -45,40 +39,21 @@ export async function refreshTokenFlow(config, refreshToken) {
 
   if (config.scope?.trim()) params.scope = config.scope.trim();
 
-  // Client authentication
+  // Client authentication. Unlike the other token-acquiring grants, the refresh
+  // exchange treats client_id as optional and does NOT echo it into the body
+  // under header auth, so it keeps its own block rather than using
+  // applyClientAuth(); only the Basic header construction is shared.
   const credMethod = config.credentials ?? "header";
   if (credMethod === "body") {
     params.client_id = config.clientId?.trim() ?? "";
     if (config.clientSecret?.trim())
       params.client_secret = config.clientSecret.trim();
   } else if (config.clientId?.trim()) {
-    const secret = config.clientSecret?.trim() ?? "";
-    const encoded = btoa(`${config.clientId.trim()}:${secret}`);
-    headers["Authorization"] = `Basic ${encoded}`;
-  }
-
-  let response;
-  try {
-    response = await postTokenRequest(config.accessTokenUrl.trim(), params, {
-      headers,
-      verifySsl: config.verifySsl !== false,
-      timeout: config.timeout ?? 30_000,
-    });
-  } catch (err) {
-    return oauthResultFromError(err);
-  }
-
-  if (response.error || response.httpStatus >= 400) {
-    return oauthResultFromError(
-      fromTokenErrorResponse(response, response.httpStatus),
+    headers["Authorization"] = basicAuthHeader(
+      config.clientId.trim(),
+      config.clientSecret?.trim() ?? "",
     );
   }
 
-  if (!response.access_token) {
-    return oauthResultFromError(
-      configurationError("Token endpoint did not return an access_token."),
-    );
-  }
-
-  return oauthResultFromTokenResponse(response);
+  return requestToken(config.accessTokenUrl.trim(), params, headers, config);
 }

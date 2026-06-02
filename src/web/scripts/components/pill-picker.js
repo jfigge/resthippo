@@ -1,5 +1,7 @@
 "use strict";
 
+import { buildFunctionToken } from "./variable-resolver.js";
+
 /**
  * PillPicker — lightweight inline dropdown that opens when the user types "{{".
  *
@@ -222,10 +224,7 @@ export class PillPicker {
   }
 
   #buildToken(name, funcDef) {
-    if (!funcDef.params?.length) return `{{${name}()}}`;
-    const argStrs = funcDef.params
-      .map((p) => `"${p.default ?? ""}"`)
-      .join(", ");
-    return `{{${name}(${argStrs})}}`;
+    const rawArgs = (funcDef.params ?? []).map((p) => p.default ?? "");
+    return buildFunctionToken(name, rawArgs);
   }
 }

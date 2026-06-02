@@ -31,6 +31,8 @@ import {
   serializeEditor,
   isFunctionCall,
   parseFunctionCall,
+  buildFunctionToken,
+  collectScopes,
 } from "./variable-resolver.js";
 import { PillEditorPopup } from "./pill-editor-popup.js";
 import { PillPicker } from "./pill-picker.js";
@@ -360,7 +362,7 @@ export class VariablePillEditor {
 
   #makeFunctionPill(name, rawArgs) {
     const funcDef = registry[name];
-    const rawToken = this.#buildRawToken(name, rawArgs);
+    const rawToken = buildFunctionToken(name, rawArgs);
 
     const span = document.createElement("span");
     span.contentEditable = "false";
@@ -457,14 +459,6 @@ export class VariablePillEditor {
     });
 
     return span;
-  }
-
-  #buildRawToken(name, rawArgs) {
-    if (!rawArgs.length) return `{{${name}()}}`;
-    const argStrs = rawArgs
-      .map((a) => `"${String(a).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
-      .join(", ");
-    return `{{${name}(${argStrs})}}`;
   }
 
   #scanAndConvertAll() {
@@ -675,30 +669,33 @@ export class VariablePillEditor {
 
   #getPickerVariables() {
     const ctx = this.#getContext();
+    // collectScopes() is the single source of truth for which context keys are
+    // scopes and their resolution priority; here we render them lowest-priority
+    // first (the reverse) with picker-specific labels.
+    const bySource = { global: null, environment: null, collection: null };
+    const folderNames = new Set();
+    for (const { source, vars } of collectScopes(ctx)) {
+      if (source === "folder") {
+        for (const name of Object.keys(vars)) folderNames.add(name);
+      } else {
+        bySource[source] = vars;
+      }
+    }
+
+    const labels = {
+      global: "Global",
+      environment: ctx?.activeEnvironmentName || "Environment",
+      collection: ctx?.envName || "Collection",
+    };
+
     const scopes = [];
-
-    // Global variables (lowest priority — listed first)
-    if (ctx?.globalVariables) {
-      const vars = Object.keys(ctx.globalVariables).sort();
-      if (vars.length) scopes.push({ label: "Global", variables: vars });
-    }
-
-    // Named environment variables
-    if (ctx?.environmentVariables) {
-      const vars = Object.keys(ctx.environmentVariables).sort();
-      if (vars.length) {
-        const label = ctx.activeEnvironmentName || "Environment";
-        scopes.push({ label, variables: vars });
-      }
-    }
-
-    // Collection-level variables
-    if (ctx?.envVariables) {
-      const vars = Object.keys(ctx.envVariables).sort();
-      if (vars.length) {
-        const label = ctx.envName || "Collection";
-        scopes.push({ label, variables: vars });
-      }
+    // Non-folder scopes, lowest priority first: global → environment → collection.
+    for (const source of ["global", "environment", "collection"]) {
+      const vars = bySource[source];
+      if (!vars) continue;
+      const names = Object.keys(vars).sort();
+      if (names.length)
+        scopes.push({ label: labels[source], variables: names });
     }
 
     // Folder chain — child folders override their parents, so when several
@@ -706,16 +703,8 @@ export class VariablePillEditor {
     // reachable. Present the reachable set as a single "Folders" list of unique
     // names rather than one subsection per folder (which would surface
     // superseded, unselectable duplicates).
-    if (ctx?.folderChain?.length) {
-      const names = new Set();
-      for (const folder of ctx.folderChain) {
-        if (folder?.variables) {
-          for (const name of Object.keys(folder.variables)) names.add(name);
-        }
-      }
-      if (names.size)
-        scopes.push({ label: "Folders", variables: [...names].sort() });
-    }
+    if (folderNames.size)
+      scopes.push({ label: "Folders", variables: [...folderNames].sort() });
 
     return scopes;
   }
@@ -982,7 +971,7 @@ export class VariablePillEditor {
       } else if (child.classList?.contains("variable-pill")) {
         out +=
           child.dataset.function !== undefined
-            ? this.#buildRawToken(
+            ? buildFunctionToken(
                 child.dataset.function,
                 JSON.parse(child.dataset.fnArgs ?? "[]"),
               )
@@ -1351,7 +1340,7 @@ export class VariablePillEditor {
       } else if (node.classList?.contains("variable-pill")) {
         const serialized =
           node.dataset.function !== undefined
-            ? this.#buildRawToken(
+            ? buildFunctionToken(
                 node.dataset.function,
                 JSON.parse(node.dataset.fnArgs ?? "[]"),
               )

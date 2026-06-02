@@ -32,6 +32,7 @@
 
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
+import { escapeHtml } from "../utils/html.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
 import { normalizeVariables } from "./variable-shape.js";
 
@@ -1003,13 +1004,13 @@ export class CollectionsPopup {
     if (cookie.httpOnly) flags.push("HttpOnly");
     if (cookie.sameSite) flags.push(`SameSite=${cookie.sameSite}`);
     const flagsHtml = flags.length
-      ? `<span class="cookies-flags">${flags.map((f) => `<span class="cookies-flag">${this.#escape(f)}</span>`).join("")}</span>`
+      ? `<span class="cookies-flags">${flags.map((f) => `<span class="cookies-flag">${escapeHtml(f)}</span>`).join("")}</span>`
       : "";
 
     li.innerHTML = `
       <div class="cookies-row-main">
         <span class="cookies-nv">
-          <span class="cookies-name">${this.#escape(cookie.name)}</span>=<span class="cookies-value">${this.#escape(cookie.value)}</span>
+          <span class="cookies-name">${escapeHtml(cookie.name)}</span>=<span class="cookies-value">${escapeHtml(cookie.value)}</span>
         </span>
         <div class="cookies-row-actions">
           <button class="icon-btn cookies-edit" title="Edit cookie" aria-label="Edit cookie">${ICON_EDIT}</button>
@@ -1017,8 +1018,8 @@ export class CollectionsPopup {
         </div>
       </div>
       <div class="cookies-row-meta">
-        <span class="cookies-scope">${this.#escape(cookie.domain)}${this.#escape(cookie.path)}</span>
-        <span class="cookies-expiry">${this.#escape(this.#formatExpiry(cookie.expires))}</span>
+        <span class="cookies-scope">${escapeHtml(cookie.domain)}${escapeHtml(cookie.path)}</span>
+        <span class="cookies-expiry">${escapeHtml(this.#formatExpiry(cookie.expires))}</span>
         ${flagsHtml}
       </div>
     `;
@@ -1041,30 +1042,30 @@ export class CollectionsPopup {
     const sameSiteOpts = SAME_SITE_OPTIONS.map((opt) => {
       const sel = (cookie.sameSite || "") === opt ? " selected" : "";
       const label = opt || "(none)";
-      return `<option value="${this.#escape(opt)}"${sel}>${this.#escape(label)}</option>`;
+      return `<option value="${escapeHtml(opt)}"${sel}>${escapeHtml(label)}</option>`;
     }).join("");
 
     li.innerHTML = `
       <div class="cookies-edit-grid">
         <label class="cookies-field">
           <span>Name</span>
-          <input type="text" class="cookies-in-name" autocomplete="off" spellcheck="false" value="${this.#escape(cookie.name)}">
+          <input type="text" class="cookies-in-name" autocomplete="off" spellcheck="false" value="${escapeHtml(cookie.name)}">
         </label>
         <label class="cookies-field">
           <span>Value</span>
-          <input type="text" class="cookies-in-value" autocomplete="off" spellcheck="false" value="${this.#escape(cookie.value)}">
+          <input type="text" class="cookies-in-value" autocomplete="off" spellcheck="false" value="${escapeHtml(cookie.value)}">
         </label>
         <label class="cookies-field">
           <span>Domain</span>
-          <input type="text" class="cookies-in-domain" autocomplete="off" spellcheck="false" value="${this.#escape(cookie.domain)}">
+          <input type="text" class="cookies-in-domain" autocomplete="off" spellcheck="false" value="${escapeHtml(cookie.domain)}">
         </label>
         <label class="cookies-field">
           <span>Path</span>
-          <input type="text" class="cookies-in-path" autocomplete="off" spellcheck="false" value="${this.#escape(cookie.path)}">
+          <input type="text" class="cookies-in-path" autocomplete="off" spellcheck="false" value="${escapeHtml(cookie.path)}">
         </label>
         <label class="cookies-field">
           <span>Expires</span>
-          <input type="datetime-local" class="cookies-in-expires" value="${this.#escape(this.#toDatetimeLocal(cookie.expires))}">
+          <input type="datetime-local" class="cookies-in-expires" value="${escapeHtml(this.#toDatetimeLocal(cookie.expires))}">
         </label>
         <label class="cookies-field">
           <span>SameSite</span>
@@ -1266,15 +1267,5 @@ export class CollectionsPopup {
       window.addEventListener("mousemove", onMove);
       window.addEventListener("mouseup", onUp);
     });
-  }
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
-  #escape(str) {
-    return String(str ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
   }
 }

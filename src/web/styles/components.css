@@ -37,8 +37,11 @@
 }
 
 /* Text input / select. Component classes may override height (e.g. dense
-   table rows use --control-h-xs) and background. */
-.input {
+   table rows use --control-h-xs) and background. .auth-field__input shares
+   this skeleton exactly, so it is grouped here; its own variants (password,
+   pill-editor, decrypt-error) live in the AUTH section. */
+.input,
+.auth-field__input {
   width: 100%;
   height: var(--control-h-md);
   padding: 0 var(--space-3);
@@ -53,13 +56,15 @@
     background-color var(--transition-fast);
 }
 
-.input:focus {
+.input:focus,
+.auth-field__input:focus {
   outline: none;
   border-color: var(--color-accent);
   background: var(--color-base);
 }
 
-.input::placeholder {
+.input::placeholder,
+.auth-field__input::placeholder {
   color: var(--color-overlay-0);
   font-style: italic;
 }
@@ -226,25 +231,58 @@ mark.tree-highlight {
   text-align: center;
 }
 
-.method--get {
+/* Colour-code by HTTP method, grouped across every surface that carries a
+   method identity: the tree/badge (.method--*), the URL-bar selector, the
+   picker rows, the Send button, and the response Body tab in styled mode.
+   Grouped selectors each keep their own specificity, so the attribute-based
+   rules still outrank their components' base colour exactly as before. */
+.method--get,
+.req-method-select[data-method="get"],
+.req-method-menu__item[data-method="get"],
+.req-send-btn[data-method="get"],
+.res-tab-btn--styled-mode[data-method="get"] {
   color: var(--color-method-get);
 }
-.method--post {
+.method--post,
+.req-method-select[data-method="post"],
+.req-method-menu__item[data-method="post"],
+.req-send-btn[data-method="post"],
+.res-tab-btn--styled-mode[data-method="post"] {
   color: var(--color-method-post);
 }
-.method--put {
+.method--put,
+.req-method-select[data-method="put"],
+.req-method-menu__item[data-method="put"],
+.req-send-btn[data-method="put"],
+.res-tab-btn--styled-mode[data-method="put"] {
   color: var(--color-method-put);
 }
-.method--patch {
+.method--patch,
+.req-method-select[data-method="patch"],
+.req-method-menu__item[data-method="patch"],
+.req-send-btn[data-method="patch"],
+.res-tab-btn--styled-mode[data-method="patch"] {
   color: var(--color-method-patch);
 }
-.method--delete {
+.method--delete,
+.req-method-select[data-method="delete"],
+.req-method-menu__item[data-method="delete"],
+.req-send-btn[data-method="delete"],
+.res-tab-btn--styled-mode[data-method="delete"] {
   color: var(--color-method-delete);
 }
-.method--head {
+.method--head,
+.req-method-select[data-method="head"],
+.req-method-menu__item[data-method="head"],
+.req-send-btn[data-method="head"],
+.res-tab-btn--styled-mode[data-method="head"] {
   color: var(--color-method-head);
 }
-.method--options {
+.method--options,
+.req-method-select[data-method="options"],
+.req-method-menu__item[data-method="options"],
+.req-send-btn[data-method="options"],
+.res-tab-btn--styled-mode[data-method="options"] {
   color: var(--color-method-options);
 }
 
@@ -361,9 +399,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-md);
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.3),
-    0 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-menu);
   padding: var(--space-2) 0;
   display: flex;
   flex-direction: column;
@@ -524,29 +560,6 @@ html.show-method-icons .req-method-menu__item-label::before {
   height: 4px;
 }
 
-/* Colour-code the selected method */
-.req-method-select[data-method="get"] {
-  color: var(--color-method-get);
-}
-.req-method-select[data-method="post"] {
-  color: var(--color-method-post);
-}
-.req-method-select[data-method="put"] {
-  color: var(--color-method-put);
-}
-.req-method-select[data-method="patch"] {
-  color: var(--color-method-patch);
-}
-.req-method-select[data-method="delete"] {
-  color: var(--color-method-delete);
-}
-.req-method-select[data-method="head"] {
-  color: var(--color-method-head);
-}
-.req-method-select[data-method="options"] {
-  color: var(--color-method-options);
-}
-
 /* ── Method picker dropdown (.req-method-menu) ────────────────────────────── */
 
 .req-method-menu {
@@ -559,9 +572,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-md);
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.3),
-    0 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-menu);
   padding: var(--space-2) 0;
   user-select: none;
   animation: ctxmenu-open 0.08s ease-out;
@@ -598,28 +609,6 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .req-method-menu__item--selected .req-method-menu__check-icon {
   display: block;
-}
-
-.req-method-menu__item[data-method="get"] {
-  color: var(--color-method-get);
-}
-.req-method-menu__item[data-method="post"] {
-  color: var(--color-method-post);
-}
-.req-method-menu__item[data-method="put"] {
-  color: var(--color-method-put);
-}
-.req-method-menu__item[data-method="patch"] {
-  color: var(--color-method-patch);
-}
-.req-method-menu__item[data-method="delete"] {
-  color: var(--color-method-delete);
-}
-.req-method-menu__item[data-method="head"] {
-  color: var(--color-method-head);
-}
-.req-method-menu__item[data-method="options"] {
-  color: var(--color-method-options);
 }
 
 .req-method-menu__separator {
@@ -743,29 +732,6 @@ html.show-method-icons .req-method-menu__item-label::before {
   opacity: 0.8;
 }
 
-/* Colour-code the Send button to match the selected HTTP method */
-.req-send-btn[data-method="get"] {
-  color: var(--color-method-get);
-}
-.req-send-btn[data-method="post"] {
-  color: var(--color-method-post);
-}
-.req-send-btn[data-method="put"] {
-  color: var(--color-method-put);
-}
-.req-send-btn[data-method="patch"] {
-  color: var(--color-method-patch);
-}
-.req-send-btn[data-method="delete"] {
-  color: var(--color-method-delete);
-}
-.req-send-btn[data-method="head"] {
-  color: var(--color-method-head);
-}
-.req-send-btn[data-method="options"] {
-  color: var(--color-method-options);
-}
-
 .req-send-btn--cancel {
   color: var(--color-warning);
 }
@@ -788,7 +754,10 @@ html.show-method-icons .req-method-menu__item-label::before {
   flex-shrink: 0;
 }
 
-.req-tab-btn {
+/* Tab buttons for the request and response panes share one design. The
+   collection/environment dialogs use a denser variant — see .coll-tab. */
+.req-tab-btn,
+.res-tab-btn {
   padding: var(--space-3) var(--space-4);
   font-size: var(--font-size-sm);
   color: var(--color-subtext);
@@ -799,10 +768,12 @@ html.show-method-icons .req-method-menu__item-label::before {
   white-space: nowrap;
 }
 
-.req-tab-btn:hover {
+.req-tab-btn:hover,
+.res-tab-btn:hover {
   color: var(--color-text);
 }
-.req-tab-btn--active {
+.req-tab-btn--active,
+.res-tab-btn--active {
   color: var(--color-accent);
   border-bottom-color: var(--color-accent);
 }
@@ -1176,7 +1147,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 .params-toolbar-btn--danger:hover {
-  background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
+  background-color: var(--tint-error-hover);
   color: var(--color-error);
 }
 
@@ -1282,6 +1253,18 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .params-row:hover {
   background-color: var(--color-surface-0);
+}
+
+/* Collections / Variables / Environments popups reuse .params-header-row and
+   .params-row as their KV-editor grid, but with a 4-column layout
+   (name | value | 2 action buttons) instead of the request params' 5 columns. */
+.coll-kv-header.params-header-row,
+.coll-kv-row.params-row,
+.vars-kv-header.params-header-row,
+.vars-kv-row.params-row,
+.env-kv-header.params-header-row,
+.env-kv-row.params-row {
+  grid-template-columns: 1fr 1fr 28px 28px;
 }
 
 /* Drop phantom placeholder shown while dragging a param row */
@@ -1411,7 +1394,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   background: var(--color-base);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-float);
   max-height: 180px;
   overflow-y: auto;
   display: none;
@@ -1447,6 +1430,32 @@ html.show-method-icons .req-method-menu__item-label::before {
   min-width: 220px;
 }
 
+/* ── API-key name combo dropdown ──────────────────────────────────────────── */
+/* Inherits .hdr-autocomplete; stacks a mono key name above a muted comment. */
+
+.apikey-autocomplete {
+  max-height: 260px;
+  min-width: 280px;
+}
+
+.apikey-autocomplete__item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  white-space: normal;
+}
+
+.apikey-autocomplete__name {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-sm);
+}
+
+.apikey-autocomplete__comment {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+}
+
 /* Delete button */
 .params-delete-btn {
   width: 26px;
@@ -1461,7 +1470,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .params-delete-btn:hover {
   color: var(--color-error);
-  background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
+  background-color: var(--tint-error-hover);
 }
 
 /* Armed delete confirm: the trash icon has become a "?" awaiting a second,
@@ -1522,32 +1531,9 @@ html.show-method-icons .req-method-menu__item-label::before {
   white-space: nowrap;
 }
 
-.auth-field__input {
-  width: 100%;
-  height: var(--control-h-md);
-  padding: 0 var(--space-3);
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-  box-sizing: border-box;
-  transition:
-    border-color var(--transition-fast),
-    background-color var(--transition-fast);
-}
-
-.auth-field__input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-  background: var(--color-base);
-}
-
-.auth-field__input::placeholder {
-  color: var(--color-overlay-0);
-  font-style: italic;
-}
-
+/* Base skeleton, :focus and ::placeholder are shared with .input (grouped in
+   the generic input section near the top of this file). Only auth-specific
+   variants live here. */
 .auth-field__input[type="password"] {
   font-family: var(--font-mono), monospace;
   letter-spacing: 0.1em;
@@ -1759,11 +1745,11 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 .auth-token-status--ok {
-  color: var(--color-success, #a6e3a1);
+  color: var(--color-success);
 }
 
 .auth-token-status--error {
-  color: var(--color-error, #f38ba8);
+  color: var(--color-error);
 }
 
 /* ── Clear Session button ────────────────────────────────────────────────── */
@@ -1942,53 +1928,11 @@ html.show-method-icons .req-method-menu__item-label::before {
   display: none;
 }
 
-.res-tab-btn {
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--font-size-sm);
-  color: var(--color-subtext);
-  border-bottom: 2px solid transparent;
-  transition:
-    color var(--transition-fast),
-    border-color var(--transition-fast);
-  white-space: nowrap;
-}
-
-.res-tab-btn:hover {
-  color: var(--color-text);
-}
-.res-tab-btn--active {
-  color: var(--color-accent);
-  border-bottom-color: var(--color-accent);
-}
-
 /* Body tab — render mode indicators */
 .res-tab-btn--styled-mode {
   color: var(--color-accent); /* fallback when no method set */
   font-weight: 700;
   font-style: italic;
-}
-
-/* Method-specific colours for the Body tab in Styled mode */
-.res-tab-btn--styled-mode[data-method="get"] {
-  color: var(--color-method-get);
-}
-.res-tab-btn--styled-mode[data-method="post"] {
-  color: var(--color-method-post);
-}
-.res-tab-btn--styled-mode[data-method="put"] {
-  color: var(--color-method-put);
-}
-.res-tab-btn--styled-mode[data-method="patch"] {
-  color: var(--color-method-patch);
-}
-.res-tab-btn--styled-mode[data-method="delete"] {
-  color: var(--color-method-delete);
-}
-.res-tab-btn--styled-mode[data-method="head"] {
-  color: var(--color-method-head);
-}
-.res-tab-btn--styled-mode[data-method="options"] {
-  color: var(--color-method-options);
 }
 
 .res-tab-btn--raw-mode {
@@ -2652,7 +2596,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-float);
   padding: var(--space-2) 0 var(--space-3);
   overscroll-behavior: contain;
 }
@@ -2759,9 +2703,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   background: var(--color-base);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-lg);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.45),
-    0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-modal);
   display: flex;
   flex-direction: column;
   opacity: 0;
@@ -2821,7 +2763,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 .popup-close:hover {
-  background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
+  background-color: var(--tint-error-hover);
   color: var(--color-error);
 }
 
@@ -3289,7 +3231,10 @@ html.show-method-icons .req-method-menu__item-label::before {
   flex-shrink: 0;
 }
 
-.coll-tab {
+/* Collection and environment dialog tabs share a denser tab-button design
+   (smaller padding, bolder active state) than the request/response panes. */
+.coll-tab,
+.env-tab {
   padding: var(--space-2) var(--space-4);
   border: none;
   border-bottom: 2px solid transparent;
@@ -3303,11 +3248,13 @@ html.show-method-icons .req-method-menu__item-label::before {
     border-color var(--transition-fast);
 }
 
-.coll-tab:hover {
+.coll-tab:hover,
+.env-tab:hover {
   color: var(--color-text);
 }
 
-.coll-tab.is-active {
+.coll-tab.is-active,
+.env-tab.is-active {
   color: var(--color-accent);
   border-bottom-color: var(--color-accent);
   font-weight: 600;
@@ -3491,7 +3438,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 .coll-action-btn--danger:hover {
-  background-color: color-mix(in srgb, var(--color-error) 15%, transparent);
+  background-color: var(--tint-error-hover);
   color: var(--color-error);
 }
 
@@ -3539,11 +3486,6 @@ html.show-method-icons .req-method-menu__item-label::before {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-.coll-kv-header.params-header-row,
-.coll-kv-row.params-row {
-  grid-template-columns: 1fr 1fr 28px 28px;
 }
 
 /* ── Footer ──────────────────────────────────────────────────────────────── */
@@ -3643,12 +3585,6 @@ html.show-method-icons .req-method-menu__item-label::before {
   overflow: hidden;
 }
 
-/* KV header + rows use a 3-column grid (name | value | delete) */
-.vars-kv-header.params-header-row,
-.vars-kv-row.params-row {
-  grid-template-columns: 1fr 1fr 28px 28px;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
    ENVIRONMENTS POPUP
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -3719,30 +3655,6 @@ html.show-method-icons .req-method-menu__item-label::before {
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   flex-shrink: 0;
-}
-
-.env-tab {
-  padding: var(--space-2) var(--space-4);
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: var(--color-subtext);
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    color var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.env-tab:hover {
-  color: var(--color-text);
-}
-
-.env-tab.is-active {
-  color: var(--color-accent);
-  border-bottom-color: var(--color-accent);
-  font-weight: 600;
 }
 
 .env-panels {
@@ -3925,11 +3837,6 @@ html.show-method-icons .req-method-menu__item-label::before {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-.env-kv-header.params-header-row,
-.env-kv-row.params-row {
-  grid-template-columns: 1fr 1fr 28px 28px;
 }
 
 /* ── Footer ──────────────────────────────────────────────────────────────── */
@@ -4391,9 +4298,7 @@ input[type="checkbox"]:disabled {
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-md);
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.3),
-    0 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-menu);
   padding: var(--space-2) 0;
   overscroll-behavior: contain;
 }
@@ -4519,9 +4424,7 @@ input[type="checkbox"]:disabled {
   background: var(--color-surface-0);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-md);
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.3),
-    0 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-menu);
   padding: var(--space-2) 0;
   user-select: none;
   animation: ctxmenu-open 0.08s ease-out;

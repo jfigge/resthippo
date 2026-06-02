@@ -19,12 +19,19 @@
 
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
+import { escapeHtml } from "../utils/html.js";
+import { deepClone } from "../utils/clone.js";
 import {
   resolveString,
   buildFolderChain,
   collectTemplateVariables,
 } from "./variable-resolver.js";
 import { varsArrayToMap } from "./variable-shape.js";
+import {
+  BODY_CONTENT_TYPES,
+  NO_BODY_METHODS,
+  encodeBaseUrl,
+} from "./request-payload.js";
 
 // SVG folder icons (Feather-style, stroke-based)
 const ICON_FOLDER_CLOSED = icon("folderClosed", {
@@ -152,7 +159,7 @@ export class TreeView {
    * @returns {object[]}
    */
   getItems() {
-    return JSON.parse(JSON.stringify(this.#items));
+    return deepClone(this.#items);
   }
 
   /**
@@ -733,10 +740,9 @@ export class TreeView {
     }
     // Only scan fields that will actually be sent — avoids false-positive
     // warnings for inactive body data retained while switching body types.
-    const noBodyMethods = new Set(["GET", "HEAD"]);
     const method = node.method ?? "GET";
     const bodyType = node.bodyType ?? "no-body";
-    if (!noBodyMethods.has(method)) {
+    if (!NO_BODY_METHODS.has(method)) {
       switch (bodyType) {
         case "json":
         case "yaml":
@@ -918,7 +924,7 @@ export class TreeView {
       };
       const rv = (s) => resolveString(s ?? "", nodeContext);
 
-      const baseUrl = this.#encodeBaseUrl(rv(node.url || "<url>"));
+      const baseUrl = encodeBaseUrl(rv(node.url || "<url>"));
 
       // ── 1. URL — append enabled, non-blank query parameters ──────────────
       const params = Array.isArray(node.params) ? node.params : [];
@@ -976,7 +982,6 @@ export class TreeView {
       }
 
       // ── 4. Body — match RequestEditor body assembly by type ───────────────
-      const noBodyMethods = new Set(["GET", "HEAD"]);
       const bodyType = node.bodyType ?? "no-body";
       let body = null; // string payload for --data (text bodies)
       let bodyFilePath = null; // file path for --data-binary @path
@@ -985,7 +990,7 @@ export class TreeView {
       let formPairs = null; // string[] — urlencoded, already percent-encoded
       let formEntries = null; // {name,value}[] — multipart/form-data
 
-      if (!noBodyMethods.has(method)) {
+      if (!NO_BODY_METHODS.has(method)) {
         switch (bodyType) {
           case "form-data": {
             // Use --form flags (curl sets Content-Type + boundary automatically)
@@ -1015,31 +1020,13 @@ export class TreeView {
             break;
           }
           case "json":
-            if (node.bodyText?.trim()) {
-              body = rv(node.bodyText);
-              if (!headers["Content-Type"])
-                headers["Content-Type"] = "application/json";
-            }
-            break;
           case "yaml":
-            if (node.bodyText?.trim()) {
-              body = rv(node.bodyText);
-              if (!headers["Content-Type"])
-                headers["Content-Type"] = "application/x-yaml";
-            }
-            break;
           case "xml":
-            if (node.bodyText?.trim()) {
-              body = rv(node.bodyText);
-              if (!headers["Content-Type"])
-                headers["Content-Type"] = "application/xml";
-            }
-            break;
           case "text":
             if (node.bodyText?.trim()) {
               body = rv(node.bodyText);
               if (!headers["Content-Type"])
-                headers["Content-Type"] = "text/plain";
+                headers["Content-Type"] = BODY_CONTENT_TYPES[bodyType];
             }
             break;
           case "file":
@@ -1184,7 +1171,7 @@ export class TreeView {
       li.innerHTML = `
         <div class="tree-node__row" tabindex="0">
           <span class="tree-node__icon">${isExpanded ? ICON_FOLDER_OPEN : ICON_FOLDER_CLOSED}</span>
-          <span class="tree-node__label">${this.#escape(node.name)}</span>
+          <span class="tree-node__label">${escapeHtml(node.name)}</span>
         </div>
       `;
 
@@ -1269,12 +1256,12 @@ export class TreeView {
       const methodTitle = document.documentElement.classList.contains(
         "show-method-icons",
       )
-        ? ` title="${this.#escape(method)}"`
+        ? ` title="${escapeHtml(method)}"`
         : "";
       li.innerHTML = `
         <div class="tree-node__row" tabindex="0">
           <span class="tree-node__method ${methodClass}"${methodTitle}>${method}</span>
-          <span class="tree-node__label">${this.#escape(node.name)}</span>
+          <span class="tree-node__label">${escapeHtml(node.name)}</span>
         </div>
       `;
 
@@ -1388,10 +1375,10 @@ export class TreeView {
 
   #highlightMatch(text, query) {
     const idx = text.toLowerCase().indexOf(query);
-    if (idx === -1) return this.#escape(text);
-    const before = this.#escape(text.slice(0, idx));
-    const match = this.#escape(text.slice(idx, idx + query.length));
-    const after = this.#escape(text.slice(idx + query.length));
+    if (idx === -1) return escapeHtml(text);
+    const before = escapeHtml(text.slice(0, idx));
+    const match = escapeHtml(text.slice(idx, idx + query.length));
+    const after = escapeHtml(text.slice(idx + query.length));
     return `${before}<mark class="tree-highlight">${match}</mark>${after}`;
   }
 
@@ -1442,23 +1429,6 @@ export class TreeView {
         bubbles: true,
       }),
     );
-  }
-
-  #escape(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  /** Percent-encode the domain and path of a resolved URL. */
-  #encodeBaseUrl(url) {
-    try {
-      return new URL(url).href;
-    } catch {
-      return url;
-    }
   }
 
   #saveCollapsedState() {

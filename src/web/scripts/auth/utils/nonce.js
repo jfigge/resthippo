@@ -8,65 +8,43 @@
  * `nonce` claim in the id_token; the client verifies the claim matches a nonce
  * it issued, defeating replay of a previously captured id_token.
  *
- * Pending nonces are held in a module-level Map and expire after 10 minutes.
- * Each nonce is a 64-character cryptographically random hex string.
+ * The mint / validate-once / expire lifecycle is the shared single-use TTL
+ * registry (see ttl-registry.js); only decodeIdTokenPayload() below is
+ * OIDC-specific. Each nonce is a 64-character cryptographically random hex
+ * string that expires after 10 minutes.
  */
 
 "use strict";
 
-/** Pending nonce entries: Map<nonce_string → { createdAt: number }> */
-const _pending = new Map();
+import { createTtlRegistry } from "./ttl-registry.js";
+import { base64UrlDecode } from "./base64url.js";
 
-/** Nonces expire after 10 minutes. */
-const TTL_MS = 10 * 60 * 1_000;
+const _nonces = createTtlRegistry();
 
 /**
  * Generate and register a cryptographically secure nonce string.
- *
  * @returns {string} 64-hex-character random value
  */
 export function generateNonce() {
-  // Prune expired entries so _pending does not accumulate indefinitely.
-  const now = Date.now();
-  for (const [k, v] of _pending) {
-    if (now - v.createdAt > TTL_MS) _pending.delete(k);
-  }
-
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  const nonce = Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  _pending.set(nonce, { createdAt: now });
-  return nonce;
+  return _nonces.generate();
 }
 
 /**
- * Validate a nonce value extracted from an id_token claim.
- *
- * A nonce is valid only if it was previously returned by `generateNonce()` and
- * has not yet expired.  The entry is consumed (deleted) on the first successful
- * validation so it cannot be replayed.
- *
+ * Validate (and consume) a nonce value extracted from an id_token claim.
  * @param {string|null|undefined} nonce - Value from the id_token `nonce` claim
  * @returns {boolean}
  */
 export function validateNonce(nonce) {
-  if (!nonce || typeof nonce !== "string") return false;
-  const entry = _pending.get(nonce);
-  if (!entry) return false;
-  _pending.delete(nonce);
-  return Date.now() - entry.createdAt < TTL_MS;
+  return _nonces.validate(nonce);
 }
 
 /**
  * Discard a previously generated nonce without validating it.
  * Call this when the popup is cancelled before a callback arrives.
- *
  * @param {string} nonce
  */
 export function discardNonce(nonce) {
-  if (nonce) _pending.delete(nonce);
+  _nonces.discard(nonce);
 }
 
 /**
@@ -83,21 +61,8 @@ export function decodeIdTokenPayload(idToken) {
   const parts = idToken.split(".");
   if (parts.length < 2) return null;
   try {
-    // base64url → base64
-    let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const pad = b64.length % 4;
-    if (pad) b64 += "=".repeat(4 - pad);
-    const json = atob(b64);
-    return JSON.parse(json);
+    return JSON.parse(base64UrlDecode(parts[1]));
   } catch {
     return null;
   }
-}
-
-/**
- * Clear all pending nonces.
- * Useful for testing or when the user navigates away from the auth flow.
- */
-export function clearAllNonces() {
-  _pending.clear();
 }

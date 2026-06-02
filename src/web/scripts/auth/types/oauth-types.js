@@ -18,12 +18,6 @@ export const GrantType = Object.freeze({
   REFRESH_TOKEN: "refresh_token",
 });
 
-/** How client credentials are transmitted to the token endpoint. */
-export const CredentialsMethod = Object.freeze({
-  HEADER: "header", // Authorization: Basic base64(id:secret)
-  BODY: "body", // client_id / client_secret in request body
-});
-
 // ── OAuthResult factory ──────────────────────────────────────────────────────
 
 /**

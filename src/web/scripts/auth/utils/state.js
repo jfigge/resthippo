@@ -4,71 +4,40 @@
  * OAuth 2.0 state parameter — CSRF protection for authorization code and
  * implicit flows (RFC 6749 §10.12).
  *
- * Pending states are held in a module-level Map and expire after 10 minutes.
- * Each state is a 64-character cryptographically random hex string.
+ * A domain-named facade over the shared single-use TTL registry
+ * (see ttl-registry.js): each state is a 64-character cryptographically random
+ * hex string that expires after 10 minutes and is consumed on first successful
+ * validation.
  */
 
 "use strict";
 
-/** Pending state entries: Map<state_string → { createdAt: number }> */
-const _pending = new Map();
+import { createTtlRegistry } from "./ttl-registry.js";
 
-/** States expire after 10 minutes. */
-const TTL_MS = 10 * 60 * 1_000;
+const _states = createTtlRegistry();
 
 /**
  * Generate and register a cryptographically secure state string.
- *
  * @returns {string} 64-hex-character random value
  */
 export function generateState() {
-  // Prune expired entries so _pending does not accumulate indefinitely.
-  const now = Date.now();
-  for (const [k, v] of _pending) {
-    if (now - v.createdAt > TTL_MS) _pending.delete(k);
-  }
-
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  const state = Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  _pending.set(state, { createdAt: now });
-  return state;
+  return _states.generate();
 }
 
 /**
- * Validate a state value received in an authorization callback.
- *
- * A state is valid only if it was previously returned by `generateState()` and
- * has not yet expired.  The entry is consumed (deleted) on the first successful
- * validation so it cannot be replayed.
- *
+ * Validate (and consume) a state value received in an authorization callback.
  * @param {string|null|undefined} state - Value from the callback URL
  * @returns {boolean}
  */
 export function validateState(state) {
-  if (!state || typeof state !== "string") return false;
-  const entry = _pending.get(state);
-  if (!entry) return false;
-  _pending.delete(state);
-  return Date.now() - entry.createdAt < TTL_MS;
+  return _states.validate(state);
 }
 
 /**
  * Discard a previously generated state without validating it.
  * Call this when the popup is cancelled before a callback arrives.
- *
  * @param {string} state
  */
 export function discardState(state) {
-  if (state) _pending.delete(state);
-}
-
-/**
- * Clear all pending states.
- * Useful for testing or when the user navigates away from the auth flow.
- */
-export function clearAllStates() {
-  _pending.clear();
+  _states.discard(state);
 }

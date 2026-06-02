@@ -224,7 +224,7 @@ help:
 	@echo "    creds         Print OAuth/OpenID configuration details"
 	@echo "    stop          Stop and remove Keycloak container"
 	@echo "    reset         Stop container and delete volumes"
-	@echo "    kc_all           Start + configure + creds"
+	@echo "    kc_all        Start + configure + creds"
 
 # -----------------------------------------------------------------------------
 # Start Keycloak
@@ -463,6 +463,8 @@ mock-up: mock-build
 	@echo "  GET http://localhost:$(MOCK_PORT)/mimes/<type>"
 	@echo "  GET http://localhost:$(MOCK_PORT)/status"
 	@echo "  GET http://localhost:$(MOCK_PORT)/status/<code>"
+	@echo "  GET http://localhost:$(MOCK_PORT)/auth"
+	@echo "  GET http://localhost:$(MOCK_PORT)/auth/<type>"
 	@echo "--------------------------------"
 
 mock-down:

@@ -1,5 +1,7 @@
 "use strict";
 
+import { deepClone } from "./utils/clone.js";
+
 const BUILT_IN_THEMES = [
   {
     id: "mocha",
@@ -268,7 +270,7 @@ function selectCustomTheme(id) {
   _selectedId = id;
   const theme = _customThemes.find((t) => t.id === id);
   if (!theme) return;
-  _editingTheme = deepCopy(theme);
+  _editingTheme = deepClone(theme);
 
   updateSelectedClass();
   document.getElementById("editor-panel").classList.remove("empty");
@@ -405,7 +407,7 @@ async function saveSelected() {
   const idx = _customThemes.findIndex((t) => t.id === _editingTheme.id);
   if (idx < 0) return;
 
-  _customThemes[idx] = deepCopy(_editingTheme);
+  _customThemes[idx] = deepClone(_editingTheme);
   renderThemeList();
   updateSelectedClass();
 
@@ -434,7 +436,7 @@ async function applySelected() {
     if (_editingTheme?.id === _selectedId) {
       const idx = _customThemes.findIndex((t) => t.id === _editingTheme.id);
       if (idx >= 0) {
-        _customThemes[idx] = deepCopy(_editingTheme);
+        _customThemes[idx] = deepClone(_editingTheme);
         renderThemeList();
         updateSelectedClass();
         document.getElementById("btn-save").textContent = "Save";
@@ -487,10 +489,6 @@ function normalizeHex(v) {
   const s = v.trim().replace(/^#/, "");
   if (/^[0-9a-fA-F]{6}$/.test(s)) return "#" + s;
   return null;
-}
-
-function deepCopy(obj) {
-  return JSON.parse(JSON.stringify(obj));
 }
 
 document.addEventListener("DOMContentLoaded", init);

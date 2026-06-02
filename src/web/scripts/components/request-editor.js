@@ -19,9 +19,11 @@ import {
 } from "./variable-resolver.js";
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
+import { escapeHtml } from "../utils/html.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
 import Prism from "../vendor/prism.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
+import { buildRequestPayload, encodeBaseUrl } from "./request-payload.js";
 
 // Standard HTTP request headers offered in the header-name combo box.
 // Custom values are always accepted too (free-text input).
@@ -180,168 +182,201 @@ const STANDARD_HEADERS_DICT = {
   "X-Requested-With": ["XMLHttpRequest"],
 };
 
-/** Lazily create + cache the shared autocomplete dropdown in the document. */
-let _hdrAcDropdown = null; // the floating listbox div
-let _hdrAcActiveInput = null; // which input currently owns the dropdown
-let _hdrAcActiveIdx = -1; // keyboard-focused item index (-1 = none)
-let _hdrAcBlurTimer = null; // pending blur-hide timer (cancelled on re-focus)
-let _hdrAcOnSelect = null; // optional callback(headerName) fired when a name item is confirmed
+// ── Autocomplete dropdown (shared mechanism) ──────────────────────────────────
+// One class drives all four combo dropdowns below (header-name, header-value,
+// scope, API-key name). It owns ONLY the mechanism: lazy DOM creation, outside-
+// click dismiss, positioning, keyboard navigation, and show/hide. Per-dropdown
+// match logic and the exact select-ordering stay in the free functions, which
+// delegate mechanism to their instance. All four reuse the .hdr-autocomplete
+// CSS classes.
+class AutocompleteDropdown {
+  #el = null; // the floating listbox div
+  #anchor = null; // element the dropdown is currently anchored to
+  #activeIdx = -1; // keyboard-focused item index (-1 = none)
+  #blurTimer = null; // pending blur-hide timer (cancelled on re-show)
+  #className;
+  #ariaLabel;
 
-// ── Header-value suggestions dropdown ─────────────────────────────────────────
-let _hdrValDropdown = null; // the floating value listbox div
-let _hdrValActiveEl = null; // which valueEditor.element currently owns the dropdown
-let _hdrValActiveIdx = -1; // keyboard-focused item index (-1 = none)
-let _hdrValBlurTimer = null; // pending blur-hide timer
-let _hdrValOnSelect = null; // callback(selectedValue) fired when a value is picked
-
-function _ensureHdrDropdown() {
-  if (_hdrAcDropdown) return _hdrAcDropdown;
-  _hdrAcDropdown = document.createElement("div");
-  _hdrAcDropdown.className = "hdr-autocomplete";
-  _hdrAcDropdown.setAttribute("role", "listbox");
-  _hdrAcDropdown.setAttribute("aria-label", "Header suggestions");
-  document.body.appendChild(_hdrAcDropdown);
-
-  // Hide when anything outside the input+dropdown is clicked
-  document.addEventListener(
-    "mousedown",
-    (e) => {
-      if (
-        _hdrAcActiveInput &&
-        !_hdrAcActiveInput.contains(e.target) &&
-        !_hdrAcDropdown.contains(e.target)
-      ) {
-        _hideHdrDropdown();
-      }
-    },
-    true,
-  );
-
-  return _hdrAcDropdown;
-}
-
-function _showHdrDropdown(input, onSelect) {
-  // Cancel any pending blur-hide so rapid blur→focus doesn't flash the dropdown
-  if (_hdrAcBlurTimer !== null) {
-    clearTimeout(_hdrAcBlurTimer);
-    _hdrAcBlurTimer = null;
+  constructor(className, ariaLabel) {
+    this.#className = className;
+    this.#ariaLabel = ariaLabel;
   }
 
+  #ensure() {
+    if (this.#el) return this.#el;
+    this.#el = document.createElement("div");
+    this.#el.className = this.#className;
+    this.#el.setAttribute("role", "listbox");
+    this.#el.setAttribute("aria-label", this.#ariaLabel);
+    document.body.appendChild(this.#el);
+
+    // Hide when anything outside the anchor + dropdown is clicked.
+    document.addEventListener(
+      "mousedown",
+      (e) => {
+        if (
+          this.#anchor &&
+          !this.#anchor.contains(e.target) &&
+          !this.#el.contains(e.target)
+        ) {
+          this.hide();
+        }
+      },
+      true,
+    );
+
+    return this.#el;
+  }
+
+  /**
+   * Populate + position the dropdown below `anchorEl`.
+   * `onPick(value, entry)` fires on item mousedown (before the input blur).
+   * `renderItem(item, entry)` customises an item's DOM; when omitted the entry
+   * is treated as a plain string label (stored on item.dataset.value).
+   */
+  show(anchorEl, entries, onPick, { minWidth = 0, renderItem = null } = {}) {
+    if (this.#blurTimer !== null) {
+      clearTimeout(this.#blurTimer);
+      this.#blurTimer = null;
+    }
+    if (!entries || entries.length === 0) {
+      this.hide();
+      return;
+    }
+
+    const dl = this.#ensure();
+    dl.innerHTML = "";
+    this.#activeIdx = -1;
+
+    entries.forEach((entry, i) => {
+      const item = document.createElement("div");
+      item.className = "hdr-autocomplete__item";
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", "false");
+      item.dataset.idx = String(i);
+      if (renderItem) {
+        renderItem(item, entry);
+      } else {
+        item.textContent = entry;
+        item.dataset.value = entry;
+      }
+
+      // mousedown (not click) so we fire before the input's blur
+      item.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        onPick(item.dataset.value ?? item.textContent, entry);
+      });
+      dl.appendChild(item);
+    });
+
+    const rect = anchorEl.getBoundingClientRect();
+    dl.style.left = `${rect.left + window.scrollX}px`;
+    dl.style.top = `${rect.bottom + window.scrollY + 2}px`;
+    dl.style.width = `${Math.max(rect.width, minWidth)}px`;
+    dl.classList.add("hdr-autocomplete--visible");
+    this.#anchor = anchorEl;
+  }
+
+  hide() {
+    this.#blurTimer = null;
+    if (this.#el) {
+      this.#el.classList.remove("hdr-autocomplete--visible");
+      this.#el.innerHTML = "";
+    }
+    this.#anchor = null;
+    this.#activeIdx = -1;
+  }
+
+  /** Schedule a deferred hide (cancelled if show() runs first). */
+  scheduleHide(delay = 150) {
+    this.#blurTimer = setTimeout(() => this.hide(), delay);
+  }
+
+  /** Move keyboard focus within the dropdown; wraps around. */
+  navigate(dir) {
+    if (!this.#el) return;
+    const items = [...this.#el.querySelectorAll(".hdr-autocomplete__item")];
+    if (!items.length) return;
+
+    items[this.#activeIdx]?.classList.remove("hdr-autocomplete__item--active");
+    items[this.#activeIdx]?.setAttribute("aria-selected", "false");
+
+    this.#activeIdx = (this.#activeIdx + dir + items.length) % items.length;
+
+    const active = items[this.#activeIdx];
+    active.classList.add("hdr-autocomplete__item--active");
+    active.setAttribute("aria-selected", "true");
+    active.scrollIntoView({ block: "nearest" });
+  }
+
+  /** Label of the keyboard-focused item, or null when none is focused. */
+  activeLabel() {
+    if (!this.#el || this.#activeIdx < 0) return null;
+    const items = this.#el.querySelectorAll(".hdr-autocomplete__item");
+    const active = items[this.#activeIdx];
+    if (!active) return null;
+    return active.dataset.value ?? active.textContent ?? null;
+  }
+
+  get visible() {
+    return !!this.#el?.classList.contains("hdr-autocomplete--visible");
+  }
+}
+
+// Four dropdown instances — one per combo input. _hdrAcOnSelect / _hdrValOnSelect
+// hold the active name/value callbacks for the keyboard-accept paths.
+const _hdrAc = new AutocompleteDropdown(
+  "hdr-autocomplete",
+  "Header suggestions",
+);
+let _hdrAcOnSelect = null;
+const _hdrVal = new AutocompleteDropdown(
+  "hdr-autocomplete hdr-val-autocomplete",
+  "Header value suggestions",
+);
+let _hdrValOnSelect = null;
+const _scope = new AutocompleteDropdown(
+  "hdr-autocomplete scope-autocomplete",
+  "Scope suggestions",
+);
+const _apiKey = new AutocompleteDropdown(
+  "hdr-autocomplete apikey-autocomplete",
+  "API key name suggestions",
+);
+
+// ── Header-name suggestions dropdown ──────────────────────────────────────────
+
+function _showHdrDropdown(input, onSelect) {
   // Store the on-select callback so the keyboard-accept path can fire it too.
   _hdrAcOnSelect = onSelect ?? null;
 
-  const dl = _ensureHdrDropdown();
   const query = input.value.toLowerCase().trim();
   const allHeaders = Object.keys(STANDARD_HEADERS_DICT);
   const matches = query
     ? allHeaders.filter((h) => h.toLowerCase().includes(query))
     : allHeaders;
 
-  if (matches.length === 0) {
-    _hideHdrDropdown();
-    return;
-  }
-
-  dl.innerHTML = "";
-  _hdrAcActiveIdx = -1;
-
-  matches.forEach((h, i) => {
-    const item = document.createElement("div");
-    item.className = "hdr-autocomplete__item";
-    item.setAttribute("role", "option");
-    item.setAttribute("aria-selected", "false");
-    item.dataset.idx = String(i);
-    item.textContent = h;
-
-    // mousedown (not click) so we fire before the input's blur
-    item.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      input.value = h;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      _hideHdrDropdown();
-      input.focus();
-      _hdrAcOnSelect?.(h);
-    });
-    dl.appendChild(item);
+  _hdrAc.show(input, matches, (h) => {
+    input.value = h;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    _hdrAc.hide();
+    input.focus();
+    _hdrAcOnSelect?.(h);
   });
-
-  // Position directly below the input
-  const rect = input.getBoundingClientRect();
-  dl.style.left = `${rect.left + window.scrollX}px`;
-  dl.style.top = `${rect.bottom + window.scrollY + 2}px`;
-  dl.style.width = `${rect.width}px`;
-  dl.classList.add("hdr-autocomplete--visible");
-  _hdrAcActiveInput = input;
-}
-
-function _hideHdrDropdown() {
-  _hdrAcBlurTimer = null;
-  if (_hdrAcDropdown) {
-    _hdrAcDropdown.classList.remove("hdr-autocomplete--visible");
-    _hdrAcDropdown.innerHTML = "";
-  }
-  _hdrAcActiveInput = null;
-  _hdrAcActiveIdx = -1;
-}
-
-/** Move keyboard focus within the dropdown; wraps around. */
-function _hdrDropdownNavigate(dir) {
-  if (!_hdrAcDropdown) return;
-  const items = [..._hdrAcDropdown.querySelectorAll(".hdr-autocomplete__item")];
-  if (!items.length) return;
-
-  items[_hdrAcActiveIdx]?.classList.remove("hdr-autocomplete__item--active");
-  items[_hdrAcActiveIdx]?.setAttribute("aria-selected", "false");
-
-  _hdrAcActiveIdx = (_hdrAcActiveIdx + dir + items.length) % items.length;
-
-  const active = items[_hdrAcActiveIdx];
-  active.classList.add("hdr-autocomplete__item--active");
-  active.setAttribute("aria-selected", "true");
-  active.scrollIntoView({ block: "nearest" });
 }
 
 /** Accept the currently keyboard-focused item, if any. */
 function _hdrDropdownAccept(input) {
-  if (!_hdrAcDropdown || _hdrAcActiveIdx < 0) return false;
-  const items = _hdrAcDropdown.querySelectorAll(".hdr-autocomplete__item");
-  const active = items[_hdrAcActiveIdx];
-  if (!active) return false;
-  input.value = active.textContent;
+  const label = _hdrAc.activeLabel();
+  if (label === null) return false;
+  input.value = label;
   input.dispatchEvent(new Event("input", { bubbles: true }));
-  _hideHdrDropdown();
+  _hdrAc.hide();
   _hdrAcOnSelect?.(input.value);
   return true;
 }
 
 // ── Header-value suggestions dropdown ─────────────────────────────────────────
-
-/** Lazily create the value-suggestions dropdown div and attach global dismiss. */
-function _ensureHdrValDropdown() {
-  if (_hdrValDropdown) return _hdrValDropdown;
-  _hdrValDropdown = document.createElement("div");
-  _hdrValDropdown.className = "hdr-autocomplete hdr-val-autocomplete";
-  _hdrValDropdown.setAttribute("role", "listbox");
-  _hdrValDropdown.setAttribute("aria-label", "Header value suggestions");
-  document.body.appendChild(_hdrValDropdown);
-
-  // Dismiss when the user clicks outside both the anchor element and the dropdown.
-  document.addEventListener(
-    "mousedown",
-    (e) => {
-      if (
-        _hdrValActiveEl &&
-        !_hdrValActiveEl.contains(e.target) &&
-        !_hdrValDropdown.contains(e.target)
-      ) {
-        _hideHdrValDropdown();
-      }
-    },
-    true,
-  );
-
-  return _hdrValDropdown;
-}
 
 /**
  * Populate and show the value-suggestions dropdown below `anchorEl`.
@@ -351,90 +386,31 @@ function _ensureHdrValDropdown() {
  * @param {Function}    onSelect  Called with the chosen value string.
  */
 function _showHdrValDropdown(anchorEl, values, onSelect) {
-  if (_hdrValBlurTimer !== null) {
-    clearTimeout(_hdrValBlurTimer);
-    _hdrValBlurTimer = null;
-  }
-  if (!values || values.length === 0) {
-    _hideHdrValDropdown();
-    return;
-  }
-
   _hdrValOnSelect = onSelect ?? null;
-
-  const dl = _ensureHdrValDropdown();
-  dl.innerHTML = "";
-  _hdrValActiveIdx = -1;
-
-  values.forEach((v, i) => {
-    const item = document.createElement("div");
-    item.className = "hdr-autocomplete__item";
-    item.setAttribute("role", "option");
-    item.setAttribute("aria-selected", "false");
-    item.dataset.idx = String(i);
-    item.textContent = v;
-
-    item.addEventListener("mousedown", (e) => {
-      e.preventDefault(); // keep focus on the value editor
-      _hideHdrValDropdown();
+  _hdrVal.show(
+    anchorEl,
+    values,
+    (v) => {
+      _hdrVal.hide();
       _hdrValOnSelect?.(v);
       anchorEl.focus();
-    });
-    dl.appendChild(item);
-  });
-
-  const rect = anchorEl.getBoundingClientRect();
-  dl.style.left = `${rect.left + window.scrollX}px`;
-  dl.style.top = `${rect.bottom + window.scrollY + 2}px`;
-  // At least as wide as the anchor, or 220 px — values can be long.
-  dl.style.width = `${Math.max(rect.width, 220)}px`;
-  dl.classList.add("hdr-autocomplete--visible");
-  _hdrValActiveEl = anchorEl;
-}
-
-function _hideHdrValDropdown() {
-  _hdrValBlurTimer = null;
-  if (_hdrValDropdown) {
-    _hdrValDropdown.classList.remove("hdr-autocomplete--visible");
-    _hdrValDropdown.innerHTML = "";
-  }
-  _hdrValActiveEl = null;
-  _hdrValActiveIdx = -1;
-}
-
-/** Move keyboard focus within the value dropdown; wraps around. */
-function _hdrValDropdownNavigate(dir) {
-  if (!_hdrValDropdown) return;
-  const items = [
-    ..._hdrValDropdown.querySelectorAll(".hdr-autocomplete__item"),
-  ];
-  if (!items.length) return;
-
-  items[_hdrValActiveIdx]?.classList.remove("hdr-autocomplete__item--active");
-  items[_hdrValActiveIdx]?.setAttribute("aria-selected", "false");
-
-  _hdrValActiveIdx = (_hdrValActiveIdx + dir + items.length) % items.length;
-
-  const active = items[_hdrValActiveIdx];
-  active.classList.add("hdr-autocomplete__item--active");
-  active.setAttribute("aria-selected", "true");
-  active.scrollIntoView({ block: "nearest" });
+    },
+    { minWidth: 220 },
+  );
 }
 
 /** Accept the currently keyboard-focused value item, if any. */
 function _hdrValDropdownAccept() {
-  if (!_hdrValDropdown || _hdrValActiveIdx < 0) return false;
-  const items = _hdrValDropdown.querySelectorAll(".hdr-autocomplete__item");
-  const active = items[_hdrValActiveIdx];
-  if (!active) return false;
-  _hideHdrValDropdown();
-  _hdrValOnSelect?.(active.textContent);
+  const label = _hdrVal.activeLabel();
+  if (label === null) return false;
+  _hdrVal.hide();
+  _hdrValOnSelect?.(label);
   return true;
 }
 
 /** Returns true if the value-suggestions dropdown is currently visible. */
 function _hdrValDropdownVisible() {
-  return !!_hdrValDropdown?.classList.contains("hdr-autocomplete--visible");
+  return _hdrVal.visible;
 }
 
 // ── Scope suggestions dropdown ────────────────────────────────────────────────
@@ -453,48 +429,12 @@ const OAUTH2_ADVANCED_KEYS = new Set([
   "headerPrefix",
 ]);
 
-let _scopeDropdown = null;
-let _scopeActiveEl = null;
-let _scopeActiveIdx = -1;
-let _scopeBlurTimer = null;
-
-function _ensureScopeDropdown() {
-  if (_scopeDropdown) return _scopeDropdown;
-  _scopeDropdown = document.createElement("div");
-  _scopeDropdown.className = "hdr-autocomplete scope-autocomplete";
-  _scopeDropdown.setAttribute("role", "listbox");
-  _scopeDropdown.setAttribute("aria-label", "Scope suggestions");
-  document.body.appendChild(_scopeDropdown);
-
-  document.addEventListener(
-    "mousedown",
-    (e) => {
-      if (
-        _scopeActiveEl &&
-        !_scopeActiveEl.contains(e.target) &&
-        !_scopeDropdown.contains(e.target)
-      ) {
-        _hideScopeDropdown();
-      }
-    },
-    true,
-  );
-
-  return _scopeDropdown;
-}
-
 /**
  * Show / refresh the scope suggestion dropdown below `input`.
  * `onSelect(picked, currentWord)` is called when the user picks an item.
  * `scopeList` defaults to DEFAULT_SCOPES but can be overridden with OIDC-discovered scopes.
  */
 function _showScopeDropdown(input, onSelect, scopeList = DEFAULT_SCOPES) {
-  if (_scopeBlurTimer !== null) {
-    clearTimeout(_scopeBlurTimer);
-    _scopeBlurTimer = null;
-  }
-
-  const dl = _ensureScopeDropdown();
   const fullVal = input.value;
 
   // The "current word" is the token after the last space
@@ -512,74 +452,87 @@ function _showScopeDropdown(input, onSelect, scopeList = DEFAULT_SCOPES) {
       s.toLowerCase().startsWith(currentWord.toLowerCase()) && !selected.has(s),
   );
 
-  if (matches.length === 0) {
-    _hideScopeDropdown();
-    return;
-  }
-
-  dl.innerHTML = "";
-  _scopeActiveIdx = -1;
-
-  matches.forEach((s) => {
-    const item = document.createElement("div");
-    item.className = "hdr-autocomplete__item";
-    item.setAttribute("role", "option");
-    item.setAttribute("aria-selected", "false");
-    item.textContent = s;
-
-    item.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      _hideScopeDropdown();
-      onSelect(s, currentWord);
-      input.focus();
-    });
-    dl.appendChild(item);
+  _scope.show(input, matches, (s) => {
+    _scope.hide();
+    onSelect(s, currentWord);
+    input.focus();
   });
-
-  const rect = input.getBoundingClientRect();
-  dl.style.left = `${rect.left + window.scrollX}px`;
-  dl.style.top = `${rect.bottom + window.scrollY + 2}px`;
-  dl.style.width = `${rect.width}px`;
-  dl.classList.add("hdr-autocomplete--visible");
-  _scopeActiveEl = input;
-}
-
-function _hideScopeDropdown() {
-  _scopeBlurTimer = null;
-  if (_scopeDropdown) {
-    _scopeDropdown.classList.remove("hdr-autocomplete--visible");
-    _scopeDropdown.innerHTML = "";
-  }
-  _scopeActiveEl = null;
-  _scopeActiveIdx = -1;
-}
-
-function _scopeDropdownNavigate(dir) {
-  if (!_scopeDropdown) return;
-  const items = [..._scopeDropdown.querySelectorAll(".hdr-autocomplete__item")];
-  if (!items.length) return;
-
-  items[_scopeActiveIdx]?.classList.remove("hdr-autocomplete__item--active");
-  items[_scopeActiveIdx]?.setAttribute("aria-selected", "false");
-
-  _scopeActiveIdx = (_scopeActiveIdx + dir + items.length) % items.length;
-
-  const active = items[_scopeActiveIdx];
-  active.classList.add("hdr-autocomplete__item--active");
-  active.setAttribute("aria-selected", "true");
-  active.scrollIntoView({ block: "nearest" });
 }
 
 function _scopeDropdownAccept(input, onSelect) {
-  if (!_scopeDropdown || _scopeActiveIdx < 0) return false;
-  const items = _scopeDropdown.querySelectorAll(".hdr-autocomplete__item");
-  const active = items[_scopeActiveIdx];
-  if (!active) return false;
+  const label = _scope.activeLabel();
+  if (label === null) return false;
   const fullVal = input.value;
   const lastSpace = fullVal.lastIndexOf(" ");
   const currentWord = lastSpace === -1 ? fullVal : fullVal.slice(lastSpace + 1);
-  _hideScopeDropdown();
-  onSelect(active.textContent, currentWord);
+  _scope.hide();
+  onSelect(label, currentWord);
+  return true;
+}
+
+// ── API-key name combo dropdown ───────────────────────────────────────────────
+// Reuses the .hdr-autocomplete CSS classes. Offers the common API-key header
+// names, each with a short comment, but the user can always type their own.
+
+const API_KEY_NAMES = [
+  { name: "X-API-Key", comment: "The de-facto industry standard name." },
+  {
+    name: "X-API-KEY",
+    comment: "The uppercase variant of the de-facto standard.",
+  },
+  { name: "api-key", comment: "Common lowercase, non-prefixed alternative." },
+  { name: "apikey", comment: "Common lowercase, non-prefixed alternative." },
+  {
+    name: "X-Auth-Token",
+    comment:
+      "Frequently used when the key serves as a long-lived security token.",
+  },
+];
+
+/**
+ * Show / refresh the API-key name dropdown below `input`.
+ * Filters the standard names by what's typed; `onSelect(name)` fires on pick.
+ */
+function _showApiKeyDropdown(input, onSelect) {
+  const query = input.value.toLowerCase().trim();
+  const matches = query
+    ? API_KEY_NAMES.filter((k) => k.name.toLowerCase().includes(query))
+    : API_KEY_NAMES;
+
+  _apiKey.show(
+    input,
+    matches,
+    (name) => {
+      input.value = name;
+      _apiKey.hide();
+      onSelect?.(name);
+      input.focus();
+    },
+    {
+      minWidth: 280,
+      renderItem: (item, k) => {
+        item.classList.add("apikey-autocomplete__item");
+        const name = document.createElement("span");
+        name.className = "apikey-autocomplete__name";
+        name.textContent = k.name;
+        const comment = document.createElement("span");
+        comment.className = "apikey-autocomplete__comment";
+        comment.textContent = k.comment;
+        item.appendChild(name);
+        item.appendChild(comment);
+        item.dataset.value = k.name;
+      },
+    },
+  );
+}
+
+/** Accept the currently keyboard-focused item, if any. */
+function _apiKeyDropdownAccept(input, onSelect) {
+  const label = _apiKey.activeLabel();
+  if (label === null) return false;
+  input.value = label;
+  _apiKey.hide();
+  onSelect?.(label);
   return true;
 }
 
@@ -654,15 +607,6 @@ async function _fetchJson(url) {
   }
 }
 
-/** Percent-encode the domain and path of a resolved URL. */
-function _encodeBaseUrl(url) {
-  try {
-    return new URL(url).href;
-  } catch {
-    return url;
-  }
-}
-
 function _extractResponseFunctionRefs(templates) {
   const RESPONSE_FNS = new Set([
     "response",
@@ -693,6 +637,168 @@ function _extractResponseFunctionRefs(templates) {
   return [...map.entries()].map(([name, mode]) => ({ name, mode }));
 }
 
+/**
+ * DragReorderController — HTML5 phantom-placeholder drag-to-reorder for a
+ * vertical list of `.params-row` elements.
+ *
+ * Generalises the three byte-identical implementations (params, headers,
+ * body-form) that previously lived inline in RequestEditor. While a row is
+ * dragged it is hidden (`display:none`) and a `.params-drop-phantom` div is
+ * moved to the prospective drop slot; a document-level `dragover` listener
+ * withdraws the phantom when the pointer leaves the list. On drop the backing
+ * array is reordered in place and the caller's render/dispatch run.
+ *
+ * The backing array is read live via getItems() on every drop because callers
+ * may reassign it (e.g. body-form rows are rebuilt on bulk-mode toggles).
+ *
+ * Lifecycle:
+ *   attach(listEl)      — call once per list (re)build: creates the phantom and
+ *                         wires the list-level dragover/drop handlers.
+ *   wireRow(rowEl, id)  — call per row: wires dragstart/dragover/dragend.
+ *   reset()             — abandon any in-flight drag and release element refs
+ *                         (used when the body-form list is torn down on a
+ *                         panel switch without a new attach()).
+ */
+class DragReorderController {
+  #getItems;
+  #render;
+  #dispatch;
+  #listEl = null;
+  #phantom = null;
+  #srcId = null;
+  #insideList = false;
+  #dropHandled = false;
+  #docHandler = null;
+
+  constructor({ getItems, render, dispatch }) {
+    this.#getItems = getItems;
+    this.#render = render;
+    this.#dispatch = dispatch;
+  }
+
+  /** Create the phantom and wire list-level dragover/drop. Call per list build. */
+  attach(listEl) {
+    this.#listEl = listEl;
+    const phantom = document.createElement("div");
+    phantom.className = "params-drop-phantom";
+    phantom.setAttribute("aria-hidden", "true");
+    this.#phantom = phantom;
+
+    listEl.addEventListener("dragover", (e) => {
+      if (this.#srcId) e.preventDefault();
+    });
+    listEl.addEventListener("drop", (e) => {
+      e.preventDefault();
+      if (!this.#srcId) return;
+      this.#dropHandled = true;
+      const allChildren = [...listEl.children];
+      const phantomIdx = allChildren.indexOf(phantom);
+      if (phantomIdx === -1) {
+        this.#cancel();
+        this.#finalize();
+        return;
+      }
+      const insertBefore = allChildren
+        .slice(0, phantomIdx)
+        .filter((c) => c.classList.contains("params-row")).length;
+      const items = this.#getItems();
+      const srcIdx = items.findIndex((it) => it.id === this.#srcId);
+      if (srcIdx !== -1) {
+        const [moved] = items.splice(srcIdx, 1);
+        const target = insertBefore > srcIdx ? insertBefore - 1 : insertBefore;
+        items.splice(target, 0, moved);
+        this.#render();
+        this.#dispatch();
+      }
+      this.#finalize();
+    });
+  }
+
+  /** Wire dragstart/dragover/dragend for one row. Call per row build. */
+  wireRow(rowEl, itemId) {
+    rowEl.addEventListener("dragstart", (e) => {
+      // Defensive: clear any drag state still lingering from a prior gesture
+      // (dragend normally finalizes, so this is a no-op on the happy path).
+      if (this.#srcId) this.#finalize();
+      this.#srcId = itemId;
+      this.#dropHandled = false;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", itemId);
+
+      requestAnimationFrame(() => {
+        this.#insideList = true;
+        rowEl.parentElement?.insertBefore(this.#phantom, rowEl);
+        rowEl.style.display = "none";
+      });
+
+      this.#docHandler = (ev) => {
+        if (!this.#srcId || !this.#listEl) return;
+        const inside = this.#listEl.contains(ev.target);
+        if (!inside && this.#insideList) {
+          this.#insideList = false;
+          this.#phantom?.remove();
+          const draggedRow = this.#listEl.querySelector(
+            `[data-id="${this.#srcId}"]`,
+          );
+          if (draggedRow) draggedRow.style.display = "";
+        } else if (inside && !this.#insideList) {
+          this.#insideList = true;
+        }
+      };
+      document.addEventListener("dragover", this.#docHandler);
+    });
+
+    rowEl.addEventListener("dragover", (e) => {
+      if (!this.#srcId || this.#srcId === itemId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+
+      const rect = rowEl.getBoundingClientRect();
+      const after = (e.clientY - rect.top) / rect.height >= 0.5;
+      const ph = this.#phantom;
+
+      const draggedRow = this.#listEl?.querySelector(
+        `[data-id="${this.#srcId}"]`,
+      );
+      if (draggedRow && draggedRow.style.display !== "none")
+        draggedRow.style.display = "none";
+
+      const sibling = after ? rowEl.nextSibling : rowEl;
+      if (ph.nextSibling !== sibling && ph !== sibling)
+        rowEl.parentElement?.insertBefore(ph, sibling);
+    });
+
+    rowEl.addEventListener("dragend", () => {
+      if (!this.#dropHandled) this.#cancel();
+      this.#finalize();
+    });
+  }
+
+  /** Abandon any in-flight drag and release the list/phantom references. */
+  reset() {
+    this.#finalize();
+    this.#listEl = null;
+    this.#phantom = null;
+  }
+
+  /** Cancel a drag: remove the phantom and re-render from unchanged data. */
+  #cancel() {
+    this.#phantom?.remove();
+    this.#render();
+  }
+
+  /** Clear drag state and detach the document-level dragover listener. */
+  #finalize() {
+    if (this.#docHandler) {
+      document.removeEventListener("dragover", this.#docHandler);
+      this.#docHandler = null;
+    }
+    this.#srcId = null;
+    this.#insideList = false;
+    this.#dropHandled = false;
+  }
+}
+
 export class RequestEditor {
   /** @type {HTMLElement} */
   #el;
@@ -708,17 +814,22 @@ export class RequestEditor {
   #urlPreviewEl = null; // the preview bar element
   #urlPreviewInputEl = null; // the read-only input inside it
   #urlPreviewSeq = 0; // generation counter — guards against stale async results
-  // Drag state
-  #dragSrcId = null; // id of the param being dragged
-  #dragInsideList = false;
-  #dragDropHandled = false;
-  #paramPhantomEl = null; // placeholder shown while dragging
-  #docDragOverHandler = null;
+  // Drag-to-reorder (phantom-placeholder pattern; see DragReorderController)
+  #paramsDrag = new DragReorderController({
+    getItems: () => this.#params,
+    render: () => this.#renderParamsList(),
+    dispatch: () => this.#dispatchParamsUpdated(),
+  });
 
   // Headers state
   #headers = []; // [{ id, name, value, enabled }]
   #headersListEl = null;
   #headerSuggestionsEnabled = true; // toggled by "List Headers" checkbox
+  #headersDrag = new DragReorderController({
+    getItems: () => this.#headers,
+    render: () => this.#renderHeadersList(),
+    dispatch: () => this.#dispatchHeadersUpdated(),
+  });
 
   // Auth state
   #authType = "none";
@@ -799,19 +910,14 @@ export class RequestEditor {
   #bodyText = ""; // shared for json, yaml, xml, and plain text
   #bodyFilePath = ""; // path/name of selected file (display)
   #bodyFileObject = null; // actual File object reference for sending
-  // Body form drag state (one active form editor at a time)
+  // Body-form list element — rebuilt on every render; rows are re-wired through
+  // the controller below. The controller owns all transient drag state.
   #bfListEl = null;
-  #bfPhantom = null;
-  #bfDragSrcId = null;
-  #bfDragInside = false;
-  #bfDropHandled = false;
-  #bfActiveType = null;
-  #bfDocHandler = null;
-  #hdrDragSrcId = null;
-  #hdrDragInsideList = false;
-  #hdrDragDropHandled = false;
-  #headerPhantomEl = null;
-  #hdrDocDragOverHandler = null;
+  #bfDrag = new DragReorderController({
+    getItems: () => this.#bodyFormRows,
+    render: () => this.#renderBodyContent(),
+    dispatch: () => this.#dispatchBodyUpdated(),
+  });
 
   // Params bulk editor
   #paramsBulkMode = false;
@@ -1226,19 +1332,15 @@ export class RequestEditor {
     typeBar.appendChild(typeSelect);
 
     // ── Bulk Editor toggle — shown for all auth types except None ─────────
-    const bulkLabel = document.createElement("label");
-    bulkLabel.className = "params-toolbar-toggle-label";
-    bulkLabel.title = "Toggle bulk text editor";
-    const bulkCheck = document.createElement("input");
-    bulkCheck.type = "checkbox";
-    bulkCheck.className = "params-toolbar-toggle";
-    bulkCheck.checked = this.#authBulkMode;
-    bulkCheck.addEventListener("change", () => {
-      this.#authBulkMode = bulkCheck.checked;
-      this.#renderAuthContent();
+    const { label: bulkLabel, check: bulkCheck } = this.#buildToolbarToggle({
+      text: " Bulk Editor",
+      title: "Toggle bulk text editor",
+      checked: this.#authBulkMode,
+      onChange: (checked) => {
+        this.#authBulkMode = checked;
+        this.#renderAuthContent();
+      },
     });
-    bulkLabel.appendChild(bulkCheck);
-    bulkLabel.append(" Bulk Editor");
     bulkLabel.classList.toggle("is-hidden", this.#authType === "none");
     this.#authBulkEl = bulkLabel;
     this.#authBulkCheckEl = bulkCheck;
@@ -1304,8 +1406,7 @@ export class RequestEditor {
   #renderAuthContent() {
     const el = this.#authContentEl;
     if (!el) return;
-    for (const ed of this.#authPillEditors) ed.destroy?.();
-    this.#authPillEditors = [];
+    this.#disposePillEditors(this.#authPillEditors);
     el.innerHTML = "";
     if (this.#authBulkMode && this.#authType !== "none") {
       return this.#renderAuthBulkEditor(el);
@@ -1613,8 +1714,7 @@ export class RequestEditor {
     form.className = "auth-form";
 
     form.appendChild(
-      this.#buildAuthPillField("Key", {
-        placeholder: "e.g. X-API-Key",
+      this.#buildAuthApiKeyNameField({
         value: this.#authApiKey.name,
         onInput: (v) => {
           this.#authApiKey.name = v;
@@ -2251,49 +2351,6 @@ export class RequestEditor {
 
   // ── Auth field helpers ─────────────────────────────────────────────────────
   /**
-   * Build a standard labeled input row for use inside an auth-form.
-   * @param {string} label
-   * @param {string} inputType  e.g. "text" | "url"
-   * @param {{ placeholder?, value?, onInput?, hint? }} opts
-   */
-  #buildAuthField(
-    label,
-    inputType,
-    { placeholder = "", value = "", onInput, hint } = {},
-  ) {
-    const wrapper = document.createElement("div");
-    wrapper.className = "auth-field";
-
-    const lbl = document.createElement("label");
-    lbl.className = "auth-field__label";
-    lbl.textContent = label;
-
-    const input = document.createElement("input");
-    input.type = inputType;
-    input.className = "auth-field__input";
-    input.placeholder = placeholder;
-    input.value = value;
-    // Generate a descriptive name so password managers don't mistake these for
-    // login credentials.  The "wurl-auth-" prefix makes the purpose unambiguous.
-    input.name = `wurl-auth-${label.toLowerCase().replace(/\s+/g, "-")}`;
-    input.setAttribute("autocomplete", "off");
-    input.setAttribute("aria-label", label);
-    if (onInput) input.addEventListener("input", () => onInput(input.value));
-
-    wrapper.appendChild(lbl);
-    wrapper.appendChild(input);
-
-    if (hint) {
-      const hintEl = document.createElement("span");
-      hintEl.className = "auth-field__hint";
-      hintEl.textContent = hint;
-      wrapper.appendChild(hintEl);
-    }
-
-    return wrapper;
-  }
-
-  /**
    * Build a labeled auth field whose value is a VariablePillEditor so the user
    * can reference environment variables and functions inline.
    * @param {string} label
@@ -2405,22 +2462,22 @@ export class RequestEditor {
     });
 
     input.addEventListener("blur", () => {
-      _scopeBlurTimer = setTimeout(_hideScopeDropdown, 150);
+      _scope.scheduleHide();
     });
 
     input.addEventListener("keydown", (e) => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        _scopeDropdownNavigate(+1);
+        _scope.navigate(+1);
         return;
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        _scopeDropdownNavigate(-1);
+        _scope.navigate(-1);
         return;
       }
       if (e.key === "Escape") {
-        _hideScopeDropdown();
+        _scope.hide();
         return;
       }
       if (e.key === "Enter") {
@@ -2433,6 +2490,73 @@ export class RequestEditor {
     hint.className = "auth-field__hint";
     hint.textContent =
       "Space-separated list of requested scopes — type or pick from the list";
+
+    wrapper.appendChild(lbl);
+    wrapper.appendChild(input);
+    wrapper.appendChild(hint);
+    return wrapper;
+  }
+
+  /**
+   * Build the API-key name field: a free-text combo input backed by a
+   * suggestive dropdown of common API-key header names. The user can pick a
+   * standard name (each annotated with a short comment) or type their own.
+   * @param {{ value?: string, onInput?: (v:string)=>void }} opts
+   */
+  #buildAuthApiKeyNameField({ value = "", onInput } = {}) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "auth-field";
+
+    const lbl = document.createElement("label");
+    lbl.className = "auth-field__label";
+    lbl.textContent = "Key";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "auth-field__input";
+    input.placeholder = "e.g. X-API-Key";
+    input.value = value;
+    input.name = "wurl-auth-apikey-name";
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("aria-label", "API key name");
+    input.setAttribute("aria-autocomplete", "list");
+    input.setAttribute("aria-haspopup", "listbox");
+
+    input.addEventListener("focus", () => _showApiKeyDropdown(input, onInput));
+
+    input.addEventListener("input", () => {
+      onInput?.(input.value);
+      _showApiKeyDropdown(input, onInput);
+    });
+
+    input.addEventListener("blur", () => {
+      _apiKey.scheduleHide();
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        _apiKey.navigate(+1);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        _apiKey.navigate(-1);
+        return;
+      }
+      if (e.key === "Escape") {
+        _apiKey.hide();
+        return;
+      }
+      if (e.key === "Enter") {
+        if (_apiKeyDropdownAccept(input, onInput)) e.preventDefault();
+      }
+    });
+
+    const hint = document.createElement("span");
+    hint.className = "auth-field__hint";
+    hint.textContent =
+      "Header (or query) name for the key — pick a common name or type your own";
 
     wrapper.appendChild(lbl);
     wrapper.appendChild(input);
@@ -2557,11 +2681,6 @@ export class RequestEditor {
       PopupManager.close();
     };
 
-    const escHtml = (s) =>
-      String(s ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
     const showError = (msg) => {
       errorEl.innerHTML = msg;
       errorEl.hidden = false;
@@ -2594,7 +2713,7 @@ export class RequestEditor {
         config = await _fetchJson(discoveryUrl);
       } catch (err) {
         showError(
-          `Could not fetch <code>${escHtml(discoveryUrl)}</code><br>${escHtml(err.message)}`,
+          `Could not fetch <code>${escapeHtml(discoveryUrl)}</code><br>${escapeHtml(err.message)}`,
         );
         // Clear any previously stored discovery data so stale scopes/issuer
         // from a prior successful lookup don't linger after a failed re-discover.
@@ -2759,19 +2878,14 @@ export class RequestEditor {
     formToolbarGroup.className = "body-form-toolbar-group is-hidden";
     this.#bodyFormToolbarGroupEl = formToolbarGroup;
 
-    const bfBulkLabel = document.createElement("label");
-    bfBulkLabel.className = "params-toolbar-toggle-label";
-    bfBulkLabel.title =
-      "Toggle between bulk text editor and key/value row editor";
-    const bfBulkCheck = document.createElement("input");
-    bfBulkCheck.type = "checkbox";
-    bfBulkCheck.className = "params-toolbar-toggle";
-    bfBulkCheck.checked = this.#bodyFormBulkMode;
-    bfBulkCheck.addEventListener("change", () =>
-      this.#handleBodyFormBulkToggle(bfBulkCheck.checked),
+    const { label: bfBulkLabel, check: bfBulkCheck } = this.#buildToolbarToggle(
+      {
+        text: " Bulk Editor",
+        title: "Toggle between bulk text editor and key/value row editor",
+        checked: this.#bodyFormBulkMode,
+        onChange: (checked) => this.#handleBodyFormBulkToggle(checked),
+      },
     );
-    bfBulkLabel.appendChild(bfBulkCheck);
-    bfBulkLabel.append(" Bulk Editor");
     this.#bodyFormBulkCheckEl = bfBulkCheck;
 
     const addBtn = document.createElement("button");
@@ -2831,17 +2945,13 @@ export class RequestEditor {
     const el = this.#bodyContentEl;
     if (!el) return;
     el.innerHTML = "";
-    // Tear down stale pill editors before discarding their references — each
-    // attaches a document-level selectionchange listener that would otherwise
-    // outlive the DOM and accumulate on every re-render.
-    for (const ed of this.#bodyFormPillEditors) ed.destroy?.();
-    this.#bodyFormPillEditors = [];
+    this.#disposePillEditors(this.#bodyFormPillEditors);
     // Remove any Prettify button / validation badge left over from a previous text type
     this.#bodyTypeBarEl?.querySelector(".body-prettify-btn")?.remove();
     this.#bodyTypeBarEl?.querySelector(".body-validate-badge")?.remove();
     // Reset body form drag state whenever we switch panels
-    this.#bfListEl = this.#bfPhantom = null;
-    this.#bfDragSrcId = null;
+    this.#bfListEl = null;
+    this.#bfDrag.reset();
     // Cancel any in-progress delete-all confirm before the UI is rebuilt
     this._bodyFormDeleteAllCleanup?.();
     // Show / hide the form toolbar based on body type
@@ -2861,7 +2971,7 @@ export class RequestEditor {
         return this.#renderBodyNone(el);
       case "form-data":
       case "form-urlencoded":
-        return this.#renderBodyForm(el, this.#bodyType);
+        return this.#renderBodyForm(el);
       case "json":
         return this.#renderBodyText(el, "json", true);
       case "yaml":
@@ -2884,7 +2994,7 @@ export class RequestEditor {
   }
 
   // ── Form key-value editor (form-data / form-urlencoded) ───────────────────
-  #renderBodyForm(el, type) {
+  #renderBodyForm(el) {
     const rows = this.#bodyFormRows;
 
     // ── Bulk mode textarea ────────────────────────────────────────────────
@@ -2918,47 +3028,13 @@ export class RequestEditor {
       <span class="params-col-delete"></span>`;
     bfKvWrap.appendChild(hdr);
 
-    // Phantom + list
-    const phantom = document.createElement("div");
-    phantom.className = "params-drop-phantom";
-    phantom.setAttribute("aria-hidden", "true");
-    this.#bfPhantom = phantom;
-    this.#bfActiveType = type;
-
+    // List — drag-to-reorder is wired through the controller, which creates
+    // and owns the phantom placeholder. A fresh list is built on every render,
+    // so attach() re-runs each time (the old list/listeners are GC'd with it).
     const list = document.createElement("div");
     list.className = "params-list";
     this.#bfListEl = list;
-
-    list.addEventListener("dragover", (e) => {
-      if (this.#bfDragSrcId) e.preventDefault();
-    });
-    list.addEventListener("drop", (e) => {
-      e.preventDefault();
-      if (!this.#bfDragSrcId) return;
-      this.#bfDropHandled = true;
-      const allCh = [...list.children];
-      const phIdx = allCh.indexOf(phantom);
-      if (phIdx === -1) {
-        this.#cancelBfDrag();
-        this.#finalizeBfDrag();
-        return;
-      }
-      const insertBefore = allCh
-        .slice(0, phIdx)
-        .filter((c) => c.classList.contains("params-row")).length;
-      const srcIdx = rows.findIndex((r) => r.id === this.#bfDragSrcId);
-      if (srcIdx !== -1) {
-        const [moved] = rows.splice(srcIdx, 1);
-        rows.splice(
-          insertBefore > srcIdx ? insertBefore - 1 : insertBefore,
-          0,
-          moved,
-        );
-        this.#renderBodyContent();
-        this.#dispatchBodyUpdated();
-      }
-      this.#finalizeBfDrag();
-    });
+    this.#bfDrag.attach(list);
 
     if (!rows.length) {
       const empty = document.createElement("div");
@@ -2977,29 +3053,6 @@ export class RequestEditor {
   }
 
   #buildBfRow(row, rows) {
-    const div = document.createElement("div");
-    div.className = "params-row";
-    div.dataset.id = row.id;
-    div.draggable = true;
-    if (!row.enabled) div.classList.add("params-row--disabled");
-
-    // Drag handle
-    const handle = document.createElement("span");
-    handle.className = "params-drag-handle";
-    handle.setAttribute("aria-hidden", "true");
-    handle.innerHTML = icon("drag", { width: 10, height: 16 });
-
-    // Checkbox
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.className = "params-checkbox";
-    cb.checked = row.enabled;
-    cb.addEventListener("change", () => {
-      row.enabled = cb.checked;
-      div.classList.toggle("params-row--disabled", !row.enabled);
-      this.#dispatchBodyUpdated();
-    });
-
     // Name pill editor
     const getCtx = () => this.#variableContext;
     const getItms = () => this.#getItems();
@@ -3054,84 +3107,19 @@ export class RequestEditor {
     valueEditor.setValue(row.value);
     this.#bodyFormPillEditors.push(valueEditor);
 
-    // Delete
-    const delBtn = document.createElement("button");
-    delBtn.className = "icon-btn params-delete-btn";
-    delBtn.title = "Delete field";
-    delBtn.setAttribute("aria-label", "Delete field");
-    wireDeleteConfirm(delBtn, () => {
-      this.#bodyFormRows = rows.filter((r) => r.id !== row.id);
-      this.#renderBodyContent();
-      this.#dispatchBodyUpdated();
+    return this.#buildKvRow({
+      item: row,
+      noun: "field",
+      name: nameEditor.element,
+      value: valueEditor.element,
+      drag: this.#bfDrag,
+      onToggle: () => this.#dispatchBodyUpdated(),
+      onDelete: () => {
+        this.#bodyFormRows = rows.filter((r) => r.id !== row.id);
+        this.#renderBodyContent();
+        this.#dispatchBodyUpdated();
+      },
     });
-
-    // Drag events
-    div.addEventListener("dragstart", (e) => {
-      if (this.#bfDragSrcId) this.#finalizeBfDrag();
-      this.#bfDragSrcId = row.id;
-      this.#bfDropHandled = false;
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", row.id);
-      requestAnimationFrame(() => {
-        this.#bfDragInside = true;
-        div.parentElement?.insertBefore(this.#bfPhantom, div);
-        div.style.display = "none";
-      });
-      this.#bfDocHandler = (ev) => {
-        if (!this.#bfDragSrcId) return;
-        const inside = this.#bfListEl?.contains(ev.target);
-        if (!inside && this.#bfDragInside) {
-          this.#bfDragInside = false;
-          this.#bfPhantom?.remove();
-          this.#bfListEl
-            ?.querySelector(`[data-id="${this.#bfDragSrcId}"]`)
-            ?.style.removeProperty("display");
-        } else if (inside && !this.#bfDragInside) {
-          this.#bfDragInside = true;
-        }
-      };
-      document.addEventListener("dragover", this.#bfDocHandler);
-    });
-    div.addEventListener("dragover", (e) => {
-      if (!this.#bfDragSrcId || this.#bfDragSrcId === row.id) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      const rect = div.getBoundingClientRect();
-      const after = (e.clientY - rect.top) / rect.height >= 0.5;
-      const ph = this.#bfPhantom;
-      const draggedEl = this.#bfListEl?.querySelector(
-        `[data-id="${this.#bfDragSrcId}"]`,
-      );
-      if (draggedEl?.style.display !== "none") draggedEl.style.display = "none";
-      const sibling = after ? div.nextSibling : div;
-      if (ph.nextSibling !== sibling && ph !== sibling)
-        div.parentElement?.insertBefore(ph, sibling);
-    });
-    div.addEventListener("dragend", () => {
-      if (!this.#bfDropHandled) this.#cancelBfDrag();
-      this.#finalizeBfDrag();
-    });
-
-    div.appendChild(handle);
-    div.appendChild(cb);
-    div.appendChild(nameEditor.element);
-    div.appendChild(valueEditor.element);
-    div.appendChild(delBtn);
-    return div;
-  }
-
-  #cancelBfDrag() {
-    this.#bfPhantom?.remove();
-    this.#renderBodyContent();
-  }
-  #finalizeBfDrag() {
-    if (this.#bfDocHandler) {
-      document.removeEventListener("dragover", this.#bfDocHandler);
-      this.#bfDocHandler = null;
-    }
-    this.#bfDragSrcId = null;
-    this.#bfDragInside = false;
-    this.#bfDropHandled = false;
   }
 
   // ── Text editor (JSON / YAML / XML / Plain Text) ──────────────────────────
@@ -3491,8 +3479,69 @@ export class RequestEditor {
     );
   }
 
-  // ── Params editor ────────────────────────────────────────────────────────
-  #buildParamsEditor() {
+  /**
+   * Build a labelled checkbox toggle for the params / headers / body-form
+   * toolbars. All three share the same "[checkbox] text" control shape, so
+   * callers supply only the differing text/title/id and a change handler that
+   * receives the new checked state. Returns both the label (to append) and the
+   * checkbox input (for callers that need to read or re-sync it later).
+   *
+   * @param {object} o
+   * @param {string} o.text      label text (include any desired leading space)
+   * @param {string} o.title     tooltip / accessible title on the label
+   * @param {boolean} o.checked  initial checked state
+   * @param {(checked: boolean) => void} o.onChange  change handler
+   * @param {string} [o.id]      optional id for the checkbox input
+   * @returns {{ label: HTMLLabelElement, check: HTMLInputElement }}
+   */
+  #buildToolbarToggle({ text, title, checked, onChange, id = null }) {
+    const label = document.createElement("label");
+    label.className = "params-toolbar-toggle-label";
+    label.title = title;
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.className = "params-toolbar-toggle";
+    if (id) check.id = id;
+    check.checked = checked;
+    check.addEventListener("change", () => onChange(check.checked));
+    label.appendChild(check);
+    label.append(text);
+    return { label, check };
+  }
+
+  /**
+   * Build the shared scaffold for the Params and Headers editors. Both are a
+   * `.params-editor` containing a `.params-toolbar` (Bulk Editor toggle, Add,
+   * Delete All, a flex spacer, then a caller-supplied right-side toggle), an
+   * optional preview bar, a bulk-mode textarea, and a `.params-list` with
+   * column headers. Everything that differs (nouns, handlers, the right-side
+   * toggle, whether a preview bar exists) is passed in; the caller stores the
+   * returned element refs into its own private fields and then calls its
+   * apply-bulk-mode / render methods (which read those fields).
+   *
+   * The body-form editor is intentionally NOT routed through here: its toolbar
+   * lives inline in the shared body type-bar and its content is rebuilt on
+   * every render, so it shares only the row builder (#buildKvRow) and the
+   * toggle helper above — not this scaffold.
+   *
+   * @param {object} o
+   * @param {boolean} o.bulkMode  initial Bulk Editor checked state
+   * @param {(checked: boolean) => void} o.onBulkToggle
+   * @param {string} o.noun        singular noun ("parameter" / "header")
+   * @param {string} o.nounPlural  plural noun ("parameters" / "headers")
+   * @param {() => void} o.onAdd        Add-button click handler
+   * @param {() => number} o.getCount  current row count (for delete-all confirm)
+   * @param {() => void} o.onDeleteAll  delete-all confirmed handler
+   * @param {string} o.nameColLabel    name-column header ("Name" / "Header")
+   * @param {string} o.bulkPlaceholder bulk textarea placeholder
+   * @param {string} o.bulkAriaLabel   bulk textarea aria-label
+   * @param {(value: string) => void} o.onBulkInput  bulk textarea input handler
+   * @param {DragReorderController} o.drag
+   * @param {HTMLElement} o.rightToggle  caller-built right-side toggle label
+   * @param {HTMLElement} [o.previewBar] optional bar inserted after the toolbar
+   * @returns {{ container: HTMLElement, addBtn: HTMLElement, delAllBtn: HTMLElement, bulkEl: HTMLTextAreaElement, kvWrapEl: HTMLElement, listEl: HTMLElement, spacer: HTMLElement, deleteAllCleanup: () => void }}
+   */
+  #buildKvEditor(o) {
     const container = document.createElement("div");
     container.className = "params-editor";
 
@@ -3500,159 +3549,152 @@ export class RequestEditor {
     const toolbar = document.createElement("div");
     toolbar.className = "params-toolbar";
 
-    // ── Bulk Editor toggle — leftmost in toolbar ──────────────────────────
-    const pBulkLabel = document.createElement("label");
-    pBulkLabel.className = "params-toolbar-toggle-label";
-    pBulkLabel.title =
-      "Toggle between bulk text editor and key/value row editor";
-    const pBulkCheck = document.createElement("input");
-    pBulkCheck.type = "checkbox";
-    pBulkCheck.className = "params-toolbar-toggle";
-    pBulkCheck.checked = this.#paramsBulkMode;
-    pBulkCheck.addEventListener("change", () =>
-      this.#handleParamsBulkToggle(pBulkCheck.checked),
-    );
-    pBulkLabel.appendChild(pBulkCheck);
-    pBulkLabel.append(" Bulk Editor");
-    toolbar.appendChild(pBulkLabel);
+    // Bulk Editor toggle — leftmost in toolbar
+    const { label: bulkLabel } = this.#buildToolbarToggle({
+      text: " Bulk Editor",
+      title: "Toggle between bulk text editor and key/value row editor",
+      checked: o.bulkMode,
+      onChange: o.onBulkToggle,
+    });
+    toolbar.appendChild(bulkLabel);
 
     const addBtn = document.createElement("button");
     addBtn.className = "icon-btn params-toolbar-btn";
-    addBtn.title = "Add parameter";
-    addBtn.setAttribute("aria-label", "Add parameter");
+    addBtn.title = `Add ${o.noun}`;
+    addBtn.setAttribute("aria-label", `Add ${o.noun}`);
     addBtn.innerHTML = `<span class="icon">${icon("add", { size: 15 })}</span>`;
-    addBtn.addEventListener("click", () => this.#addParam());
+    addBtn.addEventListener("click", () => o.onAdd());
 
-    const deleteAllBtn = document.createElement("button");
-    deleteAllBtn.className =
+    const delAllBtn = document.createElement("button");
+    delAllBtn.className =
       "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
-    deleteAllBtn.title = "Delete all parameters";
-    deleteAllBtn.setAttribute("aria-label", "Delete all parameters");
-    deleteAllBtn.textContent = "Delete All";
+    delAllBtn.title = `Delete all ${o.nounPlural}`;
+    delAllBtn.setAttribute("aria-label", `Delete all ${o.nounPlural}`);
+    delAllBtn.textContent = "Delete All";
 
     // Inline confirm: first click → "Confirm?"; second click → delete all.
     // Escape or clicking outside the button cancels.
-    this._paramsDeleteAllCleanup = this.#wireDeleteAllConfirm(
-      deleteAllBtn,
-      () => this.#params.length,
-      () => this.#deleteAllParams(),
+    const deleteAllCleanup = this.#wireDeleteAllConfirm(
+      delAllBtn,
+      o.getCount,
+      o.onDeleteAll,
     );
 
     toolbar.appendChild(addBtn);
-    toolbar.appendChild(deleteAllBtn);
-    this.#paramsAddBtnEl = addBtn;
-    this.#paramsDelAllBtnEl = deleteAllBtn;
+    toolbar.appendChild(delAllBtn);
 
-    // Spacer pushes the Show URL toggle to the right
-    const showUrlSpacer = document.createElement("span");
-    showUrlSpacer.style.flex = "1";
-    toolbar.appendChild(showUrlSpacer);
+    // Spacer pushes the right-side toggle to the far edge
+    const spacer = document.createElement("span");
+    spacer.style.flex = "1";
+    toolbar.appendChild(spacer);
 
-    // ── "Show URL" toggle — right side ───────────────────────────────────
-    const showUrlLabel = document.createElement("label");
-    showUrlLabel.className = "params-toolbar-toggle-label";
-    showUrlLabel.title = "Show or hide the URL preview bar";
-
-    const showUrlCheck = document.createElement("input");
-    showUrlCheck.type = "checkbox";
-    showUrlCheck.id = "url-preview-toggle";
-    showUrlCheck.className = "params-toolbar-toggle";
-    showUrlCheck.checked = this.#urlPreviewEnabled;
-    showUrlCheck.addEventListener("change", () => {
-      this.#urlPreviewEnabled = showUrlCheck.checked;
-      this.#updateUrlPreview();
-      window.dispatchEvent(
-        new CustomEvent("wurl:editor-setting-changed", {
-          detail: { showUrlPreview: showUrlCheck.checked },
-          bubbles: true,
-        }),
-      );
-    });
-
-    showUrlLabel.appendChild(showUrlCheck);
-    showUrlLabel.append("Show URL Preview");
-    toolbar.appendChild(showUrlLabel);
+    if (o.rightToggle) toolbar.appendChild(o.rightToggle);
 
     container.appendChild(toolbar);
 
-    // ── URL preview bar (below toolbar, above column headers) ─────────────
-    container.appendChild(this.#buildUrlPreviewBar());
+    // ── Optional preview bar (params only) ────────────────────────────────
+    if (o.previewBar) container.appendChild(o.previewBar);
 
     // ── Bulk mode textarea ────────────────────────────────────────────────
-    const pBulkTa = document.createElement("textarea");
-    pBulkTa.className = "body-text-editor";
-    pBulkTa.placeholder = "name=value\nparam1=foo\nparam2=bar\n# disabled=row";
-    pBulkTa.spellcheck = false;
-    pBulkTa.setAttribute("aria-label", "Parameters bulk editor");
-    pBulkTa.addEventListener("input", () => {
-      this.#params = this.#textToKvRows(pBulkTa.value);
-      this.#updateUrlPreview();
-      this.#dispatchParamsUpdated();
-    });
-    this.#paramsBulkEl = pBulkTa;
-    container.appendChild(pBulkTa);
+    const bulkTa = document.createElement("textarea");
+    bulkTa.className = "body-text-editor";
+    bulkTa.placeholder = o.bulkPlaceholder;
+    bulkTa.spellcheck = false;
+    bulkTa.setAttribute("aria-label", o.bulkAriaLabel);
+    bulkTa.addEventListener("input", () => o.onBulkInput(bulkTa.value));
+    container.appendChild(bulkTa);
 
     // ── KV wrap (column headers + list) ──────────────────────────────────
-    const pKvWrap = document.createElement("div");
-    pKvWrap.style.cssText =
+    const kvWrap = document.createElement("div");
+    kvWrap.style.cssText =
       "display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden";
-    this.#paramsKvWrapEl = pKvWrap;
 
     // ── Column headers ───────────────────────────────────────────────────
-    const headers = document.createElement("div");
-    headers.className = "params-header-row";
-    headers.innerHTML = `
+    const colHeaders = document.createElement("div");
+    colHeaders.className = "params-header-row";
+    colHeaders.innerHTML = `
       <span class="params-col-handle"></span>
       <span class="params-col-enabled"></span>
-      <span class="params-col-name">Name</span>
+      <span class="params-col-name">${o.nameColLabel}</span>
       <span class="params-col-value">Value</span>
       <span class="params-col-delete"></span>`;
-    pKvWrap.appendChild(headers);
+    kvWrap.appendChild(colHeaders);
 
     // ── List ─────────────────────────────────────────────────────────────
     const list = document.createElement("div");
     list.className = "params-list";
-    this.#paramsListEl = list;
+    o.drag.attach(list);
+    kvWrap.appendChild(list);
 
-    // Phantom placeholder shown at the drop target while dragging
-    this.#paramPhantomEl = document.createElement("div");
-    this.#paramPhantomEl.className = "params-drop-phantom";
-    this.#paramPhantomEl.setAttribute("aria-hidden", "true");
+    container.appendChild(kvWrap);
 
-    // Container-level drop — commit the reorder
-    list.addEventListener("dragover", (e) => {
-      if (this.#dragSrcId) e.preventDefault();
+    return {
+      container,
+      addBtn,
+      delAllBtn,
+      bulkEl: bulkTa,
+      kvWrapEl: kvWrap,
+      listEl: list,
+      spacer,
+      deleteAllCleanup,
+    };
+  }
+
+  // ── Params editor ────────────────────────────────────────────────────────
+  #buildParamsEditor() {
+    // Right-side toggle: show / hide the URL preview bar
+    const { label: showUrlLabel } = this.#buildToolbarToggle({
+      text: "Show URL Preview",
+      title: "Show or hide the URL preview bar",
+      id: "url-preview-toggle",
+      checked: this.#urlPreviewEnabled,
+      onChange: (checked) => {
+        this.#urlPreviewEnabled = checked;
+        this.#updateUrlPreview();
+        window.dispatchEvent(
+          new CustomEvent("wurl:editor-setting-changed", {
+            detail: { showUrlPreview: checked },
+            bubbles: true,
+          }),
+        );
+      },
     });
-    list.addEventListener("drop", (e) => {
-      e.preventDefault();
-      if (!this.#dragSrcId) return;
-      this.#dragDropHandled = true;
-      const ph = this.#paramPhantomEl;
-      // Find the index of the phantom to know where to insert
-      const allChildren = [...list.children];
-      const phantomIdx = allChildren.indexOf(ph);
-      if (phantomIdx === -1) {
-        this.#cancelParamDrag();
-        this.#finalizeParamDrag();
-        return;
-      }
-      // Count only param rows before the phantom
-      const insertBefore = allChildren
-        .slice(0, phantomIdx)
-        .filter((el) => el.classList.contains("params-row")).length;
-      const srcIdx = this.#params.findIndex((p) => p.id === this.#dragSrcId);
-      if (srcIdx !== -1) {
-        const [moved] = this.#params.splice(srcIdx, 1);
-        const target = insertBefore > srcIdx ? insertBefore - 1 : insertBefore;
-        this.#params.splice(target, 0, moved);
-        this.#renderParamsList();
+
+    const {
+      container,
+      addBtn,
+      delAllBtn,
+      bulkEl,
+      kvWrapEl,
+      listEl,
+      deleteAllCleanup,
+    } = this.#buildKvEditor({
+      bulkMode: this.#paramsBulkMode,
+      onBulkToggle: (checked) => this.#handleParamsBulkToggle(checked),
+      noun: "parameter",
+      nounPlural: "parameters",
+      onAdd: () => this.#addParam(),
+      getCount: () => this.#params.length,
+      onDeleteAll: () => this.#deleteAllParams(),
+      nameColLabel: "Name",
+      bulkPlaceholder: "name=value\nparam1=foo\nparam2=bar\n# disabled=row",
+      bulkAriaLabel: "Parameters bulk editor",
+      onBulkInput: (value) => {
+        this.#params = this.#textToKvRows(value);
+        this.#updateUrlPreview();
         this.#dispatchParamsUpdated();
-      }
-      this.#finalizeParamDrag();
+      },
+      drag: this.#paramsDrag,
+      rightToggle: showUrlLabel,
+      previewBar: this.#buildUrlPreviewBar(),
     });
 
-    pKvWrap.appendChild(list);
-    container.appendChild(pKvWrap);
+    this.#paramsAddBtnEl = addBtn;
+    this.#paramsDelAllBtnEl = delAllBtn;
+    this.#paramsBulkEl = bulkEl;
+    this.#paramsKvWrapEl = kvWrapEl;
+    this.#paramsListEl = listEl;
+    this._paramsDeleteAllCleanup = deleteAllCleanup;
 
     this.#applyParamsBulkMode();
     this.#renderParamsList();
@@ -3661,166 +3703,62 @@ export class RequestEditor {
 
   // ── Headers editor ──────────────────────────────────────────────────
   #buildHeadersEditor() {
-    const container = document.createElement("div");
-    container.className = "params-editor";
-
-    // ── Toolbar ──────────────────────────────────────────────────────────
-    const toolbar = document.createElement("div");
-    toolbar.className = "params-toolbar";
-
-    // ── Bulk Editor toggle — leftmost in toolbar ──────────────────────────
-    const hBulkLabel = document.createElement("label");
-    hBulkLabel.className = "params-toolbar-toggle-label";
-    hBulkLabel.title =
-      "Toggle between bulk text editor and key/value row editor";
-    const hBulkCheck = document.createElement("input");
-    hBulkCheck.type = "checkbox";
-    hBulkCheck.className = "params-toolbar-toggle";
-    hBulkCheck.checked = this.#headersBulkMode;
-    hBulkCheck.addEventListener("change", () =>
-      this.#handleHeadersBulkToggle(hBulkCheck.checked),
-    );
-    hBulkLabel.appendChild(hBulkCheck);
-    hBulkLabel.append(" Bulk Editor");
-    toolbar.appendChild(hBulkLabel);
-
-    const addBtn = document.createElement("button");
-    addBtn.className = "icon-btn params-toolbar-btn";
-    addBtn.title = "Add header";
-    addBtn.setAttribute("aria-label", "Add header");
-    addBtn.innerHTML = `<span class="icon">${icon("add", { size: 15 })}</span>`;
-    addBtn.addEventListener("click", () => this.#addHeader());
-
-    const deleteAllBtn = document.createElement("button");
-    deleteAllBtn.className =
-      "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
-    deleteAllBtn.title = "Delete all headers";
-    deleteAllBtn.setAttribute("aria-label", "Delete all headers");
-    deleteAllBtn.textContent = "Delete All";
-
-    // Inline confirm: first click → "Confirm?"; second click → delete all.
-    // Escape or clicking outside the button cancels.
-    this._headersDeleteAllCleanup = this.#wireDeleteAllConfirm(
-      deleteAllBtn,
-      () => this.#headers.length,
-      () => this.#deleteAllHeaders(),
-    );
-
-    toolbar.appendChild(addBtn);
-    toolbar.appendChild(deleteAllBtn);
-    this.#headersAddBtnEl = addBtn;
-    this.#headersDelAllBtnEl = deleteAllBtn;
-
-    // ── "List Headers" toggle — pushed to the right ───────────────────────
-    const spacer = document.createElement("span");
-    spacer.style.flex = "1";
-    toolbar.appendChild(spacer);
-    this.#listHdrSpacerEl = spacer;
-
-    const listHdrLabel = document.createElement("label");
-    listHdrLabel.className = "params-toolbar-toggle-label";
-    listHdrLabel.title =
-      "Show standard header suggestions when editing the header name";
-
-    const listHdrCheck = document.createElement("input");
-    listHdrCheck.type = "checkbox";
-    listHdrCheck.id = "list-headers-toggle";
-    listHdrCheck.checked = this.#headerSuggestionsEnabled;
-    listHdrCheck.className = "params-toolbar-toggle";
-    listHdrCheck.addEventListener("change", () => {
-      this.#headerSuggestionsEnabled = listHdrCheck.checked;
-      if (!listHdrCheck.checked) _hideHdrDropdown();
-      // Persist the preference into settings
-      window.dispatchEvent(
-        new CustomEvent("wurl:editor-setting-changed", {
-          detail: { listHeaders: listHdrCheck.checked },
-          bubbles: true,
-        }),
-      );
+    // Right-side toggle: show standard header-name suggestions
+    const { label: listHdrLabel } = this.#buildToolbarToggle({
+      text: " List Headers",
+      title: "Show standard header suggestions when editing the header name",
+      id: "list-headers-toggle",
+      checked: this.#headerSuggestionsEnabled,
+      onChange: (checked) => {
+        this.#headerSuggestionsEnabled = checked;
+        if (!checked) _hdrAc.hide();
+        // Persist the preference into settings
+        window.dispatchEvent(
+          new CustomEvent("wurl:editor-setting-changed", {
+            detail: { listHeaders: checked },
+            bubbles: true,
+          }),
+        );
+      },
     });
-
-    listHdrLabel.appendChild(listHdrCheck);
-    listHdrLabel.append(" List Headers");
-    toolbar.appendChild(listHdrLabel);
     this.#listHdrLabelEl = listHdrLabel;
 
-    container.appendChild(toolbar);
-
-    // ── Bulk mode textarea ────────────────────────────────────────────────
-    const hBulkTa = document.createElement("textarea");
-    hBulkTa.className = "body-text-editor";
-    hBulkTa.placeholder =
-      "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped";
-    hBulkTa.spellcheck = false;
-    hBulkTa.setAttribute("aria-label", "Headers bulk editor");
-    hBulkTa.addEventListener("input", () => {
-      this.#headers = this.#textToHeaderRows(hBulkTa.value);
-      this.#dispatchHeadersUpdated();
-    });
-    this.#headersBulkEl = hBulkTa;
-    container.appendChild(hBulkTa);
-
-    // ── KV wrap (column headers + list) ──────────────────────────────────
-    const hKvWrap = document.createElement("div");
-    hKvWrap.style.cssText =
-      "display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden";
-    this.#headersKvWrapEl = hKvWrap;
-
-    // ── Column headers ───────────────────────────────────────────────────
-    const colHeaders = document.createElement("div");
-    colHeaders.className = "params-header-row";
-    colHeaders.innerHTML = `
-      <span class="params-col-handle"></span>
-      <span class="params-col-enabled"></span>
-      <span class="params-col-name">Header</span>
-      <span class="params-col-value">Value</span>
-      <span class="params-col-delete"></span>`;
-    hKvWrap.appendChild(colHeaders);
-
-    // ── List ─────────────────────────────────────────────────────────────
-    const list = document.createElement("div");
-    list.className = "params-list";
-    this.#headersListEl = list;
-
-    // Phantom placeholder shown at the drop target while dragging
-    this.#headerPhantomEl = document.createElement("div");
-    this.#headerPhantomEl.className = "params-drop-phantom";
-    this.#headerPhantomEl.setAttribute("aria-hidden", "true");
-
-    // Container-level drop — commit the reorder
-    list.addEventListener("dragover", (e) => {
-      if (this.#hdrDragSrcId) e.preventDefault();
-    });
-    list.addEventListener("drop", (e) => {
-      e.preventDefault();
-      if (!this.#hdrDragSrcId) return;
-      this.#hdrDragDropHandled = true;
-      const ph = this.#headerPhantomEl;
-      const allChildren = [...list.children];
-      const phantomIdx = allChildren.indexOf(ph);
-      if (phantomIdx === -1) {
-        this.#cancelHeaderDrag();
-        this.#finalizeHeaderDrag();
-        return;
-      }
-      const insertBefore = allChildren
-        .slice(0, phantomIdx)
-        .filter((el) => el.classList.contains("params-row")).length;
-      const srcIdx = this.#headers.findIndex(
-        (h) => h.id === this.#hdrDragSrcId,
-      );
-      if (srcIdx !== -1) {
-        const [moved] = this.#headers.splice(srcIdx, 1);
-        const target = insertBefore > srcIdx ? insertBefore - 1 : insertBefore;
-        this.#headers.splice(target, 0, moved);
-        this.#renderHeadersList();
+    const {
+      container,
+      addBtn,
+      delAllBtn,
+      bulkEl,
+      kvWrapEl,
+      listEl,
+      spacer,
+      deleteAllCleanup,
+    } = this.#buildKvEditor({
+      bulkMode: this.#headersBulkMode,
+      onBulkToggle: (checked) => this.#handleHeadersBulkToggle(checked),
+      noun: "header",
+      nounPlural: "headers",
+      onAdd: () => this.#addHeader(),
+      getCount: () => this.#headers.length,
+      onDeleteAll: () => this.#deleteAllHeaders(),
+      nameColLabel: "Header",
+      bulkPlaceholder:
+        "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped",
+      bulkAriaLabel: "Headers bulk editor",
+      onBulkInput: (value) => {
+        this.#headers = this.#textToHeaderRows(value);
         this.#dispatchHeadersUpdated();
-      }
-      this.#finalizeHeaderDrag();
+      },
+      drag: this.#headersDrag,
+      rightToggle: listHdrLabel,
     });
 
-    hKvWrap.appendChild(list);
-    container.appendChild(hKvWrap);
+    this.#headersAddBtnEl = addBtn;
+    this.#headersDelAllBtnEl = delAllBtn;
+    this.#headersBulkEl = bulkEl;
+    this.#headersKvWrapEl = kvWrapEl;
+    this.#headersListEl = listEl;
+    this.#listHdrSpacerEl = spacer;
+    this._headersDeleteAllCleanup = deleteAllCleanup;
 
     this.#applyHeadersBulkMode();
     this.#renderHeadersList();
@@ -3854,13 +3792,23 @@ export class RequestEditor {
     this.#dispatchHeadersUpdated();
   }
 
+  /**
+   * Destroy every pill editor in `editors` and empty the array in place.
+   *
+   * Each VariablePillEditor attaches a document-level selectionchange listener;
+   * dropping the reference without calling destroy() leaks that listener, which
+   * then accumulates on every re-render. Clearing in place (rather than
+   * reassigning) preserves the field's array identity so the per-row builders
+   * keep pushing fresh editors onto the same instance.
+   */
+  #disposePillEditors(editors) {
+    for (const ed of editors) ed.destroy?.();
+    editors.length = 0;
+  }
+
   #renderHeadersList() {
     if (!this.#headersListEl) return;
-    // Tear down stale pill editors before discarding their references — each
-    // one holds a document-level selectionchange listener that would otherwise
-    // outlive the DOM row it was attached to.
-    for (const ed of this.#headerPillEditors) ed.destroy?.();
-    this.#headerPillEditors = [];
+    this.#disposePillEditors(this.#headerPillEditors);
 
     // In bulk mode just keep the textarea in sync
     if (this.#headersBulkMode) {
@@ -3885,34 +3833,6 @@ export class RequestEditor {
   }
 
   #buildHeaderRow(header, index) {
-    const row = document.createElement("div");
-    row.className = "params-row";
-    row.dataset.id = header.id;
-    row.dataset.index = String(index);
-    row.draggable = true;
-    if (!header.enabled) row.classList.add("params-row--disabled");
-
-    // ── Drag handle ──────────────────────────────────────────────────────
-    const handle = document.createElement("span");
-    handle.className = "params-drag-handle";
-    handle.setAttribute("aria-hidden", "true");
-    handle.title = "Drag to reorder";
-    handle.innerHTML = icon("drag", { width: 10, height: 16 });
-
-    // ── Enabled checkbox ─────────────────────────────────────────────────
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.className = "params-checkbox";
-    checkbox.checked = header.enabled;
-    checkbox.title = header.enabled ? "Disable header" : "Enable header";
-    checkbox.setAttribute("aria-label", "Enable header");
-    checkbox.addEventListener("change", () => {
-      header.enabled = checkbox.checked;
-      checkbox.title = header.enabled ? "Disable header" : "Enable header";
-      row.classList.toggle("params-row--disabled", !header.enabled);
-      this.#dispatchHeadersUpdated();
-    });
-
     // ── Forward references for the value-dropdown callbacks ───────────────
     // Both are assigned after valueEditor is created (below) so the closures
     // can safely reference valueEditor without a TDZ error.
@@ -3938,22 +3858,23 @@ export class RequestEditor {
         _showHdrDropdown(headerInput, (name) => _onNameConfirmed?.(name));
     });
     headerInput.addEventListener("blur", () => {
-      // Store the timer ID so focus can cancel it if the user clicks back quickly
-      _hdrAcBlurTimer = setTimeout(_hideHdrDropdown, 150);
+      // Delay the hide so a click on a dropdown item registers first;
+      // re-focusing the input cancels the pending hide.
+      _hdrAc.scheduleHide();
     });
     headerInput.addEventListener("keydown", (e) => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        _hdrDropdownNavigate(+1);
+        _hdrAc.navigate(+1);
         return;
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        _hdrDropdownNavigate(-1);
+        _hdrAc.navigate(-1);
         return;
       }
       if (e.key === "Escape") {
-        _hideHdrDropdown();
+        _hdrAc.hide();
         return;
       }
       if (e.key === " " && e.ctrlKey) {
@@ -4017,7 +3938,7 @@ export class RequestEditor {
       if (!this.#headerSuggestionsEnabled && !force) return;
       const values = STANDARD_HEADERS_DICT[name] ?? [];
       if (values.length === 0) {
-        _hideHdrValDropdown();
+        _hdrVal.hide();
         return;
       }
       _showHdrValDropdown(valueEditor.element, values, _onValueSelected);
@@ -4026,7 +3947,7 @@ export class RequestEditor {
     // Dismiss value dropdown when the value editor loses focus (with a short
     // delay so mousedown on a dropdown item can fire first).
     valueEditor.element.addEventListener("blur", () => {
-      _hdrValBlurTimer = setTimeout(_hideHdrValDropdown, 150);
+      _hdrVal.scheduleHide();
     });
 
     // Keyboard navigation for the value dropdown (capture phase so we intercept
@@ -4043,20 +3964,20 @@ export class RequestEditor {
         if (!_hdrValDropdownVisible()) return;
         if (e.key === "ArrowDown") {
           e.preventDefault();
-          _hdrValDropdownNavigate(+1);
+          _hdrVal.navigate(+1);
           return;
         }
         if (e.key === "ArrowUp") {
           e.preventDefault();
-          _hdrValDropdownNavigate(-1);
+          _hdrVal.navigate(-1);
           return;
         }
         if (e.key === "Escape") {
           e.preventDefault();
-          _hideHdrValDropdown();
+          _hdrVal.hide();
           return;
         }
-        if (e.key === "Enter" && _hdrValActiveIdx >= 0) {
+        if (e.key === "Enter" && _hdrVal.activeLabel() !== null) {
           // Prevent VariablePillEditor's Enter handler from adding a new header row.
           e.preventDefault();
           e.stopPropagation();
@@ -4066,92 +3987,16 @@ export class RequestEditor {
       true /* capture — fires before VariablePillEditor's bubble-phase listener */,
     );
 
-    // ── Delete button ────────────────────────────────────────────────────
-    const deleteBtn = document.createElement("button");
-    deleteBtn.className = "icon-btn params-delete-btn";
-    deleteBtn.title = "Delete header";
-    deleteBtn.setAttribute("aria-label", "Delete header");
-    wireDeleteConfirm(deleteBtn, () => this.#deleteHeader(header.id));
-
-    // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
-    row.addEventListener("dragstart", (e) => {
-      this.#hdrDragSrcId = header.id;
-      this.#hdrDragDropHandled = false;
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", header.id);
-
-      requestAnimationFrame(() => {
-        this.#hdrDragInsideList = true;
-        row.parentElement?.insertBefore(this.#headerPhantomEl, row);
-        row.style.display = "none";
-      });
-
-      this.#hdrDocDragOverHandler = (ev) => {
-        if (!this.#hdrDragSrcId || !this.#headersListEl) return;
-        const inside = this.#headersListEl.contains(ev.target);
-        if (!inside && this.#hdrDragInsideList) {
-          this.#hdrDragInsideList = false;
-          this.#headerPhantomEl.remove();
-          const draggedRow = this.#headersListEl.querySelector(
-            `[data-id="${this.#hdrDragSrcId}"]`,
-          );
-          if (draggedRow) draggedRow.style.display = "";
-        } else if (inside && !this.#hdrDragInsideList) {
-          this.#hdrDragInsideList = true;
-        }
-      };
-      document.addEventListener("dragover", this.#hdrDocDragOverHandler);
+    return this.#buildKvRow({
+      item: header,
+      index,
+      noun: "header",
+      name: headerInput,
+      value: valueEditor.element,
+      drag: this.#headersDrag,
+      onToggle: () => this.#dispatchHeadersUpdated(),
+      onDelete: () => this.#deleteHeader(header.id),
     });
-
-    row.addEventListener("dragover", (e) => {
-      if (!this.#hdrDragSrcId || this.#hdrDragSrcId === header.id) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-
-      const rect = row.getBoundingClientRect();
-      const after = (e.clientY - rect.top) / rect.height >= 0.5;
-      const ph = this.#headerPhantomEl;
-
-      const draggedRow = this.#headersListEl.querySelector(
-        `[data-id="${this.#hdrDragSrcId}"]`,
-      );
-      if (draggedRow && draggedRow.style.display !== "none")
-        draggedRow.style.display = "none";
-
-      const sibling = after ? row.nextSibling : row;
-      if (ph.nextSibling !== sibling && ph !== sibling) {
-        row.parentElement?.insertBefore(ph, sibling);
-      }
-    });
-
-    row.addEventListener("dragend", () => {
-      if (!this.#hdrDragDropHandled) this.#cancelHeaderDrag();
-      this.#finalizeHeaderDrag();
-    });
-
-    row.appendChild(handle);
-    row.appendChild(checkbox);
-    row.appendChild(headerInput);
-    row.appendChild(valueEditor.element);
-    row.appendChild(deleteBtn);
-    return row;
-  }
-
-  /** Cancel a header drag: remove phantom and re-render. */
-  #cancelHeaderDrag() {
-    this.#headerPhantomEl.remove();
-    this.#renderHeadersList();
-  }
-
-  /** Clean up all header drag state and remove the document-level listener. */
-  #finalizeHeaderDrag() {
-    if (this.#hdrDocDragOverHandler) {
-      document.removeEventListener("dragover", this.#hdrDocDragOverHandler);
-      this.#hdrDocDragOverHandler = null;
-    }
-    this.#hdrDragSrcId = null;
-    this.#hdrDragInsideList = false;
-    this.#hdrDragDropHandled = false;
   }
 
   #addParam() {
@@ -4183,11 +4028,7 @@ export class RequestEditor {
 
   #renderParamsList() {
     if (!this.#paramsListEl) return;
-    // Tear down stale pill editors before discarding their references — each
-    // one holds a document-level selectionchange listener that would otherwise
-    // outlive the DOM row it was attached to.
-    for (const ed of this.#paramPillEditors) ed.destroy?.();
-    this.#paramPillEditors = [];
+    this.#disposePillEditors(this.#paramPillEditors);
 
     // In bulk mode just keep the textarea in sync and update the URL preview
     if (this.#paramsBulkMode) {
@@ -4269,7 +4110,7 @@ export class RequestEditor {
         return resolveStringAsync(raw, ctx);
       }),
     );
-    const base = _encodeBaseUrl(urlParts.join(""));
+    const base = encodeBaseUrl(urlParts.join(""));
 
     const enabled = this.#params.filter((p) => p.enabled && p.name.trim());
     if (!enabled.length) return base;
@@ -4299,35 +4140,6 @@ export class RequestEditor {
   }
 
   #buildParamRow(param, index) {
-    const row = document.createElement("div");
-    row.className = "params-row";
-    row.dataset.id = param.id;
-    row.dataset.index = String(index);
-    row.draggable = true;
-    if (!param.enabled) row.classList.add("params-row--disabled");
-
-    // ── Drag handle ──────────────────────────────────────────────────────
-    const handle = document.createElement("span");
-    handle.className = "params-drag-handle";
-    handle.setAttribute("aria-hidden", "true");
-    handle.title = "Drag to reorder";
-    handle.innerHTML = icon("drag", { width: 10, height: 16 });
-
-    // ── Enabled checkbox ─────────────────────────────────────────────────
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.className = "params-checkbox";
-    checkbox.checked = param.enabled;
-    checkbox.title = param.enabled ? "Disable parameter" : "Enable parameter";
-    checkbox.setAttribute("aria-label", "Enable parameter");
-    checkbox.addEventListener("change", () => {
-      param.enabled = checkbox.checked;
-      checkbox.title = param.enabled ? "Disable parameter" : "Enable parameter";
-      row.classList.toggle("params-row--disabled", !param.enabled);
-      this.#updateUrlPreview();
-      this.#dispatchParamsUpdated();
-    });
-
     // ── Name pill editor ─────────────────────────────────────────────────
     const getCtx = () => this.#variableContext;
     const getItms = () => this.#getItems();
@@ -4366,96 +4178,93 @@ export class RequestEditor {
     valueEditor.setValue(param.value);
     this.#paramPillEditors.push(valueEditor);
 
-    // ── Delete button ────────────────────────────────────────────────────
-    const deleteBtn = document.createElement("button");
-    deleteBtn.className = "icon-btn params-delete-btn";
-    deleteBtn.title = "Delete parameter";
-    deleteBtn.setAttribute("aria-label", "Delete parameter");
-    wireDeleteConfirm(deleteBtn, () => this.#deleteParam(param.id));
-
-    // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
-
-    row.addEventListener("dragstart", (e) => {
-      this.#dragSrcId = param.id;
-      this.#dragDropHandled = false;
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", param.id);
-
-      requestAnimationFrame(() => {
-        this.#dragInsideList = true;
-        row.parentElement?.insertBefore(this.#paramPhantomEl, row);
-        row.style.display = "none";
-      });
-
-      this.#docDragOverHandler = (ev) => {
-        if (!this.#dragSrcId || !this.#paramsListEl) return;
-        const inside = this.#paramsListEl.contains(ev.target);
-        if (!inside && this.#dragInsideList) {
-          this.#dragInsideList = false;
-          this.#paramPhantomEl.remove();
-          const draggedRow = this.#paramsListEl.querySelector(
-            `[data-id="${this.#dragSrcId}"]`,
-          );
-          if (draggedRow) draggedRow.style.display = "";
-        } else if (inside && !this.#dragInsideList) {
-          this.#dragInsideList = true;
-        }
-      };
-      document.addEventListener("dragover", this.#docDragOverHandler);
+    return this.#buildKvRow({
+      item: param,
+      index,
+      noun: "parameter",
+      name: nameEditor.element,
+      value: valueEditor.element,
+      drag: this.#paramsDrag,
+      onToggle: () => {
+        this.#updateUrlPreview();
+        this.#dispatchParamsUpdated();
+      },
+      onDelete: () => this.#deleteParam(param.id),
     });
-
-    row.addEventListener("dragover", (e) => {
-      if (!this.#dragSrcId || this.#dragSrcId === param.id) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-
-      const rect = row.getBoundingClientRect();
-      const after = (e.clientY - rect.top) / rect.height >= 0.5;
-      const ph = this.#paramPhantomEl;
-
-      const draggedRow = this.#paramsListEl.querySelector(
-        `[data-id="${this.#dragSrcId}"]`,
-      );
-      if (draggedRow && draggedRow.style.display !== "none")
-        draggedRow.style.display = "none";
-
-      const sibling = after ? row.nextSibling : row;
-      if (ph.nextSibling !== sibling && ph !== sibling) {
-        row.parentElement?.insertBefore(ph, sibling);
-      }
-    });
-
-    row.addEventListener("dragend", () => {
-      if (!this.#dragDropHandled) this.#cancelParamDrag();
-      this.#finalizeParamDrag();
-    });
-
-    row.appendChild(handle);
-    row.appendChild(checkbox);
-    row.appendChild(nameEditor.element);
-    row.appendChild(valueEditor.element);
-    row.appendChild(deleteBtn);
-    return row;
-  }
-
-  /** Cancel a drag: remove phantom and re-render from unchanged #params. */
-  #cancelParamDrag() {
-    this.#paramPhantomEl.remove();
-    this.#renderParamsList();
-  }
-
-  /** Clean up all drag state and remove the document-level listener. */
-  #finalizeParamDrag() {
-    if (this.#docDragOverHandler) {
-      document.removeEventListener("dragover", this.#docDragOverHandler);
-      this.#docDragOverHandler = null;
-    }
-    this.#dragSrcId = null;
-    this.#dragInsideList = false;
-    this.#dragDropHandled = false;
   }
 
   // ── Shared UI helpers ─────────────────────────────────────────────────────
+
+  /**
+   * Assemble a key/value editor row from the parts every list shares.
+   *
+   * Params, headers and body-form fields all render as a draggable row of
+   * [handle][enabled checkbox][name][value][delete]. Only the name/value
+   * editors differ between lists, so callers build those two elements and hand
+   * them here together with the bits that vary by list: the backing record,
+   * the drag controller, the singular noun used in labels, and the
+   * dispatch/delete side-effects.
+   *
+   * @param {object} opts
+   * @param {{id:string, enabled:boolean}} opts.item  backing row record
+   * @param {number} [opts.index]   list position (sets data-index when given)
+   * @param {string} opts.noun      singular label, e.g. "parameter"
+   * @param {HTMLElement} opts.name   the name editor element
+   * @param {HTMLElement} opts.value  the value editor element
+   * @param {DragReorderController} opts.drag  this list's reorder controller
+   * @param {() => void} opts.onToggle  runs after the enabled flag flips
+   * @param {() => void} opts.onDelete  delete-confirm callback
+   * @returns {HTMLDivElement} the assembled row
+   */
+  #buildKvRow({ item, index, noun, name, value, drag, onToggle, onDelete }) {
+    const row = document.createElement("div");
+    row.className = "params-row";
+    row.dataset.id = item.id;
+    if (index != null) row.dataset.index = String(index);
+    row.draggable = true;
+    if (!item.enabled) row.classList.add("params-row--disabled");
+
+    // ── Drag handle ──────────────────────────────────────────────────────
+    const handle = document.createElement("span");
+    handle.className = "params-drag-handle";
+    handle.setAttribute("aria-hidden", "true");
+    handle.title = "Drag to reorder";
+    handle.innerHTML = icon("drag", { width: 10, height: 16 });
+
+    // ── Enabled checkbox ─────────────────────────────────────────────────
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "params-checkbox";
+    checkbox.checked = item.enabled;
+    const syncCbTitle = () => {
+      checkbox.title = item.enabled ? `Disable ${noun}` : `Enable ${noun}`;
+    };
+    syncCbTitle();
+    checkbox.setAttribute("aria-label", `Enable ${noun}`);
+    checkbox.addEventListener("change", () => {
+      item.enabled = checkbox.checked;
+      syncCbTitle();
+      row.classList.toggle("params-row--disabled", !item.enabled);
+      onToggle();
+    });
+
+    // ── Delete button ────────────────────────────────────────────────────
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "icon-btn params-delete-btn";
+    deleteBtn.title = `Delete ${noun}`;
+    deleteBtn.setAttribute("aria-label", `Delete ${noun}`);
+    wireDeleteConfirm(deleteBtn, onDelete);
+
+    // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
+    drag.wireRow(row, item.id);
+
+    row.appendChild(handle);
+    row.appendChild(checkbox);
+    row.appendChild(name);
+    row.appendChild(value);
+    row.appendChild(deleteBtn);
+    return row;
+  }
 
   /**
    * Wire up the standard two-click inline-confirm pattern on a "Delete All"
@@ -4668,7 +4477,7 @@ export class RequestEditor {
     if (this.#listHdrLabelEl)
       this.#listHdrLabelEl.style.display = bulk ? "none" : "";
     // Hide the autocomplete dropdown when entering bulk mode
-    if (bulk) _hideHdrDropdown();
+    if (bulk) _hdrAc.hide();
   }
 
   // ── Body form bulk editor ─────────────────────────────────────────────────
@@ -4684,10 +4493,7 @@ export class RequestEditor {
     this.#bodyFormBulkMode = nowBulk;
     this.#applyBodyFormBulkMode();
     if (!nowBulk) {
-      // Tear down stale pill editors before rebuilding the KV list — each one
-      // holds a document-level selectionchange listener that must be detached.
-      for (const ed of this.#bodyFormPillEditors) ed.destroy?.();
-      this.#bodyFormPillEditors = [];
+      this.#disposePillEditors(this.#bodyFormPillEditors);
       // Re-render the KV list so it reflects any edits made in bulk mode
       if (this.#bfListEl) {
         this.#bfListEl.innerHTML = "";
@@ -4826,282 +4632,133 @@ export class RequestEditor {
         await this.#ensureResponseCaches(refs, this.#variableContext);
     }
 
-    const baseUrl = _encodeBaseUrl(await rv(rawUrl));
-
-    // ── 1. URL — append enabled, non-blank query parameters ──────────────
-    const enabledParams = this.#params.filter(
-      (p) => p.enabled && p.name.trim(),
+    // ── Build the native request payload ─────────────────────────────────
+    // Query-param encoding, header resolution, the auth transforms that reduce
+    // to a static header / query value (basic, bearer, apikey) or a pass-through
+    // credential bag (digest, ntlm, aws-iam), and body serialisation are shared
+    // with the dependency prefetcher (app.js) via buildRequestPayload(). OAuth2
+    // is the one auth type that can't be a pure transform — it's interactive —
+    // so it runs as a post-step below, after the payload (including any
+    // user-supplied headers) already exists.
+    const {
+      finalUrl,
+      headers,
+      body,
+      bodyFilePath,
+      awsIam,
+      authDigest,
+      authNtlm,
+    } = await buildRequestPayload(
+      {
+        method: this.#method,
+        urlBase: encodeBaseUrl(await rv(rawUrl)),
+        params: this.#params,
+        headers: this.#headers,
+        authEnabled: this.#authEnabled,
+        authType: this.#authType,
+        authBasic: this.#authBasic,
+        authBearer: this.#authBearer,
+        authApiKey: this.#authApiKey,
+        authDigest: this.#authDigest,
+        authNtlm: this.#authNtlm,
+        authAwsIam: this.#authAwsIam,
+        bodyType: this.#bodyType,
+        bodyText: this.#bodyText,
+        bodyFormRows: this.#bodyFormRows,
+        bodyFile: this.#bodyFileObject,
+      },
+      rv,
     );
-    let finalUrl = baseUrl;
-    if (enabledParams.length) {
-      const qs = (
-        await Promise.all(
-          enabledParams.map(
-            async (p) =>
-              `${encodeURIComponent(await rv(p.name))}=${encodeURIComponent(await rv(p.value))}`,
-          ),
-        )
-      ).join("&");
-      finalUrl += (baseUrl.includes("?") ? "&" : "?") + qs;
-    }
 
-    // ── 2. Headers — start with all enabled, non-blank request headers ────
-    const headers = {};
-    for (const h of this.#headers.filter((h) => h.enabled && h.name.trim())) {
-      headers[(await rv(h.name)).trim()] = await rv(h.value);
-    }
+    // ── OAuth2 — interactive token acquisition (post-step) ────────────────
+    if (this.#authEnabled && this.#authType === "oauth2") {
+      // ── User-supplied Authorization header wins ──────────────────────────
+      // If the user explicitly added a non-blank Authorization header in the
+      // Headers tab, respect that value and skip all token acquisition.
+      const _userAuthKey = Object.keys(headers).find(
+        (k) => k.toLowerCase() === "authorization",
+      );
+      if (!(_userAuthKey && headers[_userAuthKey]?.trim())) {
+        // ── Signal loading while the OAuth flow runs ───────────────────────
+        // This turns the Send button into "Stop" immediately so the user can
+        // cancel a long-running popup before the request fires.
+        window.dispatchEvent(new CustomEvent("wurl:request-loading"));
 
-    // ── 3. Auth — inject Authorization (or other) headers if enabled ──────
-    let awsIam = null;
-    let authDigest = null;
-    let authNtlm = null;
-    if (this.#authEnabled && this.#authType !== "none") {
-      switch (this.#authType) {
-        case "basic": {
-          const username = await rv(this.#authBasic.username ?? "");
-          const password = await rv(this.#authBasic.password ?? "");
-          if (username || password) {
-            headers["Authorization"] =
-              `Basic ${btoa(`${username}:${password}`)}`;
-          }
-          break;
-        }
-        case "bearer":
-          if (this.#authBearer.token)
-            headers["Authorization"] =
-              `Bearer ${await rv(this.#authBearer.token)}`;
-          break;
-        case "apikey": {
-          const name = (await rv(this.#authApiKey.name ?? "")).trim();
-          const value = await rv(this.#authApiKey.value ?? "");
-          if (name) {
-            if (this.#authApiKey.addTo === "query") {
-              const qs = `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
-              finalUrl += (finalUrl.includes("?") ? "&" : "?") + qs;
-            } else {
-              headers[name] = value;
-            }
-          }
-          break;
-        }
-        case "digest": {
-          // The challenge/response round-trip (RFC 2617 / 7616) is stateful and
-          // must run in the main process where the request executes. Resolve the
-          // credentials here and pass them through; no header is set up-front.
-          const username = await rv(this.#authDigest.username ?? "");
-          if (username) {
-            authDigest = {
-              username,
-              password: await rv(this.#authDigest.password ?? ""),
-            };
-          }
-          break;
-        }
-        case "ntlm": {
-          // The NTLM handshake (MS-NLMP) is connection-bound and stateful: the
-          // Type 1/2/3 exchange must run in the main process over a single
-          // keep-alive socket. Resolve the credentials here and pass them
-          // through; no Authorization header is set up-front.
-          const username = await rv(this.#authNtlm.username ?? "");
-          if (username) {
-            authNtlm = {
-              username,
-              password: await rv(this.#authNtlm.password ?? ""),
-              domain: await rv(this.#authNtlm.domain ?? ""),
-              workstation: await rv(this.#authNtlm.workstation ?? ""),
-            };
-          }
-          break;
-        }
-        case "oauth2": {
-          // ── User-supplied Authorization header wins ──────────────────────
-          // If the user explicitly added a non-blank Authorization header in
-          // the Headers tab, respect that value and skip all token acquisition.
-          const _userAuthKey = Object.keys(headers).find(
-            (k) => k.toLowerCase() === "authorization",
-          );
-          if (_userAuthKey && headers[_userAuthKey]?.trim()) break;
-
-          // ── Signal loading while the OAuth flow runs ─────────────────────
-          // This turns the Send button into "Stop" immediately so the user
-          // can cancel a long-running popup before the request fires.
-          window.dispatchEvent(new CustomEvent("wurl:request-loading"));
-
-          // ── Acquire token (cache → refresh → full flow) ──────────────────
-          let _oauthResult;
-          try {
-            _oauthResult = await oauthExecutor.acquireToken({
-              ...this.#authOAuth2,
-            });
-          } catch (err) {
-            window.dispatchEvent(
-              new CustomEvent("wurl:request-error", {
-                detail: {
-                  request: {
-                    method: this.#method,
-                    url: finalUrl,
-                    headers: {},
-                    body: null,
-                  },
-                  name: "OAuthError",
-                  message: err?.message ?? String(err),
-                  hint: "OAuth token acquisition failed before the request could be sent.",
-                  elapsed: 0,
-                  consoleLog: [`* OAuth error: ${err?.message ?? err}`],
+        // ── Acquire token (cache → refresh → full flow) ────────────────────
+        let _oauthResult;
+        try {
+          _oauthResult = await oauthExecutor.acquireToken({
+            ...this.#authOAuth2,
+          });
+        } catch (err) {
+          window.dispatchEvent(
+            new CustomEvent("wurl:request-error", {
+              detail: {
+                request: {
+                  method: this.#method,
+                  url: finalUrl,
+                  headers: {},
+                  body: null,
                 },
-              }),
-            );
-            return;
-          }
+                name: "OAuthError",
+                message: err?.message ?? String(err),
+                hint: "OAuth token acquisition failed before the request could be sent.",
+                elapsed: 0,
+                consoleLog: [`* OAuth error: ${err?.message ?? err}`],
+              },
+            }),
+          );
+          return;
+        }
 
-          // ── Guard: user clicked Stop while the popup / token request was in flight ──
-          if (!this.#requestInFlight) return;
+        // ── Guard: user clicked Stop while the popup / token request was in flight ──
+        if (!this.#requestInFlight) return;
 
-          // ── Handle flow failure ──────────────────────────────────────────
-          if (!_oauthResult.success || !_oauthResult.accessToken) {
-            const _errCode = _oauthResult.error?.code ?? "OAuthError";
-            const _errMsg = _oauthResult.error?.description ?? _errCode;
-            window.dispatchEvent(
-              new CustomEvent("wurl:request-error", {
-                detail: {
-                  request: {
-                    method: this.#method,
-                    url: finalUrl,
-                    headers: {},
-                    body: null,
-                  },
-                  name: _errCode,
-                  message: _errMsg,
-                  hint: "OAuth token acquisition failed. Check your OAuth configuration in the Auth tab.",
-                  elapsed: 0,
-                  consoleLog: [`* OAuth ${_errCode}: ${_errMsg}`],
+        // ── Handle flow failure ────────────────────────────────────────────
+        if (!_oauthResult.success || !_oauthResult.accessToken) {
+          const _errCode = _oauthResult.error?.code ?? "OAuthError";
+          const _errMsg = _oauthResult.error?.description ?? _errCode;
+          window.dispatchEvent(
+            new CustomEvent("wurl:request-error", {
+              detail: {
+                request: {
+                  method: this.#method,
+                  url: finalUrl,
+                  headers: {},
+                  body: null,
                 },
-              }),
-            );
-            return;
-          }
-
-          // ── Inject bearer token ──────────────────────────────────────────
-          // Read the prefix from the live DOM input (name="wurl-auth-header-prefix")
-          // first — this covers any value typed but not yet committed to state —
-          // then fall back to the in-memory state, then to the "Bearer" default.
-          const _prefixEl = this.#el.querySelector(
-            '[name="wurl-auth-header-prefix"]',
+                name: _errCode,
+                message: _errMsg,
+                hint: "OAuth token acquisition failed. Check your OAuth configuration in the Auth tab.",
+                elapsed: 0,
+                consoleLog: [`* OAuth ${_errCode}: ${_errMsg}`],
+              },
+            }),
           );
-          const _prefix =
-            _prefixEl?.value?.trim() ||
-            this.#authOAuth2.headerPrefix?.trim() ||
-            "Bearer";
-          headers["Authorization"] = `${_prefix} ${_oauthResult.accessToken}`;
+          return;
+        }
 
-          // Keep local auth state in sync (token display + expiry badge).
-          this.#authOAuth2.token = _oauthResult.accessToken;
-          this.#authOAuth2.refreshToken =
-            _oauthResult.refreshToken ?? this.#authOAuth2.refreshToken ?? "";
-          this.#authOAuth2.expiresAt =
-            _oauthResult.expiresAt ?? this.#authOAuth2.expiresAt;
-          this.#renderAuthContent();
-          this.#dispatchAuthUpdated();
-          break;
-        }
-        case "aws-iam": {
-          awsIam = {
-            accessKeyId: await rv(this.#authAwsIam.accessKeyId ?? ""),
-            secretAccessKey: await rv(this.#authAwsIam.secretAccessKey ?? ""),
-            region: await rv(this.#authAwsIam.region ?? ""),
-            service: await rv(this.#authAwsIam.service ?? ""),
-            sessionToken: await rv(this.#authAwsIam.sessionToken ?? ""),
-          };
-          break;
-        }
-      }
-    }
+        // ── Inject bearer token ──────────────────────────────────────────
+        // Read the prefix from the live DOM input (name="wurl-auth-header-prefix")
+        // first — this covers any value typed but not yet committed to state —
+        // then fall back to the in-memory state, then to the "Bearer" default.
+        const _prefixEl = this.#el.querySelector(
+          '[name="wurl-auth-header-prefix"]',
+        );
+        const _prefix =
+          _prefixEl?.value?.trim() ||
+          this.#authOAuth2.headerPrefix?.trim() ||
+          "Bearer";
+        headers["Authorization"] = `${_prefix} ${_oauthResult.accessToken}`;
 
-    // ── 4. Body — build based on the selected body type ───────────────────
-    // GET and HEAD must not carry a body.
-    // All body types are serialised to a plain string (or null) so they can
-    // be forwarded to the native layer (Electron IPC / Go dev server) which
-    // cannot receive FormData, URLSearchParams, or File objects directly.
-    const noBodyMethods = new Set(["GET", "HEAD"]);
-    let body = null; // string | null
-    let bodyFilePath = null; // absolute path for the "file" body type (Electron only)
-
-    if (!noBodyMethods.has(this.#method)) {
-      switch (this.#bodyType) {
-        case "form-data": {
-          // Build a multipart/form-data body manually so we get a plain string.
-          const boundary = `----WurlBoundary${Date.now()}`;
-          const enabled = this.#bodyFormRows.filter(
-            (r) => r.enabled && r.name.trim(),
-          );
-          if (enabled.length > 0) {
-            const parts = (
-              await Promise.all(
-                enabled.map(
-                  async (r) =>
-                    `--${boundary}\r\nContent-Disposition: form-data; name="${await rv(r.name)}"\r\n\r\n${await rv(r.value)}`,
-                ),
-              )
-            ).join("\r\n");
-            body = `${parts}\r\n--${boundary}--`;
-            if (!headers["Content-Type"])
-              headers["Content-Type"] =
-                `multipart/form-data; boundary=${boundary}`;
-          }
-          break;
-        }
-        case "form-urlencoded": {
-          const sp = new URLSearchParams();
-          for (const r of this.#bodyFormRows.filter(
-            (r) => r.enabled && r.name.trim(),
-          )) {
-            sp.append(await rv(r.name), await rv(r.value));
-          }
-          body = sp.toString();
-          if (!headers["Content-Type"])
-            headers["Content-Type"] = "application/x-www-form-urlencoded";
-          break;
-        }
-        case "json":
-          if (this.#bodyText.trim()) {
-            body = await rv(this.#bodyText);
-            if (!headers["Content-Type"])
-              headers["Content-Type"] = "application/json";
-          }
-          break;
-        case "yaml":
-          if (this.#bodyText.trim()) {
-            body = await rv(this.#bodyText);
-            if (!headers["Content-Type"])
-              headers["Content-Type"] = "application/x-yaml";
-          }
-          break;
-        case "xml":
-          if (this.#bodyText.trim()) {
-            body = await rv(this.#bodyText);
-            if (!headers["Content-Type"])
-              headers["Content-Type"] = "application/xml";
-          }
-          break;
-        case "text":
-          if (this.#bodyText.trim()) {
-            body = await rv(this.#bodyText);
-            if (!headers["Content-Type"])
-              headers["Content-Type"] = "text/plain";
-          }
-          break;
-        case "file":
-          if (this.#bodyFileObject) {
-            // Electron exposes the real filesystem path via File.path.
-            // In a plain browser context this will be undefined/empty.
-            bodyFilePath = this.#bodyFileObject.path ?? "";
-            if (!headers["Content-Type"])
-              headers["Content-Type"] =
-                this.#bodyFileObject.type || "application/octet-stream";
-          }
-          break;
-        default:
-          break; // "no-body" — leave body as null
+        // Keep local auth state in sync (token display + expiry badge).
+        this.#authOAuth2.token = _oauthResult.accessToken;
+        this.#authOAuth2.refreshToken =
+          _oauthResult.refreshToken ?? this.#authOAuth2.refreshToken ?? "";
+        this.#authOAuth2.expiresAt =
+          _oauthResult.expiresAt ?? this.#authOAuth2.expiresAt;
+        this.#renderAuthContent();
+        this.#dispatchAuthUpdated();
       }
     }
 
@@ -5223,7 +4880,7 @@ export class RequestEditor {
       // Sync the specific List Headers checkbox by ID
       const cb = this.#el.querySelector("#list-headers-toggle");
       if (cb) cb.checked = this.#headerSuggestionsEnabled;
-      if (!this.#headerSuggestionsEnabled) _hideHdrDropdown();
+      if (!this.#headerSuggestionsEnabled) _hdrAc.hide();
     }
     if (settings.showUrlPreview != null) {
       this.#urlPreviewEnabled = !!settings.showUrlPreview;

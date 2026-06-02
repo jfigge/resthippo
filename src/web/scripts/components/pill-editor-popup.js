@@ -2,7 +2,12 @@
 
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
-import { resolveVariable } from "./variable-resolver.js";
+import { escapeHtml } from "../utils/html.js";
+import {
+  resolveVariable,
+  buildFunctionToken,
+  collectScopeNames,
+} from "./variable-resolver.js";
 
 const TYPE_LABELS = {
   variable: "Variable",
@@ -74,7 +79,7 @@ export class PillEditorPopup {
     this.#getPreview = getPreview;
 
     if (type === "variable") {
-      this.#varNames = this.#collectVarNames(getContext());
+      this.#varNames = collectScopeNames(getContext());
     }
 
     const varName = type === "variable" ? this.#extractVarName(rawValue) : "";
@@ -142,7 +147,7 @@ export class PillEditorPopup {
 
     el.innerHTML = `
       <div class="popup-header">
-        <span class="popup-title">${this.#esc(label)} editor</span>
+        <span class="popup-title">${escapeHtml(label)} editor</span>
         <button class="popup-close" aria-label="Close" title="Close">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body pill-editor-body">
@@ -183,7 +188,7 @@ export class PillEditorPopup {
             const opts = (p.options ?? [])
               .map(
                 (o) =>
-                  `<option value="${this.#esc(o)}"${o === val ? " selected" : ""}>${this.#esc(o)}</option>`,
+                  `<option value="${escapeHtml(o)}"${o === val ? " selected" : ""}>${escapeHtml(o)}</option>`,
               )
               .join("");
             inputHtml = `<select class="pill-editor-param-input settings-input" data-param-idx="${i}">${opts}</select>`;
@@ -192,7 +197,7 @@ export class PillEditorPopup {
             const opts = items
               .map(
                 (item) =>
-                  `<option value="${this.#esc(item.name)}"${item.name === val ? " selected" : ""}>${this.#esc(item.name)}</option>`,
+                  `<option value="${escapeHtml(item.name)}"${item.name === val ? " selected" : ""}>${escapeHtml(item.name)}</option>`,
               )
               .join("");
             inputHtml =
@@ -200,17 +205,17 @@ export class PillEditorPopup {
               `<option value="">— select request —</option>${opts}</select>`;
           } else {
             const ph = p.placeholder
-              ? ` placeholder="${this.#esc(p.placeholder)}"`
+              ? ` placeholder="${escapeHtml(p.placeholder)}"`
               : "";
             inputHtml =
               `<input class="pill-editor-param-input settings-input" type="text"` +
-              ` value="${this.#esc(val)}" autocomplete="off" spellcheck="false"` +
+              ` value="${escapeHtml(val)}" autocomplete="off" spellcheck="false"` +
               ` data-param-idx="${i}"${ph} />`;
           }
 
           return `
             <div class="pill-editor-param-row">
-              <label class="pill-editor-param-label">${this.#esc(p.label)}</label>
+              <label class="pill-editor-param-label">${escapeHtml(p.label)}</label>
               ${inputHtml}
             </div>`;
         })
@@ -219,8 +224,8 @@ export class PillEditorPopup {
 
     return `
       <div class="pill-editor-func-header">
-        <span class="pill-editor-func-name">${this.#esc(funcName ?? "")}</span>
-        <span class="pill-editor-func-label">${this.#esc(funcDef?.label ?? "")}</span>
+        <span class="pill-editor-func-name">${escapeHtml(funcName ?? "")}</span>
+        <span class="pill-editor-func-label">${escapeHtml(funcDef?.label ?? "")}</span>
       </div>
       ${paramsHtml}
       <div class="pill-editor-error" role="alert" aria-live="polite"></div>
@@ -273,25 +278,6 @@ export class PillEditorPopup {
       ".pill-editor-var-item--active",
     );
     active?.scrollIntoView({ block: "nearest" });
-  }
-
-  #collectVarNames(ctx) {
-    const seen = new Set();
-    const add = (obj) => {
-      if (obj)
-        Object.keys(obj)
-          .sort()
-          .forEach((k) => seen.add(k));
-    };
-    // Match the resolver's four scopes: folder chain → collection →
-    // environment → global. Omitting any scope hides variables defined there.
-    if (ctx?.folderChain) {
-      for (const folder of ctx.folderChain) add(folder?.variables);
-    }
-    add(ctx?.envVariables);
-    add(ctx?.environmentVariables);
-    add(ctx?.globalVariables);
-    return [...seen];
   }
 
   #extractVarName(rawValue) {
@@ -375,7 +361,7 @@ export class PillEditorPopup {
       this.#onCommit?.(`{{${this.#selectedVarName}}}`);
     } else if (this.#type === "function") {
       const args = this.#getParamArgs();
-      const rawToken = this.#buildFuncToken(this.#funcName, args);
+      const rawToken = buildFunctionToken(this.#funcName, args);
       PopupManager.close();
       this.#onCommit?.(rawToken);
     }
@@ -383,14 +369,6 @@ export class PillEditorPopup {
 
   #getParamArgs() {
     return this.#paramEls.map((el) => el.value);
-  }
-
-  #buildFuncToken(name, args) {
-    if (!args.length) return `{{${name}()}}`;
-    const argStrs = args
-      .map((a) => `"${String(a).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
-      .join(", ");
-    return `{{${name}(${argStrs})}}`;
   }
 
   // ── Live preview ───────────────────────────────────────────────────────────
@@ -509,12 +487,4 @@ export class PillEditorPopup {
   }
 
   // ── Utils ──────────────────────────────────────────────────────────────────
-
-  #esc(s) {
-    return String(s ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
 }

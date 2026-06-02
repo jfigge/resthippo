@@ -78,6 +78,23 @@ export function parseFunctionCall(content) {
 }
 
 /**
+ * Build a `{{name(...)}}` function-call token from a name and positional args.
+ * Each arg is serialized as a double-quoted string literal with backslash and
+ * quote escaping — the inverse of parseFunctionCall().
+ *
+ * @param {string} name
+ * @param {string[]} [rawArgs]
+ * @returns {string}  e.g. `{{uuid()}}` or `{{now("ISO", "utc")}}`
+ */
+export function buildFunctionToken(name, rawArgs = []) {
+  if (!rawArgs.length) return `{{${name}()}}`;
+  const argStrs = rawArgs
+    .map((a) => `"${String(a).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
+    .join(", ");
+  return `{{${name}(${argStrs})}}`;
+}
+
+/**
  * Resolve a variable name against the provided context.
  * Priority order (highest → lowest): folder chain → collection → environment → global.
  *
@@ -141,6 +158,51 @@ export function resolveVariable(name, context) {
 }
 
 /**
+ * Enumerate the variable scopes carried by `context` in resolution-priority
+ * order (folder chain nearest-first → collection → environment → global), the
+ * same order resolveVariable() walks. Each entry pairs the scope's variable map
+ * with a `source` tag so callers can collect names or render grouped sections
+ * without re-encoding which context keys are scopes. Absent/empty scopes are
+ * skipped; folder-chain entries are returned individually, one per folder.
+ *
+ * @param {{ globalVariables?: object, environmentVariables?: object, envVariables?: object, folderChain?: object[] } | null} context
+ * @returns {Array<{ source: 'folder' | 'collection' | 'environment' | 'global', vars: object }>}
+ */
+export function collectScopes(context) {
+  if (!context) return [];
+  const scopes = [];
+  if (Array.isArray(context.folderChain)) {
+    for (const folder of context.folderChain) {
+      if (folder?.variables)
+        scopes.push({ source: "folder", vars: folder.variables });
+    }
+  }
+  if (context.envVariables)
+    scopes.push({ source: "collection", vars: context.envVariables });
+  if (context.environmentVariables)
+    scopes.push({ source: "environment", vars: context.environmentVariables });
+  if (context.globalVariables)
+    scopes.push({ source: "global", vars: context.globalVariables });
+  return scopes;
+}
+
+/**
+ * Flatten every scope in `context` to a de-duplicated list of variable names in
+ * resolution-priority order (folder chain → collection → environment → global;
+ * first occurrence wins). Names within each scope are sorted alphabetically.
+ *
+ * @param {object | null} context
+ * @returns {string[]}
+ */
+export function collectScopeNames(context) {
+  const seen = new Set();
+  for (const { vars } of collectScopes(context)) {
+    for (const name of Object.keys(vars).sort()) seen.add(name);
+  }
+  return [...seen];
+}
+
+/**
  * Tokenize a string into plain-text and variable segments.
  * Variable syntax: {{name}}  — no nested braces, name must be non-empty.
  *
@@ -190,19 +252,8 @@ export function serializeEditor(el) {
       if (child.dataset && child.dataset.variable !== undefined) {
         out += `{{${child.dataset.variable}}}`;
       } else if (child.dataset && child.dataset.function !== undefined) {
-        const name = child.dataset.function;
         const rawArgs = JSON.parse(child.dataset.fnArgs ?? "[]");
-        if (!rawArgs.length) {
-          out += `{{${name}()}}`;
-        } else {
-          const argStrs = rawArgs
-            .map(
-              (a) =>
-                `"${String(a).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`,
-            )
-            .join(", ");
-          out += `{{${name}(${argStrs})}}`;
-        }
+        out += buildFunctionToken(child.dataset.function, rawArgs);
       } else if (child.tagName !== "BR") {
         out += serializeEditor(child);
       }

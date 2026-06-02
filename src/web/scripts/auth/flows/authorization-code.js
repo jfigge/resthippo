@@ -22,20 +22,15 @@ import {
 import { generateCodeVerifier, generateCodeChallenge } from "../utils/pkce.js";
 import { generateState, validateState, discardState } from "../utils/state.js";
 import { buildUrl, extractAuthCode } from "../utils/url.js";
-import { postTokenRequest } from "../network/electron-network.js";
-import {
-  createOAuthResult,
-  oauthResultFromTokenResponse,
-  oauthResultFromError,
-} from "../types/oauth-types.js";
+import { oauthResultFromError } from "../types/oauth-types.js";
 import {
   configurationError,
   stateMismatchError,
   popupCancelledError,
-  fromTokenErrorResponse,
   OAuthError,
   OAuthErrorCode,
 } from "../types/oauth-errors.js";
+import { applyClientAuth, requestToken } from "./token-exchange.js";
 
 /**
  * Execute the Authorization Code grant (confidential or public/PKCE client).
@@ -48,7 +43,7 @@ import {
  * @returns {Promise<import('../types/oauth-types').OAuthResult>}
  */
 export async function authorizationCodeFlow(config) {
-  // ── Validate ─────────────────────────────────────────────────────────────
+  // ── Validate ──────────────────────────────────────────────────────────────
   if (!config.clientId?.trim())
     return oauthResultFromError(configurationError("Client ID is required."));
   if (!config.authUrl?.trim())
@@ -61,7 +56,9 @@ export async function authorizationCodeFlow(config) {
   try {
     new URL(config.authUrl.trim());
   } catch {
-    return createOAuthResult({ success: true });
+    return oauthResultFromError(
+      configurationError("Auth URL is not a valid URL."),
+    );
   }
 
   const clientId = config.clientId.trim();
@@ -187,41 +184,15 @@ export async function authorizationCodeFlow(config) {
     }
   }
 
+  // Confidential clients authenticate with their secret; PKCE/public clients
+  // prove possession with the code_verifier alone (client_id is already in the
+  // token params above), so they skip client authentication entirely.
   const tokenHeaders = {};
-  const credMethod = config.credentials ?? "header";
-
   if (!isPkce) {
-    // Confidential client: also send secret
-    if (credMethod === "body") {
-      tokenParams.client_secret = config.clientSecret?.trim() ?? "";
-    } else if (config.clientSecret?.trim()) {
-      const encoded = btoa(`${clientId}:${config.clientSecret.trim()}`);
-      tokenHeaders["Authorization"] = `Basic ${encoded}`;
-    }
-  }
-
-  let response;
-  try {
-    response = await postTokenRequest(accessTokenUrl, tokenParams, {
-      headers: tokenHeaders,
-      verifySsl: config.verifySsl !== false,
-      timeout: config.timeout ?? 30_000,
+    applyClientAuth(tokenParams, tokenHeaders, config, {
+      sendEmptySecret: true,
     });
-  } catch (err) {
-    return oauthResultFromError(err);
   }
 
-  if (response.error || response.httpStatus >= 400) {
-    return oauthResultFromError(
-      fromTokenErrorResponse(response, response.httpStatus),
-    );
-  }
-
-  if (!response.access_token) {
-    return oauthResultFromError(
-      configurationError("Token endpoint did not return an access_token."),
-    );
-  }
-
-  return oauthResultFromTokenResponse(response);
+  return requestToken(accessTokenUrl, tokenParams, tokenHeaders, config);
 }
