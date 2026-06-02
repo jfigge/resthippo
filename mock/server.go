@@ -112,6 +112,8 @@ func main() {
 		}
 	})
 
+	registerAuthRoutes()
+
 	fmt.Fprintln(os.Stderr, "mock server listening on", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		fmt.Fprintln(os.Stderr, err)
