@@ -127,6 +127,7 @@ export class VariablePillEditor {
     el.addEventListener("input", () => this.#onEditorInput());
     el.addEventListener("keydown", (e) => this.#onKeyDown(e));
     el.addEventListener("copy", (e) => this.#onCopy(e));
+    el.addEventListener("cut", (e) => this.#onCut(e));
     el.addEventListener("paste", (e) => this.#onPaste(e));
     el.addEventListener("drop", (e) => this.#onDrop(e));
     el.addEventListener("focus", () => {
@@ -949,6 +950,28 @@ export class VariablePillEditor {
     }
     const frag = sel.getRangeAt(0).cloneContents();
     e.clipboardData.setData("text/plain", this.#rawTextFromFragment(frag));
+  }
+
+  #onCut(e) {
+    e.preventDefault();
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) {
+      e.clipboardData.setData("text/plain", "");
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    // Serialise pills to their raw {{...}} tokens, mirroring copy.
+    e.clipboardData.setData(
+      "text/plain",
+      this.#rawTextFromFragment(range.cloneContents()),
+    );
+    if (range.collapsed) return;
+    // Remove the selection ourselves so pills are deleted as whole units.
+    range.deleteContents();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    this.#scanAndConvertAll();
+    this.#emitChange();
   }
 
   #rawTextFromFragment(node) {
