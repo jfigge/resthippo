@@ -76,7 +76,7 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-auth test-oauth test-export test-components test-import
+test: test-js test-auth test-oauth test-export test-components test-import test-data-store test-renderer-components test-renderer-e2e
 
 test-js:
 	@echo "Running JavaScript store tests..."
@@ -106,6 +106,21 @@ test-components:
 test-import:
 	@echo "Running import fixture tests..."
 	@node --test $(WEB_DIR)/scripts/import/tests/import.test.js
+	@echo "--------------------------------"
+
+test-data-store:
+	@echo "Running renderer IPC-bridge integration tests (data-store)..."
+	@node --test $(WEB_DIR)/scripts/tests/data-store.test.js
+	@echo "--------------------------------"
+
+test-renderer-components:
+	@echo "Running renderer component render tests (editor + viewer, jsdom)..."
+	@node --test $(WEB_DIR)/scripts/tests/request-editor.test.js $(WEB_DIR)/scripts/tests/response-viewer.test.js
+	@echo "--------------------------------"
+
+test-renderer-e2e:
+	@echo "Running renderer request->response E2E tests (jsdom)..."
+	@node --test $(WEB_DIR)/scripts/tests/renderer-e2e.test.js
 	@echo "--------------------------------"
 
 # ─── Development ──────────────────────────────────────────────────────────────
@@ -491,6 +506,7 @@ mock-down:
         fmt \
         lint \
         test test-js test-auth test-oauth test-export test-components test-import \
+        test-data-store test-renderer-components test-renderer-e2e \
         debug \
         build build-mac build-linux build-win \
         build-setup build-install \
