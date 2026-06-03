@@ -91,6 +91,11 @@ class Stores {
   backupStore() {
     return this._backupStore;
   }
+
+  /** Shared Paths instance — the single source of truth for filesystem paths. */
+  paths() {
+    return this._paths;
+  }
 }
 
 module.exports = { Stores };

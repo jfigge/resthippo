@@ -50,6 +50,15 @@ class Paths {
     return path.join(this.dataDir, "environments", "index.json");
   }
 
+  /**
+   * Scratch directory for response bodies too large to keep in renderer memory.
+   * Lives under `dataDir` so the startup orphan-temp sweep recurses into it and
+   * reaps any spill files left behind by a previous session.
+   */
+  responseCacheDir() {
+    return path.join(this.dataDir, "response-cache");
+  }
+
   // ── Per-collection paths ────────────────────────────────────────────────────
 
   collectionDir(collId) {

@@ -22,6 +22,7 @@ const { spawn } = require("child_process");
 const { URL } = require("url");
 
 const { Stores } = require("./store/stores");
+const io = require("./store/io");
 const aws4 = require("aws4");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 const {
@@ -279,6 +280,47 @@ function safeCall(channel, fn, fallback = null) {
 // so the sandboxed renderer never touches the network directly.
 // Returns a rich result object including a verbose console log.
 (function initHttpIPC() {
+  // ── Large-response spill-to-disk ───────────────────────────────────────────
+  //
+  // Responses below the threshold stay fully in renderer memory as today. Above
+  // it, the body is streamed to a temp file under `response-cache/` (with the
+  // socket paused under backpressure so memory stays bounded), and only a small
+  // preview crosses to the renderer. The renderer can then fetch the full body
+  // or save it straight to disk on demand via `http:body:get` / `http:body:save`.
+
+  /** Spill bodies larger than this (bytes) to disk instead of buffering. */
+  const RESPONSE_SPILL_THRESHOLD = 8 * 1024 * 1024; // 8 MB
+  /** Preview kept in memory / sent to the renderer for a spilled response. */
+  const RESPONSE_PREVIEW_BYTES = 256 * 1024; // 256 KB
+  /** Most-recent spilled bodies retained before the oldest is evicted. */
+  const SPILL_REGISTRY_MAX = 20;
+
+  /** ref → { path, size, contentType } for response bodies spilled to disk. */
+  const spilledBodies = new Map();
+
+  /**
+   * Register a spilled body and return an opaque ref the renderer can redeem.
+   * Evicts (and unlinks) the oldest entry once the registry is full — Map
+   * preserves insertion order, so the first key is the least-recently spilled.
+   * @param {{ path: string, size: number, contentType: string }} entry
+   * @returns {string} ref
+   */
+  function registerSpilledBody(entry) {
+    const ref = io.newUUID();
+    spilledBodies.set(ref, entry);
+    while (spilledBodies.size > SPILL_REGISTRY_MAX) {
+      const oldestRef = spilledBodies.keys().next().value;
+      const old = spilledBodies.get(oldestRef);
+      spilledBodies.delete(oldestRef);
+      try {
+        fs.unlinkSync(old.path);
+      } catch {
+        // Already gone (manual delete or startup GC) — nothing to do.
+      }
+    }
+    return ref;
+  }
+
   /**
    * Perform one HTTP request leg (no redirect logic here — handled below).
    * Returns a Promise that always resolves (never rejects) with a result object.
@@ -698,13 +740,60 @@ function safeCall(channel, fn, fallback = null) {
         }
 
         // ── Normal response ──────────────────────────────────────────────────
-        const chunks = [];
-        res.on("data", (chunk) => chunks.push(chunk));
+        // Buffer in memory until the body crosses RESPONSE_SPILL_THRESHOLD; from
+        // there it streams to a temp file so a multi-hundred-MB payload never
+        // lands whole in renderer memory.
+        const previewChunks = []; // bounded to RESPONSE_PREVIEW_BYTES
+        let previewLen = 0;
+        let memChunks = []; // full body, until/unless we spill
+        let total = 0;
+        let spillStream = null; // fs.WriteStream once the threshold is crossed
+        let spillPath = null;
+        let spillError = null;
+
+        const appendPreview = (chunk) => {
+          if (previewLen >= RESPONSE_PREVIEW_BYTES) return;
+          const remaining = RESPONSE_PREVIEW_BYTES - previewLen;
+          const slice =
+            chunk.length > remaining ? chunk.subarray(0, remaining) : chunk;
+          previewChunks.push(slice);
+          previewLen += slice.length;
+        };
+
+        res.on("data", (chunk) => {
+          total += chunk.length;
+          appendPreview(chunk);
+
+          if (spillStream) {
+            // Pause the socket when the write buffer fills, resume on drain —
+            // keeps memory bounded regardless of how fast the peer sends.
+            if (!spillStream.write(chunk)) {
+              res.pause();
+              spillStream.once("drain", () => res.resume());
+            }
+            return;
+          }
+
+          memChunks.push(chunk);
+          if (total > RESPONSE_SPILL_THRESHOLD) {
+            try {
+              const cacheDir = getStores().paths().responseCacheDir();
+              io.ensureDir(cacheDir);
+              spillPath = io.newTempPath(cacheDir, "response");
+              spillStream = fs.createWriteStream(spillPath);
+              spillStream.on("error", (err) => {
+                spillError = err;
+              });
+              for (const c of memChunks) spillStream.write(c);
+            } catch (err) {
+              spillError = err;
+            }
+            memChunks = []; // release the buffered body
+          }
+        });
+
         res.on("end", () => {
           const elapsed = Date.now() - startTime;
-          const rawBody = Buffer.concat(chunks);
-          const bodyText = rawBody.toString("utf8");
-          const size = rawBody.length;
 
           consoleLog.push(`< ${httpVersion} ${code} ${phrase}`);
           Object.entries(res.headers).forEach(([k, v]) => {
@@ -713,28 +802,91 @@ function safeCall(channel, fn, fallback = null) {
           });
           consoleLog.push("<");
           consoleLog.push("");
-          consoleLog.push(`* Received ${size} B total`);
+          consoleLog.push(`* Received ${total} B total`);
           consoleLog.push(
             `* Connection to host ${parsed.hostname} left intact`,
           );
 
           captureCookies(useCookieJar, collectionId, rawUrl, res.headers);
 
-          resolve({
+          const base = {
             status: code,
             statusText: phrase,
             headers: flatHeaders(res.headers),
             cookies: extractCookies(res.headers),
-            body: bodyText,
             elapsed,
-            size,
             consoleLog,
+          };
+
+          if (!spillStream) {
+            // Small response — fully in memory, unchanged shape.
+            const rawBody = Buffer.concat(memChunks);
+            resolve({
+              ...base,
+              body: rawBody.toString("utf8"),
+              size: total,
+            });
+            return;
+          }
+
+          // Spilled response — finish the temp file, then hand back a preview
+          // plus a ref the renderer can redeem for the full body on demand.
+          const previewText = Buffer.concat(previewChunks).toString("utf8");
+          spillStream.end(() => {
+            if (spillError) {
+              try {
+                fs.unlinkSync(spillPath);
+              } catch {
+                // best-effort
+              }
+              consoleLog.push(
+                `* Failed to buffer full response to disk: ${spillError.message}`,
+              );
+              resolve({
+                ...base,
+                body: previewText,
+                size: total,
+                truncated: true,
+                fullSize: total,
+                error: { name: "SpillError", message: spillError.message },
+              });
+              return;
+            }
+            const contentType = res.headers["content-type"] || "";
+            const bodyRef = registerSpilledBody({
+              path: spillPath,
+              size: total,
+              contentType,
+            });
+            consoleLog.push(
+              `* Response exceeded ${RESPONSE_SPILL_THRESHOLD} B — buffered to disk; previewing first ${previewLen} B`,
+            );
+            resolve({
+              ...base,
+              body: previewText,
+              size: total,
+              truncated: true,
+              bodyRef,
+              fullSize: total,
+            });
           });
         });
 
         res.on("error", (err) => {
           const elapsed = Date.now() - startTime;
           consoleLog.push(`* Stream error: ${err.message}`);
+          if (spillStream) {
+            try {
+              spillStream.destroy();
+            } catch {
+              // best-effort
+            }
+            try {
+              fs.unlinkSync(spillPath);
+            } catch {
+              // best-effort
+            }
+          }
           resolve({
             status: code,
             statusText: phrase,
@@ -919,6 +1071,48 @@ function safeCall(channel, fn, fallback = null) {
         consoleLog,
         error: { name: err.name || "Error", message: err.message },
       };
+    }
+  });
+
+  // Redeem a spill ref for the full response body (user-initiated "View full").
+  ipcMain.handle("http:body:get", async (_event, ref) => {
+    const entry = spilledBodies.get(ref);
+    if (!entry) {
+      return {
+        error: {
+          name: "NotFound",
+          message: "The full response is no longer cached.",
+        },
+      };
+    }
+    try {
+      const buf = await fs.promises.readFile(entry.path);
+      return {
+        body: buf.toString("utf8"),
+        size: entry.size,
+        contentType: entry.contentType,
+      };
+    } catch (err) {
+      return { error: { name: "ReadError", message: err.message } };
+    }
+  });
+
+  // Copy a spilled response body straight to a user-chosen file — the full
+  // payload never travels back through the renderer.
+  ipcMain.handle("http:body:save", async (_event, { ref, filename } = {}) => {
+    const entry = spilledBodies.get(ref);
+    if (!entry) return { ok: false, reason: "not-found" };
+    const result = await dialog.showSaveDialog(_mainWin ?? undefined, {
+      defaultPath: filename || "response.bin",
+    });
+    if (result.canceled || !result.filePath) {
+      return { ok: false, reason: "canceled" };
+    }
+    try {
+      await fs.promises.copyFile(entry.path, result.filePath);
+      return { ok: true, path: result.filePath };
+    } catch (err) {
+      return { ok: false, reason: "error", message: err.message };
     }
   });
 })();
@@ -2176,6 +2370,17 @@ app.whenReady().then(async () => {
       devPort = await findFreePort();
       await startDevServer(devPort);
     }
+  }
+
+  // Enforce the history-retention setting on disk before the renderer asks for
+  // its first page. Bounds the history store independently of the renderer so
+  // listHistory pages stay fast no matter how much accumulated while closed.
+  try {
+    const manifest = getStores().collectionStore().getManifest();
+    const historyCount = manifest?.settings?.historyCount ?? 5;
+    getStores().historyStore().trimAllHistory(historyCount);
+  } catch (err) {
+    console.error("[main] startup history trim failed:", err.message);
   }
 
   buildMenu();

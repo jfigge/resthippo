@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -44,6 +46,19 @@ var statuses = []int{
 	410, 411, 412, 413, 414, 415, 416, 417, 418,
 	421, 422, 423, 424, 425, 426, 428, 429, 431, 451,
 	500, 501, 502, 503, 504, 505, 506, 507, 508, 510, 511,
+}
+
+// volumeSizes lists the synthetic JSON payloads served under /volume/<name>,
+// each emitted at exactly the given byte size. The sizes straddle the
+// renderer's 8 MB spill threshold and 16 MB inline limit so the in-memory,
+// streaming/preview and save-to-file paths can all be exercised from here.
+var volumeSizes = []struct {
+	Name  string
+	Bytes int
+}{
+	{"small", 1 * 1024 * 1024},
+	{"medium", 15 * 1024 * 1024},
+	{"large", 28 * 1024 * 1024},
 }
 
 func main() {
@@ -112,6 +127,46 @@ func main() {
 		}
 	})
 
+	http.HandleFunc("/volume", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/volume" {
+			http.NotFound(w, r)
+			return
+		}
+		// Index of the volume payloads and their exact sizes.
+		type api struct {
+			Name  string `json:"name"`
+			Path  string `json:"path"`
+			Bytes int    `json:"bytes"`
+			Size  string `json:"size"`
+		}
+		list := make([]api, len(volumeSizes))
+		for i, v := range volumeSizes {
+			list[i] = api{v.Name, "/volume/" + v.Name, v.Bytes, humanSize(v.Bytes)}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"service": "wurl-mock",
+			"volumes": list,
+		})
+	})
+
+	http.HandleFunc("/volume/", func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, "/volume/")
+		for _, v := range volumeSizes {
+			if v.Name == name {
+				// Each payload is emitted at exactly v.Bytes. The sizes are
+				// chosen to straddle the renderer's 8 MB spill threshold and
+				// 16 MB inline limit: small (1 MB) stays in memory; medium
+				// (15 MB) spills to the on-disk cache yet still renders inline
+				// via "View full"; large (28 MB) spills across 3+ cached pages
+				// and exceeds the inline limit, routing "View full" to save.
+				writeVolumeJSON(w, v.Name, v.Bytes)
+				return
+			}
+		}
+		http.Error(w, "unknown volume size", http.StatusNotFound)
+	})
+
 	registerAuthRoutes()
 
 	fmt.Fprintln(os.Stderr, "mock server listening on", addr)
@@ -119,4 +174,64 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+// humanSize renders a byte count as a compact MB/KB/B label. The volume sizes
+// are exact power-of-two multiples, so this yields clean "1MB"/"15MB"/"28MB".
+func humanSize(n int) string {
+	switch {
+	case n >= 1024*1024:
+		return fmt.Sprintf("%dMB", n/(1024*1024))
+	case n >= 1024:
+		return fmt.Sprintf("%dKB", n/1024)
+	default:
+		return fmt.Sprintf("%dB", n)
+	}
+}
+
+// writeVolumeJSON streams a syntactically valid JSON object of exactly
+// targetBytes to w, tagged with payload. The body is generated record by
+// record (never buffered whole) and a final filler record is padded so the
+// total length lands exactly on target.
+func writeVolumeJSON(w http.ResponseWriter, payload string, targetBytes int) {
+	head := fmt.Sprintf(`{"status":"ok","service":"wurl-mock","payload":%q,"items":[`, payload)
+	const tail = `]}`
+	w.Header().Set("Content-Type", "application/json")
+	bw := bufio.NewWriter(w)
+	written := 0
+	n, _ := io.WriteString(bw, head)
+	written += n
+	// Reserve room for the closing tail so the final length lands exactly.
+	for i := 0; written < targetBytes-len(tail); i++ {
+		rec := fmt.Sprintf(
+			`{"id":%d,"name":"Item-%07d","uuid":"%08x-aaaa-bbbb-cccc-%012x","email":"user%07d@example.com","active":%t,"score":%d,"note":"lorem ipsum dolor sit amet consectetur adipiscing elit"}`,
+			i, i, i, i, i, i%2 == 0, (i*7)%1000)
+		if i > 0 {
+			rec = "," + rec
+		}
+		// When a full record would overshoot, emit one padded filler record
+		// sized to consume exactly the remaining bytes, then stop.
+		remaining := targetBytes - len(tail) - written
+		if len(rec) > remaining {
+			sep := ""
+			if i > 0 {
+				sep = ","
+			}
+			prefix := fmt.Sprintf(`%s{"id":%d,"pad":"`, sep, i)
+			suffix := `"}`
+			padLen := remaining - len(prefix) - len(suffix)
+			if padLen < 0 {
+				// No room for even an empty filler — pad with insignificant
+				// whitespace before the closing tail instead.
+				_, _ = io.WriteString(bw, strings.Repeat(" ", remaining))
+				break
+			}
+			_, _ = io.WriteString(bw, prefix+strings.Repeat("x", padLen)+suffix)
+			break
+		}
+		n, _ = io.WriteString(bw, rec)
+		written += n
+	}
+	_, _ = io.WriteString(bw, tail)
+	_ = bw.Flush()
 }

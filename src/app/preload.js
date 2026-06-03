@@ -222,10 +222,20 @@ contextBridge.exposeInMainWorld("wurl", {
    * bypassing Chromium's networking stack and its CORS enforcement.
    *
    * Descriptor: { method, url, headers, body?, bodyFilePath?, timeout?, followRedirects?, verifySsl? }
-   * Result:     { status, statusText, headers, cookies, body, elapsed, size, consoleLog, error? }
+   * Result:     { status, statusText, headers, cookies, body, elapsed, size, consoleLog, error?,
+   *              truncated?, bodyRef?, fullSize? }
+   *
+   * When a response is too large for renderer memory it is spilled to a temp
+   * file in the main process: `truncated` is set, `body` carries only a preview,
+   * and `bodyRef` redeems the full payload via getBody / saveBody below.
    */
   http: {
     execute: (descriptor) => ipcRenderer.invoke("http:execute", descriptor),
+    /** Fetch the full text of a spilled response body. → { body, size, contentType } | { error } */
+    getBody: (ref) => ipcRenderer.invoke("http:body:get", ref),
+    /** Save a spilled response body straight to a user-chosen file. → { ok, path? , reason? } */
+    saveBody: (ref, filename) =>
+      ipcRenderer.invoke("http:body:save", { ref, filename }),
   },
 
   /**

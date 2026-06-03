@@ -474,10 +474,14 @@ export class ResponseViewer {
     this._statusBar = bar;
   }
 
-  #downloadBody() {
-    const resp = this.#lastResponse;
-    if (!resp?.body) return;
-
+  /**
+   * Derive a download filename, extension and save-dialog filter label from a
+   * response's content-type and request URL. Shared by the in-memory download
+   * path and the spilled-body "save to file" path.
+   * @param {object} resp
+   * @returns {{ filename: string, ext: string, filterName: string }}
+   */
+  #downloadNaming(resp) {
     const kind = classifyContentType(this.#contentTypeOf(resp.headers));
 
     let ext = "txt";
@@ -512,7 +516,24 @@ export class ResponseViewer {
           ?.replace(/[^a-zA-Z0-9._-]/g, "_") || "response"
       : "response";
 
-    window.wurl?.export?.saveFile(`${base}.${ext}`, resp.body, [
+    return { filename: `${base}.${ext}`, ext, filterName };
+  }
+
+  #downloadBody() {
+    const resp = this.#lastResponse;
+    if (!resp) return;
+
+    // A spilled response only holds a preview in memory — stream the full body
+    // straight from the main-process cache to the user's chosen file instead.
+    if (resp.truncated && resp.bodyRef) {
+      this.#saveFullBody(resp);
+      return;
+    }
+
+    if (!resp.body) return;
+
+    const { filename, ext, filterName } = this.#downloadNaming(resp);
+    window.wurl?.export?.saveFile(filename, resp.body, [
       { name: filterName, extensions: [ext] },
       { name: "All Files", extensions: ["*"] },
     ]);
@@ -1096,6 +1117,12 @@ export class ResponseViewer {
     this.#clearHighlights();
     pane.innerHTML = "";
 
+    // Spilled (large) responses only carry a preview in `body`; surface a banner
+    // offering to fetch or save the full payload from the main-process cache.
+    if (response.truncated) {
+      pane.appendChild(this.#buildTruncationBanner(response));
+    }
+
     // ── Markdown rendering ────────────────────────────────────────────────
     // Styled markdown becomes sanitized rich HTML (marked + DOMPurify); its
     // fenced code blocks are then re-highlighted with the bundled Prism.
@@ -1195,6 +1222,99 @@ export class ResponseViewer {
       this.#searchInput?.value.trim()
     ) {
       this.#runSearch();
+    }
+  }
+
+  /**
+   * Build the banner shown above a spilled (truncated) response body. It reports
+   * the preview/full sizes and, when the full body is still cached in the main
+   * process (`bodyRef` present), offers buttons to load it inline or save it to
+   * a file. After a restart the cache is gone, so we show an explanatory note.
+   * @param {object} response  The cached `#lastResponse`.
+   * @returns {HTMLElement}
+   */
+  #buildTruncationBanner(response) {
+    const banner = document.createElement("div");
+    banner.className = "res-truncation-banner";
+
+    const text = document.createElement("span");
+    text.className = "res-truncation-text";
+    const previewBytes = (response.body ?? "").length;
+    text.textContent = `Large response — showing the first ${this.#formatSize(
+      previewBytes,
+    )} of ${this.#formatSize(response.fullSize ?? 0)}.`;
+    banner.appendChild(text);
+
+    if (response.bodyRef) {
+      const viewBtn = document.createElement("button");
+      viewBtn.type = "button";
+      viewBtn.className = "res-truncation-btn";
+      viewBtn.textContent = "View full";
+      viewBtn.addEventListener("click", () => this.#loadFullBody(response));
+      banner.appendChild(viewBtn);
+
+      const saveBtn = document.createElement("button");
+      saveBtn.type = "button";
+      saveBtn.className = "res-truncation-btn";
+      saveBtn.textContent = "Save to file";
+      saveBtn.addEventListener("click", () => this.#saveFullBody(response));
+      banner.appendChild(saveBtn);
+    } else {
+      const note = document.createElement("span");
+      note.className = "res-truncation-note";
+      note.textContent = "Full response is no longer cached.";
+      banner.appendChild(note);
+    }
+
+    return banner;
+  }
+
+  /**
+   * Fetch the full spilled body from the main process and render it inline.
+   * Very large bodies are redirected to "save to file" rather than risk
+   * re-bloating the renderer — the whole point of spilling was to avoid that.
+   * @param {object} response  The cached `#lastResponse`.
+   */
+  async #loadFullBody(response) {
+    if (!response.bodyRef) return;
+
+    // Guard: don't pull a huge payload back into the renderer; offer save.
+    const INLINE_LIMIT = 16 * 1024 * 1024; // 16 MB
+    if ((response.fullSize ?? 0) > INLINE_LIMIT) {
+      this.#saveFullBody(response);
+      return;
+    }
+
+    const res = await window.wurl?.http?.getBody(response.bodyRef);
+    if (!res || res.error) {
+      // Cache miss / read error — forget the ref so the banner stops offering it.
+      response.bodyRef = null;
+      this.#renderBodyPane(response);
+      return;
+    }
+
+    response.body = res.body ?? "";
+    response.truncated = false;
+    response.size = res.size ?? response.size;
+    this.#renderBodyPane(response);
+  }
+
+  /**
+   * Stream the full spilled body from the main-process cache straight to a
+   * user-chosen file via the native save dialog.
+   * @param {object} response  The cached `#lastResponse`.
+   */
+  async #saveFullBody(response) {
+    if (!response.bodyRef) return;
+    const { filename } = this.#downloadNaming(response);
+    const result = await window.wurl?.http?.saveBody(
+      response.bodyRef,
+      filename,
+    );
+    if (result && result.ok === false && result.reason === "not-found") {
+      // The cache was reaped between render and click — refresh the banner.
+      response.bodyRef = null;
+      this.#renderBodyPane(response);
     }
   }
 
@@ -1751,11 +1871,16 @@ export class ResponseViewer {
       elapsed = 0,
       size = 0,
       consoleLog = [],
+      truncated = false,
+      bodyRef = null,
+      fullSize = size,
     } = response;
 
     // Cache the raw response for re-rendering when the mode changes.
     // requestUrl comes from the caller (history path) or falls back to the
     // request snapshot embedded in live wurl:response-received events.
+    // truncated/bodyRef/fullSize describe spilled (large) responses whose full
+    // body lives in the main process and is only fetched on demand.
     this.#lastResponse = {
       requestUrl: requestUrl ?? request.url ?? "",
       status,
@@ -1766,6 +1891,9 @@ export class ResponseViewer {
       elapsed,
       size,
       consoleLog,
+      truncated,
+      bodyRef,
+      fullSize,
     };
 
     // Sync method colour from the request that produced this response.

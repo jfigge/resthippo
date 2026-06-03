@@ -55,6 +55,20 @@ function tempPathFor(filePath) {
 }
 
 /**
+ * Build a fresh temp-file path inside `dir` for callers that stream their own
+ * content (e.g. spilled HTTP responses). The name carries the same `.wurltmp-`
+ * infix as atomic writes, so {@link gcOrphanTempFiles} reaps it on the next
+ * startup if the owning session exited before cleaning it up.
+ * @param {string} dir Directory the temp file should live in.
+ * @param {string} [prefix] Leading label for the file name.
+ * @returns {string} Absolute (or `dir`-relative) temp path.
+ */
+function newTempPath(dir, prefix = "spill") {
+  tempCounter += 1;
+  return path.join(dir, `${prefix}${TEMP_INFIX}${tempCounter}${TEMP_SUFFIX}`);
+}
+
+/**
  * @param {string} name A bare file name (not a full path).
  * @returns {boolean} True if `name` is one of our write temp files.
  */
@@ -296,6 +310,7 @@ module.exports = {
   readJSON,
   gcOrphanTempFiles,
   isTempFileName,
+  newTempPath,
   validateID,
   newUUID,
   notFoundError,

@@ -1968,6 +1968,51 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 /* Response body — monospace pre block */
+/* ── Truncated (spilled) response banner ───────────────────────────────────
+ * Shown above the preview body when a large response was streamed to disk in
+ * the main process instead of being held whole in renderer memory. */
+.res-truncation-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-surface-2);
+  border-left: 3px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-0);
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+}
+
+.res-truncation-text {
+  flex: 1 1 auto;
+}
+
+.res-truncation-btn {
+  flex: 0 0 auto;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-1);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.res-truncation-btn:hover {
+  background: var(--color-surface-2);
+  border-color: var(--color-accent);
+}
+
+.res-truncation-note {
+  flex: 0 0 auto;
+  color: var(--color-overlay-0);
+  font-style: italic;
+}
+
 .res-body-pre {
   margin: 0;
   padding: var(--space-3) var(--space-3);

@@ -179,6 +179,12 @@ async function _loadRequestHistory(requestId) {
             cookies: payload?.cookies ?? [],
             body: payload?.body ?? "",
             consoleLog: payload?.consoleLog ?? [],
+            // Restore the truncation flags so a reloaded large response still
+            // renders its "response was truncated" banner. The session-scoped
+            // bodyRef is intentionally never persisted, so the banner shows its
+            // "full response is no longer cached" note rather than fetch buttons.
+            truncated: payload?.truncated ?? false,
+            fullSize: payload?.fullSize ?? meta.size ?? 0,
           },
           timestamp: meta.timestamp ?? Date.now(),
         };
@@ -791,6 +797,14 @@ function initEventBus() {
         elapsed: e.detail.elapsed ?? 0,
         size: e.detail.size ?? 0,
         consoleLog: e.detail.consoleLog ?? [],
+        // Streaming metadata for spilled (large) responses. bodyRef is a
+        // session-scoped handle to the full body cached in the main process; it
+        // is deliberately NOT persisted (see addHistory below) because that
+        // cache is reaped on restart. truncated/fullSize ARE persisted so a
+        // reloaded entry still shows the "response was truncated" banner.
+        truncated: e.detail.truncated ?? false,
+        fullSize: e.detail.fullSize ?? e.detail.size ?? 0,
+        bodyRef: e.detail.bodyRef ?? null,
       };
 
       // Ensure history is loaded from storage before prepending the new entry,
@@ -827,6 +841,10 @@ function initEventBus() {
           cookies: resp.cookies,
           body: resp.body,
           consoleLog: resp.consoleLog,
+          // Persist truncation flags (but not the session-scoped bodyRef) so a
+          // reloaded large response is correctly flagged as a stored preview.
+          truncated: resp.truncated,
+          fullSize: resp.fullSize,
         },
       );
 
@@ -1668,6 +1686,10 @@ function initEventBus() {
               elapsed: result.elapsed ?? 0,
               size: result.size ?? 0,
               consoleLog: result.consoleLog ?? [],
+              // Streaming metadata for spilled (large) responses.
+              truncated: result.truncated ?? false,
+              bodyRef: result.bodyRef ?? null,
+              fullSize: result.fullSize ?? result.size ?? 0,
             },
           }),
         );
@@ -2178,6 +2200,9 @@ async function _executeRequestNode(node, ctx) {
         elapsed: result.elapsed ?? 0,
         size: result.size ?? 0,
         consoleLog: result.consoleLog ?? [],
+        truncated: result.truncated ?? false,
+        fullSize: result.fullSize ?? result.size ?? 0,
+        bodyRef: result.bodyRef ?? null,
       };
       const reqNode = _buildSnapshot(node);
 
@@ -2210,6 +2235,8 @@ async function _executeRequestNode(node, ctx) {
           cookies: resp.cookies,
           body: resp.body,
           consoleLog: resp.consoleLog,
+          truncated: resp.truncated,
+          fullSize: resp.fullSize,
         },
       );
       while (entries.length > _maxHistory) {
