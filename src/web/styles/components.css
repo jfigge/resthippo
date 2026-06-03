@@ -1620,6 +1620,15 @@ html.show-method-icons .req-method-menu__item-label::before {
   -webkit-text-security: none;
 }
 
+/* An empty field holds no secret, so leave it unmasked. -webkit-text-security
+ * is inherited (hence the pill exemption above), so otherwise it would mask the
+ * placeholder hint — a ::before whose content is the field label, e.g. "Client
+ * Secret" — into a meaningless row of discs. data-empty clears the instant the
+ * user types, so masking re-engages atomically with the first character. */
+.secret-field.is-masked .secret-field__input[data-empty="true"] {
+  -webkit-text-security: none;
+}
+
 .secret-field__toggle {
   flex-shrink: 0;
   display: flex;

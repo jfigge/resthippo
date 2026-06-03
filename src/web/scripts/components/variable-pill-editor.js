@@ -503,7 +503,13 @@ export class VariablePillEditor {
   }
 
   #onEditorInput() {
-    this.#ensureEdgePadding();
+    // Native editing — clearing the field especially — can leave a filler <br>
+    // or block wrapper behind.  #sanitizeArtifacts rebuilds the canonical model
+    // (and re-pads) when it finds any; only when it found nothing do we fall
+    // back to a bare edge-padding pass, so ordinary typing keeps its cheap path.
+    if (!this.#sanitizeArtifacts()) {
+      this.#ensureEdgePadding();
+    }
     this.#tryConvertAtCaret();
     this.#emitChange();
     this.#schedulePicker();
@@ -1385,6 +1391,89 @@ export class VariablePillEditor {
     this.#el.dataset.empty = String(!hasText && !hasPills);
   }
 
+  /** True for any child that isn't part of the canonical text-node/pill model. */
+  #isForeignNode(node) {
+    return (
+      node.nodeType === Node.ELEMENT_NODE &&
+      !node.classList.contains("variable-pill")
+    );
+  }
+
+  /**
+   * Native contenteditable editing can inject non-canonical nodes: Chromium
+   * drops a filler `<br>` into an emptied field and occasionally wraps content
+   * in a `<div>`.  Left in place, #ensureEdgePadding treats each as atomic
+   * content and sandwiches it in zero-width-space guards — and in a masked
+   * secret field (`-webkit-text-security: disc`) every such guard renders as a
+   * stray disc and every `<br>` as a spurious line break.  That is the "new
+   * line plus dots" artefact seen when clearing a secret.
+   *
+   * When such nodes are present, rebuild the canonical flat model — text nodes
+   * and `.variable-pill` spans only — preserving the caret through the logical
+   * index, and re-pad.  Returns true when it acted (padding already done),
+   * false when there was nothing to clean so the caller can pad normally.
+   */
+  #sanitizeArtifacts() {
+    if (![...this.#el.childNodes].some((n) => this.#isForeignNode(n))) {
+      return false;
+    }
+
+    // Capture the selection in the logical model before mutating the DOM.
+    const sel = window.getSelection();
+    const tracking =
+      sel && sel.rangeCount > 0 && this.#el.contains(sel.anchorNode);
+    const anchorLog = tracking
+      ? this.#domToLogical(sel.anchorNode, sel.anchorOffset)
+      : 0;
+    const focusLog = tracking
+      ? this.#domToLogical(sel.focusNode, sel.focusOffset)
+      : 0;
+
+    // 1. Drop <br> fillers; unwrap any other foreign element in place so a
+    //    wrapped pill survives.  Re-scan until a clean pass, since unwrapping
+    //    can surface nodes that were a level deeper.
+    let mutated = true;
+    while (mutated) {
+      mutated = false;
+      for (const child of [...this.#el.childNodes]) {
+        if (!this.#isForeignNode(child)) continue;
+        if (child.tagName !== "BR") {
+          while (child.firstChild) {
+            this.#el.insertBefore(child.firstChild, child);
+          }
+        }
+        child.remove();
+        mutated = true;
+      }
+    }
+
+    // 2. Strip every ZWS guard, then let #ensureEdgePadding re-add only the
+    //    ones pills need.  normalize() discards the now-empty text nodes the
+    //    strip leaves behind and merges adjacent runs.
+    for (const child of this.#el.childNodes) {
+      if (
+        child.nodeType === Node.TEXT_NODE &&
+        child.textContent.includes("\u200B")
+      ) {
+        child.textContent = child.textContent.replace(/\u200B/g, "");
+      }
+    }
+    this.#el.normalize();
+    this.#ensureEdgePadding();
+
+    // 3. Restore the caret to the same logical position.
+    if (tracking) {
+      const a = this.#logicalToDom(anchorLog);
+      const f = this.#logicalToDom(focusLog);
+      const range = document.createRange();
+      range.setStart(a.node, a.offset);
+      range.setEnd(f.node, f.offset);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    return true;
+  }
+
   /**
    * Guarantee navigable text nodes at both edges of the editor and between
    * any two consecutive pill spans.
@@ -1393,32 +1482,25 @@ export class VariablePillEditor {
    * the caret before the first pill or after the last pill, making it
    * impossible to type in those regions.
    *
-   * Guard nodes adjacent to pills use a zero-width space (U+200B) so that
-   * the browser can anchor a caret there even when the node would otherwise
-   * appear visually empty.  The serialiser and empty-state check both strip
-   * U+200B, so it is invisible to the rest of the application.
+   * Guard nodes are empty text nodes ("").  An empty text node still gives the
+   * browser a placeable caret position adjacent to an atomic pill, but, unlike
+   * a zero-width space (U+200B), it has no character to render.  That matters
+   * in a masked secret field (`-webkit-text-security: disc`), where Chromium
+   * masks *every* character including a U+200B, so a ZWS guard would surface as
+   * a stray disc beside the caret.  An empty guard renders nothing in any state.
    */
   #ensureEdgePadding() {
-    const ZWS = "\u200B";
-
     if (!this.#el.firstChild) {
       this.#el.appendChild(document.createTextNode(""));
       return;
     }
 
     if (this.#el.firstChild.nodeType !== Node.TEXT_NODE) {
-      this.#el.insertBefore(document.createTextNode(ZWS), this.#el.firstChild);
-    } else if (this.#el.firstChild.textContent === "") {
-      this.#el.firstChild.textContent = ZWS;
+      this.#el.insertBefore(document.createTextNode(""), this.#el.firstChild);
     }
 
     if (this.#el.lastChild.nodeType !== Node.TEXT_NODE) {
-      this.#el.appendChild(document.createTextNode(ZWS));
-    } else if (
-      this.#el.lastChild !== this.#el.firstChild &&
-      this.#el.lastChild.textContent === ""
-    ) {
-      this.#el.lastChild.textContent = ZWS;
+      this.#el.appendChild(document.createTextNode(""));
     }
 
     let node = this.#el.firstChild;
@@ -1428,7 +1510,7 @@ export class VariablePillEditor {
         node.nodeType !== Node.TEXT_NODE &&
         next.nodeType !== Node.TEXT_NODE
       ) {
-        this.#el.insertBefore(document.createTextNode(ZWS), next);
+        this.#el.insertBefore(document.createTextNode(""), next);
       } else {
         node = next;
       }
