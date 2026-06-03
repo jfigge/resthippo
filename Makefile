@@ -76,7 +76,7 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-auth test-oauth test-export
+test: test-js test-auth test-oauth test-export test-components test-import
 
 test-js:
 	@echo "Running JavaScript store tests..."
@@ -96,6 +96,16 @@ test-oauth:
 test-export:
 	@echo "Running export redaction tests..."
 	@node --test $(WEB_DIR)/scripts/export/tests/postman.test.js
+	@echo "--------------------------------"
+
+test-components:
+	@echo "Running renderer component tests (variable resolution, request payload)..."
+	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js
+	@echo "--------------------------------"
+
+test-import:
+	@echo "Running import fixture tests..."
+	@node --test $(WEB_DIR)/scripts/import/tests/import.test.js
 	@echo "--------------------------------"
 
 # ─── Development ──────────────────────────────────────────────────────────────
@@ -480,7 +490,7 @@ mock-down:
 .PHONY: all version info \
         fmt \
         lint \
-        test test-js test-oauth \
+        test test-js test-auth test-oauth test-export test-components test-import \
         debug \
         build build-mac build-linux build-win \
         build-setup build-install \
