@@ -54,7 +54,11 @@ import {
 } from "./components/variable-shape.js";
 import { parseImport } from "./import/index.js";
 import { exportToPostman } from "./export/postman.js";
+import { exportToInsomnia } from "./export/insomnia.js";
+import { exportToOpenApi } from "./export/openapi.js";
+import { exportToHar } from "./export/har.js";
 import { BackupModal } from "./components/backup-modal.js";
+import { ExportModal } from "./components/export-modal.js";
 
 // ─── History state ────────────────────────────────────────────────────────────
 // Per-request in-memory execution history. Keyed by request node ID.
@@ -999,10 +1003,17 @@ function initEventBus() {
     BackupModal.openImport(),
   );
 
-  // Export a collection to a Postman v2.1 JSON file.
-  // Triggered by "Export Collection…" in the collection context menu.
+  // Export a collection to an interchange file (Postman / Insomnia / OpenAPI /
+  // HAR). Triggered by "Export…" in the collection context menu; opens the
+  // format picker, which calls back into runCollectionExport.
   window.addEventListener("wurl:export-collection", (e) =>
     handleExport(e.detail.collection),
+  );
+
+  // Export every collection to one interchange file. Triggered by the
+  // "Export All Collections…" File-menu item.
+  window.addEventListener("wurl:export-all-requested", () =>
+    ExportModal.openWorkspace((format) => runWorkspaceExport(format)),
   );
 
   // Delete the backing request file(s) when a node is removed from the tree.
@@ -2307,15 +2318,109 @@ function _countRequests(node) {
   );
 }
 
+// Per-format export descriptors: file-name suffix and human label. The Postman
+// suffix is the conventional ".postman_collection.json" Postman itself uses.
+const EXPORT_FORMATS = {
+  postman: { suffix: ".postman_collection.json", label: "Postman v2.1" },
+  insomnia: { suffix: ".insomnia.json", label: "Insomnia v4" },
+  openapi: { suffix: ".openapi.json", label: "OpenAPI 3" },
+  har: { suffix: ".har", label: "HAR 1.2" },
+};
+
+/** Save-dialog file-type filters for a format. */
+function _exportFilters(format) {
+  return format === "har"
+    ? [{ name: "HAR", extensions: ["har"] }]
+    : [{ name: "JSON", extensions: ["json"] }];
+}
+
+/** Filesystem-safe base name from a collection/workspace name. */
+function _safeFileBase(name) {
+  return (name ?? "collection").replace(/[^a-z0-9_-]/gi, "_");
+}
+
+/** Serialize a collection node to the chosen non-HAR interchange format. */
+function _serializeCollection(collection, variables, format) {
+  switch (format) {
+    case "insomnia":
+      return exportToInsomnia(collection, variables);
+    case "openapi":
+      return exportToOpenApi(collection, variables);
+    case "postman":
+    default:
+      return exportToPostman(collection, variables);
+  }
+}
+
 /**
- * Export a collection to a Postman v2.1 JSON file via the native save dialog.
+ * Build a Map of requestId → most-recent run-history entry for every request
+ * under `rootNode`. Loads any history not yet in memory. Requests with no run
+ * are simply absent from the map (HAR skips them).
+ */
+async function _gatherHistory(rootNode) {
+  const ids = [];
+  const collect = (node) => {
+    for (const child of node.children ?? []) {
+      if (child.type === "collection") collect(child);
+      else if (child.type === "request" && child.id) ids.push(child.id);
+    }
+  };
+  collect(rootNode ?? {});
+
+  const map = new Map();
+  for (const id of ids) {
+    if (!_historyLoaded.has(id)) {
+      await _loadRequestHistory(id);
+      _historyLoaded.add(id);
+    }
+    const entries = _requestHistory.get(id);
+    if (entries && entries.length) {
+      // Pick the newest by timestamp rather than trusting list order.
+      const newest = entries.reduce((a, b) =>
+        (b.timestamp ?? 0) > (a.timestamp ?? 0) ? b : a,
+      );
+      map.set(id, newest);
+    }
+  }
+  return map;
+}
+
+/** Run the native save dialog for an already-serialized export and notify. */
+async function _saveExport(filename, content, format, successMsg) {
+  try {
+    const saved = await window.wurl.export.saveFile(
+      filename,
+      content,
+      _exportFilters(format),
+    );
+    if (saved) Notifications.success(successMsg);
+    return saved;
+  } catch (err) {
+    Notifications.error(`Export failed: ${String(err.message ?? err)}`, {
+      title: "Export",
+    });
+    return false;
+  }
+}
+
+/**
+ * Open the format picker for a single collection. The modal calls back into
+ * runCollectionExport with the chosen format.
  * @param {object} collection  Wurl collection node
  */
-async function handleExport(collection) {
+function handleExport(collection) {
   if (!window.wurl?.export?.saveFile) {
     Notifications.info("Export is only available in the desktop app.");
     return;
   }
+  ExportModal.openCollection(collection, (format) =>
+    runCollectionExport(collection, format),
+  );
+}
+
+/** Serialize a single collection to the chosen format and save it. */
+async function runCollectionExport(collection, format) {
+  if (!window.wurl?.export?.saveFile) return;
 
   let variables = [];
   try {
@@ -2327,25 +2432,90 @@ async function handleExport(collection) {
     /* non-fatal — export without collection variables */
   }
 
-  const content = exportToPostman(collection, variables);
-  const safeName = (collection.name ?? "collection").replace(
-    /[^a-z0-9_-]/gi,
-    "_",
-  );
+  const meta = EXPORT_FORMATS[format] ?? EXPORT_FORMATS.postman;
+  const filename = `${_safeFileBase(collection.name)}${meta.suffix}`;
 
-  try {
-    const saved = await window.wurl.export.saveFile(
-      `${safeName}.json`,
-      content,
-    );
-    if (saved) {
-      Notifications.success(`"${collection.name}" exported as Postman v2.1.`);
+  let content;
+  let successMsg = `"${collection.name}" exported as ${meta.label}.`;
+  if (format === "har") {
+    const history = await _gatherHistory(collection);
+    content = exportToHar(collection, history);
+    if (history.size === 0) {
+      successMsg = `"${collection.name}" exported as HAR — no run history yet, so the archive is empty.`;
     }
-  } catch (err) {
-    Notifications.error(`Export failed: ${String(err.message ?? err)}`, {
-      title: "Export",
-    });
+  } else {
+    content = _serializeCollection(collection, variables, format);
   }
+
+  await _saveExport(filename, content, format, successMsg);
+}
+
+/**
+ * Export every collection in the workspace to one interchange file. Each
+ * collection becomes a folder under one synthetic root, so the single-collection
+ * exporters handle the workspace unchanged. Collection-level variables are
+ * merged by name (first collection wins on a clash).
+ */
+async function runWorkspaceExport(format) {
+  if (!window.wurl?.export?.saveFile) return;
+
+  const children = [];
+  const mergedVars = [];
+  const seenVar = new Set();
+
+  for (const coll of currentColls.collections ?? []) {
+    let data;
+    try {
+      data = await loadCollectionData(coll.id);
+    } catch {
+      continue; // skip a collection that fails to load
+    }
+    // The active collection may hold unsaved edits in the live tree; prefer it.
+    const items =
+      coll.id === currentColls.activeCollectionId
+        ? (treeView?.getItems() ?? data.items ?? [])
+        : (data.items ?? []);
+    children.push({
+      id: coll.id,
+      type: "collection",
+      name: coll.name ?? "Collection",
+      variables: {},
+      children: items,
+    });
+    for (const v of normalizeVariables(data.variables)) {
+      if (seenVar.has(v.name)) continue;
+      seenVar.add(v.name);
+      mergedVars.push(v);
+    }
+  }
+
+  const root = {
+    id: crypto.randomUUID(),
+    type: "collection",
+    name: "wurl Workspace",
+    variables: {},
+    children,
+  };
+
+  const meta = EXPORT_FORMATS[format] ?? EXPORT_FORMATS.postman;
+  const filename = `wurl-workspace${meta.suffix}`;
+  const count = children.length;
+  const plural = count !== 1 ? "s" : "";
+
+  let content;
+  let successMsg = `${count} collection${plural} exported as ${meta.label}.`;
+  if (format === "har") {
+    const history = await _gatherHistory(root);
+    content = exportToHar(root, history);
+    if (history.size === 0) {
+      successMsg =
+        "Workspace exported as HAR — no run history yet, so the archive is empty.";
+    }
+  } else {
+    content = _serializeCollection(root, mergedVars, format);
+  }
+
+  await _saveExport(filename, content, format, successMsg);
 }
 
 async function handleImport() {

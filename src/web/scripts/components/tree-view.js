@@ -303,7 +303,7 @@ export class TreeView {
             { id: "rename", label: "Rename" },
             { type: "separator" },
             { id: "duplicate", label: "Duplicate" },
-            { id: "export-collection", label: "Export Collection…" },
+            { id: "export-collection", label: "Export…" },
             { type: "separator" },
             { id: "variables", label: "Variables" },
             { type: "separator" },

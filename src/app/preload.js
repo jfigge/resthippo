@@ -22,6 +22,10 @@ ipcRenderer.on("menu:import", () => {
   window.dispatchEvent(new CustomEvent("wurl:import-requested"));
 });
 
+ipcRenderer.on("menu:export-all", () => {
+  window.dispatchEvent(new CustomEvent("wurl:export-all-requested"));
+});
+
 ipcRenderer.on("menu:backup-export", () => {
   window.dispatchEvent(new CustomEvent("wurl:backup-export-requested"));
 });

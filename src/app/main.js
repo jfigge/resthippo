@@ -2457,6 +2457,13 @@ function buildMenu() {
               _mainWin.webContents.send("menu:import");
           },
         },
+        {
+          label: "Export All Collections…",
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:export-all");
+          },
+        },
         { type: "separator" },
         {
           label: "Create Backup…",

@@ -22,6 +22,7 @@ import { parsePostman } from "../postman.js";
 import { parseInsomnia } from "../insomnia.js";
 import { parseOpenApi } from "../openapi.js";
 import { exportToPostman } from "../../export/postman.js";
+import { exportToInsomnia } from "../../export/insomnia.js";
 
 /** Find a request node by name anywhere in a wurl collection tree. */
 function findRequest(node, name) {
@@ -519,4 +520,65 @@ test("round-trip: key request fields survive Postman import → export", () => {
   // Username round-trips; password is redacted on export by design.
   assert.equal(valueOf(login.auth.basic, "username").value, "alice");
   assert.equal(valueOf(login.auth.basic, "password").value, "");
+});
+
+// ── Import → export round-trip (Insomnia v4) ─────────────────────────────────
+
+test("round-trip: wurl → Insomnia v4 export → import preserves structure", () => {
+  const collection = {
+    id: "c1",
+    type: "collection",
+    name: "Sample API",
+    variables: {},
+    children: [
+      {
+        type: "collection",
+        name: "Auth",
+        variables: {},
+        children: [
+          {
+            type: "request",
+            name: "Login",
+            method: "POST",
+            url: "https://api.example.com/login",
+            headers: [{ enabled: true, name: "X-Trace", value: "1" }],
+            params: [{ enabled: true, name: "verbose", value: "true" }],
+            notes: "Logs a user in",
+            bodyType: "json",
+            bodyText: '{"user":"alice"}',
+            authEnabled: true,
+            authType: "basic",
+            authBasic: { username: "alice", password: "hunter2" },
+          },
+        ],
+      },
+    ],
+  };
+
+  const insomniaJson = exportToInsomnia(collection, [
+    { name: "baseUrl", value: "https://api.example.com", secure: false },
+  ]);
+  const { collection: reimported, variables } = parseInsomnia(
+    JSON.parse(insomniaJson),
+  );
+
+  // Workspace name → collection name; base-environment variable round-trips.
+  assert.equal(reimported.name, "Sample API");
+  assert.equal(variables.baseUrl, "https://api.example.com");
+
+  // The nested folder + request survive with their fields intact.
+  const login = findRequest(reimported, "Login");
+  assert.ok(login, "Login request missing after round-trip");
+  assert.equal(login.method, "POST");
+  assert.equal(login.url, "https://api.example.com/login");
+  assert.equal(login.bodyType, "json");
+  assert.equal(login.bodyText, '{"user":"alice"}');
+  assert.equal(login.authType, "basic");
+  // Username round-trips; password is redacted on export by design.
+  assert.equal(login.authBasic.username, "alice");
+  assert.equal(login.authBasic.password, "");
+  assert.ok(login.headers.some((h) => h.name === "X-Trace" && h.value === "1"));
+  assert.ok(
+    login.params.some((p) => p.name === "verbose" && p.value === "true"),
+  );
 });

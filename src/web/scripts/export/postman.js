@@ -1,50 +1,41 @@
 "use strict";
 
+import { redactVariables, redactedAuth } from "./redact.js";
+
 // Authentication credentials are always treated as secrets and redacted on
 // export: the field is preserved (so the importing tool keeps the auth scheme
-// and prompts for the missing value) but the secret itself is stripped. Only
-// the genuinely sensitive fields are blanked — identifiers like username,
+// and prompts for the missing value) but the secret itself is stripped. The
+// shared `redactedAuth` helper decides what is secret; this maps its neutral
+// shape onto Postman's auth representation — identifiers like username,
 // clientId, URLs, and scope round-trip intact.
 function exportAuth(node) {
-  if (!node.authEnabled || !node.authType || node.authType === "none") {
-    return { type: "noauth" };
-  }
-  const { authType: type } = node;
-  if (type === "basic") {
-    const b = node.authBasic ?? {};
+  const auth = redactedAuth(node);
+  if (!auth) return { type: "noauth" };
+  if (auth.type === "basic") {
     return {
       type: "basic",
       basic: [
-        { key: "username", value: b.username ?? "", type: "string" },
+        { key: "username", value: auth.username, type: "string" },
         { key: "password", value: "", type: "string" },
       ],
     };
   }
-  if (type === "bearer") {
+  if (auth.type === "bearer") {
     return {
       type: "bearer",
       bearer: [{ key: "token", value: "", type: "string" }],
     };
   }
-  if (type === "oauth2") {
-    const o = node.authOAuth2 ?? {};
+  if (auth.type === "oauth2") {
     return {
       type: "oauth2",
       oauth2: [
-        {
-          key: "grant_type",
-          value: o.grantType ?? "authorization_code",
-          type: "string",
-        },
-        { key: "clientId", value: o.clientId ?? "", type: "string" },
+        { key: "grant_type", value: auth.grantType, type: "string" },
+        { key: "clientId", value: auth.clientId, type: "string" },
         { key: "clientSecret", value: "", type: "string" },
-        {
-          key: "accessTokenUrl",
-          value: o.accessTokenUrl ?? "",
-          type: "string",
-        },
-        { key: "authUrl", value: o.authUrl ?? "", type: "string" },
-        { key: "scope", value: o.scope ?? "", type: "string" },
+        { key: "accessTokenUrl", value: auth.accessTokenUrl, type: "string" },
+        { key: "authUrl", value: auth.authUrl, type: "string" },
+        { key: "scope", value: auth.scope, type: "string" },
       ],
     };
   }
@@ -96,32 +87,21 @@ function exportBody(node) {
  * Convert a wurl variable list to Postman `variable` entries.
  *
  * Folder variables are stored canonically as an array of
- * { name, value, secure }; Postman wants { key, value }. Entries with an empty
- * name are skipped. Returns [] for missing/empty input so callers can drop the
- * field entirely when there is nothing to emit.
- *
- * Secure variables are redacted: the key is preserved so the collection
- * structure round-trips, but the secret value is stripped and the entry is
- * flagged as a Postman secret (`type: "secret"`) so the receiving tool masks
- * it rather than treating the empty value as intentional.
+ * { name, value, secure }; Postman wants { key, value }. The shared
+ * `redactVariables` helper drops empty-named entries and blanks secure values;
+ * here a secure entry is additionally flagged as a Postman secret
+ * (`type: "secret"`) so the receiving tool masks it rather than treating the
+ * empty value as intentional.
  *
  * @param {Array|undefined} list
  * @returns {{ key: string, value: string, type?: string }[]}
  */
 function exportVariables(list) {
-  if (!Array.isArray(list)) return [];
-  const out = [];
-  for (const v of list) {
-    if (!v || typeof v !== "object") continue;
-    const key = String(v.name ?? "").trim();
-    if (!key) continue;
-    if (v.secure) {
-      out.push({ key, value: "", type: "secret" });
-    } else {
-      out.push({ key, value: String(v.value ?? "") });
-    }
-  }
-  return out;
+  return redactVariables(list).map((v) =>
+    v.secure
+      ? { key: v.name, value: "", type: "secret" }
+      : { key: v.name, value: v.value },
+  );
 }
 
 function exportItem(node) {

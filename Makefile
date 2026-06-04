@@ -112,7 +112,7 @@ test-oauth:
 
 test-export:
 	@echo "Running export redaction tests..."
-	@node --test $(WEB_DIR)/scripts/export/tests/postman.test.js
+	@node --test $(WEB_DIR)/scripts/export/tests/postman.test.js $(WEB_DIR)/scripts/export/tests/insomnia.test.js $(WEB_DIR)/scripts/export/tests/openapi.test.js $(WEB_DIR)/scripts/export/tests/har.test.js
 	@echo "--------------------------------"
 
 test-components:

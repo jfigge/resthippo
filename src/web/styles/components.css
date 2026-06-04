@@ -3037,7 +3037,8 @@ html.show-method-icons .req-method-menu__item-label::before {
    BACKUP MODAL (create / restore)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.backup-modal {
+.backup-modal,
+.export-modal {
   min-width: 420px;
   max-width: 480px;
 }
