@@ -290,7 +290,11 @@ release:
 		echo "Retry with: git push --atomic origin $(MAIN_BRANCH) $(RELEASE_BRANCH) v$$NEW"; \
 		exit 1; \
 	fi; \
-	echo "Released v$$NEW — the Release workflow will build and publish the installers."
+	echo "Released v$$NEW — the Release workflow will build and publish the installers."; \
+	SLUG=$$(git remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]##; s#\.git$$##'); \
+	if [ -n "$$SLUG" ]; then \
+		echo "  Release: https://github.com/$$SLUG/releases/tag/v$$NEW"; \
+	fi
 
 # ─── Launch ───────────────────────────────────────────────────────────────────
 launch: all
