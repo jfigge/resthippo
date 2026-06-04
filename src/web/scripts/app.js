@@ -32,6 +32,7 @@ import {
   setActiveCollection,
   saveCollectionVariables,
   deleteRequest,
+  deleteCollection,
   listHistory,
   addHistory,
   getHistoryResponse,
@@ -1258,6 +1259,9 @@ function initEventBus() {
 
     currentColls = { collections, activeCollectionId: activeId };
     await saveManifest({ collections, activeCollectionId: activeId });
+    // Reclaim the collection's on-disk directory now that the manifest no longer
+    // references it (requests, history, responses, cookies, metadata).
+    await deleteCollection(id);
     envPopup.update(envPopupState());
   });
 

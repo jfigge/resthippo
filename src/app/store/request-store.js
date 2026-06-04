@@ -48,12 +48,17 @@ const PATCHABLE_FIELDS = [
 
 class RequestStore {
   /**
-   * @param {import('./paths').Paths}       paths
-   * @param {import('./resolver').Resolver} resolver
+   * @param {import('./paths').Paths}                 paths
+   * @param {import('./resolver').Resolver}           resolver
+   * @param {import('./history-store').HistoryStore} [history]
+   *   History store used to cascade-delete a request's run history and response
+   *   payloads when the request is removed. Optional so the store still works in
+   *   isolation (e.g. focused unit tests); when absent, history is left in place.
    */
-  constructor(paths, resolver) {
+  constructor(paths, resolver, history) {
     this._paths = paths;
     this._resolver = resolver;
+    this._history = history ?? null;
   }
 
   // ── Read ────────────────────────────────────────────────────────────────────
@@ -166,7 +171,10 @@ class RequestStore {
 
   /**
    * Permanently delete a request by ID.
-   * Removes the request file and its requestRef from tree.json.
+   * Removes the request file, its requestRef from tree.json, and its entire run
+   * history + response payloads, so no orphaned timeline data outlives the
+   * request. (Auth secrets live encrypted inside the request file itself, so
+   * they go with it; there are no separate keystore entries to reclaim.)
    *
    * @param {string} id
    * @throws code="NOT_FOUND" if the request does not exist
@@ -189,6 +197,17 @@ class RequestStore {
       this._removeFromTree(collId, id);
     } catch {
       /* ignore */
+    }
+
+    // Cascade: drop this request's run history + response payloads. Must run
+    // before the resolver entry is removed below, since clearHistory resolves
+    // requestId → collection through the same cache.
+    if (this._history) {
+      try {
+        this._history.clearHistory(id);
+      } catch {
+        /* best-effort: never block deletion on history cleanup */
+      }
     }
 
     this._resolver.remove(id);

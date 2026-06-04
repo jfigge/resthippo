@@ -39,11 +39,17 @@ class Stores {
     // Sweep orphaned temp files left by any prior crashed write before stores run.
     io.gcOrphanTempFiles(this._paths.dataDir);
 
-    this._collectionStore = new CollectionStore(this._paths);
+    this._collectionStore = new CollectionStore(this._paths, this._resolver);
     this._collectionsStore = new CollectionsStore(this._paths, this._resolver);
     this._treeStore = new TreeStore(this._paths, this._resolver);
-    this._requestStore = new RequestStore(this._paths, this._resolver);
+    // History store is built before the request store so the latter can cascade
+    // history deletion when a request is removed.
     this._historyStore = new HistoryStore(this._paths, this._resolver);
+    this._requestStore = new RequestStore(
+      this._paths,
+      this._resolver,
+      this._historyStore,
+    );
     this._environmentStore = new EnvironmentStore(this._paths);
     this._cookieStore = new CookieStore(this._paths);
     this._backupStore = new BackupStore(this._paths, this._resolver);

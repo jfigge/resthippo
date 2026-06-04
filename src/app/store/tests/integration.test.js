@@ -1167,6 +1167,103 @@ describe("Cross-store consistency", () => {
 });
 
 // =============================================================================
+// Cascade deletion — history + collection directory cleanup
+// =============================================================================
+
+describe("Cascade deletion — orphan cleanup", () => {
+  let tmpDir, stores;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    stores = makeStores(tmpDir);
+  });
+  afterEach(() => rmTmpDir(tmpDir));
+
+  test("deleteRequest also removes the request's history and response dirs", () => {
+    const COL = "col-cascade";
+    stores.collections.saveCollections(COL, { version: 1, collections: [] });
+    const req = stores.requests.createRequest(
+      COL,
+      makeRequest({ id: "req-hist" }),
+    );
+    stores.history.addHistory(req.id, makeHistoryEntry(), makeResponse());
+
+    const paths = stores.ss.paths();
+    const histDir = paths.historyDir(COL, req.id);
+    const respDir = paths.responsesDir(COL, req.id);
+    assert.ok(fs.existsSync(histDir), "history dir exists before delete");
+    assert.ok(fs.existsSync(respDir), "response dir exists before delete");
+
+    stores.requests.deleteRequest(req.id);
+
+    assert.ok(!fs.existsSync(histDir), "history dir removed after delete");
+    assert.ok(!fs.existsSync(respDir), "response dir removed after delete");
+  });
+
+  test("deleteRequest leaves sibling requests' history untouched", () => {
+    const COL = "col-sibling";
+    stores.collections.saveCollections(COL, { version: 1, collections: [] });
+    const keep = stores.requests.createRequest(
+      COL,
+      makeRequest({ id: "keep" }),
+    );
+    const drop = stores.requests.createRequest(
+      COL,
+      makeRequest({ id: "drop" }),
+    );
+    stores.history.addHistory(keep.id, makeHistoryEntry(), makeResponse());
+    stores.history.addHistory(drop.id, makeHistoryEntry(), makeResponse());
+
+    stores.requests.deleteRequest(drop.id);
+
+    assert.equal(stores.history.listHistory(keep.id).items.length, 1);
+    assert.ok(!fs.existsSync(stores.ss.paths().historyDir(COL, drop.id)));
+  });
+
+  test("deleteCollection removes the entire collection directory", () => {
+    const COL = "col-wipe";
+    stores.manifest.saveManifest({
+      version: 2,
+      collections: [{ id: COL, name: "Wipe Me" }],
+      activeCollectionId: COL,
+      settings: {},
+    });
+    stores.collections.saveCollections(COL, { version: 1, collections: [] });
+    const req = stores.requests.createRequest(
+      COL,
+      makeRequest({ id: "req-wipe" }),
+    );
+    stores.history.addHistory(req.id, makeHistoryEntry(), makeResponse());
+
+    const collDir = stores.ss.paths().collectionDir(COL);
+    assert.ok(fs.existsSync(collDir), "collection dir exists before delete");
+
+    stores.manifest.deleteCollection(COL);
+
+    assert.ok(!fs.existsSync(collDir), "collection dir removed after delete");
+    // The resolver was invalidated, so a request that lived in the collection
+    // no longer resolves.
+    assert.throws(
+      () => stores.requests.getRequest(req.id),
+      (err) => err.code === "NOT_FOUND",
+    );
+  });
+
+  test("deleteCollection is idempotent on a missing directory", () => {
+    assert.doesNotThrow(() =>
+      stores.manifest.deleteCollection("never-existed"),
+    );
+  });
+
+  test("deleteCollection with a traversal ID throws INVALID_ID", () => {
+    assert.throws(
+      () => stores.manifest.deleteCollection("../../evil"),
+      (err) => err.code === "INVALID_ID",
+    );
+  });
+});
+
+// =============================================================================
 // Resolver — cache invalidation and multi-collection edge cases
 // =============================================================================
 

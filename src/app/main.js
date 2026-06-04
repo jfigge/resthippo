@@ -125,6 +125,14 @@ function safeCall(channel, fn, fallback = null) {
     }),
   );
 
+  // Remove a collection's backing directory (requests, history, responses,
+  // cookies, metadata). The renderer updates the manifest separately.
+  ipcMain.handle("store:collections:delete", (_event, id) =>
+    safeCall("store:collections:delete", () => {
+      getStores().collectionStore().deleteCollection(id);
+    }),
+  );
+
   // ── Collection blob (assembles / decomposes per-file layout) ────────────────
   // Used by data-store.js to keep the same high-level collections API.
 

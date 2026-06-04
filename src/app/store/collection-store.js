@@ -7,7 +7,8 @@
  */
 "use strict";
 
-const { readJSON, writeJSON, ensureDir } = require("./io");
+const fs = require("fs");
+const { readJSON, writeJSON, ensureDir, validateID } = require("./io");
 const { encryptSettings, decryptSettings } = require("./crypto");
 
 /** Default manifest returned on first run (no file yet). */
@@ -20,10 +21,14 @@ const DEFAULT_MANIFEST = Object.freeze({
 
 class CollectionStore {
   /**
-   * @param {import('./paths').Paths} paths
+   * @param {import('./paths').Paths}       paths
+   * @param {import('./resolver').Resolver} [resolver]
+   *   Shared resolver cache, invalidated when a collection is deleted so stale
+   *   request→collection mappings cannot resolve to the removed collection.
    */
-  constructor(paths) {
+  constructor(paths, resolver) {
     this._paths = paths;
+    this._resolver = resolver ?? null;
     ensureDir(this._paths.collectionsDir());
   }
 
@@ -53,6 +58,28 @@ class CollectionStore {
       ? { ...data, settings: encryptSettings(data.settings) }
       : data;
     writeJSON(this._paths.manifestPath(), toWrite);
+  }
+
+  /**
+   * Permanently delete a collection's entire on-disk directory — metadata, tree,
+   * cookies, and every request, history entry, and response payload beneath it —
+   * then invalidate the resolver so cached request→collection mappings for the
+   * removed collection are dropped.
+   *
+   * The manifest is the source of truth for which collections exist; the caller
+   * is responsible for removing the collection from it (saveManifest). This only
+   * reclaims the backing files. A missing directory is not an error
+   * (best-effort, idempotent).
+   *
+   * @param {string} collectionId
+   */
+  deleteCollection(collectionId) {
+    validateID(collectionId, "collectionId");
+    fs.rmSync(this._paths.collectionDir(collectionId), {
+      recursive: true,
+      force: true,
+    });
+    if (this._resolver) this._resolver.invalidate();
   }
 }
 

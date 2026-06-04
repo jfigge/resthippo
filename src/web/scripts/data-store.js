@@ -390,6 +390,23 @@ export async function deleteRequest(id) {
   );
 }
 
+/**
+ * Permanently delete a collection's backing storage (requests, history,
+ * responses, cookies, metadata). The caller updates the manifest separately via
+ * saveManifest; this only reclaims the on-disk directory.
+ *
+ * @param {string} id
+ * @returns {Promise<void>}
+ */
+export async function deleteCollection(id) {
+  return storeCall(
+    `deleteCollection(${id})`,
+    () => window.wurl.store.collections.delete(id),
+    () =>
+      fetch(`/api/collections/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  );
+}
+
 // ── Public: request history API ───────────────────────────────────────────────
 
 /**
