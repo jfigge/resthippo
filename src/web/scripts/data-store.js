@@ -361,15 +361,14 @@ export async function loadAll() {
  * @param {object[]} items
  */
 export async function saveCollections(items) {
-  if (_activeCollectionId) {
-    _activeItems = items;
-    await _saveEnvFile(
-      _activeCollectionId,
-      items,
-      _activeVariables,
-      "Save collection",
-    );
-  }
+  if (!_activeCollectionId) return true; // nothing to persist is not a failure
+  _activeItems = items;
+  return _saveEnvFile(
+    _activeCollectionId,
+    items,
+    _activeVariables,
+    "Save collection",
+  );
 }
 
 /**
@@ -378,7 +377,7 @@ export async function saveCollections(items) {
  */
 export async function saveSettings(settings) {
   _manifest = { ..._manifest, settings };
-  await _persistManifest("Save settings");
+  return _persistManifest("Save settings");
 }
 
 /**
@@ -397,7 +396,7 @@ export async function saveManifest({
     activeCollectionId,
     ...(settings !== undefined ? { settings } : {}),
   };
-  await _persistManifest("Save collections");
+  return _persistManifest("Save collections");
 }
 
 /**
@@ -474,13 +473,16 @@ export async function saveCollectionVariables(collectionId, variables) {
  * @returns {Promise<void>}
  */
 export async function deleteRequest(id) {
-  return storeWrite(
-    "Delete request",
+  // Best-effort reclamation: the tree (source of truth) was already updated and
+  // saved loudly via saveCollections. A failed unlink — including ENOENT for a
+  // file that is already gone — is not user-actionable data loss, and this is
+  // called in a per-id loop on folder deletes, so it degrades quietly (log only)
+  // rather than raising a toast (or a toast per request).
+  return storeCall(
+    `deleteRequest(${id})`,
     () => window.wurl.store.requests.delete(id),
     () =>
-      httpWrite(`/api/requests/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      }),
+      fetch(`/api/requests/${encodeURIComponent(id)}`, { method: "DELETE" }),
   );
 }
 
@@ -493,13 +495,14 @@ export async function deleteRequest(id) {
  * @returns {Promise<void>}
  */
 export async function deleteCollection(id) {
-  return storeWrite(
-    "Delete collection",
+  // Best-effort reclamation AFTER the authoritative saveManifest already removed
+  // the collection from the manifest; a failed directory cleanup is not data loss
+  // the user can act on, so it degrades quietly (see deleteRequest).
+  return storeCall(
+    `deleteCollection(${id})`,
     () => window.wurl.store.collections.delete(id),
     () =>
-      httpWrite(`/api/collections/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      }),
+      fetch(`/api/collections/${encodeURIComponent(id)}`, { method: "DELETE" }),
   );
 }
 

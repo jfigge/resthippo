@@ -463,27 +463,25 @@ test("getHistoryResponse: a channel error degrades to null (+warn)", async () =>
 // a thrown transport (IPC channel broken) or a `{ __wurlError }` envelope returned
 // by the main process's safeCallWrite(). These tests pin both detection paths.
 
-test("deleteRequest: a thrown channel is raised to the write-error sink, not rethrown", async () => {
+test("deleteRequest: a channel error degrades quietly (+warn), no toast", async () => {
+  // deleteRequest is best-effort reclamation after the authoritative tree save,
+  // and runs in a per-id loop on folder deletes, so it stays on the quiet path:
+  // a failure (incl. an already-gone file) warns but must NOT raise a toast.
   const mock = makeWurlMock();
   mock.install();
   mock.setThrow("requests.delete", new Error("locked"));
 
-  const { result, errors, logged } = await withWriteHandler(() =>
-    store.deleteRequest("req-1"),
-  );
-
-  assert.equal(
-    result,
-    false,
-    "a failed write resolves to false, never rejects",
-  );
-  assert.equal(errors.length, 1, "the write-error sink fired exactly once");
-  assert.equal(errors[0].label, "Delete request");
-  assert.match(errors[0].message, /locked/);
-  assert.ok(
-    logged.some((l) => l.includes("Delete request")),
-    "the failure is also logged",
-  );
+  const errors = [];
+  store.setWriteErrorHandler((info) => errors.push(info));
+  try {
+    const { warnings } = await withCapturedWarn(() =>
+      store.deleteRequest("req-1"),
+    );
+    assert.ok(warnings.some((w) => w.includes("deleteRequest")));
+    assert.equal(errors.length, 0, "a quiet delete never fires the toast sink");
+  } finally {
+    store.setWriteErrorHandler(null);
+  }
 });
 
 test("saveCollections: a main-process error envelope is surfaced as a write error", async () => {
@@ -535,20 +533,20 @@ test("saveSettings: a thrown manifest.save is surfaced as a write error", async 
   assert.equal(errors[0].label, "Save settings");
 });
 
-test("write failure with no registered sink still logs and resolves to false", async () => {
+test("write failure with no registered sink still logs and does not reject", async () => {
   const mock = makeWurlMock();
   mock.install();
   store.setWriteErrorHandler(null); // explicitly unregistered
-  mock.setThrow("requests.delete", new Error("nope"));
+  mock.setThrow("manifest.save", new Error("nope"));
 
   const logged = [];
   const originalError = console.error;
   console.error = (...a) => logged.push(a.join(" "));
   try {
-    const result = await store.deleteRequest("r1");
-    assert.equal(result, false, "still resolves to false (no rejection)");
+    // Must resolve, never reject, even with no sink to receive the failure.
+    await store.saveSettings({ theme: "x" });
     assert.ok(
-      logged.some((l) => l.includes("Delete request")),
+      logged.some((l) => l.includes("Save settings")),
       "the failure is logged even without a sink",
     );
   } finally {

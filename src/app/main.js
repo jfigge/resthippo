@@ -147,9 +147,11 @@ function safeCallWrite(channel, fn) {
   );
 
   // Remove a collection's backing directory (requests, history, responses,
-  // cookies, metadata). The renderer updates the manifest separately.
+  // cookies, metadata). The renderer updates the manifest separately. This is
+  // best-effort reclamation AFTER the authoritative manifest save, so it uses the
+  // quiet safeCall path (a failed cleanup is not user-actionable data loss).
   ipcMain.handle("store:collections:delete", (_event, id) =>
-    safeCallWrite("store:collections:delete", () => {
+    safeCall("store:collections:delete", () => {
       getStores().collectionStore().deleteCollection(id);
     }),
   );
@@ -207,8 +209,11 @@ function safeCallWrite(channel, fn) {
     ),
   );
 
+  // Best-effort reclamation of a request's backing file AFTER the tree (source of
+  // truth) was already saved loudly via store:env:save. Quiet path: an unlink
+  // failure (incl. ENOENT for an already-removed file) is not data loss.
   ipcMain.handle("store:requests:delete", (_event, id) =>
-    safeCallWrite("store:requests:delete", () => {
+    safeCall("store:requests:delete", () => {
       getStores().requestStore().deleteRequest(id);
     }),
   );

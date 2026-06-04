@@ -2405,9 +2405,16 @@ async function handleImport() {
   if (!saved) return;
 
   const count = _countRequests(collection);
-  let message = `"${collection.name}" imported with ${count} request${count !== 1 ? "s" : ""}.`;
+  const base = `"${collection.name}" imported with ${count} request${count !== 1 ? "s" : ""}.`;
   // Importers may report non-fatal issues (e.g. remote $refs that could not be
-  // resolved without network access); surface them rather than dropping silently.
-  if (parsed.warnings?.length) message += ` ${parsed.warnings.join(" ")}`;
-  Notifications.success(message);
+  // resolved without network access). When present, surface them as a persistent
+  // warning the user must dismiss — not buried in a success toast that auto-hides.
+  if (parsed.warnings?.length) {
+    Notifications.warning(`${base} ${parsed.warnings.join(" ")}`, {
+      title: "Imported with warnings",
+      duration: 0,
+    });
+  } else {
+    Notifications.success(base);
+  }
 }

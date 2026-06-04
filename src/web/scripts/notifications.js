@@ -181,7 +181,11 @@ function _show({ level, message, title, actionLabel, onAction, duration }) {
   while (_toasts.length > MAX_VISIBLE) _dismiss(_toasts[0]);
 
   region.appendChild(el);
-  requestAnimationFrame(() => el.classList.add("toast--visible"));
+  // Guard against an eviction that fired before this frame ran: a toast dismissed
+  // (e.g. pushed past MAX_VISIBLE) in the same tick must not be re-shown here.
+  requestAnimationFrame(() => {
+    if (!entry.removed) el.classList.add("toast--visible");
+  });
 
   // ── Wire dismissal ──────────────────────────────────────────────────────
   el.querySelector("[data-action='dismiss']").addEventListener("click", () =>
@@ -202,26 +206,40 @@ function _show({ level, message, title, actionLabel, onAction, duration }) {
   });
 
   // ── Auto-dismiss (non-errors), paused while hovered or focused ──────────
+  // The countdown runs only while the toast is neither hovered nor focused, so it
+  // never disappears out from under a pointer or a keyboard user mid-interaction.
+  // reschedule() always clears the prior timer first, so overlapping hover/focus
+  // transitions can never stack two timers (a leak).
   const ms = duration ?? spec.defaultDuration;
   if (ms > 0) {
-    const arm = () => {
-      entry.timer = setTimeout(() => _dismiss(entry), ms);
-    };
-    const pause = () => {
+    let hovered = false;
+    let focused = false;
+    const reschedule = () => {
       if (entry.timer) {
         clearTimeout(entry.timer);
         entry.timer = null;
       }
+      if (!entry.removed && !hovered && !focused) {
+        entry.timer = setTimeout(() => _dismiss(entry), ms);
+      }
     };
-    el.addEventListener("mouseenter", pause);
+    el.addEventListener("mouseenter", () => {
+      hovered = true;
+      reschedule();
+    });
     el.addEventListener("mouseleave", () => {
-      if (!entry.removed) arm();
+      hovered = false;
+      reschedule();
     });
-    el.addEventListener("focusin", pause);
+    el.addEventListener("focusin", () => {
+      focused = true;
+      reschedule();
+    });
     el.addEventListener("focusout", () => {
-      if (!entry.removed) arm();
+      focused = false;
+      reschedule();
     });
-    arm();
+    reschedule();
   }
 
   return () => _dismiss(entry);
