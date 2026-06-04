@@ -1,0 +1,115 @@
+name: Release
+
+# Trigger a full release cycle by pushing a version tag, e.g.:
+#   git tag v0.2.0 && git push origin v0.2.0
+# `workflow_dispatch` also lets you run the build manually from the Actions tab
+# to smoke-test packaging — that path builds installers but does NOT publish a
+# GitHub Release (only tag pushes do).
+#
+# These artifacts are UNSIGNED. Code signing + notarization (Apple Developer ID,
+# Windows cert) is Feature 31; add the certs as repo secrets and wire them into
+# the build env there. The installer's internal version comes from
+# src/package.json ("version"), so bump that to match the tag before tagging.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # needed to create the GitHub Release and upload assets
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # ── Build real installers on each native runner ─────────────────────────────
+  build:
+    name: Build installers (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: dist-mac
+          - os: ubuntu-latest
+            target: dist-linux
+          - os: windows-latest
+            target: dist-win
+    defaults:
+      run:
+        shell: bash
+    env:
+      # No Apple cert in CI — tell electron-builder not to hunt for a signing
+      # identity (which would otherwise fail the macOS build).
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # full history so `git describe --tags` resolves VERSION
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+
+      # Windows runners lack make/rsync/bash; MSYS2 provides them so the same
+      # `make dist-win` recipe runs unchanged (see ci.yml for the rationale).
+      - name: Set up MSYS2 (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          install: make rsync
+          path-type: inherit
+
+      - name: Build installers (Windows)
+        if: runner.os == 'Windows'
+        shell: "msys2 {0}"
+        run: make ${{ matrix.target }}
+
+      - name: Build installers (macOS / Linux)
+        if: runner.os != 'Windows'
+        run: make ${{ matrix.target }}
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v6
+        with:
+          name: installers-${{ matrix.os }}
+          path: |
+            build/src/dist/*.dmg
+            build/src/dist/*.zip
+            build/src/dist/*.AppImage
+            build/src/dist/*.deb
+            build/src/dist/*.exe
+          if-no-files-found: error
+
+  # ── Publish a GitHub Release with all platforms' installers attached ────────
+  # Only runs for tag pushes; manual dispatch stops after the build job above.
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all installers
+        uses: actions/download-artifact@v6
+        with:
+          path: artifacts
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          draft: false
+          generate_release_notes: true
+          fail_on_unmatched_files: true

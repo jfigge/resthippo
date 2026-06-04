@@ -2,41 +2,65 @@
 
 [![CI](https://github.com/jfigge/wurl/actions/workflows/ci.yml/badge.svg)](https://github.com/jfigge/wurl/actions/workflows/ci.yml)
 
-A lightweight, cross-platform desktop REST API client — like Insomnia — built with **Electron** and a **Go** development server.
+A lightweight, cross-platform desktop REST API client — like Postman or Insomnia —
+built with **Electron** and **Vanilla JavaScript**, backed by a file-based
+**Node.js storage layer**. No framework, no CDN dependencies.
 
-## Overview
+## Features
 
-wurl runs in two modes:
+- **Full request/response workflow** — all HTTP methods, headers, query params,
+  body editors, and a response viewer with syntax highlighting (Prism.js) and
+  binary-response rendering.
+- **Authentication** — a custom OAuth 2.0 implementation with PKCE, plus Digest,
+  NTLM, and AWS SigV4 signing.
+- **Cookie jar** — persistent, per-domain cookie storage.
+- **Import / export** — Postman collection import and redaction-aware export.
+- **Environments & variables** — variable resolution across requests.
+- **Themes & typography** — a theme editor and a user-selectable UI font
+  (Inter bundled as a variable font; no CDN fonts).
 
-| Mode | Description |
-|------|-------------|
-| **IDE / Dev** | Go static file server serves the web UI at `http://localhost:8080` |
-| **Desktop** | Electron wraps the web UI as a native desktop application |
+## Architecture
+
+```
+Electron main process (src/app/main.js)        ← owns all filesystem I/O + native HTTP
+  └── IPC bridge (src/app/preload.js)  →  window.wurl.*
+        └── Renderer / UI (src/web/scripts/app.js)   ← sandboxed; talks to main via IPC only
+              ├── TreeView
+              ├── RequestEditor
+              └── ResponseViewer
+```
+
+The main process performs all HTTP execution natively, so requests are **not**
+subject to browser CORS constraints. The renderer is sandboxed and communicates
+with the main process exclusively through the `window.wurl.*` bridge. Storage is
+file-based under Electron's `userData` path (see `src/app/store/`).
 
 ## Prerequisites
 
-- [Go](https://go.dev/) 1.26+
-- [Node.js](https://nodejs.org/) (includes `npm`)
-- `goimports` — `go install golang.org/x/tools/cmd/goimports@latest`
-- `golangci-lint` — managed via `tools/golangci-lint/go.mod`
+- [Node.js](https://nodejs.org/) (includes `npm`) — Electron 42 bundles Node 22;
+  matching that locally keeps CI parity.
+- *(optional)* [Go](https://go.dev/) — only needed to run the mock test server.
+- *(optional)* [Docker](https://www.docker.com/) — only needed for the bundled
+  Keycloak OAuth test environment.
 
 ## Project Structure
 
 ```
 wurl/
-├── Makefile
+├── Makefile               # Build orchestration (authoritative command list)
+├── mock/                  # Optional Go mock API for MIME / status / auth testing
 └── src/
-    ├── go.mod          # Go module
-    ├── package.json    # Node / Electron dependencies
-    ├── app/
-    │   ├── main.js     # Electron main process
-    │   └── preload.js  # Electron preload script
-    ├── cmd/
-    │   └── main.go     # Go dev server entry point
-    └── web/
+    ├── package.json       # Node / Electron dependencies + electron-builder config
+    ├── app/               # Electron main process (Node.js)
+    │   ├── main.js        #   window lifecycle + IPC registration
+    │   ├── preload.js     #   IPC bridge exposed as window.wurl
+    │   ├── store/         #   file-based storage layer (+ tests)
+    │   └── auth/          #   Digest / NTLM signing (+ tests)
+    └── web/               # Renderer (Vanilla JS + CSS)
         ├── index.html
-        ├── scripts/    # Frontend JavaScript
-        └── styles/     # CSS
+        ├── scripts/       #   UI components, OAuth, import/export, vendored libs
+        ├── styles/        #   CSS + design tokens (theme.css)
+        └── fonts/         #   Bundled Inter variable font
 ```
 
 ## Getting Started
@@ -44,90 +68,126 @@ wurl/
 ### Install dependencies
 
 ```bash
-make install
+make install        # npm ci in src/
 ```
 
-### Run in development mode (IDE)
-
-Start the Go dev server:
+### Run in development
 
 ```bash
-make dev
+make debug          # Electron with DevTools + hot-reload (primary dev workflow)
 ```
 
-The UI is served at `http://localhost:8080`. To override the port:
-
-```bash
-SERVER_PORT=9090 make dev
-```
-
-### Run in development mode (Electron)
-
-With the dev server already running, open a second terminal:
-
-```bash
-make dev-electron
-```
-
-Electron will load the UI from the Go dev server and open DevTools automatically.
+This launches the Electron app directly with a local `--user-data-dir` so
+development data stays out of your real profile.
 
 ## Building
 
-### Build everything (server + all Electron targets)
+`build-*` targets produce an **unpackaged** app directory (fast, for smoke
+tests). `dist-*` targets produce **installers**. Output lands in
+`build/src/dist/`.
 
 ```bash
-make build
-```
+make build          # Build the app directory for macOS (dir only)
+make build-mac      # macOS app directory
+make build-linux    # Linux app directory
+make build-win      # Windows app directory
 
-### Build individual targets
-
-```bash
-make build-server   # Go server binary only
-make build-mac      # Electron app for macOS
-make build-linux    # Electron app for Linux
-make build-win      # Electron app for Windows
-```
-
-> **Note:** Cross-compiling for Linux requires additional setup on non-Linux hosts. Windows cross-compilation requires Wine.
-
-### Create distribution packages (installers)
-
-```bash
-make dist           # All platforms
+make dist           # Installers for all platforms (host can only build its own)
 make dist-mac       # macOS (.dmg, .zip)
 make dist-linux     # Linux (.AppImage, .deb)
-make dist-win       # Windows (.exe NSIS installer, portable)
+make dist-win       # Windows (NSIS .exe, portable)
+
+make launch         # Build and open the macOS app
 ```
 
-Packages are written to `dist/`.
+> A given host can only build its own platform's installer (a macOS `.dmg`
+> needs macOS, etc.). CI runs `dist-mac` / `dist-linux` / `dist-win` on native
+> runners.
 
-## Code Quality
+## Code Quality & Tests
 
 ```bash
-make fmt      # Format Go (gofmt, goimports) and JS/CSS/HTML (prettier)
-make lint     # Lint Go (golangci-lint) and JS (eslint)
+make fmt            # Format JS/CSS/HTML (Prettier)
+make fmt-check      # Verify formatting without writing
+make lint           # Lint JS (ESLint)
+make test           # Run the full test suite (node --test)
 ```
 
-Run everything at once:
+The default target runs the whole pipeline:
 
 ```bash
-make          # install → fmt → lint → build
+make                # clean → fmt → lint → test → build
+```
+
+## Releasing
+
+Run from `main` with a clean, up-to-date working tree:
+
+```bash
+make release VERSION=1.2.3
+```
+
+It validates the version, confirms you're on `main` and in sync with origin,
+then gates on the full test suite. On approval it bumps `src/package.json`,
+fast-forwards the long-lived `release` branch to `main`, tags `v1.2.3`, and
+pushes `main` + `release` + the tag atomically. The tag push triggers the
+**Release** workflow to build and publish installers for all platforms.
+
+`release` stays a strict fast-forward of `main`, so it always points at exactly
+what was last shipped — a clean base for a hotfix if one is ever needed. Bump
+`src/package.json` is handled for you, so the tag and the installer version
+always match.
+
+## Vendored Libraries
+
+Third-party browser libraries are bundled into `src/web/scripts/vendor/` via
+esbuild rather than loaded from a CDN:
+
+```bash
+make vendor-yaml        # yaml
+make vendor-prism       # Prism.js (syntax highlighting)
+make vendor-markdown    # marked + DOMPurify
+```
+
+## Test Helpers
+
+### Mock API server (Go)
+
+A small Go server exposing endpoints for MIME-type, status-code, and auth
+testing on `http://localhost:8888`:
+
+```bash
+make mock-up        # build + start
+make mock-down      # stop
+```
+
+### Keycloak OAuth environment (Docker)
+
+Spins up a Keycloak instance pre-configured with realms, users, and clients for
+each OAuth grant type (Authorization Code, PKCE, Client Credentials, Implicit,
+Password):
+
+```bash
+make kc             # start + bootstrap + print credentials
+make creds          # print endpoints, clients, and sample curl requests
+make stop           # stop and remove the container
+make reset          # stop and delete data volumes
 ```
 
 ## Build Information
 
 ```bash
-make version  # Print current version string
-make info     # Print full build info (app, version, branch, commit, build time)
+make version        # Print the current version string
+make info           # Print full build info (version, branch, commit, build time)
+make help           # List all available targets
 ```
 
 ## Clean
 
 ```bash
-make clean    # Remove build/ and dist/ directories
+make clean          # Remove build/ and dist/ directories
 ```
 
 ## License
 
 Copyright © 2026
-
