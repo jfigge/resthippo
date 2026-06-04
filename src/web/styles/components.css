@@ -2071,9 +2071,25 @@ html.show-method-icons .req-method-menu__item-label::before {
   font-style: italic;
 }
 
-.res-hex-dump {
+/* The hex dump is never wrapped, regardless of the wrap-response setting: a
+ * folded hex row is unreadable. Higher specificity than the bare .res-body-pre
+ * rule below (which would otherwise win on source order) keeps it scrolling
+ * horizontally. */
+.res-body-pre.res-hex-dump {
   font-family: var(--font-mono), monospace;
   white-space: pre;
+  word-break: normal;
+  overflow-x: auto;
+}
+
+/* Offset (index) column — warn token; hex byte values — info token. The ASCII
+ * gutter keeps the default .res-body-pre text colour. */
+.res-hex-dump .res-hex-offset {
+  color: var(--color-warning);
+}
+
+.res-hex-dump .res-hex-bytes {
+  color: var(--color-info);
 }
 
 .res-body-pre {

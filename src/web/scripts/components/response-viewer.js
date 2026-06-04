@@ -1459,14 +1459,19 @@ export class ResponseViewer {
     const pre = document.createElement("pre");
     pre.className = "res-body-pre res-hex-dump";
     pre.tabIndex = 0;
-    pre.textContent = this.#hexDump(bytes, shown);
+    this.#fillHexDump(pre, bytes, shown);
     pane.appendChild(pre);
     this.#reapplyActiveSearch();
   }
 
-  /** Format `length` bytes of `bytes` as `offset  hex…  |ascii|` rows. */
-  #hexDump(bytes, length) {
-    const lines = [];
+  /**
+   * Build `offset  hex…  |ascii|` rows into `pre` as DOM, so the offset column
+   * and the hex byte values can be themed independently — the offset span is
+   * coloured with the warn token and the byte span with the info token, while
+   * the ASCII gutter keeps the default text colour. Text nodes carry the
+   * separators so select-all / copy / find still see a faithful plain-text dump.
+   */
+  #fillHexDump(pre, bytes, length) {
     for (let off = 0; off < length; off += 16) {
       const end = Math.min(off + 16, length);
       let hex = "";
@@ -1481,9 +1486,22 @@ export class ResponseViewer {
         }
         if (i === off + 7) hex += " "; // gap between the two 8-byte halves
       }
-      lines.push(`${off.toString(16).padStart(8, "0")}  ${hex} |${ascii}|`);
+
+      if (off !== 0) pre.appendChild(document.createTextNode("\n"));
+
+      const offsetSpan = document.createElement("span");
+      offsetSpan.className = "res-hex-offset";
+      offsetSpan.textContent = off.toString(16).padStart(8, "0");
+
+      const bytesSpan = document.createElement("span");
+      bytesSpan.className = "res-hex-bytes";
+      bytesSpan.textContent = hex;
+
+      pre.appendChild(offsetSpan);
+      pre.appendChild(document.createTextNode("  "));
+      pre.appendChild(bytesSpan);
+      pre.appendChild(document.createTextNode(` |${ascii}|`));
     }
-    return lines.join("\n");
   }
 
   /** Re-run an open find query after the body pane was rebuilt. */
