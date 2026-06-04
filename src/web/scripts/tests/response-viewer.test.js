@@ -200,3 +200,176 @@ test("applySettings raw mode still renders the body content", async () => {
       .textContent.includes("raw-mode-value"),
   );
 });
+
+// ── Binary responses (images / PDF / hex) ─────────────────────────────────────
+
+// "Hello" → base64; reused across the binary cases.
+const HELLO_B64 = "SGVsbG8=";
+
+test("renders an image/png response as an inline <img>", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "image/png" },
+      body: HELLO_B64,
+      encoding: "base64",
+      size: 5,
+    }),
+  );
+
+  const img = viewer.element.querySelector("img.res-body-image");
+  assert.ok(img, "an <img> preview is rendered");
+  assert.ok(img.getAttribute("src"), "the image has a (blob:) src");
+  // No garbled text body for an image.
+  assert.equal(viewer.element.querySelector(".res-hex-dump"), null);
+});
+
+test("renders an octet-stream response as a hex + ASCII dump with intact bytes", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/octet-stream" },
+      body: HELLO_B64,
+      encoding: "base64",
+      size: 5,
+    }),
+  );
+
+  const dump = viewer.element.querySelector(".res-hex-dump");
+  assert.ok(dump, "a hex dump is rendered");
+  const text = dump.textContent;
+  assert.ok(text.includes("00000000"), "row offset is shown");
+  assert.ok(text.includes("48 65 6c 6c 6f"), "bytes are the real H-e-l-l-o");
+  assert.ok(text.includes("|Hello|"), "ASCII gutter shows the decoded bytes");
+});
+
+test("a text/plain response is unaffected by the binary path", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "text/plain" },
+      body: "just text",
+      // no `encoding` — text path
+    }),
+  );
+
+  assert.equal(viewer.element.querySelector("img.res-body-image"), null);
+  assert.equal(viewer.element.querySelector(".res-hex-dump"), null);
+  assert.ok(
+    viewer.element
+      .querySelector("#res-tab-body")
+      .textContent.includes("just text"),
+  );
+});
+
+test("a PDF response in dev mode offers a save fallback (no native overlay)", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/pdf" },
+      body: HELLO_B64,
+      encoding: "base64",
+      size: 5,
+    }),
+  );
+
+  assert.equal(
+    viewer.element.querySelector(".res-pdf-host"),
+    null,
+    "no native overlay host in dev mode",
+  );
+  assert.match(
+    viewer.element.querySelector("#res-tab-body").textContent,
+    /desktop app/,
+  );
+});
+
+// Right-click the Body tab and pick a context-menu item by its id. The viewer's
+// menu delegates to window.wurl.ui.contextMenu, so the mock returns the choice.
+async function pickBodyMenu(window, viewer, id) {
+  window.wurl.ui = { contextMenu: async () => id };
+  const bodyTab = viewer.element.querySelector('.res-tab-btn[data-tab="body"]');
+  bodyTab.dispatchEvent(
+    new window.MouseEvent("contextmenu", { bubbles: true }),
+  );
+  await new Promise((r) => setTimeout(r, 10));
+}
+
+test("the Hex render mode shows a hex dump for an image, replacing the preview", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "image/png" },
+      body: HELLO_B64,
+      encoding: "base64",
+      size: 5,
+    }),
+  );
+  assert.ok(viewer.element.querySelector("img.res-body-image"));
+
+  await pickBodyMenu(window, viewer, "hex");
+
+  assert.ok(
+    viewer.element.querySelector(".res-hex-dump"),
+    "hex dump is shown after choosing Hex",
+  );
+  assert.equal(viewer.element.querySelector("img.res-body-image"), null);
+});
+
+test("the Hex render mode dumps the bytes of a text (non-binary) response", async () => {
+  const { window, viewer } = mountViewer();
+  viewer.applySettings({ responseBodyRenderMode: "hex" });
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/json" },
+      body: "Hello",
+    }),
+  );
+
+  const dump = viewer.element.querySelector(".res-hex-dump");
+  assert.ok(dump, "a hex dump is rendered for a text body");
+  assert.ok(dump.textContent.includes("48 65 6c 6c 6f"), "bytes are H-e-l-l-o");
+  assert.ok(
+    dump.textContent.includes("|Hello|"),
+    "ASCII gutter shows the text",
+  );
+});
+
+test("Download sends base64 bodies with base64 encoding and a typed name", async () => {
+  const { window, viewer } = mountViewer();
+  let captured = null;
+  window.wurl.export = {
+    saveFile: (filename, content, filters, encoding) => {
+      captured = { filename, content, filters, encoding };
+      return Promise.resolve(true);
+    },
+  };
+
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "image/png" },
+      body: HELLO_B64,
+      encoding: "base64",
+      size: 5,
+      request: { method: "GET", url: "http://x/avatar" },
+    }),
+  );
+
+  await pickBodyMenu(window, viewer, "download");
+
+  assert.ok(captured, "export.saveFile was invoked");
+  assert.equal(captured.encoding, "base64", "bytes are written, not UTF-8");
+  assert.match(
+    captured.filename,
+    /\.png$/,
+    "filename uses the image extension",
+  );
+  assert.equal(captured.content, HELLO_B64, "the raw base64 body is forwarded");
+});

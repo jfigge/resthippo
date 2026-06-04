@@ -2,8 +2,14 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	"image/gif"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"net/http"
 	"os"
@@ -59,6 +65,22 @@ var volumeSizes = []struct {
 	{"small", 1 * 1024 * 1024},
 	{"medium", 15 * 1024 * 1024},
 	{"large", 28 * 1024 * 1024},
+}
+
+// binaryItems lists the synthetic binary payloads served under /binary/<name>.
+// Each body is generated in-process (no external asset files) so the renderer's
+// image-preview, PDF-preview and hex-dump branches from feature 35 can all be
+// exercised offline. The set spans the image/* branch (png/jpeg/gif), the
+// application/pdf branch, and a generic application/octet-stream that should
+// fall through to the hex+ASCII viewer.
+var binaryItems = []struct {
+	Name, Type string
+}{
+	{"png", "image/png"},
+	{"jpeg", "image/jpeg"},
+	{"gif", "image/gif"},
+	{"pdf", "application/pdf"},
+	{"octet-stream", "application/octet-stream"},
 }
 
 func main() {
@@ -167,6 +189,40 @@ func main() {
 		http.Error(w, "unknown volume size", http.StatusNotFound)
 	})
 
+	http.HandleFunc("/binary", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/binary" {
+			http.NotFound(w, r)
+			return
+		}
+		// Index of the binary payloads, mirroring /mimes and /volume.
+		type api struct {
+			Name string `json:"name"`
+			Path string `json:"path"`
+			Type string `json:"type"`
+		}
+		list := make([]api, len(binaryItems))
+		for i, b := range binaryItems {
+			list[i] = api{b.Name, "/binary/" + b.Name, b.Type}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"service":  "wurl-mock",
+			"binaries": list,
+		})
+	})
+
+	http.HandleFunc("/binary/", func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, "/binary/")
+		body, ctype, ok := binaryBody(name)
+		if !ok {
+			http.Error(w, "unknown binary type", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", ctype)
+		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		w.Write(body)
+	})
+
 	registerAuthRoutes()
 
 	fmt.Fprintln(os.Stderr, "mock server listening on", addr)
@@ -234,4 +290,91 @@ func writeVolumeJSON(w http.ResponseWriter, payload string, targetBytes int) {
 	}
 	_, _ = io.WriteString(bw, tail)
 	_ = bw.Flush()
+}
+
+// binaryBody returns the raw bytes and Content-Type for a /binary/<name>
+// payload. The bool is false for an unknown name. Images share one generated
+// gradient bitmap so the three encoders exercise distinct decode paths in the
+// renderer; the PDF and octet-stream bodies are built byte-exact.
+func binaryBody(name string) ([]byte, string, bool) {
+	switch name {
+	case "png":
+		return encodeImage(name, gradientImage()), "image/png", true
+	case "jpeg":
+		return encodeImage(name, gradientImage()), "image/jpeg", true
+	case "gif":
+		return encodeImage(name, gradientImage()), "image/gif", true
+	case "pdf":
+		return minimalPDF(), "application/pdf", true
+	case "octet-stream":
+		return octetStream(), "application/octet-stream", true
+	default:
+		return nil, "", false
+	}
+}
+
+// gradientImage builds a 256x256 RGBA bitmap whose channels vary with x/y so
+// the encoded output is visually obvious and non-trivial to compress.
+func gradientImage() image.Image {
+	const w, h = 256, 256
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, color.RGBA{R: uint8(x), G: uint8(y), B: uint8((x + y) / 2), A: 255})
+		}
+	}
+	return img
+}
+
+// encodeImage encodes img in the format named by name (png/jpeg/gif).
+func encodeImage(name string, img image.Image) []byte {
+	var buf bytes.Buffer
+	switch name {
+	case "jpeg":
+		_ = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 90})
+	case "gif":
+		_ = gif.Encode(&buf, img, nil)
+	default:
+		_ = png.Encode(&buf, img)
+	}
+	return buf.Bytes()
+}
+
+// minimalPDF builds a single-page PDF with a correct cross-reference table so
+// strict viewers (Chromium's pdfium) render it. Object offsets are computed as
+// the body is assembled rather than hardcoded.
+func minimalPDF() []byte {
+	content := "BT /F1 24 Tf 20 60 Td (wurl mock PDF) Tj ET"
+	objs := []string{
+		"<< /Type /Catalog /Pages 2 0 R >>",
+		"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+		"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+		fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(content), content),
+		"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+	}
+	var buf bytes.Buffer
+	buf.WriteString("%PDF-1.4\n")
+	offsets := make([]int, len(objs)+1)
+	for i, body := range objs {
+		offsets[i+1] = buf.Len()
+		fmt.Fprintf(&buf, "%d 0 obj\n%s\nendobj\n", i+1, body)
+	}
+	xrefPos := buf.Len()
+	fmt.Fprintf(&buf, "xref\n0 %d\n", len(objs)+1)
+	buf.WriteString("0000000000 65535 f \n")
+	for i := 1; i <= len(objs); i++ {
+		fmt.Fprintf(&buf, "%010d 00000 n \n", offsets[i])
+	}
+	fmt.Fprintf(&buf, "trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", len(objs)+1, xrefPos)
+	return buf.Bytes()
+}
+
+// octetStream returns 512 bytes that include every value 0x00-0xFF so the hex
+// viewer's offset, hex and ASCII columns all have something to render.
+func octetStream() []byte {
+	b := make([]byte, 512)
+	for i := range b {
+		b[i] = uint8(i)
+	}
+	return b
 }

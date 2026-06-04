@@ -23,6 +23,7 @@ const { URL } = require("url");
 
 const { Stores } = require("./store/stores");
 const io = require("./store/io");
+const { isBinaryContentType, looksBinary } = require("./http-content-type");
 const aws4 = require("aws4");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 const {
@@ -55,6 +56,9 @@ let _aboutWin = null; // singleton about window
 let _themeEditorWin = null; // singleton theme editor window
 let _htmlPreviewView = null; // WebContentsView instance, created lazily
 let _htmlPreviewAdded = false; // whether the view is currently a child of contentView
+let _pdfPreviewView = null; // WebContentsView for native PDF preview, created lazily
+let _pdfPreviewAdded = false; // whether the PDF view is currently a child of contentView
+let _pdfPreviewPath = null; // temp .pdf file currently loaded in the PDF view
 
 // ─── Storage layer ─────────────────────────────────────────────────────────────
 // The Stores factory is created lazily on first IPC call (after app is ready)
@@ -295,14 +299,14 @@ function safeCall(channel, fn, fallback = null) {
   /** Most-recent spilled bodies retained before the oldest is evicted. */
   const SPILL_REGISTRY_MAX = 20;
 
-  /** ref → { path, size, contentType } for response bodies spilled to disk. */
+  /** ref → { path, size, contentType, isBinary } for bodies spilled to disk. */
   const spilledBodies = new Map();
 
   /**
    * Register a spilled body and return an opaque ref the renderer can redeem.
    * Evicts (and unlinks) the oldest entry once the registry is full — Map
    * preserves insertion order, so the first key is the least-recently spilled.
-   * @param {{ path: string, size: number, contentType: string }} entry
+   * @param {{ path: string, size: number, contentType: string, isBinary: boolean }} entry
    * @returns {string} ref
    */
   function registerSpilledBody(entry) {
@@ -818,20 +822,38 @@ function safeCall(channel, fn, fallback = null) {
             consoleLog,
           };
 
+          const respContentType = res.headers["content-type"] || "";
+
           if (!spillStream) {
-            // Small response — fully in memory, unchanged shape.
+            // Small response — fully in memory. Text crosses IPC as UTF-8; binary
+            // is carried as base64 so non-text bytes survive intact.
             const rawBody = Buffer.concat(memChunks);
+            const binary =
+              isBinaryContentType(respContentType) ||
+              (!respContentType && looksBinary(rawBody));
             resolve({
               ...base,
-              body: rawBody.toString("utf8"),
+              body: binary
+                ? rawBody.toString("base64")
+                : rawBody.toString("utf8"),
+              encoding: binary ? "base64" : "utf8",
               size: total,
             });
             return;
           }
 
           // Spilled response — finish the temp file, then hand back a preview
-          // plus a ref the renderer can redeem for the full body on demand.
-          const previewText = Buffer.concat(previewChunks).toString("utf8");
+          // plus a ref the renderer can redeem for the full body on demand. The
+          // temp file holds the raw bytes; for binary, the preview is base64 so
+          // the renderer's hex/image view receives intact bytes.
+          const previewBuf = Buffer.concat(previewChunks);
+          const binary =
+            isBinaryContentType(respContentType) ||
+            (!respContentType && looksBinary(previewBuf));
+          const previewBody = binary
+            ? previewBuf.toString("base64")
+            : previewBuf.toString("utf8");
+          const previewEncoding = binary ? "base64" : "utf8";
           spillStream.end(() => {
             if (spillError) {
               try {
@@ -844,7 +866,8 @@ function safeCall(channel, fn, fallback = null) {
               );
               resolve({
                 ...base,
-                body: previewText,
+                body: previewBody,
+                encoding: previewEncoding,
                 size: total,
                 truncated: true,
                 fullSize: total,
@@ -852,18 +875,19 @@ function safeCall(channel, fn, fallback = null) {
               });
               return;
             }
-            const contentType = res.headers["content-type"] || "";
             const bodyRef = registerSpilledBody({
               path: spillPath,
               size: total,
-              contentType,
+              contentType: respContentType,
+              isBinary: binary,
             });
             consoleLog.push(
               `* Response exceeded ${RESPONSE_SPILL_THRESHOLD} B — buffered to disk; previewing first ${previewLen} B`,
             );
             resolve({
               ...base,
-              body: previewText,
+              body: previewBody,
+              encoding: previewEncoding,
               size: total,
               truncated: true,
               bodyRef,
@@ -1088,7 +1112,8 @@ function safeCall(channel, fn, fallback = null) {
     try {
       const buf = await fs.promises.readFile(entry.path);
       return {
-        body: buf.toString("utf8"),
+        body: entry.isBinary ? buf.toString("base64") : buf.toString("utf8"),
+        encoding: entry.isBinary ? "base64" : "utf8",
         size: entry.size,
         contentType: entry.contentType,
       };
@@ -1537,6 +1562,128 @@ function safeCall(channel, fn, fallback = null) {
   });
 })();
 
+// ─── PDF Preview IPC ──────────────────────────────────────────────────────────
+// Renders a PDF response body natively. The renderer hands over the bytes as
+// base64; we write them to a temp .pdf under the response cache and load that
+// file into an isolated WebContentsView with `plugins` enabled so Chromium's
+// built-in pdfium viewer renders it. The view overlays the response body pane,
+// mirroring the HTML-preview overlay (same bounds/show/hide/resize protocol).
+(function initPdfPreviewIPC() {
+  function _ensureView() {
+    if (!_mainWin || _mainWin.isDestroyed()) return null;
+
+    if (!_pdfPreviewView) {
+      _pdfPreviewView = new WebContentsView({
+        webPreferences: {
+          sandbox: true,
+          contextIsolation: true,
+          nodeIntegration: false,
+          webSecurity: true,
+          // Enables Chromium's bundled PDF viewer on THIS isolated view only —
+          // the main window keeps plugins disabled.
+          plugins: true,
+        },
+      });
+    }
+
+    if (!_pdfPreviewAdded) {
+      _mainWin.contentView.addChildView(_pdfPreviewView);
+      _pdfPreviewAdded = true;
+    }
+
+    return _pdfPreviewView;
+  }
+
+  function _intBounds(b) {
+    return {
+      x: Math.round(b?.x ?? 0),
+      y: Math.round(b?.y ?? 0),
+      width: Math.max(1, Math.round(b?.width ?? 0)),
+      height: Math.max(1, Math.round(b?.height ?? 0)),
+    };
+  }
+
+  /** Remove the just-loaded temp .pdf, if any. */
+  function _cleanupTemp() {
+    if (_pdfPreviewPath) {
+      try {
+        fs.unlinkSync(_pdfPreviewPath);
+      } catch {
+        // best-effort — startup GC will reap it otherwise
+      }
+      _pdfPreviewPath = null;
+    }
+  }
+
+  /**
+   * Write base64 PDF bytes to a temp file and load it into the preview view.
+   */
+  ipcMain.handle(
+    "pdfPreview:loadFile",
+    async (_event, { base64 } = {}, bounds) => {
+      const view = _ensureView();
+      if (!view) return { ok: false };
+      if (!base64) return { ok: false };
+
+      try {
+        const cacheDir = getStores().paths().responseCacheDir();
+        io.ensureDir(cacheDir);
+        _cleanupTemp();
+        const pdfPath = path.join(cacheDir, `pdf-${io.newUUID()}.pdf`);
+        await fs.promises.writeFile(pdfPath, Buffer.from(base64, "base64"));
+        _pdfPreviewPath = pdfPath;
+        view.setBounds(_intBounds(bounds));
+        // loadFile resolves an absolute path to a file:// URL cross-platform
+        // (handles Windows drive letters); Chromium's pdfium viewer renders it.
+        await view.webContents.loadFile(pdfPath);
+        return { ok: true };
+      } catch (err) {
+        console.error("[pdfPreview] loadFile error:", err.message);
+        return { ok: false, error: err.message };
+      }
+    },
+  );
+
+  ipcMain.handle("pdfPreview:resize", async (_event, bounds) => {
+    if (!_pdfPreviewView) return;
+    _pdfPreviewView.setBounds(_intBounds(bounds));
+  });
+
+  ipcMain.handle("pdfPreview:show", async (_event, bounds) => {
+    const view = _ensureView();
+    if (!view) return;
+    if (bounds) view.setBounds(_intBounds(bounds));
+  });
+
+  ipcMain.handle("pdfPreview:hide", async (_event) => {
+    if (
+      _pdfPreviewView &&
+      _pdfPreviewAdded &&
+      _mainWin &&
+      !_mainWin.isDestroyed()
+    ) {
+      _mainWin.contentView.removeChildView(_pdfPreviewView);
+      _pdfPreviewAdded = false;
+    }
+  });
+
+  ipcMain.handle("pdfPreview:destroy", async (_event) => {
+    if (_pdfPreviewAdded && _mainWin && !_mainWin.isDestroyed()) {
+      _mainWin.contentView.removeChildView(_pdfPreviewView);
+      _pdfPreviewAdded = false;
+    }
+    if (_pdfPreviewView) {
+      try {
+        _pdfPreviewView.webContents.loadURL("about:blank");
+      } catch {
+        // ignore — the view is being discarded anyway
+      }
+      _pdfPreviewView = null;
+    }
+    _cleanupTemp();
+  });
+})();
+
 // ─── Dev-server port helpers ──────────────────────────────────────────────────
 
 /**
@@ -1876,13 +2023,22 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
 // ─── Import / Export IPC ──────────────────────────────────────────────────────
 ipcMain.handle(
   "export:save-file",
-  async (_event, { filename, content, filters }) => {
+  async (_event, { filename, content, filters, encoding }) => {
     const result = await dialog.showSaveDialog(_mainWin ?? undefined, {
       defaultPath: filename,
       filters: filters ?? [{ name: "JSON", extensions: ["json"] }],
     });
     if (result.canceled || !result.filePath) return false;
-    await fs.promises.writeFile(result.filePath, content, "utf-8");
+    // Binary bodies arrive as base64 and are decoded back to raw bytes so the
+    // saved file is byte-accurate; text is written as UTF-8 as before.
+    if (encoding === "base64") {
+      await fs.promises.writeFile(
+        result.filePath,
+        Buffer.from(content, "base64"),
+      );
+    } else {
+      await fs.promises.writeFile(result.filePath, content, "utf-8");
+    }
     return true;
   },
 );

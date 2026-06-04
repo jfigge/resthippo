@@ -76,7 +76,7 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-auth test-oauth test-export test-components test-import test-data-store test-renderer-components test-renderer-e2e
+test: test-js test-auth test-content-type test-oauth test-export test-components test-import test-data-store test-renderer-components test-renderer-e2e
 
 test-js:
 	@echo "Running JavaScript store tests..."
@@ -86,6 +86,11 @@ test-js:
 test-auth:
 	@echo "Running main-process auth tests..."
 	@node --test $(APP_DIR)/auth/tests/digest.test.js $(APP_DIR)/auth/tests/ntlm.test.js
+	@echo "--------------------------------"
+
+test-content-type:
+	@echo "Running content-type (binary detection) tests..."
+	@node --test $(APP_DIR)/tests/http-content-type.test.js
 	@echo "--------------------------------"
 
 test-oauth:

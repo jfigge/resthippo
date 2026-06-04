@@ -179,6 +179,7 @@ async function _loadRequestHistory(requestId) {
             cookies: payload?.cookies ?? [],
             body: payload?.body ?? "",
             consoleLog: payload?.consoleLog ?? [],
+            encoding: payload?.encoding ?? "utf8",
             // Restore the truncation flags so a reloaded large response still
             // renders its "response was truncated" banner. The session-scoped
             // bodyRef is intentionally never persisted, so the banner shows its
@@ -797,6 +798,7 @@ function initEventBus() {
         elapsed: e.detail.elapsed ?? 0,
         size: e.detail.size ?? 0,
         consoleLog: e.detail.consoleLog ?? [],
+        encoding: e.detail.encoding ?? "utf8",
         // Streaming metadata for spilled (large) responses. bodyRef is a
         // session-scoped handle to the full body cached in the main process; it
         // is deliberately NOT persisted (see addHistory below) because that
@@ -841,6 +843,7 @@ function initEventBus() {
           cookies: resp.cookies,
           body: resp.body,
           consoleLog: resp.consoleLog,
+          encoding: resp.encoding,
           // Persist truncation flags (but not the session-scoped bodyRef) so a
           // reloaded large response is correctly flagged as a stored preview.
           truncated: resp.truncated,
@@ -1686,6 +1689,9 @@ function initEventBus() {
               elapsed: result.elapsed ?? 0,
               size: result.size ?? 0,
               consoleLog: result.consoleLog ?? [],
+              // "base64" marks a binary body (image / PDF / arbitrary bytes);
+              // the viewer decodes it back to raw bytes before rendering.
+              encoding: result.encoding ?? "utf8",
               // Streaming metadata for spilled (large) responses.
               truncated: result.truncated ?? false,
               bodyRef: result.bodyRef ?? null,
@@ -2200,6 +2206,7 @@ async function _executeRequestNode(node, ctx) {
         elapsed: result.elapsed ?? 0,
         size: result.size ?? 0,
         consoleLog: result.consoleLog ?? [],
+        encoding: result.encoding ?? "utf8",
         truncated: result.truncated ?? false,
         fullSize: result.fullSize ?? result.size ?? 0,
         bodyRef: result.bodyRef ?? null,
@@ -2235,6 +2242,7 @@ async function _executeRequestNode(node, ctx) {
           cookies: resp.cookies,
           body: resp.body,
           consoleLog: resp.consoleLog,
+          encoding: resp.encoding,
           truncated: resp.truncated,
           fullSize: resp.fullSize,
         },

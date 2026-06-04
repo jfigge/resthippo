@@ -87,6 +87,13 @@ export function resetDom() {
   window.requestAnimationFrame = raf;
   window.cancelAnimationFrame = globalThis.cancelAnimationFrame;
 
+  // jsdom implements Blob but not object URLs — the binary (image) view needs
+  // URL.createObjectURL. Stub it on the global URL the component references.
+  if (globalThis.URL && !globalThis.URL.createObjectURL) {
+    globalThis.URL.createObjectURL = () => "blob:stub";
+    globalThis.URL.revokeObjectURL = () => {};
+  }
+
   return window;
 }
 

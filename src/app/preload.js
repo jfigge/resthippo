@@ -286,6 +286,21 @@ contextBridge.exposeInMainWorld("wurl", {
     destroy: () => ipcRenderer.invoke("htmlPreview:destroy"),
   },
 
+  /**
+   * PDF response preview — overlays an isolated WebContentsView (Chromium's
+   * native pdfium viewer) on the response body pane. The renderer passes the
+   * PDF bytes as base64; the main process writes them to a temp file and loads
+   * it. Bounds shape matches htmlPreview: { x, y, width, height } (px).
+   */
+  pdfPreview: {
+    loadFile: (base64, bounds) =>
+      ipcRenderer.invoke("pdfPreview:loadFile", { base64 }, bounds),
+    resize: (bounds) => ipcRenderer.invoke("pdfPreview:resize", bounds),
+    show: (bounds) => ipcRenderer.invoke("pdfPreview:show", bounds),
+    hide: () => ipcRenderer.invoke("pdfPreview:hide"),
+    destroy: () => ipcRenderer.invoke("pdfPreview:destroy"),
+  },
+
   functions: {
     invoke: (fn, args) => ipcRenderer.invoke("functions:invoke", fn, args),
   },
@@ -305,12 +320,19 @@ contextBridge.exposeInMainWorld("wurl", {
    * Returns true on success, false if the user cancelled.
    *
    * @param {string} filename  Suggested filename (e.g. "My_Collection.json")
-   * @param {string} content   File content to write
+   * @param {string} content   File content to write (base64 when encoding is "base64")
+   * @param {Array}  [filters] Save-dialog file-type filters
+   * @param {string} [encoding] "base64" to decode bytes before writing; UTF-8 otherwise
    * @returns {Promise<boolean>}
    */
   export: {
-    saveFile: (filename, content, filters) =>
-      ipcRenderer.invoke("export:save-file", { filename, content, filters }),
+    saveFile: (filename, content, filters, encoding) =>
+      ipcRenderer.invoke("export:save-file", {
+        filename,
+        content,
+        filters,
+        encoding,
+      }),
   },
 
   /**

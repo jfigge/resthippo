@@ -1950,6 +1950,13 @@ html.show-method-icons .req-method-menu__item-label::before {
   font-style: normal;
 }
 
+.res-tab-btn--hex-mode {
+  color: var(--color-subtext) !important;
+  font-family: var(--font-mono), monospace;
+  font-weight: normal;
+  font-style: normal;
+}
+
 /* Tab content */
 .res-tab-content {
   flex: 1;
@@ -2011,6 +2018,61 @@ html.show-method-icons .req-method-menu__item-label::before {
   flex: 0 0 auto;
   color: var(--color-overlay-0);
   font-style: italic;
+}
+
+/* ── Binary response views (images / PDF / hex) ─────────────────────────── */
+
+/* Image preview — scroll the body pane, never overflow it. The checkerboard
+   makes transparency visible against any theme background. */
+.res-image-wrap {
+  padding: var(--space-4);
+  overflow: auto;
+}
+
+.res-body-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-0);
+  background-image:
+    linear-gradient(45deg, var(--color-surface-1) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-surface-1) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-surface-1) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-surface-1) 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+}
+
+/* When the body pane hosts the PDF overlay it becomes a flex column so the
+   host box below the controls strip fills the remaining height. */
+.res-tab-pane--fill {
+  display: flex;
+  flex-direction: column;
+}
+
+/* PDF overlay host — the native WebContentsView is positioned over this box. */
+.res-pdf-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  background: var(--color-base);
+}
+
+/* Hex + ASCII dump */
+.res-hex-note {
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-overlay-0);
+  font-size: var(--font-size-sm);
+  font-style: italic;
+}
+
+.res-hex-dump {
+  font-family: var(--font-mono), monospace;
+  white-space: pre;
 }
 
 .res-body-pre {

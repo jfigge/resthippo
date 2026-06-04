@@ -116,6 +116,10 @@ function installBridge(window, settings = {}) {
             elapsed: result.elapsed ?? 0,
             size: result.size ?? 0,
             consoleLog: result.consoleLog ?? [],
+            // "base64" marks a binary body; the viewer decodes it back to raw
+            // bytes. app.js forwards this same field (app.js:1691) — the bridge
+            // must too, or binary responses silently degrade to the text path.
+            encoding: result.encoding ?? "utf8",
           },
         }),
       );
@@ -252,6 +256,74 @@ test("E2E: edit → execute → render drives the real editor and viewer", async
   assert.ok(
     bodyPane.textContent.includes("Ada"),
     "the response body is rendered",
+  );
+});
+
+test("E2E: a base64 (binary) response is forwarded with its encoding and renders as an image", async () => {
+  const window = resetDom();
+
+  // The main process returns binary bodies as base64 with encoding:"base64".
+  // This is the contract the bridge (and app.js) must forward; dropping the
+  // encoding field silently degrades images to a broken <img> and PDFs to a
+  // jumble of text. Regression guard for that field plumbing.
+  window.wurl = {
+    isElectron: true,
+    http: {
+      execute: async () => ({
+        status: 200,
+        statusText: "OK",
+        headers: { "content-type": "image/png" },
+        cookies: [],
+        body: "SGVsbG8=", // "Hello" — stand-in raw bytes
+        encoding: "base64",
+        elapsed: 4,
+        size: 5,
+        consoleLog: [],
+      }),
+    },
+  };
+
+  installBridge(window);
+
+  const viewer = new ResponseViewer();
+  document.body.appendChild(viewer.element);
+
+  const editor = new RequestEditor();
+  document.body.appendChild(editor.element);
+  editor.setVariableContext({ envVariables: {}, folderChain: [] });
+  editor.load({
+    id: "req-3",
+    method: "GET",
+    url: "https://api.example.com/logo.png",
+  });
+
+  const settled = waitForEvent(window, [
+    "wurl:response-received",
+    "wurl:request-error",
+  ]);
+  editor.element.querySelector('[aria-label="Send request"]').click();
+  const outcome = await settled;
+
+  assert.equal(
+    outcome.type,
+    "wurl:response-received",
+    "the cycle ended in a rendered response",
+  );
+  // The encoding must survive the bridge so the viewer takes the binary path.
+  assert.equal(
+    outcome.detail.encoding,
+    "base64",
+    "the binary encoding is forwarded in the event detail",
+  );
+
+  const img = viewer.element.querySelector("img.res-body-image");
+  assert.ok(img, "an <img> preview is rendered for the image response");
+  assert.ok(img.getAttribute("src"), "the image has a (blob:) src");
+  // The raw base64 must NOT have leaked into a text <pre> body.
+  const bodyPane = viewer.element.querySelector("#res-tab-body");
+  assert.ok(
+    !bodyPane.textContent.includes("SGVsbG8="),
+    "the base64 string is not rendered as text",
   );
 });
 

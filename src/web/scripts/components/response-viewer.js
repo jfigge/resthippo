@@ -53,10 +53,14 @@ const MD_CODE_LANG = {
 };
 
 /**
- * @returns {"json"|"yaml"|"xml"|"html"|"markdown"|"css"|"javascript"|"other"}
+ * @returns {"image"|"pdf"|"json"|"yaml"|"xml"|"html"|"markdown"|"css"|"javascript"|"other"}
  */
 function classifyContentType(ct) {
   const base = (ct ?? "").toLowerCase().split(";")[0].trim();
+  // Binary previews are checked first so e.g. image/svg+xml does not fall into
+  // the generic "xml" text branch below.
+  if (base.startsWith("image/")) return "image";
+  if (base === "application/pdf") return "pdf";
   if (base.includes("json")) return "json";
   if (base.includes("yaml")) return "yaml";
   if (base.includes("xml")) return "xml";
@@ -72,6 +76,40 @@ function classifyContentType(ct) {
   )
     return "javascript";
   return "other";
+}
+
+// Content-Type → save-dialog extension for a binary body. Mirrors the main
+// process http-content-type helper (the sandboxed renderer cannot require
+// main-process modules), falling back to the subtype after "/", else "bin".
+const BINARY_EXT = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "image/bmp": "bmp",
+  "image/x-icon": "ico",
+  "image/vnd.microsoft.icon": "ico",
+  "image/tiff": "tiff",
+  "image/avif": "avif",
+  "image/svg+xml": "svg",
+  "application/pdf": "pdf",
+  "application/zip": "zip",
+  "application/gzip": "gz",
+  "application/wasm": "wasm",
+  "application/octet-stream": "bin",
+  "font/woff": "woff",
+  "font/woff2": "woff2",
+  "font/ttf": "ttf",
+  "font/otf": "otf",
+};
+
+function binaryExtension(ct) {
+  const base = (ct ?? "").toLowerCase().split(";")[0].trim();
+  if (BINARY_EXT[base]) return BINARY_EXT[base];
+  const subtype = (base.split("/")[1] ?? "").replace(/\+.*$/, "");
+  const cleaned = subtype.replace(/[^a-z0-9]/g, "");
+  return cleaned || "bin";
 }
 
 // ── Simple XML pretty-printer ─────────────────────────────────────────────────
@@ -257,8 +295,8 @@ export class ResponseViewer {
 
   /** @type {HTMLElement} */
   #el;
-  #activeTab = "body";
-  #renderMode = "styled"; // "styled" | "raw"
+  #activeTab = "body...";
+  #renderMode = "styled"; // "styled" | "raw" | "hex"
   #wrapResponseText = true; // wrap long lines in Styled mode (settings-controlled)
   #lastResponse = null; // cached so mode changes can re-render
 
@@ -281,6 +319,15 @@ export class ResponseViewer {
   #resizeObserver = null; // observes body pane for Electron overlay
   #winResizeHandler = null; // window resize listener for Electron overlay
   #settingsHandler = null; // wurl:settings-changed listener for font-size repositioning
+
+  // Binary-response state (images / PDF). The Hex view is a render mode (see
+  // #renderMode), available for every content-type via the Body context menu.
+  #objectUrl = null; // active blob: URL for an image preview (revoked on teardown)
+  #pdfPreviewActive = false; // true while the native PDF overlay is live
+  #pdfHost = null; // body-pane element the PDF overlay is positioned against
+  #pdfResizeObserver = null; // observes #pdfHost for the PDF overlay
+  #pdfWinResizeHandler = null; // window resize listener for the PDF overlay
+  #pdfSettingsHandler = null; // settings-changed listener for the PDF overlay
 
   // Find-in-response search bar state
   #searchBar = null; // the bar element
@@ -393,6 +440,12 @@ export class ResponseViewer {
     // and discard the snapshot once the popup is dismissed.
     window.addEventListener("wurl:popup-opened", async () => {
       this.#popupDepth++;
+      // The native PDF overlay renders above all web content too — hide it so a
+      // context menu / dialog is not obscured. (No snapshot: a brief blank under
+      // a transient menu is acceptable.)
+      if (this.#pdfPreviewActive && window.wurl?.isElectron) {
+        window.wurl.pdfPreview.hide().catch(() => {});
+      }
       if (!this.#htmlPreviewActive || !window.wurl?.isElectron) return;
       // Only capture on the first popup; nested popups reuse the existing snapshot.
       if (this.#popupDepth === 1) {
@@ -416,6 +469,22 @@ export class ResponseViewer {
       // the image must disappear as soon as the last popup is dismissed.
       this.#snapshotPending = false;
       if (this.#popupDepth === 0) this.#removePreviewSnapshot();
+      // Re-show the PDF overlay once all popups are gone and Body is visible.
+      if (
+        this.#popupDepth === 0 &&
+        this.#pdfPreviewActive &&
+        window.wurl?.isElectron &&
+        this.#activeTab === "body" &&
+        this.#pdfHost
+      ) {
+        requestAnimationFrame(() => {
+          if (this.#pdfPreviewActive && this.#popupDepth === 0) {
+            window.wurl.pdfPreview
+              .show(this.#computeBounds(this.#pdfHost))
+              .catch(() => {});
+          }
+        });
+      }
       if (!this.#htmlPreviewActive || !window.wurl?.isElectron) return;
       if (this.#activeTab !== "preview") return; // preview tab not visible — stay hidden
       requestAnimationFrame(() => {
@@ -482,11 +551,17 @@ export class ResponseViewer {
    * @returns {{ filename: string, ext: string, filterName: string }}
    */
   #downloadNaming(resp) {
-    const kind = classifyContentType(this.#contentTypeOf(resp.headers));
+    const ct = this.#contentTypeOf(resp.headers);
+    const kind = classifyContentType(ct);
 
     let ext = "txt";
     let filterName = "Text";
-    if (kind === "json") {
+    // Binary bodies (base64 in transit) name their file from the content-type.
+    if (resp.encoding === "base64" || kind === "image" || kind === "pdf") {
+      ext = binaryExtension(ct);
+      filterName =
+        kind === "pdf" ? "PDF" : kind === "image" ? "Image" : "Binary";
+    } else if (kind === "json") {
       ext = "json";
       filterName = "JSON";
     } else if (kind === "html") {
@@ -533,10 +608,17 @@ export class ResponseViewer {
     if (!resp.body) return;
 
     const { filename, ext, filterName } = this.#downloadNaming(resp);
-    window.wurl?.export?.saveFile(filename, resp.body, [
-      { name: filterName, extensions: [ext] },
-      { name: "All Files", extensions: ["*"] },
-    ]);
+    // Binary bodies travel as base64 and are decoded to bytes by the main
+    // process so the saved file is byte-accurate; text is written as UTF-8.
+    window.wurl?.export?.saveFile(
+      filename,
+      resp.body,
+      [
+        { name: filterName, extensions: [ext] },
+        { name: "All Files", extensions: ["*"] },
+      ],
+      resp.encoding === "base64" ? "base64" : undefined,
+    );
   }
 
   // ── Tab strip ─────────────────────────────────────────────────────────────
@@ -558,14 +640,10 @@ export class ResponseViewer {
       if (tab.id === this.#activeTab) btn.classList.add("res-tab-btn--active");
 
       if (tab.id === "body") {
-        btn.textContent = "Body";
+        btn.textContent = "Body…";
         btn.dataset.method = this.#currentMethod;
         btn.title = "Secondary click for options";
-        btn.classList.add(
-          this.#renderMode === "raw"
-            ? "res-tab-btn--raw-mode"
-            : "res-tab-btn--styled-mode",
-        );
+        btn.classList.add(this.#modeClass());
         // Right-click on the Body tab → render-mode context menu
         btn.addEventListener("contextmenu", (e) => {
           e.preventDefault();
@@ -957,15 +1035,23 @@ export class ResponseViewer {
 
   // ── Body context menu ─────────────────────────────────────────────────────
 
+  /** Body-tab CSS class for the current render mode. */
+  #modeClass() {
+    if (this.#renderMode === "raw") return "res-tab-btn--raw-mode";
+    if (this.#renderMode === "hex") return "res-tab-btn--hex-mode";
+    return "res-tab-btn--styled-mode";
+  }
+
   /** Sync the Body tab button styling to the current render mode. */
   #updateBodyTabStyle() {
     const btn = this._tabStrip?.querySelector('[data-tab="body"]');
     if (!btn) return;
-    btn.classList.toggle(
+    btn.classList.remove(
       "res-tab-btn--styled-mode",
-      this.#renderMode !== "raw",
+      "res-tab-btn--raw-mode",
+      "res-tab-btn--hex-mode",
     );
-    btn.classList.toggle("res-tab-btn--raw-mode", this.#renderMode === "raw");
+    btn.classList.add(this.#modeClass());
     btn.dataset.method = this.#currentMethod;
   }
 
@@ -982,13 +1068,19 @@ export class ResponseViewer {
         id: "styled",
         label: "Styled",
         type: "checkbox",
-        checked: this.#renderMode !== "raw",
+        checked: this.#renderMode === "styled",
       },
       {
         id: "raw",
         label: "Raw",
         type: "checkbox",
         checked: this.#renderMode === "raw",
+      },
+      {
+        id: "hex",
+        label: "Hex",
+        type: "checkbox",
+        checked: this.#renderMode === "hex",
       },
       { type: "separator" },
       { id: "download", label: "Download..." },
@@ -1115,7 +1207,31 @@ export class ResponseViewer {
     const category = classifyContentType(this.#contentTypeOf(response.headers));
 
     this.#clearHighlights();
+    // Tear down any binary ephemera (PDF overlay, image blob URL) before the
+    // pane is rebuilt; the new render re-creates whatever it needs.
+    this.#teardownBinaryEphemera();
     pane.innerHTML = "";
+    pane.classList.remove("res-tab-pane--fill"); // only the PDF view re-adds this
+
+    // ── Hex view ──────────────────────────────────────────────────────────
+    // A render mode (like Styled/Raw) selectable for every content-type from
+    // the Body context menu: dump the raw bytes regardless of the body's type.
+    if (this.#renderMode === "hex") {
+      this.#foldReveal = null;
+      if (response.truncated) {
+        pane.appendChild(this.#buildTruncationBanner(response));
+      }
+      this.#renderHex(response, pane);
+      return;
+    }
+
+    // ── Binary rendering (images / PDF) ───────────────────────────────────
+    // A base64 encoding is the authoritative "these are raw bytes" signal from
+    // the main process; SVG arrives as UTF-8 text but still renders as an image.
+    if (response.encoding === "base64" || category === "image") {
+      this.#renderBinaryBody(response, category);
+      return;
+    }
 
     // Spilled (large) responses only carry a preview in `body`; surface a banner
     // offering to fetch or save the full payload from the main-process cache.
@@ -1225,6 +1341,246 @@ export class ResponseViewer {
     }
   }
 
+  // ── Binary rendering (images / PDF / hex) ─────────────────────────────────
+
+  /**
+   * Render a binary response body in Styled/Raw mode. The base64 `body` is
+   * decoded to raw bytes; SVG (which arrives as UTF-8 text) builds its blob
+   * from the source string. Images render inline and PDFs via the native
+   * overlay; any other byte stream has no text form, so it falls back to a
+   * hex+ASCII dump. The Hex render mode (handled in #renderBodyPane) forces a
+   * dump for every content-type, so it is not reached here.
+   *
+   * @param {object} response
+   * @param {string} category  classification of the content-type
+   */
+  #renderBinaryBody(response, category) {
+    const pane = this.#bodyPane;
+    this.#foldReveal = null;
+
+    // Spilled preview banner (View full / Save).
+    if (response.truncated) {
+      pane.appendChild(this.#buildTruncationBanner(response));
+    }
+
+    const kind =
+      category === "image" ? "image" : category === "pdf" ? "pdf" : "hex";
+
+    // A spilled body only holds a partial preview inline — an image/PDF needs
+    // the whole file, so prompt to load the full body (hex can show the slice).
+    if (response.truncated && (kind === "image" || kind === "pdf")) {
+      pane.appendChild(
+        this.#placeholder({
+          icon: kind === "pdf" ? "📄" : "🖼️",
+          text: 'Large response — use "View full" above to preview.',
+        }),
+      );
+      return;
+    }
+
+    if (kind === "image") this.#renderImage(response, pane);
+    else if (kind === "pdf") this.#renderPdf(response, pane);
+    else this.#renderHex(response, pane);
+  }
+
+  /** Decode a base64 response body to a Uint8Array of the raw bytes. */
+  #decodeBytes(response) {
+    const b64 = response.body ?? "";
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+
+  /** Render an inline image from a blob: URL (revoked on the next teardown). */
+  #renderImage(response, pane) {
+    const ct =
+      this.#contentTypeOf(response.headers).split(";")[0].trim() ||
+      "application/octet-stream";
+    const blob =
+      response.encoding === "base64"
+        ? new Blob([this.#decodeBytes(response)], { type: ct })
+        : new Blob([response.body ?? ""], { type: ct || "image/svg+xml" });
+
+    this.#revokeObjectUrl();
+    this.#objectUrl = URL.createObjectURL(blob);
+
+    const wrap = document.createElement("div");
+    wrap.className = "res-image-wrap";
+    const img = document.createElement("img");
+    img.className = "res-body-image";
+    img.alt = "Response image";
+    img.src = this.#objectUrl;
+    wrap.appendChild(img);
+    pane.appendChild(wrap);
+  }
+
+  /**
+   * Render a PDF. Electron overlays the native pdfium viewer (WebContentsView)
+   * over a host element; the dev/browser build has no plugin and offers Save.
+   */
+  #renderPdf(response, pane) {
+    if (!window.wurl?.isElectron) {
+      pane.appendChild(
+        this.#placeholder({
+          icon: "📄",
+          text: "PDF preview is available in the desktop app — use Save to file.",
+        }),
+      );
+      return;
+    }
+    pane.classList.add("res-tab-pane--fill");
+    const host = document.createElement("div");
+    host.className = "res-pdf-host";
+    pane.appendChild(host);
+    this.#activatePdfPreview(host, response.body ?? "");
+  }
+
+  /** Render a capped hex + ASCII dump with 8-digit offsets, 16 bytes per row. */
+  #renderHex(response, pane) {
+    const bytes =
+      response.encoding === "base64"
+        ? this.#decodeBytes(response)
+        : new TextEncoder().encode(response.body ?? "");
+
+    const HEX_VIEW_LIMIT = 256 * 1024;
+    const shown = Math.min(bytes.length, HEX_VIEW_LIMIT);
+    if (shown < bytes.length) {
+      const note = document.createElement("div");
+      note.className = "res-hex-note";
+      note.textContent = `Showing the first ${this.#formatSize(
+        shown,
+      )} of ${this.#formatSize(
+        bytes.length,
+      )} — use Save to file for the full body.`;
+      pane.appendChild(note);
+    }
+
+    const pre = document.createElement("pre");
+    pre.className = "res-body-pre res-hex-dump";
+    pre.tabIndex = 0;
+    pre.textContent = this.#hexDump(bytes, shown);
+    pane.appendChild(pre);
+    this.#reapplyActiveSearch();
+  }
+
+  /** Format `length` bytes of `bytes` as `offset  hex…  |ascii|` rows. */
+  #hexDump(bytes, length) {
+    const lines = [];
+    for (let off = 0; off < length; off += 16) {
+      const end = Math.min(off + 16, length);
+      let hex = "";
+      let ascii = "";
+      for (let i = off; i < off + 16; i++) {
+        if (i < end) {
+          const b = bytes[i];
+          hex += b.toString(16).padStart(2, "0") + " ";
+          ascii += b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : ".";
+        } else {
+          hex += "   ";
+        }
+        if (i === off + 7) hex += " "; // gap between the two 8-byte halves
+      }
+      lines.push(`${off.toString(16).padStart(8, "0")}  ${hex} |${ascii}|`);
+    }
+    return lines.join("\n");
+  }
+
+  /** Re-run an open find query after the body pane was rebuilt. */
+  #reapplyActiveSearch() {
+    if (
+      this.#searchBar &&
+      !this.#searchBar.hidden &&
+      this.#searchInput?.value.trim()
+    ) {
+      this.#runSearch();
+    }
+  }
+
+  // ── PDF preview overlay (native WebContentsView) ──────────────────────────
+
+  /**
+   * Activate the native PDF overlay over `host`, positioned by the same
+   * ResizeObserver / window-resize / settings-change machinery as the HTML
+   * preview. The PDF bytes are passed as base64; the main process writes a temp
+   * file and loads it into a plugins-enabled WebContentsView.
+   *
+   * @param {HTMLElement} host    body-pane element the overlay covers
+   * @param {string}      base64  PDF bytes, base64-encoded
+   */
+  #activatePdfPreview(host, base64) {
+    this.#pdfPreviewActive = true;
+    this.#pdfHost = host;
+
+    const reposition = () => {
+      if (this.#pdfPreviewActive) {
+        window.wurl?.pdfPreview
+          ?.resize(this.#computeBounds(host))
+          .catch(() => {});
+      }
+    };
+
+    this.#pdfResizeObserver = new ResizeObserver(reposition);
+    this.#pdfResizeObserver.observe(host);
+
+    this.#pdfSettingsHandler = () => requestAnimationFrame(reposition);
+    window.addEventListener("wurl:settings-changed", this.#pdfSettingsHandler);
+
+    this.#pdfWinResizeHandler = () => requestAnimationFrame(reposition);
+    window.addEventListener("resize", this.#pdfWinResizeHandler);
+
+    requestAnimationFrame(() => {
+      if (!this.#pdfPreviewActive) return;
+      window.wurl?.pdfPreview
+        ?.loadFile(base64, this.#computeBounds(host))
+        .catch(() => {});
+    });
+  }
+
+  /** Tear down the native PDF overlay and its listeners. Safe when inactive. */
+  #destroyPdfPreview() {
+    if (!this.#pdfPreviewActive) return;
+    this.#pdfPreviewActive = false;
+
+    if (this.#pdfResizeObserver) {
+      this.#pdfResizeObserver.disconnect();
+      this.#pdfResizeObserver = null;
+    }
+    if (this.#pdfWinResizeHandler) {
+      window.removeEventListener("resize", this.#pdfWinResizeHandler);
+      this.#pdfWinResizeHandler = null;
+    }
+    if (this.#pdfSettingsHandler) {
+      window.removeEventListener(
+        "wurl:settings-changed",
+        this.#pdfSettingsHandler,
+      );
+      this.#pdfSettingsHandler = null;
+    }
+    this.#pdfHost = null;
+    if (window.wurl?.pdfPreview?.destroy) {
+      window.wurl.pdfPreview.destroy().catch(() => {});
+    }
+  }
+
+  /** Revoke the active image blob: URL, if any. */
+  #revokeObjectUrl() {
+    if (this.#objectUrl) {
+      try {
+        URL.revokeObjectURL(this.#objectUrl);
+      } catch {
+        // best-effort
+      }
+      this.#objectUrl = null;
+    }
+  }
+
+  /** Destroy all binary ephemera (PDF overlay + image blob URL). */
+  #teardownBinaryEphemera() {
+    this.#destroyPdfPreview();
+    this.#revokeObjectUrl();
+  }
+
   /**
    * Build the banner shown above a spilled (truncated) response body. It reports
    * the preview/full sizes and, when the full body is still cached in the main
@@ -1294,6 +1650,7 @@ export class ResponseViewer {
     }
 
     response.body = res.body ?? "";
+    response.encoding = res.encoding ?? response.encoding;
     response.truncated = false;
     response.size = res.size ?? response.size;
     this.#renderBodyPane(response);
@@ -1499,7 +1856,17 @@ export class ResponseViewer {
    * @returns {{ x: number, y: number, width: number, height: number }}
    */
   #computePreviewBounds() {
-    const r = this.#previewPane.getBoundingClientRect();
+    return this.#computeBounds(this.#previewPane);
+  }
+
+  /**
+   * Viewport-relative integer pixel bounds of an element, for positioning a
+   * native WebContentsView overlay (HTML or PDF preview) directly over it.
+   * @param {HTMLElement} el
+   * @returns {{ x: number, y: number, width: number, height: number }}
+   */
+  #computeBounds(el) {
+    const r = el.getBoundingClientRect();
     return {
       x: Math.round(r.left),
       y: Math.round(r.top),
@@ -1758,6 +2125,27 @@ export class ResponseViewer {
       }
     }
 
+    // ── Native PDF overlay — lives on the Body tab ────────────────────────
+    // Hide it when leaving Body so it doesn't float over other tabs; re-show it
+    // (deferred a frame so layout settles) when returning to Body.
+    if (this.#pdfPreviewActive && window.wurl?.isElectron && this.#pdfHost) {
+      if (tabId === "body" && prevTab !== "body") {
+        requestAnimationFrame(() => {
+          if (
+            this.#pdfPreviewActive &&
+            this.#activeTab === "body" &&
+            this.#pdfHost
+          ) {
+            window.wurl.pdfPreview
+              .show(this.#computeBounds(this.#pdfHost))
+              .catch(() => {});
+          }
+        });
+      } else if (prevTab === "body" && tabId !== "body") {
+        window.wurl.pdfPreview.hide().catch(() => {});
+      }
+    }
+
     // Lazy timeline: drop DOM when leaving, rebuild when entering.
     if (prevTab === "timeline" && tabId !== "timeline") {
       this.#stopTimestampUpdater();
@@ -1773,6 +2161,7 @@ export class ResponseViewer {
   #showLoading() {
     this.#lastResponse = null;
     this.#destroyHtmlPreview();
+    this.#teardownBinaryEphemera();
     this.#clearHighlights();
     this.#setStatus("", "", "", "");
     const bodyPane = this.#bodyPane;
@@ -1792,6 +2181,7 @@ export class ResponseViewer {
   #showError(detail) {
     this.#lastResponse = null;
     this.#destroyHtmlPreview();
+    this.#teardownBinaryEphemera();
     this.#setPreviewTabVisible(false);
     this.#clearHighlights();
     const hasStatus = detail?.status && detail.status > 0;
@@ -1834,6 +2224,7 @@ export class ResponseViewer {
   #clearToEmpty() {
     this.#lastResponse = null;
     this.#destroyHtmlPreview();
+    this.#teardownBinaryEphemera();
     this.#setPreviewTabVisible(false);
     this.#clearHighlights();
     this.#setStatus("", "", "", "");
@@ -1874,13 +2265,19 @@ export class ResponseViewer {
       truncated = false,
       bodyRef = null,
       fullSize = size,
+      encoding = "utf8",
     } = response;
+
+    // A fresh response starts in its default view; drop any binary overlay/blob
+    // left over from the previous one.
+    this.#teardownBinaryEphemera();
 
     // Cache the raw response for re-rendering when the mode changes.
     // requestUrl comes from the caller (history path) or falls back to the
     // request snapshot embedded in live wurl:response-received events.
     // truncated/bodyRef/fullSize describe spilled (large) responses whose full
     // body lives in the main process and is only fetched on demand.
+    // encoding is "base64" for binary bodies (images / PDF / arbitrary bytes).
     this.#lastResponse = {
       requestUrl: requestUrl ?? request.url ?? "",
       status,
@@ -1894,6 +2291,7 @@ export class ResponseViewer {
       truncated,
       bodyRef,
       fullSize,
+      encoding,
     };
 
     // Sync method colour from the request that produced this response.
