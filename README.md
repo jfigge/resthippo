@@ -1,5 +1,7 @@
 # wurl — Web URL REST API Client
 
+[![CI](https://github.com/jfigge/wurl/actions/workflows/ci.yml/badge.svg)](https://github.com/jfigge/wurl/actions/workflows/ci.yml)
+
 A lightweight, cross-platform desktop REST API client — like Insomnia — built with **Electron** and a **Go** development server.
 
 ## Overview

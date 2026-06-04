@@ -67,6 +67,13 @@ fmt:
 		"app/**/*.js" > /dev/null
 	@echo "--------------------------------"
 
+fmt-check:
+	@echo "Checking formatting (prettier --check)..."
+	@cd $(SRC_DIR) && npx prettier --check \
+		"web/**/*.{js,css,html}" \
+		"app/**/*.js"
+	@echo "--------------------------------"
+
 # ─── Linting ──────────────────────────────────────────────────────────────────
 lint:
 	@echo "Linting JavaScript..."
@@ -76,11 +83,16 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-auth test-content-type test-oauth test-export test-components test-import test-data-store test-renderer-components test-renderer-e2e
+test: test-js test-cookies test-auth test-content-type test-oauth test-export test-components test-import test-data-store test-renderer-components test-renderer-e2e
 
 test-js:
 	@echo "Running JavaScript store tests..."
 	@node --test $(APP_DIR)/store/tests/stores.test.js $(APP_DIR)/store/tests/crypto.test.js $(APP_DIR)/store/tests/integration.test.js $(APP_DIR)/store/tests/migrations.test.js $(APP_DIR)/store/tests/io-locking.test.js $(APP_DIR)/store/tests/backup.test.js
+	@echo "--------------------------------"
+
+test-cookies:
+	@echo "Running cookie jar / store tests..."
+	@node --test $(APP_DIR)/store/tests/cookie-jar.test.js $(APP_DIR)/store/tests/cookie-store.test.js
 	@echo "--------------------------------"
 
 test-auth:
@@ -144,17 +156,20 @@ build-mac: build-setup build-install
 
 build-linux: build-setup build-install
 	@echo "Building Electron app for Linux..."
-	@cd ${BUILD_DIR}/src; npx electron-builder --linux --dir --publish never > /dev/null \
-   		|| echo "  (Linux cross-compile may require additional setup on non-Linux hosts)"
+	@cd ${BUILD_DIR}/src; npx electron-builder --linux --dir --publish never > /dev/null
 	@echo "--------------------------------"
 
 build-win: build-setup build-install
 	@echo "Building Electron app for Windows..."
-	@cd ${BUILD_DIR}/src; npx electron-builder --win --dir --publish never > /dev/null \
-		|| echo "  (Windows cross-compile may require Wine on non-Windows hosts)"
+	@cd ${BUILD_DIR}/src; npx electron-builder --win --dir --publish never > /dev/null
 	@echo "--------------------------------"
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
+install:
+	@echo "Installing Node.js dependencies..."
+	@cd $(SRC_DIR) && npm ci
+	@echo "--------------------------------"
+
 build-setup:
 	@echo "Preparing build directory..."
 	@rm -rf ${BUILD_DIR}/src || true
@@ -220,6 +235,7 @@ help:
 	@echo ""
 	@echo "  Targets:"
 	@echo "    all           fmt → lint → test → build  (default)"
+	@echo "    install       Install Node.js dependencies (npm ci)"
 	@echo "    debug         Run Electron with DevTools + hot-reload"
 	@echo "    build         Build Electron app for macOS (dir only)"
 	@echo "    build-mac     Build Electron app for macOS (dir only)"
@@ -233,9 +249,11 @@ help:
 	@echo "    vendor-prism  Bundle Prism.js → web/scripts/vendor/prism.js"
 	@echo "    vendor-markdown  Bundle marked+DOMPurify → web/scripts/vendor/markdown.js"
 	@echo "    fmt           Format JS/CSS/HTML (prettier)"
+	@echo "    fmt-check     Check formatting without writing (prettier --check)"
 	@echo "    lint          Lint JS (eslint)"
 	@echo "    test          Run all JavaScript + OAuth tests"
 	@echo "    test-js       Run JavaScript store tests only"
+	@echo "    test-cookies  Run cookie jar / store tests only"
 	@echo "    test-oauth    Run OAuth 2.0 unit tests only"
 	@echo "    clean         Remove build and dist directories"
 	@echo "    version       Print version string"
@@ -508,9 +526,10 @@ mock-down:
 
 # ─── Phony ────────────────────────────────────────────────────────────────────
 .PHONY: all version info \
-        fmt \
+        install \
+        fmt fmt-check \
         lint \
-        test test-js test-auth test-oauth test-export test-components test-import \
+        test test-js test-cookies test-auth test-content-type test-oauth test-export test-components test-import \
         test-data-store test-renderer-components test-renderer-e2e \
         debug \
         build build-mac build-linux build-win \

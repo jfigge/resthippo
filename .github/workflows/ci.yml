@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Cancel superseded runs on the same ref to save runner minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Electron 42 bundles Node 22; match it for CI parity with the runtime.
+  NODE_VERSION: "22"
+
+jobs:
+  # ── Format, lint, and the full test suite ───────────────────────────────────
+  check:
+    name: Lint, format & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Lint
+        run: make lint
+
+      - name: Check formatting
+        run: make fmt-check
+
+      - name: Test
+        run: |
+          set -o pipefail
+          make test 2>&1 | tee test-output.log
+
+      - name: Upload test output on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: test-output.log
+          if-no-files-found: ignore
+
+  # ── Verify the Electron app packages on all three desktop platforms ─────────
+  build:
+    name: Build (${{ matrix.os }})
+    needs: check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: build-mac
+          - os: ubuntu-latest
+            target: build-linux
+          - os: windows-latest
+            target: build-win
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+
+      # Windows runners lack make, rsync, and a make-compatible /bin/bash.
+      # MSYS2 provides all three so the existing `make build-win` recipe runs
+      # unchanged. Node/npm from setup-node are inherited via path-type: inherit.
+      - name: Set up MSYS2 (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          install: make rsync
+          path-type: inherit
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: "msys2 {0}"
+        run: make ${{ matrix.target }}
+
+      - name: Build (macOS / Linux)
+        if: runner.os != 'Windows'
+        run: make ${{ matrix.target }}
