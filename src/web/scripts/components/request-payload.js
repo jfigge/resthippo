@@ -42,6 +42,76 @@ export function encodeBaseUrl(url) {
   }
 }
 
+/** Basename of a filesystem path (handles both "/" and "\" separators). */
+function baseName(p) {
+  return (p ?? "").split(/[\\/]/).pop() ?? "";
+}
+
+// ── Path parameters ──────────────────────────────────────────────────────────
+// Path tokens are `:name` (only when preceded by "/", so URL scheme, ports, and
+// userinfo are excluded) or `{name}` (single braces). `{{var}}` variable pills
+// are matched first and skipped so they're never treated as path tokens. One
+// pattern drives detection, substitution, and (in the editor) the Path Params
+// table, so the three can't drift.
+
+/** Fresh global matcher for path tokens (fresh object ⇒ no shared lastIndex state). */
+function pathParamRe() {
+  return /\{\{[^}]*\}\}|(?<=\/):([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\}/g;
+}
+
+/**
+ * Detect path-parameter tokens in a URL template, in order, de-duped by name.
+ * @param {string} url
+ * @returns {{ name: string, style: ":" | "{}" }[]}
+ */
+export function detectPathParams(url) {
+  const out = [];
+  const seen = new Set();
+  if (!url) return out;
+  for (const m of url.matchAll(pathParamRe())) {
+    if (m[0].startsWith("{{")) continue; // variable pill — not a path token
+    const name = m[1] ?? m[2];
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push({ name, style: m[1] != null ? ":" : "{}" });
+  }
+  return out;
+}
+
+/**
+ * Substitute path tokens whose name is present in `valueMap`. Variable pills
+ * (`{{…}}`) pass through untouched; tokens with no map entry are left literal.
+ * Pure and synchronous so codegen (sync) and the async send path share it.
+ * @param {string} url
+ * @param {Map<string, string>} valueMap  name → already-encoded value
+ * @returns {string}
+ */
+export function applyPathParams(url, valueMap) {
+  if (!url || !valueMap || valueMap.size === 0) return url;
+  return url.replace(pathParamRe(), (full, colonName, braceName) => {
+    if (full.startsWith("{{")) return full;
+    const name = colonName ?? braceName;
+    return valueMap.has(name) ? valueMap.get(name) : full;
+  });
+}
+
+/**
+ * Resolve each path-param row's value (through `rv`) and percent-encode it as a
+ * path segment, keyed by trimmed name. Rows with a blank name are skipped.
+ * @param {{ name: string, value: string }[]} pathParams
+ * @param {(s: string) => Promise<string>} rv
+ * @returns {Promise<Map<string, string>>}
+ */
+export async function resolvePathParamValues(pathParams, rv) {
+  const map = new Map();
+  for (const p of pathParams ?? []) {
+    const name = (p.name ?? "").trim();
+    if (!name) continue;
+    map.set(name, encodeURIComponent(await rv(p.value ?? "")));
+  }
+  return map;
+}
+
 /**
  * Assemble the native request payload from a resolved request spec.
  *
@@ -60,10 +130,13 @@ export function encodeBaseUrl(url) {
  *   @param {object}  spec.authAwsIam    { accessKeyId, secretAccessKey, region, service, sessionToken }
  *   @param {string}  spec.bodyType      "json"|"yaml"|"xml"|"text"|"form-urlencoded"|"form-data"|"file"|"no-body"
  *   @param {string}  spec.bodyText      raw text for text-ish body types
- *   @param {Array}   spec.bodyFormRows  [{ enabled, name, value }] form fields
+ *   @param {Array}   spec.bodyFormRows  [{ enabled, name, value, kind?, filePath?, fileName?, contentType? }]
+ *                                       form fields; a `kind:"file"` row carries a file path instead of value
  *   @param {object}  spec.bodyFile      { path, type } for the "file" body type, or null
  * @param {(s: string) => Promise<string>} rv  async variable resolver
- * @returns {Promise<{finalUrl, headers, body, bodyFilePath, awsIam, authDigest, authNtlm}>}
+ * @returns {Promise<{finalUrl, headers, body, bodyFilePath, multipart, awsIam, authDigest, authNtlm}>}
+ *   `multipart` (or null) is a { boundary, parts[] } spec the main process streams when a form-data body
+ *   contains file fields; the file bytes are read in main (only paths cross IPC).
  */
 export async function buildRequestPayload(spec, rv) {
   const method = spec.method ?? "GET";
@@ -171,6 +244,7 @@ export async function buildRequestPayload(spec, rv) {
   // server), which can't receive FormData, URLSearchParams, or File objects.
   let body = null;
   let bodyFilePath = null;
+  let multipart = null;
   if (!NO_BODY_METHODS.has(method)) {
     switch (spec.bodyType) {
       case "json":
@@ -196,20 +270,47 @@ export async function buildRequestPayload(spec, rv) {
         break;
       }
       case "form-data": {
-        const boundary = `----WurlBoundary${Date.now()}`;
         const rows = (spec.bodyFormRows ?? []).filter(
           (r) => r.enabled && (r.name ?? "").trim(),
         );
         if (rows.length > 0) {
-          const parts = (
-            await Promise.all(
-              rows.map(
-                async (r) =>
-                  `--${boundary}\r\nContent-Disposition: form-data; name="${await rv(r.name)}"\r\n\r\n${await rv(r.value)}`,
+          const boundary = `----WurlBoundary${Date.now()}`;
+          if (rows.some((r) => r.kind === "file")) {
+            // Mixed text + file parts can't be serialised here — only the file
+            // PATH is available in the renderer, not its bytes. Emit a structured
+            // spec the main process streams (reading each file's bytes in main).
+            multipart = {
+              boundary,
+              parts: await Promise.all(
+                rows.map(async (r) => {
+                  if (r.kind === "file") {
+                    return {
+                      kind: "file",
+                      name: await rv(r.name),
+                      filePath: r.filePath ?? "",
+                      filename: r.fileName || baseName(r.filePath ?? ""),
+                      contentType: r.contentType || "",
+                    };
+                  }
+                  return {
+                    kind: "text",
+                    name: await rv(r.name),
+                    value: await rv(r.value),
+                  };
+                }),
               ),
-            )
-          ).join("\r\n");
-          body = `${parts}\r\n--${boundary}--`;
+            };
+          } else {
+            const parts = (
+              await Promise.all(
+                rows.map(
+                  async (r) =>
+                    `--${boundary}\r\nContent-Disposition: form-data; name="${await rv(r.name)}"\r\n\r\n${await rv(r.value)}`,
+                ),
+              )
+            ).join("\r\n");
+            body = `${parts}\r\n--${boundary}--`;
+          }
           if (!headers["Content-Type"])
             headers["Content-Type"] =
               `multipart/form-data; boundary=${boundary}`;
@@ -236,6 +337,7 @@ export async function buildRequestPayload(spec, rv) {
     headers,
     body,
     bodyFilePath,
+    multipart,
     awsIam,
     authDigest,
     authNtlm,

@@ -582,3 +582,58 @@ test("round-trip: wurl → Insomnia v4 export → import preserves structure", (
     login.params.some((p) => p.name === "verbose" && p.value === "true"),
   );
 });
+
+// ── Round-trip (Postman): multipart file fields + path variables (Feature 49) ─
+
+test("round-trip: form-data file field + path variables survive a Postman cycle", () => {
+  const collection = {
+    id: "c1",
+    type: "collection",
+    name: "Files API",
+    variables: {},
+    children: [
+      {
+        type: "request",
+        name: "Upload",
+        method: "POST",
+        url: "https://api.example.com/users/:id/files",
+        params: [],
+        pathParams: [{ id: "p1", name: "id", value: "42" }],
+        headers: [],
+        bodyType: "form-data",
+        bodyFormRows: [
+          { enabled: true, name: "caption", value: "hello" },
+          {
+            enabled: true,
+            name: "doc",
+            kind: "file",
+            filePath: "/tmp/a.pdf",
+            fileName: "a.pdf",
+            contentType: "application/pdf",
+          },
+        ],
+      },
+    ],
+  };
+
+  const { collection: reimported } = parsePostman(
+    JSON.parse(exportToPostman(collection, [])),
+  );
+  const upload = findRequest(reimported, "Upload");
+  assert.ok(upload, "Upload request missing after round-trip");
+
+  // The path variable and its value survive via Postman's url.variable.
+  assert.deepEqual(
+    upload.pathParams.map((p) => ({ name: p.name, value: p.value })),
+    [{ name: "id", value: "42" }],
+  );
+
+  // The multipart body keeps both the text field and the file field.
+  assert.equal(upload.bodyType, "form-data");
+  const text = upload.bodyFormRows.find((r) => r.name === "caption");
+  const file = upload.bodyFormRows.find((r) => r.name === "doc");
+  assert.equal(text.value, "hello");
+  assert.equal(file.kind, "file");
+  assert.equal(file.filePath, "/tmp/a.pdf");
+  assert.equal(file.contentType, "application/pdf");
+});

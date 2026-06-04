@@ -67,11 +67,22 @@ function exportBody(node) {
   if (type === "form-data") {
     return {
       mode: "formdata",
-      formdata: (node.bodyFormRows ?? []).map((r) => ({
-        key: r.name ?? "",
-        value: r.value ?? "",
-        disabled: !r.enabled,
-      })),
+      formdata: (node.bodyFormRows ?? []).map((r) =>
+        r.kind === "file"
+          ? {
+              key: r.name ?? "",
+              type: "file",
+              src: r.filePath ?? "",
+              ...(r.contentType ? { contentType: r.contentType } : {}),
+              disabled: !r.enabled,
+            }
+          : {
+              key: r.name ?? "",
+              value: r.value ?? "",
+              type: "text",
+              disabled: !r.enabled,
+            },
+      ),
     };
   }
   if (type === "file") {
@@ -131,6 +142,15 @@ function exportItem(node) {
           value: p.value ?? "",
           disabled: !p.enabled,
         })),
+        // Path variables (`:name`/`{name}` tokens) → Postman's url.variable.
+        ...(node.pathParams?.length
+          ? {
+              variable: node.pathParams.map((p) => ({
+                key: p.name ?? "",
+                value: p.value ?? "",
+              })),
+            }
+          : {}),
       },
       auth: exportAuth(node),
       description: node.notes ?? "",

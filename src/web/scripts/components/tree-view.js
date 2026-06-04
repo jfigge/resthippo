@@ -31,6 +31,7 @@ import {
   BODY_CONTENT_TYPES,
   NO_BODY_METHODS,
   encodeBaseUrl,
+  applyPathParams,
 } from "./request-payload.js";
 
 // SVG folder icons (Feather-style, stroke-based)
@@ -924,7 +925,16 @@ export class TreeView {
       };
       const rv = (s) => resolveString(s ?? "", nodeContext);
 
-      const baseUrl = encodeBaseUrl(rv(node.url || "<url>"));
+      // Substitute path params (resolved + encoded) before percent-encoding the
+      // base, mirroring the send path so the cURL URL matches what's sent.
+      const pathMap = new Map();
+      for (const pp of node.pathParams ?? []) {
+        const name = (pp.name ?? "").trim();
+        if (name) pathMap.set(name, encodeURIComponent(rv(pp.value ?? "")));
+      }
+      const baseUrl = encodeBaseUrl(
+        applyPathParams(rv(node.url || "<url>"), pathMap),
+      );
 
       // ── 1. URL — append enabled, non-blank query parameters ──────────────
       const params = Array.isArray(node.params) ? node.params : [];
@@ -993,15 +1003,24 @@ export class TreeView {
       if (!NO_BODY_METHODS.has(method)) {
         switch (bodyType) {
           case "form-data": {
-            // Use --form flags (curl sets Content-Type + boundary automatically)
+            // Use --form flags (curl sets Content-Type + boundary automatically).
+            // A file field becomes `name=path` (the leading `@` is intentionally
+            // omitted; curl's file-read marker is not emitted here).
             const rows = (node.bodyFormRows ?? []).filter(
               (r) => r.enabled && r.name.trim(),
             );
             if (rows.length > 0)
-              formEntries = rows.map((r) => ({
-                name: rv(r.name),
-                value: rv(r.value),
-              }));
+              formEntries = rows.map((r) =>
+                r.kind === "file"
+                  ? {
+                      kind: "file",
+                      name: rv(r.name),
+                      file: r.filePath ?? "",
+                      contentType: r.contentType || "",
+                      filename: r.fileName || "",
+                    }
+                  : { kind: "text", name: rv(r.name), value: rv(r.value) },
+              );
             break;
           }
           case "form-urlencoded": {
@@ -1055,9 +1074,16 @@ export class TreeView {
 
       // Body
       if (formEntries !== null) {
-        // multipart/form-data: one --form flag per field; curl sets Content-Type
-        formEntries.forEach(({ name, value }) => {
-          cmd += ` \\\n  --form ${sq(`${name}=${value}`)}`;
+        // multipart/form-data: one --form flag per field; curl sets Content-Type.
+        formEntries.forEach((e) => {
+          if (e.kind === "file") {
+            let spec = `${e.name}=${e.file}`;
+            if (e.contentType) spec += `;type=${e.contentType}`;
+            if (e.filename) spec += `;filename=${e.filename}`;
+            cmd += ` \\\n  --form ${sq(spec)}`;
+          } else {
+            cmd += ` \\\n  --form ${sq(`${e.name}=${e.value}`)}`;
+          }
         });
       } else if (formPairs !== null) {
         // application/x-www-form-urlencoded: one --data flag per encoded pair.

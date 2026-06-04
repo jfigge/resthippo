@@ -49,11 +49,21 @@ function exportBody(node) {
         : "application/x-www-form-urlencoded";
     return {
       mimeType,
-      params: (node.bodyFormRows ?? []).map((r) => ({
-        name: r.name ?? "",
-        value: r.value ?? "",
-        disabled: !r.enabled,
-      })),
+      params: (node.bodyFormRows ?? []).map((r) =>
+        r.kind === "file"
+          ? {
+              name: r.name ?? "",
+              value: "",
+              type: "file",
+              fileName: r.filePath ?? "",
+              disabled: !r.enabled,
+            }
+          : {
+              name: r.name ?? "",
+              value: r.value ?? "",
+              disabled: !r.enabled,
+            },
+      ),
     };
   }
 

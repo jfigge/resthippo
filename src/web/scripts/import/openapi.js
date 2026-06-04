@@ -184,11 +184,26 @@ class RefResolver {
     const schema = this._derefSchema(media?.schema, new Set());
     const props = schema?.properties;
     if (!props || typeof props !== "object") return [];
-    return Object.entries(props).map(([name, propSchema]) => ({
-      enabled: true,
-      name,
-      value: valueToField(this.exampleFromSchema(propSchema)),
-    }));
+    return Object.entries(props).map(([name, propSchema]) => {
+      const ds = this._derefSchema(propSchema, new Set());
+      // A binary-format string property is an upload field.
+      if (ds?.format === "binary" || ds?.type === "file") {
+        return {
+          enabled: true,
+          name,
+          value: "",
+          kind: "file",
+          filePath: "",
+          fileName: "",
+          contentType: "",
+        };
+      }
+      return {
+        enabled: true,
+        name,
+        value: valueToField(this.exampleFromSchema(propSchema)),
+      };
+    });
   }
 }
 
@@ -386,11 +401,19 @@ function buildBody(spec, operation, isV3, resolver, resolvedParams) {
   const formParams = params.filter((p) => p && p.in === "formData");
   if (formParams.length > 0) {
     const consumes = operation.consumes ?? spec.consumes ?? [];
-    const rows = formParams.map((p) => ({
-      enabled: true,
-      name: p.name ?? "",
-      value: "",
-    }));
+    const rows = formParams.map((p) =>
+      p.type === "file"
+        ? {
+            enabled: true,
+            name: p.name ?? "",
+            value: "",
+            kind: "file",
+            filePath: "",
+            fileName: "",
+            contentType: "",
+          }
+        : { enabled: true, name: p.name ?? "", value: "" },
+    );
     return consumes.includes("multipart/form-data")
       ? { bodyType: "form-data", bodyFormRows: rows }
       : { bodyType: "form-urlencoded", bodyFormRows: rows };

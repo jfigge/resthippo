@@ -9,7 +9,7 @@
 //     Any value that comes from the main process must go through IPC.
 "use strict";
 
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 // ─── Main → Renderer push events ─────────────────────────────────────────────
 ipcRenderer.on("wurl:ui-font-change", (_event, direction) => {
@@ -62,6 +62,24 @@ contextBridge.exposeInMainWorld("wurl", {
 
   /** Platform string: 'darwin' | 'win32' | 'linux' */
   platform: process.platform,
+
+  /**
+   * Resolve the absolute filesystem path for a File chosen via an
+   * <input type="file"> in the renderer. Electron removed the legacy
+   * File.path property in v32; webUtils.getPathForFile — callable only from a
+   * privileged context such as this preload — is the supported replacement.
+   * Returns "" when the path can't be resolved (e.g. a non-disk File).
+   *
+   * @param {File} file
+   * @returns {string}
+   */
+  getPathForFile: (file) => {
+    try {
+      return webUtils.getPathForFile(file) || "";
+    } catch {
+      return "";
+    }
+  },
 
   /**
    * Storage layer — exposes the new per-file storage architecture through IPC.
@@ -235,7 +253,9 @@ contextBridge.exposeInMainWorld("wurl", {
    * (Node.js) process using Node's built-in http/https modules, completely
    * bypassing Chromium's networking stack and its CORS enforcement.
    *
-   * Descriptor: { method, url, headers, body?, bodyFilePath?, timeout?, followRedirects?, verifySsl? }
+   * Descriptor: { method, url, headers, body?, bodyFilePath?, multipart?, timeout?, followRedirects?, verifySsl? }
+   *   multipart — { boundary, parts } for a form-data body with file fields; main
+   *               reads each file's bytes (only the path crosses IPC) and streams it.
    * Result:     { status, statusText, headers, cookies, body, elapsed, size, consoleLog, error?,
    *              truncated?, bodyRef?, fullSize? }
    *

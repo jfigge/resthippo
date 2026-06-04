@@ -59,6 +59,27 @@ const ICONS = {
       '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>' +
       '<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
   },
+  // Curly braces "{ }" — marks a path-parameter row (vs the query checkbox).
+  braces: {
+    inner:
+      '<path d="M8 3a3 3 0 0 0-3 3v3a2 2 0 0 1-2 2 2 2 0 0 1 2 2v3a3 3 0 0 0 3 3"/>' +
+      '<path d="M16 3a3 3 0 0 1 3 3v3a2 2 0 0 0 2 2 2 2 0 0 0-2 2v3a3 3 0 0 1-3 3"/>',
+  },
+  // "Aa" lettering — marks a form-data row as a plain TEXT field. Drawn as a
+  // filled glyph (not strokes); inherits the surrounding UI font.
+  text: {
+    inner:
+      '<text x="12" y="13" text-anchor="middle" dominant-baseline="central"' +
+      ' font-size="22.5" font-weight="400">Aa</text>',
+    fill: "currentColor",
+    stroke: "none",
+  },
+  // Document with a folded corner — marks a form-data row as a FILE upload.
+  file: {
+    inner:
+      '<path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>' +
+      '<polyline points="13 2 13 9 20 9"/>',
+  },
   // Open eye — the "reveal" affordance on a masked secret field.
   eye: {
     inner:

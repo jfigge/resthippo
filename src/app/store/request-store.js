@@ -32,6 +32,7 @@ const PATCHABLE_FIELDS = [
   "bodyFilePath",
   "bodyFormRows",
   "params",
+  "pathParams",
   "headers",
   "authEnabled",
   "authType",

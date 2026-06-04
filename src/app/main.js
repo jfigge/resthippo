@@ -18,6 +18,7 @@ const path = require("path");
 const http = require("http");
 const https = require("https");
 const net = require("net");
+const { Readable } = require("stream");
 const { spawn } = require("child_process");
 const { URL } = require("url");
 
@@ -360,6 +361,82 @@ function safeCallWrite(channel, fn) {
   }
 
   /**
+   * Assemble a multipart/form-data body from a { boundary, parts } spec built by
+   * the renderer (request-payload.js). Text parts are inlined; file parts are
+   * streamed from disk — the bytes are read HERE, in the main process, so only
+   * the file path ever crossed IPC. `statSync` lets us set an exact
+   * Content-Length while still streaming the bytes (so large files don't buffer).
+   *
+   * Returns the precomputed byte length plus two consumers: `createStream()` for
+   * the normal streamed send, and `toBuffer()` for the rare AWS-SigV4 case that
+   * must hash the whole body. Throws (caught by the caller) if a file part can't
+   * be stat'd / read — a missing upload file is a hard error, not a silent skip.
+   *
+   * @param {{ boundary: string, parts: object[] }} multipart
+   */
+  function buildMultipartBody(multipart) {
+    const { boundary } = multipart;
+    const CRLF = "\r\n";
+    // Strip CR/LF and neutralise quotes in field names/filenames so they can't
+    // break out of the Content-Disposition header (RFC 7578 sanitisation).
+    const clean = (s) =>
+      String(s ?? "").replace(/[\r\n"]/g, (c) => (c === '"' ? "%22" : ""));
+
+    const segments = multipart.parts.map((part) => {
+      let header = `--${boundary}${CRLF}Content-Disposition: form-data; name="${clean(part.name)}"`;
+      if (part.kind === "file") {
+        header += `; filename="${clean(part.filename)}"${CRLF}`;
+        header += `Content-Type: ${part.contentType || "application/octet-stream"}${CRLF}${CRLF}`;
+        return {
+          header: Buffer.from(header),
+          file: part.filePath,
+          contentLen: fs.statSync(part.filePath).size,
+        };
+      }
+      header += `${CRLF}${CRLF}`;
+      const buf = Buffer.from(part.value ?? "", "utf8");
+      return { header: Buffer.from(header), buf, contentLen: buf.length };
+    });
+    const closing = Buffer.from(`--${boundary}--${CRLF}`);
+    const crlfLen = Buffer.byteLength(CRLF);
+
+    let length = closing.length;
+    for (const s of segments)
+      length += s.header.length + s.contentLen + crlfLen;
+
+    return {
+      length,
+      createStream() {
+        return Readable.from(
+          (async function* () {
+            for (const s of segments) {
+              yield s.header;
+              if (s.file) {
+                for await (const chunk of fs.createReadStream(s.file))
+                  yield chunk;
+              } else {
+                yield s.buf;
+              }
+              yield Buffer.from(CRLF);
+            }
+            yield closing;
+          })(),
+        );
+      },
+      toBuffer() {
+        const chunks = [];
+        for (const s of segments) {
+          chunks.push(s.header);
+          chunks.push(s.file ? fs.readFileSync(s.file) : s.buf);
+          chunks.push(Buffer.from(CRLF));
+        }
+        chunks.push(closing);
+        return Buffer.concat(chunks);
+      },
+    };
+  }
+
+  /**
    * Perform one HTTP request leg (no redirect logic here — handled below).
    * Returns a Promise that always resolves (never rejects) with a result object.
    *
@@ -375,6 +452,7 @@ function safeCallWrite(channel, fn) {
       headers = {},
       body = null,
       bodyFilePath = null,
+      multipart = null,
       timeout = 30000,
       followRedirects = true,
       verifySsl = true,
@@ -464,6 +542,7 @@ function safeCallWrite(channel, fn) {
       // ── Resolve body ───────────────────────────────────────────────────────
       const reqHeaders = { ...headers };
       let bodyBuffer = null;
+      let multipartStream = null; // set when streaming a multipart/form-data body
 
       // ── Attach matching jar cookies ─────────────────────────────────────────
       // The jar lives in the main process; selectCookies() only returns cookies
@@ -490,7 +569,39 @@ function safeCallWrite(channel, fn) {
       }
 
       if (redirects === 0 && !desc._ntlmNegotiate) {
-        if (bodyFilePath) {
+        if (multipart) {
+          let built;
+          try {
+            built = buildMultipartBody(multipart);
+          } catch (e) {
+            consoleLog.push(`* Multipart file error: ${e.message}`);
+            resolve({
+              status: 0,
+              statusText: "",
+              headers: {},
+              cookies: [],
+              body: "",
+              elapsed: Date.now() - startTime,
+              size: 0,
+              consoleLog,
+              error: { name: "FileError", message: e.message },
+            });
+            return;
+          }
+          if (awsIam?.accessKeyId && awsIam?.secretAccessKey) {
+            // SigV4 must hash the whole body — buffer it (rare combo).
+            consoleLog.push(
+              "* AWS SigV4 + multipart: buffering body in memory so it can be signed",
+            );
+            bodyBuffer = built.toBuffer();
+            if (!reqHeaders["Content-Length"])
+              reqHeaders["Content-Length"] = String(bodyBuffer.length);
+          } else {
+            multipartStream = built.createStream();
+            if (!reqHeaders["Content-Length"])
+              reqHeaders["Content-Length"] = String(built.length);
+          }
+        } else if (bodyFilePath) {
           try {
             bodyBuffer = fs.readFileSync(bodyFilePath);
             if (!reqHeaders["Content-Length"])
@@ -547,6 +658,14 @@ function safeCallWrite(channel, fn) {
           .toString("utf8")
           .split("\n")
           .forEach((line) => consoleLog.push(`| ${line}`));
+        consoleLog.push("");
+        consoleLog.push("* We are completely uploaded and fine");
+      } else if (multipartStream) {
+        // The body is streamed (file bytes never buffer), so only summarise it.
+        consoleLog.push("");
+        consoleLog.push(
+          `| [multipart/form-data — ${multipart.parts.length} part(s), streamed from disk]`,
+        );
         consoleLog.push("");
         consoleLog.push("* We are completely uploaded and fine");
       }
@@ -650,6 +769,7 @@ function safeCallWrite(channel, fn) {
               url: redirectUrl,
               body: newMethod === "GET" ? null : body,
               bodyFilePath: newMethod === "GET" ? null : bodyFilePath,
+              multipart: newMethod === "GET" ? null : multipart,
             },
             consoleLog,
             startTime,
@@ -1026,8 +1146,18 @@ function safeCallWrite(channel, fn) {
         });
       });
 
-      if (bodyBuffer) req.write(bodyBuffer);
-      req.end();
+      if (multipartStream) {
+        // pipe() ends the request when the stream finishes; a read error on a
+        // file part aborts the request, surfacing through req's "error" handler.
+        multipartStream.on("error", (e) => {
+          consoleLog.push(`* Multipart stream error: ${e.message}`);
+          req.destroy(e);
+        });
+        multipartStream.pipe(req);
+      } else {
+        if (bodyBuffer) req.write(bodyBuffer);
+        req.end();
+      }
     });
   }
 

@@ -114,11 +114,29 @@ function parseBody(body) {
     case "formdata":
       return {
         bodyType: "form-data",
-        bodyFormRows: (body.formdata ?? []).map((r) => ({
-          enabled: !r.disabled,
-          name: r.key ?? "",
-          value: r.value ?? "",
-        })),
+        bodyFormRows: (body.formdata ?? []).map((r) => {
+          if (r.type === "file") {
+            // Postman's `src` is a path string (or an array of paths for a
+            // multi-file field — we take the first; wurl is one file per row).
+            const filePath = Array.isArray(r.src)
+              ? (r.src[0] ?? "")
+              : (r.src ?? "");
+            return {
+              enabled: !r.disabled,
+              name: r.key ?? "",
+              value: "",
+              kind: "file",
+              filePath,
+              fileName: filePath.split(/[\\/]/).pop() ?? "",
+              contentType: r.contentType ?? "",
+            };
+          }
+          return {
+            enabled: !r.disabled,
+            name: r.key ?? "",
+            value: r.value ?? "",
+          };
+        }),
       };
     case "file":
       return { bodyType: "file", bodyFilePath: body.src ?? "" };
@@ -131,6 +149,17 @@ function _descriptionText(desc) {
   if (!desc) return "";
   if (typeof desc === "string") return desc;
   return desc.content ?? "";
+}
+
+/** Read Postman's url.variable (path variables) into wurl path params. */
+function parsePathVars(url) {
+  if (!url || typeof url !== "object" || !Array.isArray(url.variable))
+    return [];
+  return url.variable.map((v) => ({
+    id: crypto.randomUUID(),
+    name: v.key ?? "",
+    value: v.value ?? "",
+  }));
 }
 
 function parseItem(item) {
@@ -152,6 +181,7 @@ function parseItem(item) {
     method: (req.method ?? "GET").toUpperCase(),
     url: parseUrl(req.url),
     params: parseQueryFromUrl(req.url),
+    pathParams: parsePathVars(req.url),
     headers: (req.header ?? []).map((h) => ({
       enabled: !h.disabled,
       name: h.key ?? "",

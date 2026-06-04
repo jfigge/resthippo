@@ -1247,7 +1247,6 @@ html.show-method-icons .req-method-menu__item-label::before {
   grid-template-columns: 24px 28px 1fr 1fr 28px;
   align-items: center;
   gap: var(--space-3);
-  border-radius: var(--radius-sm);
   margin: 0 var(--space-2);
   transition: background-color var(--transition-fast);
 }
@@ -1365,6 +1364,122 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 .params-value--masked {
   -webkit-text-security: disc;
+}
+
+/* ── Feature 49: form-data file fields + path params ───────────────────────── */
+
+/* Form-data rows gain a Text/File type column → switch to a 6-column grid.
+   The type toggle is icon-only, so its column is as narrow as the others. */
+.body-form--with-type .params-header-row,
+.body-form--with-type .params-row {
+  grid-template-columns: 24px 28px 28px 1fr 1fr 28px;
+}
+
+/* Per-row Text/File type toggle — an icon button kept visually quiet (it's
+   rarely changed): muted by default, brightening on hover/focus. */
+.bf-type-toggle {
+  width: 26px;
+  height: var(--control-h-sm);
+  justify-self: center;
+  color: var(--color-overlay-0);
+}
+
+.bf-type-toggle:hover,
+.bf-type-toggle:focus {
+  color: var(--color-text);
+  outline: none;
+}
+
+/* File picker cell (replaces the value pill editor on a file row). */
+.bf-file-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.bf-file-choose {
+  height: var(--control-h-xs);
+  padding: 0 var(--space-3);
+  border: 1px dashed var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-subtext);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.bf-file-choose:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}
+
+.bf-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.bf-file-clear {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  line-height: 1;
+  font-size: 16px;
+  color: var(--color-overlay-0);
+}
+
+.bf-file-clear:hover {
+  color: var(--color-subtext);
+}
+
+/* Path-param rows: indicator glyph (in place of the checkbox) + plain name input. */
+.path-param-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+}
+
+.path-param-name {
+  width: 100%;
+  height: var(--control-h-xs);
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  box-sizing: border-box;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.path-param-name:hover {
+  border-color: var(--color-surface-2);
+}
+
+.path-param-name:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-base);
+}
+
+/* Divider under the last query-param row, separating it from the path params. */
+.params-row--section-end {
+  border-bottom: 1px solid var(--color-surface-2);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
 }
 
 .params-reveal-btn {

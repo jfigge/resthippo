@@ -14,7 +14,11 @@
 import { LayoutPicker } from "./components/layout-picker.js";
 import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
-import { buildRequestPayload } from "./components/request-payload.js";
+import {
+  buildRequestPayload,
+  applyPathParams,
+  resolvePathParamValues,
+} from "./components/request-payload.js";
 import { ResponseViewer } from "./components/response-viewer.js";
 import { SettingsPopup } from "./components/settings-popup.js";
 import { CollectionsPopup } from "./components/collections-popup.js";
@@ -145,6 +149,8 @@ function _buildSnapshot(node) {
     method: node.method ?? "GET",
     url: node.url ?? "",
     params: paramsBulk,
+    // Path-param values are kept structured (they're URL-derived, not bulk text).
+    pathParams: Array.isArray(node.pathParams) ? node.pathParams : [],
     headers: headersBulk,
     authType,
     authEnabled,
@@ -1636,6 +1642,7 @@ function initEventBus() {
       headers: descriptor.headers ?? {},
       body: typeof descriptor.body === "string" ? descriptor.body : null,
       bodyFilePath: descriptor.bodyFilePath ?? null,
+      multipart: descriptor.multipart ?? null,
       timeout: currentSettings.timeout ?? 30000,
       followRedirects: currentSettings.followRedirects ?? true,
       verifySsl: currentSettings.verifySsl ?? true,
@@ -2168,13 +2175,18 @@ async function _executeRequestNode(node, ctx) {
     headers,
     body,
     bodyFilePath,
+    multipart,
     awsIam,
     authDigest,
     authNtlm,
   } = await buildRequestPayload(
     {
       method,
-      urlBase: await rv(node.url ?? ""),
+      // Substitute path params before the (intentionally un-encoded) base URL.
+      urlBase: applyPathParams(
+        await rv(node.url ?? ""),
+        await resolvePathParamValues(node.pathParams, rv),
+      ),
       params: node.params,
       headers: node.headers,
       authEnabled: node.authEnabled !== false,
@@ -2199,6 +2211,7 @@ async function _executeRequestNode(node, ctx) {
     headers,
     body,
     bodyFilePath,
+    multipart,
     timeout: currentSettings.timeout ?? 30000,
     followRedirects: currentSettings.followRedirects ?? true,
     verifySsl: currentSettings.verifySsl ?? true,

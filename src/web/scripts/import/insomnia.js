@@ -66,11 +66,23 @@ function parseBody(body) {
   if (mime === "multipart/form-data") {
     return {
       bodyType: "form-data",
-      bodyFormRows: (body.params ?? []).map((p) => ({
-        enabled: !p.disabled,
-        name: p.name ?? "",
-        value: p.value ?? "",
-      })),
+      bodyFormRows: (body.params ?? []).map((p) =>
+        p.type === "file"
+          ? {
+              enabled: !p.disabled,
+              name: p.name ?? "",
+              value: "",
+              kind: "file",
+              filePath: p.fileName ?? "",
+              fileName: (p.fileName ?? "").split(/[\\/]/).pop() ?? "",
+              contentType: "",
+            }
+          : {
+              enabled: !p.disabled,
+              name: p.name ?? "",
+              value: p.value ?? "",
+            },
+      ),
     };
   }
   if (body.text) return { bodyType: "text", bodyText: body.text };

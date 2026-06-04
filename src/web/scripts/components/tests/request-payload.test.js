@@ -25,6 +25,9 @@ import {
   encodeBaseUrl,
   BODY_CONTENT_TYPES,
   NO_BODY_METHODS,
+  detectPathParams,
+  applyPathParams,
+  resolvePathParamValues,
 } from "../request-payload.js";
 
 /** Identity resolver — request specs in these tests use literal values. */
@@ -334,6 +337,122 @@ test("file body: exposes the file path and a Content-Type", async () => {
   );
   assert.equal(bodyFilePath, "/tmp/upload.bin");
   assert.equal(headers["Content-Type"], "application/octet-stream");
+});
+
+// ── Multipart with file fields (Feature 49) ──────────────────────────────────
+
+test("form-data with a file row: emits a structured multipart spec, not a string body", async () => {
+  const { body, multipart, headers } = await buildRequestPayload(
+    {
+      method: "POST",
+      urlBase: "https://x",
+      bodyType: "form-data",
+      bodyFormRows: [
+        { enabled: true, name: "caption", value: "hi" },
+        {
+          enabled: true,
+          name: "doc",
+          kind: "file",
+          filePath: "/tmp/a.pdf",
+          fileName: "a.pdf",
+          contentType: "application/pdf",
+        },
+        {
+          enabled: true,
+          name: "doc2",
+          kind: "file",
+          filePath: "/tmp/b.png",
+          fileName: "b.png",
+          contentType: "",
+        },
+      ],
+    },
+    identity,
+  );
+  // The whole body crosses to main as a structured spec; no string body.
+  assert.equal(body, null);
+  assert.ok(multipart, "multipart spec should be present");
+  assert.match(
+    headers["Content-Type"],
+    /^multipart\/form-data; boundary=----WurlBoundary/,
+  );
+  assert.ok(headers["Content-Type"].includes(multipart.boundary));
+  assert.equal(multipart.parts.length, 3);
+  assert.deepEqual(multipart.parts[0], {
+    kind: "text",
+    name: "caption",
+    value: "hi",
+  });
+  assert.deepEqual(multipart.parts[1], {
+    kind: "file",
+    name: "doc",
+    filePath: "/tmp/a.pdf",
+    filename: "a.pdf",
+    contentType: "application/pdf",
+  });
+  // Missing fileName falls back to the path's basename.
+  const part2 = multipart.parts[2];
+  assert.equal(part2.kind, "file");
+  assert.equal(part2.filename, "b.png");
+});
+
+test("form-data without file rows: still a string body, multipart is null", async () => {
+  const { body, multipart } = await buildRequestPayload(
+    {
+      method: "POST",
+      urlBase: "https://x",
+      bodyType: "form-data",
+      bodyFormRows: [{ enabled: true, name: "field", value: "val" }],
+    },
+    identity,
+  );
+  assert.equal(multipart, null);
+  assert.match(body, /Content-Disposition: form-data; name="field"\r\n\r\nval/);
+});
+
+// ── Path-parameter helpers (Feature 49) ──────────────────────────────────────
+
+test("detectPathParams: finds :name and {name} tokens in URL order, deduped", () => {
+  const tokens = detectPathParams(
+    "https://h/users/:id/posts/{postId}/users/:id",
+  );
+  assert.deepEqual(tokens, [
+    { name: "id", style: ":" },
+    { name: "postId", style: "{}" },
+  ]);
+});
+
+test("detectPathParams: ignores {{vars}}, the scheme colon, and the port", () => {
+  assert.deepEqual(
+    detectPathParams("https://host:8080/x?y={{q}}"),
+    [],
+    "scheme, port and {{var}} are not path params",
+  );
+  // A `{{var}}` next to a real `{id}` token: only the path token is detected.
+  assert.deepEqual(detectPathParams("https://h/{id}?x={{id}}"), [
+    { name: "id", style: "{}" },
+  ]);
+});
+
+test("applyPathParams: substitutes mapped tokens, leaves {{vars}} and unmapped tokens", () => {
+  const url = "https://h/users/:id/p/{postId}?x={{q}}";
+  const out = applyPathParams(url, new Map([["id", "42"]]));
+  // :id substituted; {postId} unmapped → literal; {{q}} untouched.
+  assert.equal(out, "https://h/users/42/p/{postId}?x={{q}}");
+});
+
+test("resolvePathParamValues: resolves + percent-encodes values, skips blank names", async () => {
+  const map = await resolvePathParamValues(
+    [
+      { name: "id", value: "{{n}}" },
+      { name: " ", value: "ignored" },
+      { name: "q", value: "a b/c" },
+    ],
+    mapResolver({ n: "7" }),
+  );
+  assert.equal(map.get("id"), "7");
+  assert.equal(map.get("q"), "a%20b%2Fc");
+  assert.equal(map.has(" "), false);
 });
 
 // ── encodeBaseUrl ────────────────────────────────────────────────────────────

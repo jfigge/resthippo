@@ -20,7 +20,13 @@ import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
 import Prism from "../vendor/prism.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
-import { buildRequestPayload, encodeBaseUrl } from "./request-payload.js";
+import {
+  buildRequestPayload,
+  encodeBaseUrl,
+  detectPathParams,
+  applyPathParams,
+  resolvePathParamValues,
+} from "./request-payload.js";
 import { RequestAuthEditor } from "./request-auth-editor.js";
 import {
   DragReorderController,
@@ -342,6 +348,9 @@ export class RequestEditor {
 
   // Params state
   #params = []; // [{ id, name, value, enabled }]
+  // Path params (Feature 49) — derived from `:name`/`{name}` tokens in the URL,
+  // rendered below the query params in the same table. [{ id, name, value, style }].
+  #pathParams = [];
   #paramsListEl = null;
   #urlPreviewEnabled = true; // toggled by "Show URL" checkbox
   #urlPreviewEl = null; // the preview bar element
@@ -616,7 +625,14 @@ export class RequestEditor {
       ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
       onInput: (v) => {
         this.#url = v.trim();
+        // Re-derive the path-param rows from the URL; re-render the Params list
+        // only when the token set actually changed (add/remove/restyle).
+        const pathChanged = this.#reconcilePathParamsFromUrl();
         this.#dispatchRequestUpdated();
+        if (pathChanged) {
+          this.#dispatchPathParamsUpdated();
+          this.#renderParamsList();
+        }
         this.#updateUrlPreview();
       },
       onEnter: () => this.#sendRequest(),
@@ -926,12 +942,15 @@ export class RequestEditor {
     // ── Bulk mode textarea ────────────────────────────────────────────────
     const bfBulkTa = document.createElement("textarea");
     bfBulkTa.className = "body-text-editor";
-    bfBulkTa.placeholder = "name=value\nfield1=foo\nfield2=bar\n# disabled=row";
+    bfBulkTa.placeholder =
+      this.#bodyType === "form-data"
+        ? "name=value\nfile=@/path/to/file\n# disabled=row"
+        : "name=value\nfield1=foo\nfield2=bar\n# disabled=row";
     bfBulkTa.spellcheck = false;
     bfBulkTa.setAttribute("aria-label", "Form fields bulk editor");
-    bfBulkTa.value = this.#kvRowsToText(this.#bodyFormRows);
+    bfBulkTa.value = this.#bodyFormToBulkText();
     bfBulkTa.addEventListener("input", () => {
-      this.#bodyFormRows = this.#textToKvRows(bfBulkTa.value);
+      this.#bodyFormRows = this.#bodyFormFromBulkText(bfBulkTa.value);
       this.#dispatchBodyUpdated();
     });
     this.#bodyFormBulkEl = bfBulkTa;
@@ -941,14 +960,23 @@ export class RequestEditor {
     const bfKvWrap = document.createElement("div");
     bfKvWrap.style.cssText =
       "display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden";
+    // form-data rows carry a Text/File type column → widen the grid via CSS.
+    if (this.#bodyType === "form-data") {
+      bfKvWrap.classList.add("body-form--with-type");
+    }
     this.#bodyFormKvWrapEl = bfKvWrap;
 
-    // Column headers
+    // Column headers — form-data gets an extra Text/File type column.
+    const typeCol =
+      this.#bodyType === "form-data"
+        ? `<span class="params-col-type"></span>`
+        : "";
     const hdr = document.createElement("div");
     hdr.className = "params-header-row";
     hdr.innerHTML = `
       <span class="params-col-handle"></span>
       <span class="params-col-enabled"></span>
+      ${typeCol}
       <span class="params-col-name">Name</span>
       <span class="params-col-value">Value</span>
       <span class="params-col-delete"></span>`;
@@ -979,9 +1007,22 @@ export class RequestEditor {
   }
 
   #buildBfRow(row, rows) {
-    // Name pill editor
     const getCtx = () => this.#variableContext;
     const getItms = () => this.#getItems();
+    // File fields exist only in multipart form-data, never form-urlencoded.
+    const allowFile = this.#bodyType === "form-data";
+    const addRow = () => {
+      rows.push({
+        id: crypto.randomUUID(),
+        name: "",
+        value: "",
+        enabled: true,
+      });
+      this.#renderBodyContent();
+      this.#dispatchBodyUpdated();
+    };
+
+    // ── Name pill editor (text and file rows alike) ──────────────────────
     const nameEditor = new VariablePillEditor({
       placeholder: "Name",
       ariaLabel: "Field name",
@@ -993,52 +1034,71 @@ export class RequestEditor {
         row.name = v;
         this.#dispatchBodyUpdated();
       },
-      onEnter: () => {
-        rows.push({
-          id: crypto.randomUUID(),
-          name: "",
-          value: "",
-          enabled: true,
-        });
-        this.#renderBodyContent();
-        this.#dispatchBodyUpdated();
-      },
+      onEnter: addRow,
     });
     nameEditor.setValue(row.name);
     this.#bodyFormPillEditors.push(nameEditor);
 
-    // Value pill editor
-    const valueEditor = new VariablePillEditor({
-      placeholder: "Value",
-      ariaLabel: "Field value",
-      className: "params-value",
-      getContext: getCtx,
-      getItems: getItms,
-      ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
-      onInput: (v) => {
-        row.value = v;
-        this.#dispatchBodyUpdated();
-      },
-      onEnter: () => {
-        rows.push({
-          id: crypto.randomUUID(),
-          name: "",
-          value: "",
-          enabled: true,
-        });
+    // ── Value cell: a file picker for file rows, else a value pill editor ─
+    let valueEl;
+    if (allowFile && row.kind === "file") {
+      valueEl = this.#buildBfFileCell(row);
+    } else {
+      const valueEditor = new VariablePillEditor({
+        placeholder: "Value",
+        ariaLabel: "Field value",
+        className: "params-value",
+        getContext: getCtx,
+        getItems: getItms,
+        ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
+        onInput: (v) => {
+          row.value = v;
+          this.#dispatchBodyUpdated();
+        },
+        onEnter: addRow,
+      });
+      valueEditor.setValue(row.value);
+      this.#bodyFormPillEditors.push(valueEditor);
+      valueEl = valueEditor.element;
+    }
+
+    // ── Text/File type toggle (form-data only) — an icon button that flips
+    //    the field between a text value and a file upload. The glyph shows the
+    //    CURRENT kind; the tooltip names it and the action. The whole row is
+    //    rebuilt on toggle, so no in-place icon swap is needed here. ─────────
+    let leading = null;
+    if (allowFile) {
+      const isFile = row.kind === "file";
+      const typeToggle = document.createElement("button");
+      typeToggle.type = "button";
+      typeToggle.className = "icon-btn bf-type-toggle";
+      typeToggle.innerHTML = icon(isFile ? "file" : "text", { size: 14 });
+      const label = isFile
+        ? "File field — switch to text"
+        : "Text field — switch to file";
+      typeToggle.title = label;
+      typeToggle.setAttribute("aria-label", label);
+      typeToggle.addEventListener("click", () => {
+        if (row.kind === "file") {
+          row.kind = "text";
+          row.filePath = row.fileName = row.contentType = "";
+        } else {
+          row.kind = "file";
+          row.value = ""; // text value is meaningless for a file field
+        }
         this.#renderBodyContent();
         this.#dispatchBodyUpdated();
-      },
-    });
-    valueEditor.setValue(row.value);
-    this.#bodyFormPillEditors.push(valueEditor);
+      });
+      leading = typeToggle;
+    }
 
     return this.#buildKvRow({
       item: row,
       noun: "field",
       name: nameEditor.element,
-      value: valueEditor.element,
+      value: valueEl,
       drag: this.#bfDrag,
+      leading,
       onToggle: () => this.#dispatchBodyUpdated(),
       onDelete: () => {
         this.#bodyFormRows = rows.filter((r) => r.id !== row.id);
@@ -1046,6 +1106,129 @@ export class RequestEditor {
         this.#dispatchBodyUpdated();
       },
     });
+  }
+
+  /**
+   * Build the value-cell file picker for a form-data file field. The file's
+   * absolute PATH is captured here via window.wurl.getPathForFile (Electron
+   * removed File.path in v32); the bytes are read in the main process at send
+   * time, so only the path crosses IPC.
+   */
+  #buildBfFileCell(row) {
+    const cell = document.createElement("div");
+    cell.className = "params-value bf-file-cell";
+
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.style.display = "none";
+    fileInput.addEventListener("change", () => {
+      const f = fileInput.files?.[0];
+      if (!f) return;
+      row.filePath = window.wurl?.getPathForFile?.(f) || f.path || f.name;
+      row.fileName = f.name;
+      row.contentType = f.type || "";
+      this.#renderBodyContent();
+      this.#dispatchBodyUpdated();
+    });
+    cell.appendChild(fileInput);
+
+    if (row.filePath) {
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "bf-file-name";
+      nameSpan.textContent = row.fileName || row.filePath;
+      nameSpan.title = row.filePath;
+      cell.appendChild(nameSpan);
+
+      const clearBtn = document.createElement("button");
+      clearBtn.className = "icon-btn bf-file-clear";
+      clearBtn.title = "Remove file";
+      clearBtn.setAttribute("aria-label", "Remove file");
+      clearBtn.textContent = "×";
+      clearBtn.addEventListener("click", () => {
+        row.filePath = row.fileName = row.contentType = "";
+        this.#renderBodyContent();
+        this.#dispatchBodyUpdated();
+      });
+      cell.appendChild(clearBtn);
+    } else {
+      const browseBtn = document.createElement("button");
+      browseBtn.className = "bf-file-choose";
+      browseBtn.textContent = "Choose file…";
+      browseBtn.addEventListener("click", () => fileInput.click());
+      cell.appendChild(browseBtn);
+    }
+    return cell;
+  }
+
+  /**
+   * Serialize the form rows to bulk text. In form-data a file field uses `=@`
+   * as its assignment marker (`name=@<path>`, or `name=@` for an unassigned
+   * file) so it is visible and distinguishable from a text field (`name=value`);
+   * disabled rows keep the leading `# `. form-urlencoded has no file fields, so
+   * it falls back to the plain shared serializer.
+   */
+  #bodyFormToBulkText() {
+    if (this.#bodyType !== "form-data") {
+      return this.#kvRowsToText(this.#bodyFormRows);
+    }
+    return this.#bodyFormRows
+      .map((r) => {
+        const prefix = r.enabled ? "" : "# ";
+        return r.kind === "file"
+          ? `${prefix}${r.name}=@${r.filePath ?? ""}`
+          : `${prefix}${r.name}=${r.value ?? ""}`;
+      })
+      .join("\n");
+  }
+
+  /**
+   * Parse bulk text back into form rows. In form-data, a value beginning with
+   * `@` (immediately after the `=`) marks a file field; the rest is its path.
+   * File metadata (fileName / contentType) is recovered by matching the path
+   * back to an existing file row so a bulk round-trip doesn't lose it.
+   */
+  #bodyFormFromBulkText(text) {
+    if (this.#bodyType !== "form-data") {
+      return this.#textToKvRows(text);
+    }
+    const prevFiles = this.#bodyFormRows.filter((r) => r.kind === "file");
+    const out = [];
+    for (const line of text.split("\n")) {
+      let trimmed = line.trim();
+      if (!trimmed) continue;
+      const disabled = trimmed.startsWith("# ");
+      if (disabled) trimmed = trimmed.slice(2).trim();
+      if (!trimmed) continue;
+      const eqIdx = trimmed.indexOf("=");
+      const name = eqIdx === -1 ? trimmed : trimmed.slice(0, eqIdx).trim();
+      if (!name) continue;
+      const rhs = eqIdx === -1 ? "" : trimmed.slice(eqIdx + 1);
+      if (rhs.startsWith("@")) {
+        const filePath = rhs.slice(1);
+        const prev = filePath
+          ? prevFiles.find((r) => (r.filePath ?? "") === filePath)
+          : null;
+        out.push({
+          id: crypto.randomUUID(),
+          name,
+          value: "",
+          enabled: !disabled,
+          kind: "file",
+          filePath,
+          fileName: prev?.fileName || (filePath.split(/[\\/]/).pop() ?? ""),
+          contentType: prev?.contentType ?? "",
+        });
+      } else {
+        out.push({
+          id: crypto.randomUUID(),
+          name,
+          value: rhs,
+          enabled: !disabled,
+          kind: "text",
+        });
+      }
+    }
+    return out;
   }
 
   // ── Text editor (JSON / YAML / XML / Plain Text) ──────────────────────────
@@ -1315,7 +1498,8 @@ export class RequestEditor {
     fileInput.addEventListener("change", () => {
       const f = fileInput.files?.[0];
       if (!f) return;
-      this.#bodyFilePath = f.path || f.name; // Electron exposes .path
+      // Electron removed File.path in v32; resolve via the preload bridge.
+      this.#bodyFilePath = window.wurl?.getPathForFile?.(f) || f.path || f.name;
       this.#bodyFileObject = f;
       this.#renderFileChosen(el);
       this.#dispatchBodyUpdated();
@@ -1338,7 +1522,11 @@ export class RequestEditor {
       zone.classList.remove("body-file-zone--over");
       const f = e.dataTransfer.files?.[0];
       if (!f) return;
-      this.#bodyFilePath = f.path || f.webkitRelativePath || f.name;
+      this.#bodyFilePath =
+        window.wurl?.getPathForFile?.(f) ||
+        f.path ||
+        f.webkitRelativePath ||
+        f.name;
       this.#bodyFileObject = f;
       this.#renderFileChosen(el);
       this.#dispatchBodyUpdated();
@@ -1932,7 +2120,9 @@ export class RequestEditor {
 
     this.#paramsListEl.innerHTML = "";
 
-    if (this.#params.length === 0) {
+    const hasPath = this.#pathParams.length > 0;
+
+    if (this.#params.length === 0 && !hasPath) {
       const empty = document.createElement("div");
       empty.className = "params-empty";
       empty.textContent = "No parameters — click  +  to add one.";
@@ -1941,10 +2131,148 @@ export class RequestEditor {
       return;
     }
 
-    this.#params.forEach((param, index) => {
-      this.#paramsListEl.appendChild(this.#buildParamRow(param, index));
-    });
+    // Query params first.
+    const queryRows = this.#params.map((param, index) =>
+      this.#buildParamRow(param, index),
+    );
+    // A divider under the last query row separates query from path params —
+    // only when path params exist (and there is a query row to draw it on).
+    if (hasPath && queryRows.length) {
+      queryRows[queryRows.length - 1].classList.add("params-row--section-end");
+    }
+    queryRows.forEach((row) => this.#paramsListEl.appendChild(row));
+
+    // Path params (URL-derived) appended below, in URL order.
+    this.#pathParams.forEach((pp) =>
+      this.#paramsListEl.appendChild(this.#buildPathParamRow(pp)),
+    );
+
     this.#updateUrlPreview();
+  }
+
+  // ── Path params ────────────────────────────────────────────────────────────
+
+  /**
+   * Re-derive `#pathParams` from the URL's `:name`/`{name}` tokens, preserving
+   * existing values by name, adding new tokens (empty value), and dropping ones
+   * no longer present. Returns true when the token set (names/styles/order)
+   * changed, so the caller can avoid a needless re-render on pure value edits.
+   */
+  #reconcilePathParamsFromUrl() {
+    const tokens = detectPathParams(this.#url);
+    const sig = (arr) => arr.map((t) => `${t.style}:${t.name}`).join("\n");
+    const before = sig(this.#pathParams);
+    const byName = new Map(this.#pathParams.map((p) => [p.name, p]));
+    this.#pathParams = tokens.map((t) => {
+      const existing = byName.get(t.name);
+      return existing
+        ? { ...existing, style: t.style }
+        : { id: crypto.randomUUID(), name: t.name, value: "", style: t.style };
+    });
+    return sig(this.#pathParams) !== before;
+  }
+
+  #buildPathParamRow(pp) {
+    // Name — a plain input mapped 1:1 to a URL token (no {{var}} pills here).
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.className = "params-name path-param-name";
+    nameInput.value = pp.name;
+    nameInput.placeholder = "name";
+    nameInput.spellcheck = false;
+    nameInput.setAttribute("aria-label", "Path parameter name");
+    nameInput.addEventListener("input", () =>
+      this.#renamePathParam(pp, nameInput.value),
+    );
+
+    // Value — a pill editor (variables/functions + secret reveal, as query values).
+    const valueEditor = new VariablePillEditor({
+      placeholder: "Value",
+      ariaLabel: "Path parameter value",
+      className: "params-value",
+      getContext: () => this.#variableContext,
+      getItems: () => this.#getItems(),
+      ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
+      onInput: (v) => {
+        pp.value = v;
+        this.#updateUrlPreview();
+        this.#dispatchPathParamsUpdated();
+      },
+    });
+    valueEditor.setValue(pp.value);
+    this.#paramPillEditors.push(valueEditor);
+
+    // Path-param indicator, shown in place of the enable/disable checkbox.
+    const statusIcon = document.createElement("span");
+    statusIcon.className = "path-param-icon";
+    statusIcon.title = "Path parameter";
+    statusIcon.setAttribute("aria-label", "Path parameter");
+    statusIcon.innerHTML = icon("braces", { size: 14 });
+
+    return this.#buildKvRow({
+      item: pp,
+      noun: "path parameter",
+      name: nameInput,
+      value: valueEditor.element,
+      statusIcon,
+      noDrag: true,
+      onDelete: () => this.#deletePathParam(pp),
+    });
+  }
+
+  /** Rename a path param and rewrite the matching URL token(s) to match. */
+  #renamePathParam(pp, newName) {
+    const oldName = pp.name;
+    if (newName === oldName) return;
+    // A blank new name is a transient invalid state (it blocks Send) and is NOT
+    // written into the URL — doing so would corrupt the token to ":" / "{}".
+    if (oldName && newName) {
+      this.#url = this.#rewriteUrlToken(this.#url, oldName, newName, pp.style);
+      this.#urlPillEditor.setValue(this.#url); // programmatic — does not fire onInput
+      this.#dispatchRequestUpdated();
+    }
+    pp.name = newName;
+    this.#updateUrlPreview();
+    this.#dispatchPathParamsUpdated();
+  }
+
+  /** Delete a path param row and strip its token from the URL. */
+  #deletePathParam(pp) {
+    this.#pathParams = this.#pathParams.filter((p) => p !== pp);
+    if (pp.name) {
+      this.#url = this.#stripUrlToken(this.#url, pp.name, pp.style);
+      this.#urlPillEditor.setValue(this.#url);
+      this.#dispatchRequestUpdated();
+    }
+    this.#renderParamsList();
+    this.#dispatchPathParamsUpdated();
+  }
+
+  /** Replace `:old`/`{old}` tokens (of the given style) with the new name, leaving {{vars}} untouched. */
+  #rewriteUrlToken(url, oldName, newName, style) {
+    return url.replace(
+      /\{\{[^}]*\}\}|(?<=\/):([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\}/g,
+      (full, colonName, braceName) => {
+        if (full.startsWith("{{")) return full;
+        const name = colonName ?? braceName;
+        const tokenStyle = colonName != null ? ":" : "{}";
+        if (name !== oldName || tokenStyle !== style) return full;
+        return colonName != null ? `:${newName}` : `{${newName}}`;
+      },
+    );
+  }
+
+  /** Remove `/:name` (colon, with its leading slash) or `{name}` (brace) tokens; {{vars}} untouched. */
+  #stripUrlToken(url, name, style) {
+    return url.replace(
+      /\{\{[^}]*\}\}|\/:([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\}/g,
+      (full, colonName, braceName) => {
+        if (full.startsWith("{{")) return full;
+        if (colonName != null)
+          return style === ":" && colonName === name ? "" : full;
+        return style === "{}" && braceName === name ? "" : full;
+      },
+    );
   }
 
   // ── URL preview helpers ──────────────────────────────────────────────────
@@ -2002,7 +2330,15 @@ export class RequestEditor {
         return resolveStringAsync(raw, ctx);
       }),
     );
-    const base = encodeBaseUrl(urlParts.join(""));
+    // Substitute path params before percent-encoding so `{id}` braces aren't
+    // mangled by encodeBaseUrl (which would otherwise %7B-escape them).
+    const substituted = applyPathParams(
+      urlParts.join(""),
+      await resolvePathParamValues(this.#pathParams, (s) =>
+        resolveStringAsync(s, ctx),
+      ),
+    );
+    const base = encodeBaseUrl(substituted);
 
     const enabled = this.#params.filter((p) => p.enabled && p.name.trim());
     if (!enabled.length) return base;
@@ -2195,10 +2531,12 @@ export class RequestEditor {
   #handleBodyFormBulkToggle(nowBulk) {
     if (nowBulk && !this.#bodyFormBulkMode) {
       if (this.#bodyFormBulkEl)
-        this.#bodyFormBulkEl.value = this.#kvRowsToText(this.#bodyFormRows);
+        this.#bodyFormBulkEl.value = this.#bodyFormToBulkText();
     } else if (!nowBulk && this.#bodyFormBulkMode) {
       if (this.#bodyFormBulkEl)
-        this.#bodyFormRows = this.#textToKvRows(this.#bodyFormBulkEl.value);
+        this.#bodyFormRows = this.#bodyFormFromBulkText(
+          this.#bodyFormBulkEl.value,
+        );
     }
     this.#bodyFormBulkMode = nowBulk;
     this.#applyBodyFormBulkMode();
@@ -2288,11 +2626,39 @@ export class RequestEditor {
     );
   }
 
+  #dispatchPathParamsUpdated() {
+    if (!this.#currentNodeId) return;
+    // Persist only id/name/value; the token style is re-derived from the URL.
+    window.dispatchEvent(
+      new CustomEvent("wurl:request-updated", {
+        detail: {
+          id: this.#currentNodeId,
+          pathParams: this.#pathParams.map((p) => ({
+            id: p.id,
+            name: p.name,
+            value: p.value,
+          })),
+        },
+        bubbles: true,
+      }),
+    );
+  }
+
   // ── Send ─────────────────────────────────────────────────────────────────
   async #sendRequest(force = false) {
     const rawUrl = this.#urlPillEditor.getValue().trim();
     if (!rawUrl) {
       this.#urlPillEditor.focus();
+      return;
+    }
+
+    // ── Path params must all be named — a blank token can't be substituted ──
+    if (this.#pathParams.some((p) => !(p.name ?? "").trim())) {
+      PopupManager.notify({
+        title: "Incomplete path parameter",
+        message:
+          "A path parameter has a blank name. Name every path parameter (or remove its token from the URL) before sending.",
+      });
       return;
     }
 
@@ -2304,7 +2670,9 @@ export class RequestEditor {
     if (this.#headersBulkMode && this.#headersBulkEl)
       this.#headers = this.#textToHeaderRows(this.#headersBulkEl.value);
     if (this.#bodyFormBulkMode && this.#bodyFormBulkEl)
-      this.#bodyFormRows = this.#textToKvRows(this.#bodyFormBulkEl.value);
+      this.#bodyFormRows = this.#bodyFormFromBulkText(
+        this.#bodyFormBulkEl.value,
+      );
 
     // ── Variable resolver helper ──────────────────────────────────────────
     // Resolve {{varName}} tokens using the current variable context so that
@@ -2356,13 +2724,20 @@ export class RequestEditor {
       headers,
       body,
       bodyFilePath,
+      multipart,
       awsIam,
       authDigest,
       authNtlm,
     } = await buildRequestPayload(
       {
         method: this.#method,
-        urlBase: encodeBaseUrl(await rv(rawUrl)),
+        // Substitute path params before percent-encoding (so `{id}` survives).
+        urlBase: encodeBaseUrl(
+          applyPathParams(
+            await rv(rawUrl),
+            await resolvePathParamValues(this.#pathParams, rv),
+          ),
+        ),
         params: this.#params,
         headers: this.#headers,
         authEnabled: authModel.authEnabled,
@@ -2473,6 +2848,7 @@ export class RequestEditor {
           headers,
           body,
           bodyFilePath,
+          multipart,
           awsIam,
           authDigest,
           authNtlm,
@@ -2493,6 +2869,10 @@ export class RequestEditor {
       if (p.enabled) {
         t.push(p.name ?? "", p.value ?? "");
       }
+    }
+    // Path-param values may contain {{var}}/functions; names are plain tokens.
+    for (const pp of this.#pathParams) {
+      t.push(pp.value ?? "");
     }
     for (const h of this.#headers) {
       if (h.enabled) {
@@ -2613,6 +2993,23 @@ export class RequestEditor {
     this.#url = url;
     this.#urlPillEditor.setValue(url);
 
+    // Path params (Feature 49) — the URL is authoritative for which tokens
+    // exist; stored values are merged in by name (and any whose token is gone
+    // is dropped). Style/order come from the URL.
+    {
+      const stored = Array.isArray(node.pathParams) ? node.pathParams : [];
+      const byName = new Map(stored.map((p) => [p.name, p]));
+      this.#pathParams = detectPathParams(url).map((t) => {
+        const prev = byName.get(t.name);
+        return {
+          id: prev?.id ?? crypto.randomUUID(),
+          name: t.name,
+          value: prev?.value ?? "",
+          style: t.style,
+        };
+      });
+    }
+
     // Params
     this.#params = Array.isArray(node.params)
       ? node.params.map((p) => ({
@@ -2644,6 +3041,12 @@ export class RequestEditor {
         name: r.name ?? "",
         value: r.value ?? "",
         enabled: r.enabled ?? true,
+        // Multipart file fields (Feature 49) — carried through unchanged. Older
+        // rows lack these, defaulting to a plain text field.
+        kind: r.kind === "file" ? "file" : "text",
+        filePath: r.filePath ?? "",
+        fileName: r.fileName ?? "",
+        contentType: r.contentType ?? "",
       }));
     } else if (Array.isArray(node.bodyFormData)) {
       this.#bodyFormRows = node.bodyFormData.map((r) => ({
@@ -2703,6 +3106,7 @@ export class RequestEditor {
       method: snapshot.method ?? "GET",
       url: snapshot.url ?? "",
       params: this.#textToKvRows(snapshot.params ?? ""),
+      pathParams: Array.isArray(snapshot.pathParams) ? snapshot.pathParams : [],
       headers: this.#textToHeaderRows(snapshot.headers ?? ""),
       authType: snapshot.authType ?? "none",
       authEnabled: snapshot.authEnabled ?? true,

@@ -354,6 +354,15 @@ export function buildToolbarToggle({
  * button, and drag handle. `onToggle()` runs after the enabled flag flips;
  * `onDelete()` runs on a confirmed delete; `drag` is the row's
  * DragReorderController.
+ *
+ * Optional slots let the same grid serve non-query rows without forking it:
+ *   • `leading`    — element inserted after the toggle, before the name cell
+ *                    (e.g. the form-data Text/File type select).
+ *   • `statusIcon` — element shown INSTEAD of the enabled checkbox (e.g. the
+ *                    path-parameter indicator); the row becomes non-toggleable.
+ *   • `noDrag`     — omit the drag grip and skip reorder wiring (path rows are
+ *                    ordered by the URL, not draggable). The handle column is
+ *                    kept as an inert placeholder so columns stay aligned.
  */
 export function buildKvRow({
   item,
@@ -364,37 +373,48 @@ export function buildKvRow({
   drag,
   onToggle,
   onDelete,
+  leading = null,
+  statusIcon = null,
+  noDrag = false,
 }) {
   const row = document.createElement("div");
   row.className = "params-row";
   row.dataset.id = item.id;
   if (index != null) row.dataset.index = String(index);
-  row.draggable = true;
-  if (!item.enabled) row.classList.add("params-row--disabled");
+  if (!noDrag) row.draggable = true;
+  if (item.enabled === false) row.classList.add("params-row--disabled");
 
-  // ── Drag handle ──────────────────────────────────────────────────────
+  // ── Drag handle (inert placeholder when reordering is disabled) ───────
   const handle = document.createElement("span");
   handle.className = "params-drag-handle";
   handle.setAttribute("aria-hidden", "true");
-  handle.title = "Drag to reorder";
-  handle.innerHTML = icon("drag", { width: 10, height: 16 });
+  if (!noDrag) {
+    handle.title = "Drag to reorder";
+    handle.innerHTML = icon("drag", { width: 10, height: 16 });
+  }
 
-  // ── Enabled checkbox ─────────────────────────────────────────────────
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.className = "params-checkbox";
-  checkbox.checked = item.enabled;
-  const syncCbTitle = () => {
-    checkbox.title = item.enabled ? `Disable ${noun}` : `Enable ${noun}`;
-  };
-  syncCbTitle();
-  checkbox.setAttribute("aria-label", `Enable ${noun}`);
-  checkbox.addEventListener("change", () => {
-    item.enabled = checkbox.checked;
+  // ── Enabled checkbox, or a status icon for non-toggleable rows ────────
+  let control;
+  if (statusIcon) {
+    control = statusIcon;
+  } else {
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "params-checkbox";
+    checkbox.checked = item.enabled;
+    const syncCbTitle = () => {
+      checkbox.title = item.enabled ? `Disable ${noun}` : `Enable ${noun}`;
+    };
     syncCbTitle();
-    row.classList.toggle("params-row--disabled", !item.enabled);
-    onToggle();
-  });
+    checkbox.setAttribute("aria-label", `Enable ${noun}`);
+    checkbox.addEventListener("change", () => {
+      item.enabled = checkbox.checked;
+      syncCbTitle();
+      row.classList.toggle("params-row--disabled", !item.enabled);
+      onToggle();
+    });
+    control = checkbox;
+  }
 
   // ── Delete button ────────────────────────────────────────────────────
   const deleteBtn = document.createElement("button");
@@ -404,10 +424,11 @@ export function buildKvRow({
   wireDeleteConfirm(deleteBtn, onDelete);
 
   // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
-  drag.wireRow(row, item.id);
+  if (!noDrag) drag.wireRow(row, item.id);
 
   row.appendChild(handle);
-  row.appendChild(checkbox);
+  row.appendChild(control);
+  if (leading) row.appendChild(leading);
   row.appendChild(name);
   row.appendChild(value);
   row.appendChild(deleteBtn);

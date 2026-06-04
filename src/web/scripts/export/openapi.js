@@ -173,8 +173,13 @@ function requestBody(node) {
     const example = {};
     for (const r of node.bodyFormRows ?? []) {
       if (!r?.enabled || !r.name) continue;
-      properties[r.name] = { type: "string" };
-      example[r.name] = r.value ?? "";
+      if (r.kind === "file") {
+        // OpenAPI represents an upload field as a binary-format string.
+        properties[r.name] = { type: "string", format: "binary" };
+      } else {
+        properties[r.name] = { type: "string" };
+        example[r.name] = r.value ?? "";
+      }
     }
     return {
       content: { [mime]: { schema: { type: "object", properties }, example } },
