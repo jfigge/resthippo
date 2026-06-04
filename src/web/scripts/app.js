@@ -39,7 +39,9 @@ import {
   deleteHistory,
   clearHistory,
   trimHistory,
+  setWriteErrorHandler,
 } from "./data-store.js";
+import { Notifications } from "./notifications.js";
 import {
   buildFolderChain,
   resolveStringAsync,
@@ -52,7 +54,6 @@ import {
 } from "./components/variable-shape.js";
 import { parseImport } from "./import/index.js";
 import { exportToPostman } from "./export/postman.js";
-import { PopupManager } from "./popup-manager.js";
 import { BackupModal } from "./components/backup-modal.js";
 
 // ─── History state ────────────────────────────────────────────────────────────
@@ -239,6 +240,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   const platform = window.wurl?.platform ?? "linux";
   const uiFont = PLATFORM_UI_FONTS[platform] ?? PLATFORM_UI_FONTS.linux;
   document.documentElement.style.setProperty("--font-ui", uiFont);
+
+  // Route every persistence write failure (save / delete) to a visible error
+  // toast. data-store detects the failure (a thrown IPC channel or a main-process
+  // error envelope) and calls back here; without this sink such failures would be
+  // log-only — silent data loss. Reads keep degrading quietly (see data-store.js).
+  setWriteErrorHandler(({ label, message }) => {
+    Notifications.error(
+      message ? `${label} failed: ${message}` : `${label} failed.`,
+      { title: "Storage error" },
+    );
+  });
 
   initPanels();
   initComponents();
@@ -2301,10 +2313,7 @@ function _countRequests(node) {
  */
 async function handleExport(collection) {
   if (!window.wurl?.export?.saveFile) {
-    PopupManager.notify({
-      title: "Export",
-      message: "Export is only available in the desktop app.",
-    });
+    Notifications.info("Export is only available in the desktop app.");
     return;
   }
 
@@ -2330,25 +2339,18 @@ async function handleExport(collection) {
       content,
     );
     if (saved) {
-      PopupManager.notify({
-        title: "Export Successful",
-        message: `"${collection.name}" exported as Postman v2.1.`,
-      });
+      Notifications.success(`"${collection.name}" exported as Postman v2.1.`);
     }
   } catch (err) {
-    PopupManager.notify({
-      title: "Export Failed",
-      message: String(err.message ?? err),
+    Notifications.error(`Export failed: ${String(err.message ?? err)}`, {
+      title: "Export",
     });
   }
 }
 
 async function handleImport() {
   if (!window.wurl?.import?.openFile) {
-    PopupManager.notify({
-      title: "Import",
-      message: "Import is only available in the desktop app.",
-    });
+    Notifications.info("Import is only available in the desktop app.");
     return;
   }
 
@@ -2356,9 +2358,8 @@ async function handleImport() {
   try {
     file = await window.wurl.import.openFile();
   } catch (err) {
-    PopupManager.notify({
-      title: "Import Failed",
-      message: String(err.message ?? err),
+    Notifications.error(`Import failed: ${String(err.message ?? err)}`, {
+      title: "Import",
     });
     return;
   }
@@ -2368,9 +2369,8 @@ async function handleImport() {
   try {
     parsed = parseImport(file.content);
   } catch (err) {
-    PopupManager.notify({
-      title: "Import Failed",
-      message: String(err.message ?? err),
+    Notifications.error(`Import failed: ${String(err.message ?? err)}`, {
+      title: "Import",
     });
     return;
   }
@@ -2381,38 +2381,33 @@ async function handleImport() {
 
   if (treeView) treeView.setItems(newItems);
 
-  try {
-    const incoming = normalizeVariables(variables);
-    if (incoming.length > 0) {
-      // Merge import variables with existing ones — existing values take
-      // precedence. Both are kept in the canonical array shape; conflicts are
-      // resolved by name with the current entry winning.
-      const { variables: currentRaw } = await loadCollectionData(activeId);
-      const byName = new Map();
-      for (const entry of incoming) byName.set(entry.name, entry);
-      for (const entry of normalizeVariables(currentRaw))
-        byName.set(entry.name, entry);
-      const merged = [...byName.values()];
-      await saveCollectionData(activeId, newItems, merged);
-      if (treeView) treeView.setEnvVariables(varsArrayToMap(merged));
-    } else {
-      await saveCollectionData(activeId, newItems);
-    }
-  } catch (err) {
-    PopupManager.notify({
-      title: "Import Warning",
-      message: `Collection imported but could not be saved: ${err.message}`,
-    });
-    return;
+  // Persist. saveCollectionData no longer throws on a write failure — it routes
+  // the error to the write-error sink (a toast) and returns false — so branch on
+  // the result and bail without claiming success rather than catching.
+  let saved;
+  const incoming = normalizeVariables(variables);
+  if (incoming.length > 0) {
+    // Merge import variables with existing ones — existing values take
+    // precedence. Both are kept in the canonical array shape; conflicts are
+    // resolved by name with the current entry winning.
+    const { variables: currentRaw } = await loadCollectionData(activeId);
+    const byName = new Map();
+    for (const entry of incoming) byName.set(entry.name, entry);
+    for (const entry of normalizeVariables(currentRaw))
+      byName.set(entry.name, entry);
+    const merged = [...byName.values()];
+    saved = await saveCollectionData(activeId, newItems, merged);
+    if (saved && treeView) treeView.setEnvVariables(varsArrayToMap(merged));
+  } else {
+    saved = await saveCollectionData(activeId, newItems);
   }
+  // The write-error sink already surfaced the failure; don't report success.
+  if (!saved) return;
 
   const count = _countRequests(collection);
   let message = `"${collection.name}" imported with ${count} request${count !== 1 ? "s" : ""}.`;
   // Importers may report non-fatal issues (e.g. remote $refs that could not be
   // resolved without network access); surface them rather than dropping silently.
   if (parsed.warnings?.length) message += ` ${parsed.warnings.join(" ")}`;
-  PopupManager.notify({
-    title: "Import Successful",
-    message,
-  });
+  Notifications.success(message);
 }

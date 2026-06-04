@@ -131,8 +131,8 @@ test-data-store:
 	@echo "--------------------------------"
 
 test-renderer-components:
-	@echo "Running renderer component render tests (editor + viewer, jsdom)..."
-	@node --test $(WEB_DIR)/scripts/tests/request-editor.test.js $(WEB_DIR)/scripts/tests/response-viewer.test.js
+	@echo "Running renderer component render tests (editor + viewer + notifications, jsdom)..."
+	@node --test $(WEB_DIR)/scripts/tests/request-editor.test.js $(WEB_DIR)/scripts/tests/response-viewer.test.js $(WEB_DIR)/scripts/tests/notifications.test.js
 	@echo "--------------------------------"
 
 test-renderer-e2e:

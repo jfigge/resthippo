@@ -19,6 +19,7 @@
 import { VariablePillEditor } from "./variable-pill-editor.js";
 import { wrapSecretField } from "./secret-field.js";
 import { PopupManager } from "../popup-manager.js";
+import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
@@ -1229,6 +1230,9 @@ export class RequestAuthEditor {
             await window.wurl.oauth.clearSession();
           } catch (err) {
             console.warn("[oauth] clearSession failed:", err.message);
+            Notifications.warning(
+              "Could not clear the saved OAuth login session.",
+            );
           }
         }
 

@@ -105,6 +105,30 @@ async function withCapturedWarn(fn) {
   }
 }
 
+/**
+ * Run `fn` with a write-error sink installed (and console.error captured), then
+ * restore both. Writes (save/delete) route failures to the sink registered via
+ * setWriteErrorHandler and log them via console.error — unlike reads, they never
+ * degrade silently. Loud-write tests use this to assert the sink fired rather
+ * than letting a failure masquerade as success.
+ *
+ * @returns {Promise<{ result, errors: {label,message}[], logged: string[] }>}
+ */
+async function withWriteHandler(fn) {
+  const errors = [];
+  const logged = [];
+  const originalError = console.error;
+  console.error = (...args) => logged.push(args.join(" "));
+  store.setWriteErrorHandler((info) => errors.push(info));
+  try {
+    const result = await fn();
+    return { result, errors, logged };
+  } finally {
+    console.error = originalError;
+    store.setWriteErrorHandler(null);
+  }
+}
+
 /** Establish a known active collection so save* methods have a target. */
 async function loadActive(
   mock,
@@ -433,16 +457,103 @@ test("getHistoryResponse: a channel error degrades to null (+warn)", async () =>
   assert.ok(warnings.some((w) => w.includes("getHistoryResponse")));
 });
 
-test("deleteRequest: a channel error is swallowed with a warning, not rethrown", async () => {
+// ── Write-failure surfacing (loud writes) ─────────────────────────────────────
+// Writes never degrade silently: a failure is logged AND raised to the registered
+// write-error sink so the renderer can show a toast. Failure is detected either by
+// a thrown transport (IPC channel broken) or a `{ __wurlError }` envelope returned
+// by the main process's safeCallWrite(). These tests pin both detection paths.
+
+test("deleteRequest: a thrown channel is raised to the write-error sink, not rethrown", async () => {
   const mock = makeWurlMock();
   mock.install();
   mock.setThrow("requests.delete", new Error("locked"));
 
-  const { warnings } = await withCapturedWarn(() =>
+  const { result, errors, logged } = await withWriteHandler(() =>
     store.deleteRequest("req-1"),
   );
 
-  assert.ok(warnings.some((w) => w.includes("deleteRequest")));
+  assert.equal(
+    result,
+    false,
+    "a failed write resolves to false, never rejects",
+  );
+  assert.equal(errors.length, 1, "the write-error sink fired exactly once");
+  assert.equal(errors[0].label, "Delete request");
+  assert.match(errors[0].message, /locked/);
+  assert.ok(
+    logged.some((l) => l.includes("Delete request")),
+    "the failure is also logged",
+  );
+});
+
+test("saveCollections: a main-process error envelope is surfaced as a write error", async () => {
+  const mock = makeWurlMock();
+  mock.install();
+  await loadActive(mock, { id: "coll-1" });
+  // safeCallWrite() in main returns this discriminable envelope on a handler
+  // throw — it must NOT be mistaken for a successful save.
+  mock.setReturn("env.save", {
+    __wurlError: true,
+    channel: "store:env:save",
+    message: "ENOSPC: no space left on device",
+  });
+
+  const { errors } = await withWriteHandler(() =>
+    store.saveCollections([{ id: "r1" }]),
+  );
+
+  assert.equal(errors.length, 1, "the envelope is detected as a failure");
+  assert.equal(errors[0].label, "Save collection");
+  assert.match(errors[0].message, /ENOSPC/);
+});
+
+test("saveCollectionData: returns false and notifies when the channel throws", async () => {
+  const mock = makeWurlMock();
+  mock.install();
+  await loadActive(mock, { id: "coll-1" });
+  mock.setThrow("env.save", new Error("permission denied"));
+
+  const { result, errors } = await withWriteHandler(() =>
+    store.saveCollectionData("coll-1", [{ id: "r1" }], {}),
+  );
+
+  assert.equal(result, false);
+  assert.equal(errors[0].label, "Save collection");
+  assert.match(errors[0].message, /permission denied/);
+});
+
+test("saveSettings: a thrown manifest.save is surfaced as a write error", async () => {
+  const mock = makeWurlMock();
+  mock.install();
+  mock.setThrow("manifest.save", new Error("disk full"));
+
+  const { errors } = await withWriteHandler(() =>
+    store.saveSettings({ theme: "x" }),
+  );
+
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].label, "Save settings");
+});
+
+test("write failure with no registered sink still logs and resolves to false", async () => {
+  const mock = makeWurlMock();
+  mock.install();
+  store.setWriteErrorHandler(null); // explicitly unregistered
+  mock.setThrow("requests.delete", new Error("nope"));
+
+  const logged = [];
+  const originalError = console.error;
+  console.error = (...a) => logged.push(a.join(" "));
+  try {
+    const result = await store.deleteRequest("r1");
+    assert.equal(result, false, "still resolves to false (no rejection)");
+    assert.ok(
+      logged.some((l) => l.includes("Delete request")),
+      "the failure is logged even without a sink",
+    );
+  } finally {
+    console.error = originalError;
+  }
 });
 
 // ── Transport detection ───────────────────────────────────────────────────────

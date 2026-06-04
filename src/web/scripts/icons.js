@@ -84,6 +84,29 @@ const ICONS = {
       '<path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
   },
 
+  // ── Notification levels (toast glyphs) ────────────────────────────────────
+  // Filled circle with an exclamation — error toasts.
+  error: {
+    inner:
+      '<circle cx="12" cy="12" r="10"/>' +
+      '<line x1="12" y1="8" x2="12" y2="12"/>' +
+      '<line x1="12" y1="16" x2="12.01" y2="16"/>',
+  },
+  // Triangle with an exclamation — warning toasts.
+  warning: {
+    inner:
+      '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>' +
+      '<line x1="12" y1="9" x2="12" y2="13"/>' +
+      '<line x1="12" y1="17" x2="12.01" y2="17"/>',
+  },
+  // Circle with an "i" — informational toasts.
+  info: {
+    inner:
+      '<circle cx="12" cy="12" r="10"/>' +
+      '<line x1="12" y1="16" x2="12" y2="12"/>' +
+      '<line x1="12" y1="8" x2="12.01" y2="8"/>',
+  },
+
   // ── Tree folders ──────────────────────────────────────────────────────────
   folderClosed: {
     inner:

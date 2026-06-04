@@ -105,6 +105,27 @@ function safeCall(channel, fn, fallback = null) {
   }
 }
 
+/**
+ * Wrap a *write* store call. Unlike safeCall (which returns a look-alike
+ * fallback that the renderer cannot distinguish from success), a failed write
+ * returns a discriminable `{ __wurlError: true }` envelope so the renderer's
+ * data-store can detect the failure and surface a user-visible error toast
+ * instead of silently proceeding as if the save succeeded.
+ *
+ * @param {string}   channel  IPC channel name (for log context)
+ * @param {Function} fn       Synchronous store function (return value ignored)
+ * @returns {*}  the handler's result on success, or an error envelope on failure
+ */
+function safeCallWrite(channel, fn) {
+  try {
+    const result = fn();
+    return result === undefined ? null : result;
+  } catch (err) {
+    console.error(`[main] ${channel} error:`, err.message);
+    return { __wurlError: true, channel, message: err.message };
+  }
+}
+
 // ─── Store IPC ────────────────────────────────────────────────────────────────
 // Register handlers before app.whenReady() so they are ready the moment the
 // renderer process makes its first invoke() call.
@@ -120,7 +141,7 @@ function safeCall(channel, fn, fallback = null) {
   );
 
   ipcMain.handle("store:manifest:save", (_event, data) =>
-    safeCall("store:manifest:save", () => {
+    safeCallWrite("store:manifest:save", () => {
       getStores().collectionStore().saveManifest(data);
     }),
   );
@@ -128,7 +149,7 @@ function safeCall(channel, fn, fallback = null) {
   // Remove a collection's backing directory (requests, history, responses,
   // cookies, metadata). The renderer updates the manifest separately.
   ipcMain.handle("store:collections:delete", (_event, id) =>
-    safeCall("store:collections:delete", () => {
+    safeCallWrite("store:collections:delete", () => {
       getStores().collectionStore().deleteCollection(id);
     }),
   );
@@ -145,7 +166,7 @@ function safeCall(channel, fn, fallback = null) {
   );
 
   ipcMain.handle("store:env:save", (_event, id, data) =>
-    safeCall("store:env:save", () => {
+    safeCallWrite("store:env:save", () => {
       getStores().collectionsStore().saveCollections(id, data);
     }),
   );
@@ -187,7 +208,7 @@ function safeCall(channel, fn, fallback = null) {
   );
 
   ipcMain.handle("store:requests:delete", (_event, id) =>
-    safeCall("store:requests:delete", () => {
+    safeCallWrite("store:requests:delete", () => {
       getStores().requestStore().deleteRequest(id);
     }),
   );

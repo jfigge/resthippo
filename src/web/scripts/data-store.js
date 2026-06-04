@@ -98,9 +98,13 @@ function isElectron() {
 }
 
 /**
- * Run a store operation across either transport with uniform error handling.
+ * Run a *read* operation across either transport with silent degradation.
  * Executes `electronFn` under Electron, otherwise `httpFn`; on any thrown error
  * logs a warning tagged with `label` and resolves to `fallback`.
+ *
+ * Reads degrade quietly by design: a failed load falls back to an empty/default
+ * value and the UI keeps working. The failure is still logged. Writes use
+ * {@link storeWrite} instead, which never fails silently.
  *
  * @template T
  * @param {string}          label       Identifier used in the warning message
@@ -118,6 +122,70 @@ async function storeCall(label, electronFn, httpFn, fallback) {
   }
 }
 
+// ── Write-failure surfacing ─────────────────────────────────────────────────
+// Writes (create/update/delete/save) must NEVER fail silently — a persistent
+// write failure is silent data loss. data-store stays DOM-free and unit-testable,
+// so rather than import the toast surface directly it exposes an injectable sink
+// the renderer wires to Notifications at startup. With no sink registered (tests,
+// dev-server headless) failures still log via console.error.
+
+/** @type {((info: { label: string, message: string }) => void) | null} */
+let _onWriteError = null;
+
+/**
+ * Register the callback invoked whenever a write fails. The renderer points this
+ * at the Notifications toast surface (see app.js); leaving it unset keeps write
+ * failures log-only, which is the behaviour the test suite relies on.
+ * @param {(info: { label: string, message: string }) => void | null} fn
+ */
+export function setWriteErrorHandler(fn) {
+  _onWriteError = typeof fn === "function" ? fn : null;
+}
+
+/**
+ * The main process catches store-handler throws in safeCallWrite() and returns a
+ * discriminable envelope (rather than a look-alike success fallback) so the
+ * renderer can tell a real failure from a real result. Detect it here.
+ * @param {*} v
+ * @returns {boolean}
+ */
+function isErrorEnvelope(v) {
+  return v != null && typeof v === "object" && v.__wurlError === true;
+}
+
+/** Log a write failure and route it to the registered sink (if any). */
+function _reportWriteError(label, message) {
+  const text = String(message ?? "Unknown error");
+  console.error(`[data-store] ${label} failed:`, text);
+  if (_onWriteError) _onWriteError({ label, message: text });
+}
+
+/**
+ * Run a *write* operation across either transport. Unlike {@link storeCall}, a
+ * write failure is never swallowed: it is logged AND raised to the write-error
+ * sink so the user sees it. Failure is detected two ways —
+ *   • the transport throws (IPC channel broken / fetch network error), or
+ *   • the main process returns a `{ __wurlError }` envelope.
+ *
+ * @param {string}           label       User-facing action label (e.g. "Save settings")
+ * @param {() => Promise<*>} electronFn  Electron (IPC) transport path
+ * @param {() => Promise<*>} httpFn      Go dev-server (fetch) transport path
+ * @returns {Promise<boolean>}  true when the write succeeded
+ */
+async function storeWrite(label, electronFn, httpFn) {
+  try {
+    const result = await (isElectron() ? electronFn() : httpFn());
+    if (isErrorEnvelope(result)) {
+      _reportWriteError(label, result.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    _reportWriteError(label, err.message);
+    return false;
+  }
+}
+
 /**
  * Fetch a URL and parse a JSON body, throwing on a non-OK status.
  * @param {string} url
@@ -128,6 +196,20 @@ async function httpJson(url, opts) {
   const res = await fetch(url, opts);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+/**
+ * Issue a write (PUT/DELETE) over the dev-server transport, throwing on a
+ * non-OK status so {@link storeWrite} treats a 4xx/5xx as the failure it is —
+ * `fetch` only rejects on a network error, not on an HTTP error status.
+ * @param {string} url
+ * @param {RequestInit} [opts]
+ * @returns {Promise<Response>}
+ */
+async function httpWrite(url, opts) {
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res;
 }
 
 // ── Low-level manifest I/O ────────────────────────────────────────────────────
@@ -141,12 +223,12 @@ async function _loadManifest() {
   );
 }
 
-async function _persistManifest() {
-  return storeCall(
-    "manifest save",
+async function _persistManifest(label = "Save changes") {
+  return storeWrite(
+    label,
     () => window.wurl.store.manifest.save(_manifest),
     () =>
-      fetch("/api/collections", {
+      httpWrite("/api/collections", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(_manifest),
@@ -175,13 +257,13 @@ async function _loadEnvFile(collectionId) {
   );
 }
 
-async function _saveEnvFile(collectionId, items, variables = {}) {
+async function _saveEnvFile(collectionId, items, variables = {}, label) {
   const blob = { version: 1, collections: items, variables };
-  return storeCall(
-    `env save (${collectionId})`,
+  return storeWrite(
+    label ?? "Save collection",
     () => window.wurl.store.env.save(collectionId, blob),
     () =>
-      fetch(`/api/env?id=${encodeURIComponent(collectionId)}`, {
+      httpWrite(`/api/env?id=${encodeURIComponent(collectionId)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(blob),
@@ -281,7 +363,12 @@ export async function loadAll() {
 export async function saveCollections(items) {
   if (_activeCollectionId) {
     _activeItems = items;
-    await _saveEnvFile(_activeCollectionId, items, _activeVariables);
+    await _saveEnvFile(
+      _activeCollectionId,
+      items,
+      _activeVariables,
+      "Save collection",
+    );
   }
 }
 
@@ -291,7 +378,7 @@ export async function saveCollections(items) {
  */
 export async function saveSettings(settings) {
   _manifest = { ..._manifest, settings };
-  await _persistManifest();
+  await _persistManifest("Save settings");
 }
 
 /**
@@ -310,7 +397,7 @@ export async function saveManifest({
     activeCollectionId,
     ...(settings !== undefined ? { settings } : {}),
   };
-  await _persistManifest();
+  await _persistManifest("Save collections");
 }
 
 /**
@@ -347,7 +434,7 @@ export async function saveCollectionData(collectionId, items, variables) {
   if (collectionId === _activeCollectionId) {
     _activeItems = items;
   }
-  return _saveEnvFile(collectionId, items, vars);
+  return _saveEnvFile(collectionId, items, vars, "Save collection");
 }
 
 /**
@@ -369,10 +456,15 @@ export function setActiveCollection(collectionId) {
 export async function saveCollectionVariables(collectionId, variables) {
   if (collectionId === _activeCollectionId) {
     _activeVariables = variables;
-    await _saveEnvFile(_activeCollectionId, _activeItems, variables);
+    await _saveEnvFile(
+      _activeCollectionId,
+      _activeItems,
+      variables,
+      "Save variables",
+    );
   } else {
     const { items } = await _loadEnvFile(collectionId);
-    await _saveEnvFile(collectionId, items, variables);
+    await _saveEnvFile(collectionId, items, variables, "Save variables");
   }
 }
 
@@ -382,11 +474,13 @@ export async function saveCollectionVariables(collectionId, variables) {
  * @returns {Promise<void>}
  */
 export async function deleteRequest(id) {
-  return storeCall(
-    `deleteRequest(${id})`,
+  return storeWrite(
+    "Delete request",
     () => window.wurl.store.requests.delete(id),
     () =>
-      fetch(`/api/requests/${encodeURIComponent(id)}`, { method: "DELETE" }),
+      httpWrite(`/api/requests/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }),
   );
 }
 
@@ -399,15 +493,22 @@ export async function deleteRequest(id) {
  * @returns {Promise<void>}
  */
 export async function deleteCollection(id) {
-  return storeCall(
-    `deleteCollection(${id})`,
+  return storeWrite(
+    "Delete collection",
     () => window.wurl.store.collections.delete(id),
     () =>
-      fetch(`/api/collections/${encodeURIComponent(id)}`, { method: "DELETE" }),
+      httpWrite(`/api/collections/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      }),
   );
 }
 
 // ── Public: request history API ───────────────────────────────────────────────
+// History reads AND writes both use the quiet storeCall() path (log + fallback),
+// not storeWrite(). History is best-effort, auto-captured telemetry recorded on
+// every send/purge — surfacing a toast for each failure would nag the user on a
+// loop, and a lost history entry is not the user-authored data loss that
+// storeWrite() exists to make visible. Failures are still logged.
 
 /**
  * Return a cursor-paginated page of history entries for `requestId`, newest-first.
