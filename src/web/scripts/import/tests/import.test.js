@@ -258,6 +258,219 @@ test("swagger 2.0: detected and base URL built from host + basePath", () => {
   assert.equal(req.url, "https://api.legacy.test/v1/ping");
 });
 
+// ── OpenAPI $ref resolution + example bodies ─────────────────────────────────
+
+const OPENAPI_REFS_FIXTURE = {
+  openapi: "3.0.1",
+  info: { title: "Refs API" },
+  servers: [{ url: "https://api.example.com" }],
+  components: {
+    parameters: {
+      ApiVersion: {
+        name: "X-Api-Version",
+        in: "header",
+        schema: { type: "string", enum: ["2024-01", "2024-02"] },
+      },
+      PageSize: {
+        name: "pageSize",
+        in: "query",
+        schema: { type: "integer", default: 20 },
+      },
+    },
+    schemas: {
+      Tag: {
+        type: "object",
+        properties: { id: { type: "integer" }, label: { type: "string" } },
+      },
+      Pet: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          id: { type: "integer" },
+          name: { type: "string" },
+          status: { type: "string", enum: ["available", "pending", "sold"] },
+          tags: { type: "array", items: { $ref: "#/components/schemas/Tag" } },
+        },
+      },
+      // Self-referential schema — must terminate, not loop forever.
+      Node: {
+        type: "object",
+        properties: {
+          value: { type: "string" },
+          next: { $ref: "#/components/schemas/Node" },
+        },
+      },
+    },
+    requestBodies: {
+      PetBody: {
+        content: {
+          "application/json": { schema: { $ref: "#/components/schemas/Pet" } },
+        },
+      },
+    },
+  },
+  paths: {
+    "/pets": {
+      post: {
+        operationId: "createPet",
+        parameters: [
+          { $ref: "#/components/parameters/ApiVersion" },
+          { $ref: "#/components/parameters/PageSize" },
+        ],
+        requestBody: { $ref: "#/components/requestBodies/PetBody" },
+      },
+    },
+    "/vendor": {
+      post: {
+        operationId: "vendorPost",
+        requestBody: {
+          content: {
+            "application/vnd.api+json": {
+              schema: {
+                type: "object",
+                properties: { ok: { type: "boolean" } },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/nodes": {
+      post: {
+        operationId: "createNode",
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Node" },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
+test("openapi: merges $ref'd parameters and pre-fills enum/default hints", () => {
+  const { collection } = parseOpenApi(OPENAPI_REFS_FIXTURE);
+  const req = findRequest(collection, "createPet");
+
+  // $ref'd header parameter is resolved (not dropped) and pre-filled from enum.
+  assert.deepEqual(req.headers, [
+    { enabled: true, name: "X-Api-Version", value: "2024-01" },
+  ]);
+  // $ref'd query parameter resolved and pre-filled from its schema default.
+  assert.deepEqual(req.params, [
+    { enabled: true, name: "pageSize", value: "20" },
+  ]);
+});
+
+test("openapi: resolves $ref'd requestBody and synthesizes a schema example", () => {
+  const { collection } = parseOpenApi(OPENAPI_REFS_FIXTURE);
+  const req = findRequest(collection, "createPet");
+
+  assert.equal(req.bodyType, "json");
+  const body = JSON.parse(req.bodyText);
+  assert.deepEqual(body, {
+    id: 0,
+    name: "string",
+    status: "available", // first enum value
+    tags: [{ id: 0, label: "string" }], // nested $ref through array items
+  });
+  // Plain application/json stays implicit — no redundant Content-Type header.
+  assert.equal(
+    req.headers.find((h) => h.name === "Content-Type"),
+    undefined,
+  );
+});
+
+test("openapi: non-default body mime is surfaced as an explicit Content-Type", () => {
+  const { collection } = parseOpenApi(OPENAPI_REFS_FIXTURE);
+  const req = findRequest(collection, "vendorPost");
+  assert.equal(req.bodyType, "json");
+  assert.deepEqual(JSON.parse(req.bodyText), { ok: false });
+  assert.deepEqual(req.headers, [
+    { enabled: true, name: "Content-Type", value: "application/vnd.api+json" },
+  ]);
+});
+
+test("openapi: a recursive schema example terminates", () => {
+  const { collection } = parseOpenApi(OPENAPI_REFS_FIXTURE);
+  const req = findRequest(collection, "createNode");
+  // The cycle is broken after one level: `next` resolves to null.
+  assert.deepEqual(JSON.parse(req.bodyText), { value: "string", next: null });
+});
+
+test("openapi: remote $refs are reported as warnings, not silently dropped", () => {
+  const spec = {
+    openapi: "3.0.1",
+    info: { title: "Remote" },
+    paths: {
+      "/x": {
+        get: {
+          operationId: "getX",
+          parameters: [{ $ref: "external.yaml#/components/parameters/Foo" }],
+        },
+      },
+    },
+  };
+  const { warnings } = parseOpenApi(spec);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /remote \$ref/i);
+  assert.match(warnings[0], /external\.yaml/);
+});
+
+test("swagger 2.0: resolves $ref'd params and definition-backed body example", () => {
+  const swagger = {
+    swagger: "2.0",
+    info: { title: "Legacy Refs" },
+    host: "api.legacy.test",
+    basePath: "/v1",
+    schemes: ["https"],
+    parameters: {
+      AuthHeader: {
+        name: "X-Token",
+        in: "header",
+        type: "string",
+        default: "abc",
+      },
+    },
+    definitions: {
+      User: {
+        type: "object",
+        properties: {
+          id: { type: "integer" },
+          email: { type: "string", format: "email" },
+        },
+      },
+    },
+    paths: {
+      "/users": {
+        post: {
+          operationId: "createUser",
+          parameters: [
+            { $ref: "#/parameters/AuthHeader" },
+            {
+              in: "body",
+              name: "body",
+              schema: { $ref: "#/definitions/User" },
+            },
+          ],
+        },
+      },
+    },
+  };
+  const { collection } = parseOpenApi(swagger);
+  const req = findRequest(collection, "createUser");
+  assert.deepEqual(req.headers, [
+    { enabled: true, name: "X-Token", value: "abc" },
+  ]);
+  assert.equal(req.bodyType, "json");
+  assert.deepEqual(JSON.parse(req.bodyText), {
+    id: 0,
+    email: "user@example.com",
+  });
+});
+
 // ── Format detection failure ─────────────────────────────────────────────────
 
 test("parseImport throws on an unrecognised format", () => {

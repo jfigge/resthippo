@@ -2388,8 +2388,12 @@ async function handleImport() {
   }
 
   const count = _countRequests(collection);
+  let message = `"${collection.name}" imported with ${count} request${count !== 1 ? "s" : ""}.`;
+  // Importers may report non-fatal issues (e.g. remote $refs that could not be
+  // resolved without network access); surface them rather than dropping silently.
+  if (parsed.warnings?.length) message += ` ${parsed.warnings.join(" ")}`;
   PopupManager.notify({
     title: "Import Successful",
-    message: `"${collection.name}" imported with ${count} request${count !== 1 ? "s" : ""}.`,
+    message,
   });
 }
