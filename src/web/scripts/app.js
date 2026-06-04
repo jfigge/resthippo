@@ -316,8 +316,9 @@ function initComponents() {
 const SPLITTER_MIN_NAV = 100;
 const SPLITTER_MIN_RES = 100;
 const SPLITTER_MIN_ROWRES = 120;
-// Minimum panel width that keeps the 4-button ctrl group (Collections, Env,
-// Layout, Settings) fully visible when "Remove headers" is active.
+// Minimum panel width that keeps the ctrl group (Env, Layout, Settings) fully
+// visible when "Remove headers" is active. The Collections button is no longer
+// part of this group — it lives in the tree-toolbar — so the group is narrower.
 const SPLITTER_MIN_CTRL = 200;
 
 let splitterSizes = {
@@ -387,6 +388,7 @@ function applyLayout(layout) {
   _splitter1?.setFlow(mode === "portrait" ? "column" : "row");
   _splitter2?.setFlow(mode === "landscape" ? "row" : "column");
   placeCtrlGroup(layout, currentSettings.removeHeaders ?? false);
+  placeCollectionsButton(currentSettings.removeHeaders ?? false);
 }
 
 /** Build the detached env/layout/settings control group element. */
@@ -395,16 +397,6 @@ function buildCtrlGroup() {
   group.className = "header-ctrl-group";
   group.innerHTML = `
     <span class="ctrl-divider" aria-hidden="true"></span>
-    <button class="icon-btn header-icon-btn" id="btn-collection-ctrl"
-        title="Collections" aria-label="Open Collections">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-           fill="none" stroke="currentColor" stroke-width="2"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polygon points="12 2 2 7 12 12 22 7 12 2"/>
-        <polyline points="2 17 12 22 22 17"/>
-        <polyline points="2 12 12 17 22 12"/>
-      </svg>
-    </button>
     <button class="env-picker__trigger" id="btn-env-picker-ctrl"
         title="Environment" aria-label="Select environment"
         aria-haspopup="dialog"></button>
@@ -450,6 +442,32 @@ function placeCtrlGroup(layout, removeHeaders) {
     target = document.querySelector(".tree-toolbar");
   }
   target?.appendChild(_ctrlGroup);
+}
+
+/**
+ * Pin the Collections button to one of two homes (it never follows the layout,
+ * unlike the ctrl-group):
+ *   removeHeaders off → the nav panel-header's action area (its default spot).
+ *   removeHeaders on  → the tree-toolbar, trailing the filter input.
+ * Must run after placeCtrlGroup: in the "all stacked" (portrait) layout the
+ * ctrl-group also parks in the tree-toolbar, and Collections must sit to its
+ * left — right of the filter input, left of the environment selector. In every
+ * other layout the ctrl-group lives elsewhere, so the button is simply last.
+ */
+function placeCollectionsButton(removeHeaders) {
+  const btn = document.getElementById("btn-collection");
+  if (!btn) return;
+  if (!removeHeaders) {
+    document
+      .querySelector("#panel-nav .panel-header .panel-actions")
+      ?.appendChild(btn);
+    return;
+  }
+  const toolbar = document.querySelector(".tree-toolbar");
+  if (!toolbar) return;
+  const ctrlGroup = toolbar.querySelector(".header-ctrl-group");
+  if (ctrlGroup) toolbar.insertBefore(btn, ctrlGroup);
+  else toolbar.appendChild(btn);
 }
 
 function initSplitters() {
@@ -699,16 +717,10 @@ function initHeader() {
   // "Remove headers" is active, replacing the fixed nav-settings-bar.
   _ctrlGroup = buildCtrlGroup();
   layoutPicker.bindTrigger(_ctrlGroup.querySelector("#btn-layout-ctrl"));
-  _ctrlGroup
-    .querySelector("#btn-collection-ctrl")
-    .addEventListener("click", () => envPopup.open(envPopupState()));
   envPicker.bindTrigger(_ctrlGroup.querySelector("#btn-env-picker-ctrl"));
   _ctrlGroup
     .querySelector("#btn-settings-ctrl")
     .addEventListener("click", () => settingsPopup.open(currentSettings));
-  _ctrlGroup
-    .querySelector("#btn-collection-ctrl")
-    .addEventListener("contextmenu", _openCollCtxMenu);
 }
 
 // ─── Event bus ────────────────────────────────────────────────────────────────
@@ -2057,6 +2069,9 @@ function applySettings(settings) {
 
     // Place ctrl-group in the layout-appropriate container (replaces nav-settings-bar)
     placeCtrlGroup(_currentLayout, remove);
+    // Pin the Collections button: tree-toolbar when headers are removed,
+    // back to the nav panel-header otherwise. Stays put across all layouts.
+    placeCollectionsButton(remove);
   }
 
   // Method icons — replace textual HTTP method names with iconography app-wide.
