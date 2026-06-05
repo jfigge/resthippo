@@ -20,6 +20,29 @@ MOCK_DIR        ?= $(WORKSPACE)/mock
 MOCK_PID        ?= $(MOCK_DIR)/.mock.pid
 MOCK_PORT       ?= 8888
 MOCK_PROXY_PORT ?= 9999
+MOCK_SOCKS_PORT ?= 9998
+
+# Proxy auth (opt-in): when either is set, the mock's forward + SOCKS5 proxies
+# require these credentials, and the Electron app can read them at runtime via
+# its env() variable function — e.g. {{env('MOCK_PROXY_USER')}}.
+MOCK_PROXY_USER ?=
+MOCK_PROXY_PASS ?=
+
+# Dev-server port the Electron app reads (process.env.SERVER_PORT) when pointed
+# at the Go dev server instead of the bundled renderer.
+SERVER_PORT     ?=
+
+# ── Shared dev environment ────────────────────────────────────────────────────
+# One place to set the values every dev target sees. Copy dev.env.example →
+# dev.env (git-ignored) and edit it; `-include` is after the ?= defaults above
+# so dev.env wins over them, while a one-off `make VAR=value` still wins over
+# dev.env. `export` then hands the SAME values to each target's child process:
+# `make debug` (electron) and `make mock-up` (Go server) inherit them directly;
+# `launch` forwards them to the packaged .app via `open --env` (see below).
+DEV_ENV_VARS := MOCK_PORT MOCK_PROXY_PORT MOCK_SOCKS_PORT \
+                MOCK_PROXY_USER MOCK_PROXY_PASS SERVER_PORT
+-include $(WORKSPACE)/dev.env
+export $(DEV_ENV_VARS)
 
 # -----------------------------------------------------------------------------
 # Keycloak Configuration
@@ -84,7 +107,7 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-cookies test-auth test-content-type test-oauth test-export test-components test-import test-data-store test-quick-access test-renderer-components test-renderer-e2e
+test: test-js test-cookies test-auth test-net test-content-type test-oauth test-export test-components test-import test-data-store test-quick-access test-renderer-components test-renderer-e2e
 
 test-js:
 	@echo "Running JavaScript store tests..."
@@ -99,6 +122,11 @@ test-cookies:
 test-auth:
 	@echo "Running main-process auth tests..."
 	@node --test $(APP_DIR)/auth/tests/digest.test.js $(APP_DIR)/auth/tests/ntlm.test.js
+	@echo "--------------------------------"
+
+test-net:
+	@echo "Running proxy / retry policy tests..."
+	@node --test $(APP_DIR)/net/tests/proxy.test.js $(APP_DIR)/net/tests/retry.test.js
 	@echo "--------------------------------"
 
 test-content-type:
@@ -303,8 +331,11 @@ release:
 	fi
 
 # ─── Launch ───────────────────────────────────────────────────────────────────
+# `open` does not inherit the shell environment, so forward the shared dev vars
+# explicitly with --env so the packaged app sees the same values as `make debug`.
 launch: all
-	@open build/src/dist/mac-arm64/wurl.app
+	@open build/src/dist/mac-arm64/wurl.app \
+		$(foreach v,$(DEV_ENV_VARS),--env $(v)=$($(v)))
 
 # ─── Clean ────────────────────────────────────────────────────────────────────
 clean:
@@ -579,8 +610,10 @@ reset: stop
 	@echo "Cleanup complete"
 
 # -----------------------------------------------------------------------------
-# Mock server (Go) — MIME type test API on http://localhost:8888,
-# plus a forward proxy on http://localhost:9999 (X-PROXY-ERROR retry testing)
+# Mock server (Go) — MIME type test API on http://localhost:8888, a forward
+# proxy on http://localhost:9999 (X-Proxy-Error retry testing) and a SOCKS5
+# proxy on localhost:9998. Set MOCK_PROXY_USER/MOCK_PROXY_PASS to require proxy
+# auth (Basic on the forward proxy, RFC 1929 on SOCKS5).
 # -----------------------------------------------------------------------------
 .PHONY: mock-build mock-up mock-down
 
@@ -601,7 +634,9 @@ mock-up: mock-build
 	@echo "  GET http://localhost:$(MOCK_PORT)/auth/<type>"
 	@echo "  ANY http://localhost:$(MOCK_PORT)/echo  reflects the request back (json/xml/yaml/html via Accept)"
 	@echo "Forward proxy on http://localhost:$(MOCK_PROXY_PORT)"
-	@echo "  send X-PROXY-ERROR: <n> to fail n-1 times per URL before succeeding"
+	@echo "  send X-Proxy-Error: <n>[:reset|timeout|<status>] to fail n-1 times per URL before succeeding"
+	@echo "SOCKS5 proxy on socks5://localhost:$(MOCK_SOCKS_PORT)"
+	@echo "  set MOCK_PROXY_USER / MOCK_PROXY_PASS to require proxy auth"
 	@echo "--------------------------------"
 
 mock-down:

@@ -3472,6 +3472,43 @@ html.show-method-icons .req-method-menu__item-label::before {
   /* Dimensions / cursor / accent-color handled by universal slider rule. */
 }
 
+/* Stacked row — label above a full-width control (e.g. the proxy bypass list). */
+.settings-row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.settings-textarea {
+  height: auto;
+  min-height: var(--control-h-md);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono);
+  line-height: 1.4;
+  resize: vertical;
+}
+
+/* Inline help text under a settings control. */
+.settings-help {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  color: var(--color-subtext);
+}
+
+.settings-help code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: var(--color-text);
+}
+
+/* The secret-field wrapper takes the slot a bare .settings-input would, so size
+   it like the other right-aligned controls. */
+.settings-row .secret-field {
+  min-width: 140px;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    COLLECTION POPUP
    ═══════════════════════════════════════════════════════════════════════════ */

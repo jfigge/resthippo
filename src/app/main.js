@@ -28,6 +28,13 @@ const { isBinaryContentType, looksBinary } = require("./http-content-type");
 const aws4 = require("aws4");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 const { HttpProxyAgent } = require("http-proxy-agent");
+const { SocksProxyAgent } = require("socks-proxy-agent");
+const {
+  proxyKind,
+  withProxyCredentials,
+  hostBypassesProxy,
+} = require("./net/proxy");
+const { normalizeRetry, retryReason, backoffDelay } = require("./net/retry");
 const {
   parseChallenge,
   selectDigestChallenge,
@@ -438,6 +445,39 @@ function safeCallWrite(channel, fn) {
   }
 
   /**
+   * Build the proxy Agent for an outgoing request. The proxy *type* is taken
+   * from the URL scheme: any `socks*://` scheme uses the SOCKS agent; otherwise
+   * an HTTP/HTTPS forward-proxy agent is chosen by the *target* protocol.
+   *
+   * HttpsProxyAgent tunnels via CONNECT, which hides the request's own headers
+   * (e.g. X-PROXY-ERROR) from a plain-HTTP forward proxy. So we use
+   * HttpProxyAgent for http:// targets (request sent absolute-URI, headers
+   * readable by the proxy) and reserve the CONNECT-tunnelling agent for https://
+   * targets. SocksProxyAgent handles both target schemes itself.
+   *
+   * @param {string} effectiveProxyUrl  proxy URL with any credentials merged in
+   * @param {boolean} isHttps           whether the target request is https
+   */
+  function makeProxyAgent(effectiveProxyUrl, isHttps) {
+    if (proxyKind(effectiveProxyUrl) === "socks") {
+      return new SocksProxyAgent(effectiveProxyUrl);
+    }
+    return isHttps
+      ? new HttpsProxyAgent(effectiveProxyUrl)
+      : new HttpProxyAgent(effectiveProxyUrl);
+  }
+
+  /** A credential-free, scheme://host[:port] view of a proxy URL for logging. */
+  function describeProxy(proxyUrl) {
+    try {
+      const u = new URL(proxyUrl);
+      return `${u.protocol}//${u.host}`;
+    } catch {
+      return "(invalid proxy URL)";
+    }
+  }
+
+  /**
    * Perform one HTTP request leg (no redirect logic here — handled below).
    * Returns a Promise that always resolves (never rejects) with a result object.
    *
@@ -462,6 +502,9 @@ function safeCallWrite(channel, fn) {
       authDigest = null,
       authNtlm = null,
       proxy = null,
+      proxyUsername = "",
+      proxyPassword = "",
+      proxyBypass = "",
       collectionId = null,
       useCookieJar = true,
     } = desc;
@@ -671,6 +714,32 @@ function safeCallWrite(channel, fn) {
         consoleLog.push("* We are completely uploaded and fine");
       }
 
+      // ── Proxy agent selection ───────────────────────────────────────────────
+      // Separate (encrypted) credentials are merged into the URL here, never
+      // stored inline. Hosts matching the NO_PROXY-style bypass list connect
+      // directly. NTLM keeps its own single-socket agent and always bypasses the
+      // proxy (the handshake is target-server auth, set up above).
+      let proxyAgent = null;
+      if (proxy && !desc._ntlmAgent) {
+        if (hostBypassesProxy(parsed.hostname, port, proxyBypass)) {
+          consoleLog.push(
+            `* Bypassing proxy for ${parsed.hostname} (matches no-proxy list)`,
+          );
+        } else {
+          try {
+            const effectiveProxyUrl = withProxyCredentials(
+              proxy,
+              proxyUsername,
+              proxyPassword,
+            );
+            proxyAgent = makeProxyAgent(effectiveProxyUrl, isHttps);
+            consoleLog.push(`* Proxying via ${describeProxy(proxy)}`);
+          } catch (e) {
+            consoleLog.push(`* Invalid proxy configuration: ${e.message}`);
+          }
+        }
+      }
+
       // ── Make the request ───────────────────────────────────────────────────
       consoleLog.push(`* Trying to resolve host '${parsed.hostname}'...`);
       const options = {
@@ -683,17 +752,8 @@ function safeCallWrite(channel, fn) {
         rejectUnauthorized: verifySsl,
         ...(desc._ntlmAgent
           ? { agent: desc._ntlmAgent }
-          : proxy
-            ? {
-                // HttpsProxyAgent tunnels via CONNECT, which hides the request's
-                // own headers (e.g. X-PROXY-ERROR) from a plain-HTTP forward
-                // proxy. Use HttpProxyAgent for http:// targets so the request is
-                // sent absolute-URI and the proxy can read those headers; reserve
-                // the CONNECT-tunnelling agent for https:// targets.
-                agent: isHttps
-                  ? new HttpsProxyAgent(proxy)
-                  : new HttpProxyAgent(proxy),
-              }
+          : proxyAgent
+            ? { agent: proxyAgent }
             : {}),
       };
 
@@ -1134,7 +1194,13 @@ function safeCallWrite(channel, fn) {
 
       req.on("timeout", () => {
         consoleLog.push(`* Timed out after ${timeout}ms`);
-        req.destroy(new Error(`Request timed out after ${timeout}ms`));
+        // Tag with a code so the retry layer can tell a timeout apart from a
+        // plain connection error (result.error.name carries err.code).
+        req.destroy(
+          Object.assign(new Error(`Request timed out after ${timeout}ms`), {
+            code: "ETIMEDOUT",
+          }),
+        );
       });
 
       req.on("error", (err) => {
@@ -1169,6 +1235,54 @@ function safeCallWrite(channel, fn) {
         req.end();
       }
     });
+  }
+
+  /** Promise-based delay used between retry attempts. */
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Run a request under the configured retry policy. doRequest already follows
+   * one whole redirect/auth chain per call, so a retry re-runs that entire chain
+   * from scratch. Retries fire on connection errors, timeouts, and opted-in
+   * status codes with exponential backoff; every attempt and wait is surfaced in
+   * the Console. With no policy this is a single attempt, identical to before.
+   *
+   * @param {object}   descriptor
+   * @param {string[]} consoleLog
+   * @param {number}   startTime
+   */
+  async function executeWithRetries(descriptor, consoleLog, startTime) {
+    const policy = normalizeRetry(descriptor.retry);
+    const maxAttempts = policy ? policy.maxAttempts : 1;
+
+    let attempt = 0;
+    let result;
+    while (attempt < maxAttempts) {
+      attempt++;
+      if (attempt > 1) {
+        consoleLog.push(`* Attempt ${attempt} of ${maxAttempts}`);
+      }
+      result = await doRequest(descriptor, consoleLog, startTime, 0);
+
+      if (!policy || attempt >= maxAttempts) break;
+      const reason = retryReason(result, policy);
+      if (!reason) break;
+
+      const delay = backoffDelay(policy, attempt);
+      consoleLog.push(
+        `* Request failed (${reason}); retrying in ${delay}ms ` +
+          `(attempt ${attempt + 1}/${maxAttempts})`,
+      );
+      await sleep(delay);
+    }
+
+    if (attempt > 1) {
+      consoleLog.push(`* Finished after ${attempt} attempt(s)`);
+      result.attempts = attempt;
+    }
+    return result;
   }
 
   /** Flatten Node's multi-value header object into a plain key→string map. */
@@ -1247,7 +1361,11 @@ function safeCallWrite(channel, fn) {
     );
     console.log("[http:execute] →", descriptor.method, descriptor.url);
     try {
-      const result = await doRequest(descriptor, consoleLog, startTime, 0);
+      const result = await executeWithRetries(
+        descriptor,
+        consoleLog,
+        startTime,
+      );
       console.log(
         "[http:execute] ←",
         result.status,

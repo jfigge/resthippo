@@ -25,6 +25,10 @@ mock/mock-server
 mock/.mock.pid
 mock/.mock.log
 
+# ── Local dev environment (shared by make debug / launch / mock-up) ───────────
+# Tracked template lives in dev.env.example; the real file stays local.
+dev.env
+
 # ── Data and local test files ─────────────────────────────────────────────────
 data/collections.json
 features/

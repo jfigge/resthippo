@@ -50,6 +50,22 @@ const DEFAULT_SETTINGS = {
   verifySsl: true,
   proxyEnabled: false,
   proxyUrl: "",
+  // Separate proxy credentials (encrypted at rest) and a NO_PROXY-style bypass
+  // list. The proxy *type* (HTTP/HTTPS vs SOCKS) is derived from proxyUrl's
+  // scheme (e.g. socks5://host:1080) in the main process.
+  proxyUsername: "",
+  proxyPassword: "",
+  proxyBypass: "",
+  // Request retry policy (applied in the main process around the whole
+  // redirect/auth chain). Disabled by default so existing behaviour is unchanged.
+  retryEnabled: false,
+  retryMaxAttempts: 3,
+  retryBackoffMs: 500,
+  retryBackoffMultiplier: 2,
+  retryMaxDelayMs: 10000,
+  retryOnConnectionError: true,
+  retryOnTimeout: true,
+  retryStatusCodes: "",
   splitterNav: 240,
   splitterRes: 340,
   splitterRowRes: 320,

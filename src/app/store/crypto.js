@@ -229,44 +229,62 @@ function redactRequest(obj) {
 
 // ── Settings-level helpers ────────────────────────────────────────────────────
 
-/** Encrypt the proxyUrl field in a settings object before writing to disk. */
+/**
+ * Secret fields inside the settings object. The proxy connection string and its
+ * separate credentials are all encrypted at rest (and redacted on export); the
+ * one list drives encrypt/decrypt/redact/portable so they never drift.
+ */
+const SETTINGS_SECRET_KEYS = ["proxyUrl", "proxyUsername", "proxyPassword"];
+
+/** Encrypt every secret settings field before writing to disk. */
 function encryptSettings(settings) {
   if (!settings || typeof settings !== "object") return settings;
   const out = { ...settings };
-  if (out.proxyUrl !== undefined) out.proxyUrl = encryptString(out.proxyUrl);
+  for (const key of SETTINGS_SECRET_KEYS) {
+    if (out[key] !== undefined) out[key] = encryptString(out[key]);
+  }
   // The `_decryptErrors` marker is a read-side artifact; never persist it.
   if ("_decryptErrors" in out) delete out._decryptErrors;
   return out;
 }
 
 /**
- * Decrypt the proxyUrl field in a settings object after reading from disk.
+ * Decrypt every secret settings field after reading from disk.
  *
- * Mirrors decryptRequest: a proxyUrl that fails to decrypt is blanked and the
- * failure recorded on `_decryptErrors`, with one structured warning logged,
- * rather than passing stale ciphertext through.
+ * Mirrors decryptRequest: a field that fails to decrypt is blanked and its key
+ * recorded on `_decryptErrors`, with one structured warning logged, rather than
+ * passing stale ciphertext through.
  */
 function decryptSettings(settings) {
   if (!settings || typeof settings !== "object") return settings;
   const out = { ...settings };
-  if (out.proxyUrl !== undefined) {
+  const errors = [];
+  let lastReason = null;
+  for (const key of SETTINGS_SECRET_KEYS) {
+    if (out[key] === undefined) continue;
     try {
-      out.proxyUrl = decryptString(out.proxyUrl);
+      out[key] = decryptString(out[key]);
     } catch (err) {
       if (!(err instanceof DecryptError)) throw err;
-      out.proxyUrl = "";
-      out._decryptErrors = ["proxyUrl"];
-      _logDecryptFailure("settings", null, ["proxyUrl"], err.reason);
+      out[key] = "";
+      errors.push(key);
+      lastReason = err.reason;
     }
+  }
+  if (errors.length) {
+    out._decryptErrors = errors;
+    _logDecryptFailure("settings", null, errors, lastReason);
   }
   return out;
 }
 
-/** Blank out the proxyUrl secret field in a settings object. */
+/** Blank out every secret settings field. */
 function redactSettings(settings) {
   if (!settings || typeof settings !== "object") return settings;
   const out = { ...settings };
-  if (out.proxyUrl !== undefined) out.proxyUrl = "";
+  for (const key of SETTINGS_SECRET_KEYS) {
+    if (out[key] !== undefined) out[key] = "";
+  }
   return out;
 }
 
@@ -551,22 +569,22 @@ function importRequestSecrets(obj, password) {
   return _applyToRequest(obj, (v) => _fromPortable(v, password));
 }
 
-/** Re-encrypt settings.proxyUrl under a password for a portable export. */
+/** Re-encrypt the settings secret fields under a password for a portable export. */
 function exportSettingsSecrets(settings, password) {
   if (!settings || typeof settings !== "object") return settings;
   const out = { ...settings };
-  if (out.proxyUrl !== undefined) {
-    out.proxyUrl = _toPortable(out.proxyUrl, password);
+  for (const key of SETTINGS_SECRET_KEYS) {
+    if (out[key] !== undefined) out[key] = _toPortable(out[key], password);
   }
   return out;
 }
 
-/** Decrypt (password) or clear (no password) settings.proxyUrl on import. */
+/** Decrypt (password) or clear (no password) the settings secret fields on import. */
 function importSettingsSecrets(settings, password) {
   if (!settings || typeof settings !== "object") return settings;
   const out = { ...settings };
-  if (out.proxyUrl !== undefined) {
-    out.proxyUrl = _fromPortable(out.proxyUrl, password);
+  for (const key of SETTINGS_SECRET_KEYS) {
+    if (out[key] !== undefined) out[key] = _fromPortable(out[key], password);
   }
   return out;
 }

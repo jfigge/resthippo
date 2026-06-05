@@ -20,7 +20,9 @@ import (
 	"strings"
 )
 
-const addr = ":8888"
+// addr is the main HTTP API listen address, overridable via MOCK_PORT (see
+// listenAddr in proxy.go and the shared dev.env in the Makefile).
+var addr = listenAddr("MOCK_PORT", ":8888")
 
 var mimes = []struct{ Type, Body string }{
 	{"application/json",

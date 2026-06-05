@@ -18,6 +18,7 @@
 
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
+import { wrapSecretField } from "./secret-field.js";
 
 export class SettingsPopup {
   /** @type {HTMLElement} */
@@ -45,7 +46,20 @@ export class SettingsPopup {
 
   constructor() {
     this.#el = this.#build();
+    this.#wrapSecretFields();
     this.#bindEvents();
+  }
+
+  /** Wrap secret inputs (proxy password) with the mask/reveal eye toggle. */
+  #wrapSecretFields() {
+    const pwd = this.#el.querySelector("#setting-proxy-password");
+    if (!pwd) return;
+    // wrapSecretField() moves `pwd` into a new wrapper, so capture its slot in
+    // the DOM first, then drop the wrapper where the bare input had been.
+    const parent = pwd.parentNode;
+    const next = pwd.nextSibling;
+    const wrapper = wrapSecretField(pwd);
+    parent.insertBefore(wrapper, next);
   }
 
   /** Root DOM element (required by PopupManager) */
@@ -74,6 +88,7 @@ export class SettingsPopup {
           <button class="settings-nav-item is-active" type="button" role="tab" aria-selected="true" data-panel="appearance">Appearance</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="request">Request</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="proxy">Proxy</button>
+          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="retries">Retries</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="history">History</button>
         </nav>
 
@@ -229,8 +244,118 @@ export class SettingsPopup {
               <input
                 class="settings-input"
                 id="setting-proxy-url"
-                type="url"
-                placeholder="http://proxy:8080"
+                type="text"
+                placeholder="http://proxy:8080 or socks5://proxy:1080"
+              />
+            </div>
+            <p class="settings-help">The proxy type is taken from the URL scheme: <code>http://</code>, <code>https://</code>, or <code>socks5://</code> / <code>socks4://</code>.</p>
+
+            <div class="settings-row">
+              <label class="settings-label" for="setting-proxy-username">Username</label>
+              <input
+                class="settings-input"
+                id="setting-proxy-username"
+                type="text"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-label" for="setting-proxy-password">Password</label>
+              <input
+                class="settings-input"
+                id="setting-proxy-password"
+                type="text"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="settings-row settings-row--stacked">
+              <label class="settings-label" for="setting-proxy-bypass">Bypass for hosts</label>
+              <textarea
+                class="settings-input settings-textarea"
+                id="setting-proxy-bypass"
+                rows="3"
+                placeholder="localhost, 127.0.0.1, *.internal, 10.0.*"
+              ></textarea>
+            </div>
+            <p class="settings-help">Comma- or newline-separated hosts that connect directly. Supports suffixes (<code>example.com</code>), globs (<code>*.internal</code>), and <code>*</code> for all.</p>
+          </section>
+
+          <!-- Retries ──────────────────────────────────────────────────── -->
+          <section class="settings-panel" role="tabpanel" data-panel="retries" hidden>
+            <h3 class="settings-panel-title">Retries</h3>
+
+            <div class="settings-row settings-row--toggle">
+              <label class="settings-label" for="setting-retry-enabled">Enable retries</label>
+              <input class="settings-toggle" id="setting-retry-enabled" type="checkbox" />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-label" for="setting-retry-attempts">Max attempts</label>
+              <input
+                class="settings-input"
+                id="setting-retry-attempts"
+                type="number"
+                min="1"
+                max="10"
+                step="1"
+              />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-label" for="setting-retry-backoff">Backoff base (ms)</label>
+              <input
+                class="settings-input"
+                id="setting-retry-backoff"
+                type="number"
+                min="0"
+                max="60000"
+                step="100"
+              />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-label" for="setting-retry-multiplier">Backoff multiplier</label>
+              <input
+                class="settings-input"
+                id="setting-retry-multiplier"
+                type="number"
+                min="1"
+                max="10"
+                step="0.5"
+              />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-label" for="setting-retry-max-delay">Max delay (ms)</label>
+              <input
+                class="settings-input"
+                id="setting-retry-max-delay"
+                type="number"
+                min="0"
+                max="600000"
+                step="500"
+              />
+            </div>
+
+            <div class="settings-row settings-row--toggle">
+              <label class="settings-label" for="setting-retry-conn">Retry on connection errors</label>
+              <input class="settings-toggle" id="setting-retry-conn" type="checkbox" />
+            </div>
+
+            <div class="settings-row settings-row--toggle">
+              <label class="settings-label" for="setting-retry-timeout">Retry on timeout</label>
+              <input class="settings-toggle" id="setting-retry-timeout" type="checkbox" />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-label" for="setting-retry-status">Retry on status codes</label>
+              <input
+                class="settings-input"
+                id="setting-retry-status"
+                type="text"
+                placeholder="429, 503, 504"
               />
             </div>
           </section>
@@ -308,7 +433,7 @@ export class SettingsPopup {
     });
     this.#el
       .querySelectorAll(
-        "input[type='text'], input[type='number'], input[type='url']",
+        "input[type='text'], input[type='number'], input[type='url'], textarea",
       )
       .forEach((control) => {
         control.addEventListener("input", () => this.#emitChange());
@@ -433,6 +558,30 @@ export class SettingsPopup {
         ) || 200,
       proxyEnabled: this.#el.querySelector("#setting-proxy-enabled").checked,
       proxyUrl: this.#el.querySelector("#setting-proxy-url").value.trim(),
+      proxyUsername: this.#el.querySelector("#setting-proxy-username").value,
+      proxyPassword: this.#el.querySelector("#setting-proxy-password").value,
+      proxyBypass: this.#el.querySelector("#setting-proxy-bypass").value.trim(),
+      retryEnabled: this.#el.querySelector("#setting-retry-enabled").checked,
+      retryMaxAttempts:
+        parseInt(this.#el.querySelector("#setting-retry-attempts").value, 10) ||
+        3,
+      retryBackoffMs:
+        parseInt(this.#el.querySelector("#setting-retry-backoff").value, 10) ||
+        0,
+      retryBackoffMultiplier:
+        parseFloat(this.#el.querySelector("#setting-retry-multiplier").value) ||
+        2,
+      retryMaxDelayMs:
+        parseInt(
+          this.#el.querySelector("#setting-retry-max-delay").value,
+          10,
+        ) || 0,
+      retryOnConnectionError: this.#el.querySelector("#setting-retry-conn")
+        .checked,
+      retryOnTimeout: this.#el.querySelector("#setting-retry-timeout").checked,
+      retryStatusCodes: this.#el
+        .querySelector("#setting-retry-status")
+        .value.trim(),
     };
   }
 
@@ -563,6 +712,54 @@ export class SettingsPopup {
     }
     if (settings.proxyUrl !== undefined) {
       this.#el.querySelector("#setting-proxy-url").value = settings.proxyUrl;
+    }
+    if (settings.proxyUsername !== undefined) {
+      this.#el.querySelector("#setting-proxy-username").value =
+        settings.proxyUsername;
+    }
+    if (settings.proxyPassword !== undefined) {
+      this.#el.querySelector("#setting-proxy-password").value =
+        settings.proxyPassword;
+    }
+    if (settings.proxyBypass !== undefined) {
+      this.#el.querySelector("#setting-proxy-bypass").value =
+        settings.proxyBypass;
+    }
+    if (settings.retryEnabled !== undefined) {
+      this.#el.querySelector("#setting-retry-enabled").checked =
+        settings.retryEnabled;
+    }
+    if (settings.retryMaxAttempts !== undefined) {
+      this.#el.querySelector("#setting-retry-attempts").value = String(
+        settings.retryMaxAttempts,
+      );
+    }
+    if (settings.retryBackoffMs !== undefined) {
+      this.#el.querySelector("#setting-retry-backoff").value = String(
+        settings.retryBackoffMs,
+      );
+    }
+    if (settings.retryBackoffMultiplier !== undefined) {
+      this.#el.querySelector("#setting-retry-multiplier").value = String(
+        settings.retryBackoffMultiplier,
+      );
+    }
+    if (settings.retryMaxDelayMs !== undefined) {
+      this.#el.querySelector("#setting-retry-max-delay").value = String(
+        settings.retryMaxDelayMs,
+      );
+    }
+    if (settings.retryOnConnectionError !== undefined) {
+      this.#el.querySelector("#setting-retry-conn").checked =
+        settings.retryOnConnectionError;
+    }
+    if (settings.retryOnTimeout !== undefined) {
+      this.#el.querySelector("#setting-retry-timeout").checked =
+        settings.retryOnTimeout;
+    }
+    if (settings.retryStatusCodes !== undefined) {
+      this.#el.querySelector("#setting-retry-status").value =
+        settings.retryStatusCodes;
     }
     if (settings.historyCount !== undefined) {
       this.#el.querySelector("#setting-history-count").value = String(

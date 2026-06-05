@@ -26,6 +26,7 @@ const {
   decryptRequest,
   encryptSettings,
   decryptSettings,
+  redactSettings,
   encryptVariables,
   decryptVariables,
   redactVariables,
@@ -210,6 +211,22 @@ describe("encryptSettings / decryptSettings (no-op mode)", () => {
     assert.equal(encryptSettings(null), null);
     assert.equal(decryptSettings(undefined), undefined);
   });
+
+  it("redactSettings blanks every proxy secret field but keeps other keys", () => {
+    const out = redactSettings({
+      theme: "dark",
+      proxyUrl: "http://h:8080",
+      proxyUsername: "user",
+      proxyPassword: "pass",
+      proxyBypass: "localhost",
+    });
+    assert.equal(out.proxyUrl, "");
+    assert.equal(out.proxyUsername, "");
+    assert.equal(out.proxyPassword, "");
+    // Non-secret fields (bypass list, theme) round-trip intact.
+    assert.equal(out.proxyBypass, "localhost");
+    assert.equal(out.theme, "dark");
+  });
 });
 
 /**
@@ -277,6 +294,25 @@ describe("decrypt failure branch (mock safeStorage that throws)", () => {
     assert.equal(out.proxyUrl, "");
     assert.deepEqual(out._decryptErrors, ["proxyUrl"]);
     assert.equal(settings.proxyUrl, "enc:v1:abc");
+  });
+
+  it("decryptSettings records every failing proxy credential field", () => {
+    _setSafeStorage(throwingSafeStorage);
+    const settings = {
+      theme: "dark",
+      proxyUrl: "enc:v1:a",
+      proxyUsername: "enc:v1:b",
+      proxyPassword: "enc:v1:c",
+    };
+    const out = decryptSettings(settings);
+    assert.equal(out.proxyUrl, "");
+    assert.equal(out.proxyUsername, "");
+    assert.equal(out.proxyPassword, "");
+    assert.deepEqual(out._decryptErrors, [
+      "proxyUrl",
+      "proxyUsername",
+      "proxyPassword",
+    ]);
   });
 
   it("encryptRequest strips the _decryptErrors marker so it is never persisted", () => {
@@ -653,6 +689,32 @@ describe("exportSettingsSecrets / importSettingsSecrets", () => {
   it("clears proxyUrl when importing without a password", () => {
     const exported = exportSettingsSecrets({ proxyUrl: "http://u:p@h" }, PW);
     assert.equal(importSettingsSecrets(exported, "").proxyUrl, "");
+  });
+
+  it("round-trips separate proxy credentials with the password", () => {
+    const exported = exportSettingsSecrets(
+      {
+        proxyUrl: "socks5://h:1080",
+        proxyUsername: "user",
+        proxyPassword: "pw",
+      },
+      PW,
+    );
+    assert.ok(isPasswordEncrypted(exported.proxyUsername));
+    assert.ok(isPasswordEncrypted(exported.proxyPassword));
+    const imported = importSettingsSecrets(exported, PW);
+    assert.equal(imported.proxyUsername, "user");
+    assert.equal(imported.proxyPassword, "pw");
+  });
+
+  it("clears proxy credentials when importing without a password", () => {
+    const exported = exportSettingsSecrets(
+      { proxyUsername: "user", proxyPassword: "pw" },
+      PW,
+    );
+    const imported = importSettingsSecrets(exported, "");
+    assert.equal(imported.proxyUsername, "");
+    assert.equal(imported.proxyPassword, "");
   });
 
   it("leaves objects without proxyUrl and non-objects untouched", () => {

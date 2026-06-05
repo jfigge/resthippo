@@ -1732,10 +1732,8 @@ function initEventBus() {
       awsIam: descriptor.awsIam ?? null,
       authDigest: descriptor.authDigest ?? null,
       authNtlm: descriptor.authNtlm ?? null,
-      proxy:
-        currentSettings.proxyEnabled && currentSettings.proxyUrl
-          ? currentSettings.proxyUrl
-          : null,
+      ..._proxyDescriptorFields(currentSettings),
+      retry: _retryDescriptor(currentSettings),
       // Cookie jar (Feature 09): the main process captures Set-Cookie into the
       // active collection's jar and attaches matching cookies on send. Governed
       // per-collection by the "Send cookies" checkbox in the Collections editor.
@@ -1960,6 +1958,53 @@ function reconcileQuickAccess(items) {
 function _collSendCookies(id) {
   const coll = currentColls.collections.find((c) => c.id === id);
   return coll ? coll.sendCookies !== false : true;
+}
+
+/**
+ * Build the proxy-related descriptor fields from global settings. The main
+ * process resolves the agent type from the URL scheme (HTTP/HTTPS/SOCKS), merges
+ * the separate credentials in, and honours the NO_PROXY-style bypass list. All
+ * fields are null/empty when the proxy is disabled, so requests are unaffected.
+ *
+ * @param {object} settings  currentSettings
+ */
+function _proxyDescriptorFields(settings) {
+  if (!settings.proxyEnabled || !settings.proxyUrl) {
+    return {
+      proxy: null,
+      proxyUsername: "",
+      proxyPassword: "",
+      proxyBypass: "",
+    };
+  }
+  return {
+    proxy: settings.proxyUrl,
+    proxyUsername: settings.proxyUsername ?? "",
+    proxyPassword: settings.proxyPassword ?? "",
+    proxyBypass: settings.proxyBypass ?? "",
+  };
+}
+
+/**
+ * Build the retry-policy descriptor from global settings (null when disabled).
+ * The main process clamps/validates and applies the exponential backoff; this
+ * only carries the user's choices across IPC. Designed to be overridden per
+ * request by Feature 42.
+ *
+ * @param {object} settings  currentSettings
+ */
+function _retryDescriptor(settings) {
+  if (!settings.retryEnabled) return null;
+  return {
+    enabled: true,
+    maxAttempts: settings.retryMaxAttempts ?? 3,
+    backoffMs: settings.retryBackoffMs ?? 500,
+    multiplier: settings.retryBackoffMultiplier ?? 2,
+    maxDelayMs: settings.retryMaxDelayMs ?? 10000,
+    onConnectionError: settings.retryOnConnectionError !== false,
+    onTimeout: settings.retryOnTimeout !== false,
+    statusCodes: settings.retryStatusCodes ?? "",
+  };
 }
 
 /** Update the nav panel's title text. */
@@ -2367,10 +2412,8 @@ async function _executeRequestNode(node, ctx) {
     authNtlm,
     collectionId: currentColls.activeCollectionId ?? null,
     useCookieJar: _collSendCookies(currentColls.activeCollectionId),
-    proxy:
-      currentSettings.proxyEnabled && currentSettings.proxyUrl
-        ? currentSettings.proxyUrl
-        : null,
+    ..._proxyDescriptorFields(currentSettings),
+    retry: _retryDescriptor(currentSettings),
   };
 
   try {

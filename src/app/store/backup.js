@@ -20,9 +20,9 @@
  *   }
  *
  * Secret handling (security-critical) — three modes, applied uniformly across
- * all six secret locations (request auth fields, settings.proxyUrl, and the
- * four variable scopes: collection metadata, folder-tree nodes, global vars,
- * per-environment vars):
+ * all six secret locations (request auth fields, settings proxy URL +
+ * credentials, and the four variable scopes: collection metadata, folder-tree
+ * nodes, global vars, per-environment vars):
  *   - "none" (default): every secret is blanked via crypto.redact* before it
  *     leaves the machine, so nothing sensitive is ever written in plaintext.
  *     Variable rows keep their `secure` flag but lose their value.
@@ -89,8 +89,8 @@ class BackupStore {
   /**
    * Build a `wurl-backup` envelope for the entire workspace.
    *
-   * Secrets live in six places — request auth fields, settings.proxyUrl,
-   * collection-scope variables (metadata), folder-scope variables (tree nodes),
+   * Secrets live in six places — request auth fields, settings proxy URL +
+   * credentials, collection-scope variables (metadata), folder-scope variables (tree nodes),
    * global variables and per-environment variables — and ALL of them are run
    * through the same `mode` transform so no secret leaves the machine in a form
    * the chosen mode forbids.
