@@ -161,6 +161,20 @@ make mock-up        # build + start
 make mock-down      # stop
 ```
 
+The mock server also exposes an `/echo` endpoint for any HTTP method (including
+custom verbs): `http://localhost:8888/echo` reflects the request back — method,
+URL, query params, headers, cookies and body. The response is JSON by default,
+or XML/YAML/HTML when the `Accept` header asks for one of those
+(`application/xml`, `application/yaml`, `text/html`).
+
+It also runs a forward proxy on `http://localhost:9999` for exercising wurl's
+proxy settings and request-retry policy. Point a request's proxy at it and send
+the `X-PROXY-ERROR` header to make the proxy fail a fixed number of times before
+the request succeeds — `X-PROXY-ERROR: 3` returns `503` for the first two
+attempts of a given URL, then forwards the third upstream. The countdown is
+cached per URL for 5 minutes and resets once the request finally succeeds, so a
+retry policy can be observed driving the request to completion.
+
 ### Keycloak OAuth environment (Docker)
 
 Spins up a Keycloak instance pre-configured with realms, users, and clients for

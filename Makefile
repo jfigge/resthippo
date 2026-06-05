@@ -19,6 +19,7 @@ APP_DIR         ?= $(WORKSPACE)/src/app
 MOCK_DIR        ?= $(WORKSPACE)/mock
 MOCK_PID        ?= $(MOCK_DIR)/.mock.pid
 MOCK_PORT       ?= 8888
+MOCK_PROXY_PORT ?= 9999
 
 # -----------------------------------------------------------------------------
 # Keycloak Configuration
@@ -345,7 +346,7 @@ help:
 	@echo "    launch        build and launch the mac electron app"
 	@echo ""
 	@echo "Available targets for mock server"
-	@echo "    mock-up       Build and start mock server on :8888"
+	@echo "    mock-up       Build and start mock server on :8888 (+ proxy on :9999)"
 	@echo "    mock-down     Stop mock server"
 	@echo "    mock-build    Build mock server binary"
 	@echo ""
@@ -578,7 +579,8 @@ reset: stop
 	@echo "Cleanup complete"
 
 # -----------------------------------------------------------------------------
-# Mock server (Go) — MIME type test API on http://localhost:8888
+# Mock server (Go) — MIME type test API on http://localhost:8888,
+# plus a forward proxy on http://localhost:9999 (X-PROXY-ERROR retry testing)
 # -----------------------------------------------------------------------------
 .PHONY: mock-build mock-up mock-down
 
@@ -597,6 +599,9 @@ mock-up: mock-build
 	@echo "  GET http://localhost:$(MOCK_PORT)/status/<code>"
 	@echo "  GET http://localhost:$(MOCK_PORT)/auth"
 	@echo "  GET http://localhost:$(MOCK_PORT)/auth/<type>"
+	@echo "  ANY http://localhost:$(MOCK_PORT)/echo  reflects the request back (json/xml/yaml/html via Accept)"
+	@echo "Forward proxy on http://localhost:$(MOCK_PROXY_PORT)"
+	@echo "  send X-PROXY-ERROR: <n> to fail n-1 times per URL before succeeding"
 	@echo "--------------------------------"
 
 mock-down:

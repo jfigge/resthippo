@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"html"
 	"image"
 	"image/color"
 	"image/gif"
@@ -13,6 +15,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -223,7 +226,17 @@ func main() {
 		w.Write(body)
 	})
 
+	// /echo reflects the incoming request (any method, custom verbs included)
+	// back to the caller; see echoHandler. Both the exact path and its subtree
+	// are registered so trailing path segments are accepted too.
+	http.HandleFunc("/echo", echoHandler)
+	http.HandleFunc("/echo/", echoHandler)
+
 	registerAuthRoutes()
+
+	// Forward proxy (feature 44) on its own port and handler, sharing this
+	// process so a single `make mock-up` brings both up.
+	go startProxyServer()
 
 	fmt.Fprintln(os.Stderr, "mock server listening on", addr)
 	if err := http.ListenAndServe(addr, nil); err != nil {
@@ -377,4 +390,318 @@ func octetStream() []byte {
 		b[i] = uint8(i)
 	}
 	return b
+}
+
+// ----------------------------------------------------------------------------
+// /echo — request reflection
+// ----------------------------------------------------------------------------
+
+// maxEchoBody caps how much request body the echo endpoint reads back into its
+// response so a stray large upload can't exhaust memory. Bodies beyond this are
+// truncated and flagged via echoData.BodyTruncated.
+const maxEchoBody = 16 << 20 // 16 MiB
+
+// echoData is the reflected view of an incoming request returned by /echo. The
+// struct field order is the output order for every format; map keys within
+// params, headers and cookies are emitted sorted so responses are stable.
+type echoData struct {
+	Method        string              `json:"method"`
+	URL           string              `json:"url"`
+	Path          string              `json:"path"`
+	Protocol      string              `json:"protocol"`
+	Host          string              `json:"host"`
+	RemoteAddr    string              `json:"remoteAddr"`
+	Params        map[string][]string `json:"params"`
+	Headers       map[string][]string `json:"headers"`
+	Cookies       map[string]string   `json:"cookies"`
+	ContentLength int64               `json:"contentLength"`
+	BodyTruncated bool                `json:"bodyTruncated,omitempty"`
+	Body          string              `json:"body"`
+}
+
+// echoHandler reflects the incoming request back to the caller. It works for any
+// HTTP method (including custom verbs, since net/http puts the raw method token
+// in r.Method without restricting it to the standard set) and serialises the
+// reflection as JSON by default, or as XML, YAML or HTML when the Accept header
+// asks for one of those.
+func echoHandler(w http.ResponseWriter, r *http.Request) {
+	body, truncated := readEchoBody(r)
+
+	cookies := map[string]string{}
+	for _, c := range r.Cookies() {
+		cookies[c.Name] = c.Value
+	}
+
+	data := echoData{
+		Method:        r.Method,
+		URL:           r.URL.RequestURI(),
+		Path:          r.URL.Path,
+		Protocol:      r.Proto,
+		Host:          r.Host,
+		RemoteAddr:    r.RemoteAddr,
+		Params:        map[string][]string(r.URL.Query()),
+		Headers:       map[string][]string(r.Header),
+		Cookies:       cookies,
+		ContentLength: r.ContentLength,
+		BodyTruncated: truncated,
+		Body:          string(body),
+	}
+
+	switch echoFormat(r.Header.Get("Accept")) {
+	case "xml":
+		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+		_, _ = io.WriteString(w, echoXML(data))
+	case "yaml":
+		w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
+		_, _ = io.WriteString(w, echoYAML(data))
+	case "html":
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = io.WriteString(w, echoHTML(data))
+	default:
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(data)
+	}
+}
+
+// readEchoBody drains up to maxEchoBody bytes of the request body, reporting
+// whether it was truncated. A nil body (e.g. a GET) yields an empty string.
+func readEchoBody(r *http.Request) (body []byte, truncated bool) {
+	if r.Body == nil {
+		return nil, false
+	}
+	defer r.Body.Close()
+	body, _ = io.ReadAll(io.LimitReader(r.Body, maxEchoBody+1))
+	if len(body) > maxEchoBody {
+		return body[:maxEchoBody], true
+	}
+	return body, false
+}
+
+// echoFormat picks the response format from the Accept header. It walks the
+// comma-separated media types in client-preference order and returns the first
+// that maps to a format rendered specially (xml/yaml/html); anything else —
+// including application/json, */*, or a missing header — falls through to json.
+// html is checked before xml so application/xhtml+xml resolves to html.
+func echoFormat(accept string) string {
+	for _, part := range strings.Split(accept, ",") {
+		mt := strings.ToLower(strings.TrimSpace(part))
+		if i := strings.IndexByte(mt, ';'); i >= 0 {
+			mt = strings.TrimSpace(mt[:i])
+		}
+		switch {
+		case strings.Contains(mt, "yaml"):
+			return "yaml"
+		case strings.Contains(mt, "html"):
+			return "html"
+		case strings.Contains(mt, "xml"):
+			return "xml"
+		case strings.Contains(mt, "json"):
+			return "json"
+		}
+	}
+	return "json"
+}
+
+// sortedKeys returns the keys of m in ascending order, for stable output.
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// echoXML renders the reflection as an XML document. encoding/xml handles all
+// content/attribute escaping; the maps are flattened into named-element slices
+// because xml can't marshal maps directly.
+func echoXML(d echoData) string {
+	type xmlNamed struct {
+		Name   string   `xml:"name,attr"`
+		Values []string `xml:"value"`
+	}
+	type xmlCookie struct {
+		Name  string `xml:"name,attr"`
+		Value string `xml:",chardata"`
+	}
+	type xmlEcho struct {
+		XMLName       xml.Name    `xml:"echo"`
+		Method        string      `xml:"method"`
+		URL           string      `xml:"url"`
+		Path          string      `xml:"path"`
+		Protocol      string      `xml:"protocol"`
+		Host          string      `xml:"host"`
+		RemoteAddr    string      `xml:"remoteAddr"`
+		Params        []xmlNamed  `xml:"params>param"`
+		Headers       []xmlNamed  `xml:"headers>header"`
+		Cookies       []xmlCookie `xml:"cookies>cookie"`
+		ContentLength int64       `xml:"contentLength"`
+		BodyTruncated bool        `xml:"bodyTruncated,omitempty"`
+		Body          string      `xml:"body"`
+	}
+	out := xmlEcho{
+		Method: d.Method, URL: d.URL, Path: d.Path, Protocol: d.Protocol,
+		Host: d.Host, RemoteAddr: d.RemoteAddr, ContentLength: d.ContentLength,
+		BodyTruncated: d.BodyTruncated, Body: d.Body,
+	}
+	for _, k := range sortedKeys(d.Params) {
+		out.Params = append(out.Params, xmlNamed{Name: k, Values: d.Params[k]})
+	}
+	for _, k := range sortedKeys(d.Headers) {
+		out.Headers = append(out.Headers, xmlNamed{Name: k, Values: d.Headers[k]})
+	}
+	for _, k := range sortedKeys(d.Cookies) {
+		out.Cookies = append(out.Cookies, xmlCookie{Name: k, Value: d.Cookies[k]})
+	}
+	buf, err := xml.MarshalIndent(out, "", "  ")
+	if err != nil {
+		return xml.Header + "<echo><error>" + html.EscapeString(err.Error()) + "</error></echo>\n"
+	}
+	return xml.Header + string(buf) + "\n"
+}
+
+// echoYAML renders the reflection as YAML. Every scalar is double-quoted (see
+// yamlScalar) so the encoder needs no type analysis and stays dependency-free.
+func echoYAML(d echoData) string {
+	var b strings.Builder
+	b.WriteString("method: " + yamlScalar(d.Method) + "\n")
+	b.WriteString("url: " + yamlScalar(d.URL) + "\n")
+	b.WriteString("path: " + yamlScalar(d.Path) + "\n")
+	b.WriteString("protocol: " + yamlScalar(d.Protocol) + "\n")
+	b.WriteString("host: " + yamlScalar(d.Host) + "\n")
+	b.WriteString("remoteAddr: " + yamlScalar(d.RemoteAddr) + "\n")
+	writeYAMLMultiMap(&b, "params", d.Params)
+	writeYAMLMultiMap(&b, "headers", d.Headers)
+	writeYAMLStringMap(&b, "cookies", d.Cookies)
+	b.WriteString("contentLength: " + strconv.FormatInt(d.ContentLength, 10) + "\n")
+	if d.BodyTruncated {
+		b.WriteString("bodyTruncated: true\n")
+	}
+	b.WriteString("body: " + yamlScalar(d.Body) + "\n")
+	return b.String()
+}
+
+// writeYAMLMultiMap emits a name → {key → [values]} block, or "name: {}" when
+// the map is empty.
+func writeYAMLMultiMap(b *strings.Builder, name string, m map[string][]string) {
+	if len(m) == 0 {
+		b.WriteString(name + ": {}\n")
+		return
+	}
+	b.WriteString(name + ":\n")
+	for _, k := range sortedKeys(m) {
+		b.WriteString("  " + yamlScalar(k) + ":\n")
+		for _, v := range m[k] {
+			b.WriteString("    - " + yamlScalar(v) + "\n")
+		}
+	}
+}
+
+// writeYAMLStringMap emits a name → {key → value} block, or "name: {}" when the
+// map is empty.
+func writeYAMLStringMap(b *strings.Builder, name string, m map[string]string) {
+	if len(m) == 0 {
+		b.WriteString(name + ": {}\n")
+		return
+	}
+	b.WriteString(name + ":\n")
+	for _, k := range sortedKeys(m) {
+		b.WriteString("  " + yamlScalar(k) + ": " + yamlScalar(m[k]) + "\n")
+	}
+}
+
+// yamlScalar renders s as a YAML double-quoted scalar, valid for any string
+// including empty, multi-line, or values that would otherwise read as a number
+// or boolean.
+func yamlScalar(s string) string {
+	var b strings.Builder
+	b.WriteByte('"')
+	for _, r := range s {
+		switch r {
+		case '\\':
+			b.WriteString(`\\`)
+		case '"':
+			b.WriteString(`\"`)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\t':
+			b.WriteString(`\t`)
+		default:
+			b.WriteRune(r)
+		}
+	}
+	b.WriteByte('"')
+	return b.String()
+}
+
+// echoHTML renders the reflection as a small standalone HTML page. All dynamic
+// values are escaped with html.EscapeString.
+func echoHTML(d echoData) string {
+	esc := html.EscapeString
+	var b strings.Builder
+	b.WriteString("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n")
+	b.WriteString("<meta charset=\"utf-8\">\n<title>wurl echo</title>\n")
+	b.WriteString("<style>\n")
+	b.WriteString("body{font-family:system-ui,sans-serif;margin:2rem;color:#222}\n")
+	b.WriteString("h1{border-bottom:2px solid #ccc;padding-bottom:.25rem}\n")
+	b.WriteString("table{border-collapse:collapse;width:100%}\n")
+	b.WriteString("th,td{border:1px solid #ddd;padding:.4rem .6rem;text-align:left;vertical-align:top}\n")
+	b.WriteString("th{width:10rem;background:#f5f5f5}\n")
+	b.WriteString("ul{margin:0;padding-left:1.2rem}\n")
+	b.WriteString("pre{margin:0;white-space:pre-wrap;word-break:break-word}\n")
+	b.WriteString("</style>\n</head>\n<body>\n")
+	b.WriteString("<h1>echo</h1>\n<table>\n")
+	row := func(k, v string) {
+		b.WriteString("<tr><th>" + esc(k) + "</th><td>" + v + "</td></tr>\n")
+	}
+	row("method", esc(d.Method))
+	row("url", esc(d.URL))
+	row("path", esc(d.Path))
+	row("protocol", esc(d.Protocol))
+	row("host", esc(d.Host))
+	row("remoteAddr", esc(d.RemoteAddr))
+	row("params", htmlMultiMap(d.Params))
+	row("headers", htmlMultiMap(d.Headers))
+	row("cookies", htmlStringMap(d.Cookies))
+	row("contentLength", esc(strconv.FormatInt(d.ContentLength, 10)))
+	if d.BodyTruncated {
+		row("bodyTruncated", "true")
+	}
+	row("body", "<pre>"+esc(d.Body)+"</pre>")
+	b.WriteString("</table>\n</body>\n</html>\n")
+	return b.String()
+}
+
+// htmlMultiMap renders a key → [values] map as a nested <ul>, escaping each part.
+func htmlMultiMap(m map[string][]string) string {
+	if len(m) == 0 {
+		return "<em>(none)</em>"
+	}
+	esc := html.EscapeString
+	var b strings.Builder
+	b.WriteString("<ul>")
+	for _, k := range sortedKeys(m) {
+		b.WriteString("<li><strong>" + esc(k) + "</strong>: " + esc(strings.Join(m[k], ", ")) + "</li>")
+	}
+	b.WriteString("</ul>")
+	return b.String()
+}
+
+// htmlStringMap renders a key → value map as a nested <ul>, escaping each part.
+func htmlStringMap(m map[string]string) string {
+	if len(m) == 0 {
+		return "<em>(none)</em>"
+	}
+	esc := html.EscapeString
+	var b strings.Builder
+	b.WriteString("<ul>")
+	for _, k := range sortedKeys(m) {
+		b.WriteString("<li><strong>" + esc(k) + "</strong>: " + esc(m[k]) + "</li>")
+	}
+	b.WriteString("</ul>")
+	return b.String()
 }
