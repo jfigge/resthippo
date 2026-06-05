@@ -148,6 +148,15 @@ export class SettingsPopup {
                 type="checkbox"
               />
             </div>
+
+            <div class="settings-row settings-row--toggle" title="Show a Recents tab of recently used requests in the collections sidebar">
+              <label class="settings-label" for="setting-show-recents">Show recents</label>
+              <input
+                class="settings-toggle"
+                id="setting-show-recents"
+                type="checkbox"
+              />
+            </div>
           </section>
 
           <!-- Request ──────────────────────────────────────────────────── -->
@@ -420,6 +429,7 @@ export class SettingsPopup {
       methodIcons: this.#el.querySelector("#setting-method-icons").checked,
       wrapResponseText: this.#el.querySelector("#setting-wrap-response-text")
         .checked,
+      showRecents: this.#el.querySelector("#setting-show-recents").checked,
       timeout:
         parseInt(this.#el.querySelector("#setting-timeout").value, 10) || 0,
       followRedirects: this.#el.querySelector("#setting-follow-redirects")
@@ -531,6 +541,10 @@ export class SettingsPopup {
     if (settings.wrapResponseText !== undefined) {
       this.#el.querySelector("#setting-wrap-response-text").checked =
         settings.wrapResponseText;
+    }
+    if (settings.showRecents !== undefined) {
+      this.#el.querySelector("#setting-show-recents").checked =
+        settings.showRecents;
     }
     if (settings.timeout !== undefined) {
       this.#el.querySelector("#setting-timeout").value = String(

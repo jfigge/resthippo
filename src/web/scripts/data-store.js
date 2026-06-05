@@ -63,6 +63,13 @@ const DEFAULT_SETTINGS = {
   oauth2Advanced: false,
   historyCount: 5,
   customThemes: [],
+  // Quick-access: favorited requests (any order) and the most-recently-used
+  // list (newest-first, capped). Both span every collection, so each entry is
+  // { collectionId, requestId, name, method }. showRecents toggles the Recents
+  // tab; the list itself is always tracked.
+  favorites: [],
+  recents: [],
+  showRecents: true,
 };
 
 // ── In-memory caches ──────────────────────────────────────────────────────────

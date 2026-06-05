@@ -105,6 +105,47 @@
   color: var(--color-overlay-0);
 }
 
+/* Surface tabs: [Requests | Favorites | Recents]. Hidden until a favorite
+   exists or the Recents tab is enabled. */
+.tree-tabs {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-mantle);
+}
+
+.tree-tabs[hidden] {
+  display: none;
+}
+
+.tree-tab {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-subtext);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.tree-tab[hidden] {
+  display: none;
+}
+
+.tree-tab:hover {
+  color: var(--color-text);
+}
+
+.tree-tab--active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
 /* Icon buttons — square, icon-only. The header bar reuses this via
    .header-icon-btn (layout.css), which only adds an explicit size + drag
    region on top of these shared rules. */
@@ -160,6 +201,29 @@
 .tree-node--active > .tree-node__row {
   background-color: var(--color-surface-0);
   color: var(--color-accent);
+}
+
+/* Favorite star — overlaid in the row's left gutter so it does not shift the
+   method badge / label (the row indent stays aligned with non-favorited rows). */
+.tree-node--request > .tree-node__row {
+  position: relative;
+}
+
+/* Always present on request rows as an invisible double-click target in the
+   left gutter; shows the star glyph (left-aligned) only while favorited. */
+.tree-node__star {
+  position: absolute;
+  left: -10px;
+  top: 0;
+  bottom: 0;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--color-warning);
+  cursor: pointer;
 }
 
 .tree-node__icon {

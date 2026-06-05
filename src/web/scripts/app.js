@@ -56,6 +56,14 @@ import {
   varsArrayToMap,
   varsArrayToSecureSet,
 } from "./components/variable-shape.js";
+import {
+  makeEntry,
+  addRecent,
+  addFavorite,
+  removeIds,
+  removeCollection,
+  reconcile,
+} from "./quick-access.js";
 import { parseImport } from "./import/index.js";
 import { exportToPostman } from "./export/postman.js";
 import { exportToInsomnia } from "./export/insomnia.js";
@@ -762,7 +770,13 @@ function initEventBus() {
         ...(currentSettings.selectedRequestIds ?? {}),
         [currentColls.activeCollectionId]: id,
       };
-      currentSettings = { ...currentSettings, selectedRequestIds };
+      // Opening a request bumps it to the top of the recents list.
+      const recents = addRecent(
+        currentSettings.recents ?? [],
+        makeEntry(node, currentColls.activeCollectionId),
+      );
+      currentSettings = { ...currentSettings, selectedRequestIds, recents };
+      if (treeView) treeView.setRecents(recents);
       saveSettings(currentSettings);
     }
     // Update the timeline pane with this request's history.
@@ -993,6 +1007,9 @@ function initEventBus() {
   // Auto-save whenever the tree is mutated (add / remove collection or request)
   window.addEventListener("wurl:collections-changed", (e) => {
     saveCollections(e.detail);
+    // Keep favorites / recents for the active collection in sync with renames,
+    // method changes, and any deletions reflected in the new tree.
+    reconcileQuickAccess(e.detail);
   });
 
   // Import a collection from an external file (Postman / Insomnia / OpenAPI).
@@ -1031,6 +1048,38 @@ function initEventBus() {
       _requestHistory.delete(id);
       _historyLoaded.delete(id);
     }
+    // Drop the deleted requests from favorites / recents so they don't dangle.
+    pruneQuickAccess(new Set(e.detail.ids));
+  });
+
+  // Toggle a request's favorite state (from the tree context menu or the
+  // Favorites list). Favorites span every collection, so the entry records the
+  // collection it belongs to.
+  window.addEventListener("wurl:favorite-toggle", (e) => {
+    const { node, favorited } = e.detail ?? {};
+    if (!node?.id) return;
+    const current = currentSettings.favorites ?? [];
+    const favorites = favorited
+      ? addFavorite(current, makeEntry(node, currentColls.activeCollectionId))
+      : removeIds(current, new Set([node.id]));
+    if (favorites === current) return; // no-op (already in desired state)
+    currentSettings = { ...currentSettings, favorites };
+    if (treeView) treeView.setFavorites(favorites);
+    saveSettings(currentSettings);
+  });
+
+  // Open a request from the Favorites / Recents lists. Switches to the owning
+  // collection first when it differs from the active one, then focuses the row.
+  window.addEventListener("wurl:request-open", async (e) => {
+    const { collectionId, requestId } = e.detail ?? {};
+    if (!requestId) return;
+    if (collectionId && collectionId !== currentColls.activeCollectionId) {
+      const exists = currentColls.collections.some(
+        (c) => c.id === collectionId,
+      );
+      if (exists) await activateCollection(collectionId);
+    }
+    if (treeView) treeView.focusRequest(requestId);
   });
 
   // Remove a single timeline entry (the ✕ on a timeline row). Updates the
@@ -1160,11 +1209,13 @@ function initEventBus() {
 
   // ── Collection events ────────────────────────────────────────────────────
 
-  /** Switch the active collection: save current items, load new ones. */
-  window.addEventListener("wurl:coll-select", async (e) => {
-    const { id } = e.detail;
-    if (id === currentColls.activeCollectionId) return;
-
+  /**
+   * Switch the active collection: persist the current tree, load the target
+   * collection's items + variables, and refresh the dependent UI. Does NOT
+   * restore a selected request — callers decide what to focus afterwards.
+   * @param {string} id
+   */
+  async function activateCollection(id) {
     // Persist the current collection's items before switching
     if (treeView)
       await saveCollectionData(
@@ -1172,27 +1223,17 @@ function initEventBus() {
         treeView.getItems(),
       );
 
-    // Update in-memory active collection
     setActiveCollection(id);
     currentColls = { ...currentColls, activeCollectionId: id };
 
-    // Persist manifest
     await saveManifest({
       collections: currentColls.collections,
       activeCollectionId: id,
     });
 
-    // Load new collection's items
     const { items, variables } = await loadCollectionData(id);
     treeView.setStorageKey(id);
     treeView.setItems(items);
-
-    // Restore previously selected request for this collection, or clear if none
-    const savedId = currentSettings.selectedRequestIds?.[id];
-    if (!savedId || !treeView.selectById(savedId)) {
-      _selectedNode = null;
-      _clearRequestEditor();
-    }
 
     // Attach variables to the collection entry in memory
     currentColls = {
@@ -1202,11 +1243,24 @@ function initEventBus() {
       ),
     };
 
-    // Update UI
     setNavPanelTitle(_collName(currentColls.collections, id));
     envPopup.update(envPopupState());
-    // Refresh pill editor variable context for the new collection
     _refreshEditorVariableContext();
+  }
+
+  /** Switch the active collection: save current items, load new ones. */
+  window.addEventListener("wurl:coll-select", async (e) => {
+    const { id } = e.detail;
+    if (id === currentColls.activeCollectionId) return;
+
+    await activateCollection(id);
+
+    // Restore previously selected request for this collection, or clear if none
+    const savedId = currentSettings.selectedRequestIds?.[id];
+    if (!savedId || !treeView.selectById(savedId)) {
+      _selectedNode = null;
+      _clearRequestEditor();
+    }
   });
 
   /** Add a new (empty) collection and switch to it. */
@@ -1291,6 +1345,20 @@ function initEventBus() {
     // Reclaim the collection's on-disk directory now that the manifest no longer
     // references it (requests, history, responses, cookies, metadata).
     await deleteCollection(id);
+    // Drop favorites / recents that pointed into the deleted collection.
+    const favorites = removeCollection(currentSettings.favorites ?? [], id);
+    const recents = removeCollection(currentSettings.recents ?? [], id);
+    if (
+      favorites !== currentSettings.favorites ||
+      recents !== currentSettings.recents
+    ) {
+      currentSettings = { ...currentSettings, favorites, recents };
+      if (treeView) {
+        treeView.setFavorites(favorites);
+        treeView.setRecents(recents);
+      }
+      saveSettings(currentSettings);
+    }
     envPopup.update(envPopupState());
   });
 
@@ -1625,6 +1693,21 @@ function initEventBus() {
       return;
     }
 
+    // A send bumps the current request to the top of recents. Skip when it is
+    // already at the front to avoid redundant settings writes on repeat sends.
+    if (
+      _selectedNode?.id &&
+      currentSettings.recents?.[0]?.requestId !== _selectedNode.id
+    ) {
+      const recents = addRecent(
+        currentSettings.recents ?? [],
+        makeEntry(_selectedNode, currentColls.activeCollectionId),
+      );
+      currentSettings = { ...currentSettings, recents };
+      if (treeView) treeView.setRecents(recents);
+      saveSettings(currentSettings);
+    }
+
     window.dispatchEvent(new CustomEvent("wurl:request-loading"));
 
     _cancelCurrentRequest = false;
@@ -1810,6 +1893,64 @@ async function initCollections() {
 /** Return the name of a collection by id, falling back to a default. */
 function _collName(collections, id) {
   return collections.find((c) => c.id === id)?.name ?? "Collections";
+}
+
+/**
+ * Remove a set of request ids from favorites and recents, then persist and push
+ * the result into the tree. Called when requests are deleted.
+ * @param {Set<string>} idSet
+ */
+function pruneQuickAccess(idSet) {
+  if (!idSet?.size) return;
+  const favorites = removeIds(currentSettings.favorites ?? [], idSet);
+  const recents = removeIds(currentSettings.recents ?? [], idSet);
+  if (
+    favorites === currentSettings.favorites &&
+    recents === currentSettings.recents
+  )
+    return;
+  currentSettings = { ...currentSettings, favorites, recents };
+  if (treeView) {
+    treeView.setFavorites(favorites);
+    treeView.setRecents(recents);
+  }
+  saveSettings(currentSettings);
+}
+
+/**
+ * Refresh favorites/recents metadata (name, method) for the active collection
+ * against its current tree, dropping entries whose request no longer exists.
+ * Entries in other collections are untouched (their trees aren't loaded).
+ * @param {object[]} items  — the active collection's tree
+ */
+function reconcileQuickAccess(items) {
+  const active = currentColls.activeCollectionId;
+  if (!active) return;
+  const liveMap = new Map();
+  const walk = (nodes) => {
+    for (const n of nodes ?? []) {
+      if (n.type === "request") {
+        liveMap.set(n.id, { name: n.name ?? "", method: n.method ?? "GET" });
+      } else {
+        walk(n.children);
+      }
+    }
+  };
+  walk(items);
+
+  const favorites = reconcile(currentSettings.favorites ?? [], active, liveMap);
+  const recents = reconcile(currentSettings.recents ?? [], active, liveMap);
+  if (
+    favorites === currentSettings.favorites &&
+    recents === currentSettings.recents
+  )
+    return;
+  currentSettings = { ...currentSettings, favorites, recents };
+  if (treeView) {
+    treeView.setFavorites(favorites);
+    treeView.setRecents(recents);
+  }
+  saveSettings(currentSettings);
 }
 
 /**
@@ -2079,8 +2220,14 @@ function applySettings(settings) {
   if (varsPopup) varsPopup.applySettings(settings);
   if (envPopup) envPopup.applySettings(settings);
   if (environmentsPopup) environmentsPopup.applySettings(settings);
-  if (treeView)
+  if (treeView) {
     treeView.setDoubleClickExecute(settings.doubleClickExecute ?? false);
+    // Quick-access surfaces (favorites / recents). showRecents only gates the
+    // tab; the recents list is tracked regardless.
+    treeView.setShowRecents(settings.showRecents !== false);
+    treeView.setFavorites(settings.favorites ?? []);
+    treeView.setRecents(settings.recents ?? []);
+  }
   setPickerDebounceMs(settings.pickerDebounceMs ?? 200);
 
   // Remove headers — hide/show all .panel-header elements, app-header, and nav settings bar

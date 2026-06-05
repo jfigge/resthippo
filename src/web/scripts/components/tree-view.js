@@ -94,6 +94,33 @@ export class TreeView {
   /** @type {string} — current filter query (lowercased) */
   #filterText = "";
 
+  /** @type {object[]} — favorited requests across all collections (enriched entries) */
+  #favorites = [];
+
+  /** @type {object[]} — recently-used requests across all collections (newest-first) */
+  #recents = [];
+
+  /** @type {Set<string>} — requestIds of favorites, for O(1) star/menu lookups */
+  #favoriteIds = new Set();
+
+  /** @type {boolean} — whether the Recents tab is enabled (appearance setting) */
+  #showRecents = false;
+
+  /** @type {"requests"|"favorites"|"recents"} — which sidebar surface is shown */
+  #activeTab = "requests";
+
+  /** @type {HTMLElement|null} — the [Requests | Favorites | Recents] tab bar */
+  #tabBarEl = null;
+
+  /** @type {HTMLButtonElement|null} */
+  #tabReqBtn = null;
+
+  /** @type {HTMLButtonElement|null} */
+  #tabFavBtn = null;
+
+  /** @type {HTMLButtonElement|null} */
+  #tabRecBtn = null;
+
   /**
    * @param {object}   [opts]
    * @param {object[]} [opts.items]  - Initial tree data
@@ -109,8 +136,9 @@ export class TreeView {
     this.#dragPhantomEl.setAttribute("aria-hidden", "true");
 
     this.#renderToolbar();
+    this.#renderTabBar();
     this.#items = items;
-    this.#renderTree(this.#items);
+    this.#rerender();
 
     // Container-level: allow drop anywhere inside the treeview
     this.#el.addEventListener("dragover", (e) => {
@@ -151,6 +179,8 @@ export class TreeView {
    */
   setItems(items) {
     this.#items = Array.isArray(items) ? items : [];
+    // Loading a collection's tree always shows the Requests surface.
+    this.#activeTab = "requests";
     this.#syncButtonState();
     this.#rerender();
   }
@@ -189,6 +219,62 @@ export class TreeView {
    */
   setDoubleClickExecute(enabled) {
     this.#doubleClickExecute = !!enabled;
+  }
+
+  // ── Quick access (favorites / recents) ──────────────────────────────────
+
+  /**
+   * Replace the favorites list (enriched entries spanning all collections) and
+   * refresh the star indicators, tab bar, and — when visible — the list itself.
+   * @param {object[]} list  — [{ collectionId, requestId, name, method }]
+   */
+  setFavorites(list) {
+    this.#favorites = Array.isArray(list) ? list : [];
+    this.#favoriteIds = new Set(this.#favorites.map((e) => e.requestId));
+    if (this.#activeTab === "requests") {
+      this.#updateTabBar();
+      this.#syncStars();
+    } else {
+      // Favorites/recents surfaces both render stars, so rebuild them.
+      this.#rerender();
+    }
+  }
+
+  /**
+   * Replace the recents list (newest-first). Only rebuilds the surface when the
+   * Recents tab is currently showing — keeps the open-request hot path cheap.
+   * @param {object[]} list  — [{ collectionId, requestId, name, method }]
+   */
+  setRecents(list) {
+    this.#recents = Array.isArray(list) ? list : [];
+    if (this.#activeTab === "recents") this.#rerender();
+  }
+
+  /**
+   * Enable/disable the Recents tab. Hiding it while it is active falls back to
+   * the Requests surface.
+   * @param {boolean} enabled
+   */
+  setShowRecents(enabled) {
+    this.#showRecents = !!enabled;
+    if (this.#activeTab === "recents") this.#rerender();
+    else this.#updateTabBar();
+  }
+
+  /**
+   * Switch to the Requests surface, select the request by id (firing
+   * wurl:request-selected), and scroll it into view. Used when opening a
+   * request from the Favorites/Recents lists.
+   * @param {string} id
+   * @returns {boolean} true if the request was found and selected
+   */
+  focusRequest(id) {
+    this.#activeTab = "requests";
+    this.#rerender();
+    const ok = this.selectById(id);
+    const li = this.#el.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    if (li) li.scrollIntoView({ block: "nearest" });
+    return ok;
   }
 
   // ── Toolbar ─────────────────────────────────────────────────────────────
@@ -230,6 +316,257 @@ export class TreeView {
     bar.appendChild(this.#btnNewRequest);
     bar.appendChild(search);
     this.#el.appendChild(bar);
+  }
+
+  // ── Tab bar (Requests / Favorites / Recents) ────────────────────────────
+
+  /**
+   * Build the surface tab bar. It sits between the toolbar and the list and is
+   * hidden until at least one favorite exists or the Recents tab is enabled.
+   */
+  #renderTabBar() {
+    const bar = document.createElement("div");
+    bar.className = "tree-tabs";
+    bar.setAttribute("role", "tablist");
+    bar.hidden = true;
+
+    const mkTab = (tab, label) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "tree-tab";
+      btn.textContent = label;
+      btn.setAttribute("role", "tab");
+      btn.addEventListener("click", () => this.#switchTab(tab));
+      bar.appendChild(btn);
+      return btn;
+    };
+
+    this.#tabReqBtn = mkTab("requests", "Requests");
+    this.#tabFavBtn = mkTab("favorites", "Favorites");
+    this.#tabRecBtn = mkTab("recents", "Recents");
+
+    this.#tabBarEl = bar;
+    this.#el.appendChild(bar);
+  }
+
+  /** Activate a tab and re-render the matching surface. */
+  #switchTab(tab) {
+    if (this.#activeTab === tab) return;
+    this.#activeTab = tab;
+    this.#rerender();
+  }
+
+  /**
+   * Refresh tab-bar visibility and the active highlight. The bar shows when any
+   * favorite exists or Recents is enabled; an active tab that becomes
+   * unavailable falls back to Requests.
+   */
+  #updateTabBar() {
+    if (!this.#tabBarEl) return;
+    const favVisible = this.#favorites.length > 0;
+    const recVisible = this.#showRecents;
+    const barVisible = favVisible || recVisible;
+
+    if (
+      (this.#activeTab === "favorites" && !favVisible) ||
+      (this.#activeTab === "recents" && !recVisible)
+    ) {
+      this.#activeTab = "requests";
+    }
+
+    this.#tabBarEl.hidden = !barVisible;
+    this.#tabFavBtn.hidden = !favVisible;
+    this.#tabRecBtn.hidden = !recVisible;
+    this.#tabReqBtn.classList.toggle(
+      "tree-tab--active",
+      this.#activeTab === "requests",
+    );
+    this.#tabFavBtn.classList.toggle(
+      "tree-tab--active",
+      this.#activeTab === "favorites",
+    );
+    this.#tabRecBtn.classList.toggle(
+      "tree-tab--active",
+      this.#activeTab === "recents",
+    );
+  }
+
+  /**
+   * Surgically add/remove the favorite star on the visible request rows so the
+   * tree never needs a full rebuild when a favorite is toggled.
+   */
+  #syncStars() {
+    this.#el.querySelectorAll(".tree-node--request").forEach((li) => {
+      const id = li.dataset.id;
+      if (!id) return; // skip quick-list rows (they use data-qa-id)
+      const fav = this.#favoriteIds.has(id);
+      li.classList.toggle("tree-node--favorite", fav);
+      const hot = li.querySelector(
+        ":scope > .tree-node__row > .tree-node__star",
+      );
+      if (hot) this.#updateHotspot(hot, fav);
+    });
+  }
+
+  /**
+   * Build the favorite hotspot for a request row — an always-present, invisible
+   * target in the left gutter. Double-clicking it toggles the request's
+   * favorite state (favoriting an empty spot, unfavoriting a starred one); the
+   * star glyph is shown inside it while favorited. Single clicks are swallowed
+   * so the gesture never also selects or executes the row.
+   * @param {string} requestId
+   */
+  #makeFavHotspot(requestId) {
+    const hot = document.createElement("span");
+    hot.className = "tree-node__star";
+    hot.setAttribute("aria-hidden", "true");
+    this.#updateHotspot(hot, this.#favoriteIds.has(requestId));
+    hot.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+    });
+    hot.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      window.dispatchEvent(
+        new CustomEvent("wurl:favorite-toggle", {
+          detail: {
+            node: this.#findNode(this.#items, requestId) ?? { id: requestId },
+            favorited: !this.#favoriteIds.has(requestId),
+          },
+          bubbles: true,
+        }),
+      );
+    });
+    return hot;
+  }
+
+  /** Reflect favorite state in a hotspot: show the star glyph and its tooltip. */
+  #updateHotspot(hot, favorited) {
+    hot.textContent = favorited ? "★" : "";
+    hot.title = favorited
+      ? "Double-click to unfavorite"
+      : "Double-click to favorite";
+  }
+
+  // ── Quick-access list rendering (favorites / recents) ───────────────────
+
+  /**
+   * Render a flat list of favorited or recent requests spanning all
+   * collections. Each row opens/focuses its request via wurl:request-open.
+   * @param {"favorites"|"recents"} kind
+   */
+  #renderQuickList(kind) {
+    const entries = kind === "favorites" ? this.#favorites : this.#recents;
+    const listEl = document.createElement("ul");
+    listEl.className = "tree-list";
+    listEl.setAttribute("role", "group");
+
+    if (entries.length === 0) {
+      const empty = document.createElement("li");
+      empty.className = "tree-empty";
+      empty.innerHTML = `<span>${
+        kind === "favorites" ? "No favorites yet" : "No recent requests"
+      }</span>`;
+      listEl.appendChild(empty);
+    } else {
+      entries.forEach((entry) =>
+        listEl.appendChild(this.#createQuickRow(entry, kind)),
+      );
+    }
+
+    this.#el.appendChild(listEl);
+  }
+
+  /**
+   * Build a quick-access row for one favorites/recents entry. Mirrors a request
+   * row (method badge + label, optional star) but carries data-qa-id instead of
+   * data-id so tree lookups never collide with it, and dispatches
+   * wurl:request-open on activation.
+   * @param {object} entry  — { collectionId, requestId, name, method }
+   * @param {"favorites"|"recents"} kind
+   */
+  #createQuickRow(entry, kind) {
+    const li = document.createElement("li");
+    li.className = "tree-node tree-node--request";
+    li.setAttribute("role", "treeitem");
+    li.dataset.qaId = entry.requestId;
+    li.dataset.url = "";
+
+    const method = entry.method ?? "GET";
+    const methodClass = `method--${method.toLowerCase()}`;
+    const methodTitle = document.documentElement.classList.contains(
+      "show-method-icons",
+    )
+      ? ` title="${escapeHtml(method)}"`
+      : "";
+    // The Favorites tab is all favorites, so the star is redundant there; only
+    // flag a Recents row when it is also favorited.
+    const isFav = kind === "recents" && this.#favoriteIds.has(entry.requestId);
+    if (isFav) li.classList.add("tree-node--favorite");
+
+    li.innerHTML = `
+      <div class="tree-node__row" tabindex="0">
+        <span class="tree-node__method ${methodClass}"${methodTitle}>${method}</span>
+        <span class="tree-node__label">${escapeHtml(entry.name || "(unnamed)")}</span>
+      </div>
+    `;
+
+    const row = li.querySelector(".tree-node__row");
+    if (isFav)
+      row.insertBefore(this.#makeFavHotspot(entry.requestId), row.firstChild);
+    const open = () =>
+      window.dispatchEvent(
+        new CustomEvent("wurl:request-open", {
+          detail: {
+            collectionId: entry.collectionId,
+            requestId: entry.requestId,
+          },
+          bubbles: true,
+        }),
+      );
+
+    row.addEventListener("click", open);
+    row.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        open();
+      }
+    });
+
+    // Favorites rows offer a quick "Unfavorite"; recents are not editable.
+    if (kind === "favorites") {
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.#showQuickContextMenu(entry, e.clientX, e.clientY);
+      });
+    }
+
+    return li;
+  }
+
+  /** Minimal context menu for a favorites row: unfavorite. */
+  async #showQuickContextMenu(entry, x, y) {
+    const clickedId = await window.wurl.ui.contextMenu({
+      items: [{ id: "unfavorite", label: "Unfavorite" }],
+      x,
+      y,
+    });
+    if (clickedId !== "unfavorite") return;
+    window.dispatchEvent(
+      new CustomEvent("wurl:favorite-toggle", {
+        detail: {
+          node: {
+            id: entry.requestId,
+            name: entry.name,
+            method: entry.method,
+          },
+          favorited: false,
+        },
+        bubbles: true,
+      }),
+    );
   }
 
   // ── Context menu ────────────────────────────────────────────────────────
@@ -284,6 +621,18 @@ export class TreeView {
             "add-request": () => this.#addRequestAfter(node.id),
             "add-folder": () => this.#addFolderAfter(node.id),
             rename: () => this.#renameNode(node.id),
+            favorite: () => {
+              const liveNode = this.#findNode(this.#items, node.id) ?? node;
+              window.dispatchEvent(
+                new CustomEvent("wurl:favorite-toggle", {
+                  detail: {
+                    node: liveNode,
+                    favorited: !this.#favoriteIds.has(liveNode.id),
+                  },
+                  bubbles: true,
+                }),
+              );
+            },
             duplicate: () => this.#duplicateNode(node.id),
             "generate-curl": () => this.#generateCurl(node),
             "clear-history": () =>
@@ -315,6 +664,10 @@ export class TreeView {
             { id: "add-folder", label: "Add Folder" },
             { type: "separator" },
             { id: "rename", label: "Rename" },
+            {
+              id: "favorite",
+              label: this.#favoriteIds.has(node.id) ? "Unfavorite" : "Favorite",
+            },
             { type: "separator" },
             { id: "duplicate", label: "Duplicate" },
             { id: "generate-curl", label: "Generate cURL" },
@@ -1156,7 +1509,14 @@ export class TreeView {
   #rerender() {
     const existing = this.#el.querySelector(".tree-list");
     if (existing) existing.remove();
-    this.#renderTree(this.#items);
+    // Refresh the tab bar first — it may redirect an unavailable active tab
+    // (e.g. the Favorites tab after the last favorite was removed) to Requests.
+    this.#updateTabBar();
+    if (this.#activeTab === "requests") {
+      this.#renderTree(this.#items);
+    } else {
+      this.#renderQuickList(this.#activeTab);
+    }
     if (this.#filterText) this.#applyFilter();
   }
 
@@ -1284,6 +1644,12 @@ export class TreeView {
       )
         ? ` title="${escapeHtml(method)}"`
         : "";
+      // Every request row gets a favorite hotspot in the left gutter. It is
+      // overlaid (no layout space), so the indent alignment is unchanged, and
+      // double-clicking it toggles the favorite — even on an empty (non-starred)
+      // spot.
+      const isFav = this.#favoriteIds.has(node.id);
+      if (isFav) li.classList.add("tree-node--favorite");
       li.innerHTML = `
         <div class="tree-node__row" tabindex="0">
           <span class="tree-node__method ${methodClass}"${methodTitle}>${method}</span>
@@ -1292,6 +1658,7 @@ export class TreeView {
       `;
 
       const row = li.querySelector(".tree-node__row");
+      row.insertBefore(this.#makeFavHotspot(node.id), row.firstChild);
 
       // Left-click: select request
       row.addEventListener("click", () => {

@@ -83,7 +83,7 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-cookies test-auth test-content-type test-oauth test-export test-components test-import test-data-store test-renderer-components test-renderer-e2e
+test: test-js test-cookies test-auth test-content-type test-oauth test-export test-components test-import test-data-store test-quick-access test-renderer-components test-renderer-e2e
 
 test-js:
 	@echo "Running JavaScript store tests..."
@@ -128,6 +128,11 @@ test-import:
 test-data-store:
 	@echo "Running renderer IPC-bridge integration tests (data-store)..."
 	@node --test $(WEB_DIR)/scripts/tests/data-store.test.js
+	@echo "--------------------------------"
+
+test-quick-access:
+	@echo "Running favorites / recents helper tests (quick-access)..."
+	@node --test $(WEB_DIR)/scripts/tests/quick-access.test.js
 	@echo "--------------------------------"
 
 test-renderer-components:
