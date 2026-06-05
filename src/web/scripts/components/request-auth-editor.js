@@ -1011,7 +1011,6 @@ export class RequestAuthEditor {
         this.#buildAuthPillField("Username", {
           placeholder: "Username",
           value: this.#authOAuth2.username ?? "",
-          decryptPath: "authOAuth2.username",
           onInput: (v) => {
             this.#authOAuth2.username = v;
             this.#dispatchAuthUpdated();
@@ -1338,7 +1337,6 @@ export class RequestAuthEditor {
       this.#buildAuthPillField("Access Key ID", {
         placeholder: "AKIAIOSFODNN7EXAMPLE",
         value: this.#authAwsIam.accessKeyId,
-        decryptPath: "authAwsIam.accessKeyId",
         onInput: (v) => {
           this.#authAwsIam.accessKeyId = v;
           this.#dispatchAuthUpdated();

@@ -27,6 +27,7 @@ const io = require("./store/io");
 const { isBinaryContentType, looksBinary } = require("./http-content-type");
 const aws4 = require("aws4");
 const { HttpsProxyAgent } = require("https-proxy-agent");
+const { HttpProxyAgent } = require("http-proxy-agent");
 const {
   parseChallenge,
   selectDigestChallenge,
@@ -683,7 +684,16 @@ function safeCallWrite(channel, fn) {
         ...(desc._ntlmAgent
           ? { agent: desc._ntlmAgent }
           : proxy
-            ? { agent: new HttpsProxyAgent(proxy) }
+            ? {
+                // HttpsProxyAgent tunnels via CONNECT, which hides the request's
+                // own headers (e.g. X-PROXY-ERROR) from a plain-HTTP forward
+                // proxy. Use HttpProxyAgent for http:// targets so the request is
+                // sent absolute-URI and the proxy can read those headers; reserve
+                // the CONNECT-tunnelling agent for https:// targets.
+                agent: isHttps
+                  ? new HttpsProxyAgent(proxy)
+                  : new HttpProxyAgent(proxy),
+              }
             : {}),
       };
 
