@@ -348,6 +348,16 @@ const TABS = [
   { id: "notes", label: "Notes" },
 ];
 
+// Tabs for a WebSocket request (Feature 32): the Body tab is replaced by the
+// Message composer. Params/Headers/Auth apply to the handshake; Notes are shared.
+const WS_TABS = [
+  { id: "params", label: "Params" },
+  { id: "headers", label: "Headers" },
+  { id: "message", label: "Message" },
+  { id: "auth", label: "Auth" },
+  { id: "notes", label: "Notes" },
+];
+
 function _extractResponseFunctionRefs(templates) {
   const RESPONSE_FNS = new Set([
     "response",
@@ -468,6 +478,22 @@ export class RequestEditor {
     dispatch: () => this.#dispatchBodyUpdated(),
   });
 
+  // WebSocket state (Feature 32) — `protocol` distinguishes a ws request from an
+  // HTTP one and selects the layout (WS pill + Message tab vs method + Body).
+  // The live connection lives in the main process / app.js; the editor tracks
+  // only enough to label the Connect button and enable the composer's Send.
+  #protocol = "http"; // "http" | "websocket"
+  #renderedProtocol = "http"; // protocol the current DOM was built for
+  #wsMessage = ""; // last composed message (persisted)
+  #wsMessageFormat = "text"; // "text" | "json" (persisted)
+  #wsSubprotocols = ""; // comma-separated handshake subprotocols (persisted)
+  #wsState = "idle"; // idle|connecting|open|closing|closed|error (session-only)
+  #wsMessageEl = null; // composer <textarea>
+  #wsSubprotoEl = null; // subprotocols <input>
+  #wsSendBtn = null; // composer Send button
+  #wsConnectBtn = null; // url-bar Connect/Disconnect button
+  #syncWsFormatButtons = null; // refreshes the Text/JSON toggle from state
+
   // Params bulk editor
   #paramsBulkMode = false;
   #paramsBulkEl = null; // <textarea> shown in bulk mode
@@ -532,6 +558,35 @@ export class RequestEditor {
     this.#renderUrlBar();
     this.#renderTabStrip();
     this.#renderTabContent();
+
+    // Reflect the active WebSocket connection's state (dispatched by app.js for
+    // the selected request) on the Connect button and the composer's Send button.
+    window.addEventListener("wurl:ws-state", (e) => {
+      this.#applyWsState(e.detail?.state ?? "idle");
+    });
+
+    // HTTP send-button in-flight toggle. Registered once here (not in
+    // #renderUrlBar, which can re-run on a protocol switch) and operating on the
+    // current this._sendBtn, so no listeners leak across rebuilds. No-op in
+    // WebSocket mode, which has a Connect button driven by #applyWsState instead.
+    window.addEventListener("wurl:request-loading", () => {
+      this.#requestInFlight = true;
+      const b = this._sendBtn;
+      if (!b || this.#protocol === "websocket") return;
+      b.textContent = "Stop";
+      b.setAttribute("aria-label", "Stop request");
+      b.classList.add("req-send-btn--cancel");
+    });
+    const resetSendBtn = () => {
+      this.#requestInFlight = false;
+      const b = this._sendBtn;
+      if (!b || this.#protocol === "websocket") return;
+      b.textContent = "Send";
+      b.setAttribute("aria-label", "Send request");
+      b.classList.remove("req-send-btn--cancel");
+    };
+    window.addEventListener("wurl:response-received", resetSendBtn);
+    window.addEventListener("wurl:request-error", resetSendBtn);
   }
 
   /** Root DOM element — pass to Panel.mount(). */
@@ -541,6 +596,10 @@ export class RequestEditor {
 
   // ── URL bar ─────────────────────────────────────────────────────────────
   #renderUrlBar() {
+    if (this.#protocol === "websocket") {
+      this.#renderWsUrlBar();
+      return;
+    }
     const bar = document.createElement("div");
     bar.className = "req-url-bar";
 
@@ -728,22 +787,9 @@ export class RequestEditor {
       }
     });
 
-    // Track in-flight state to toggle the button
-    window.addEventListener("wurl:request-loading", () => {
-      this.#requestInFlight = true;
-      sendBtn.textContent = "Stop";
-      sendBtn.setAttribute("aria-label", "Stop request");
-      sendBtn.classList.add("req-send-btn--cancel");
-    });
-    const resetSendBtn = () => {
-      this.#requestInFlight = false;
-      sendBtn.textContent = "Send";
-      sendBtn.setAttribute("aria-label", "Send request");
-      sendBtn.classList.remove("req-send-btn--cancel");
-    };
-    window.addEventListener("wurl:response-received", resetSendBtn);
-    window.addEventListener("wurl:request-error", resetSendBtn);
-
+    // The in-flight toggle (request-loading / response-received / request-error)
+    // is registered once in the constructor and targets this._sendBtn, so a
+    // protocol-driven rebuild of the URL bar can't accumulate stale listeners.
     sendGroup.appendChild(sendBtn);
 
     bar.appendChild(methodSel);
@@ -759,13 +805,280 @@ export class RequestEditor {
     this._urlInput = urlEditor.element;
   }
 
+  // ── WebSocket URL bar (Feature 32) ────────────────────────────────────────
+  // A static "WS" pill stands in for the HTTP method selector; the Send button
+  // becomes a Connect/Disconnect toggle driven by the live connection state.
+  #renderWsUrlBar() {
+    const bar = document.createElement("div");
+    bar.className = "req-url-bar";
+
+    const wsLabel = document.createElement("span");
+    wsLabel.className = "req-method-select req-method-select--ws";
+    wsLabel.setAttribute("aria-label", "WebSocket");
+    const lbl = document.createElement("span");
+    lbl.className = "req-method-select__label";
+    lbl.textContent = "WS";
+    wsLabel.appendChild(lbl);
+
+    const urlEditor = new VariablePillEditor({
+      placeholder: "wss://echo.example.com",
+      ariaLabel: "WebSocket URL",
+      className: "req-url-input",
+      getContext: () => this.#variableContext,
+      getItems: () => this.#getItems(),
+      ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
+      onInput: (v) => {
+        this.#url = v.trim();
+        this.#dispatchRequestUpdated();
+      },
+      onEnter: () => this.#toggleWsConnection(),
+    });
+    this.#urlPillEditor = urlEditor;
+
+    const sendGroup = document.createElement("div");
+    sendGroup.className = "req-send-group";
+
+    const connectBtn = document.createElement("button");
+    connectBtn.type = "button";
+    connectBtn.className = "req-send-btn";
+    connectBtn.dataset.method = "ws";
+    connectBtn.textContent = "Connect";
+    connectBtn.setAttribute("aria-label", "Connect WebSocket");
+    connectBtn.addEventListener("click", () => this.#toggleWsConnection());
+    this.#wsConnectBtn = connectBtn;
+    sendGroup.appendChild(connectBtn);
+
+    bar.append(wsLabel, urlEditor.element, sendGroup);
+    this.#el.appendChild(bar);
+    this._urlInput = urlEditor.element;
+    // Apply whatever connection state is current so a re-render shows the right label.
+    this.#applyWsState(this.#wsState);
+  }
+
+  /** Tabs to render for the current protocol. */
+  #tabsForProtocol() {
+    return this.#protocol === "websocket" ? WS_TABS : TABS;
+  }
+
+  /**
+   * Rebuild the URL bar, tab strip and tab panes for the current #protocol.
+   * Called from load() when a request switches between HTTP and WebSocket so the
+   * correct controls render. Field values are repopulated by load() afterwards.
+   */
+  #rebuildLayout() {
+    this.#renderedProtocol = this.#protocol;
+    // Drop stale element refs the render methods will reassign.
+    this._methodSel = this._methodSelLabel = this._sendBtn = null;
+    this.#wsConnectBtn = this.#wsSendBtn = null;
+    this.#wsMessageEl = this.#wsSubprotoEl = null;
+    this.#syncWsFormatButtons = null;
+    this.#bodyContentEl = this.#bodyTypeBarEl = null;
+    this.#notesEl = null;
+    // Keep the active tab valid for the new protocol.
+    const ids = this.#tabsForProtocol().map((t) => t.id);
+    if (!ids.includes(this.#activeTab)) this.#activeTab = ids[0];
+    this.#el.innerHTML = "";
+    this.#renderUrlBar();
+    this.#renderTabStrip();
+    this.#renderTabContent();
+  }
+
+  // ── WebSocket message composer (Feature 32) ───────────────────────────────
+  #buildMessageEditor() {
+    const container = document.createElement("div");
+    container.className = "params-editor ws-composer";
+
+    const bar = document.createElement("div");
+    bar.className = "ws-composer__bar";
+
+    // Text / JSON format toggle.
+    const fmt = document.createElement("div");
+    fmt.className = "ws-composer__format";
+    fmt.setAttribute("role", "group");
+    fmt.setAttribute("aria-label", "Message format");
+    const fmtBtns = {};
+    for (const f of ["text", "json"]) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = f === "text" ? "Text" : "JSON";
+      b.setAttribute("aria-pressed", String(this.#wsMessageFormat === f));
+      b.addEventListener("click", () => {
+        this.#wsMessageFormat = f;
+        this.#syncWsFormatButtons?.();
+        this.#dispatchWsFieldUpdate({ wsMessageFormat: f });
+      });
+      fmtBtns[f] = b;
+      fmt.appendChild(b);
+    }
+    this.#syncWsFormatButtons = () => {
+      for (const k of Object.keys(fmtBtns)) {
+        fmtBtns[k].setAttribute(
+          "aria-pressed",
+          String(k === this.#wsMessageFormat),
+        );
+      }
+    };
+
+    const subproto = document.createElement("input");
+    subproto.type = "text";
+    subproto.className = "ws-composer__subproto";
+    subproto.placeholder = "Subprotocols (optional, comma-separated)";
+    subproto.value = this.#wsSubprotocols;
+    subproto.setAttribute("aria-label", "WebSocket subprotocols");
+    subproto.addEventListener("input", () => {
+      this.#wsSubprotocols = subproto.value;
+      this.#dispatchWsFieldUpdate({ wsSubprotocols: subproto.value });
+    });
+    this.#wsSubprotoEl = subproto;
+
+    const sendBtn = document.createElement("button");
+    sendBtn.type = "button";
+    sendBtn.className = "ws-composer__send";
+    sendBtn.textContent = "Send";
+    sendBtn.disabled = this.#wsState !== "open";
+    sendBtn.setAttribute("aria-label", "Send message");
+    sendBtn.addEventListener("click", () => this.#sendWebSocketMessage());
+    this.#wsSendBtn = sendBtn;
+
+    bar.append(fmt, subproto, sendBtn);
+
+    const ta = document.createElement("textarea");
+    ta.className = "body-text-editor ws-composer__textarea";
+    ta.placeholder = "Message to send… (supports {{variables}})";
+    ta.spellcheck = false;
+    ta.value = this.#wsMessage;
+    ta.setAttribute("aria-label", "WebSocket message");
+    ta.addEventListener("input", () => {
+      this.#wsMessage = ta.value;
+      this.#dispatchWsFieldUpdate({ wsMessage: ta.value });
+    });
+    ta.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        this.#sendWebSocketMessage();
+      }
+    });
+    this.#wsMessageEl = ta;
+
+    const hint = document.createElement("div");
+    hint.className = "ws-composer__hint";
+    hint.textContent = "Connect first, then send. ⌘/Ctrl+Enter to send.";
+
+    container.append(bar, ta, hint);
+    return container;
+  }
+
+  /** Connect (when idle/closed) or disconnect (when active). */
+  #toggleWsConnection() {
+    if (this.#wsState === "open" || this.#wsState === "connecting") {
+      window.dispatchEvent(
+        new CustomEvent("wurl:ws-disconnect", { detail: {}, bubbles: true }),
+      );
+    } else {
+      this.#connectWebSocket();
+    }
+  }
+
+  /**
+   * Resolve the URL + handshake headers (reusing buildRequestPayload so bearer /
+   * basic / apikey auth become handshake headers exactly as on the HTTP path)
+   * and ask app.js to open the connection.
+   */
+  async #connectWebSocket() {
+    const rawUrl = this.#urlPillEditor.getValue().trim();
+    if (!rawUrl) {
+      this.#urlPillEditor.focus();
+      return;
+    }
+    const ctx = this.#variableContext;
+    const rv = (s) => resolveStringAsync(s, ctx);
+    const authModel = this.#auth.getModel();
+    let payload;
+    try {
+      payload = await buildRequestPayload(
+        {
+          method: "GET",
+          urlBase: encodeBaseUrl(await rv(rawUrl)),
+          params: this.#params,
+          headers: this.#headers,
+          authEnabled: authModel.authEnabled,
+          authType: authModel.authType,
+          authBasic: authModel.authBasic,
+          authBearer: authModel.authBearer,
+          authApiKey: authModel.authApiKey,
+          authDigest: authModel.authDigest,
+          authNtlm: authModel.authNtlm,
+          authAwsIam: authModel.authAwsIam,
+          bodyType: "no-body",
+        },
+        rv,
+      );
+    } catch {
+      return; // a malformed URL/auth surfaces nothing — leave state untouched
+    }
+    const subprotocols = (await rv(this.#wsSubprotocols ?? "")).trim();
+    window.dispatchEvent(
+      new CustomEvent("wurl:ws-connect", {
+        detail: {
+          url: payload.finalUrl,
+          headers: payload.headers,
+          subprotocols,
+        },
+        bubbles: true,
+      }),
+    );
+  }
+
+  /** Resolve {{var}} tokens in the composed message and send it. */
+  async #sendWebSocketMessage() {
+    if (this.#wsState !== "open") return;
+    const raw = this.#wsMessageEl ? this.#wsMessageEl.value : this.#wsMessage;
+    const data = await resolveStringAsync(raw ?? "", this.#variableContext);
+    window.dispatchEvent(
+      new CustomEvent("wurl:ws-send", { detail: { data }, bubbles: true }),
+    );
+  }
+
+  /** Reflect a connection-state change on the Connect + Send buttons. */
+  #applyWsState(state) {
+    this.#wsState = state;
+    if (this.#protocol !== "websocket") return;
+    if (this.#wsConnectBtn) {
+      const open = state === "open";
+      const closing = state === "closing";
+      this.#wsConnectBtn.textContent = open
+        ? "Disconnect"
+        : state === "connecting"
+          ? "Connecting…"
+          : closing
+            ? "Disconnecting…"
+            : "Connect";
+      this.#wsConnectBtn.classList.toggle(
+        "req-send-btn--cancel",
+        open || closing,
+      );
+    }
+    if (this.#wsSendBtn) this.#wsSendBtn.disabled = state !== "open";
+  }
+
+  /** Persist a WebSocket composer field via the shared request-updated channel. */
+  #dispatchWsFieldUpdate(partial) {
+    if (!this.#currentNodeId) return;
+    window.dispatchEvent(
+      new CustomEvent("wurl:request-updated", {
+        detail: { id: this.#currentNodeId, ...partial },
+        bubbles: true,
+      }),
+    );
+  }
+
   // ── Tab strip ────────────────────────────────────────────────────────────
   #renderTabStrip() {
     const strip = document.createElement("div");
     strip.className = "req-tab-strip";
     strip.setAttribute("role", "tablist");
 
-    TABS.forEach((tab) => {
+    this.#tabsForProtocol().forEach((tab) => {
       const btn = document.createElement("button");
       btn.className = "req-tab-btn";
       btn.textContent = tab.label;
@@ -790,7 +1103,7 @@ export class RequestEditor {
     const content = document.createElement("div");
     content.className = "req-tab-content";
 
-    TABS.forEach((tab) => {
+    this.#tabsForProtocol().forEach((tab) => {
       const pane = document.createElement("div");
       pane.className = "req-tab-pane";
       pane.id = `req-tab-${tab.id}`;
@@ -808,6 +1121,7 @@ export class RequestEditor {
     if (tabId === "params") return this.#buildParamsEditor();
     if (tabId === "headers") return this.#buildHeadersEditor();
     if (tabId === "body") return this.#buildBodyEditor();
+    if (tabId === "message") return this.#buildMessageEditor();
     if (tabId === "auth") return this.#auth.element;
     if (tabId === "notes") return this.#buildNotesEditor();
     return document.createElement("div");
@@ -4198,7 +4512,14 @@ export class RequestEditor {
     this._headersDeleteAllCleanup?.();
     this._bodyFormDeleteAllCleanup?.();
 
-    if (node.method) {
+    // Protocol — rebuild the url bar + tabs when switching between HTTP and
+    // WebSocket so the right controls (method vs WS, Body vs Message) render.
+    this.#protocol = node.protocol === "websocket" ? "websocket" : "http";
+    if (this.#protocol !== this.#renderedProtocol) {
+      this.#rebuildLayout();
+    }
+
+    if (node.method && this._methodSel) {
       this.#method = node.method;
       this._methodSelLabel.textContent = node.method;
       this._methodSel.dataset.method = node.method.toLowerCase();
@@ -4302,7 +4623,18 @@ export class RequestEditor {
     // Sync the select element if the body tab has been built
     const sel = this.#el.querySelector(".body-type-select");
     if (sel) sel.value = this.#bodyType;
-    this.#renderBodyContent();
+    this.#renderBodyContent(); // safe no-op in WebSocket mode (no body pane)
+
+    // WebSocket composer (Feature 32). The live connection is session-scoped and
+    // owned by app.js — every newly loaded request starts disconnected (app.js
+    // auto-disconnects the previous one), so reset the displayed state to idle.
+    this.#wsMessage = node.wsMessage ?? "";
+    this.#wsMessageFormat = node.wsMessageFormat === "json" ? "json" : "text";
+    this.#wsSubprotocols = node.wsSubprotocols ?? "";
+    if (this.#wsMessageEl) this.#wsMessageEl.value = this.#wsMessage;
+    if (this.#wsSubprotoEl) this.#wsSubprotoEl.value = this.#wsSubprotocols;
+    this.#syncWsFormatButtons?.();
+    if (this.#protocol === "websocket") this.#applyWsState("idle");
 
     // Auth — delegated to the sub-component (reads node._decryptErrors,
     // auth* fields, and syncs its own toolbar controls).

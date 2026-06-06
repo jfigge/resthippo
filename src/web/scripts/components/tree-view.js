@@ -494,13 +494,6 @@ export class TreeView {
     li.dataset.qaId = entry.requestId;
     li.dataset.url = "";
 
-    const method = entry.method ?? "GET";
-    const methodClass = `method--${method.toLowerCase()}`;
-    const methodTitle = document.documentElement.classList.contains(
-      "show-method-icons",
-    )
-      ? ` title="${escapeHtml(method)}"`
-      : "";
     // The Favorites tab is all favorites, so the star is redundant there; only
     // flag a Recents row when it is also favorited.
     const isFav = kind === "recents" && this.#favoriteIds.has(entry.requestId);
@@ -508,7 +501,7 @@ export class TreeView {
 
     li.innerHTML = `
       <div class="tree-node__row" tabindex="0">
-        <span class="tree-node__method ${methodClass}"${methodTitle}>${method}</span>
+        ${this.#methodBadgeHtml(entry.protocol, entry.method)}
         <span class="tree-node__label">${escapeHtml(entry.name || "(unnamed)")}</span>
       </div>
     `;
@@ -592,6 +585,8 @@ export class TreeView {
       node.type === "collection"
         ? {
             "add-request": () => this.#addRequestTo(node.id),
+            "add-ws-request": () =>
+              this.#addRequestTo(node.id, { protocol: "websocket" }),
             "add-folder": () => this.#addFolderTo(node.id),
             rename: () => this.#renameNode(node.id),
             duplicate: () => this.#duplicateNode(node.id),
@@ -620,6 +615,8 @@ export class TreeView {
           }
         : {
             "add-request": () => this.#addRequestAfter(node.id),
+            "add-ws-request": () =>
+              this.#addRequestAfter(node.id, { protocol: "websocket" }),
             "add-folder": () => this.#addFolderAfter(node.id),
             rename: () => this.#renameNode(node.id),
             favorite: () => {
@@ -649,6 +646,7 @@ export class TreeView {
       node.type === "collection"
         ? [
             { id: "add-request", label: "Add Request" },
+            { id: "add-ws-request", label: "Add WebSocket Request" },
             { id: "add-folder", label: "Add Folder" },
             { type: "separator" },
             { id: "rename", label: "Rename" },
@@ -662,6 +660,7 @@ export class TreeView {
           ]
         : [
             { id: "add-request", label: "Add Request" },
+            { id: "add-ws-request", label: "Add WebSocket Request" },
             { id: "add-folder", label: "Add Folder" },
             { type: "separator" },
             { id: "rename", label: "Rename" },
@@ -671,7 +670,10 @@ export class TreeView {
             },
             { type: "separator" },
             { id: "duplicate", label: "Duplicate" },
-            { id: "generate-curl", label: "Generate cURL" },
+            // cURL has no WebSocket equivalent, so omit it for ws requests.
+            ...(node.protocol !== "websocket"
+              ? [{ id: "generate-curl", label: "Generate cURL" }]
+              : []),
             // Requests carry run history; offer to clear it. danger:true wires
             // the two-click "Confirm?" safety net automatically.
             ...(node.type === "request"
@@ -726,6 +728,26 @@ export class TreeView {
       actions[clickedId]?.();
       return;
     }
+  }
+
+  /**
+   * HTML for a request row's leading badge. WebSocket requests (protocol
+   * "websocket") show a "WS" badge; everything else shows the HTTP method.
+   * @param {string|undefined} protocol
+   * @param {string|undefined} method
+   * @returns {string}
+   */
+  #methodBadgeHtml(protocol, method) {
+    if (protocol === "websocket") {
+      return `<span class="tree-node__method tree-node__method--ws" title="WebSocket">WS</span>`;
+    }
+    const m = method ?? "GET";
+    const title = document.documentElement.classList.contains(
+      "show-method-icons",
+    )
+      ? ` title="${escapeHtml(m)}"`
+      : "";
+    return `<span class="tree-node__method method--${m.toLowerCase()}"${title}>${escapeHtml(m)}</span>`;
   }
 
   // ── Mutations — toolbar ─────────────────────────────────────────────────
@@ -790,15 +812,28 @@ export class TreeView {
 
   // ── Mutations — context menu actions ────────────────────────────────────
 
-  /** Add a new request directly inside the collection identified by `collectionId`. */
-  #addRequestTo(collectionId) {
-    const request = {
+  /**
+   * Build a fresh request node. A WebSocket request carries `protocol` and no
+   * HTTP method; a plain request defaults to GET.
+   * @param {string} [protocol] "websocket" to create a WebSocket request
+   */
+  #newRequestNode(protocol) {
+    const isWs = protocol === "websocket";
+    return {
       id: crypto.randomUUID(),
       type: "request",
-      name: "New Request",
-      method: "GET",
+      name: isWs ? "New WebSocket" : "New Request",
       url: "",
+      ...(isWs ? { protocol: "websocket" } : { method: "GET" }),
     };
+  }
+
+  /**
+   * Add a new request directly inside the collection identified by `collectionId`.
+   * Pass `{ protocol: "websocket" }` to create a WebSocket request instead of HTTP.
+   */
+  #addRequestTo(collectionId, { protocol } = {}) {
+    const request = this.#newRequestNode(protocol);
     this.#collapsedIds.delete(collectionId);
     this.#saveCollapsedState();
     this.#items = this.#insertChild(this.#items, collectionId, request);
@@ -828,15 +863,12 @@ export class TreeView {
     }
   }
 
-  /** Insert a new request as a sibling immediately after the node with `nodeId`. */
-  #addRequestAfter(nodeId) {
-    const request = {
-      id: crypto.randomUUID(),
-      type: "request",
-      name: "New Request",
-      method: "GET",
-      url: "",
-    };
+  /**
+   * Insert a new request as a sibling immediately after the node with `nodeId`.
+   * Pass `{ protocol: "websocket" }` to create a WebSocket request instead of HTTP.
+   */
+  #addRequestAfter(nodeId, { protocol } = {}) {
+    const request = this.#newRequestNode(protocol);
     this.#items = this.#insertNodeAfter(this.#items, nodeId, request);
     this.#rerender();
     this.#emitChange();
@@ -1660,15 +1692,7 @@ export class TreeView {
     } else {
       // Request item
       li.classList.add("tree-node--request");
-      const method = node.method ?? "GET";
-      const methodClass = `method--${method.toLowerCase()}`;
       li.dataset.url = (node.url ?? "").toLowerCase();
-      // In icon mode the badge shows a glyph, so name it via a tooltip.
-      const methodTitle = document.documentElement.classList.contains(
-        "show-method-icons",
-      )
-        ? ` title="${escapeHtml(method)}"`
-        : "";
       // Every request row gets a favorite hotspot in the left gutter. It is
       // overlaid (no layout space), so the indent alignment is unchanged, and
       // double-clicking it toggles the favorite — even on an empty (non-starred)
@@ -1677,7 +1701,7 @@ export class TreeView {
       if (isFav) li.classList.add("tree-node--favorite");
       li.innerHTML = `
         <div class="tree-node__row" tabindex="0">
-          <span class="tree-node__method ${methodClass}"${methodTitle}>${method}</span>
+          ${this.#methodBadgeHtml(node.protocol, node.method)}
           <span class="tree-node__label">${escapeHtml(node.name)}</span>
         </div>
       `;

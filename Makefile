@@ -125,8 +125,8 @@ test-auth:
 	@echo "--------------------------------"
 
 test-net:
-	@echo "Running proxy / retry policy tests..."
-	@node --test $(APP_DIR)/net/tests/proxy.test.js $(APP_DIR)/net/tests/retry.test.js
+	@echo "Running proxy / retry / websocket tests..."
+	@node --test $(APP_DIR)/net/tests/proxy.test.js $(APP_DIR)/net/tests/retry.test.js $(APP_DIR)/net/tests/websocket.test.js
 	@echo "--------------------------------"
 
 test-content-type:
@@ -640,6 +640,7 @@ mock-up: mock-build
 	@echo "  GET http://localhost:$(MOCK_PORT)/auth/<type>"
 	@echo "  ANY http://localhost:$(MOCK_PORT)/echo  reflects the request back (json/xml/yaml/html via Accept)"
 	@echo "  POST http://localhost:$(MOCK_PORT)/graphql  GraphQL (introspection + user/users/createUser)"
+	@echo "  WS  ws://localhost:$(MOCK_PORT)/ws  echo; /ws/time pushes a frame/sec; /ws/reject returns 401"
 	@echo "Forward proxy on http://localhost:$(MOCK_PROXY_PORT)"
 	@echo "  send X-Proxy-Error: <n>[:reset|timeout|<status>] to fail n-1 times per URL before succeeding"
 	@echo "SOCKS5 proxy on socks5://localhost:$(MOCK_SOCKS_PORT)"

@@ -236,6 +236,7 @@ func main() {
 
 	registerAuthRoutes()
 	registerGraphqlRoutes()
+	registerWebsocketRoutes()
 
 	// Forward proxy (feature 44) on its own port and handler, sharing this
 	// process so a single `make mock-up` brings both up.

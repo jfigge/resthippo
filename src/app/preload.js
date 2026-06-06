@@ -273,6 +273,42 @@ contextBridge.exposeInMainWorld("wurl", {
   },
 
   /**
+   * WebSocket client (Feature 32) — the socket lives in the main process; the
+   * renderer drives it over IPC and receives a live stream of status changes and
+   * inbound frames.
+   *
+   * open() resolves to { id }; that id keys every later send/close/ping and tags
+   * the ws:status / ws:message pushes so a single console can demultiplex them.
+   *
+   *   open(opts)  opts = { url, headers?, subprotocols?, verifySsl?, proxy?,
+   *                        proxyUsername?, proxyPassword?, proxyBypass?, timeout? }
+   *   send({ id, data })   → { ok, reason? }
+   *   close({ id, code?, reason? }) → { ok, reason? }
+   *   ping({ id })         → { ok, reason? }
+   *
+   * onStatus(cb) / onMessage(cb) register a push listener and RETURN an
+   * unsubscribe function — call it to detach the listener (no leaks across reloads).
+   */
+  ws: {
+    open: (opts) => ipcRenderer.invoke("ws:open", opts),
+    send: (args) => ipcRenderer.invoke("ws:send", args),
+    close: (args) => ipcRenderer.invoke("ws:close", args),
+    ping: (args) => ipcRenderer.invoke("ws:ping", args),
+    /** @param {(status: object) => void} cb @returns {() => void} unsubscribe */
+    onStatus: (cb) => {
+      const listener = (_event, payload) => cb(payload);
+      ipcRenderer.on("ws:status", listener);
+      return () => ipcRenderer.removeListener("ws:status", listener);
+    },
+    /** @param {(frame: object) => void} cb @returns {() => void} unsubscribe */
+    onMessage: (cb) => {
+      const listener = (_event, payload) => cb(payload);
+      ipcRenderer.on("ws:message", listener);
+      return () => ipcRenderer.removeListener("ws:message", listener);
+    },
+  },
+
+  /**
    * OAuth 2.0 popup authorization — opens a BrowserWindow that navigates to
    * the IdP login page, intercepts the redirect callback, and returns the
    * full callback URL that contains the authorization code / token.

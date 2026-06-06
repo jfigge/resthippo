@@ -165,3 +165,131 @@ test("disabled auth contributes no Authorization header", async () => {
   });
   assert.equal(detail.headers["Authorization"], undefined);
 });
+
+// ── WebSocket mode (Feature 32) ─────────────────────────────────────────────
+
+/** Fresh DOM + editor loaded with `node`; returns { window, editor }. */
+function mountEditor(node, ctx = { envVariables: {}, folderChain: [] }) {
+  const window = resetDom();
+  window.wurl = { isElectron: true, ws: {} };
+  const editor = new RequestEditor();
+  document.body.appendChild(editor.element);
+  editor.setVariableContext(ctx);
+  editor.load(node);
+  return { window, editor };
+}
+
+test("WebSocket request renders a WS badge + Message tab (no Body tab)", () => {
+  const { editor } = mountEditor({
+    id: "w",
+    protocol: "websocket",
+    url: "wss://x",
+  });
+  assert.ok(
+    editor.element.querySelector(".req-method-select--ws"),
+    "WS pill present",
+  );
+  assert.ok(
+    editor.element.querySelector('[data-tab="message"]'),
+    "Message tab present",
+  );
+  assert.equal(
+    editor.element.querySelector('[data-tab="body"]'),
+    null,
+    "Body tab absent",
+  );
+  assert.ok(
+    editor.element.querySelector('[aria-label="Connect WebSocket"]'),
+    "Connect button present",
+  );
+});
+
+test("Connect resolves the URL + bearer header and dispatches ws-connect", async () => {
+  const { window, editor } = mountEditor(
+    {
+      id: "w",
+      protocol: "websocket",
+      url: "wss://{{host}}/feed",
+      authEnabled: true,
+      authType: "bearer",
+      authBearer: { token: "{{tok}}" },
+    },
+    {
+      envVariables: { host: "echo.example.com", tok: "secret123" },
+      folderChain: [],
+    },
+  );
+  const captured = new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("no ws-connect")), 1000);
+    window.addEventListener("wurl:ws-connect", (e) => {
+      clearTimeout(t);
+      resolve(e.detail);
+    });
+  });
+  editor.element.querySelector('[aria-label="Connect WebSocket"]').click();
+  const detail = await captured;
+  assert.equal(detail.url, "wss://echo.example.com/feed");
+  assert.equal(detail.headers.Authorization, "Bearer secret123");
+});
+
+test("a composed message is variable-resolved and dispatched on ws-send", async () => {
+  const { window, editor } = mountEditor(
+    {
+      id: "w",
+      protocol: "websocket",
+      url: "wss://x",
+      wsMessage: "hi {{name}}",
+    },
+    { envVariables: { name: "Ada" }, folderChain: [] },
+  );
+  // The composer's Send is enabled only once the connection reports "open".
+  window.dispatchEvent(
+    new CustomEvent("wurl:ws-state", { detail: { state: "open" } }),
+  );
+  const captured = new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("no ws-send")), 1000);
+    window.addEventListener("wurl:ws-send", (e) => {
+      clearTimeout(t);
+      resolve(e.detail);
+    });
+  });
+  const sendBtn = editor.element.querySelector('[aria-label="Send message"]');
+  assert.equal(sendBtn.disabled, false, "Send enabled when open");
+  sendBtn.click();
+  const detail = await captured;
+  assert.equal(detail.data, "hi Ada");
+});
+
+test("switching WebSocket → HTTP restores the method selector + Body tab", () => {
+  const { editor } = mountEditor({
+    id: "w",
+    protocol: "websocket",
+    url: "wss://x",
+  });
+  assert.ok(editor.element.querySelector(".req-method-select--ws"));
+  editor.load({
+    id: "h",
+    method: "POST",
+    url: "https://x",
+    bodyType: "json",
+    bodyText: "{}",
+  });
+  assert.equal(
+    editor.element.querySelector(".req-method-select--ws"),
+    null,
+    "WS pill removed",
+  );
+  assert.ok(
+    editor.element.querySelector('[aria-label="HTTP Method"]'),
+    "method selector restored",
+  );
+  assert.ok(
+    editor.element.querySelector('[data-tab="body"]'),
+    "Body tab restored",
+  );
+  assert.equal(
+    editor.element.querySelector('[data-tab="message"]'),
+    null,
+    "Message tab removed",
+  );
+});

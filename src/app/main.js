@@ -26,15 +26,13 @@ const { Stores } = require("./store/stores");
 const io = require("./store/io");
 const { isBinaryContentType, looksBinary } = require("./http-content-type");
 const aws4 = require("aws4");
-const { HttpsProxyAgent } = require("https-proxy-agent");
-const { HttpProxyAgent } = require("http-proxy-agent");
-const { SocksProxyAgent } = require("socks-proxy-agent");
 const {
-  proxyKind,
   withProxyCredentials,
   hostBypassesProxy,
+  makeProxyAgent,
 } = require("./net/proxy");
 const { normalizeRetry, retryReason, backoffDelay } = require("./net/retry");
+const { WebSocketHub } = require("./net/websocket");
 const {
   parseChallenge,
   selectDigestChallenge,
@@ -442,29 +440,6 @@ function safeCallWrite(channel, fn) {
         return Buffer.concat(chunks);
       },
     };
-  }
-
-  /**
-   * Build the proxy Agent for an outgoing request. The proxy *type* is taken
-   * from the URL scheme: any `socks*://` scheme uses the SOCKS agent; otherwise
-   * an HTTP/HTTPS forward-proxy agent is chosen by the *target* protocol.
-   *
-   * HttpsProxyAgent tunnels via CONNECT, which hides the request's own headers
-   * (e.g. X-PROXY-ERROR) from a plain-HTTP forward proxy. So we use
-   * HttpProxyAgent for http:// targets (request sent absolute-URI, headers
-   * readable by the proxy) and reserve the CONNECT-tunnelling agent for https://
-   * targets. SocksProxyAgent handles both target schemes itself.
-   *
-   * @param {string} effectiveProxyUrl  proxy URL with any credentials merged in
-   * @param {boolean} isHttps           whether the target request is https
-   */
-  function makeProxyAgent(effectiveProxyUrl, isHttps) {
-    if (proxyKind(effectiveProxyUrl) === "socks") {
-      return new SocksProxyAgent(effectiveProxyUrl);
-    }
-    return isHttps
-      ? new HttpsProxyAgent(effectiveProxyUrl)
-      : new HttpProxyAgent(effectiveProxyUrl);
   }
 
   /** A credential-free, scheme://host[:port] view of a proxy URL for logging. */
@@ -1432,6 +1407,59 @@ function safeCallWrite(channel, fn) {
       return { ok: false, reason: "error", message: err.message };
     }
   });
+})();
+
+// ─── WebSocket IPC (Feature 32) ──────────────────────────────────────────────
+// Owns every live ws://wss:// connection in the main process — the sandboxed
+// renderer can't open raw sockets. Connections are driven by the request/reply
+// channels ws:open / ws:send / ws:close / ws:ping and stream their lifecycle +
+// inbound frames back over the ws:status / ws:message push channels. Proxy and
+// TLS settings are honored exactly as on the HTTP path (see net/websocket.js).
+(function initWebSocketIPC() {
+  const hub = new WebSocketHub();
+
+  /** Push to a renderer only while its webContents is still alive. */
+  function sendTo(sender, channel, payload) {
+    if (sender && !sender.isDestroyed()) {
+      sender.send(channel, payload);
+    }
+  }
+
+  // Open a connection. Returns an opaque id the renderer uses for subsequent
+  // send/close/ping calls and to demultiplex the ws:status / ws:message pushes.
+  ipcMain.handle("ws:open", (event, opts = {}) => {
+    const id = io.newUUID();
+    const sender = event.sender;
+    console.log("[ws:open] →", opts.url);
+    hub.open(
+      id,
+      { ...opts, senderId: sender.id },
+      {
+        onStatus: (status) => sendTo(sender, "ws:status", { id, ...status }),
+        onMessage: (frame) => sendTo(sender, "ws:message", { id, ...frame }),
+      },
+    );
+    return { id };
+  });
+
+  ipcMain.handle("ws:send", (_event, { id, data } = {}) => hub.send(id, data));
+
+  ipcMain.handle("ws:close", (_event, { id, code, reason } = {}) =>
+    hub.close(id, code, reason),
+  );
+
+  ipcMain.handle("ws:ping", (_event, { id } = {}) => hub.ping(id));
+
+  // ── Lifecycle cleanup — never leak a socket past its renderer ──────────────
+  // A reload (did-navigate) or a destroyed/crashed webContents drops every
+  // connection that renderer owned; quitting drops them all.
+  app.on("web-contents-created", (_e, contents) => {
+    const drop = () => hub.closeForSender(contents.id);
+    contents.on("did-navigate", drop); // full reload (incl. dev hot-reload)
+    contents.on("render-process-gone", drop);
+    contents.on("destroyed", drop);
+  });
+  app.on("before-quit", () => hub.closeAll());
 })();
 
 // ─── OAuth 2.0 Popup IPC ─────────────────────────────────────────────────────

@@ -167,6 +167,11 @@ URL, query params, headers, cookies and body. The response is JSON by default,
 or XML/YAML/HTML when the `Accept` header asks for one of those
 (`application/xml`, `application/yaml`, `text/html`).
 
+For the WebSocket client it exposes `ws://localhost:8888/ws` (and `/ws/echo`),
+which echoes every frame back; `/ws/time`, which pushes a timestamped JSON frame
+once per second (to test received-without-send traffic); and `/ws/reject`, which
+refuses the upgrade with `401` so handshake-failure handling can be exercised.
+
 It also runs a forward proxy on `http://localhost:9999` for exercising wurl's
 proxy settings and request-retry policy. Point a request's proxy at it and send
 the `X-PROXY-ERROR` header to make the proxy fail a fixed number of times before

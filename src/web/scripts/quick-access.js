@@ -19,17 +19,20 @@ export const RECENTS_CAP = 10;
 
 /**
  * Build a quick-access entry from a request node and its collection.
- * @param {object} node          — request node (carries id / name / method)
+ * @param {object} node          — request node (carries id / name / method / protocol)
  * @param {string|null} collectionId
- * @returns {{collectionId: string|null, requestId: string, name: string, method: string}}
+ * @returns {{collectionId: string|null, requestId: string, name: string, method: string, protocol?: string}}
  */
 export function makeEntry(node, collectionId) {
-  return {
+  const entry = {
     collectionId: collectionId ?? null,
     requestId: node?.id,
     name: node?.name ?? "",
     method: node?.method ?? "GET",
   };
+  // Carry the protocol for WebSocket requests so quick-access rows show a WS badge.
+  if (node?.protocol === "websocket") entry.protocol = "websocket";
+  return entry;
 }
 
 /**

@@ -1,10 +1,12 @@
 // proxy.js — proxy connection-string parsing, credential injection, and
 // NO_PROXY-style bypass matching for the main-process HTTP execution path.
 //
-// These helpers are deliberately dependency-free and pure so they can be unit
-// tested in isolation (see net/tests/proxy.test.js). The actual proxy-agent
-// instantiation lives in main.js, which calls proxyKind() to choose between the
-// SOCKS agent and the HTTP/HTTPS CONNECT agents.
+// The parsing/bypass helpers are deliberately dependency-free and pure so they
+// can be unit tested in isolation (see net/tests/proxy.test.js). The single
+// impure helper — makeProxyAgent() — lazy-requires the agent modules only when
+// called, so importing this file for the pure helpers stays cheap. Both the
+// HTTP execution path (main.js) and the WebSocket client (net/websocket.js)
+// share makeProxyAgent so agent selection has one source of truth.
 "use strict";
 
 /**
@@ -131,9 +133,40 @@ function hostBypassesProxy(host, port, bypass) {
   return false;
 }
 
+/**
+ * Build the proxy Agent for an outgoing connection. The proxy *type* is taken
+ * from the URL scheme: any `socks*://` scheme uses the SOCKS agent; otherwise an
+ * HTTP/HTTPS forward-proxy agent is chosen by whether the *target* is secure.
+ *
+ * HttpsProxyAgent tunnels via CONNECT, which keeps the (encrypted) target
+ * connection opaque to the proxy — used for `https://` and `wss://` targets.
+ * HttpProxyAgent sends an absolute-URI request the proxy can read — used for
+ * `http://` and `ws://` targets. SocksProxyAgent handles both target schemes.
+ *
+ * The agent modules are required lazily so the pure helpers above remain
+ * dependency-free for isolated unit testing.
+ *
+ * @param {string}  effectiveProxyUrl  proxy URL with any credentials merged in
+ * @param {boolean} isSecure           whether the target is https:// or wss://
+ * @returns {import('http').Agent}
+ */
+function makeProxyAgent(effectiveProxyUrl, isSecure) {
+  if (proxyKind(effectiveProxyUrl) === "socks") {
+    const { SocksProxyAgent } = require("socks-proxy-agent");
+    return new SocksProxyAgent(effectiveProxyUrl);
+  }
+  if (isSecure) {
+    const { HttpsProxyAgent } = require("https-proxy-agent");
+    return new HttpsProxyAgent(effectiveProxyUrl);
+  }
+  const { HttpProxyAgent } = require("http-proxy-agent");
+  return new HttpProxyAgent(effectiveProxyUrl);
+}
+
 module.exports = {
   proxyKind,
   withProxyCredentials,
   parseBypassList,
   hostBypassesProxy,
+  makeProxyAgent,
 };

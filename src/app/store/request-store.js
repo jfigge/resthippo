@@ -27,6 +27,12 @@ const PATCHABLE_FIELDS = [
   "name",
   "method",
   "url",
+  // protocol distinguishes a WebSocket request ("websocket") from a normal HTTP
+  // request (absent / "http"); the ws* fields below back the WebSocket composer.
+  "protocol",
+  "wsMessage",
+  "wsMessageFormat",
+  "wsSubprotocols",
   "bodyType",
   "bodyText",
   "bodyFilePath",
