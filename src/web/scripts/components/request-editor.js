@@ -8,7 +8,10 @@ import {
   parse as parseYaml,
   stringify as stringifyYaml,
 } from "../vendor/yaml.js";
-import { VariablePillEditor } from "./variable-pill-editor.js";
+import {
+  VariablePillEditor,
+  getPickerDebounceMs,
+} from "./variable-pill-editor.js";
 import {
   resolveStringAsync,
   collectTemplateVariables,
@@ -33,6 +36,11 @@ import {
   suggestAtCursor,
 } from "./graphql-schema.js";
 import { executeIntrospection } from "./graphql-introspection.js";
+import {
+  validateGraphQLQuery,
+  introspectionToSDL,
+} from "./graphql-validate.js";
+import { GraphQLSchemaViewer } from "./graphql-schema-viewer.js";
 import { caretCoordinates } from "../utils/caret-coords.js";
 import { RequestAuthEditor } from "./request-auth-editor.js";
 import {
@@ -232,6 +240,9 @@ const _gqlAc = new AutocompleteDropdown(
   "hdr-autocomplete gql-autocomplete",
   "GraphQL suggestions",
 );
+// px floor for each GraphQL pane when the splitter is dragged/derived — keeps
+// both the Query and Variables panes usable no matter how the container resizes.
+const GQL_PANE_MIN = 64;
 let _gqlCaretAnchor = null;
 function _gqlAnchorAt({ left, top, height }) {
   if (!_gqlCaretAnchor) {
@@ -428,15 +439,26 @@ export class RequestEditor {
   #bodyGraphqlQuery = "";
   #bodyGraphqlVariables = "";
   #graphqlSchema = null; // result of buildSchemaModel(), or null until fetched
+  #graphqlIntrospection = null; // raw introspection ({ __schema }) for graphql-js validation
+  #revalidateGqlQuery = null; // fn() to re-run query validation, or null when not in GraphQL mode
   #graphqlFetching = false; // guards against concurrent "Fetch schema" clicks
+  // Code folding in the GraphQL editors — a global, persisted preference toggled
+  // from Appearance settings or each editor's right-click menu. #gqlEditors holds
+  // the live Query/Variables editor handles so a toggle applies without a rebuild.
+  #editorFolding = true;
+  #gqlEditors = null;
   // GraphQL Query/Variables split layout — session-level UI prefs (not persisted,
   // not part of the request). #bodyGraphqlFlow is the container flex-direction:
   // "column" = stacked (vertical splitter, drag ↕), "row" = side by side
   // (horizontal splitter, drag ↔), toggled at runtime. #bodyGraphqlVarsSize is
-  // the dragged main-axis size (px) of the Variables pane, kept per orientation
-  // (height for "column", width for "row"); null → use the default flex ratio.
-  #bodyGraphqlFlow = "column";
+  // the Variables pane's share of the container's main axis as a FRACTION (0..1),
+  // kept per orientation; null → use the default flex ratio. Storing a fraction
+  // (rather than px) preserves the split's aspect ratio when the window resizes.
+  #bodyGraphqlFlow = "row";
   #bodyGraphqlVarsSize = { column: null, row: null };
+  // Observes the GraphQL container so the pane sizes re-derive from the fraction
+  // on window/panel resize. Recreated per render, disconnected on body re-render.
+  #gqlResizeObserver = null;
   // Body-form list element — rebuilt on every render; rows are re-wired through
   // the controller below. The controller owns all transient drag state.
   #bfListEl = null;
@@ -943,10 +965,15 @@ export class RequestEditor {
     this.#bodyTypeBarEl?.querySelector(".body-prettify-btn")?.remove();
     this.#bodyTypeBarEl?.querySelector(".body-validate-badge")?.remove();
     // Remove any GraphQL fetch-schema button / layout toggle / status badge from
-    // a prior render, and dismiss a stale query-autocomplete dropdown.
+    // a prior render, dismiss a stale query-autocomplete dropdown, and stop
+    // observing the old GraphQL container.
     this.#bodyTypeBarEl?.querySelector(".body-graphql-fetch-btn")?.remove();
     this.#bodyTypeBarEl?.querySelector(".body-graphql-flow-btn")?.remove();
     this.#bodyTypeBarEl?.querySelector(".body-graphql-status")?.remove();
+    this.#gqlResizeObserver?.disconnect();
+    this.#gqlResizeObserver = null;
+    this.#revalidateGqlQuery = null; // reassigned by #renderBodyGraphql when applicable
+    this.#gqlEditors = null; // reassigned by #renderBodyGraphql when applicable
     _gqlAc.hide();
     // Reset body form drag state whenever we switch panels
     this.#bfListEl = null;
@@ -1341,10 +1368,10 @@ export class RequestEditor {
       if (!validateBadge) return;
       validateBadge.dataset.state = state ?? "";
       if (state === "valid") {
-        validateBadge.textContent = "✓ valid";
+        validateBadge.textContent = "✓ VALID";
         validateBadge.title = `${type.toUpperCase()} is valid`;
       } else if (state === "invalid") {
-        validateBadge.textContent = "✗ invalid";
+        validateBadge.textContent = "X INVALID";
         validateBadge.title = `${type.toUpperCase()} has a syntax error`;
       } else {
         validateBadge.textContent = "";
@@ -1516,19 +1543,27 @@ export class RequestEditor {
 
   // ── GraphQL editor (Query + Variables) ────────────────────────────────────
   #renderBodyGraphql(el) {
-    // Type-bar controls: a layout toggle, a "Fetch schema" introspection button,
-    // and its status badge (to the right of the button).
+    // Type-bar controls, left to right: a layout toggle, a schema-status icon,
+    // and the "Fetch schema" introspection button. The icon is empty until a
+    // fetch runs, then shows a green tick on success or a red X on failure; the
+    // tick carries the View / Download context menu.
     let statusBadge = null;
     let flowToggleBtn = null;
     if (this.#bodyTypeBarEl) {
       statusBadge = document.createElement("span");
       statusBadge.className = "body-graphql-status";
       statusBadge.setAttribute("aria-live", "polite");
-      if (this.#graphqlSchema) {
-        statusBadge.dataset.state = "ok";
-        statusBadge.textContent = "schema loaded";
-        statusBadge.title = `${this.#graphqlSchema.types.size} types available for autocomplete`;
-      }
+      if (this.#graphqlSchema) this.#markSchemaBadgeLoaded(statusBadge);
+
+      // Right-clicking the green tick offers View / Download of the schema.
+      // No-op until a schema is actually loaded (i.e. only on the tick); stop the
+      // event from reaching app.js's document-level handler.
+      statusBadge.addEventListener("contextmenu", (e) => {
+        if (!this.#graphqlIntrospection) return;
+        e.preventDefault();
+        e.stopPropagation();
+        this.#showSchemaContextMenu(e.clientX, e.clientY);
+      });
 
       // Toggle the Query/Variables split between stacked and side by side. The
       // glyph shows the layout it switches TO; applyFlow() (below) keeps it in
@@ -1537,6 +1572,9 @@ export class RequestEditor {
       flowToggleBtn.type = "button";
       flowToggleBtn.className = "icon-btn body-graphql-flow-btn";
       this.#bodyTypeBarEl.appendChild(flowToggleBtn);
+
+      // Status icon sits between the layout toggle and the Fetch button.
+      this.#bodyTypeBarEl.appendChild(statusBadge);
 
       const fetchBtn = document.createElement("button");
       fetchBtn.className =
@@ -1548,9 +1586,6 @@ export class RequestEditor {
         this.#fetchGraphqlSchema(statusBadge, fetchBtn),
       );
       this.#bodyTypeBarEl.appendChild(fetchBtn);
-
-      // Status badge sits to the right of the Fetch button.
-      this.#bodyTypeBarEl.appendChild(statusBadge);
     }
 
     const wrap = document.createElement("div");
@@ -1562,8 +1597,73 @@ export class RequestEditor {
     const queryLabel = document.createElement("div");
     queryLabel.className = "body-graphql-pane__label";
     queryLabel.textContent = "Query";
+    const queryBadge = document.createElement("span");
+    queryBadge.className = "body-validate-badge body-graphql-query-badge";
+    queryBadge.setAttribute("aria-live", "polite");
+    // Warning (left of the tick/X) shown while no schema is loaded — validation
+    // is then syntax-only. Carries its own tooltip, separate from the verdict's.
+    const SCHEMA_WARN =
+      "Validation is limited until the schema has been fetched";
+    const queryWarn = document.createElement("span");
+    queryWarn.className = "body-graphql-schema-warn";
+    queryWarn.innerHTML = icon("warning", { size: 12 });
+    queryWarn.title = SCHEMA_WARN;
+    queryWarn.setAttribute("aria-label", SCHEMA_WARN);
+    queryWarn.hidden = true;
+    const queryStatus = document.createElement("span");
+    queryStatus.className = "body-graphql-query-status";
+    queryBadge.append(queryWarn, queryStatus);
+    queryLabel.appendChild(queryBadge);
     queryPane.appendChild(queryLabel);
-    const q = this.#buildGqlEditor({
+
+    // Live query validation — syntax always; full schema checks once the schema
+    // has been fetched. Errors drive both the badge and the editor's inline
+    // markers (red underlines + gutter dots).
+    const applyQueryValidity = (
+      state /* "valid" | "invalid" | null */,
+      title,
+    ) => {
+      queryBadge.dataset.state = state ?? "";
+      queryStatus.textContent =
+        state === "valid" ? "✓ VALID" : state === "invalid" ? "X INVALID" : "";
+      queryStatus.title = title ?? "";
+      // Flag limited validation whenever a verdict is shown but no schema loaded.
+      queryWarn.hidden = !state || Boolean(this.#graphqlIntrospection);
+    };
+    const runQueryValidation = (text) => {
+      const { errors, schemaChecked } = validateGraphQLQuery(
+        text,
+        this.#graphqlIntrospection,
+      );
+      q?.setMarkers(errors);
+      if (!text.trim()) {
+        applyQueryValidity(null, "");
+      } else if (errors.length) {
+        const n = errors.length;
+        applyQueryValidity(
+          "invalid",
+          `${n} error${n > 1 ? "s" : ""}:\n` +
+            errors
+              .map((e) => `  ${e.line}:${e.column}  ${e.message}`)
+              .join("\n"),
+        );
+      } else {
+        applyQueryValidity(
+          "valid",
+          schemaChecked
+            ? "Query is valid against the schema"
+            : "Query syntax is valid — fetch the schema for full validation",
+        );
+      }
+    };
+    let qValidateTimer = null;
+    const scheduleQueryValidation = (text) => {
+      clearTimeout(qValidateTimer);
+      qValidateTimer = setTimeout(() => runQueryValidation(text), 400);
+    };
+
+    let q;
+    q = this.#buildGqlEditor({
       lang: "graphql",
       value: this.#bodyGraphqlQuery,
       placeholder: "query {\n  …\n}",
@@ -1572,10 +1672,13 @@ export class RequestEditor {
         this.#bodyGraphqlQuery = v;
         this.#dispatchBodyUpdated();
         this.#syncHighlight(ta, codeEl, "graphql");
+        scheduleQueryValidation(v);
       },
     });
     queryPane.appendChild(q.wrap);
     this.#wireGqlAutocomplete(q.ta, q.codeEl);
+    // Exposed so #fetchGraphqlSchema can re-validate once a schema arrives.
+    this.#revalidateGqlQuery = () => runQueryValidation(this.#bodyGraphqlQuery);
     wrap.appendChild(queryPane);
 
     // ── Splitter — drag to resize Query vs Variables ──────────────────────
@@ -1603,10 +1706,10 @@ export class RequestEditor {
     const applyVarsValidity = (state /* "valid" | "invalid" | null */) => {
       varsBadge.dataset.state = state ?? "";
       if (state === "valid") {
-        varsBadge.textContent = "✓ valid";
+        varsBadge.textContent = "✓ VALID";
         varsBadge.title = "Variables JSON is valid";
       } else if (state === "invalid") {
-        varsBadge.textContent = "✗ invalid";
+        varsBadge.textContent = "X INVALID";
         varsBadge.title = "Variables JSON has a syntax error";
       } else {
         varsBadge.textContent = "";
@@ -1642,6 +1745,9 @@ export class RequestEditor {
     varsPane.appendChild(v.wrap);
     wrap.appendChild(varsPane);
 
+    // Track both editors so a folding toggle (settings / context menu) applies live.
+    this.#gqlEditors = [q, v];
+
     // Apply the current split layout (stacked vs side by side) to the container,
     // splitter, and Variables-pane size, and refresh the toggle button. Switching
     // is in-place — the editors are never rebuilt, so content/focus survive.
@@ -1657,12 +1763,11 @@ export class RequestEditor {
         "aria-orientation",
         row ? "vertical" : "horizontal",
       );
-      const size = this.#bodyGraphqlVarsSize[flow];
-      varsPane.style.flex = size != null ? `0 0 ${size}px` : "";
+      this.#applyGqlVarsSize(varsPane, wrap);
       if (flowToggleBtn) {
         // Glyph shows the CURRENT layout (house style, cf. the form-data
         // text/file toggle); the tooltip names the action.
-        flowToggleBtn.innerHTML = icon(row ? "columns" : "rows", { size: 14 });
+        flowToggleBtn.innerHTML = icon(!row ? "columns" : "rows", { size: 14 });
         const title = row
           ? "Stack the Query and Variables panes (drag to resize ↕)"
           : "Place the Query and Variables panes side by side (drag to resize ↔)";
@@ -1671,14 +1776,26 @@ export class RequestEditor {
       }
     };
     if (flowToggleBtn) {
-      flowToggleBtn.addEventListener("click", () =>
-        applyFlow(this.#bodyGraphqlFlow === "row" ? "column" : "row"),
-      );
+      flowToggleBtn.addEventListener("click", () => {
+        const next = this.#bodyGraphqlFlow === "row" ? "column" : "row";
+        applyFlow(next);
+        this.#persistGqlSetting({ graphqlSplitFlow: next });
+      });
     }
+    // Attach first so applyFlow() can read real container dimensions, then wire
+    // dragging and observe the container so the split keeps its aspect ratio when
+    // the window or surrounding panels resize.
+    el.appendChild(wrap);
+    this.#applyGraphqlHeaderRows();
     applyFlow(this.#bodyGraphqlFlow);
     this.#wireGqlSplitter(splitter, varsPane, wrap);
-
-    el.appendChild(wrap);
+    this.#gqlResizeObserver?.disconnect();
+    if (typeof ResizeObserver !== "undefined") {
+      this.#gqlResizeObserver = new ResizeObserver(() =>
+        this.#applyGqlVarsSize(varsPane, wrap),
+      );
+      this.#gqlResizeObserver.observe(wrap);
+    }
 
     // Validate any pre-loaded variables immediately on render.
     if (this.#bodyGraphqlVariables.trim()) {
@@ -1688,6 +1805,30 @@ export class RequestEditor {
           : "invalid",
       );
     }
+    // Validate the pre-loaded query now that the editor is laid out (inline
+    // markers need real geometry, so this runs after el.appendChild(wrap)).
+    this.#revalidateGqlQuery?.();
+  }
+
+  /**
+   * Size the Variables pane from the stored fraction of the container's main axis
+   * (width when side by side, height when stacked), clamped so neither pane
+   * collapses. With no stored fraction the explicit basis is cleared so the CSS
+   * flex ratio applies. Re-deriving px from the fraction is what keeps the split's
+   * aspect ratio constant as the window/panels resize.
+   */
+  #applyGqlVarsSize(varsPane, wrap) {
+    const frac = this.#bodyGraphqlVarsSize[this.#bodyGraphqlFlow];
+    if (frac == null) {
+      varsPane.style.flex = "";
+      return;
+    }
+    const total =
+      this.#bodyGraphqlFlow === "row" ? wrap.clientWidth : wrap.clientHeight;
+    if (total <= 0) return; // not laid out yet — a later resize callback sizes it
+    const max = Math.max(GQL_PANE_MIN, total - GQL_PANE_MIN);
+    const px = Math.min(max, Math.max(GQL_PANE_MIN, frac * total));
+    varsPane.style.flex = `0 0 ${px}px`;
   }
 
   /**
@@ -1700,13 +1841,14 @@ export class RequestEditor {
    * is scoped to this component, since makeSplitter isn't exported.
    */
   #wireGqlSplitter(splitterEl, varsPane, wrap) {
-    const MIN = 64; // px floor — keep both panes usable
     const isRow = () => this.#bodyGraphqlFlow === "row";
     const apply = (size) => {
       const total = isRow() ? wrap.clientWidth : wrap.clientHeight;
-      const max = Math.max(MIN, total - MIN);
-      const clamped = Math.min(max, Math.max(MIN, size));
-      this.#bodyGraphqlVarsSize[this.#bodyGraphqlFlow] = clamped;
+      if (total <= 0) return;
+      const max = Math.max(GQL_PANE_MIN, total - GQL_PANE_MIN);
+      const clamped = Math.min(max, Math.max(GQL_PANE_MIN, size));
+      // Store the share as a fraction so the ratio survives a resize.
+      this.#bodyGraphqlVarsSize[this.#bodyGraphqlFlow] = clamped / total;
       varsPane.style.flex = `0 0 ${clamped}px`;
     };
     const pointerPos = (e) => {
@@ -1737,6 +1879,7 @@ export class RequestEditor {
       window.removeEventListener("mouseup", onEnd);
       window.removeEventListener("touchmove", onMove);
       window.removeEventListener("touchend", onEnd);
+      this.#persistGqlVarsFraction(); // save the final position
     };
     const onStart = (e) => {
       e.preventDefault();
@@ -1772,6 +1915,7 @@ export class RequestEditor {
       e.preventDefault();
       const step = e.shiftKey ? 48 : 16;
       apply(varsExtent() + (e.key === growKey ? step : -step));
+      this.#persistGqlVarsFraction();
     });
   }
 
@@ -1779,41 +1923,401 @@ export class RequestEditor {
    * Build one Prism-overlay editor (textarea + syntax-highlight <pre>) for the
    * GraphQL panes. Mirrors the wrap used by #renderBodyText but without the
    * type-bar Prettify/validate wiring (those differ per pane).
+   *
+   * Adds indentation-based code folding: a gutter of click-to-toggle carets sits
+   * to the left of each pane, and collapsing a block hides its inner lines. A
+   * <textarea> can't hide arbitrary line ranges, so while folds are collapsed the
+   * textarea shows a reduced "display" text while `fullText` holds the canonical
+   * content. Any edit first expands every fold (see the beforeinput handler), so
+   * onInput — and therefore the persisted value — always sees the full text.
+   * Folding requires one logical line per visual row, so these editors don't wrap.
    */
   #buildGqlEditor({ lang, value, placeholder, ariaLabel, onInput }) {
+    const MAX_FOLD_LINES = 5000; // above this, skip folding and behave as plain
+
+    // Folding can be turned off globally (Appearance setting / editor context
+    // menu). When off we keep the no-wrap layout (so validation underlines stay
+    // aligned) but hide the gutter + carets — the --fold-on class drives that.
+    let foldingEnabled = this.#editorFolding !== false;
+
     const wrap = document.createElement("div");
-    wrap.className = "body-editor-wrap";
+    wrap.className =
+      "body-editor-wrap body-editor-wrap--folding" +
+      (foldingEnabled ? " body-editor-wrap--fold-on" : "");
 
     const pre = document.createElement("pre");
     pre.className = "body-editor-pre";
     pre.setAttribute("aria-hidden", "true");
+    const prismLang = lang === "graphql" ? "graphql" : "json";
     const codeEl = document.createElement("code");
-    codeEl.className = `language-${lang === "graphql" ? "graphql" : "json"}`;
+    codeEl.className = `language-${prismLang}`;
     pre.appendChild(codeEl);
+
+    // Fold gutter — carets live in `inner`, which is translated to track scroll.
+    const gutter = document.createElement("div");
+    gutter.className = "body-fold-gutter";
+    const gutterInner = document.createElement("div");
+    gutterInner.className = "body-fold-gutter__inner";
+    gutter.appendChild(gutterInner);
+
+    // Validation marker layer — red underlines, positioned in content coords and
+    // translated to track scroll (same trick as the gutter). Sits above the
+    // highlight <pre> but below the <textarea>, and never takes pointer events.
+    const markers = document.createElement("div");
+    markers.className = "body-gql-markers";
+    const markersInner = document.createElement("div");
+    markersInner.className = "body-gql-markers__inner";
+    markers.appendChild(markersInner);
 
     const ta = document.createElement("textarea");
     ta.className = "body-text-editor body-text-editor--overlay";
     ta.value = value;
     ta.placeholder = placeholder;
     ta.spellcheck = false;
+    ta.wrap = "off"; // folding aligns one gutter row per logical line
     ta.setAttribute("aria-label", ariaLabel);
 
     wrap.appendChild(pre);
+    wrap.appendChild(markers);
+    wrap.appendChild(gutter);
     wrap.appendChild(ta);
 
+    // ── Fold state ────────────────────────────────────────────────────────
+    // `collapsed` holds SOURCE line indices of collapsed openers; `folded` is
+    // true while the textarea shows a reduced view (and `fullText` is then the
+    // canonical content). When not folded the textarea itself is the source.
+    const collapsed = new Set();
+    let folded = false;
+    let fullText = value;
+
+    // Indentation-based fold ranges (mirrors the response viewer): a line whose
+    // next non-blank line is more deeply indented opens a fold that runs until
+    // indentation returns to its own depth. foldEnd: openerIdx -> last child idx.
+    const computeFoldEnds = (lines) => {
+      const foldEnd = new Map();
+      if (lines.length > MAX_FOLD_LINES) return foldEnd;
+      const indent = lines.map((l) =>
+        l.trim() === "" ? null : l.length - l.trimStart().length,
+      );
+      for (let i = 0; i < lines.length; i++) {
+        const depth = indent[i];
+        if (depth === null) continue;
+        let next = i + 1;
+        while (next < lines.length && indent[next] === null) next++;
+        if (next < lines.length && indent[next] > depth) {
+          let end = i;
+          for (
+            let k = i + 1;
+            k < lines.length && (indent[k] === null || indent[k] > depth);
+            k++
+          ) {
+            if (indent[k] !== null) end = k;
+          }
+          foldEnd.set(i, end);
+        }
+      }
+      return foldEnd;
+    };
+
+    // Resolve fold ranges and the visible "display" lines (collapsed folds'
+    // inner lines skipped) from the given canonical text, with a map back to
+    // source lines. Callers pass fullText during fold ops and the live textarea
+    // value after edits — never inferred, so a reduced display is never mistaken
+    // for the source.
+    const buildView = (source) => {
+      const lines = source.split("\n");
+      const foldEnd = computeFoldEnds(lines);
+      // Drop collapsed openers that text edits turned into non-openers.
+      for (const i of [...collapsed]) if (!foldEnd.has(i)) collapsed.delete(i);
+
+      const displayLines = [];
+      const lineMap = []; // displayIdx -> source line idx
+      const collapsedRows = new Set(); // display indices that are collapsed openers
+      let coverEnd = -1;
+      for (let i = 0; i < lines.length; i++) {
+        if (i <= coverEnd) continue;
+        if (collapsed.has(i)) {
+          collapsedRows.add(displayLines.length);
+          coverEnd = foldEnd.get(i);
+        }
+        lineMap.push(i);
+        displayLines.push(lines[i]);
+      }
+      return { source, lines, foldEnd, displayLines, lineMap, collapsedRows };
+    };
+
+    // Paint the highlight layer. With no folds defer to the shared whole-blob
+    // highlighter (identical to non-folding editors); with folds highlight each
+    // visible line and append an elision marker to collapsed openers.
+    const highlight = (view) => {
+      if (!folded) {
+        this.#syncHighlight(ta, codeEl, lang);
+        return;
+      }
+      const grammar = Prism.languages[prismLang] ?? Prism.languages.plaintext;
+      codeEl.innerHTML =
+        view.displayLines
+          .map((line, idx) => {
+            const h = Prism.highlight(line, grammar, prismLang);
+            return view.collapsedRows.has(idx)
+              ? h + '<span class="body-fold-ellipsis"> ⋯</span>'
+              : h;
+          })
+          .join("\n") + "\n";
+      pre.scrollTop = ta.scrollTop;
+      pre.scrollLeft = ta.scrollLeft;
+    };
+
+    // Rebuild the gutter: one row per display line, a caret on each fold opener.
+    const renderGutter = (view) => {
+      gutterInner.replaceChildren();
+      if (!foldingEnabled) return; // no carets when folding is off
+      const frag = document.createDocumentFragment();
+      view.displayLines.forEach((_, idx) => {
+        const row = document.createElement("div");
+        row.className = "body-fold-row";
+        const src = view.lineMap[idx];
+        if (view.foldEnd.has(src)) {
+          const isCollapsed = collapsed.has(src);
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "body-fold-toggle";
+          btn.classList.toggle("body-fold-toggle--collapsed", isCollapsed);
+          btn.setAttribute("aria-expanded", String(!isCollapsed));
+          btn.setAttribute("aria-label", isCollapsed ? "Expand" : "Collapse");
+          btn.innerHTML = icon("caret", { size: null });
+          // Keep textarea focus/selection when clicking the gutter.
+          btn.addEventListener("mousedown", (e) => e.preventDefault());
+          btn.addEventListener("click", () => toggleFold(src));
+          row.appendChild(btn);
+        }
+        frag.appendChild(row);
+      });
+      gutterInner.appendChild(frag);
+      gutterInner.style.transform = `translateY(${-ta.scrollTop}px)`;
+    };
+
+    // setValue rewrites the textarea to the (possibly folded) display text — done
+    // when folds change, not after edits (where the textarea is already current).
+    const refresh = (source, setValue) => {
+      const view = buildView(source);
+      if (setValue) {
+        const top = ta.scrollTop;
+        const left = ta.scrollLeft;
+        ta.value = view.displayLines.join("\n");
+        ta.scrollTop = top;
+        ta.scrollLeft = left;
+      }
+      renderGutter(view);
+      highlight(view);
+      renderMarkers();
+      return view;
+    };
+
+    // Map a caret offset in the display text to the equivalent offset in fullText.
+    const displayPosToFull = (pos, view) => {
+      const ds = view.displayLines;
+      let acc = 0;
+      let row = 0;
+      for (; row < ds.length; row++) {
+        if (pos <= acc + ds[row].length) break;
+        acc += ds[row].length + 1; // + newline
+      }
+      if (row >= ds.length) row = Math.max(0, ds.length - 1);
+      const col = Math.max(0, pos - acc);
+      const srcLine = view.lineMap[row] ?? 0;
+      let fullAcc = 0;
+      for (let i = 0; i < srcLine; i++) fullAcc += view.lines[i].length + 1;
+      return fullAcc + Math.min(col, view.lines[srcLine]?.length ?? 0);
+    };
+
+    // Expand every fold (preserving the caret) before an edit mutates the text,
+    // so fullText stays the single source of truth.
+    const expandAllForEdit = () => {
+      if (!folded) return;
+      const view = buildView(fullText);
+      const start = displayPosToFull(ta.selectionStart, view);
+      const end = displayPosToFull(ta.selectionEnd, view);
+      collapsed.clear();
+      folded = false;
+      ta.value = fullText;
+      ta.setSelectionRange(start, end);
+      refresh(fullText, false);
+    };
+
+    const toggleFold = (src) => {
+      if (!foldingEnabled) return;
+      if (!folded) fullText = ta.value; // snapshot before the first fold
+      if (collapsed.has(src)) collapsed.delete(src);
+      else collapsed.add(src);
+      folded = collapsed.size > 0;
+      refresh(fullText, true);
+      ta.focus();
+    };
+
+    // Turn folding on/off live. Off: expand any collapsed folds (preserving the
+    // caret) so the textarea holds the full text, then hide the gutter/carets;
+    // the gutter padding goes away via the --fold-on class while no-wrap stays.
+    const setFoldingEnabled = (on) => {
+      on = !!on;
+      if (on === foldingEnabled) return;
+      if (!on && folded) {
+        const view = buildView(fullText);
+        const start = displayPosToFull(ta.selectionStart, view);
+        const end = displayPosToFull(ta.selectionEnd, view);
+        collapsed.clear();
+        folded = false;
+        ta.value = fullText;
+        ta.setSelectionRange(start, end);
+      }
+      foldingEnabled = on;
+      wrap.classList.toggle("body-editor-wrap--fold-on", on);
+      refresh(ta.value, false); // rebuild gutter + reposition markers for new padding
+    };
+
+    // ── Validation markers ────────────────────────────────────────────────────
+    // Errors carry full-text {line, column, start, end}. We position underlines
+    // in display coordinates (so folds are honoured) and flag the matching gutter
+    // row; an error inside a collapsed fold is attributed to its visible opener.
+    let markerErrors = [];
+
+    const syncMarkerScroll = () => {
+      markersInner.style.transform = `translate(${-ta.scrollLeft}px, ${-ta.scrollTop}px)`;
+    };
+
+    const renderMarkers = () => {
+      markersInner.replaceChildren();
+      for (const row of gutterInner.children) {
+        row.classList.remove("body-fold-row--error");
+        if (row.dataset.errorTitle) {
+          row.removeAttribute("title");
+          delete row.dataset.errorTitle;
+        }
+      }
+      if (!markerErrors.length) return;
+
+      const view = buildView(folded ? fullText : ta.value);
+      // Cumulative start offset of each display line (for in-line positioning).
+      const dispStart = [];
+      let acc = 0;
+      for (const dl of view.displayLines) {
+        dispStart.push(acc);
+        acc += dl.length + 1;
+      }
+
+      const taRect = ta.getBoundingClientRect();
+      const rowMsgs = new Map(); // displayRow -> [message]
+
+      for (const err of markerErrors) {
+        const srcLine = Math.max(0, (err.line ?? 1) - 1);
+        let displayRow = view.lineMap.indexOf(srcLine);
+        let hidden = false;
+        if (displayRow === -1) {
+          // Inside a collapsed fold — attribute to the covering opener row.
+          for (const opener of collapsed) {
+            const end = view.foldEnd.get(opener);
+            if (end !== undefined && srcLine > opener && srcLine <= end) {
+              displayRow = view.lineMap.indexOf(opener);
+              hidden = true;
+              break;
+            }
+          }
+        }
+        if (displayRow === -1) continue;
+
+        if (!rowMsgs.has(displayRow)) rowMsgs.set(displayRow, []);
+        rowMsgs
+          .get(displayRow)
+          .push(`${err.line}:${err.column}  ${err.message}`);
+        if (hidden) continue; // can't underline a line that isn't shown
+
+        const col = Math.max(0, (err.column ?? 1) - 1);
+        const lineLen = view.lines[srcLine]?.length ?? 0;
+        const startDisp = dispStart[displayRow] + col;
+        const span = Math.max(1, Math.min(err.end - err.start, lineLen - col));
+        const a = caretCoordinates(ta, startDisp);
+        const b = caretCoordinates(ta, startDisp + span);
+        const u = document.createElement("div");
+        u.className = "body-gql-underline";
+        u.style.left = `${a.left - taRect.left + ta.scrollLeft}px`;
+        u.style.top = `${a.top - taRect.top + ta.scrollTop + a.height - 2}px`;
+        u.style.width = `${Math.max(2, b.left - a.left)}px`;
+        markersInner.appendChild(u);
+      }
+
+      for (const [displayRow, msgs] of rowMsgs) {
+        const row = gutterInner.children[displayRow];
+        if (!row) continue;
+        row.classList.add("body-fold-row--error");
+        row.title = msgs.join("\n");
+        row.dataset.errorTitle = "1";
+      }
+      syncMarkerScroll();
+    };
+
+    // ── Wiring ──────────────────────────────────────────────────────────────
     ta.addEventListener("scroll", () => {
       pre.scrollTop = ta.scrollTop;
       pre.scrollLeft = ta.scrollLeft;
+      gutterInner.style.transform = `translateY(${-ta.scrollTop}px)`;
+      syncMarkerScroll();
     });
-    ta.addEventListener("input", () => onInput(ta.value, ta, codeEl));
 
-    this.#syncHighlight(ta, codeEl, lang);
-    return { wrap, ta, codeEl };
+    // Right-click → edit menu (Cut/Copy/Paste) plus a "Code folding" toggle.
+    // stopPropagation pre-empts app.js's generic editable-field menu.
+    ta.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.#showEditorContextMenu(e.clientX, e.clientY);
+    });
+
+    // Auto-expand before an edit lands. keydown handles the common keyboard case
+    // (mutating value+selection here lets the default insertion proceed cleanly);
+    // beforeinput is the catch-all for paste / cut / drop / IME. expandAllForEdit
+    // is idempotent, so the two firing together is harmless.
+    ta.addEventListener("keydown", (e) => {
+      if (!folded || e.ctrlKey || e.metaKey || e.altKey) return;
+      const edits =
+        e.key.length === 1 ||
+        e.key === "Enter" ||
+        e.key === "Backspace" ||
+        e.key === "Delete" ||
+        e.key === "Tab";
+      if (edits) expandAllForEdit();
+    });
+    ta.addEventListener("beforeinput", expandAllForEdit);
+
+    ta.addEventListener("input", () => {
+      // beforeinput already expanded any folds, so the textarea holds full text.
+      folded = false;
+      onInput(ta.value, ta, codeEl); // persists + repaints highlight
+      renderGutter(buildView(ta.value));
+      // Stale markers (offsets shifted by the edit) are cleared now; the debounced
+      // validator repaints them via setMarkers once typing pauses.
+      markersInner.replaceChildren();
+    });
+
+    // The autocomplete-accept path sets ta.value directly (bypassing beforeinput);
+    // these let it expand folds before, and resync the gutter after, that edit.
+    ta._foldExpand = expandAllForEdit;
+    ta._foldSync = () => {
+      folded = false;
+      renderGutter(buildView(ta.value));
+    };
+
+    // Replace the current inline-validation markers and repaint them.
+    const setMarkers = (errors) => {
+      markerErrors = Array.isArray(errors) ? errors : [];
+      renderMarkers();
+    };
+
+    refresh(value, true);
+    return { wrap, ta, codeEl, setMarkers, setFoldingEnabled };
   }
 
   /** Wire schema-aware autocomplete (fields / arguments / enum values) onto the query textarea. */
   #wireGqlAutocomplete(ta, codeEl) {
-    const refresh = () => {
+    const showSuggestions = () => {
       if (!this.#graphqlSchema) {
         _gqlAc.hide();
         return;
@@ -1850,13 +2354,33 @@ export class RequestEditor {
       );
     };
 
+    // Hold the popup back by the configurable picker-debounce so it doesn't cover
+    // the query the instant you type/click. Mirrors the {{ }} picker: while the
+    // popup is already open it updates immediately (responsive filtering); while
+    // it's hidden, the first appearance waits out the debounce.
+    let acTimer = null;
+    const cancelRefresh = () => {
+      clearTimeout(acTimer);
+      acTimer = null;
+    };
+    const refresh = () => {
+      cancelRefresh();
+      if (_gqlAc.visible) showSuggestions();
+      else acTimer = setTimeout(showSuggestions, getPickerDebounceMs());
+    };
+
     ta.addEventListener("input", refresh);
     ta.addEventListener("click", refresh);
     ta.addEventListener("keyup", (e) => {
       if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) refresh();
     });
-    ta.addEventListener("blur", () => _gqlAc.scheduleHide());
+    ta.addEventListener("blur", () => {
+      cancelRefresh();
+      _gqlAc.scheduleHide();
+    });
     ta.addEventListener("keydown", (e) => {
+      // Escape also cancels a pending (not-yet-shown) popup.
+      if (e.key === "Escape") cancelRefresh();
       if (!_gqlAc.visible) return;
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -1879,6 +2403,7 @@ export class RequestEditor {
 
   /** Replace the word being typed at the caret with the chosen suggestion. */
   #applyGqlSuggestion(ta, codeEl, label) {
+    ta._foldExpand?.(); // accepting a suggestion is an edit — expand folds first
     const pos = ta.selectionStart ?? ta.value.length;
     const before = ta.value.slice(0, pos);
     const m = /[_A-Za-z][_A-Za-z0-9]*$/.exec(before);
@@ -1889,6 +2414,8 @@ export class RequestEditor {
     this.#bodyGraphqlQuery = ta.value;
     this.#dispatchBodyUpdated();
     this.#syncHighlight(ta, codeEl, "graphql");
+    ta._foldSync?.(); // refresh the fold gutter for the inserted text
+    this.#revalidateGqlQuery?.(); // re-validate + repaint markers for the new text
     _gqlAc.hide();
     ta.focus();
   }
@@ -1914,8 +2441,9 @@ export class RequestEditor {
     if (btn) btn.disabled = true;
     if (statusBadge) {
       statusBadge.dataset.state = "loading";
-      statusBadge.textContent = "fetching…";
-      statusBadge.title = "";
+      statusBadge.innerHTML = "";
+      statusBadge.removeAttribute("aria-label");
+      statusBadge.title = "Fetching schema…";
     }
 
     const ctx = this.#variableContext;
@@ -1950,17 +2478,24 @@ export class RequestEditor {
       const model = buildSchemaModel(json);
       if (!model) throw new Error("Could not parse the introspection schema.");
       this.#graphqlSchema = model;
-      if (statusBadge) {
-        statusBadge.dataset.state = "ok";
-        statusBadge.textContent = "schema loaded";
-        statusBadge.title = `${model.types.size} types available for autocomplete`;
-      }
+      // Keep the raw introspection ({ __schema }) so graphql-js can build a real
+      // schema for full query validation, then re-validate the live query.
+      this.#graphqlIntrospection = json?.data?.__schema
+        ? json.data
+        : json?.__schema
+          ? json
+          : null;
+      this.#revalidateGqlQuery?.();
+      this.#markSchemaBadgeLoaded(statusBadge);
     } catch (err) {
       this.#graphqlSchema = null;
+      this.#graphqlIntrospection = null;
+      this.#revalidateGqlQuery?.();
       if (statusBadge) {
         statusBadge.dataset.state = "error";
-        statusBadge.textContent = "fetch failed";
-        statusBadge.title = err?.message ?? "";
+        statusBadge.innerHTML = icon("close", { size: 14 });
+        statusBadge.setAttribute("aria-label", "Schema fetch failed");
+        statusBadge.title = err?.message ?? "Could not fetch the schema.";
       }
       PopupManager.notify({
         title: "GraphQL introspection failed",
@@ -1970,6 +2505,101 @@ export class RequestEditor {
       this.#graphqlFetching = false;
       if (btn) btn.disabled = false;
     }
+  }
+
+  /**
+   * Put the introspection status icon into its "schema loaded" (green tick)
+   * state and advertise that it carries a right-click menu (View / Download
+   * schema).
+   */
+  #markSchemaBadgeLoaded(badge) {
+    if (!badge || !this.#graphqlSchema) return;
+    badge.dataset.state = "ok";
+    badge.innerHTML = icon("check", { size: 14 });
+    badge.setAttribute("aria-label", "Schema loaded");
+    badge.title = `${this.#graphqlSchema.types.size} types available — right-click to view or download the schema`;
+  }
+
+  /**
+   * Native context menu for the "schema loaded" badge: view the schema in a
+   * read-only modal, or save it to a file. Both render the cached introspection
+   * as SDL.
+   */
+  async #showSchemaContextMenu(x, y) {
+    const id = await window.wurl?.ui?.contextMenu({
+      items: [
+        { id: "view", label: "View Schema" },
+        { id: "download", label: "Download Schema" },
+      ],
+      x,
+      y,
+    });
+    if (id === "view") this.#viewGraphqlSchema();
+    else if (id === "download") this.#downloadGraphqlSchema();
+  }
+
+  /**
+   * Right-click menu for a GraphQL editor: the native Cut/Copy/Paste roles plus
+   * a "Code folding" checkbox that flips the global setting live.
+   */
+  async #showEditorContextMenu(x, y) {
+    const id = await window.wurl?.ui?.editContextMenu(x, y, [
+      { type: "separator" },
+      {
+        id: "toggle-folding",
+        type: "checkbox",
+        checked: this.#editorFolding,
+        label: "Code folding",
+      },
+    ]);
+    if (id === "toggle-folding") this.#setEditorFolding(!this.#editorFolding);
+  }
+
+  /**
+   * Set the global editor-folding preference: apply it to the live GraphQL
+   * editors and persist it (Appearance settings reflect it on next open).
+   */
+  #setEditorFolding(on) {
+    on = !!on;
+    this.#editorFolding = on;
+    this.#gqlEditors?.forEach((ed) => ed.setFoldingEnabled(on));
+    this.#persistGqlSetting({ editorFolding: on });
+  }
+
+  /**
+   * Render the cached introspection as SDL, or surface a notification and
+   * return null when it cannot be produced.
+   */
+  #graphqlSchemaSDL() {
+    const sdl = introspectionToSDL(this.#graphqlIntrospection);
+    if (!sdl) {
+      PopupManager.notify({
+        title: "Schema unavailable",
+        message:
+          "The fetched schema could not be rendered. Try fetching it again.",
+      });
+      return null;
+    }
+    return sdl;
+  }
+
+  /** Open the read-only schema viewer for the loaded schema. */
+  #viewGraphqlSchema() {
+    const sdl = this.#graphqlSchemaSDL();
+    if (!sdl) return;
+    GraphQLSchemaViewer.open(sdl, {
+      onDownload: () => this.#downloadGraphqlSchema(),
+    });
+  }
+
+  /** Save the loaded schema to a `.graphql` file via the native save dialog. */
+  #downloadGraphqlSchema() {
+    const sdl = this.#graphqlSchemaSDL();
+    if (!sdl) return;
+    window.wurl?.export?.saveFile("schema.graphql", sdl, [
+      { name: "GraphQL Schema", extensions: ["graphql", "gql"] },
+      { name: "All Files", extensions: ["*"] },
+    ]);
   }
 
   // ── File picker ───────────────────────────────────────────────────────────
@@ -3488,13 +4118,72 @@ export class RequestEditor {
     if (settings.removeHeaders != null) {
       this.#removeHeaders = !!settings.removeHeaders;
       this.#applyBodyFormHeaderRow();
+      this.#applyGraphqlHeaderRows();
     }
+    if (settings.editorFolding != null) {
+      this.#editorFolding = !!settings.editorFolding;
+      // Apply live to any on-screen GraphQL editors (no rebuild needed).
+      this.#gqlEditors?.forEach((ed) =>
+        ed.setFoldingEnabled(this.#editorFolding),
+      );
+    }
+
+    // GraphQL split orientation + position. Apply only the keys that differ from
+    // the live state so unrelated settings changes don't disturb the editor; if
+    // something did change and the GraphQL body is on screen, re-render it so the
+    // restored layout takes effect.
+    let gqlChanged = false;
+    if (
+      (settings.graphqlSplitFlow === "row" ||
+        settings.graphqlSplitFlow === "column") &&
+      settings.graphqlSplitFlow !== this.#bodyGraphqlFlow
+    ) {
+      this.#bodyGraphqlFlow = settings.graphqlSplitFlow;
+      gqlChanged = true;
+    }
+    const setFrac = (flow, val) => {
+      const frac = typeof val === "number" && val > 0 && val < 1 ? val : null;
+      if (frac !== this.#bodyGraphqlVarsSize[flow]) {
+        this.#bodyGraphqlVarsSize[flow] = frac;
+        gqlChanged = true;
+      }
+    };
+    setFrac("column", settings.graphqlVarsFractionColumn);
+    setFrac("row", settings.graphqlVarsFractionRow);
+    if (gqlChanged && this.#bodyType === "graphql") this.#renderBodyContent();
+  }
+
+  /** Dispatch a settings change so app.js merges + persists it (see app.js). */
+  #persistGqlSetting(detail) {
+    window.dispatchEvent(
+      new CustomEvent("wurl:editor-setting-changed", { detail, bubbles: true }),
+    );
+  }
+
+  /** Persist the Variables-pane fraction for the current orientation. */
+  #persistGqlVarsFraction() {
+    const key =
+      this.#bodyGraphqlFlow === "row"
+        ? "graphqlVarsFractionRow"
+        : "graphqlVarsFractionColumn";
+    this.#persistGqlSetting({
+      [key]: this.#bodyGraphqlVarsSize[this.#bodyGraphqlFlow],
+    });
   }
 
   /** Show/hide the body-form column-label row to match the removeHeaders setting. */
   #applyBodyFormHeaderRow() {
     const hdr = this.#bodyFormKvWrapEl?.querySelector(".params-header-row");
     if (hdr) hdr.style.display = this.#removeHeaders ? "none" : "";
+  }
+
+  /** Show/hide the GraphQL Query/Variables pane labels to match removeHeaders. */
+  #applyGraphqlHeaderRows() {
+    this.#bodyContentEl
+      ?.querySelectorAll(".body-graphql-pane__label")
+      .forEach((hdr) => {
+        hdr.style.display = this.#removeHeaders ? "none" : "";
+      });
   }
 
   /**

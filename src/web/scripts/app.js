@@ -25,7 +25,6 @@ import { CollectionsPopup } from "./components/collections-popup.js";
 import { VariablesPopup } from "./components/variables-popup.js";
 import { EnvironmentsPopup } from "./components/environments-popup.js";
 import { EnvPicker } from "./components/env-picker.js";
-import { deepClone } from "./utils/clone.js";
 import {
   loadAll,
   saveCollections,
@@ -396,7 +395,7 @@ function getAppMain() {
 // ─── Manual layout ────────────────────────────────────────────────────────────
 
 /** Current pinned layout (1–4). Always set; default matches DEFAULT_SETTINGS. */
-let _currentLayout = 1;
+let _currentLayout = 2;
 
 /** The floating env/layout/settings control group injected by placeCtrlGroup(). */
 let _ctrlGroup = null;
@@ -563,7 +562,7 @@ function initSplitters() {
             : SPLITTER_MIN_RES;
         splitterSizes.res = Math.min(max, Math.max(min, v));
       } else {
-        const max = appMain.clientHeight * 0.5;
+        const max = appMain.clientHeight * 0.75;
         splitterSizes.rowRes = Math.min(max, Math.max(SPLITTER_MIN_ROWRES, v));
       }
       applyGridVars();
@@ -944,7 +943,10 @@ function initEventBus() {
     const histId = crypto.randomUUID();
     const nowMs = Date.now();
     const reqUrl = _lastRequestSnapshot.url ?? "";
-    const reqNode = deepClone(node);
+    // Store the snapshot (bulk-string) format, matching the success path. The
+    // timeline-select handler restores it via loadSnapshot() and the hover
+    // tooltip reads params/headers as bulk text, both of which require strings.
+    const reqNode = _buildSnapshot(node);
     const resp = {
       request: e.detail.request ?? {},
       error: {
@@ -1975,6 +1977,8 @@ function _collSendCookies(id) {
  * process resolves the agent type from the URL scheme (HTTP/HTTPS/SOCKS), merges
  * the separate credentials in, and honours the NO_PROXY-style bypass list. All
  * fields are null/empty when the proxy is disabled, so requests are unaffected.
+ * Credentials are sent only when proxyAuthEnabled is on (otherwise blanked, even
+ * if a username/password is still stored).
  *
  * @param {object} settings  currentSettings
  */
@@ -1987,10 +1991,11 @@ function _proxyDescriptorFields(settings) {
       proxyBypass: "",
     };
   }
+  const authOn = settings.proxyAuthEnabled ?? false;
   return {
     proxy: settings.proxyUrl,
-    proxyUsername: settings.proxyUsername ?? "",
-    proxyPassword: settings.proxyPassword ?? "",
+    proxyUsername: authOn ? (settings.proxyUsername ?? "") : "",
+    proxyPassword: authOn ? (settings.proxyPassword ?? "") : "",
     proxyBypass: settings.proxyBypass ?? "",
   };
 }

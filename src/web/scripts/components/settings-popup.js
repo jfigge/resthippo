@@ -96,8 +96,6 @@ export class SettingsPopup {
         <div class="settings-panels">
           <!-- Appearance ──────────────────────────────────────────────── -->
           <section class="settings-panel is-active" role="tabpanel" data-panel="appearance">
-            <h3 class="settings-panel-title">Appearance</h3>
-
             <div class="settings-row">
               <label class="settings-label" for="setting-theme">Theme</label>
               <select class="settings-select" id="setting-theme">
@@ -163,6 +161,15 @@ export class SettingsPopup {
               />
             </div>
 
+            <div class="settings-row settings-row--toggle" title="Show fold carets in the GraphQL Query and Variables editors">
+              <label class="settings-label" for="setting-editor-folding">Editor folding</label>
+              <input
+                class="settings-toggle"
+                id="setting-editor-folding"
+                type="checkbox"
+              />
+            </div>
+
             <div class="settings-row settings-row--toggle" title="Show a Recents tab of recently used requests in the collections sidebar">
               <label class="settings-label" for="setting-show-recents">Show recents</label>
               <input
@@ -175,8 +182,6 @@ export class SettingsPopup {
 
           <!-- Request ──────────────────────────────────────────────────── -->
           <section class="settings-panel" role="tabpanel" data-panel="request" hidden>
-            <h3 class="settings-panel-title">Request</h3>
-
             <div class="settings-row">
               <label class="settings-label" for="setting-timeout">Timeout (ms)</label>
               <input
@@ -232,8 +237,6 @@ export class SettingsPopup {
 
           <!-- Proxy ────────────────────────────────────────────────────── -->
           <section class="settings-panel" role="tabpanel" data-panel="proxy" hidden>
-            <h3 class="settings-panel-title">Proxy</h3>
-
             <div class="settings-row settings-row--toggle">
               <label class="settings-label" for="setting-proxy-enabled">Enable proxy</label>
               <input class="settings-toggle" id="setting-proxy-enabled" type="checkbox" />
@@ -250,24 +253,30 @@ export class SettingsPopup {
             </div>
             <p class="settings-help">The proxy type is taken from the URL scheme: <code>http://</code>, <code>https://</code>, or <code>socks5://</code> / <code>socks4://</code>.</p>
 
-            <div class="settings-row">
-              <label class="settings-label" for="setting-proxy-username">Username</label>
-              <input
-                class="settings-input"
-                id="setting-proxy-username"
-                type="text"
-                autocomplete="off"
-              />
+            <div class="settings-row settings-row--toggle">
+              <label class="settings-label" for="setting-proxy-auth-enabled">Proxy authentication</label>
+              <input class="settings-toggle" id="setting-proxy-auth-enabled" type="checkbox" />
             </div>
 
-            <div class="settings-row">
-              <label class="settings-label" for="setting-proxy-password">Password</label>
-              <input
-                class="settings-input"
-                id="setting-proxy-password"
-                type="text"
-                autocomplete="off"
-              />
+            <div class="settings-row settings-row--credentials">
+              <div class="settings-field">
+                <label class="settings-label" for="setting-proxy-username">Username</label>
+                <input
+                  class="settings-input"
+                  id="setting-proxy-username"
+                  type="text"
+                  autocomplete="off"
+                />
+              </div>
+              <div class="settings-field">
+                <label class="settings-label" for="setting-proxy-password">Password</label>
+                <input
+                  class="settings-input"
+                  id="setting-proxy-password"
+                  type="text"
+                  autocomplete="off"
+                />
+              </div>
             </div>
 
             <div class="settings-row settings-row--stacked">
@@ -284,8 +293,6 @@ export class SettingsPopup {
 
           <!-- Retries ──────────────────────────────────────────────────── -->
           <section class="settings-panel" role="tabpanel" data-panel="retries" hidden>
-            <h3 class="settings-panel-title">Retries</h3>
-
             <div class="settings-row settings-row--toggle">
               <label class="settings-label" for="setting-retry-enabled">Enable retries</label>
               <input class="settings-toggle" id="setting-retry-enabled" type="checkbox" />
@@ -362,8 +369,6 @@ export class SettingsPopup {
 
           <!-- History ──────────────────────────────────────────────────── -->
           <section class="settings-panel" role="tabpanel" data-panel="history" hidden>
-            <h3 class="settings-panel-title">History</h3>
-
             <div class="settings-row">
               <label class="settings-label" for="setting-history-count">Timeline entries</label>
               <select class="settings-select" id="setting-history-count">
@@ -444,6 +449,11 @@ export class SettingsPopup {
     removeHeadersCb.addEventListener("change", () =>
       this.#updateRemoveHeadersTitle(),
     );
+
+    // Enable/disable the proxy credential fields with the auth toggle.
+    this.#el
+      .querySelector("#setting-proxy-auth-enabled")
+      .addEventListener("change", () => this.#syncProxyAuthState());
 
     // Escape handling lives in #onKeyDown, attached on open() and detached
     // when PopupManager dispatches "wurl:popup-closed". See class fields above.
@@ -556,8 +566,11 @@ export class SettingsPopup {
           this.#el.querySelector("#setting-picker-debounce").value,
           10,
         ) || 200,
+      editorFolding: this.#el.querySelector("#setting-editor-folding").checked,
       proxyEnabled: this.#el.querySelector("#setting-proxy-enabled").checked,
       proxyUrl: this.#el.querySelector("#setting-proxy-url").value.trim(),
+      proxyAuthEnabled: this.#el.querySelector("#setting-proxy-auth-enabled")
+        .checked,
       proxyUsername: this.#el.querySelector("#setting-proxy-username").value,
       proxyPassword: this.#el.querySelector("#setting-proxy-password").value,
       proxyBypass: this.#el.querySelector("#setting-proxy-bypass").value.trim(),
@@ -706,12 +719,20 @@ export class SettingsPopup {
         settings.pickerDebounceMs,
       );
     }
+    if (settings.editorFolding !== undefined) {
+      this.#el.querySelector("#setting-editor-folding").checked =
+        settings.editorFolding;
+    }
     if (settings.proxyEnabled !== undefined) {
       this.#el.querySelector("#setting-proxy-enabled").checked =
         settings.proxyEnabled;
     }
     if (settings.proxyUrl !== undefined) {
       this.#el.querySelector("#setting-proxy-url").value = settings.proxyUrl;
+    }
+    if (settings.proxyAuthEnabled !== undefined) {
+      this.#el.querySelector("#setting-proxy-auth-enabled").checked =
+        settings.proxyAuthEnabled;
     }
     if (settings.proxyUsername !== undefined) {
       this.#el.querySelector("#setting-proxy-username").value =
@@ -766,5 +787,18 @@ export class SettingsPopup {
         settings.historyCount,
       );
     }
+    this.#syncProxyAuthState();
+  }
+
+  /**
+   * Reflect the "Proxy authentication" toggle onto its credential fields: when
+   * auth is off the username/password inputs are disabled and dimmed, so it is
+   * clear no credentials are sent (the values are kept, just not editable/used).
+   */
+  #syncProxyAuthState() {
+    const on = this.#el.querySelector("#setting-proxy-auth-enabled").checked;
+    const row = this.#el.querySelector(".settings-row--credentials");
+    row.classList.toggle("is-disabled", !on);
+    row.querySelectorAll("input").forEach((input) => (input.disabled = !on));
   }
 }

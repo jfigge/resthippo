@@ -19,7 +19,8 @@
     "lint": "../node_modules/.bin/eslint \"web/scripts/**/*.js\" \"app/**/*.js\"",
     "vendor-yaml": "esbuild node_modules/yaml/browser/dist/index.js --bundle --format=esm --outfile=web/scripts/vendor/yaml.js",
     "vendor-prism": "esbuild web/scripts/vendor/prism-entry.js --bundle --format=esm --outfile=web/scripts/vendor/prism.js",
-    "vendor-markdown": "esbuild web/scripts/vendor/markdown-entry.js --bundle --format=esm --outfile=web/scripts/vendor/markdown.js"
+    "vendor-markdown": "esbuild web/scripts/vendor/markdown-entry.js --bundle --format=esm --outfile=web/scripts/vendor/markdown.js",
+    "vendor-graphql": "esbuild web/scripts/vendor/graphql-entry.js --bundle --format=esm --outfile=web/scripts/vendor/graphql.js"
   },
   "devDependencies": {
     "dompurify": "^3.4.7",
@@ -28,6 +29,7 @@
     "esbuild": "^0.28.0",
     "eslint": "^9.39.4",
     "globals": "^16.1.0",
+    "graphql": "^16.9.0",
     "jsdom": "^27.0.1",
     "marked": "^18.0.4",
     "prettier": "^3.3.3",

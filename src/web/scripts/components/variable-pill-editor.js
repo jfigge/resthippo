@@ -66,6 +66,11 @@ export function setPickerDebounceMs(ms) {
   _pickerDebounceMs = typeof ms === "number" && ms >= 0 ? ms : 200;
 }
 
+/** Current picker debounce in ms — shared with the GraphQL autocomplete popup. */
+export function getPickerDebounceMs() {
+  return _pickerDebounceMs;
+}
+
 export class VariablePillEditor {
   #el;
   #placeholder;

@@ -414,9 +414,18 @@ contextBridge.exposeInMainWorld("wurl", {
     contextMenu: ({ items, x, y } = {}) =>
       ipcRenderer.invoke("ui:context-menu:show", { items, x, y }),
 
-    /** Show a Cut / Copy / Paste / Select All menu for the focused text input. */
-    editContextMenu: (x, y) =>
-      ipcRenderer.invoke("ui:edit-context-menu", { x, y }),
+    /**
+     * Show a Cut / Copy / Paste / Select All menu for the focused text input,
+     * optionally with extra custom items appended (checkbox/separator). Resolves
+     * the clicked custom item's id, or null (edit roles resolve null too).
+     *
+     * @param {number} x
+     * @param {number} y
+     * @param {Array<{ id?: string, label?: string, type?: "separator"|"checkbox"|"radio", checked?: boolean, enabled?: boolean }>} [extraItems]
+     * @returns {Promise<string|null>}
+     */
+    editContextMenu: (x, y, extraItems) =>
+      ipcRenderer.invoke("ui:edit-context-menu", { x, y, extraItems }),
 
     openThemeEditor: () => ipcRenderer.invoke("ui:open-theme-editor"),
   },

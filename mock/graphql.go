@@ -168,9 +168,12 @@ func isIdentByte(b byte) bool {
 }
 
 // introspectionJSON is the canned response to the standard introspection query.
-// It mirrors the schema documented at the top of this file in the shape wurl's
-// buildSchemaModel() consumes (kind/name/fields[args,type]/enumValues + ofType
-// chains for wrappers).
+// It mirrors the schema documented at the top of this file. wurl's own lenient
+// buildSchemaModel() only reads kind/name/fields[args,type]/enumValues + ofType
+// chains, but strict clients (Insomnia, GraphiQL, anything backed by graphql-js
+// buildClientSchema) additionally require an "interfaces" array on every OBJECT/
+// INTERFACE type — omitting it throws "Introspection result missing interfaces".
+// So every type here carries "interfaces" ([] for objects, null otherwise).
 const introspectionJSON = `{
   "data": {
     "__schema": {
@@ -199,6 +202,7 @@ const introspectionJSON = `{
             }
           ],
           "inputFields": null,
+          "interfaces": [],
           "enumValues": null
         },
         {
@@ -215,6 +219,7 @@ const introspectionJSON = `{
             }
           ],
           "inputFields": null,
+          "interfaces": [],
           "enumValues": null
         },
         {
@@ -228,6 +233,7 @@ const introspectionJSON = `{
             { "name": "active", "args": [], "type": { "kind": "SCALAR", "name": "Boolean", "ofType": null } }
           ],
           "inputFields": null,
+          "interfaces": [],
           "enumValues": null
         },
         {
@@ -235,11 +241,12 @@ const introspectionJSON = `{
           "name": "Role",
           "fields": null,
           "inputFields": null,
+          "interfaces": null,
           "enumValues": [ { "name": "ADMIN" }, { "name": "USER" }, { "name": "GUEST" } ]
         },
-        { "kind": "SCALAR", "name": "ID", "fields": null, "inputFields": null, "enumValues": null },
-        { "kind": "SCALAR", "name": "String", "fields": null, "inputFields": null, "enumValues": null },
-        { "kind": "SCALAR", "name": "Boolean", "fields": null, "inputFields": null, "enumValues": null }
+        { "kind": "SCALAR", "name": "ID", "fields": null, "inputFields": null, "interfaces": null, "enumValues": null },
+        { "kind": "SCALAR", "name": "String", "fields": null, "inputFields": null, "interfaces": null, "enumValues": null },
+        { "kind": "SCALAR", "name": "Boolean", "fields": null, "inputFields": null, "interfaces": null, "enumValues": null }
       ]
     }
   }

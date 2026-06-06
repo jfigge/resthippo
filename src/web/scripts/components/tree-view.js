@@ -33,6 +33,7 @@ import {
   encodeBaseUrl,
   applyPathParams,
 } from "./request-payload.js";
+import { extractOperationName } from "./graphql-schema.js";
 
 // SVG folder icons (Feather-style, stroke-based)
 const ICON_FOLDER_CLOSED = icon("folderClosed", {
@@ -1401,6 +1402,30 @@ export class TreeView {
                 headers["Content-Type"] = BODY_CONTENT_TYPES[bodyType];
             }
             break;
+          case "graphql": {
+            // Mirror the send path (request-payload.js): a standard GraphQL POST
+            // with a JSON { query, variables, operationName } body. {{var}} tokens
+            // resolve in both the query and the variables JSON before assembly.
+            const query = rv(node.bodyGraphql?.query ?? "");
+            const varsText = rv(node.bodyGraphql?.variables ?? "").trim();
+            if (query.trim() || varsText) {
+              const payload = { query };
+              if (varsText) {
+                try {
+                  payload.variables = JSON.parse(varsText);
+                } catch {
+                  // Invalid variables JSON — omit rather than emit a malformed
+                  // `variables` field; the editor flags it inline.
+                }
+              }
+              const operationName = extractOperationName(query);
+              if (operationName) payload.operationName = operationName;
+              body = JSON.stringify(payload);
+              if (!headers["Content-Type"])
+                headers["Content-Type"] = "application/json";
+            }
+            break;
+          }
           case "file":
             if (node.bodyFilePath) bodyFilePath = node.bodyFilePath;
             break;

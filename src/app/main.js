@@ -1645,22 +1645,48 @@ function safeCallWrite(channel, fn) {
 // Pops a Cut / Copy / Paste / Select All menu for text input fields.
 // Called from the renderer's contextmenu handler when the target is editable.
 (function initEditContextMenuIPC() {
-  ipcMain.handle("ui:edit-context-menu", (event, { x, y } = {}) => {
-    const win =
-      BrowserWindow.fromWebContents(event.sender) ?? _mainWin ?? undefined;
-    const menu = Menu.buildFromTemplate([
-      { label: "Cut", role: "cut" },
-      { label: "Copy", role: "copy" },
-      { label: "Paste", role: "paste" },
-      { type: "separator" },
-      { label: "Select All", role: "selectAll" },
-    ]);
-    const popupOpts = { window: win };
-    if (Number.isFinite(x) && Number.isFinite(y)) {
-      popupOpts.x = Math.round(x);
-      popupOpts.y = Math.round(y);
-    }
-    menu.popup(popupOpts);
+  ipcMain.handle("ui:edit-context-menu", (event, { x, y, extraItems } = {}) => {
+    return new Promise((resolve) => {
+      let resultId = null;
+      const win =
+        BrowserWindow.fromWebContents(event.sender) ?? _mainWin ?? undefined;
+
+      // Standard edit roles (handled natively) plus any caller-supplied custom
+      // items (e.g. a "Code folding" checkbox). Custom clicks resolve their id.
+      const template = [
+        { label: "Cut", role: "cut" },
+        { label: "Copy", role: "copy" },
+        { label: "Paste", role: "paste" },
+        { type: "separator" },
+        { label: "Select All", role: "selectAll" },
+      ];
+      for (const item of extraItems ?? []) {
+        if (item?.type === "separator") {
+          template.push({ type: "separator" });
+          continue;
+        }
+        const entry = {
+          label: String(item.label ?? ""),
+          enabled: item.enabled !== false,
+          click: () => {
+            resultId = item.id ?? null;
+          },
+        };
+        if (item.type === "checkbox" || item.type === "radio") {
+          entry.type = item.type;
+          entry.checked = !!item.checked;
+        }
+        template.push(entry);
+      }
+
+      const menu = Menu.buildFromTemplate(template);
+      const popupOpts = { window: win, callback: () => resolve(resultId) };
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        popupOpts.x = Math.round(x);
+        popupOpts.y = Math.round(y);
+      }
+      menu.popup(popupOpts);
+    });
   });
 })();
 

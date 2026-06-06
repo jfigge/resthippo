@@ -146,7 +146,7 @@ test-export:
 
 test-components:
 	@echo "Running renderer component tests (variable resolution, request payload)..."
-	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js
+	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js
 	@echo "--------------------------------"
 
 test-import:
@@ -231,6 +231,11 @@ vendor-prism:
 vendor-markdown:
 	@echo "Bundling Markdown (marked + DOMPurify) vendor file..."
 	@cd $(SRC_DIR); npm run vendor-markdown
+	@echo "--------------------------------"
+
+vendor-graphql:
+	@echo "Bundling graphql-js vendor file..."
+	@cd $(SRC_DIR); npm run vendor-graphql
 	@echo "--------------------------------"
 
 # ─── Distribution packages ────────────────────────────────────────────────────
@@ -364,6 +369,7 @@ help:
 	@echo "    vendor-yaml   Bundle yaml npm pkg → web/scripts/vendor/yaml.js"
 	@echo "    vendor-prism  Bundle Prism.js → web/scripts/vendor/prism.js"
 	@echo "    vendor-markdown  Bundle marked+DOMPurify → web/scripts/vendor/markdown.js"
+	@echo "    vendor-graphql   Bundle graphql-js → web/scripts/vendor/graphql.js"
 	@echo "    fmt           Format JS/CSS/HTML (prettier)"
 	@echo "    fmt-check     Check formatting without writing (prettier --check)"
 	@echo "    lint          Lint JS (eslint)"
@@ -661,7 +667,7 @@ mock-down:
         build-setup build-install \
         dist dist-mac dist-linux dist-win \
         release \
-        vendor-yaml vendor-prism vendor-markdown \
+        vendor-yaml vendor-prism vendor-markdown vendor-graphql \
         clean help launch
 		mock-up mock-down mock-build \
 		start wait bootstrap creds stop reset kc

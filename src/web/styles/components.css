@@ -953,6 +953,161 @@ html.show-method-icons .req-method-menu__item-label::before {
   overflow: auto;
 }
 
+/* ── Code folding (GraphQL Query / Variables editors) ───────────────────── */
+/* These editors never wrap (one logical line per visual row) — long lines scroll
+   horizontally. No-wrap is kept even when folding is off so the validation
+   underlines stay aligned. */
+.body-editor-wrap--folding .body-editor-pre,
+.body-editor-wrap--folding .body-text-editor--overlay {
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+/* When folding is ON, pad the text clear of the gutter and show the gutter. */
+.body-editor-wrap--fold-on .body-editor-pre,
+.body-editor-wrap--fold-on .body-text-editor--overlay {
+  padding-left: calc(var(--space-6) + var(--space-3));
+}
+
+.body-fold-gutter {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(var(--space-6) + var(--space-3));
+  z-index: 2; /* above the textarea so the carets are clickable */
+  overflow: hidden;
+  pointer-events: none; /* clicks fall through to the textarea … */
+  background: var(--color-base); /* masks code scrolled under it */
+  user-select: none;
+  display: none; /* shown only when folding is enabled */
+}
+.body-editor-wrap--fold-on .body-fold-gutter {
+  display: block;
+}
+
+/* Translated by JS to track the textarea's vertical scroll. */
+.body-fold-gutter__inner {
+  padding-top: var(--space-4); /* match the editor's top padding */
+  will-change: transform;
+}
+
+/* One row per visible line; height matches the editor line box (line-height 1.6
+   × font-size-sm) so carets stay aligned with their code. */
+.body-fold-row {
+  height: calc(var(--font-size-sm) * 1.6);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: var(--space-2);
+}
+
+.body-fold-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-overlay-0);
+  cursor: pointer;
+  pointer-events: auto; /* … except the carets themselves */
+  transition: transform 0.1s ease;
+}
+
+.body-fold-toggle:hover {
+  color: var(--color-text);
+}
+
+.body-fold-toggle svg {
+  width: 8px;
+  height: 6px;
+}
+
+/* Collapsed: rotate the down-caret to point right. */
+.body-fold-toggle--collapsed {
+  transform: rotate(-90deg);
+}
+
+/* Elision marker appended to a collapsed opener line in the highlight layer. */
+.body-fold-ellipsis {
+  color: var(--color-overlay-0);
+}
+
+/* ── GraphQL query validation markers ───────────────────────────────────── */
+/* Underline layer: sits above the highlight <pre> but below the (transparent)
+   textarea, so the caret/selection stay on top; never takes pointer events. */
+.body-gql-markers {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.body-gql-markers__inner {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+/* Red wavy underline under an offending token. The wave is an alpha mask so the
+   colour stays a theme token; if mask is unsupported it degrades to a thin bar. */
+.body-gql-underline {
+  position: absolute;
+  height: 3px;
+  background-color: var(--color-error);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='6'%20height='3'%3E%3Cpath%20d='M0%202%20Q1.5%200%203%202%20T6%202'%20stroke='black'%20fill='none'%20stroke-width='1'/%3E%3C/svg%3E")
+    repeat-x bottom left / 6px 3px;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='6'%20height='3'%3E%3Cpath%20d='M0%202%20Q1.5%200%203%202%20T6%202'%20stroke='black'%20fill='none'%20stroke-width='1'/%3E%3C/svg%3E")
+    repeat-x bottom left / 6px 3px;
+}
+
+/* Gutter flag on a line that carries a validation error (hover for the message);
+   coexists with a fold caret on the same row. */
+.body-fold-row--error {
+  box-shadow: inset 2px 0 0 var(--color-error);
+  pointer-events: auto;
+  cursor: help;
+}
+
+.body-validate-badge {
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+}
+/* Valid / invalid colouring shared by the Query and Variables badges. */
+.body-validate-badge[data-state="valid"] {
+  color: var(--color-success);
+}
+.body-validate-badge[data-state="invalid"] {
+  color: var(--color-error);
+}
+
+/* Query badge lays out the schema warning + the verdict in a row. */
+.body-graphql-query-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Yellow warning triangle shown when no schema has been fetched. */
+.body-graphql-schema-warn {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-warning);
+}
+.body-graphql-schema-warn[hidden] {
+  display: none; /* override the inline-flex above so [hidden] still hides it */
+}
+.body-graphql-schema-warn svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
 /* ── GraphQL body mode (Feature 34) ─────────────────────────────────────── */
 /* Two stacked Prism-overlay editors — Query over Variables — fill the body. */
 .body-graphql {
@@ -1017,17 +1172,54 @@ html.show-method-icons .req-method-menu__item-label::before {
   min-height: 0;
 }
 
-/* "Fetch schema" introspection status badge in the body type bar. */
+/* GraphQL introspection status icon in the body type bar — sits between the
+   layout toggle and the "Fetch schema" button. Empty until a fetch runs, then a
+   green tick on success or a red X on failure. The glyph inherits `color` via
+   currentColor, so the state rules below recolor it. */
 .body-graphql-status {
-  padding-left: var(--space-4);
-  font-size: var(--font-size-xs);
+  display: inline-flex;
+  align-items: center;
   color: var(--color-overlay-0);
+}
+/* Empty (no fetch yet / loading) — collapse so it adds no extra toolbar gap. */
+.body-graphql-status:empty {
+  display: none;
+}
+.body-graphql-status svg {
+  display: block;
 }
 .body-graphql-status[data-state="ok"] {
   color: var(--color-success);
+  /* The loaded tick carries a right-click menu (View / Download schema). */
+  cursor: context-menu;
 }
 .body-graphql-status[data-state="error"] {
   color: var(--color-error);
+}
+
+/* Read-only GraphQL schema viewer (opened from the loaded badge's menu). */
+.graphql-schema-viewer {
+  width: min(880px, 90vw);
+  height: 80vh;
+}
+.graphql-schema-viewer-body {
+  padding: 0;
+  display: flex;
+  min-height: 0;
+}
+.graphql-schema-viewer-pre {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: var(--space-5);
+  overflow: auto;
+  white-space: pre;
+  tab-size: 2;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+  color: var(--color-text);
+  background: var(--color-mantle);
+  user-select: text;
 }
 
 /* Schema-aware autocomplete dropdown: field/arg name + muted type detail.
@@ -1916,8 +2108,8 @@ html.show-method-icons .req-method-menu__item-label::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--control-h-xs);
-  height: var(--control-h-xs);
+  width: var(--control-h-md);
+  height: var(--control-h-md);
   padding: 0;
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -3509,17 +3701,6 @@ html.show-method-icons .req-method-menu__item-label::before {
   display: none;
 }
 
-.settings-panel-title {
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-overlay-0);
-  margin: 0 0 var(--space-4) 0;
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--color-surface-2);
-}
-
 .settings-row {
   display: flex;
   align-items: center;
@@ -3609,6 +3790,36 @@ html.show-method-icons .req-method-menu__item-label::before {
    it like the other right-aligned controls. */
 .settings-row .secret-field {
   min-width: 140px;
+}
+
+/* Two-up credential row — username and password side by side, each with its
+   label stacked above the field. */
+.settings-row--credentials {
+  align-items: stretch;
+  gap: var(--space-4);
+}
+
+.settings-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.settings-field .settings-label {
+  flex: none;
+}
+
+.settings-field .settings-input,
+.settings-field .secret-field {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Dim the credential fields while proxy authentication is turned off. */
+.settings-row--credentials.is-disabled {
+  opacity: 0.5;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

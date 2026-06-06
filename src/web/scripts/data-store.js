@@ -44,7 +44,7 @@ const DEFAULT_SETTINGS = {
   theme: "mocha",
   fontSize: 13,
   fontFamily: "inter",
-  layout: 1,
+  layout: 2,
   timeout: 30000,
   followRedirects: true,
   verifySsl: true,
@@ -52,7 +52,9 @@ const DEFAULT_SETTINGS = {
   proxyUrl: "",
   // Separate proxy credentials (encrypted at rest) and a NO_PROXY-style bypass
   // list. The proxy *type* (HTTP/HTTPS vs SOCKS) is derived from proxyUrl's
-  // scheme (e.g. socks5://host:1080) in the main process.
+  // scheme (e.g. socks5://host:1080) in the main process. Credentials are only
+  // sent when proxyAuthEnabled is on (off by default, like Postman's Proxy Auth).
+  proxyAuthEnabled: false,
   proxyUsername: "",
   proxyPassword: "",
   proxyBypass: "",
@@ -69,6 +71,16 @@ const DEFAULT_SETTINGS = {
   splitterNav: 240,
   splitterRes: 340,
   splitterRowRes: 320,
+  // GraphQL Query/Variables split (persisted editor layout). graphqlSplitFlow is
+  // the orientation ("column" = stacked, "row" = side by side); the two fractions
+  // are the Variables pane's share of the container per orientation, or null to
+  // use the default flex ratio.
+  graphqlSplitFlow: "row",
+  graphqlVarsFractionColumn: null,
+  graphqlVarsFractionRow: null,
+  // Code folding in the GraphQL Query/Variables editors (gutter carets). On by
+  // default; toggled from Appearance settings or each editor's context menu.
+  editorFolding: true,
   listHeaders: true,
   showUrlPreview: true,
   varsBulkEditor: true,
