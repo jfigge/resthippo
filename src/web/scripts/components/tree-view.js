@@ -68,6 +68,9 @@ export class TreeView {
   /** @type {string|null} — id of the node currently being dragged */
   #dragId = null;
 
+  /** @type {boolean} — true while the node being dragged is a folder/collection */
+  #draggedIsCollection = false;
+
   /** @type {object} — active collection variables used for variable resolution in cURL generation */
   #envVariables = {};
 
@@ -1915,6 +1918,7 @@ export class TreeView {
     // ── dragstart ──────────────────────────────────────────────────────────
     row.addEventListener("dragstart", (e) => {
       this.#dragId = node.id;
+      this.#draggedIsCollection = node.type === "collection";
       this.#dropHandled = false;
       e.dataTransfer.effectAllowed = "move";
       // Required by Firefox to start the drag
@@ -1964,9 +1968,26 @@ export class TreeView {
 
       let pos;
       if (node.type === "collection") {
-        if (ratio < 0.25) pos = "before";
-        else if (ratio > 0.75) pos = "after";
-        else pos = "inside";
+        if (this.#draggedIsCollection) {
+          // Dragging a folder onto another folder: the target's open/closed
+          // state — not the cursor depth — decides whether we nest or stay at
+          // the same level.
+          //   • open target   → drop *inside* it (as the first child)
+          //   • closed target → drop *after* it, a sibling at the same level
+          // A thin top zone still allows dropping *before* the target folder.
+          const open = !this.#collapsedIds.has(node.id);
+          if (open) {
+            pos = ratio < 0.25 ? "before" : "inside";
+          } else {
+            pos = ratio < 0.5 ? "before" : "after";
+          }
+        } else if (ratio < 0.25) {
+          pos = "before";
+        } else if (ratio > 0.75) {
+          pos = "after";
+        } else {
+          pos = "inside";
+        }
       } else {
         pos = ratio < 0.5 ? "before" : "after";
       }
@@ -2046,6 +2067,7 @@ export class TreeView {
       this.#docDragOverHandler = null;
     }
     this.#dragId = null;
+    this.#draggedIsCollection = false;
     this.#dragInsideTreeView = false;
     this.#dropHandled = false;
     this.#dragPhantomEl.dataset.targetId = "";
