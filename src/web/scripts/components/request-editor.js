@@ -27,6 +27,13 @@ import {
   applyPathParams,
   resolvePathParamValues,
 } from "./request-payload.js";
+import {
+  INTROSPECTION_QUERY,
+  buildSchemaModel,
+  suggestAtCursor,
+} from "./graphql-schema.js";
+import { executeIntrospection } from "./graphql-introspection.js";
+import { caretCoordinates } from "../utils/caret-coords.js";
 import { RequestAuthEditor } from "./request-auth-editor.js";
 import {
   DragReorderController,
@@ -217,6 +224,32 @@ const _hdrVal = new AutocompleteDropdown(
 );
 let _hdrValOnSelect = null;
 
+// GraphQL query-editor autocomplete (Feature 34). One shared dropdown reused by
+// whichever GraphQL query textarea is focused; it anchors at the text caret via
+// a tiny fixed-position anchor element (the dropdown machinery anchors below an
+// element, so we move this stand-in to the caret before each show()).
+const _gqlAc = new AutocompleteDropdown(
+  "hdr-autocomplete gql-autocomplete",
+  "GraphQL suggestions",
+);
+let _gqlCaretAnchor = null;
+function _gqlAnchorAt({ left, top, height }) {
+  if (!_gqlCaretAnchor) {
+    _gqlCaretAnchor = document.createElement("div");
+    _gqlCaretAnchor.className = "gql-caret-anchor";
+    _gqlCaretAnchor.setAttribute("aria-hidden", "true");
+    document.body.appendChild(_gqlCaretAnchor);
+  }
+  const s = _gqlCaretAnchor.style;
+  s.position = "fixed";
+  s.width = "0";
+  s.pointerEvents = "none";
+  s.left = `${left}px`;
+  s.top = `${top}px`;
+  s.height = `${height}px`;
+  return _gqlCaretAnchor;
+}
+
 // ── Header-name suggestions dropdown ──────────────────────────────────────────
 
 function _showHdrDropdown(input, onSelect) {
@@ -389,6 +422,21 @@ export class RequestEditor {
   #bodyText = ""; // shared for json, yaml, xml, and plain text
   #bodyFilePath = ""; // path/name of selected file (display)
   #bodyFileObject = null; // actual File object reference for sending
+  // GraphQL body (Feature 34) — query + raw-JSON variables text. The introspected
+  // schema is cached in-memory per loaded request (reset in load()), never
+  // persisted, and drives the query-editor autocomplete.
+  #bodyGraphqlQuery = "";
+  #bodyGraphqlVariables = "";
+  #graphqlSchema = null; // result of buildSchemaModel(), or null until fetched
+  #graphqlFetching = false; // guards against concurrent "Fetch schema" clicks
+  // GraphQL Query/Variables split layout — session-level UI prefs (not persisted,
+  // not part of the request). #bodyGraphqlFlow is the container flex-direction:
+  // "column" = stacked (vertical splitter, drag ↕), "row" = side by side
+  // (horizontal splitter, drag ↔), toggled at runtime. #bodyGraphqlVarsSize is
+  // the dragged main-axis size (px) of the Variables pane, kept per orientation
+  // (height for "column", width for "row"); null → use the default flex ratio.
+  #bodyGraphqlFlow = "column";
+  #bodyGraphqlVarsSize = { column: null, row: null };
   // Body-form list element — rebuilt on every render; rows are re-wired through
   // the controller below. The controller owns all transient drag state.
   #bfListEl = null;
@@ -800,6 +848,9 @@ export class RequestEditor {
         <option value="xml">XML</option>
         <option value="text">Plain Text</option>
       </optgroup>
+      <optgroup label="GraphQL">
+        <option value="graphql">GraphQL</option>
+      </optgroup>
       <optgroup label="Other">
         <option value="file">File</option>
         <option value="no-body" selected>No Body</option>
@@ -891,6 +942,12 @@ export class RequestEditor {
     // Remove any Prettify button / validation badge left over from a previous text type
     this.#bodyTypeBarEl?.querySelector(".body-prettify-btn")?.remove();
     this.#bodyTypeBarEl?.querySelector(".body-validate-badge")?.remove();
+    // Remove any GraphQL fetch-schema button / layout toggle / status badge from
+    // a prior render, and dismiss a stale query-autocomplete dropdown.
+    this.#bodyTypeBarEl?.querySelector(".body-graphql-fetch-btn")?.remove();
+    this.#bodyTypeBarEl?.querySelector(".body-graphql-flow-btn")?.remove();
+    this.#bodyTypeBarEl?.querySelector(".body-graphql-status")?.remove();
+    _gqlAc.hide();
     // Reset body form drag state whenever we switch panels
     this.#bfListEl = null;
     this.#bfDrag.reset();
@@ -922,6 +979,8 @@ export class RequestEditor {
         return this.#renderBodyText(el, "xml", true);
       case "text":
         return this.#renderBodyText(el, "text", false);
+      case "graphql":
+        return this.#renderBodyGraphql(el);
       case "file":
         return this.#renderBodyFile(el);
     }
@@ -1423,7 +1482,7 @@ export class RequestEditor {
    * Synchronise the Prism syntax-highlight overlay with the textarea content.
    * @param {HTMLTextAreaElement} ta
    * @param {HTMLElement}         codeEl  — the <code> element inside the overlay <pre>
-   * @param {string}              type    — "json" | "yaml" | "xml"
+   * @param {string}              type    — "json" | "yaml" | "xml" | "graphql"
    */
   #syncHighlight(ta, codeEl, type) {
     const text = ta.value;
@@ -1431,7 +1490,9 @@ export class RequestEditor {
       codeEl.innerHTML = "";
       return;
     }
-    const lang = type === "yaml" ? "yaml" : type === "xml" ? "markup" : "json";
+    const lang =
+      { yaml: "yaml", xml: "markup", graphql: "graphql", json: "json" }[type] ??
+      "json";
     try {
       // Prism.highlight returns an HTML string with token spans.
       // We append a trailing newline so the pre always has the same height as
@@ -1450,6 +1511,464 @@ export class RequestEditor {
     if (codeEl.parentElement) {
       codeEl.parentElement.scrollTop = ta.scrollTop;
       codeEl.parentElement.scrollLeft = ta.scrollLeft;
+    }
+  }
+
+  // ── GraphQL editor (Query + Variables) ────────────────────────────────────
+  #renderBodyGraphql(el) {
+    // Type-bar controls: a layout toggle, a "Fetch schema" introspection button,
+    // and its status badge (to the right of the button).
+    let statusBadge = null;
+    let flowToggleBtn = null;
+    if (this.#bodyTypeBarEl) {
+      statusBadge = document.createElement("span");
+      statusBadge.className = "body-graphql-status";
+      statusBadge.setAttribute("aria-live", "polite");
+      if (this.#graphqlSchema) {
+        statusBadge.dataset.state = "ok";
+        statusBadge.textContent = "schema loaded";
+        statusBadge.title = `${this.#graphqlSchema.types.size} types available for autocomplete`;
+      }
+
+      // Toggle the Query/Variables split between stacked and side by side. The
+      // glyph shows the layout it switches TO; applyFlow() (below) keeps it in
+      // sync. Listener is wired after the panes exist.
+      flowToggleBtn = document.createElement("button");
+      flowToggleBtn.type = "button";
+      flowToggleBtn.className = "icon-btn body-graphql-flow-btn";
+      this.#bodyTypeBarEl.appendChild(flowToggleBtn);
+
+      const fetchBtn = document.createElement("button");
+      fetchBtn.className =
+        "params-toolbar-btn params-delete-all-btn body-graphql-fetch-btn";
+      fetchBtn.textContent = "Fetch schema";
+      fetchBtn.title =
+        "Run GraphQL introspection against the URL to enable query autocomplete";
+      fetchBtn.addEventListener("click", () =>
+        this.#fetchGraphqlSchema(statusBadge, fetchBtn),
+      );
+      this.#bodyTypeBarEl.appendChild(fetchBtn);
+
+      // Status badge sits to the right of the Fetch button.
+      this.#bodyTypeBarEl.appendChild(statusBadge);
+    }
+
+    const wrap = document.createElement("div");
+    wrap.className = "body-graphql";
+
+    // ── Query pane (GraphQL, with schema-aware autocomplete) ──────────────
+    const queryPane = document.createElement("div");
+    queryPane.className = "body-graphql-pane body-graphql-pane--query";
+    const queryLabel = document.createElement("div");
+    queryLabel.className = "body-graphql-pane__label";
+    queryLabel.textContent = "Query";
+    queryPane.appendChild(queryLabel);
+    const q = this.#buildGqlEditor({
+      lang: "graphql",
+      value: this.#bodyGraphqlQuery,
+      placeholder: "query {\n  …\n}",
+      ariaLabel: "GraphQL query",
+      onInput: (v, ta, codeEl) => {
+        this.#bodyGraphqlQuery = v;
+        this.#dispatchBodyUpdated();
+        this.#syncHighlight(ta, codeEl, "graphql");
+      },
+    });
+    queryPane.appendChild(q.wrap);
+    this.#wireGqlAutocomplete(q.ta, q.codeEl);
+    wrap.appendChild(queryPane);
+
+    // ── Splitter — drag to resize Query vs Variables ──────────────────────
+    // Reuses the app's splitter styling; applyFlow() (below) sets the --v / --h
+    // orientation class, cursor, and aria to match the current layout.
+    const splitter = document.createElement("div");
+    splitter.className = "splitter body-graphql-splitter";
+    splitter.setAttribute("role", "separator");
+    splitter.setAttribute("aria-label", "Resize the Query and Variables panes");
+    splitter.tabIndex = 0;
+    wrap.appendChild(splitter);
+
+    // ── Variables pane (JSON, validated) ──────────────────────────────────
+    const varsPane = document.createElement("div");
+    varsPane.className = "body-graphql-pane body-graphql-pane--vars";
+    const varsHeader = document.createElement("div");
+    varsHeader.className = "body-graphql-pane__label";
+    varsHeader.textContent = "Variables";
+    const varsBadge = document.createElement("span");
+    varsBadge.className = "body-validate-badge body-graphql-vars-badge";
+    varsBadge.setAttribute("aria-live", "polite");
+    varsHeader.appendChild(varsBadge);
+    varsPane.appendChild(varsHeader);
+
+    const applyVarsValidity = (state /* "valid" | "invalid" | null */) => {
+      varsBadge.dataset.state = state ?? "";
+      if (state === "valid") {
+        varsBadge.textContent = "✓ valid";
+        varsBadge.title = "Variables JSON is valid";
+      } else if (state === "invalid") {
+        varsBadge.textContent = "✗ invalid";
+        varsBadge.title = "Variables JSON has a syntax error";
+      } else {
+        varsBadge.textContent = "";
+        varsBadge.title = "";
+      }
+    };
+    let varsTimer = null;
+    const scheduleVarsValidation = (text) => {
+      clearTimeout(varsTimer);
+      varsTimer = setTimeout(() => {
+        applyVarsValidity(
+          !text.trim()
+            ? null
+            : this.#validate("json", text)
+              ? "valid"
+              : "invalid",
+        );
+      }, 400);
+    };
+
+    const v = this.#buildGqlEditor({
+      lang: "json",
+      value: this.#bodyGraphqlVariables,
+      placeholder: '{\n  "key": "value"\n}',
+      ariaLabel: "GraphQL variables (JSON)",
+      onInput: (val, ta, codeEl) => {
+        this.#bodyGraphqlVariables = val;
+        this.#dispatchBodyUpdated();
+        this.#syncHighlight(ta, codeEl, "json");
+        scheduleVarsValidation(val);
+      },
+    });
+    varsPane.appendChild(v.wrap);
+    wrap.appendChild(varsPane);
+
+    // Apply the current split layout (stacked vs side by side) to the container,
+    // splitter, and Variables-pane size, and refresh the toggle button. Switching
+    // is in-place — the editors are never rebuilt, so content/focus survive.
+    const applyFlow = (flow) => {
+      this.#bodyGraphqlFlow = flow;
+      const row = flow === "row";
+      wrap.classList.toggle("body-graphql--row", row);
+      // row flow → vertical splitter bar (col-resize, --h);
+      // column flow → horizontal splitter bar (row-resize, --v).
+      splitter.classList.toggle("splitter--h", row);
+      splitter.classList.toggle("splitter--v", !row);
+      splitter.setAttribute(
+        "aria-orientation",
+        row ? "vertical" : "horizontal",
+      );
+      const size = this.#bodyGraphqlVarsSize[flow];
+      varsPane.style.flex = size != null ? `0 0 ${size}px` : "";
+      if (flowToggleBtn) {
+        // Glyph shows the CURRENT layout (house style, cf. the form-data
+        // text/file toggle); the tooltip names the action.
+        flowToggleBtn.innerHTML = icon(row ? "columns" : "rows", { size: 14 });
+        const title = row
+          ? "Stack the Query and Variables panes (drag to resize ↕)"
+          : "Place the Query and Variables panes side by side (drag to resize ↔)";
+        flowToggleBtn.title = title;
+        flowToggleBtn.setAttribute("aria-label", title);
+      }
+    };
+    if (flowToggleBtn) {
+      flowToggleBtn.addEventListener("click", () =>
+        applyFlow(this.#bodyGraphqlFlow === "row" ? "column" : "row"),
+      );
+    }
+    applyFlow(this.#bodyGraphqlFlow);
+    this.#wireGqlSplitter(splitter, varsPane, wrap);
+
+    el.appendChild(wrap);
+
+    // Validate any pre-loaded variables immediately on render.
+    if (this.#bodyGraphqlVariables.trim()) {
+      applyVarsValidity(
+        this.#validate("json", this.#bodyGraphqlVariables)
+          ? "valid"
+          : "invalid",
+      );
+    }
+  }
+
+  /**
+   * Make the GraphQL splitter draggable (and keyboard-resizable) on whichever
+   * axis the current layout uses: vertical drag (↕) when stacked, horizontal
+   * drag (↔) when side by side. The Variables pane trails the splitter, so
+   * dragging toward the start of the axis (up / left) grows it. The chosen size
+   * is applied as a main-axis flex-basis and remembered for the session, per
+   * orientation, in #bodyGraphqlVarsSize. This mirrors app.js's makeSplitter but
+   * is scoped to this component, since makeSplitter isn't exported.
+   */
+  #wireGqlSplitter(splitterEl, varsPane, wrap) {
+    const MIN = 64; // px floor — keep both panes usable
+    const isRow = () => this.#bodyGraphqlFlow === "row";
+    const apply = (size) => {
+      const total = isRow() ? wrap.clientWidth : wrap.clientHeight;
+      const max = Math.max(MIN, total - MIN);
+      const clamped = Math.min(max, Math.max(MIN, size));
+      this.#bodyGraphqlVarsSize[this.#bodyGraphqlFlow] = clamped;
+      varsPane.style.flex = `0 0 ${clamped}px`;
+    };
+    const pointerPos = (e) => {
+      const src = e.touches ? e.touches[0] : e;
+      return isRow() ? src.clientX : src.clientY;
+    };
+    const varsExtent = () => {
+      const rect = varsPane.getBoundingClientRect();
+      return isRow() ? rect.width : rect.height;
+    };
+
+    let dragging = false;
+    let start = 0;
+    let startSize = 0;
+
+    const onMove = (e) => {
+      if (!dragging) return;
+      if (e.cancelable) e.preventDefault();
+      apply(startSize - (pointerPos(e) - start)); // toward start → grows Variables
+    };
+    const onEnd = () => {
+      if (!dragging) return;
+      dragging = false;
+      splitterEl.classList.remove("splitter--dragging");
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onEnd);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onEnd);
+    };
+    const onStart = (e) => {
+      e.preventDefault();
+      dragging = true;
+      start = pointerPos(e);
+      startSize = varsExtent();
+      splitterEl.classList.add("splitter--dragging");
+      document.body.style.cursor = isRow() ? "col-resize" : "row-resize";
+      document.body.style.userSelect = "none";
+    };
+
+    splitterEl.addEventListener("mousedown", (e) => {
+      onStart(e);
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onEnd);
+    });
+    splitterEl.addEventListener(
+      "touchstart",
+      (e) => {
+        onStart(e);
+        window.addEventListener("touchmove", onMove, { passive: false });
+        window.addEventListener("touchend", onEnd);
+      },
+      { passive: false },
+    );
+
+    // Keyboard resize (the splitter is focusable). Grow key = toward the start of
+    // the axis (↑ stacked / ← side by side); the opposite key shrinks Variables.
+    splitterEl.addEventListener("keydown", (e) => {
+      const growKey = isRow() ? "ArrowLeft" : "ArrowUp";
+      const shrinkKey = isRow() ? "ArrowRight" : "ArrowDown";
+      if (e.key !== growKey && e.key !== shrinkKey) return;
+      e.preventDefault();
+      const step = e.shiftKey ? 48 : 16;
+      apply(varsExtent() + (e.key === growKey ? step : -step));
+    });
+  }
+
+  /**
+   * Build one Prism-overlay editor (textarea + syntax-highlight <pre>) for the
+   * GraphQL panes. Mirrors the wrap used by #renderBodyText but without the
+   * type-bar Prettify/validate wiring (those differ per pane).
+   */
+  #buildGqlEditor({ lang, value, placeholder, ariaLabel, onInput }) {
+    const wrap = document.createElement("div");
+    wrap.className = "body-editor-wrap";
+
+    const pre = document.createElement("pre");
+    pre.className = "body-editor-pre";
+    pre.setAttribute("aria-hidden", "true");
+    const codeEl = document.createElement("code");
+    codeEl.className = `language-${lang === "graphql" ? "graphql" : "json"}`;
+    pre.appendChild(codeEl);
+
+    const ta = document.createElement("textarea");
+    ta.className = "body-text-editor body-text-editor--overlay";
+    ta.value = value;
+    ta.placeholder = placeholder;
+    ta.spellcheck = false;
+    ta.setAttribute("aria-label", ariaLabel);
+
+    wrap.appendChild(pre);
+    wrap.appendChild(ta);
+
+    ta.addEventListener("scroll", () => {
+      pre.scrollTop = ta.scrollTop;
+      pre.scrollLeft = ta.scrollLeft;
+    });
+    ta.addEventListener("input", () => onInput(ta.value, ta, codeEl));
+
+    this.#syncHighlight(ta, codeEl, lang);
+    return { wrap, ta, codeEl };
+  }
+
+  /** Wire schema-aware autocomplete (fields / arguments / enum values) onto the query textarea. */
+  #wireGqlAutocomplete(ta, codeEl) {
+    const refresh = () => {
+      if (!this.#graphqlSchema) {
+        _gqlAc.hide();
+        return;
+      }
+      const pos = ta.selectionStart ?? ta.value.length;
+      const res = suggestAtCursor(ta.value, pos, this.#graphqlSchema);
+      if (!res) {
+        _gqlAc.hide();
+        return;
+      }
+      const coords = caretCoordinates(ta, pos);
+      const anchor = _gqlAnchorAt(coords);
+      _gqlAc.show(
+        anchor,
+        res.items,
+        (label) => this.#applyGqlSuggestion(ta, codeEl, label),
+        {
+          minWidth: 220,
+          renderItem: (item, entry) => {
+            item.dataset.value = entry.label;
+            item.innerHTML = "";
+            const name = document.createElement("span");
+            name.className = "gql-ac-name";
+            name.textContent = entry.label;
+            item.appendChild(name);
+            if (entry.detail) {
+              const detail = document.createElement("span");
+              detail.className = "gql-ac-detail";
+              detail.textContent = entry.detail;
+              item.appendChild(detail);
+            }
+          },
+        },
+      );
+    };
+
+    ta.addEventListener("input", refresh);
+    ta.addEventListener("click", refresh);
+    ta.addEventListener("keyup", (e) => {
+      if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) refresh();
+    });
+    ta.addEventListener("blur", () => _gqlAc.scheduleHide());
+    ta.addEventListener("keydown", (e) => {
+      if (!_gqlAc.visible) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        _gqlAc.navigate(1);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        _gqlAc.navigate(-1);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        _gqlAc.hide();
+      } else if (e.key === "Enter" || e.key === "Tab") {
+        const label = _gqlAc.activeLabel();
+        if (label !== null) {
+          e.preventDefault();
+          this.#applyGqlSuggestion(ta, codeEl, label);
+        }
+      }
+    });
+  }
+
+  /** Replace the word being typed at the caret with the chosen suggestion. */
+  #applyGqlSuggestion(ta, codeEl, label) {
+    const pos = ta.selectionStart ?? ta.value.length;
+    const before = ta.value.slice(0, pos);
+    const m = /[_A-Za-z][_A-Za-z0-9]*$/.exec(before);
+    const start = m ? pos - m[0].length : pos;
+    ta.value = ta.value.slice(0, start) + label + ta.value.slice(pos);
+    const caret = start + label.length;
+    ta.setSelectionRange(caret, caret);
+    this.#bodyGraphqlQuery = ta.value;
+    this.#dispatchBodyUpdated();
+    this.#syncHighlight(ta, codeEl, "graphql");
+    _gqlAc.hide();
+    ta.focus();
+  }
+
+  /**
+   * Run the standard introspection query against the request URL (reusing the
+   * request's own params/headers/auth via buildRequestPayload) and cache the
+   * resulting schema for autocomplete. Every failure path is surfaced via a
+   * notification + the status badge — never silent.
+   */
+  async #fetchGraphqlSchema(statusBadge, btn) {
+    if (this.#graphqlFetching) return;
+    const rawUrl = this.#urlPillEditor.getValue().trim();
+    if (!rawUrl) {
+      PopupManager.notify({
+        title: "No URL",
+        message: "Enter the GraphQL endpoint URL before fetching its schema.",
+      });
+      return;
+    }
+
+    this.#graphqlFetching = true;
+    if (btn) btn.disabled = true;
+    if (statusBadge) {
+      statusBadge.dataset.state = "loading";
+      statusBadge.textContent = "fetching…";
+      statusBadge.title = "";
+    }
+
+    const ctx = this.#variableContext;
+    const rv = (s) => resolveStringAsync(s, ctx);
+    try {
+      const authModel = this.#auth.getModel();
+      const { finalUrl, headers, body } = await buildRequestPayload(
+        {
+          method: "POST",
+          urlBase: encodeBaseUrl(
+            applyPathParams(
+              await rv(rawUrl),
+              await resolvePathParamValues(this.#pathParams, rv),
+            ),
+          ),
+          params: this.#params,
+          headers: this.#headers,
+          authEnabled: authModel.authEnabled,
+          authType: authModel.authType,
+          authBasic: authModel.authBasic,
+          authBearer: authModel.authBearer,
+          authApiKey: authModel.authApiKey,
+          authDigest: authModel.authDigest,
+          authNtlm: authModel.authNtlm,
+          authAwsIam: authModel.authAwsIam,
+          bodyType: "graphql",
+          bodyGraphql: { query: INTROSPECTION_QUERY, variables: "" },
+        },
+        rv,
+      );
+      const json = await executeIntrospection({ url: finalUrl, headers, body });
+      const model = buildSchemaModel(json);
+      if (!model) throw new Error("Could not parse the introspection schema.");
+      this.#graphqlSchema = model;
+      if (statusBadge) {
+        statusBadge.dataset.state = "ok";
+        statusBadge.textContent = "schema loaded";
+        statusBadge.title = `${model.types.size} types available for autocomplete`;
+      }
+    } catch (err) {
+      this.#graphqlSchema = null;
+      if (statusBadge) {
+        statusBadge.dataset.state = "error";
+        statusBadge.textContent = "fetch failed";
+        statusBadge.title = err?.message ?? "";
+      }
+      PopupManager.notify({
+        title: "GraphQL introspection failed",
+        message: err?.message ?? "Could not fetch the schema.",
+      });
+    } finally {
+      this.#graphqlFetching = false;
+      if (btn) btn.disabled = false;
     }
   }
 
@@ -1587,6 +2106,10 @@ export class RequestEditor {
           bodyFormRows: [...this.#bodyFormRows],
           bodyText: this.#bodyText,
           bodyFilePath: this.#bodyFilePath,
+          bodyGraphql: {
+            query: this.#bodyGraphqlQuery,
+            variables: this.#bodyGraphqlVariables,
+          },
         },
         bubbles: true,
       }),
@@ -2752,6 +3275,10 @@ export class RequestEditor {
         bodyText: this.#bodyText,
         bodyFormRows: this.#bodyFormRows,
         bodyFile: this.#bodyFileObject,
+        bodyGraphql: {
+          query: this.#bodyGraphqlQuery,
+          variables: this.#bodyGraphqlVariables,
+        },
       },
       rv,
     );
@@ -3078,6 +3605,11 @@ export class RequestEditor {
     }
     this.#bodyFilePath = node.bodyFilePath ?? "";
     this.#bodyFileObject = null;
+    // GraphQL body (Feature 34) — query + variables; the introspected schema is
+    // per-request and not persisted, so reset it when a new request loads.
+    this.#bodyGraphqlQuery = node.bodyGraphql?.query ?? "";
+    this.#bodyGraphqlVariables = node.bodyGraphql?.variables ?? "";
+    this.#graphqlSchema = null;
     // Sync the select element if the body tab has been built
     const sel = this.#el.querySelector(".body-type-select");
     if (sel) sel.value = this.#bodyType;
@@ -3174,6 +3706,13 @@ export class RequestEditor {
       node.bodyFormRows = this.#textToKvRows(snapshot.body ?? "");
     } else if (node.bodyType === "file") {
       node.bodyFilePath = snapshot.body ?? "";
+    } else if (node.bodyType === "graphql") {
+      // GraphQL keeps query + variables structured in the snapshot; fall back to
+      // the readable `body` (the query) for older snapshots.
+      node.bodyGraphql = snapshot.bodyGraphql ?? {
+        query: snapshot.body ?? "",
+        variables: "",
+      };
     } else {
       node.bodyText = snapshot.body ?? "";
     }

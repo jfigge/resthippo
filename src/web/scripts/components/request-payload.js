@@ -22,6 +22,8 @@
 
 "use strict";
 
+import { extractOperationName } from "./graphql-schema.js";
+
 /** Body-type → Content-Type for the text-ish body kinds. */
 export const BODY_CONTENT_TYPES = {
   json: "application/json",
@@ -128,8 +130,10 @@ export async function resolvePathParamValues(pathParams, rv) {
  *   @param {object}  spec.authDigest    { username, password }
  *   @param {object}  spec.authNtlm      { username, password, domain, workstation }
  *   @param {object}  spec.authAwsIam    { accessKeyId, secretAccessKey, region, service, sessionToken }
- *   @param {string}  spec.bodyType      "json"|"yaml"|"xml"|"text"|"form-urlencoded"|"form-data"|"file"|"no-body"
+ *   @param {string}  spec.bodyType      "json"|"yaml"|"xml"|"text"|"graphql"|"form-urlencoded"|"form-data"|"file"|"no-body"
  *   @param {string}  spec.bodyText      raw text for text-ish body types
+ *   @param {object}  spec.bodyGraphql   { query, variables } for the "graphql" body type;
+ *                                       serialised to a `{ query, variables, operationName }` JSON POST
  *   @param {Array}   spec.bodyFormRows  [{ enabled, name, value, kind?, filePath?, fileName?, contentType? }]
  *                                       form fields; a `kind:"file"` row carries a file path instead of value
  *   @param {object}  spec.bodyFile      { path, type } for the "file" body type, or null
@@ -257,6 +261,31 @@ export async function buildRequestPayload(spec, rv) {
             headers["Content-Type"] = BODY_CONTENT_TYPES[spec.bodyType];
         }
         break;
+      case "graphql": {
+        // Serialise to the standard GraphQL POST: { query, variables, operationName }.
+        // {{var}} tokens resolve in BOTH the query and the variables JSON before
+        // assembly. operationName is derived from the query when a named
+        // operation is present.
+        const query = await rv(spec.bodyGraphql?.query ?? "");
+        const varsText = (await rv(spec.bodyGraphql?.variables ?? "")).trim();
+        if (query.trim() || varsText) {
+          const payload = { query };
+          if (varsText) {
+            try {
+              payload.variables = JSON.parse(varsText);
+            } catch {
+              // Invalid variables JSON — surfaced by the editor's inline JSON
+              // badge; omit rather than send a malformed `variables` field.
+            }
+          }
+          const operationName = extractOperationName(query);
+          if (operationName) payload.operationName = operationName;
+          body = JSON.stringify(payload);
+          if (!headers["Content-Type"])
+            headers["Content-Type"] = "application/json";
+        }
+        break;
+      }
       case "form-urlencoded": {
         const sp = new URLSearchParams();
         for (const r of (spec.bodyFormRows ?? []).filter(

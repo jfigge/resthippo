@@ -7,6 +7,7 @@
  *   - javascript
  *   - json
  *   - yaml
+ *   - graphql   (GraphQL body mode — Feature 34)
  *
  * Prism is set to manual mode so it never auto-highlights the whole page;
  * response-viewer.js calls Prism.highlight() directly.
@@ -22,6 +23,7 @@ import "prismjs/components/prism-css";
 import "prismjs/components/prism-javascript";
 import "prismjs/components/prism-json";
 import "prismjs/components/prism-yaml";
+import "prismjs/components/prism-graphql";
 
 Prism.manual = true; // disable auto-highlight on DOMContentLoaded
 

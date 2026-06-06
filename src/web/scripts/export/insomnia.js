@@ -42,6 +42,27 @@ function exportBody(node) {
   if (type === "text")
     return { mimeType: "text/plain", text: node.bodyText ?? "" };
 
+  if (type === "graphql") {
+    // Insomnia stores GraphQL as application/graphql with a JSON body string
+    // { query, variables } where variables is an object.
+    let variables = {};
+    const vt = (node.bodyGraphql?.variables ?? "").trim();
+    if (vt) {
+      try {
+        variables = JSON.parse(vt);
+      } catch {
+        variables = {};
+      }
+    }
+    return {
+      mimeType: "application/graphql",
+      text: JSON.stringify({
+        query: node.bodyGraphql?.query ?? "",
+        variables,
+      }),
+    };
+  }
+
   if (type === "form-urlencoded" || type === "form-data") {
     const mimeType =
       type === "form-data"

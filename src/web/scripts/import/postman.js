@@ -138,6 +138,20 @@ function parseBody(body) {
           };
         }),
       };
+    case "graphql": {
+      const gql = body.graphql ?? {};
+      // Postman variables is usually a JSON string, but tolerate an object.
+      const variables =
+        typeof gql.variables === "string"
+          ? gql.variables
+          : gql.variables != null
+            ? JSON.stringify(gql.variables, null, 2)
+            : "";
+      return {
+        bodyType: "graphql",
+        bodyGraphql: { query: gql.query ?? "", variables },
+      };
+    }
     case "file":
       return { bodyType: "file", bodyFilePath: body.src ?? "" };
     default:

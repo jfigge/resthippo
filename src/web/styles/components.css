@@ -953,6 +953,108 @@ html.show-method-icons .req-method-menu__item-label::before {
   overflow: auto;
 }
 
+/* ── GraphQL body mode (Feature 34) ─────────────────────────────────────── */
+/* Two stacked Prism-overlay editors — Query over Variables — fill the body. */
+.body-graphql {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Side-by-side variant — toggled at runtime by the layout button. The 3:2 pane
+   flex ratio applies along whichever axis is the main one, so only the
+   container direction changes. */
+.body-graphql--row {
+  flex-direction: row;
+}
+
+.body-graphql-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Query gets the larger share of the height; Variables the smaller. */
+.body-graphql-pane--query {
+  flex: 3 1 0;
+}
+.body-graphql-pane--vars {
+  flex: 2 1 0;
+}
+
+/* The Query/Variables splitter reuses the app's .splitter--v / --h styling; it
+   just needs to hold its track size inside this flex container (no grid
+   context). flex-basis sets the main-axis extent for both orientations. */
+.body-graphql-splitter {
+  flex: 0 0 var(--splitter-size);
+}
+
+/* Layout toggle in the body type bar — stacked ⇄ side by side. */
+.body-graphql-flow-btn {
+  padding: var(--space-1) var(--space-2);
+}
+
+.body-graphql-pane__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-overlay-0);
+  background: var(--color-surface-1);
+  border-bottom: 1px solid var(--color-surface-2);
+}
+
+.body-graphql-pane .body-editor-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+/* "Fetch schema" introspection status badge in the body type bar. */
+.body-graphql-status {
+  padding-left: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+}
+.body-graphql-status[data-state="ok"] {
+  color: var(--color-success);
+}
+.body-graphql-status[data-state="error"] {
+  color: var(--color-error);
+}
+
+/* Schema-aware autocomplete dropdown: field/arg name + muted type detail.
+   Inherits the .hdr-autocomplete chrome; only the item layout differs. */
+.gql-autocomplete {
+  max-height: 240px;
+  min-width: 240px;
+}
+.gql-autocomplete .hdr-autocomplete__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.gql-ac-name {
+  font-family: var(--font-mono), monospace;
+}
+.gql-ac-detail {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+}
+.gql-autocomplete .hdr-autocomplete__item:hover .gql-ac-detail,
+.gql-autocomplete .hdr-autocomplete__item--active .gql-ac-detail {
+  color: inherit;
+}
+
 /* ── File drop zone ─────────────────────────────────────────────────────── */
 .body-file-zone {
   flex: 1;

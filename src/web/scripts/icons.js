@@ -177,6 +177,19 @@ const ICONS = {
     fill: "currentColor",
     stroke: "none",
   },
+  // ── Layout / pane-split glyphs ────────────────────────────────────────────
+  // Frame split into two side-by-side columns — "place panes side by side".
+  columns: {
+    inner:
+      '<rect x="3" y="4" width="18" height="16" rx="2"/>' +
+      '<line x1="12" y1="4" x2="12" y2="20"/>',
+  },
+  // Frame split into two stacked rows — "stack panes top and bottom".
+  rows: {
+    inner:
+      '<rect x="3" y="4" width="18" height="16" rx="2"/>' +
+      '<line x1="3" y1="12" x2="21" y2="12"/>',
+  },
 };
 
 /**

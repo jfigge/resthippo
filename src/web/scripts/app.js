@@ -141,6 +141,9 @@ function _buildSnapshot(node) {
 
   const bodyType = node.bodyType ?? "no-body";
   let bodyContent = "";
+  // GraphQL keeps its query + variables structured (like pathParams below); the
+  // bulk `body` string holds the query for readability.
+  let bodyGraphql = null;
   if (bodyType === "form-data" || bodyType === "form-urlencoded") {
     const rows = Array.isArray(node.bodyFormRows) ? node.bodyFormRows : [];
     bodyContent = rows
@@ -148,6 +151,12 @@ function _buildSnapshot(node) {
       .join("\n");
   } else if (bodyType === "file") {
     bodyContent = node.bodyFilePath ?? "";
+  } else if (bodyType === "graphql") {
+    bodyGraphql = {
+      query: node.bodyGraphql?.query ?? "",
+      variables: node.bodyGraphql?.variables ?? "",
+    };
+    bodyContent = bodyGraphql.query;
   } else {
     bodyContent = node.bodyText ?? "";
   }
@@ -165,6 +174,7 @@ function _buildSnapshot(node) {
     auth: authBulk,
     bodyType,
     body: bodyContent,
+    ...(bodyGraphql ? { bodyGraphql } : {}),
     notes: node.notes ?? "",
   };
 }

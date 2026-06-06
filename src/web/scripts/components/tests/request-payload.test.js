@@ -290,6 +290,96 @@ test("body: GET/HEAD never carry a body even when one is specified", async () =>
   }
 });
 
+test("graphql body: serialised to { query, variables, operationName } JSON", async () => {
+  const { body, headers } = await buildRequestPayload(
+    {
+      method: "POST",
+      urlBase: "https://x",
+      bodyType: "graphql",
+      bodyGraphql: {
+        query: "query GetUser($id: ID!) { user(id: $id) { id name } }",
+        variables: '{ "id": "42" }',
+      },
+    },
+    identity,
+  );
+  assert.deepEqual(JSON.parse(body), {
+    query: "query GetUser($id: ID!) { user(id: $id) { id name } }",
+    variables: { id: "42" },
+    operationName: "GetUser",
+  });
+  assert.equal(headers["Content-Type"], "application/json");
+});
+
+test("graphql body: {{var}} interpolation in both query and variables", async () => {
+  const { body } = await buildRequestPayload(
+    {
+      method: "POST",
+      urlBase: "https://x",
+      bodyType: "graphql",
+      bodyGraphql: {
+        query: "{ {{field}} { id } }",
+        variables: '{ "id": "{{userId}}" }',
+      },
+    },
+    mapResolver({ field: "user", userId: "7" }),
+  );
+  const parsed = JSON.parse(body);
+  assert.equal(parsed.query, "{ user { id } }");
+  assert.deepEqual(parsed.variables, { id: "7" });
+  // Anonymous operation ⇒ no operationName key.
+  assert.equal("operationName" in parsed, false);
+});
+
+test("graphql body: invalid variables JSON is omitted, not sent malformed", async () => {
+  const { body } = await buildRequestPayload(
+    {
+      method: "POST",
+      urlBase: "https://x",
+      bodyType: "graphql",
+      bodyGraphql: { query: "{ user { id } }", variables: "{ not json }" },
+    },
+    identity,
+  );
+  const parsed = JSON.parse(body);
+  assert.equal(parsed.query, "{ user { id } }");
+  assert.equal("variables" in parsed, false);
+});
+
+test("graphql body: explicit Content-Type is respected", async () => {
+  const { headers } = await buildRequestPayload(
+    {
+      method: "POST",
+      urlBase: "https://x",
+      headers: [
+        {
+          enabled: true,
+          name: "Content-Type",
+          value: "application/graphql-response+json",
+        },
+      ],
+      bodyType: "graphql",
+      bodyGraphql: { query: "{ user { id } }", variables: "" },
+    },
+    identity,
+  );
+  assert.equal(headers["Content-Type"], "application/graphql-response+json");
+});
+
+test("graphql body: GET never carries a body", async () => {
+  const { body, headers } = await buildRequestPayload(
+    {
+      method: "GET",
+      urlBase: "https://x",
+      bodyType: "graphql",
+      bodyGraphql: { query: "{ user { id } }", variables: "" },
+    },
+    identity,
+  );
+  assert.equal(body, null);
+  assert.equal(headers["Content-Type"], undefined);
+});
+
 test("form-urlencoded body: encoded via URLSearchParams", async () => {
   const { body, headers } = await buildRequestPayload(
     {

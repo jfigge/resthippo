@@ -31,6 +31,7 @@ const PATCHABLE_FIELDS = [
   "bodyText",
   "bodyFilePath",
   "bodyFormRows",
+  "bodyGraphql",
   "params",
   "pathParams",
   "headers",

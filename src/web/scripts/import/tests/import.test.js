@@ -583,6 +583,76 @@ test("round-trip: wurl → Insomnia v4 export → import preserves structure", (
   );
 });
 
+// ── Round-trip: GraphQL body (Feature 34) ────────────────────────────────────
+
+test("round-trip: GraphQL body survives a wurl → Postman → wurl cycle", () => {
+  const query = "query GetUser($id: ID!) { user(id: $id) { id name } }";
+  const collection = {
+    id: "c1",
+    type: "collection",
+    name: "GraphQL API",
+    variables: {},
+    children: [
+      {
+        type: "request",
+        name: "GetUser",
+        method: "POST",
+        url: "https://api.example.com/graphql",
+        params: [],
+        headers: [],
+        bodyType: "graphql",
+        bodyGraphql: { query, variables: '{ "id": "42" }' },
+      },
+    ],
+  };
+
+  const postmanJson = exportToPostman(collection, []);
+  const exported = findPostmanRequest(
+    JSON.parse(postmanJson).item,
+    "GetUser",
+  ).request;
+  assert.equal(exported.body.mode, "graphql");
+  assert.equal(exported.body.graphql.query, query);
+  assert.equal(exported.body.graphql.variables, '{ "id": "42" }');
+
+  const { collection: reimported } = parsePostman(JSON.parse(postmanJson));
+  const req = findRequest(reimported, "GetUser");
+  assert.equal(req.bodyType, "graphql");
+  assert.equal(req.bodyGraphql.query, query);
+  // Postman keeps the variables string verbatim ⇒ exact round-trip.
+  assert.equal(req.bodyGraphql.variables, '{ "id": "42" }');
+});
+
+test("round-trip: GraphQL body survives a wurl → Insomnia → wurl cycle", () => {
+  const query = "query GetUser($id: ID!) { user(id: $id) { id name } }";
+  const collection = {
+    id: "c1",
+    type: "collection",
+    name: "GraphQL API",
+    variables: {},
+    children: [
+      {
+        type: "request",
+        name: "GetUser",
+        method: "POST",
+        url: "https://api.example.com/graphql",
+        params: [],
+        headers: [],
+        bodyType: "graphql",
+        bodyGraphql: { query, variables: '{ "id": "42" }' },
+      },
+    ],
+  };
+
+  const insomniaJson = exportToInsomnia(collection, []);
+  const { collection: reimported } = parseInsomnia(JSON.parse(insomniaJson));
+  const req = findRequest(reimported, "GetUser");
+  assert.equal(req.bodyType, "graphql");
+  assert.equal(req.bodyGraphql.query, query);
+  // Insomnia stores variables as an object ⇒ compare parsed (formatting differs).
+  assert.deepEqual(JSON.parse(req.bodyGraphql.variables), { id: "42" });
+});
+
 // ── Round-trip (Postman): multipart file fields + path variables (Feature 49) ─
 
 test("round-trip: form-data file field + path variables survive a Postman cycle", () => {

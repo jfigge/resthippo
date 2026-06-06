@@ -146,7 +146,7 @@ test-export:
 
 test-components:
 	@echo "Running renderer component tests (variable resolution, request payload)..."
-	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js
+	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js
 	@echo "--------------------------------"
 
 test-import:
@@ -633,6 +633,7 @@ mock-up: mock-build
 	@echo "  GET http://localhost:$(MOCK_PORT)/auth"
 	@echo "  GET http://localhost:$(MOCK_PORT)/auth/<type>"
 	@echo "  ANY http://localhost:$(MOCK_PORT)/echo  reflects the request back (json/xml/yaml/html via Accept)"
+	@echo "  POST http://localhost:$(MOCK_PORT)/graphql  GraphQL (introspection + user/users/createUser)"
 	@echo "Forward proxy on http://localhost:$(MOCK_PROXY_PORT)"
 	@echo "  send X-Proxy-Error: <n>[:reset|timeout|<status>] to fail n-1 times per URL before succeeding"
 	@echo "SOCKS5 proxy on socks5://localhost:$(MOCK_SOCKS_PORT)"

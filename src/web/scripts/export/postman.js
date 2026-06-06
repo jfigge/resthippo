@@ -85,6 +85,16 @@ function exportBody(node) {
       ),
     };
   }
+  if (type === "graphql") {
+    // Postman stores GraphQL variables as a JSON string under graphql.variables.
+    return {
+      mode: "graphql",
+      graphql: {
+        query: node.bodyGraphql?.query ?? "",
+        variables: node.bodyGraphql?.variables ?? "",
+      },
+    };
+  }
   if (type === "file") {
     // Postman v2.1 schema: file payload lives under body.file.src, not body.src.
     // Earlier shapes were accepted by some tools but Postman itself drops the

@@ -47,6 +47,25 @@ function parseBody(body) {
   if (!body || !body.mimeType) return { bodyType: "no-body" };
 
   const mime = body.mimeType;
+  if (mime.includes("graphql")) {
+    // Insomnia's text is a JSON string { query, variables }. Some exporters put
+    // the raw query directly in text — fall back to that if it isn't JSON.
+    let query = "";
+    let variables = "";
+    try {
+      const parsed = JSON.parse(body.text ?? "");
+      query = parsed.query ?? "";
+      variables =
+        parsed.variables == null
+          ? ""
+          : typeof parsed.variables === "string"
+            ? parsed.variables
+            : JSON.stringify(parsed.variables, null, 2);
+    } catch {
+      query = body.text ?? "";
+    }
+    return { bodyType: "graphql", bodyGraphql: { query, variables } };
+  }
   if (mime.includes("json"))
     return { bodyType: "json", bodyText: body.text ?? "" };
   if (mime.includes("xml"))
