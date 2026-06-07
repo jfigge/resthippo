@@ -43,6 +43,7 @@ import {
   deleteHistory,
   clearHistory,
   trimHistory,
+  saveEnvironments,
   setWriteErrorHandler,
 } from "./data-store.js";
 import { Notifications } from "./notifications.js";
@@ -1614,7 +1615,7 @@ function initEventBus() {
 
   window.addEventListener("wurl:environments-changed", async (e) => {
     currentEnvironments = e.detail.data;
-    await window.wurl.store.environments.save(currentEnvironments);
+    await saveEnvironments(currentEnvironments);
     environmentsPopup.update(currentEnvironments);
     _refreshEditorVariableContext();
     envPicker.load(currentEnvironments);
@@ -1625,7 +1626,7 @@ function initEventBus() {
       ...currentEnvironments,
       activeEnvironmentId: e.detail.id,
     };
-    await window.wurl.store.environments.save(currentEnvironments);
+    await saveEnvironments(currentEnvironments);
     environmentsPopup.update(currentEnvironments);
     _refreshEditorVariableContext();
     envPicker.load(currentEnvironments);
@@ -1646,7 +1647,7 @@ function initEventBus() {
         ),
       };
     }
-    await window.wurl.store.environments.save(currentEnvironments);
+    await saveEnvironments(currentEnvironments);
     _refreshEditorVariableContext();
   });
 

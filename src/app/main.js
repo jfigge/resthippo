@@ -133,6 +133,16 @@ function safeCallWrite(channel, fn) {
   }
 }
 
+// ── Choosing safeCall vs safeCallWrite ──────────────────────────────────────
+// Reads and best-effort writes use safeCall (quiet: log + look-alike fallback).
+// Authoritative writes — those persisting user-authored data the user expects to
+// stick (manifest, collection blob, tree, requests, environments, cookies) — use
+// safeCallWrite, so a failure returns a discriminable { __wurlError } envelope
+// the renderer surfaces as a toast instead of proceeding as if the save worked.
+// Best-effort writes (on-disk reclamation that runs AFTER an authoritative save,
+// and auto-captured history telemetry) intentionally stay on safeCall because a
+// failure is not user-actionable data loss; each such handler says so inline.
+
 // ─── Store IPC ────────────────────────────────────────────────────────────────
 // Register handlers before app.whenReady() so they are ready the moment the
 // renderer process makes its first invoke() call.
@@ -190,8 +200,9 @@ function safeCallWrite(channel, fn) {
     ),
   );
 
+  // Authoritative write (nav tree is source of truth for folder structure).
   ipcMain.handle("store:tree:save", (_event, collectionId, tree) =>
-    safeCall("store:tree:save", () => {
+    safeCallWrite("store:tree:save", () => {
       getStores().treeStore().saveTree(collectionId, tree);
     }),
   );
@@ -204,14 +215,16 @@ function safeCallWrite(channel, fn) {
     ),
   );
 
+  // Authoritative writes. (Both channels are wired but currently unused by the
+  // renderer, which persists requests via the per-collection env blob.)
   ipcMain.handle("store:requests:create", (_event, collectionId, req) =>
-    safeCall("store:requests:create", () =>
+    safeCallWrite("store:requests:create", () =>
       getStores().requestStore().createRequest(collectionId, req),
     ),
   );
 
   ipcMain.handle("store:requests:update", (_event, id, patch) =>
-    safeCall("store:requests:update", () =>
+    safeCallWrite("store:requests:update", () =>
       getStores().requestStore().updateRequest(id, patch),
     ),
   );
@@ -226,6 +239,10 @@ function safeCallWrite(channel, fn) {
   );
 
   // ── Request execution history ───────────────────────────────────────────────
+  // History is auto-captured telemetry recorded on every send/purge. The mutating
+  // handlers below (add / delete / clear / trim) stay on the quiet safeCall path:
+  // a lost or unpruned entry is not the user-authored data loss that safeCallWrite
+  // exists to surface, and toasting per-entry would nag on a loop. Failures log.
 
   ipcMain.handle("store:history:list", (_event, requestId, options) =>
     safeCall(
@@ -283,8 +300,9 @@ function safeCallWrite(channel, fn) {
     ),
   );
 
+  // Authoritative write (user-authored global + named environment variables).
   ipcMain.handle("store:environments:save", (_event, data) =>
-    safeCall("store:environments:save", () => {
+    safeCallWrite("store:environments:save", () => {
       getStores().environmentStore().saveEnvironments(data);
     }),
   );
@@ -301,20 +319,21 @@ function safeCallWrite(channel, fn) {
     ),
   );
 
+  // Authoritative writes (user edits to the persistent cookie jar via the manager).
   ipcMain.handle("store:cookies:upsert", (_event, collectionId, cookie) =>
-    safeCall("store:cookies:upsert", () => {
+    safeCallWrite("store:cookies:upsert", () => {
       getStores().cookieStore().upsertCookie(collectionId, cookie);
     }),
   );
 
   ipcMain.handle("store:cookies:delete", (_event, collectionId, ident) =>
-    safeCall("store:cookies:delete", () => {
+    safeCallWrite("store:cookies:delete", () => {
       getStores().cookieStore().deleteCookie(collectionId, ident);
     }),
   );
 
   ipcMain.handle("store:cookies:clear", (_event, collectionId) =>
-    safeCall("store:cookies:clear", () => {
+    safeCallWrite("store:cookies:clear", () => {
       getStores().cookieStore().clearJar(collectionId);
     }),
   );

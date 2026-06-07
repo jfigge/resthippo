@@ -35,6 +35,12 @@
  *     addHistory(requestId, entry, response?)→ stored entry
  *     getHistoryResponse(requestId, histId)  → response payload
  *     deleteHistory(requestId, histId)       → void
+ *
+ *   Environments + cookies (Electron-only authoritative writes → boolean):
+ *     saveEnvironments(data)
+ *     upsertCookie(collectionId, cookie)
+ *     deleteCookie(collectionId, ident)
+ *     clearCookies(collectionId)
  */
 
 "use strict";
@@ -665,6 +671,72 @@ export async function trimHistory(maxEntries) {
     `trimHistory(${maxEntries})`,
     () => window.wurl.store.history.trim(maxEntries),
     // No Go dev-server equivalent — history trimming is a main-process concern.
+    () => {},
+  );
+}
+
+// ── Public: environment variables API ─────────────────────────────────────────
+// Global + named environment variables (distinct from per-collection variables).
+// These are authoritative writes, so they use the loud storeWrite() path: a
+// failure both logs and raises the write-error sink (toast). Electron-only —
+// there is no Go dev-server endpoint, so the dev-server path is a resolving no-op
+// treated as success, mirroring trimHistory().
+
+/**
+ * Persist the full environments document (global + named variables).
+ * @param {object} data  { version, globalVariables, activeEnvironmentId, environments }
+ * @returns {Promise<boolean>}  true when the write succeeded
+ */
+export async function saveEnvironments(data) {
+  return storeWrite(
+    "Save environments",
+    () => window.wurl.store.environments.save(data),
+    () => {},
+  );
+}
+
+// ── Public: cookie jar API ────────────────────────────────────────────────────
+// Per-collection persistent cookie jar, edited from the cookie-manager UI. Like
+// environments these are authoritative, loud writes and Electron-only (the
+// dev-server path is a resolving no-op).
+
+/**
+ * Create or update a single cookie in a collection's jar.
+ * @param {string} collectionId
+ * @param {object} cookie
+ * @returns {Promise<boolean>}  true when the write succeeded
+ */
+export async function upsertCookie(collectionId, cookie) {
+  return storeWrite(
+    "Save cookie",
+    () => window.wurl.store.cookies.upsert(collectionId, cookie),
+    () => {},
+  );
+}
+
+/**
+ * Delete a single cookie (identified by {name, domain, path}) from a jar.
+ * @param {string} collectionId
+ * @param {{name:string, domain:string, path:string}} ident
+ * @returns {Promise<boolean>}  true when the write succeeded
+ */
+export async function deleteCookie(collectionId, ident) {
+  return storeWrite(
+    "Delete cookie",
+    () => window.wurl.store.cookies.delete(collectionId, ident),
+    () => {},
+  );
+}
+
+/**
+ * Remove every cookie stored for a collection.
+ * @param {string} collectionId
+ * @returns {Promise<boolean>}  true when the write succeeded
+ */
+export async function clearCookies(collectionId) {
+  return storeWrite(
+    "Clear cookies",
+    () => window.wurl.store.cookies.clear(collectionId),
     () => {},
   );
 }

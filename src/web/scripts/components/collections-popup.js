@@ -10,8 +10,9 @@
  * Right pane: a tabbed panel for the selected collection:
  *             • Variables — the inline key/value editor (bulk-textarea / KV-row
  *               toggle), functioning exactly as before.
- *             • Cookies    — the per-collection cookie-jar viewer/editor, talking
- *               to the main process over `window.wurl.store.cookies.*`.
+ *             • Cookies    — the per-collection cookie-jar viewer/editor. Reads
+ *               come straight from `window.wurl.store.cookies.*`; writes route
+ *               through data-store so a save failure surfaces an error toast.
  *
  * Clicking a collection row both activates it (for tree-view data) and loads its
  * variables / cookies into the right pane.
@@ -35,6 +36,7 @@ import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
 import { normalizeVariables } from "./variable-shape.js";
+import { upsertCookie, deleteCookie, clearCookies } from "../data-store.js";
 
 // ── SVG icons ─────────────────────────────────────────────────────────────────
 
@@ -1134,18 +1136,14 @@ export class CollectionsPopup {
       oldIdent.domain !== updated.domain ||
       oldIdent.path !== updated.path;
 
-    try {
-      // A changed identity is a different jar key, so remove the old entry
-      // first rather than leaving a stale duplicate behind. New cookies have
-      // no prior key, so there is nothing to remove.
-      if (!isNew && identityChanged) {
-        await window.wurl.store.cookies.delete(this.#selectedId, oldIdent);
-      }
-      await window.wurl.store.cookies.upsert(this.#selectedId, updated);
-    } catch {
-      /* leave the editor open so the user can retry */
-      return;
+    // A changed identity is a different jar key, so remove the old entry first
+    // rather than leaving a stale duplicate behind. New cookies have no prior key.
+    // Each write surfaces its own error toast on failure; bail (leaving the editor
+    // open so the user can retry) rather than reloading as if it had succeeded.
+    if (!isNew && identityChanged) {
+      if (!(await deleteCookie(this.#selectedId, oldIdent))) return;
     }
+    if (!(await upsertCookie(this.#selectedId, updated))) return;
 
     if (isNew) this.#addingCookie = false;
     else this.#editingCookieIdent = null;
@@ -1153,14 +1151,8 @@ export class CollectionsPopup {
   }
 
   async #deleteCookie(cookie) {
-    try {
-      await window.wurl.store.cookies.delete(
-        this.#selectedId,
-        this.#identOf(cookie),
-      );
-    } catch {
-      return;
-    }
+    // Failure surfaces a toast inside deleteCookie(); bail without reloading.
+    if (!(await deleteCookie(this.#selectedId, this.#identOf(cookie)))) return;
     if (this.#isEditingCookie(cookie)) this.#editingCookieIdent = null;
     await this.#reloadCookies();
   }
@@ -1172,11 +1164,8 @@ export class CollectionsPopup {
       confirmLabel: "Clear All",
       confirmClass: "popup-btn--danger",
       onConfirm: async () => {
-        try {
-          await window.wurl.store.cookies.clear(this.#selectedId);
-        } catch {
-          return;
-        }
+        // Failure surfaces a toast inside clearCookies(); bail without reloading.
+        if (!(await clearCookies(this.#selectedId))) return;
         this.#editingCookieIdent = null;
         await this.#reloadCookies();
       },

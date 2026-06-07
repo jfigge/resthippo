@@ -66,6 +66,16 @@ function makeWurlMock() {
         clear: channel("history.clear"),
         trim: channel("history.trim"),
       },
+      environments: {
+        get: channel("environments.get"),
+        save: channel("environments.save"),
+      },
+      cookies: {
+        list: channel("cookies.list"),
+        upsert: channel("cookies.upsert"),
+        delete: channel("cookies.delete"),
+        clear: channel("cookies.clear"),
+      },
     },
   };
 
@@ -552,6 +562,75 @@ test("write failure with no registered sink still logs and does not reject", asy
   } finally {
     console.error = originalError;
   }
+});
+
+test("saveEnvironments: forwards the document and returns true on success", async () => {
+  const mock = makeWurlMock();
+  mock.install();
+  const doc = { version: 1, globalVariables: { a: "1" }, environments: [] };
+
+  const { result, errors } = await withWriteHandler(() =>
+    store.saveEnvironments(doc),
+  );
+
+  assert.equal(result, true);
+  assert.equal(
+    errors.length,
+    0,
+    "a successful save never fires the toast sink",
+  );
+  assert.deepEqual(mock.one("environments.save").args, [doc]);
+});
+
+test("saveEnvironments: a main-process error envelope is surfaced", async () => {
+  // store:environments:save is an authoritative write (safeCallWrite in main), so
+  // a handler throw returns this envelope rather than a look-alike success.
+  const mock = makeWurlMock();
+  mock.install();
+  mock.setReturn("environments.save", {
+    __wurlError: true,
+    channel: "store:environments:save",
+    message: "EACCES: permission denied",
+  });
+
+  const { result, errors } = await withWriteHandler(() =>
+    store.saveEnvironments({ version: 1, environments: [] }),
+  );
+
+  assert.equal(result, false, "the envelope is detected as a failure");
+  assert.equal(errors[0].label, "Save environments");
+  assert.match(errors[0].message, /EACCES/);
+});
+
+test("upsertCookie: a thrown channel returns false and is surfaced", async () => {
+  const mock = makeWurlMock();
+  mock.install();
+  mock.setThrow("cookies.upsert", new Error("disk full"));
+
+  const { result, errors } = await withWriteHandler(() =>
+    store.upsertCookie("coll-1", { name: "sid", domain: "x", path: "/" }),
+  );
+
+  assert.equal(result, false);
+  assert.equal(errors[0].label, "Save cookie");
+  assert.match(errors[0].message, /disk full/);
+});
+
+test("clearCookies: a main-process error envelope is surfaced", async () => {
+  const mock = makeWurlMock();
+  mock.install();
+  mock.setReturn("cookies.clear", {
+    __wurlError: true,
+    channel: "store:cookies:clear",
+    message: "ENOSPC",
+  });
+
+  const { result, errors } = await withWriteHandler(() =>
+    store.clearCookies("coll-1"),
+  );
+
+  assert.equal(result, false);
+  assert.equal(errors[0].label, "Clear cookies");
 });
 
 // ── Transport detection ───────────────────────────────────────────────────────
