@@ -1,7 +1,9 @@
 /* ws-console.css — WebSocket frame log + composer styling (Feature 32).
  *
- * Colours, spacing and radii come exclusively from the design tokens in
- * theme.css so the console tracks every theme (mocha / latte / grey-*). */
+ * Colours, spacing, radii and font sizes come exclusively from the design tokens
+ * in theme.css so the console tracks every theme (mocha / latte / grey-*) and
+ * scales with the user's font-size setting. Console text uses the small UI tiers
+ * (--font-size-sm / -xs), matching the rest of the app. */
 
 /* ── Console (Response pane) ─────────────────────────────────────────────── */
 .ws-console {
@@ -65,13 +67,13 @@
 
 .ws-console__state {
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
 }
 
 .ws-console__meta {
   color: var(--color-subtext);
-  font-size: 0.8rem;
-  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -79,8 +81,8 @@
 
 .ws-console__clear {
   flex: 0 0 auto;
-  font-size: 0.78rem;
-  padding: 2px var(--space-2);
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
   background: var(--color-surface-2);
@@ -97,8 +99,8 @@
   min-height: 0;
   overflow-y: auto;
   padding: var(--space-2);
-  font-family: var(--font-mono), monospace;
-  font-size: 0.82rem;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
   line-height: 1.4;
 }
 
@@ -107,7 +109,7 @@
   padding: var(--space-4);
   text-align: center;
   font-family: var(--font-sans);
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
 }
 
 .ws-frame {
@@ -115,12 +117,12 @@
   grid-template-columns: max-content max-content 1fr;
   gap: var(--space-2);
   align-items: start;
-  padding: 2px var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   border-left: 3px solid transparent;
 }
 .ws-frame + .ws-frame {
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 
 .ws-frame__time {
@@ -222,8 +224,8 @@
   border: 0;
   background: var(--color-surface-1);
   color: var(--color-subtext);
-  font-size: 0.78rem;
-  padding: 2px var(--space-2);
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
   cursor: pointer;
 }
 .ws-composer__format button[aria-pressed="true"] {
@@ -235,19 +237,19 @@
 .ws-composer__subproto {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: 0.8rem;
-  padding: 2px var(--space-2);
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
   background: var(--color-surface-0);
   color: var(--color-text);
-  font-family: var(--font-mono), monospace;
+  font-family: var(--font-mono);
 }
 
 .ws-composer__send {
   flex: 0 0 auto;
   font-weight: 600;
-  font-size: 0.82rem;
+  font-size: var(--font-size-sm);
   padding: var(--space-1) var(--space-4);
   border: 1px solid var(--color-accent);
   border-radius: var(--radius-sm);
@@ -269,5 +271,5 @@
 .ws-composer__hint {
   flex: 0 0 auto;
   color: var(--color-subtext);
-  font-size: 0.78rem;
+  font-size: var(--font-size-xs);
 }
