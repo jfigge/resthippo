@@ -2203,7 +2203,8 @@ if (process.platform === "darwin" && app.dock) {
 // Window size is stored in a dedicated file (window-state.json) inside the
 // platform user-data directory.  Using a separate file — instead of the shared
 // manifest/settings JSON — prevents read-write races with the renderer's own
-// settings saves.
+// settings saves.  Reads/writes go through io.js (atomic temp-then-rename +
+// tolerant read), so this file gets the same crash-safety as every other store.
 //
 // Only the "normal" (non-minimised, non-maximised, non-fullscreen) size is
 // saved so the window always opens at a sensible restored size.
@@ -2252,7 +2253,10 @@ function _isPositionOnScreen(x, y) {
 function loadWindowState() {
   _windowStatePath = path.join(app.getPath("userData"), "window-state.json");
   try {
-    const raw = JSON.parse(fs.readFileSync(_windowStatePath, "utf8"));
+    // io.readJSON returns null for a missing file and throws on a corrupt one;
+    // either way we fall back to defaults (the catch handles the corrupt case).
+    const raw = io.readJSON(_windowStatePath);
+    if (!raw || typeof raw !== "object") return { ..._WINDOW_STATE_DEFAULTS };
     const width =
       Number.isFinite(raw.width) && raw.width >= 800
         ? Math.round(raw.width)
@@ -2291,11 +2295,9 @@ function saveWindowState(win) {
   const [width, height] = win.getSize();
   const [x, y] = win.getPosition();
   try {
-    fs.writeFileSync(
-      _windowStatePath,
-      JSON.stringify({ width, height, x, y }),
-      "utf8",
-    );
+    // Atomic temp-then-rename via the shared store I/O, so a crash mid-write
+    // can't corrupt window-state.json (same guarantee every other JSON file gets).
+    io.writeJSON(_windowStatePath, { width, height, x, y });
   } catch (err) {
     console.error("[main] Failed to save window state:", err.message);
   }
