@@ -358,8 +358,10 @@ mark.tree-highlight {
    class in the tree, the data-method attribute on the URL-bar selector and
    the picker rows). Glyphs: GET=download-in-circle, POST=envelope,
    PUT=swap-arrows, PATCH=pencil, DELETE=trash,
-   HEAD=magnifying-glass, OPTIONS=sliders. Any
-   non-standard / user-defined method falls back to --method-icon-custom. */
+   HEAD=magnifying-glass, OPTIONS=sliders,
+   WEBSOCKET=bidirectional-arrows (straight, to stay distinct from PUT's
+   curved swap). Any non-standard / user-defined method falls back to
+   --method-icon-custom. */
 :root {
   --method-icon-get: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M8 12l4 4 4-4'/%3E%3Cpath d='M12 8v8'/%3E%3C/svg%3E");
   --method-icon-post: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'/%3E%3C/svg%3E");
@@ -368,6 +370,8 @@ mark.tree-highlight {
   --method-icon-delete: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6'/%3E%3Cpath d='M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/%3E%3Cpath d='M10 11v6'/%3E%3Cpath d='M14 11v6'/%3E%3C/svg%3E");
   --method-icon-head: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
   --method-icon-options: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 4H14'/%3E%3Cpath d='M10 4H3'/%3E%3Cpath d='M21 12H12'/%3E%3Cpath d='M8 12H3'/%3E%3Cpath d='M21 20H16'/%3E%3Cpath d='M12 20H3'/%3E%3Cpath d='M14 2v4'/%3E%3Cpath d='M8 10v4'/%3E%3Cpath d='M16 18v4'/%3E%3C/svg%3E");
+  /* WebSocket: two straight opposing arrows = full-duplex (Lucide arrow-left-right) */
+  --method-icon-ws: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 3 4 7l4 4'/%3E%3Cpath d='M4 7h16'/%3E%3Cpath d='m16 21 4-4-4-4'/%3E%3Cpath d='M20 17H4'/%3E%3C/svg%3E");
   /* Fallback for any non-standard / user-defined method (PURGE, LINK, etc.) */
   --method-icon-custom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 18l6-6-6-6'/%3E%3Cpath d='M8 6l-6 6 6 6'/%3E%3C/svg%3E");
 }
@@ -406,6 +410,11 @@ mark.tree-highlight {
 .req-method-select[data-method="options"],
 .req-method-menu__item[data-method="options"] {
   --method-icon: var(--method-icon-options);
+}
+/* WebSocket carries its identity via a class, not a data-method attribute. */
+.tree-node__method--ws,
+.req-method-select--ws .req-method-select__label {
+  --method-icon: var(--method-icon-ws);
 }
 
 /* Hide the text and tighten the tree badge so icons line up in a narrow column */

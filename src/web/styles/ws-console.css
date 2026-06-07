@@ -190,7 +190,7 @@
 /* ── WS request badge (tree + URL bar) ───────────────────────────────────── */
 .tree-node__method.tree-node__method--ws,
 .req-method-select--ws .req-method-select__label {
-  color: var(--color-info);
+  color: var(--color-method-ws);
 }
 .req-method-select--ws {
   cursor: default;

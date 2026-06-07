@@ -31,6 +31,7 @@ const BUILT_IN_THEMES = [
       "--color-method-delete": "#f38ba8",
       "--color-method-head": "#f9e2af",
       "--color-method-options": "#94e2d5",
+      "--color-method-ws": "#89dceb",
     },
   },
   {
@@ -61,6 +62,7 @@ const BUILT_IN_THEMES = [
       "--color-method-delete": "#d20f39",
       "--color-method-head": "#df8e1d",
       "--color-method-options": "#179299",
+      "--color-method-ws": "#209fb5",
     },
   },
   {
@@ -91,6 +93,7 @@ const BUILT_IN_THEMES = [
       "--color-method-delete": "#e07070",
       "--color-method-head": "#d4b060",
       "--color-method-options": "#70b8d0",
+      "--color-method-ws": "#6aa6e0",
     },
   },
   {
@@ -121,6 +124,7 @@ const BUILT_IN_THEMES = [
       "--color-method-delete": "#b82020",
       "--color-method-head": "#9a6800",
       "--color-method-options": "#1870a0",
+      "--color-method-ws": "#2060b8",
     },
   },
 ];
@@ -149,9 +153,16 @@ const VAR_LABELS = {
   "--color-method-delete": "DELETE",
   "--color-method-head": "HEAD",
   "--color-method-options": "OPTIONS",
+  "--color-method-ws": "WS",
 };
 
 const VAR_KEYS = Object.keys(VAR_LABELS);
+
+// Sensible per-key defaults for any token a theme's vars omit — e.g. a custom
+// theme saved before a new token (like --color-method-ws) was introduced. Falls
+// back to the first built-in (Mocha) so legacy themes show a real colour rather
+// than black, and capture it if re-saved.
+const FALLBACK_VARS = BUILT_IN_THEMES[0].vars;
 
 let _customThemes = [];
 let _selectedId = null;
@@ -301,7 +312,7 @@ function renderColorGrid(vars, readOnly) {
   grid.innerHTML = "";
 
   for (const key of VAR_KEYS) {
-    const value = vars[key] ?? "#000000";
+    const value = vars[key] ?? FALLBACK_VARS[key] ?? "#000000";
     const row = document.createElement("div");
     row.className = "color-row";
 

@@ -42,6 +42,7 @@
   --color-method-delete: #f38ba8;
   --color-method-head: #f9e2af;
   --color-method-options: #94e2d5;
+  --color-method-ws: #89dceb; /* WebSocket — full-duplex protocol badge */
 
   /* ── Derived tints ───────────────────────────────────────────────────── */
   /* Destructive / dismiss controls (delete, danger, close) share one
@@ -140,6 +141,7 @@
   --color-method-delete: #d20f39;
   --color-method-head: #df8e1d;
   --color-method-options: #179299;
+  --color-method-ws: #209fb5; /* Catppuccin Latte sapphire — distinct from OPTIONS' teal */
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -172,6 +174,7 @@
   --color-method-delete: #e07070;
   --color-method-head: #d4b060;
   --color-method-options: #70b8d0;
+  --color-method-ws: #6aa6e0; /* bluer cyan — distinct from OPTIONS' #70b8d0 */
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -204,6 +207,7 @@
   --color-method-delete: #b82020;
   --color-method-head: #9a6800;
   --color-method-options: #1870a0;
+  --color-method-ws: #2060b8; /* bluer cyan — distinct from OPTIONS' #1870a0 */
 }
 
 /* ── Global styles ────────────────────────────────────────────────────────── */
