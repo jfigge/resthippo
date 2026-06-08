@@ -12,9 +12,11 @@
  *     second click → restore the values loaded when the popup opened).
  *   • User-resizable via CSS `resize: both`.
  *
- * Events dispatched on window:
- *   wurl:vars-save                { envId, variables }
- *   wurl:vars-bulk-editor-changed { bulkEditor: bool }
+ * Constructor callbacks (this is a parent-owned popup that reports back to its
+ * creator, so it uses callbacks rather than global wurl:* events — see the
+ * "Component ↔ app communication" rule in CLAUDE.md):
+ *   onSave({ envId, variables })       — debounced 500ms auto-save
+ *   onBulkEditorChange({ bulkEditor }) — bulk-textarea / KV-row toggle changed
  */
 
 "use strict";
@@ -54,7 +56,20 @@ export class VariablesPopup {
   /** Auto re-mask a revealed secure value after this many ms. */
   static #REVEAL_MS = 30000;
 
-  constructor() {
+  /** @type {(payload: { envId: string, variables: Array }) => void} */
+  #onSave;
+  /** @type {(payload: { bulkEditor: boolean }) => void} */
+  #onBulkEditorChange;
+
+  /**
+   * @param {{
+   *   onSave?: (payload: { envId: string, variables: Array }) => void,
+   *   onBulkEditorChange?: (payload: { bulkEditor: boolean }) => void,
+   * }} [opts]
+   */
+  constructor({ onSave, onBulkEditorChange } = {}) {
+    this.#onSave = onSave;
+    this.#onBulkEditorChange = onBulkEditorChange;
     this.#el = this.#build();
   }
 
@@ -227,12 +242,7 @@ export class VariablesPopup {
       this.#saveFromRows();
     }
 
-    window.dispatchEvent(
-      new CustomEvent("wurl:vars-bulk-editor-changed", {
-        detail: { bulkEditor: nowBulk },
-        bubbles: true,
-      }),
-    );
+    this.#onBulkEditorChange?.({ bulkEditor: nowBulk });
   }
 
   // ── Conversion helpers ──────────────────────────────────────────────────────
@@ -464,12 +474,7 @@ export class VariablesPopup {
   }
 
   #dispatchSave(variables) {
-    window.dispatchEvent(
-      new CustomEvent("wurl:vars-save", {
-        detail: { envId: this.#envId, variables },
-        bubbles: true,
-      }),
-    );
+    this.#onSave?.({ envId: this.#envId, variables });
   }
 
   // ── Close ───────────────────────────────────────────────────────────────────

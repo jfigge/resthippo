@@ -733,9 +733,12 @@ function makeSplitter(
  * latest values.
  */
 const settingsPopup = new SettingsPopup();
-const envPopup = new CollectionsPopup();
-const varsPopup = new VariablesPopup();
-const environmentsPopup = new EnvironmentsPopup();
+// CollectionsPopup / VariablesPopup / EnvironmentsPopup are parent-owned popups
+// that report back to app.js via constructor callbacks (see the "Component ↔ app
+// communication" rule in CLAUDE.md). Their callbacks close over collection /
+// environment handlers defined inside initEventBus(), so they are constructed
+// there — declared here only so initHeader() and applySettings() can reach them.
+let envPopup, varsPopup, environmentsPopup;
 const envPicker = new EnvPicker({
   onManage: () =>
     environmentsPopup.open(currentEnvironments, {
@@ -829,6 +832,87 @@ function initHeader() {
 
 // ─── Event bus ────────────────────────────────────────────────────────────────
 function initEventBus() {
+  // ── wurl:* global event registry ───────────────────────────────────────────
+  // The renderer's app-wide channel. Only state changes / notifications with
+  // MULTIPLE or open-ended listeners live here; parent-owned widgets (pickers,
+  // modals, the editor popups) report to their creator via constructor callbacks
+  // instead — see "Component ↔ App Communication" in CLAUDE.md. Keep this current.
+  //
+  // Tree / collections          (TreeView → app.js)
+  //   request-selected      node                          row selected in tree
+  //   request-open          { collectionId, requestId }   open from favorites/recents
+  //   request-execute       node                          run a request from the tree
+  //   favorite-toggle       { node, favorited }
+  //   requests-deleted      { ids: string[] }
+  //   request-cleared       —                             last request removed
+  //   collections-changed   items[]                       tree mutated → persist
+  //   export-collection     { collection }
+  //   folder-vars-open      { nodeId, folderName, variables }
+  //
+  // Request lifecycle           (RequestEditor / app.js ↔ panels)
+  //   send-request          { method, url, headers, … }
+  //   cancel-request        —
+  //   request-loading       —                             in-flight; show spinner
+  //   request-updated       { id, …partial }              editor mutated a field
+  //   request-error         { request, name, message, hint, elapsed, consoleLog }
+  //   response-received     { …response, request }
+  //   editor-setting-changed { <settingKey>: value }      e.g. showUrlPreview
+  //
+  // WebSocket
+  //   ws-connect            { url, headers, subprotocols, … }
+  //   ws-send               { data }
+  //   ws-disconnect         —
+  //   ws-state              { state }                     app.js → RequestEditor
+  //
+  // Timeline / history
+  //   timeline-select       { requestNode, requestUrl, response }
+  //   timeline-delete-entry { requestId, historyId }
+  //   timeline-clear        { requestId }
+  //   timeline-update       { requestId, entries, isRequestSwitch }  app.js → ResponseViewer
+  //
+  // Settings / theme
+  //   settings-changed      { <settingKeys> }             consumed by several panels
+  //   history-trim          { historyCount }
+  //   theme-preview         vars | null                   (from preload)
+  //   theme-apply           themeName                     (from preload)
+  //   custom-themes-changed customThemes                  (from preload)
+  //   ui-font-change        fontStack                     (from preload/main)
+  //
+  // Menu / backup               (preload → app.js)
+  //   import-requested  ·  export-all-requested  ·  backup-export-requested  ·
+  //   backup-import-requested        — all payload-less menu triggers
+  //
+  // UI coordination             (broadcast; PopupManager / pickers)
+  //   popup-opened          —
+  //   popup-closed          —
+  // ────────────────────────────────────────────────────────────────────────────
+
+  // Construct the parent-owned editor popups, wiring each to the handlers below.
+  // These are `function` declarations (hoisted), so referencing them here is
+  // fine. handleVarsSave / handleVarsBulkEditorChange are shared by the variables
+  // and collections popups, which edit the same flat variable shape.
+  envPopup = new CollectionsPopup({
+    onSelect: handleCollSelect,
+    onAdd: handleCollAdd,
+    onRename: handleCollRename,
+    onDelete: handleCollDelete,
+    onSendCookiesChange: handleCollSendCookies,
+    onVarsSave: handleVarsSave,
+    onBulkEditorChange: handleVarsBulkEditorChange,
+  });
+  varsPopup = new VariablesPopup({
+    onSave: handleVarsSave,
+    onBulkEditorChange: handleVarsBulkEditorChange,
+  });
+  environmentsPopup = new EnvironmentsPopup({
+    onChange: handleEnvironmentsChanged,
+    onActivate: handleEnvActivate,
+    onVarsSave: handleEnvVarsSave,
+    // onBulkEditorChange is intentionally left unwired: the prior
+    // wurl:env-bulk-editor-changed event had no listener, so the environments
+    // bulk toggle was never persisted. Preserve that behavior.
+  });
+
   // When a request is selected in the tree, load it into the editor
   window.addEventListener("wurl:request-selected", async (e) => {
     const node = e.detail;
@@ -1426,8 +1510,7 @@ function initEventBus() {
   }
 
   /** Switch the active collection: save current items, load new ones. */
-  window.addEventListener("wurl:coll-select", async (e) => {
-    const { id } = e.detail;
+  async function handleCollSelect({ id }) {
     if (id === currentColls.activeCollectionId) return;
 
     await activateCollection(id);
@@ -1438,11 +1521,10 @@ function initEventBus() {
       _selectedNode = null;
       _clearRequestEditor();
     }
-  });
+  }
 
   /** Add a new (empty) collection and switch to it. */
-  window.addEventListener("wurl:coll-add", async (e) => {
-    const { name } = e.detail;
+  async function handleCollAdd({ name }) {
     const newColl = { id: crypto.randomUUID(), name, sendCookies: true };
     const collections = [...currentColls.collections, newColl];
 
@@ -1466,11 +1548,10 @@ function initEventBus() {
     _clearRequestEditor();
     setNavPanelTitle(newColl.name);
     envPopup.update(envPopupState());
-  });
+  }
 
   /** Rename a collection — updates its display name everywhere without touching its items. */
-  window.addEventListener("wurl:coll-rename", async (e) => {
-    const { id, name } = e.detail;
+  async function handleCollRename({ id, name }) {
     const collections = currentColls.collections.map((coll) =>
       coll.id === id ? { ...coll, name } : coll,
     );
@@ -1486,11 +1567,10 @@ function initEventBus() {
     if (id === currentColls.activeCollectionId) setNavPanelTitle(name);
 
     envPopup.update(envPopupState());
-  });
+  }
 
   /** Delete a collection (must always leave at least 1). */
-  window.addEventListener("wurl:coll-delete", async (e) => {
-    const { id } = e.detail;
+  async function handleCollDelete({ id }) {
     if (currentColls.collections.length <= 1) return; // guard
 
     let collections = currentColls.collections.filter((coll) => coll.id !== id);
@@ -1537,9 +1617,9 @@ function initEventBus() {
       saveSettings(currentSettings);
     }
     envPopup.update(envPopupState());
-  });
+  }
 
-  // ── Variable events ──────────────────────────────────────────────────────
+  // ── Variable handlers ────────────────────────────────────────────────────
 
   /** Open the variables popup for a folder node. */
   window.addEventListener("wurl:folder-vars-open", (e) => {
@@ -1557,9 +1637,7 @@ function initEventBus() {
    * The `envId` field doubles as a folder-node ID when it doesn't match any
    * collection — in that case the variables are stored on the tree node.
    */
-  window.addEventListener("wurl:vars-save", async (e) => {
-    const { envId, variables } = e.detail;
-
+  async function handleVarsSave({ envId, variables }) {
     const isColl = currentColls.collections.some((coll) => coll.id === envId);
 
     if (isColl) {
@@ -1583,14 +1661,13 @@ function initEventBus() {
     _refreshEditorVariableContext(
       currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
     );
-  });
+  }
 
   /**
    * Persist a collection's "send cookies" flag (whether its cookie jar is
    * attached to outgoing requests). Stored in the manifest alongside id/name.
    */
-  window.addEventListener("wurl:coll-send-cookies", async (e) => {
-    const { id, sendCookies } = e.detail;
+  async function handleCollSendCookies({ id, sendCookies }) {
     const collections = currentColls.collections.map((coll) =>
       coll.id === id ? { ...coll, sendCookies } : coll,
     );
@@ -1600,40 +1677,39 @@ function initEventBus() {
       activeCollectionId: currentColls.activeCollectionId,
     });
     envPopup.update(envPopupState());
-  });
+  }
 
   /** Persist the Bulk Editor toggle preference into settings. */
-  window.addEventListener("wurl:vars-bulk-editor-changed", (e) => {
+  function handleVarsBulkEditorChange({ bulkEditor }) {
     currentSettings = {
       ...currentSettings,
-      varsBulkEditor: e.detail.bulkEditor,
+      varsBulkEditor: bulkEditor,
     };
     saveSettings(currentSettings);
-  });
+  }
 
-  // ── Environment event handlers ───────────────────────────────────────────
+  // ── Environment handlers ─────────────────────────────────────────────────
 
-  window.addEventListener("wurl:environments-changed", async (e) => {
-    currentEnvironments = e.detail.data;
+  async function handleEnvironmentsChanged({ data }) {
+    currentEnvironments = data;
     await saveEnvironments(currentEnvironments);
     environmentsPopup.update(currentEnvironments);
     _refreshEditorVariableContext();
     envPicker.load(currentEnvironments);
-  });
+  }
 
-  window.addEventListener("wurl:env-activate", async (e) => {
+  async function handleEnvActivate({ id }) {
     currentEnvironments = {
       ...currentEnvironments,
-      activeEnvironmentId: e.detail.id,
+      activeEnvironmentId: id,
     };
     await saveEnvironments(currentEnvironments);
     environmentsPopup.update(currentEnvironments);
     _refreshEditorVariableContext();
     envPicker.load(currentEnvironments);
-  });
+  }
 
-  window.addEventListener("wurl:env-vars-save", async (e) => {
-    const { id, variables } = e.detail;
+  async function handleEnvVarsSave({ id, variables }) {
     if (id === null) {
       currentEnvironments = {
         ...currentEnvironments,
@@ -1649,7 +1725,7 @@ function initEventBus() {
     }
     await saveEnvironments(currentEnvironments);
     _refreshEditorVariableContext();
-  });
+  }
 
   // ── Variable context helper ──────────────────────────────────────────────
 

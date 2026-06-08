@@ -17,16 +17,20 @@
  * Clicking a collection row both activates it (for tree-view data) and loads its
  * variables / cookies into the right pane.
  *
- * Events dispatched on window:
- *   wurl:coll-select  { id }                    — switch active collection
- *   wurl:coll-add     { name }                  — create new empty collection
- *   wurl:coll-rename  { id, name }              — rename a collection
- *   wurl:coll-delete  { id }                    — delete a collection
- *   wurl:vars-save    { envId, variables }       — debounced 500ms auto-save
- *   wurl:vars-bulk-editor-changed { bulkEditor } — toggle changed
+ * Constructor callbacks (this is a parent-owned popup that reports back to its
+ * creator, so it uses callbacks rather than global wurl:* events — see the
+ * "Component ↔ app communication" rule in CLAUDE.md):
+ *   onSelect({ id })                   — switch active collection
+ *   onAdd({ name })                    — create new empty collection
+ *   onRename({ id, name })             — rename a collection
+ *   onDelete({ id })                   — delete a collection
+ *   onSendCookiesChange({ id, sendCookies }) — toggle the cookie-jar attach flag
+ *   onVarsSave({ envId, variables })   — debounced 500ms auto-save
+ *   onBulkEditorChange({ bulkEditor }) — bulk-textarea / KV-row toggle changed
  *
- * The cookie jar is owned by the main process, so no cookie events are
- * dispatched — the Cookies tab re-reads from IPC whenever it opens or mutates.
+ * The cookie jar is owned by the main process, so no cookie callbacks fire for
+ * jar reads/writes — the Cookies tab re-reads from IPC whenever it opens or
+ * mutates.
  */
 
 "use strict";
@@ -104,7 +108,42 @@ export class CollectionsPopup {
   /** True while a blank "new cookie" editor row is shown at the top of the list. */
   #addingCookie = false;
 
-  constructor() {
+  // ── Callbacks to the creator (app.js) ──────────────────────────────────────
+  #onSelect;
+  #onAdd;
+  #onRename;
+  #onDelete;
+  #onSendCookiesChange;
+  #onVarsSave;
+  #onBulkEditorChange;
+
+  /**
+   * @param {{
+   *   onSelect?: (payload: { id: string }) => void,
+   *   onAdd?: (payload: { name: string }) => void,
+   *   onRename?: (payload: { id: string, name: string }) => void,
+   *   onDelete?: (payload: { id: string }) => void,
+   *   onSendCookiesChange?: (payload: { id: string, sendCookies: boolean }) => void,
+   *   onVarsSave?: (payload: { envId: string, variables: Array }) => void,
+   *   onBulkEditorChange?: (payload: { bulkEditor: boolean }) => void,
+   * }} [opts]
+   */
+  constructor({
+    onSelect,
+    onAdd,
+    onRename,
+    onDelete,
+    onSendCookiesChange,
+    onVarsSave,
+    onBulkEditorChange,
+  } = {}) {
+    this.#onSelect = onSelect;
+    this.#onAdd = onAdd;
+    this.#onRename = onRename;
+    this.#onDelete = onDelete;
+    this.#onSendCookiesChange = onSendCookiesChange;
+    this.#onVarsSave = onVarsSave;
+    this.#onBulkEditorChange = onBulkEditorChange;
     this.#el = this.#build();
     this.#initResize(this.#el);
   }
@@ -548,16 +587,9 @@ export class CollectionsPopup {
 
     if (action.mode === "add") {
       this.#flushEditorSave();
-      window.dispatchEvent(
-        new CustomEvent("wurl:coll-add", { detail: { name }, bubbles: true }),
-      );
+      this.#onAdd?.({ name });
     } else if (action.mode === "rename") {
-      window.dispatchEvent(
-        new CustomEvent("wurl:coll-rename", {
-          detail: { id: action.id, name },
-          bubbles: true,
-        }),
-      );
+      this.#onRename?.({ id: action.id, name });
     }
 
     this.#renderList();
@@ -577,9 +609,7 @@ export class CollectionsPopup {
     this.#loadEditorForSelected();
     if (this.#activeTab === "cookies") this.#reloadCookies();
     if (id !== this.#activeId) {
-      window.dispatchEvent(
-        new CustomEvent("wurl:coll-select", { detail: { id }, bubbles: true }),
-      );
+      this.#onSelect?.({ id });
     }
   }
 
@@ -592,12 +622,7 @@ export class CollectionsPopup {
   }
 
   #deleteCollection(coll) {
-    window.dispatchEvent(
-      new CustomEvent("wurl:coll-delete", {
-        detail: { id: coll.id },
-        bubbles: true,
-      }),
-    );
+    this.#onDelete?.({ id: coll.id });
   }
 
   // ── Variable editor ────────────────────────────────────────────────────────
@@ -657,12 +682,7 @@ export class CollectionsPopup {
       this.#renderRows();
       this.#saveFromRows();
     }
-    window.dispatchEvent(
-      new CustomEvent("wurl:vars-bulk-editor-changed", {
-        detail: { bulkEditor: nowBulk },
-        bubbles: true,
-      }),
-    );
+    this.#onBulkEditorChange?.({ bulkEditor: nowBulk });
   }
 
   // ── Conversion helpers ─────────────────────────────────────────────────────
@@ -892,12 +912,7 @@ export class CollectionsPopup {
     this.#collections = this.#collections.map((c) =>
       c.id === this.#selectedId ? { ...c, variables } : c,
     );
-    window.dispatchEvent(
-      new CustomEvent("wurl:vars-save", {
-        detail: { envId: this.#selectedId, variables },
-        bubbles: true,
-      }),
-    );
+    this.#onVarsSave?.({ envId: this.#selectedId, variables });
   }
 
   // ── Cookies tab ──────────────────────────────────────────────────────────────
@@ -911,12 +926,7 @@ export class CollectionsPopup {
     this.#collections = this.#collections.map((c) =>
       c.id === this.#selectedId ? { ...c, sendCookies: checked } : c,
     );
-    window.dispatchEvent(
-      new CustomEvent("wurl:coll-send-cookies", {
-        detail: { id: this.#selectedId, sendCookies: checked },
-        bubbles: true,
-      }),
-    );
+    this.#onSendCookiesChange?.({ id: this.#selectedId, sendCookies: checked });
   }
 
   async #reloadCookies() {

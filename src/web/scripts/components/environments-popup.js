@@ -14,11 +14,15 @@
  * Clicking a row both activates the environment (for variable resolution) and
  * loads its variables into the editor.
  *
- * Events dispatched on window:
- *   wurl:environments-changed { data }          — add / rename / delete / reorder
- *   wurl:env-activate         { id }            — row selected (null = Global)
- *   wurl:env-vars-save        { id, variables } — debounced 500ms auto-save
- *   wurl:env-bulk-editor-changed { bulkEditor } — toggle changed
+ * Constructor callbacks (this is a parent-owned popup that reports back to its
+ * creator, so it uses callbacks rather than global wurl:* events — see the
+ * "Component ↔ app communication" rule in CLAUDE.md):
+ *   onChange({ data })                 — add / rename / delete / reorder
+ *   onActivate({ id })                 — row selected (null = Global)
+ *   onVarsSave({ id, variables })      — debounced 500ms auto-save
+ *   onBulkEditorChange({ bulkEditor }) — bulk-textarea / KV-row toggle changed
+ *                                        (currently unwired by app.js, matching
+ *                                        the prior no-listener behavior)
  */
 
 "use strict";
@@ -86,7 +90,25 @@ export class EnvironmentsPopup {
   /** @type {boolean} */
   #removeHeaders = false;
 
-  constructor() {
+  // ── Callbacks to the creator (app.js) ──────────────────────────────────────
+  #onChange;
+  #onActivate;
+  #onVarsSave;
+  #onBulkEditorChange;
+
+  /**
+   * @param {{
+   *   onChange?: (payload: { data: object }) => void,
+   *   onActivate?: (payload: { id: string | null }) => void,
+   *   onVarsSave?: (payload: { id: string | null, variables: Array }) => void,
+   *   onBulkEditorChange?: (payload: { bulkEditor: boolean }) => void,
+   * }} [opts]
+   */
+  constructor({ onChange, onActivate, onVarsSave, onBulkEditorChange } = {}) {
+    this.#onChange = onChange;
+    this.#onActivate = onActivate;
+    this.#onVarsSave = onVarsSave;
+    this.#onBulkEditorChange = onBulkEditorChange;
     this.#el = this.#build();
     this.#envPhantom = this.#buildEnvPhantom();
     this.#initResize(this.#el);
@@ -295,11 +317,7 @@ export class EnvironmentsPopup {
         moved,
       );
       this.#renderList();
-      window.dispatchEvent(
-        new CustomEvent("wurl:environments-changed", {
-          detail: { data: deepClone(this.#data) },
-        }),
-      );
+      this.#onChange?.({ data: deepClone(this.#data) });
     });
     envList.addEventListener("dragleave", (e) => {
       if (!envList.contains(e.relatedTarget)) {
@@ -605,12 +623,7 @@ export class EnvironmentsPopup {
       this.#selectedId = id;
       this.#renderList();
       this.#loadEditorForSelected();
-      window.dispatchEvent(
-        new CustomEvent("wurl:environments-changed", {
-          detail: { data: deepClone(newData) },
-          bubbles: true,
-        }),
-      );
+      this.#onChange?.({ data: deepClone(newData) });
     } else if (action.mode === "rename") {
       const newData = {
         ...this.#data,
@@ -621,12 +634,7 @@ export class EnvironmentsPopup {
       this.#data = newData;
       this.#renderList();
       this.#loadEditorForSelected();
-      window.dispatchEvent(
-        new CustomEvent("wurl:environments-changed", {
-          detail: { data: deepClone(newData) },
-          bubbles: true,
-        }),
-      );
+      this.#onChange?.({ data: deepClone(newData) });
     }
 
     this.#committing = false;
@@ -642,12 +650,7 @@ export class EnvironmentsPopup {
     this.#data = { ...this.#data, activeEnvironmentId: id };
     this.#renderList();
     this.#loadEditorForSelected();
-    window.dispatchEvent(
-      new CustomEvent("wurl:env-activate", {
-        detail: { id },
-        bubbles: true,
-      }),
-    );
+    this.#onActivate?.({ id });
   }
 
   #confirmDelete(env) {
@@ -672,12 +675,7 @@ export class EnvironmentsPopup {
       this.#loadEditorForSelected();
     }
     this.#renderList();
-    window.dispatchEvent(
-      new CustomEvent("wurl:environments-changed", {
-        detail: { data: deepClone(newData) },
-        bubbles: true,
-      }),
-    );
+    this.#onChange?.({ data: deepClone(newData) });
   }
 
   // ── Variable editor ────────────────────────────────────────────────────────
@@ -739,12 +737,7 @@ export class EnvironmentsPopup {
       this.#renderRows();
       this.#saveFromRows();
     }
-    window.dispatchEvent(
-      new CustomEvent("wurl:env-bulk-editor-changed", {
-        detail: { bulkEditor: nowBulk },
-        bubbles: true,
-      }),
-    );
+    this.#onBulkEditorChange?.({ bulkEditor: nowBulk });
   }
 
   // ── Conversion helpers ─────────────────────────────────────────────────────
@@ -979,12 +972,7 @@ export class EnvironmentsPopup {
         ),
       };
     }
-    window.dispatchEvent(
-      new CustomEvent("wurl:env-vars-save", {
-        detail: { id: this.#selectedId, variables },
-        bubbles: true,
-      }),
-    );
+    this.#onVarsSave?.({ id: this.#selectedId, variables });
   }
 
   // ── Close ──────────────────────────────────────────────────────────────────
