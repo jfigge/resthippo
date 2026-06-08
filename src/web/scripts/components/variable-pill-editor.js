@@ -643,10 +643,23 @@ export class VariablePillEditor {
       caretLeft = rects[0].left;
       caretRight = rects[0].right;
     } else {
+      // focusNode is an element; the caret sits before childNodes[focusOffset]
+      // (or at the very end when that index is past the last child).
       const child = focusNode.childNodes[focusOffset];
-      const rect = child
-        ? child.getBoundingClientRect()
-        : focusNode.getBoundingClientRect();
+      let rect;
+      if (child && child.nodeType === Node.ELEMENT_NODE) {
+        rect = child.getBoundingClientRect();
+      } else if (child && child.nodeType === Node.TEXT_NODE) {
+        // Text nodes have no getBoundingClientRect — an empty editor seeds an
+        // empty text-node guard (#ensureEdgePadding), so measure the caret via
+        // a collapsed range instead, falling back to the element's own rect.
+        const r = document.createRange();
+        r.setStart(child, 0);
+        r.collapse(true);
+        rect = r.getClientRects()[0] ?? focusNode.getBoundingClientRect();
+      } else {
+        rect = focusNode.getBoundingClientRect();
+      }
       caretLeft = rect.left;
       caretRight = rect.right;
     }

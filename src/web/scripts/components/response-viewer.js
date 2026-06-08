@@ -2540,7 +2540,6 @@ export class ResponseViewer {
     const url = entry.requestUrl || entry.requestNode?.url || "";
     const items = [
       { id: "restore", label: "Restore Into Editor" },
-      { id: "copy-url", label: "Copy URL", enabled: !!url },
       { type: "separator" },
       { id: "delete", label: "Delete Entry" },
       { id: "delete-all", label: "Delete All History" },
