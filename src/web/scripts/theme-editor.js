@@ -303,7 +303,7 @@ function selectCustomTheme(id) {
 
 function updateSelectedClass() {
   document.querySelectorAll(".theme-item").forEach((el) => {
-    el.classList.toggle("selected", el.dataset.id === _selectedId);
+    el.classList.toggle("theme-item--selected", el.dataset.id === _selectedId);
   });
 }
 

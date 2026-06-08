@@ -501,10 +501,10 @@ function buildCtrlGroup() {
   group.className = "header-ctrl-group";
   group.innerHTML = `
     <span class="ctrl-divider" aria-hidden="true"></span>
-    <button class="env-picker__trigger" id="btn-env-picker-ctrl"
+    <button class="env-picker-trigger" id="btn-env-picker-ctrl"
         title="Environment" aria-label="Select environment"
         aria-haspopup="dialog"></button>
-    <button class="layout-picker__trigger" id="btn-layout-ctrl"
+    <button class="layout-picker-trigger" id="btn-layout-ctrl"
         aria-haspopup="listbox" aria-label="Change layout" title="Change layout"></button>
     <button class="icon-btn header-icon-btn" id="btn-settings-ctrl"
         title="Settings" aria-label="Open settings">
@@ -2567,12 +2567,12 @@ function applySettings(settings) {
     document.documentElement.classList.toggle("show-method-icons", iconsOn);
     // Sync tooltips on already-rendered method glyphs (tree badges + the URL-bar
     // method button). Tooltips only apply in icon mode; clear them otherwise.
-    document.querySelectorAll(".tree-node__method").forEach((el) => {
+    document.querySelectorAll(".tree-node-method").forEach((el) => {
       if (iconsOn) el.title = el.textContent;
       else el.removeAttribute("title");
     });
     document.querySelectorAll(".req-method-select").forEach((el) => {
-      const label = el.querySelector(".req-method-select__label");
+      const label = el.querySelector(".req-method-select-label");
       if (iconsOn && label) el.title = label.textContent;
       else el.removeAttribute("title");
     });

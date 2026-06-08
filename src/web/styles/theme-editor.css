@@ -114,7 +114,7 @@ body {
   background: var(--color-surface-0);
 }
 
-.theme-item.selected {
+.theme-item--selected {
   background: var(--color-surface-1);
 }
 

@@ -5,7 +5,7 @@
  * and only revealed when the user clicks the eye toggle.
  *
  * Masking is purely visual, via the Chromium-only `-webkit-text-security`
- * property (see `.secret-field.is-masked .secret-field__input` in
+ * property (see `.secret-field--masked .secret-field-input` in
  * components.css). Because it is a CSS property rather than `input[type]`
  * swapping, the same control works for both plain `<input>` elements and the
  * contenteditable VariablePillEditor used by the auth fields. Variable pills
@@ -30,17 +30,17 @@ export function wrapSecretField(fieldEl, { masked = true } = {}) {
   const wrapper = document.createElement("div");
   wrapper.className = "secret-field";
 
-  fieldEl.classList.add("secret-field__input");
+  fieldEl.classList.add("secret-field-input");
 
   const toggle = document.createElement("button");
   toggle.type = "button";
-  toggle.className = "secret-field__toggle";
+  toggle.className = "secret-field-toggle";
   // Suppress password-manager interest in any nested credential field.
   toggle.setAttribute("tabindex", "-1");
 
   let isMasked = masked;
   const render = () => {
-    wrapper.classList.toggle("is-masked", isMasked);
+    wrapper.classList.toggle("secret-field--masked", isMasked);
     // Masked → offer the "reveal" (open eye); revealed → offer the "hide".
     toggle.innerHTML = icon(isMasked ? "eye" : "eyeOff");
     const action = isMasked ? "Reveal" : "Hide";

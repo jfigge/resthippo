@@ -156,7 +156,7 @@ export class PillEditorPopup {
         <div class="pill-editor-preview">
           <span class="pill-editor-preview-label">Live Preview</span>
           <span class="pill-editor-preview-value pill-editor-preview--undefined">—</span>
-          <button class="pill-editor-preview-reveal secret-field__toggle" type="button" tabindex="-1" hidden></button>
+          <button class="pill-editor-preview-reveal secret-field-toggle" type="button" tabindex="-1" hidden></button>
         </div>
       </div>
       <div class="popup-footer">

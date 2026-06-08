@@ -14,7 +14,7 @@
  *   envPicker.load(currentEnvironments);
  */
 
-const _GLOBE = `<svg class="env-picker__globe" xmlns="http://www.w3.org/2000/svg"
+const _GLOBE = `<svg class="env-picker-globe" xmlns="http://www.w3.org/2000/svg"
     width="12" height="12" viewBox="0 0 24 24"
     fill="none" stroke="currentColor" stroke-width="2"
     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -56,8 +56,8 @@ export class EnvPicker {
   #syncTrigger(btn) {
     const env = this.#activeEnv();
     const label = env?.name ?? "Global";
-    btn.innerHTML = `${_GLOBE}<span class="env-picker__label"></span>`;
-    btn.querySelector(".env-picker__label").textContent = label;
-    btn.classList.toggle("env-picker__trigger--active", !!env);
+    btn.innerHTML = `${_GLOBE}<span class="env-picker-label"></span>`;
+    btn.querySelector(".env-picker-label").textContent = label;
+    btn.classList.toggle("env-picker-trigger--active", !!env);
   }
 }

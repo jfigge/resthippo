@@ -85,7 +85,7 @@ export class SettingsPopup {
       <div class="popup-body settings-popup-body">
         <!-- Left navigation list — one entry per settings panel -->
         <nav class="settings-nav" role="tablist" aria-label="Settings sections">
-          <button class="settings-nav-item is-active" type="button" role="tab" aria-selected="true" data-panel="appearance">Appearance</button>
+          <button class="settings-nav-item settings-nav-item--active" type="button" role="tab" aria-selected="true" data-panel="appearance">Appearance</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="request">Request</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="proxy">Proxy</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="retries">Retries</button>
@@ -95,7 +95,7 @@ export class SettingsPopup {
         <!-- Right-hand stack of single-column panels; only the active one shows -->
         <div class="settings-panels">
           <!-- Appearance ──────────────────────────────────────────────── -->
-          <section class="settings-panel is-active" role="tabpanel" data-panel="appearance">
+          <section class="settings-panel" role="tabpanel" data-panel="appearance">
             <div class="settings-row">
               <label class="settings-label" for="setting-theme">Theme</label>
               <select class="settings-select" id="setting-theme">
@@ -489,12 +489,11 @@ export class SettingsPopup {
   #showPanel(name) {
     this.#el.querySelectorAll(".settings-nav-item").forEach((item) => {
       const active = item.dataset.panel === name;
-      item.classList.toggle("is-active", active);
+      item.classList.toggle("settings-nav-item--active", active);
       item.setAttribute("aria-selected", String(active));
     });
     this.#el.querySelectorAll(".settings-panel").forEach((panel) => {
       const active = panel.dataset.panel === name;
-      panel.classList.toggle("is-active", active);
       panel.hidden = !active;
     });
   }
@@ -798,7 +797,7 @@ export class SettingsPopup {
   #syncProxyAuthState() {
     const on = this.#el.querySelector("#setting-proxy-auth-enabled").checked;
     const row = this.#el.querySelector(".settings-row--credentials");
-    row.classList.toggle("is-disabled", !on);
+    row.classList.toggle("settings-row--disabled", !on);
     row.querySelectorAll("input").forEach((input) => (input.disabled = !on));
   }
 }

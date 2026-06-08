@@ -43,7 +43,7 @@ export function wireDeleteConfirm(el, onConfirm, opts = {}) {
 
   const restore = () => {
     el.innerHTML = trashMarkup;
-    el.classList.remove("is-confirming-delete");
+    el.classList.remove("delete-confirm--armed");
     document.removeEventListener("mousedown", onOutside, true);
     document.removeEventListener("keydown", onKey, true);
     disarm = null;
@@ -61,7 +61,7 @@ export function wireDeleteConfirm(el, onConfirm, opts = {}) {
 
   const arm = () => {
     el.innerHTML = questionMarkup;
-    el.classList.add("is-confirming-delete");
+    el.classList.add("delete-confirm--armed");
     // Capture phase so an outside click cancels before any other handler acts.
     document.addEventListener("mousedown", onOutside, true);
     document.addEventListener("keydown", onKey, true);

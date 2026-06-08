@@ -37,11 +37,11 @@
 }
 
 /* Text input / select. Component classes may override height (e.g. dense
-   table rows use --control-h-xs) and background. .auth-field__input shares
+   table rows use --control-h-xs) and background. .auth-field-input shares
    this skeleton exactly, so it is grouped here; its own variants (password,
    pill-editor, decrypt-error) live in the AUTH section. */
 .input,
-.auth-field__input {
+.auth-field-input {
   width: 100%;
   height: var(--control-h-md);
   padding: 0 var(--space-3);
@@ -57,14 +57,14 @@
 }
 
 .input:focus,
-.auth-field__input:focus {
+.auth-field-input:focus {
   outline: none;
   border-color: var(--color-accent);
   background: var(--color-base);
 }
 
 .input::placeholder,
-.auth-field__input::placeholder {
+.auth-field-input::placeholder {
   color: var(--color-overlay-0);
   font-style: italic;
 }
@@ -181,7 +181,7 @@
 }
 
 /* Tree node rows */
-.tree-node__row {
+.tree-node-row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -194,24 +194,24 @@
   user-select: none;
 }
 
-.tree-node__row:hover {
+.tree-node-row:hover {
   background-color: var(--color-surface-1);
 }
 
-.tree-node--active > .tree-node__row {
+.tree-node--active > .tree-node-row {
   background-color: var(--color-surface-0);
   color: var(--color-accent);
 }
 
 /* Favorite star — overlaid in the row's left gutter so it does not shift the
    method badge / label (the row indent stays aligned with non-favorited rows). */
-.tree-node--request > .tree-node__row {
+.tree-node--request > .tree-node-row {
   position: relative;
 }
 
 /* Always present on request rows as an invisible double-click target in the
    left gutter; shows the star glyph (left-aligned) only while favorited. */
-.tree-node__star {
+.tree-node-star {
   position: absolute;
   left: -10px;
   top: 0;
@@ -226,7 +226,7 @@
   cursor: pointer;
 }
 
-.tree-node__icon {
+.tree-node-icon {
   display: flex;
   align-items: center;
   flex-shrink: 0;
@@ -238,11 +238,11 @@
   transition: color var(--transition-fast);
 }
 
-.tree-node__row:hover .tree-folder-icon {
+.tree-node-row:hover .tree-folder-icon {
   color: var(--color-accent);
 }
 
-.tree-node__label {
+.tree-node-label {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -256,18 +256,18 @@ mark.tree-highlight {
 }
 
 /* Info column (label + url subtitle) for request rows */
-.tree-node__info {
+.tree-node-info {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.tree-node__info .tree-node__label {
+.tree-node-info .tree-node-label {
   flex: none;
 }
 
-.tree-node__url {
+.tree-node-url {
   font-size: var(--font-size-xs, 10px);
   color: var(--color-overlay-0);
   font-family: var(--font-mono), monospace;
@@ -278,12 +278,12 @@ mark.tree-highlight {
   margin-top: 1px;
 }
 
-.tree-node__url:empty {
+.tree-node-url:empty {
   display: none;
 }
 
 /* Method badges */
-.tree-node__method {
+.tree-node-method {
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
@@ -302,49 +302,49 @@ mark.tree-highlight {
    rules still outrank their components' base colour exactly as before. */
 .method--get,
 .req-method-select[data-method="get"],
-.req-method-menu__item[data-method="get"],
+.req-method-menu-item[data-method="get"],
 .req-send-btn[data-method="get"],
 .res-tab-btn--styled-mode[data-method="get"] {
   color: var(--color-method-get);
 }
 .method--post,
 .req-method-select[data-method="post"],
-.req-method-menu__item[data-method="post"],
+.req-method-menu-item[data-method="post"],
 .req-send-btn[data-method="post"],
 .res-tab-btn--styled-mode[data-method="post"] {
   color: var(--color-method-post);
 }
 .method--put,
 .req-method-select[data-method="put"],
-.req-method-menu__item[data-method="put"],
+.req-method-menu-item[data-method="put"],
 .req-send-btn[data-method="put"],
 .res-tab-btn--styled-mode[data-method="put"] {
   color: var(--color-method-put);
 }
 .method--patch,
 .req-method-select[data-method="patch"],
-.req-method-menu__item[data-method="patch"],
+.req-method-menu-item[data-method="patch"],
 .req-send-btn[data-method="patch"],
 .res-tab-btn--styled-mode[data-method="patch"] {
   color: var(--color-method-patch);
 }
 .method--delete,
 .req-method-select[data-method="delete"],
-.req-method-menu__item[data-method="delete"],
+.req-method-menu-item[data-method="delete"],
 .req-send-btn[data-method="delete"],
 .res-tab-btn--styled-mode[data-method="delete"] {
   color: var(--color-method-delete);
 }
 .method--head,
 .req-method-select[data-method="head"],
-.req-method-menu__item[data-method="head"],
+.req-method-menu-item[data-method="head"],
 .req-send-btn[data-method="head"],
 .res-tab-btn--styled-mode[data-method="head"] {
   color: var(--color-method-head);
 }
 .method--options,
 .req-method-select[data-method="options"],
-.req-method-menu__item[data-method="options"],
+.req-method-menu-item[data-method="options"],
 .req-send-btn[data-method="options"],
 .res-tab-btn--styled-mode[data-method="options"] {
   color: var(--color-method-options);
@@ -378,59 +378,59 @@ mark.tree-highlight {
 
 .method--get,
 .req-method-select[data-method="get"],
-.req-method-menu__item[data-method="get"] {
+.req-method-menu-item[data-method="get"] {
   --method-icon: var(--method-icon-get);
 }
 .method--post,
 .req-method-select[data-method="post"],
-.req-method-menu__item[data-method="post"] {
+.req-method-menu-item[data-method="post"] {
   --method-icon: var(--method-icon-post);
 }
 .method--put,
 .req-method-select[data-method="put"],
-.req-method-menu__item[data-method="put"] {
+.req-method-menu-item[data-method="put"] {
   --method-icon: var(--method-icon-put);
 }
 .method--patch,
 .req-method-select[data-method="patch"],
-.req-method-menu__item[data-method="patch"] {
+.req-method-menu-item[data-method="patch"] {
   --method-icon: var(--method-icon-patch);
 }
 .method--delete,
 .req-method-select[data-method="delete"],
-.req-method-menu__item[data-method="delete"] {
+.req-method-menu-item[data-method="delete"] {
   --method-icon: var(--method-icon-delete);
 }
 .method--head,
 .req-method-select[data-method="head"],
-.req-method-menu__item[data-method="head"] {
+.req-method-menu-item[data-method="head"] {
   --method-icon: var(--method-icon-head);
 }
 .method--options,
 .req-method-select[data-method="options"],
-.req-method-menu__item[data-method="options"] {
+.req-method-menu-item[data-method="options"] {
   --method-icon: var(--method-icon-options);
 }
 /* WebSocket carries its identity via a class, not a data-method attribute. */
-.tree-node__method--ws,
-.req-method-select--ws .req-method-select__label {
+.tree-node-method--ws,
+.req-method-select--ws .req-method-select-label {
   --method-icon: var(--method-icon-ws);
 }
 
 /* Hide the text and tighten the tree badge so icons line up in a narrow column */
-html.show-method-icons .tree-node__method,
-html.show-method-icons .req-method-select__label,
-html.show-method-icons .req-method-menu__item-label {
+html.show-method-icons .tree-node-method,
+html.show-method-icons .req-method-select-label,
+html.show-method-icons .req-method-menu-item-label {
   font-size: 0;
 }
-html.show-method-icons .tree-node__method {
+html.show-method-icons .tree-node-method {
   min-width: 0;
   padding: 1px 4px;
 }
 
-html.show-method-icons .tree-node__method::before,
-html.show-method-icons .req-method-select__label::before,
-html.show-method-icons .req-method-menu__item-label::before {
+html.show-method-icons .tree-node-method::before,
+html.show-method-icons .req-method-select-label::before,
+html.show-method-icons .req-method-menu-item-label::before {
   content: "";
   display: inline-block;
   width: 15px;
@@ -491,7 +491,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   }
 }
 
-.tree-ctxmenu__item {
+.tree-ctxmenu-item {
   width: 100%;
   text-align: left;
   padding: var(--space-2) var(--space-4);
@@ -506,16 +506,16 @@ html.show-method-icons .req-method-menu__item-label::before {
   transition: background-color var(--transition-fast);
 }
 
-.tree-ctxmenu__item:hover {
+.tree-ctxmenu-item:hover {
   /* One surface step above the menu background */
   background-color: var(--color-surface-2);
 }
 
-.tree-ctxmenu__item--danger {
+.tree-ctxmenu-item--danger {
   color: var(--color-error);
 }
 
-.tree-ctxmenu__item--danger:hover {
+.tree-ctxmenu-item--danger:hover {
   background-color: var(--color-error);
   color: var(--color-base);
 }
@@ -523,7 +523,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 /* Inline-confirm state: the menu item transforms into a button waiting for a
    second click. It renders as a filled, pill-shaped button inset within the
    menu row so it looks clearly actionable and distinct from a plain text item. */
-.tree-ctxmenu__item--confirming {
+.tree-ctxmenu-item--confirming {
   /* Inset from the menu edges so the button shape is clearly visible */
   display: block;
   width: auto;
@@ -543,14 +543,14 @@ html.show-method-icons .req-method-menu__item-label::before {
   transition: opacity var(--transition-fast);
 }
 
-.tree-ctxmenu__item--confirming:hover {
+.tree-ctxmenu-item--confirming:hover {
   /* Keep the same colour — just dim slightly on hover to signal interactivity */
   background-color: var(--color-warning);
   color: var(--color-base);
   opacity: 0.85;
 }
 
-.tree-ctxmenu__separator {
+.tree-ctxmenu-separator {
   height: 1px;
   background: var(--color-surface-2);
   margin: var(--space-2) 0;
@@ -571,7 +571,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 /* ── Inline rename input ─────────────────────────────────────────────────── */
 
-.tree-node__rename-input {
+.tree-node-rename-input {
   flex: 1;
   min-width: 0;
   height: 20px;
@@ -623,11 +623,11 @@ html.show-method-icons .req-method-menu__item-label::before {
   flex: 0 0 auto;
 }
 
-.req-method-select__label {
+.req-method-select-label {
   flex: 0 0 auto;
 }
 
-.req-method-select__chevron {
+.req-method-select-chevron {
   opacity: 0.45;
   flex-shrink: 0;
   width: 6px;
@@ -652,7 +652,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   animation: ctxmenu-open 0.08s ease-out;
 }
 
-.req-method-menu__item {
+.req-method-menu-item {
   display: flex;
   align-items: center;
   padding: var(--space-2) var(--space-4);
@@ -665,11 +665,11 @@ html.show-method-icons .req-method-menu__item-label::before {
   transition: background-color var(--transition-fast);
 }
 
-.req-method-menu__item:hover {
+.req-method-menu-item:hover {
   background-color: var(--color-surface-2);
 }
 
-.req-method-menu__item-check {
+.req-method-menu-item-check {
   width: 16px;
   flex-shrink: 0;
   display: flex;
@@ -677,27 +677,27 @@ html.show-method-icons .req-method-menu__item-label::before {
   color: var(--color-method-get);
 }
 
-.req-method-menu__check-icon {
+.req-method-menu-check-icon {
   display: none;
 }
 
-.req-method-menu__item--selected .req-method-menu__check-icon {
+.req-method-menu-item--selected .req-method-menu-check-icon {
   display: block;
 }
 
-.req-method-menu__separator {
+.req-method-menu-separator {
   height: 1px;
   background: var(--color-surface-2);
   margin: var(--space-2) 0;
 }
 
-.req-method-menu__custom-row {
+.req-method-menu-custom-row {
   display: flex;
   align-items: center;
   padding: 0 var(--space-4);
 }
 
-.req-method-menu__custom-input {
+.req-method-menu-custom-input {
   flex: 1;
   padding: var(--space-2) 0;
   background: transparent;
@@ -711,7 +711,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   min-width: 0;
 }
 
-.req-method-menu__custom-input::placeholder {
+.req-method-menu-custom-input::placeholder {
   color: var(--color-subtext);
   font-weight: 400;
 }
@@ -997,7 +997,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 /* Translated by JS to track the textarea's vertical scroll. */
-.body-fold-gutter__inner {
+.body-fold-gutter-inner {
   padding-top: var(--space-4); /* match the editor's top padding */
   will-change: transform;
 }
@@ -1057,7 +1057,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   pointer-events: none;
 }
 
-.body-gql-markers__inner {
+.body-gql-markers-inner {
   position: absolute;
   inset: 0;
   will-change: transform;
@@ -1162,7 +1162,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   padding: var(--space-1) var(--space-2);
 }
 
-.body-graphql-pane__label {
+.body-graphql-pane-label {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -1237,7 +1237,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   max-height: 240px;
   min-width: 240px;
 }
-.gql-autocomplete .hdr-autocomplete__item {
+.gql-autocomplete .hdr-autocomplete-item {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -1251,8 +1251,8 @@ html.show-method-icons .req-method-menu__item-label::before {
   font-size: var(--font-size-xs);
   color: var(--color-overlay-0);
 }
-.gql-autocomplete .hdr-autocomplete__item:hover .gql-ac-detail,
-.gql-autocomplete .hdr-autocomplete__item--active .gql-ac-detail {
+.gql-autocomplete .hdr-autocomplete-item:hover .gql-ac-detail,
+.gql-autocomplete .hdr-autocomplete-item--active .gql-ac-detail {
   color: inherit;
 }
 
@@ -1281,20 +1281,20 @@ html.show-method-icons .req-method-menu__item-label::before {
   color: var(--color-accent);
 }
 
-.body-file-zone__icon {
+.body-file-zone-icon {
   opacity: 0.5;
 }
-.body-file-zone--over .body-file-zone__icon {
+.body-file-zone--over .body-file-zone-icon {
   opacity: 1;
 }
 
-.body-file-zone__label {
+.body-file-zone-label {
   font-size: var(--font-size-md);
   font-weight: 600;
   margin: 0;
 }
 
-.body-file-zone__sub {
+.body-file-zone-sub {
   font-size: var(--font-size-sm);
   margin: 0;
 }
@@ -1332,12 +1332,12 @@ html.show-method-icons .req-method-menu__item-label::before {
   margin: var(--space-5);
 }
 
-.body-file-chosen__icon {
+.body-file-chosen-icon {
   color: var(--color-accent);
   flex-shrink: 0;
 }
 
-.body-file-chosen__path {
+.body-file-chosen-path {
   flex: 1;
   font-family: var(--font-mono), monospace;
   font-size: var(--font-size-sm);
@@ -1445,7 +1445,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   display: none;
 }
 
-.params-url-preview__input {
+.params-url-preview-input {
   flex: 1;
   min-width: 0;
   height: var(--control-h-sm);
@@ -1466,13 +1466,13 @@ html.show-method-icons .req-method-menu__item-label::before {
   user-select: none;
 }
 
-.params-url-preview__input:focus {
+.params-url-preview-input:focus {
   border-color: var(--color-accent);
 }
 
 /* focus state intentionally omitted — pointer-events:none prevents focus */
 
-.params-url-preview__copy-btn {
+.params-url-preview-copy-btn {
   flex-shrink: 0;
   height: var(--control-h-sm);
   padding: 0 var(--space-3);
@@ -1487,7 +1487,7 @@ html.show-method-icons .req-method-menu__item-label::before {
     color var(--transition-fast);
 }
 
-.params-url-preview__copy-btn:hover {
+.params-url-preview-copy-btn:hover {
   background-color: var(--color-surface-1);
   color: var(--color-text);
 }
@@ -1543,7 +1543,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   padding: 0 var(--space-2);
   height: var(--control-h-sm);
 }
-.params-toolbar-toggle-label.is-hidden {
+.params-toolbar-toggle-label--hidden {
   display: none;
 }
 
@@ -1553,7 +1553,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   gap: var(--space-2);
   margin-left: var(--space-3);
 }
-.body-form-toolbar-group.is-hidden {
+.body-form-toolbar-group--hidden {
   display: none;
 }
 
@@ -1861,11 +1861,11 @@ html.show-method-icons .req-method-menu__item-label::before {
   justify-self: center;
 }
 
-.params-secure-btn.is-active {
+.params-secure-btn--active {
   color: var(--color-accent);
 }
 
-.params-secure-btn.is-active:hover {
+.params-secure-btn--active:hover {
   color: var(--color-accent);
 }
 
@@ -1888,7 +1888,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   display: block;
 }
 
-.hdr-autocomplete__item {
+.hdr-autocomplete-item {
   padding: 3px var(--space-3);
   font-size: var(--font-size-sm);
   font-family: var(--font-mono), monospace;
@@ -1899,8 +1899,8 @@ html.show-method-icons .req-method-menu__item-label::before {
   text-overflow: ellipsis;
 }
 
-.hdr-autocomplete__item:hover,
-.hdr-autocomplete__item--active {
+.hdr-autocomplete-item:hover,
+.hdr-autocomplete-item--active {
   background: var(--color-surface-1);
   color: var(--color-accent);
 }
@@ -1921,19 +1921,19 @@ html.show-method-icons .req-method-menu__item-label::before {
   min-width: 280px;
 }
 
-.apikey-autocomplete__item {
+.apikey-autocomplete-item {
   display: flex;
   flex-direction: column;
   gap: 1px;
   white-space: normal;
 }
 
-.apikey-autocomplete__name {
+.apikey-autocomplete-name {
   font-family: var(--font-mono), monospace;
   font-size: var(--font-size-sm);
 }
 
-.apikey-autocomplete__comment {
+.apikey-autocomplete-comment {
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   color: var(--color-overlay-0);
@@ -1959,8 +1959,8 @@ html.show-method-icons .req-method-menu__item-label::before {
 /* Armed delete confirm: the trash icon has become a "?" awaiting a second,
  * confirming click. Shared by every trash-delete control (see
  * delete-confirm.js); holds the warning colour even on hover. */
-.is-confirming-delete,
-.is-confirming-delete:hover {
+.delete-confirm--armed,
+.delete-confirm--armed:hover {
   color: var(--color-warning);
   background-color: color-mix(in srgb, var(--color-warning) 15%, transparent);
 }
@@ -2005,7 +2005,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   gap: var(--space-4);
 }
 
-.auth-field__label {
+.auth-field-label {
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-subtext);
@@ -2017,13 +2017,13 @@ html.show-method-icons .req-method-menu__item-label::before {
 /* Base skeleton, :focus and ::placeholder are shared with .input (grouped in
    the generic input section near the top of this file). Only auth-specific
    variants live here. */
-.auth-field__input[type="password"] {
+.auth-field-input[type="password"] {
   font-family: var(--font-mono), monospace;
   letter-spacing: 0.1em;
 }
 
-/* Pill editor variant of auth-field__input — overrides params-input sizing */
-.pill-editor.auth-field__input {
+/* Pill editor variant of auth-field-input — overrides params-input sizing */
+.pill-editor.auth-field-input {
   height: auto;
   min-height: var(--control-h-md);
   display: flex;
@@ -2037,30 +2037,30 @@ html.show-method-icons .req-method-menu__item-label::before {
   cursor: text;
 }
 
-.pill-editor.auth-field__input:focus,
-.pill-editor.auth-field__input:focus-within {
+.pill-editor.auth-field-input:focus,
+.pill-editor.auth-field-input:focus-within {
   outline: none;
   border-color: var(--color-accent);
   background: var(--color-base);
 }
 
-.pill-editor.auth-field__input:hover:not(:focus):not(:focus-within) {
+.pill-editor.auth-field-input:hover:not(:focus):not(:focus-within) {
   border-color: var(--color-surface-2);
 }
 
-.pill-editor.auth-field__input[data-empty="true"]::before {
+.pill-editor.auth-field-input[data-empty="true"]::before {
   content: attr(data-placeholder);
   color: var(--color-overlay-0);
   font-style: italic;
   pointer-events: none;
 }
 
-.auth-field__select {
+.auth-field-select {
   cursor: pointer;
 }
 
 /* Hint text — sits in the second grid column below the input */
-.auth-field__hint {
+.auth-field-hint {
   grid-column: 2;
   font-size: var(--font-size-xs);
   color: var(--color-overlay-0);
@@ -2068,11 +2068,11 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 /* Inline notice shown when a stored secret could not be decrypted. */
-.auth-field--decrypt-error .auth-field__input {
+.auth-field--decrypt-error .auth-field-input {
   border-color: var(--color-error);
 }
 
-.auth-field__decrypt-warning {
+.auth-field-decrypt-warning {
   grid-column: 2;
   font-size: var(--font-size-xs);
   color: var(--color-error);
@@ -2090,16 +2090,16 @@ html.show-method-icons .req-method-menu__item-label::before {
   gap: var(--space-2);
 }
 
-.secret-field .secret-field__input {
+.secret-field .secret-field-input {
   flex: 1;
   min-width: 0;
 }
 
-.secret-field.is-masked .secret-field__input {
+.secret-field--masked .secret-field-input {
   -webkit-text-security: disc;
 }
 
-.secret-field.is-masked .secret-field__input .variable-pill {
+.secret-field--masked .secret-field-input .variable-pill {
   -webkit-text-security: none;
 }
 
@@ -2108,11 +2108,11 @@ html.show-method-icons .req-method-menu__item-label::before {
  * placeholder hint — a ::before whose content is the field label, e.g. "Client
  * Secret" — into a meaningless row of discs. data-empty clears the instant the
  * user types, so masking re-engages atomically with the first character. */
-.secret-field.is-masked .secret-field__input[data-empty="true"] {
+.secret-field--masked .secret-field-input[data-empty="true"] {
   -webkit-text-security: none;
 }
 
-.secret-field__toggle {
+.secret-field-toggle {
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -2131,7 +2131,7 @@ html.show-method-icons .req-method-menu__item-label::before {
     background-color var(--transition-fast);
 }
 
-.secret-field__toggle:hover {
+.secret-field-toggle:hover {
   border-color: var(--color-accent);
   color: var(--color-accent);
   background: var(--color-base);
@@ -3216,7 +3216,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   overscroll-behavior: contain;
 }
 
-.timeline-tooltip__section {
+.timeline-tooltip-section {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3229,13 +3229,13 @@ html.show-method-icons .req-method-menu__item-label::before {
   user-select: none;
 }
 
-.timeline-tooltip__section + .timeline-tooltip__section {
+.timeline-tooltip-section + .timeline-tooltip-section {
   border-top: 1px solid
     color-mix(in srgb, var(--color-surface-2) 50%, transparent);
   margin-top: var(--space-2);
 }
 
-.timeline-tooltip__copy-btn {
+.timeline-tooltip-copy-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3249,16 +3249,16 @@ html.show-method-icons .req-method-menu__item-label::before {
     background-color var(--transition-fast);
 }
 
-.timeline-tooltip__copy-btn:hover {
+.timeline-tooltip-copy-btn:hover {
   color: var(--color-accent);
   background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
-.timeline-tooltip__copy-btn--copied {
+.timeline-tooltip-copy-btn--copied {
   color: var(--color-success) !important;
 }
 
-.timeline-tooltip__value {
+.timeline-tooltip-value {
   padding: 1px var(--space-4) 1px var(--space-6);
   font-size: var(--font-size-xs);
   color: var(--color-text);
@@ -3266,14 +3266,14 @@ html.show-method-icons .req-method-menu__item-label::before {
   line-height: 1.5;
 }
 
-.timeline-tooltip__none {
+.timeline-tooltip-none {
   padding: 1px var(--space-4) 1px var(--space-6);
   font-size: var(--font-size-xs);
   color: var(--color-overlay-0);
   font-style: italic;
 }
 
-.timeline-tooltip__kv {
+.timeline-tooltip-kv {
   padding: 1px var(--space-4) 1px var(--space-6);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
@@ -3282,7 +3282,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   line-height: 1.5;
 }
 
-.timeline-tooltip__kv--disabled {
+.timeline-tooltip-kv--disabled {
   color: var(--color-overlay-0);
 }
 
@@ -3688,7 +3688,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   color: var(--color-text);
 }
 
-.settings-nav-item.is-active {
+.settings-nav-item--active {
   background: var(--color-accent);
   color: var(--color-crust);
   font-weight: 600;
@@ -3827,7 +3827,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 }
 
 /* Dim the credential fields while proxy authentication is turned off. */
-.settings-row--credentials.is-disabled {
+.settings-row--credentials.settings-row--disabled {
   opacity: 0.5;
 }
 
@@ -3925,8 +3925,8 @@ html.show-method-icons .req-method-menu__item-label::before {
   color: var(--color-text);
 }
 
-.coll-tab.is-active,
-.env-tab.is-active {
+.coll-tab--active,
+.env-tab--active {
   color: var(--color-accent);
   border-bottom-color: var(--color-accent);
   font-weight: 600;
@@ -4039,7 +4039,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 
-.coll-list-item__check {
+.coll-list-item-check {
   width: 18px;
   flex-shrink: 0;
   display: flex;
@@ -4048,7 +4048,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   color: var(--color-accent);
 }
 
-.coll-list-item__name {
+.coll-list-item-name {
   flex: 1;
   text-align: left;
   font-size: var(--font-size-sm);
@@ -4063,16 +4063,16 @@ html.show-method-icons .req-method-menu__item-label::before {
   min-width: 0;
 }
 
-.coll-list-item--active .coll-list-item__name {
+.coll-list-item--active .coll-list-item-name {
   color: var(--color-accent);
   font-weight: 600;
 }
 
-.coll-list-item__name:hover {
+.coll-list-item-name:hover {
   text-decoration: underline;
 }
 
-.coll-list-item__actions {
+.coll-list-item-actions {
   display: flex;
   gap: var(--space-2);
   flex-shrink: 0;
@@ -4081,9 +4081,9 @@ html.show-method-icons .req-method-menu__item-label::before {
   transition: opacity var(--transition-fast);
 }
 
-.coll-list-item:hover .coll-list-item__actions,
-.coll-list-item--active .coll-list-item__actions,
-.coll-list-item--selected .coll-list-item__actions {
+.coll-list-item:hover .coll-list-item-actions,
+.coll-list-item--active .coll-list-item-actions,
+.coll-list-item--selected .coll-list-item-actions {
   opacity: 1;
 }
 
@@ -4233,7 +4233,7 @@ html.show-method-icons .req-method-menu__item-label::before {
 
 /*
  * Reset button in the "awaiting second click" confirm state.
- * Exact same visual language as .tree-ctxmenu__item--confirming.
+ * Exact same visual language as .tree-ctxmenu-item--confirming.
  */
 .popup-btn--warning {
   background-color: var(--color-warning);
@@ -4413,7 +4413,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 
-.env-list-item__check {
+.env-list-item-check {
   width: 18px;
   flex-shrink: 0;
   display: flex;
@@ -4422,7 +4422,7 @@ html.show-method-icons .req-method-menu__item-label::before {
   color: var(--color-accent);
 }
 
-.env-list-item__name {
+.env-list-item-name {
   flex: 1;
   text-align: left;
   font-size: var(--font-size-sm);
@@ -4437,16 +4437,16 @@ html.show-method-icons .req-method-menu__item-label::before {
   min-width: 0;
 }
 
-.env-list-item--active .env-list-item__name {
+.env-list-item--active .env-list-item-name {
   color: var(--color-accent);
   font-weight: 600;
 }
 
-.env-list-item__name:hover {
+.env-list-item-name:hover {
   text-decoration: underline;
 }
 
-.env-list-item__actions {
+.env-list-item-actions {
   display: flex;
   gap: var(--space-2);
   flex-shrink: 0;
@@ -4454,20 +4454,20 @@ html.show-method-icons .req-method-menu__item-label::before {
   transition: opacity var(--transition-fast);
 }
 
-.env-list-item:hover .env-list-item__actions,
-.env-list-item--active .env-list-item__actions,
-.env-list-item--selected .env-list-item__actions {
+.env-list-item:hover .env-list-item-actions,
+.env-list-item--active .env-list-item-actions,
+.env-list-item--selected .env-list-item-actions {
   opacity: 1;
 }
 
-.env-list-item__drag {
+.env-list-item-drag {
   opacity: 0;
   transition: opacity var(--transition-fast);
   width: 16px;
   height: 16px;
 }
 
-.env-list-item:hover .env-list-item__drag {
+.env-list-item:hover .env-list-item-drag {
   opacity: 1;
 }
 
@@ -4867,7 +4867,7 @@ input[type="checkbox"]:disabled {
   margin-left: auto;
 }
 
-/* The shared `.secret-field__toggle` sets `display: flex`, which (as an author
+/* The shared `.secret-field-toggle` sets `display: flex`, which (as an author
    rule) overrides the UA `[hidden] { display: none }` — leaving an empty button
    visible for non-secure variables. Re-assert hiding when `hidden` is set. */
 .pill-editor-preview-reveal[hidden] {
@@ -4975,7 +4975,7 @@ input[type="checkbox"]:disabled {
   overscroll-behavior: contain;
 }
 
-.pill-picker__section {
+.pill-picker-section {
   padding: var(--space-2) var(--space-4);
   font-size: var(--font-size-xs);
   font-weight: 600;
@@ -4986,7 +4986,7 @@ input[type="checkbox"]:disabled {
   user-select: none;
 }
 
-.pill-picker__subsection {
+.pill-picker-subsection {
   padding: 2px var(--space-4) 2px var(--space-6);
   font-size: var(--font-size-xs);
   font-weight: 500;
@@ -4995,7 +4995,7 @@ input[type="checkbox"]:disabled {
   user-select: none;
 }
 
-.pill-picker__item {
+.pill-picker-item {
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
@@ -5004,26 +5004,26 @@ input[type="checkbox"]:disabled {
   user-select: none;
 }
 
-.pill-picker__item--indented {
+.pill-picker-item--indented {
   padding-left: calc(var(--space-6) + var(--space-4));
 }
 
-.pill-picker__item--active {
+.pill-picker-item--active {
   background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
-.pill-picker__item-name {
+.pill-picker-item-name {
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   color: var(--color-text);
   flex-shrink: 0;
 }
 
-.pill-picker__item--active .pill-picker__item-name {
+.pill-picker-item--active .pill-picker-item-name {
   color: var(--color-accent);
 }
 
-.pill-picker__item-desc {
+.pill-picker-item-desc {
   font-size: var(--font-size-xs);
   color: var(--color-subtext);
   white-space: nowrap;
@@ -5033,7 +5033,7 @@ input[type="checkbox"]:disabled {
   min-width: 0;
 }
 
-.pill-picker__empty {
+.pill-picker-empty {
   padding: var(--space-4);
   font-size: var(--font-size-sm);
   color: var(--color-subtext);
@@ -5044,7 +5044,7 @@ input[type="checkbox"]:disabled {
 /* ── Layout picker (.layout-picker__*) ────────────────────────────────────── */
 
 /* Trigger — styled like .req-method-select */
-.layout-picker__trigger {
+.layout-picker-trigger {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -5061,27 +5061,27 @@ input[type="checkbox"]:disabled {
     border-color var(--transition-fast);
 }
 
-.layout-picker__trigger:hover {
+.layout-picker-trigger:hover {
   background-color: var(--color-surface-2);
   border-color: var(--color-accent);
 }
 
-.layout-picker__trigger:active {
+.layout-picker-trigger:active {
   background-color: var(--color-surface-2);
 }
 
-.layout-picker__icon {
+.layout-picker-icon {
   display: flex;
   align-items: center;
   line-height: 0;
 }
 
-.layout-picker__icon svg {
+.layout-picker-icon svg {
   width: 28px;
   height: 20px;
 }
 
-.layout-picker__chevron {
+.layout-picker-chevron {
   opacity: 0.45;
   flex-shrink: 0;
   width: 6px;
@@ -5089,7 +5089,7 @@ input[type="checkbox"]:disabled {
 }
 
 /* Dropdown menu */
-.layout-picker__menu {
+.layout-picker-menu {
   position: fixed;
   z-index: 900;
   min-width: 195px;
@@ -5102,7 +5102,7 @@ input[type="checkbox"]:disabled {
   animation: ctxmenu-open 0.08s ease-out;
 }
 
-.layout-picker__item {
+.layout-picker-item {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -5114,16 +5114,16 @@ input[type="checkbox"]:disabled {
   color: var(--color-text);
 }
 
-.layout-picker__item:hover {
+.layout-picker-item:hover {
   background-color: var(--color-surface-2);
 }
 
-.layout-picker__item--selected {
+.layout-picker-item--selected {
   color: var(--color-accent);
 }
 
 /* Checkmark column — always the same width so icons stay aligned */
-.layout-picker__item-check {
+.layout-picker-item-check {
   width: 14px;
   flex-shrink: 0;
   display: flex;
@@ -5131,34 +5131,34 @@ input[type="checkbox"]:disabled {
   color: var(--color-accent);
 }
 
-.layout-picker__item-check svg {
+.layout-picker-item-check svg {
   display: none;
 }
 
-.layout-picker__item--selected .layout-picker__item-check svg {
+.layout-picker-item--selected .layout-picker-item-check svg {
   display: block;
 }
 
-.layout-picker__item-icon {
+.layout-picker-item-icon {
   display: flex;
   align-items: center;
   line-height: 0;
   flex-shrink: 0;
 }
 
-.layout-picker__item-icon svg {
+.layout-picker-item-icon svg {
   width: 36px;
   height: 25px;
 }
 
-.layout-picker__item-label {
+.layout-picker-item-label {
   font-size: var(--font-size-sm);
   white-space: nowrap;
 }
 
 /* ── Environment picker (.env-picker__*) ──────────────────────────────────── */
 
-.env-picker__trigger {
+.env-picker-trigger {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -5178,22 +5178,22 @@ input[type="checkbox"]:disabled {
     border-color var(--transition-fast);
 }
 
-.env-picker__trigger:hover {
+.env-picker-trigger:hover {
   background-color: var(--color-surface-2);
   border-color: var(--color-accent);
 }
 
-.env-picker__trigger--active {
+.env-picker-trigger--active {
   color: var(--color-accent);
 }
 
-.env-picker__globe {
+.env-picker-globe {
   flex-shrink: 0;
   line-height: 0;
   opacity: 0.6;
 }
 
-.env-picker__label {
+.env-picker-label {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

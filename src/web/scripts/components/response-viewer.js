@@ -2682,24 +2682,24 @@ export class ResponseViewer {
 
   #appendTTSection(parent, label, copyText = null) {
     const row = document.createElement("div");
-    row.className = "timeline-tooltip__section";
+    row.className = "timeline-tooltip-section";
     const lbl = document.createElement("span");
     lbl.textContent = label;
     row.appendChild(lbl);
     if (copyText) {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "timeline-tooltip__copy-btn";
+      btn.className = "timeline-tooltip-copy-btn";
       btn.title = `Copy ${label.toLowerCase()} to clipboard`;
       btn.innerHTML = ResponseViewer.#SVG_COPY;
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         navigator.clipboard.writeText(copyText).then(() => {
           btn.innerHTML = ResponseViewer.#SVG_CHECK;
-          btn.classList.add("timeline-tooltip__copy-btn--copied");
+          btn.classList.add("timeline-tooltip-copy-btn--copied");
           setTimeout(() => {
             btn.innerHTML = ResponseViewer.#SVG_COPY;
-            btn.classList.remove("timeline-tooltip__copy-btn--copied");
+            btn.classList.remove("timeline-tooltip-copy-btn--copied");
           }, 1500);
         });
       });
@@ -2710,14 +2710,14 @@ export class ResponseViewer {
 
   #appendTTValue(parent, text) {
     const el = document.createElement("div");
-    el.className = "timeline-tooltip__value";
+    el.className = "timeline-tooltip-value";
     el.textContent = text;
     parent.appendChild(el);
   }
 
   #appendTTNone(parent) {
     const el = document.createElement("div");
-    el.className = "timeline-tooltip__none";
+    el.className = "timeline-tooltip-none";
     el.textContent = "none";
     parent.appendChild(el);
   }
@@ -2745,8 +2745,7 @@ export class ResponseViewer {
   #appendTTLine(parent, text, enabled = true) {
     const el = document.createElement("div");
     el.className =
-      "timeline-tooltip__kv" +
-      (enabled ? "" : " timeline-tooltip__kv--disabled");
+      "timeline-tooltip-kv" + (enabled ? "" : " timeline-tooltip-kv--disabled");
     el.textContent = text;
     parent.appendChild(el);
   }

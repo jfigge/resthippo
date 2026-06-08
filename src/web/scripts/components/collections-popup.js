@@ -269,13 +269,13 @@ export class CollectionsPopup {
         </div>
         <div class="coll-main">
           <div class="coll-tabs" role="tablist" aria-label="Collection editor">
-            <button class="coll-tab is-active" role="tab" aria-selected="true"
+            <button class="coll-tab coll-tab--active" role="tab" aria-selected="true"
                     data-panel="vars" type="button">Variables</button>
             <button class="coll-tab" role="tab" aria-selected="false"
                     data-panel="cookies" type="button">Cookies</button>
           </div>
           <div class="coll-panels">
-            <section class="coll-panel coll-panel--vars is-active"
+            <section class="coll-panel coll-panel--vars"
                      data-panel="vars" role="tabpanel" aria-label="Variables">
               <div class="coll-vars-toolbar">
                 <label class="params-toolbar-toggle-label coll-bulk-label"
@@ -379,12 +379,11 @@ export class CollectionsPopup {
     this.#activeTab = name;
     this.#el.querySelectorAll(".coll-tab").forEach((tab) => {
       const active = tab.dataset.panel === name;
-      tab.classList.toggle("is-active", active);
+      tab.classList.toggle("coll-tab--active", active);
       tab.setAttribute("aria-selected", String(active));
     });
     this.#el.querySelectorAll(".coll-panel").forEach((panel) => {
       const active = panel.dataset.panel === name;
-      panel.classList.toggle("is-active", active);
       panel.hidden = !active;
     });
     if (name === "cookies") this.#reloadCookies();
@@ -437,17 +436,17 @@ export class CollectionsPopup {
     li.setAttribute("aria-selected", String(isActive));
 
     const check = document.createElement("span");
-    check.className = "coll-list-item__check";
+    check.className = "coll-list-item-check";
     check.innerHTML = isActive ? ICON_CHECK : "";
 
     const nameBtn = document.createElement("button");
-    nameBtn.className = "coll-list-item__name";
+    nameBtn.className = "coll-list-item-name";
     nameBtn.textContent = collection.name;
     nameBtn.setAttribute("aria-label", `Select ${collection.name}`);
     nameBtn.addEventListener("click", () => this.#selectColl(collection.id));
 
     const actions = document.createElement("div");
-    actions.className = "coll-list-item__actions";
+    actions.className = "coll-list-item-actions";
 
     const renameBtn = document.createElement("button");
     renameBtn.className = "coll-action-btn";
@@ -483,7 +482,7 @@ export class CollectionsPopup {
       (active ? " coll-list-item--active" : "");
 
     const check = document.createElement("span");
-    check.className = "coll-list-item__check";
+    check.className = "coll-list-item-check";
     check.innerHTML = active ? ICON_CHECK : "";
 
     const input = document.createElement("input");
@@ -829,7 +828,7 @@ export class CollectionsPopup {
     secure.type = "button";
     secure.className = "icon-btn params-secure-btn";
     const applySecure = () => {
-      secure.classList.toggle("is-active", !!row.secure);
+      secure.classList.toggle("params-secure-btn--active", !!row.secure);
       secure.innerHTML = icon(row.secure ? "lock" : "lockOpen", { size: 14 });
       const label = row.secure
         ? "Secure (encrypted at rest)"

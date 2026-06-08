@@ -404,7 +404,7 @@ export class VariablesPopup {
     secure.type = "button";
     secure.className = "icon-btn params-secure-btn";
     const applySecure = () => {
-      secure.classList.toggle("is-active", !!row.secure);
+      secure.classList.toggle("params-secure-btn--active", !!row.secure);
       secure.innerHTML = icon(row.secure ? "lock" : "lockOpen", { size: 14 });
       const label = row.secure
         ? "Secure (encrypted at rest)"

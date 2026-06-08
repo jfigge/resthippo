@@ -87,7 +87,7 @@ export class AutocompleteDropdown {
 
     entries.forEach((entry, i) => {
       const item = document.createElement("div");
-      item.className = "hdr-autocomplete__item";
+      item.className = "hdr-autocomplete-item";
       item.setAttribute("role", "option");
       item.setAttribute("aria-selected", "false");
       item.dataset.idx = String(i);
@@ -132,16 +132,16 @@ export class AutocompleteDropdown {
   /** Move keyboard focus within the dropdown; wraps around. */
   navigate(dir) {
     if (!this.#el) return;
-    const items = [...this.#el.querySelectorAll(".hdr-autocomplete__item")];
+    const items = [...this.#el.querySelectorAll(".hdr-autocomplete-item")];
     if (!items.length) return;
 
-    items[this.#activeIdx]?.classList.remove("hdr-autocomplete__item--active");
+    items[this.#activeIdx]?.classList.remove("hdr-autocomplete-item--active");
     items[this.#activeIdx]?.setAttribute("aria-selected", "false");
 
     this.#activeIdx = (this.#activeIdx + dir + items.length) % items.length;
 
     const active = items[this.#activeIdx];
-    active.classList.add("hdr-autocomplete__item--active");
+    active.classList.add("hdr-autocomplete-item--active");
     active.setAttribute("aria-selected", "true");
     active.scrollIntoView({ block: "nearest" });
   }
@@ -149,7 +149,7 @@ export class AutocompleteDropdown {
   /** Label of the keyboard-focused item, or null when none is focused. */
   activeLabel() {
     if (!this.#el || this.#activeIdx < 0) return null;
-    const items = this.#el.querySelectorAll(".hdr-autocomplete__item");
+    const items = this.#el.querySelectorAll(".hdr-autocomplete-item");
     const active = items[this.#activeIdx];
     if (!active) return null;
     return active.dataset.value ?? active.textContent ?? null;

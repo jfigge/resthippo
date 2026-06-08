@@ -405,9 +405,7 @@ export class TreeView {
       if (!id) return; // skip quick-list rows (they use data-qa-id)
       const fav = this.#favoriteIds.has(id);
       li.classList.toggle("tree-node--favorite", fav);
-      const hot = li.querySelector(
-        ":scope > .tree-node__row > .tree-node__star",
-      );
+      const hot = li.querySelector(":scope > .tree-node-row > .tree-node-star");
       if (hot) this.#updateHotspot(hot, fav);
     });
   }
@@ -422,7 +420,7 @@ export class TreeView {
    */
   #makeFavHotspot(requestId) {
     const hot = document.createElement("span");
-    hot.className = "tree-node__star";
+    hot.className = "tree-node-star";
     hot.setAttribute("aria-hidden", "true");
     this.#updateHotspot(hot, this.#favoriteIds.has(requestId));
     hot.addEventListener("click", (e) => {
@@ -503,13 +501,13 @@ export class TreeView {
     if (isFav) li.classList.add("tree-node--favorite");
 
     li.innerHTML = `
-      <div class="tree-node__row" tabindex="0">
+      <div class="tree-node-row" tabindex="0">
         ${this.#methodBadgeHtml(entry.protocol, entry.method)}
-        <span class="tree-node__label">${escapeHtml(entry.name || "(unnamed)")}</span>
+        <span class="tree-node-label">${escapeHtml(entry.name || "(unnamed)")}</span>
       </div>
     `;
 
-    const row = li.querySelector(".tree-node__row");
+    const row = li.querySelector(".tree-node-row");
     if (isFav)
       row.insertBefore(this.#makeFavHotspot(entry.requestId), row.firstChild);
     const open = () =>
@@ -742,7 +740,7 @@ export class TreeView {
    */
   #methodBadgeHtml(protocol, method) {
     if (protocol === "websocket") {
-      return `<span class="tree-node__method tree-node__method--ws" title="WebSocket">WS</span>`;
+      return `<span class="tree-node-method tree-node-method--ws" title="WebSocket">WS</span>`;
     }
     const m = method ?? "GET";
     const title = document.documentElement.classList.contains(
@@ -750,7 +748,7 @@ export class TreeView {
     )
       ? ` title="${escapeHtml(m)}"`
       : "";
-    return `<span class="tree-node__method method--${m.toLowerCase()}"${title}>${escapeHtml(m)}</span>`;
+    return `<span class="tree-node-method method--${m.toLowerCase()}"${title}>${escapeHtml(m)}</span>`;
   }
 
   // ── Mutations — toolbar ─────────────────────────────────────────────────
@@ -905,7 +903,7 @@ export class TreeView {
   #renameNode(nodeId) {
     const li = this.#el.querySelector(`[data-id="${CSS.escape(nodeId)}"]`);
     if (!li) return;
-    const labelEl = li.querySelector(".tree-node__label");
+    const labelEl = li.querySelector(".tree-node-label");
     if (!labelEl) return;
 
     const originalName = labelEl.textContent;
@@ -913,7 +911,7 @@ export class TreeView {
     const input = document.createElement("input");
     input.type = "text";
     input.value = originalName;
-    input.className = "tree-node__rename-input";
+    input.className = "tree-node-rename-input";
     input.setAttribute("aria-label", "Rename");
     labelEl.replaceWith(input);
     input.select();
@@ -938,7 +936,7 @@ export class TreeView {
         // Cancel: restore original without saving
         input.removeEventListener("blur", commit);
         const span = document.createElement("span");
-        span.className = "tree-node__label";
+        span.className = "tree-node-label";
         span.textContent = originalName;
         input.replaceWith(span);
       }
@@ -1615,15 +1613,15 @@ export class TreeView {
       li.classList.add("tree-node--collection");
       li.setAttribute("aria-expanded", String(isExpanded));
       li.innerHTML = `
-        <div class="tree-node__row" tabindex="0">
-          <span class="tree-node__icon">${isExpanded ? ICON_FOLDER_OPEN : ICON_FOLDER_CLOSED}</span>
-          <span class="tree-node__label">${escapeHtml(node.name)}</span>
+        <div class="tree-node-row" tabindex="0">
+          <span class="tree-node-icon">${isExpanded ? ICON_FOLDER_OPEN : ICON_FOLDER_CLOSED}</span>
+          <span class="tree-node-label">${escapeHtml(node.name)}</span>
         </div>
       `;
 
-      const row = li.querySelector(".tree-node__row");
-      const iconEl = row.querySelector(".tree-node__icon");
-      const labelEl = row.querySelector(".tree-node__label");
+      const row = li.querySelector(".tree-node-row");
+      const iconEl = row.querySelector(".tree-node-icon");
+      const labelEl = row.querySelector(".tree-node-label");
 
       /** Toggle this folder's expanded / collapsed state. */
       const toggleExpand = () => {
@@ -1703,13 +1701,13 @@ export class TreeView {
       const isFav = this.#favoriteIds.has(node.id);
       if (isFav) li.classList.add("tree-node--favorite");
       li.innerHTML = `
-        <div class="tree-node__row" tabindex="0">
+        <div class="tree-node-row" tabindex="0">
           ${this.#methodBadgeHtml(node.protocol, node.method)}
-          <span class="tree-node__label">${escapeHtml(node.name)}</span>
+          <span class="tree-node-label">${escapeHtml(node.name)}</span>
         </div>
       `;
 
-      const row = li.querySelector(".tree-node__row");
+      const row = li.querySelector(".tree-node-row");
       row.insertBefore(this.#makeFavHotspot(node.id), row.firstChild);
 
       // Left-click: select request
@@ -1756,7 +1754,7 @@ export class TreeView {
     const q = this.#filterText;
 
     // Strip any existing <mark> highlights from all labels
-    this.#el.querySelectorAll(".tree-node__label").forEach((el) => {
+    this.#el.querySelectorAll(".tree-node-label").forEach((el) => {
       el.textContent = el.textContent;
     });
 
@@ -1777,7 +1775,7 @@ export class TreeView {
 
     const applyNode = (li) => {
       const labelEl = li.querySelector(
-        ":scope > .tree-node__row > .tree-node__label",
+        ":scope > .tree-node-row > .tree-node-label",
       );
       const name = labelEl?.textContent ?? "";
       const matches = name.toLowerCase().includes(q);
@@ -2142,10 +2140,10 @@ export class TreeView {
 
     if (li) {
       if (fields.method != null) {
-        const badge = li.querySelector(".tree-node__method");
+        const badge = li.querySelector(".tree-node-method");
         if (badge) {
           badge.textContent = fields.method;
-          badge.className = `tree-node__method method--${fields.method.toLowerCase()}`;
+          badge.className = `tree-node-method method--${fields.method.toLowerCase()}`;
           if (
             document.documentElement.classList.contains("show-method-icons")
           ) {
@@ -2157,7 +2155,7 @@ export class TreeView {
       }
       if (fields.url != null) {
         li.dataset.url = fields.url.toLowerCase();
-        const urlEl = li.querySelector(".tree-node__url");
+        const urlEl = li.querySelector(".tree-node-url");
         if (urlEl) urlEl.textContent = fields.url;
       }
     } else {

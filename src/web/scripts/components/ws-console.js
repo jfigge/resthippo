@@ -60,28 +60,28 @@ export class WsConsole {
 
     // ── Status header ──────────────────────────────────────────────────────
     const header = document.createElement("div");
-    header.className = "ws-console__header";
+    header.className = "ws-console-header";
 
     const status = document.createElement("div");
-    status.className = "ws-console__status";
+    status.className = "ws-console-status";
 
     this.#headerDot = document.createElement("span");
-    this.#headerDot.className = "ws-console__dot";
+    this.#headerDot.className = "ws-console-dot";
     this.#headerDot.dataset.state = "idle";
     this.#headerDot.setAttribute("aria-hidden", "true");
 
     this.#headerLabel = document.createElement("span");
-    this.#headerLabel.className = "ws-console__state";
+    this.#headerLabel.className = "ws-console-state";
     this.#headerLabel.textContent = STATE_LABELS.idle;
 
     this.#headerMeta = document.createElement("span");
-    this.#headerMeta.className = "ws-console__meta";
+    this.#headerMeta.className = "ws-console-meta";
 
     status.append(this.#headerDot, this.#headerLabel, this.#headerMeta);
 
     const clearBtn = document.createElement("button");
     clearBtn.type = "button";
-    clearBtn.className = "ws-console__clear";
+    clearBtn.className = "ws-console-clear";
     clearBtn.textContent = "Clear";
     clearBtn.setAttribute("aria-label", "Clear frame log");
     clearBtn.addEventListener("click", () => this.clear());
@@ -90,12 +90,12 @@ export class WsConsole {
 
     // ── Frame log ──────────────────────────────────────────────────────────
     this.#logEl = document.createElement("div");
-    this.#logEl.className = "ws-console__log";
+    this.#logEl.className = "ws-console-log";
     this.#logEl.setAttribute("role", "log");
     this.#logEl.setAttribute("aria-live", "polite");
 
     this.#emptyEl = document.createElement("div");
-    this.#emptyEl.className = "ws-console__empty";
+    this.#emptyEl.className = "ws-console-empty";
     this.#emptyEl.textContent =
       "No frames yet. Connect, then send a message to see it echoed here.";
     this.#logEl.appendChild(this.#emptyEl);
@@ -186,17 +186,17 @@ export class WsConsole {
     if (level === "error") row.classList.add("ws-frame--error");
 
     const time = document.createElement("span");
-    time.className = "ws-frame__time";
+    time.className = "ws-frame-time";
     time.textContent = formatTime(ts);
 
     const glyph = document.createElement("span");
-    glyph.className = "ws-frame__glyph";
+    glyph.className = "ws-frame-glyph";
     glyph.setAttribute("aria-hidden", "true");
     glyph.textContent =
       direction === "sent" ? "↑" : direction === "received" ? "↓" : "ⓘ";
 
     const label = document.createElement("span");
-    label.className = "ws-frame__sr";
+    label.className = "ws-frame-sr";
     label.textContent =
       direction === "sent"
         ? "sent"
@@ -205,7 +205,7 @@ export class WsConsole {
           : "system";
 
     const body = document.createElement("pre");
-    body.className = "ws-frame__body";
+    body.className = "ws-frame-body";
     // Untrusted server payload → textContent, never innerHTML.
     body.textContent =
       binary && direction === "received"

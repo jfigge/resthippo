@@ -605,7 +605,7 @@ export class RequestEditor {
 
     // Method selector
     const methodLabel = document.createElement("span");
-    methodLabel.className = "req-method-select__label";
+    methodLabel.className = "req-method-select-label";
     methodLabel.textContent = this.#method;
 
     const methodSel = document.createElement("button");
@@ -621,7 +621,7 @@ export class RequestEditor {
     methodSel.appendChild(methodLabel);
     methodSel.insertAdjacentHTML(
       "beforeend",
-      icon("caret", { size: null, className: "req-method-select__chevron" }),
+      icon("caret", { size: null, className: "req-method-select-chevron" }),
     );
 
     let _methodMenu = null;
@@ -653,12 +653,12 @@ export class RequestEditor {
 
       const _CHECK = icon("check", {
         size: 12,
-        className: "req-method-menu__check-icon",
+        className: "req-method-menu-check-icon",
       });
 
       HTTP_METHODS.forEach((m) => {
         const item = document.createElement("div");
-        item.className = "req-method-menu__item";
+        item.className = "req-method-menu-item";
         item.setAttribute("role", "option");
         item.setAttribute("aria-selected", String(m === this.#method));
         item.dataset.method = m.toLowerCase();
@@ -666,8 +666,8 @@ export class RequestEditor {
         if (document.documentElement.classList.contains("show-method-icons"))
           item.title = m;
         if (m === this.#method)
-          item.classList.add("req-method-menu__item--selected");
-        item.innerHTML = `<span class="req-method-menu__item-check" aria-hidden="true">${_CHECK}</span><span class="req-method-menu__item-label">${m}</span>`;
+          item.classList.add("req-method-menu-item--selected");
+        item.innerHTML = `<span class="req-method-menu-item-check" aria-hidden="true">${_CHECK}</span><span class="req-method-menu-item-label">${m}</span>`;
         item.addEventListener("mousedown", (ev) => {
           ev.preventDefault();
           this.#method = m;
@@ -681,17 +681,17 @@ export class RequestEditor {
       });
 
       const sep = document.createElement("div");
-      sep.className = "req-method-menu__separator";
+      sep.className = "req-method-menu-separator";
       menu.appendChild(sep);
 
       const isCustom = !HTTP_METHODS.includes(this.#method);
       const customRow = document.createElement("div");
-      customRow.className = "req-method-menu__custom-row";
-      customRow.innerHTML = `<span class="req-method-menu__item-check" aria-hidden="true">${_CHECK}</span>`;
-      if (isCustom) customRow.classList.add("req-method-menu__item--selected");
+      customRow.className = "req-method-menu-custom-row";
+      customRow.innerHTML = `<span class="req-method-menu-item-check" aria-hidden="true">${_CHECK}</span>`;
+      if (isCustom) customRow.classList.add("req-method-menu-item--selected");
 
       const customInput = document.createElement("input");
-      customInput.className = "req-method-menu__custom-input";
+      customInput.className = "req-method-menu-custom-input";
       customInput.type = "text";
       // size=1 keeps the input from dictating the menu's max-content width;
       // flex:1 then grows it to fill the width set by the widest method row.
@@ -808,7 +808,7 @@ export class RequestEditor {
     wsLabel.className = "req-method-select req-method-select--ws";
     wsLabel.setAttribute("aria-label", "WebSocket");
     const lbl = document.createElement("span");
-    lbl.className = "req-method-select__label";
+    lbl.className = "req-method-select-label";
     lbl.textContent = "WS";
     wsLabel.appendChild(lbl);
 
@@ -881,11 +881,11 @@ export class RequestEditor {
     container.className = "params-editor ws-composer";
 
     const bar = document.createElement("div");
-    bar.className = "ws-composer__bar";
+    bar.className = "ws-composer-bar";
 
     // Text / JSON format toggle.
     const fmt = document.createElement("div");
-    fmt.className = "ws-composer__format";
+    fmt.className = "ws-composer-format";
     fmt.setAttribute("role", "group");
     fmt.setAttribute("aria-label", "Message format");
     const fmtBtns = {};
@@ -913,7 +913,7 @@ export class RequestEditor {
 
     const subproto = document.createElement("input");
     subproto.type = "text";
-    subproto.className = "ws-composer__subproto";
+    subproto.className = "ws-composer-subproto";
     subproto.placeholder = "Subprotocols (optional, comma-separated)";
     subproto.value = this.#wsSubprotocols;
     subproto.setAttribute("aria-label", "WebSocket subprotocols");
@@ -925,7 +925,7 @@ export class RequestEditor {
 
     const sendBtn = document.createElement("button");
     sendBtn.type = "button";
-    sendBtn.className = "ws-composer__send";
+    sendBtn.className = "ws-composer-send";
     sendBtn.textContent = "Send";
     sendBtn.disabled = this.#wsState !== "open";
     sendBtn.setAttribute("aria-label", "Send message");
@@ -935,7 +935,7 @@ export class RequestEditor {
     bar.append(fmt, subproto, sendBtn);
 
     const ta = document.createElement("textarea");
-    ta.className = "body-text-editor ws-composer__textarea";
+    ta.className = "body-text-editor ws-composer-textarea";
     ta.placeholder = "Message to send… (supports {{variables}})";
     ta.spellcheck = false;
     ta.value = this.#wsMessage;
@@ -953,7 +953,7 @@ export class RequestEditor {
     this.#wsMessageEl = ta;
 
     const hint = document.createElement("div");
-    hint.className = "ws-composer__hint";
+    hint.className = "ws-composer-hint";
     hint.textContent = "Connect first, then send. ⌘/Ctrl+Enter to send.";
 
     container.append(bar, ta, hint);
@@ -1196,7 +1196,8 @@ export class RequestEditor {
     // ── Form toolbar (Bulk Editor toggle + Add + Delete All) ─────────────
     // Appended to typeBar; shown only when body type is form-data or form-urlencoded
     const formToolbarGroup = document.createElement("span");
-    formToolbarGroup.className = "body-form-toolbar-group is-hidden";
+    formToolbarGroup.className =
+      "body-form-toolbar-group body-form-toolbar-group--hidden";
     this.#bodyFormToolbarGroupEl = formToolbarGroup;
 
     const { label: bfBulkLabel, check: bfBulkCheck } = this.#buildToolbarToggle(
@@ -1290,7 +1291,10 @@ export class RequestEditor {
     const isFormType =
       this.#bodyType === "form-data" || this.#bodyType === "form-urlencoded";
     if (this.#bodyFormToolbarGroupEl) {
-      this.#bodyFormToolbarGroupEl.classList.toggle("is-hidden", !isFormType);
+      this.#bodyFormToolbarGroupEl.classList.toggle(
+        "body-form-toolbar-group--hidden",
+        !isFormType,
+      );
       if (isFormType && this.#bodyFormBulkCheckEl) {
         this.#bodyFormBulkCheckEl.checked = this.#bodyFormBulkMode;
       }
@@ -1901,7 +1905,7 @@ export class RequestEditor {
     const queryPane = document.createElement("div");
     queryPane.className = "body-graphql-pane body-graphql-pane--query";
     const queryLabel = document.createElement("div");
-    queryLabel.className = "body-graphql-pane__label";
+    queryLabel.className = "body-graphql-pane-label";
     queryLabel.textContent = "Query";
     const queryBadge = document.createElement("span");
     queryBadge.className = "body-validate-badge body-graphql-query-badge";
@@ -2001,7 +2005,7 @@ export class RequestEditor {
     const varsPane = document.createElement("div");
     varsPane.className = "body-graphql-pane body-graphql-pane--vars";
     const varsHeader = document.createElement("div");
-    varsHeader.className = "body-graphql-pane__label";
+    varsHeader.className = "body-graphql-pane-label";
     varsHeader.textContent = "Variables";
     const varsBadge = document.createElement("span");
     varsBadge.className = "body-validate-badge body-graphql-vars-badge";
@@ -2263,7 +2267,7 @@ export class RequestEditor {
     const gutter = document.createElement("div");
     gutter.className = "body-fold-gutter";
     const gutterInner = document.createElement("div");
-    gutterInner.className = "body-fold-gutter__inner";
+    gutterInner.className = "body-fold-gutter-inner";
     gutter.appendChild(gutterInner);
 
     // Validation marker layer — red underlines, positioned in content coords and
@@ -2272,7 +2276,7 @@ export class RequestEditor {
     const markers = document.createElement("div");
     markers.className = "body-gql-markers";
     const markersInner = document.createElement("div");
-    markersInner.className = "body-gql-markers__inner";
+    markersInner.className = "body-gql-markers-inner";
     markers.appendChild(markersInner);
 
     const ta = document.createElement("textarea");
@@ -2926,7 +2930,7 @@ export class RequestEditor {
     zone.className = "body-file-zone";
 
     const iconEl = document.createElement("div");
-    iconEl.className = "body-file-zone__icon";
+    iconEl.className = "body-file-zone-icon";
     iconEl.innerHTML = `<svg width="40" height="40" viewBox="0 0 40 40" fill="none"
         stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
       <rect x="6" y="4" width="28" height="32" rx="3"/>
@@ -2936,11 +2940,11 @@ export class RequestEditor {
     </svg>`;
 
     const label = document.createElement("p");
-    label.className = "body-file-zone__label";
+    label.className = "body-file-zone-label";
     label.textContent = "Drop a file here";
 
     const sub = document.createElement("p");
-    sub.className = "body-file-zone__sub";
+    sub.className = "body-file-zone-sub";
     sub.textContent = "or";
 
     const browseBtn = document.createElement("button");
@@ -3001,7 +3005,7 @@ export class RequestEditor {
     chosen.className = "body-file-chosen";
 
     const pathIcon = document.createElement("span");
-    pathIcon.className = "body-file-chosen__icon";
+    pathIcon.className = "body-file-chosen-icon";
     pathIcon.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"
         stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
       <rect x="3" y="2" width="14" height="16" rx="2"/>
@@ -3011,7 +3015,7 @@ export class RequestEditor {
     </svg>`;
 
     const pathText = document.createElement("span");
-    pathText.className = "body-file-chosen__path";
+    pathText.className = "body-file-chosen-path";
     pathText.title = this.#bodyFilePath;
     pathText.textContent = this.#bodyFilePath;
 
@@ -3747,14 +3751,14 @@ export class RequestEditor {
     const input = document.createElement("input");
     input.type = "text";
     input.readOnly = true;
-    input.className = "params-url-preview__input";
+    input.className = "params-url-preview-input";
     input.placeholder = "Enter a URL above to preview it here";
     input.setAttribute("aria-label", "Request URL with query parameters");
     input.tabIndex = -1;
 
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
-    copyBtn.className = "params-url-preview__copy-btn";
+    copyBtn.className = "params-url-preview-copy-btn";
     copyBtn.textContent = "Copy";
     copyBtn.title = "Copy URL to clipboard";
     copyBtn.setAttribute("aria-label", "Copy URL to clipboard");
@@ -4486,7 +4490,7 @@ export class RequestEditor {
   /** Show/hide the GraphQL Query/Variables pane labels to match removeHeaders. */
   #applyGraphqlHeaderRows() {
     this.#bodyContentEl
-      ?.querySelectorAll(".body-graphql-pane__label")
+      ?.querySelectorAll(".body-graphql-pane-label")
       .forEach((hdr) => {
         hdr.style.display = this.#removeHeaders ? "none" : "";
       });

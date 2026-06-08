@@ -138,12 +138,12 @@ function _showApiKeyDropdown(input, onSelect) {
     {
       minWidth: 280,
       renderItem: (item, k) => {
-        item.classList.add("apikey-autocomplete__item");
+        item.classList.add("apikey-autocomplete-item");
         const name = document.createElement("span");
-        name.className = "apikey-autocomplete__name";
+        name.className = "apikey-autocomplete-name";
         name.textContent = k.name;
         const comment = document.createElement("span");
-        comment.className = "apikey-autocomplete__comment";
+        comment.className = "apikey-autocomplete-comment";
         comment.textContent = k.comment;
         item.appendChild(name);
         item.appendChild(comment);
@@ -360,12 +360,12 @@ export class RequestAuthEditor {
         this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
       if (this.#authBulkEl)
         this.#authBulkEl.classList.toggle(
-          "is-hidden",
+          "params-toolbar-toggle-label--hidden",
           this.#authType === "none",
         );
       if (this.#authEnabledLabelEl)
         this.#authEnabledLabelEl.classList.toggle(
-          "is-hidden",
+          "params-toolbar-toggle-label--hidden",
           this.#authType === "none",
         );
       this.#renderAuthContent();
@@ -384,7 +384,10 @@ export class RequestAuthEditor {
         this.#renderAuthContent();
       },
     });
-    bulkLabel.classList.toggle("is-hidden", this.#authType === "none");
+    bulkLabel.classList.toggle(
+      "params-toolbar-toggle-label--hidden",
+      this.#authType === "none",
+    );
     this.#authBulkEl = bulkLabel;
     this.#authBulkCheckEl = bulkCheck;
     typeBar.appendChild(bulkLabel);
@@ -428,7 +431,10 @@ export class RequestAuthEditor {
 
     enabledLabel.appendChild(enabledCheck);
     enabledLabel.append(" Enabled");
-    enabledLabel.classList.toggle("is-hidden", this.#authType === "none");
+    enabledLabel.classList.toggle(
+      "params-toolbar-toggle-label--hidden",
+      this.#authType === "none",
+    );
     this.#authEnabledLabelEl = enabledLabel;
     typeBar.appendChild(enabledLabel);
 
@@ -1250,7 +1256,7 @@ export class RequestAuthEditor {
       // Expiry info (if available)
       if (this.#authOAuth2.expiresAt) {
         const expiryEl = document.createElement("div");
-        expiryEl.className = "auth-field__hint";
+        expiryEl.className = "auth-field-hint";
         const remaining = Math.max(
           0,
           Math.floor((this.#authOAuth2.expiresAt - Date.now()) / 1000),
@@ -1411,13 +1417,13 @@ export class RequestAuthEditor {
     if (failedDecrypt) wrapper.classList.add("auth-field--decrypt-error");
 
     const lbl = document.createElement("label");
-    lbl.className = "auth-field__label";
+    lbl.className = "auth-field-label";
     lbl.textContent = label;
 
     const editor = new VariablePillEditor({
       placeholder,
       ariaLabel: label,
-      className: "auth-field__input",
+      className: "auth-field-input",
       getContext: () => this.#getContext(),
       getItems: () => this.#getItems(),
       ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
@@ -1435,14 +1441,14 @@ export class RequestAuthEditor {
 
     if (hint) {
       const hintEl = document.createElement("span");
-      hintEl.className = "auth-field__hint";
+      hintEl.className = "auth-field-hint";
       hintEl.textContent = hint;
       wrapper.appendChild(hintEl);
     }
 
     if (failedDecrypt) {
       const warnEl = document.createElement("span");
-      warnEl.className = "auth-field__decrypt-warning";
+      warnEl.className = "auth-field-decrypt-warning";
       warnEl.textContent =
         "Couldn't decrypt — re-enter this value to restore it.";
       wrapper.appendChild(warnEl);
@@ -1470,12 +1476,12 @@ export class RequestAuthEditor {
     wrapper.className = "auth-field";
 
     const lbl = document.createElement("label");
-    lbl.className = "auth-field__label";
+    lbl.className = "auth-field-label";
     lbl.textContent = "Scope";
 
     const input = document.createElement("input");
     input.type = "text";
-    input.className = "auth-field__input";
+    input.className = "auth-field-input";
     input.placeholder = "openid email profile";
     input.value = value;
     input.name = "wurl-auth-scope";
@@ -1531,7 +1537,7 @@ export class RequestAuthEditor {
     });
 
     const hint = document.createElement("span");
-    hint.className = "auth-field__hint";
+    hint.className = "auth-field-hint";
     hint.textContent =
       "Space-separated list of requested scopes — type or pick from the list";
 
@@ -1552,12 +1558,12 @@ export class RequestAuthEditor {
     wrapper.className = "auth-field";
 
     const lbl = document.createElement("label");
-    lbl.className = "auth-field__label";
+    lbl.className = "auth-field-label";
     lbl.textContent = "Key";
 
     const input = document.createElement("input");
     input.type = "text";
-    input.className = "auth-field__input";
+    input.className = "auth-field-input";
     input.placeholder = "e.g. X-API-Key";
     input.value = value;
     input.name = "wurl-auth-apikey-name";
@@ -1598,7 +1604,7 @@ export class RequestAuthEditor {
     });
 
     const hint = document.createElement("span");
-    hint.className = "auth-field__hint";
+    hint.className = "auth-field-hint";
     hint.textContent =
       "Header (or query) name for the key — pick a common name or type your own";
 
@@ -1621,11 +1627,11 @@ export class RequestAuthEditor {
     wrapper.className = "auth-field";
 
     const lbl = document.createElement("label");
-    lbl.className = "auth-field__label";
+    lbl.className = "auth-field-label";
     lbl.textContent = label;
 
     const sel = document.createElement("select");
-    sel.className = "auth-field__input auth-field__select";
+    sel.className = "auth-field-input auth-field-select";
     if (ariaLabel) sel.setAttribute("aria-label", ariaLabel);
     options.forEach(({ value: v, label: l }) => {
       const opt = document.createElement("option");
@@ -1970,10 +1976,13 @@ export class RequestAuthEditor {
     if (this.#discoverBtnEl)
       this.#discoverBtnEl.hidden = this.#authType !== "oauth2";
     if (this.#authBulkEl)
-      this.#authBulkEl.classList.toggle("is-hidden", this.#authType === "none");
+      this.#authBulkEl.classList.toggle(
+        "params-toolbar-toggle-label--hidden",
+        this.#authType === "none",
+      );
     if (this.#authEnabledLabelEl)
       this.#authEnabledLabelEl.classList.toggle(
-        "is-hidden",
+        "params-toolbar-toggle-label--hidden",
         this.#authType === "none",
       );
     this.#renderAuthContent();

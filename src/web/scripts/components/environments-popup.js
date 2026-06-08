@@ -202,11 +202,11 @@ export class EnvironmentsPopup {
         </div>
         <div class="env-main">
           <div class="env-tabs" role="tablist" aria-label="Environment editor">
-            <button class="env-tab is-active" role="tab" aria-selected="true"
+            <button class="env-tab env-tab--active" role="tab" aria-selected="true"
                     data-panel="vars" type="button">Variables</button>
           </div>
           <div class="env-panels">
-            <section class="env-panel env-panel--vars is-active"
+            <section class="env-panel env-panel--vars"
                      data-panel="vars" role="tabpanel" aria-label="Variables">
               <div class="env-vars-toolbar">
                 <label class="params-toolbar-toggle-label env-bulk-label"
@@ -334,12 +334,11 @@ export class EnvironmentsPopup {
     this.#activeTab = name;
     this.#el.querySelectorAll(".env-tab").forEach((tab) => {
       const active = tab.dataset.panel === name;
-      tab.classList.toggle("is-active", active);
+      tab.classList.toggle("env-tab--active", active);
       tab.setAttribute("aria-selected", String(active));
     });
     this.#el.querySelectorAll(".env-panel").forEach((panel) => {
       const active = panel.dataset.panel === name;
-      panel.classList.toggle("is-active", active);
       panel.hidden = !active;
     });
   }
@@ -428,11 +427,11 @@ export class EnvironmentsPopup {
     li.setAttribute("aria-selected", String(isActive));
 
     const check = document.createElement("span");
-    check.className = "env-list-item__check";
+    check.className = "env-list-item-check";
     check.innerHTML = isActive ? ICON_CHECK : "";
 
     const nameBtn = document.createElement("button");
-    nameBtn.className = "env-list-item__name";
+    nameBtn.className = "env-list-item-name";
     nameBtn.textContent = name;
     nameBtn.setAttribute(
       "aria-label",
@@ -444,7 +443,7 @@ export class EnvironmentsPopup {
       li.draggable = true;
 
       const handle = document.createElement("span");
-      handle.className = "params-drag-handle env-list-item__drag";
+      handle.className = "params-drag-handle env-list-item-drag";
       handle.setAttribute("aria-hidden", "true");
       handle.title = "Drag to reorder";
       handle.innerHTML = icon("drag", { width: 10, height: 16 });
@@ -470,7 +469,7 @@ export class EnvironmentsPopup {
 
     if (!isGlobal) {
       const actions = document.createElement("div");
-      actions.className = "env-list-item__actions";
+      actions.className = "env-list-item-actions";
 
       const renameBtn = document.createElement("button");
       renameBtn.className = "coll-action-btn";
@@ -509,7 +508,7 @@ export class EnvironmentsPopup {
       (active ? " env-list-item--active" : "");
 
     const check = document.createElement("span");
-    check.className = "env-list-item__check";
+    check.className = "env-list-item-check";
     check.innerHTML = active ? ICON_CHECK : "";
 
     const input = document.createElement("input");
@@ -884,7 +883,7 @@ export class EnvironmentsPopup {
     secure.type = "button";
     secure.className = "icon-btn params-secure-btn";
     const applySecure = () => {
-      secure.classList.toggle("is-active", !!row.secure);
+      secure.classList.toggle("params-secure-btn--active", !!row.secure);
       secure.innerHTML = icon(row.secure ? "lock" : "lockOpen", { size: 14 });
       const label = row.secure
         ? "Secure (encrypted at rest)"

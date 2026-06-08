@@ -173,7 +173,7 @@ export class PillPicker {
 
     if (!this.#items.length) {
       const empty = document.createElement("div");
-      empty.className = "pill-picker__empty";
+      empty.className = "pill-picker-empty";
       empty.textContent = "No matches";
       this.#el.appendChild(empty);
     }
@@ -185,25 +185,25 @@ export class PillPicker {
 
   #sectionHeader(label) {
     const h = document.createElement("div");
-    h.className = "pill-picker__section";
+    h.className = "pill-picker-section";
     h.textContent = label;
     return h;
   }
 
   #itemEl(item, primary, secondary) {
     const el = document.createElement("div");
-    el.className = "pill-picker__item";
+    el.className = "pill-picker-item";
     el.setAttribute("role", "option");
     el.dataset.idx = String(this.#items.length - 1); // assigned before calling
 
     const nameEl = document.createElement("span");
-    nameEl.className = "pill-picker__item-name";
+    nameEl.className = "pill-picker-item-name";
     nameEl.textContent = primary;
     el.appendChild(nameEl);
 
     if (secondary) {
       const descEl = document.createElement("span");
-      descEl.className = "pill-picker__item-desc";
+      descEl.className = "pill-picker-item-desc";
       descEl.textContent = secondary;
       el.appendChild(descEl);
     }
@@ -222,9 +222,9 @@ export class PillPicker {
   }
 
   #setActive(idx) {
-    const items = this.#el.querySelectorAll(".pill-picker__item");
+    const items = this.#el.querySelectorAll(".pill-picker-item");
     items.forEach((el, i) =>
-      el.classList.toggle("pill-picker__item--active", i === idx),
+      el.classList.toggle("pill-picker-item--active", i === idx),
     );
     this.#activeIdx = idx;
     items[idx]?.scrollIntoView({ block: "nearest" });

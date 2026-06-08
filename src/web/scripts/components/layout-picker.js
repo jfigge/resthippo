@@ -68,7 +68,7 @@ const LAYOUT_LABELS = {
 
 const _CHEVRON = icon("caret", {
   size: null,
-  className: "layout-picker__chevron",
+  className: "layout-picker-chevron",
 });
 
 const _CHECK = icon("check", { size: 12 });
@@ -128,18 +128,15 @@ export class LayoutPicker {
 
   #syncTrigger(btn) {
     btn.innerHTML = `
-      <span class="layout-picker__icon">${LAYOUT_ICONS[this.#layout]}</span>
+      <span class="layout-picker-icon">${LAYOUT_ICONS[this.#layout]}</span>
       ${_CHEVRON}
     `;
   }
 
   #syncChecks() {
-    this.#menu?.querySelectorAll(".layout-picker__item").forEach((item) => {
+    this.#menu?.querySelectorAll(".layout-picker-item").forEach((item) => {
       const n = parseInt(item.dataset.layout, 10);
-      item.classList.toggle(
-        "layout-picker__item--selected",
-        n === this.#layout,
-      );
+      item.classList.toggle("layout-picker-item--selected", n === this.#layout);
       item.setAttribute("aria-selected", String(n === this.#layout));
     });
   }
@@ -148,24 +145,24 @@ export class LayoutPicker {
     if (this.#menu) return;
 
     const menu = document.createElement("div");
-    menu.className = "layout-picker__menu";
+    menu.className = "layout-picker-menu";
     menu.setAttribute("role", "listbox");
     menu.setAttribute("aria-label", "Layout options");
     menu.addEventListener("mousedown", (e) => e.preventDefault());
 
     for (let i = 1; i <= 4; i++) {
       const item = document.createElement("div");
-      item.className = "layout-picker__item";
+      item.className = "layout-picker-item";
       item.setAttribute("role", "option");
       item.setAttribute("aria-selected", String(i === this.#layout));
       item.dataset.layout = String(i);
       if (i === this.#layout)
-        item.classList.add("layout-picker__item--selected");
+        item.classList.add("layout-picker-item--selected");
 
       item.innerHTML = `
-        <span class="layout-picker__item-check" aria-hidden="true">${_CHECK}</span>
-        <span class="layout-picker__item-icon">${LAYOUT_ICONS[i]}</span>
-        <span class="layout-picker__item-label">${LAYOUT_LABELS[i]}</span>
+        <span class="layout-picker-item-check" aria-hidden="true">${_CHECK}</span>
+        <span class="layout-picker-item-icon">${LAYOUT_ICONS[i]}</span>
+        <span class="layout-picker-item-label">${LAYOUT_LABELS[i]}</span>
       `;
 
       item.addEventListener("mousedown", (e) => {
