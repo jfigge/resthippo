@@ -400,6 +400,14 @@ export class RequestEditor {
   #activeTab = "params";
   #currentNodeId = null;
 
+  // Structural element refs, cached after the #render* builders run.
+  #methodSel = null; // method-selector trigger button
+  #methodSelLabel = null; // label span inside the method selector
+  #sendBtn = null; // HTTP send button (in-flight toggle target)
+  #urlInput = null; // the URL editor's element
+  #tabStrip = null; // tab-button strip
+  #tabContent = null; // tab-pane container
+
   // Params state
   #params = []; // [{ id, name, value, enabled }]
   // Path params (Feature 49) — derived from `:name`/`{name}` tokens in the URL,
@@ -507,6 +515,7 @@ export class RequestEditor {
   #paramsKvWrapEl = null; // div wrapping col-headers + list
   #paramsAddBtnEl = null; // hidden in bulk mode
   #paramsDelAllBtnEl = null; // hidden in bulk mode
+  #paramsDeleteAllCleanup = null; // teardown for the params delete-all confirm
 
   // Headers bulk editor
   #headersBulkMode = false;
@@ -516,6 +525,7 @@ export class RequestEditor {
   #headersDelAllBtnEl = null;
   #listHdrSpacerEl = null; // spacer before "List Headers" toggle
   #listHdrLabelEl = null; // "List Headers" toggle label
+  #headersDeleteAllCleanup = null; // teardown for the headers delete-all confirm
 
   // Body form bulk editor
   #bodyFormBulkMode = false;
@@ -525,7 +535,7 @@ export class RequestEditor {
   #bodyFormAddBtnEl = null;
   #bodyFormDelAllBtnEl = null;
   #bodyFormToolbarGroupEl = null;
-  _bodyFormDeleteAllCleanup = null;
+  #bodyFormDeleteAllCleanup = null;
 
   // Global "Remove Headers" setting — applied to body-form column label row
   #removeHeaders = false;
@@ -574,11 +584,11 @@ export class RequestEditor {
 
     // HTTP send-button in-flight toggle. Registered once here (not in
     // #renderUrlBar, which can re-run on a protocol switch) and operating on the
-    // current this._sendBtn, so no listeners leak across rebuilds. No-op in
+    // current this.#sendBtn, so no listeners leak across rebuilds. No-op in
     // WebSocket mode, which has a Connect button driven by #applyWsState instead.
     window.addEventListener("wurl:request-loading", () => {
       this.#requestInFlight = true;
-      const b = this._sendBtn;
+      const b = this.#sendBtn;
       if (!b || this.#protocol === "websocket") return;
       b.textContent = "Stop";
       b.setAttribute("aria-label", "Stop request");
@@ -586,7 +596,7 @@ export class RequestEditor {
     });
     const resetSendBtn = () => {
       this.#requestInFlight = false;
-      const b = this._sendBtn;
+      const b = this.#sendBtn;
       if (!b || this.#protocol === "websocket") return;
       b.textContent = "Send";
       b.setAttribute("aria-label", "Send request");
@@ -693,7 +703,7 @@ export class RequestEditor {
           this.#method = m;
           methodLabel.textContent = m;
           methodSel.dataset.method = m.toLowerCase();
-          if (this._sendBtn) this._sendBtn.dataset.method = m.toLowerCase();
+          if (this.#sendBtn) this.#sendBtn.dataset.method = m.toLowerCase();
           _closeMethodMenu();
           this.#dispatchRequestUpdated();
         });
@@ -736,7 +746,7 @@ export class RequestEditor {
         } else {
           methodSel.removeAttribute("title");
         }
-        if (this._sendBtn) this._sendBtn.dataset.method = m.toLowerCase();
+        if (this.#sendBtn) this.#sendBtn.dataset.method = m.toLowerCase();
         _closeMethodMenu();
         this.#dispatchRequestUpdated();
       });
@@ -800,7 +810,7 @@ export class RequestEditor {
     });
 
     // The in-flight toggle (request-loading / response-received / request-error)
-    // is registered once in the constructor and targets this._sendBtn, so a
+    // is registered once in the constructor and targets this.#sendBtn, so a
     // protocol-driven rebuild of the URL bar can't accumulate stale listeners.
     sendGroup.appendChild(sendBtn);
 
@@ -809,12 +819,12 @@ export class RequestEditor {
     bar.appendChild(sendGroup);
     this.#el.appendChild(bar);
 
-    this._methodSel = methodSel;
-    this._methodSelLabel = methodLabel;
-    this._sendBtn = sendBtn;
+    this.#methodSel = methodSel;
+    this.#methodSelLabel = methodLabel;
+    this.#sendBtn = sendBtn;
     // Keep _urlInput as a compatibility shim pointing at the editor's element
     // so any external code that reads _urlInput.focus() still works.
-    this._urlInput = urlEditor.element;
+    this.#urlInput = urlEditor.element;
   }
 
   // ── WebSocket URL bar (Feature 32) ────────────────────────────────────────
@@ -862,7 +872,7 @@ export class RequestEditor {
 
     bar.append(wsLabel, urlEditor.element, sendGroup);
     this.#el.appendChild(bar);
-    this._urlInput = urlEditor.element;
+    this.#urlInput = urlEditor.element;
     // Apply whatever connection state is current so a re-render shows the right label.
     this.#applyWsState(this.#wsState);
   }
@@ -880,7 +890,7 @@ export class RequestEditor {
   #rebuildLayout() {
     this.#renderedProtocol = this.#protocol;
     // Drop stale element refs the render methods will reassign.
-    this._methodSel = this._methodSelLabel = this._sendBtn = null;
+    this.#methodSel = this.#methodSelLabel = this.#sendBtn = null;
     this.#wsConnectBtn = this.#wsSendBtn = null;
     this.#wsMessageEl = this.#wsSubprotoEl = null;
     this.#syncWsFormatButtons = null;
@@ -1107,7 +1117,7 @@ export class RequestEditor {
     });
 
     this.#el.appendChild(strip);
-    this._tabStrip = strip;
+    this.#tabStrip = strip;
   }
 
   // ── Tab content panels ───────────────────────────────────────────────────
@@ -1126,7 +1136,7 @@ export class RequestEditor {
     });
 
     this.#el.appendChild(content);
-    this._tabContent = content;
+    this.#tabContent = content;
   }
 
   #buildTabPane(tabId) {
@@ -1252,7 +1262,7 @@ export class RequestEditor {
     delAllBtn.title = "Delete all fields";
     delAllBtn.textContent = "Delete All";
 
-    this._bodyFormDeleteAllCleanup = this.#wireDeleteAllConfirm(
+    this.#bodyFormDeleteAllCleanup = this.#wireDeleteAllConfirm(
       delAllBtn,
       () => this.#bodyFormRows.length,
       () => {
@@ -1309,7 +1319,7 @@ export class RequestEditor {
     this.#bfListEl = null;
     this.#bfDrag.reset();
     // Cancel any in-progress delete-all confirm before the UI is rebuilt
-    this._bodyFormDeleteAllCleanup?.();
+    this.#bodyFormDeleteAllCleanup?.();
     // Show / hide the form toolbar based on body type
     const isFormType =
       this.#bodyType === "form-data" || this.#bodyType === "form-urlencoded";
@@ -3276,7 +3286,7 @@ export class RequestEditor {
     this.#paramsBulkEl = bulkEl;
     this.#paramsKvWrapEl = kvWrapEl;
     this.#paramsListEl = listEl;
-    this._paramsDeleteAllCleanup = deleteAllCleanup;
+    this.#paramsDeleteAllCleanup = deleteAllCleanup;
 
     this.#applyParamsBulkMode();
     this.#renderParamsList();
@@ -3340,7 +3350,7 @@ export class RequestEditor {
     this.#headersKvWrapEl = kvWrapEl;
     this.#headersListEl = listEl;
     this.#listHdrSpacerEl = spacer;
-    this._headersDeleteAllCleanup = deleteAllCleanup;
+    this.#headersDeleteAllCleanup = deleteAllCleanup;
 
     this.#applyHeadersBulkMode();
     this.#renderHeadersList();
@@ -4068,12 +4078,12 @@ export class RequestEditor {
   // ── Tab switching ─────────────────────────────────────────────────────────
   #switchTab(tabId) {
     this.#activeTab = tabId;
-    this._tabStrip.querySelectorAll(".req-tab-btn").forEach((btn) => {
+    this.#tabStrip.querySelectorAll(".req-tab-btn").forEach((btn) => {
       const active = btn.dataset.tab === tabId;
       btn.classList.toggle("req-tab-btn--active", active);
       btn.setAttribute("aria-selected", String(active));
     });
-    this._tabContent.querySelectorAll(".req-tab-pane").forEach((pane) => {
+    this.#tabContent.querySelectorAll(".req-tab-pane").forEach((pane) => {
       pane.hidden = pane.id !== `req-tab-${tabId}`;
     });
   }
@@ -4527,9 +4537,9 @@ export class RequestEditor {
     this.#currentNodeId = node.id ?? null;
 
     // Cancel any in-progress inline confirm on the Delete All buttons.
-    this._paramsDeleteAllCleanup?.();
-    this._headersDeleteAllCleanup?.();
-    this._bodyFormDeleteAllCleanup?.();
+    this.#paramsDeleteAllCleanup?.();
+    this.#headersDeleteAllCleanup?.();
+    this.#bodyFormDeleteAllCleanup?.();
 
     // Protocol — rebuild the url bar + tabs when switching between HTTP and
     // WebSocket so the right controls (method vs WS, Body vs Message) render.
@@ -4538,11 +4548,11 @@ export class RequestEditor {
       this.#rebuildLayout();
     }
 
-    if (node.method && this._methodSel) {
+    if (node.method && this.#methodSel) {
       this.#method = node.method;
-      this._methodSelLabel.textContent = node.method;
-      this._methodSel.dataset.method = node.method.toLowerCase();
-      this._sendBtn.dataset.method = node.method.toLowerCase();
+      this.#methodSelLabel.textContent = node.method;
+      this.#methodSel.dataset.method = node.method.toLowerCase();
+      this.#sendBtn.dataset.method = node.method.toLowerCase();
     }
 
     const url = node.url ?? "";

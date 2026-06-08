@@ -303,6 +303,11 @@ export class ResponseViewer {
   #bodyPane = null;
   #previewPane = null;
 
+  // Cached structural element refs (set once by the #render* builders)
+  #statusBar = null; // status bar element
+  #tabStrip = null; // tab-button strip
+  #tabContent = null; // tab-pane container
+
   // Whether the current response has an HTML content-type (drives Preview tab visibility)
   #isHtmlResponse = false;
 
@@ -536,7 +541,7 @@ export class ResponseViewer {
     `;
 
     this.#el.appendChild(bar);
-    this._statusBar = bar;
+    this.#statusBar = bar;
   }
 
   /**
@@ -656,7 +661,7 @@ export class ResponseViewer {
     });
 
     this.#el.appendChild(strip);
-    this._tabStrip = strip;
+    this.#tabStrip = strip;
   }
 
   // ── Tab content ───────────────────────────────────────────────────────────
@@ -694,7 +699,7 @@ export class ResponseViewer {
     consolePane.appendChild(this.#consolePlaceholder());
 
     this.#el.appendChild(content);
-    this._tabContent = content;
+    this.#tabContent = content;
   }
 
   // ── Find / search bar ─────────────────────────────────────────────────────
@@ -816,7 +821,7 @@ export class ResponseViewer {
     this.#regexBtn = regexBtn;
 
     // Insert between tab strip and tab content
-    this.#el.insertBefore(bar, this._tabContent);
+    this.#el.insertBefore(bar, this.#tabContent);
   }
 
   /** Show the search bar and focus the input. No-op when HTML preview is live. */
@@ -1040,7 +1045,7 @@ export class ResponseViewer {
 
   /** Sync the Body tab button styling to the current render mode. */
   #updateBodyTabStyle() {
-    const btn = this._tabStrip?.querySelector('[data-tab="body"]');
+    const btn = this.#tabStrip?.querySelector('[data-tab="body"]');
     if (!btn) return;
     btn.classList.remove(
       "res-tab-btn--styled-mode",
@@ -1054,7 +1059,7 @@ export class ResponseViewer {
   /** Update the tracked HTTP method and refresh the Body tab colour. */
   #setCurrentMethod(method) {
     this.#currentMethod = method.toLowerCase();
-    const btn = this._tabStrip?.querySelector('[data-tab="body"]');
+    const btn = this.#tabStrip?.querySelector('[data-tab="body"]');
     if (btn) btn.dataset.method = this.#currentMethod;
   }
 
@@ -2054,7 +2059,7 @@ export class ResponseViewer {
    * @param {boolean} visible
    */
   #setPreviewTabVisible(visible) {
-    const btn = this._tabStrip?.querySelector('[data-tab="preview"]');
+    const btn = this.#tabStrip?.querySelector('[data-tab="preview"]');
     if (btn) btn.hidden = !visible;
     if (!visible && this.#activeTab === "preview") {
       this.#switchTab("body");
@@ -2094,13 +2099,13 @@ export class ResponseViewer {
     const prevTab = this.#activeTab;
     this.#activeTab = tabId;
 
-    this._tabStrip.querySelectorAll(".res-tab-btn").forEach((btn) => {
+    this.#tabStrip.querySelectorAll(".res-tab-btn").forEach((btn) => {
       const active = btn.dataset.tab === tabId;
       btn.classList.toggle("res-tab-btn--active", active);
       btn.setAttribute("aria-selected", String(active));
     });
 
-    this._tabContent.querySelectorAll(".res-tab-pane").forEach((pane) => {
+    this.#tabContent.querySelectorAll(".res-tab-pane").forEach((pane) => {
       pane.hidden = pane.id !== `res-tab-${tabId}`;
     });
 
@@ -2163,7 +2168,7 @@ export class ResponseViewer {
     // Lazy timeline: drop DOM when leaving, rebuild when entering.
     if (prevTab === "timeline" && tabId !== "timeline") {
       this.#stopTimestampUpdater();
-      const pane = this._tabContent.querySelector("#res-tab-timeline");
+      const pane = this.#tabContent.querySelector("#res-tab-timeline");
       if (pane) pane.innerHTML = "";
     } else if (tabId === "timeline" && prevTab !== "timeline") {
       this.#renderTimeline();
@@ -2204,7 +2209,7 @@ export class ResponseViewer {
     const elapsed = detail?.elapsed ? `${detail.elapsed} ms` : "";
 
     this.#setStatus(statusCode, statusTxt, elapsed, "");
-    const badge = this._statusBar.querySelector(".res-status-badge");
+    const badge = this.#statusBar.querySelector(".res-status-badge");
     badge.className = `res-status-badge ${hasStatus ? this.#statusClass(detail.status) : "res-status--error"}`;
 
     // Body pane — show error placeholder
@@ -2242,13 +2247,13 @@ export class ResponseViewer {
     this.#setPreviewTabVisible(false);
     this.#clearHighlights();
     this.#setStatus("", "", "", "");
-    this._statusBar.querySelector(".res-status-badge").className =
+    this.#statusBar.querySelector(".res-status-badge").className =
       "res-status-badge";
     this.#bodyPane.innerHTML = "";
     this.#bodyPane.appendChild(this.#emptyState());
-    const headersPane = this._tabContent.querySelector("#res-tab-headers");
+    const headersPane = this.#tabContent.querySelector("#res-tab-headers");
     if (headersPane) headersPane.innerHTML = "";
-    const cookiesPane = this._tabContent.querySelector("#res-tab-cookies");
+    const cookiesPane = this.#tabContent.querySelector("#res-tab-cookies");
     if (cookiesPane) cookiesPane.innerHTML = "";
     this.#renderConsole([]);
   }
@@ -2324,14 +2329,14 @@ export class ResponseViewer {
       `${elapsed} ms`,
       this.#formatSize(size),
     );
-    const badge = this._statusBar.querySelector(".res-status-badge");
+    const badge = this.#statusBar.querySelector(".res-status-badge");
     badge.className = `res-status-badge ${statusClass}`;
 
     // ── Body pane ──────────────────────────────────────────────────────────
     this.#renderBodyPane(this.#lastResponse);
 
     // ── Headers pane ───────────────────────────────────────────────────────
-    const headersPane = this._tabContent.querySelector("#res-tab-headers");
+    const headersPane = this.#tabContent.querySelector("#res-tab-headers");
     headersPane.innerHTML = "";
     const table = document.createElement("table");
     table.className = "res-headers-table res-headers-table--split";
@@ -2359,7 +2364,7 @@ export class ResponseViewer {
    * @param {string[]} cookies  - raw Set-Cookie header values
    */
   #renderCookiesPane(cookies = []) {
-    const cookiesPane = this._tabContent.querySelector("#res-tab-cookies");
+    const cookiesPane = this.#tabContent.querySelector("#res-tab-cookies");
     if (!cookiesPane) return;
     cookiesPane.innerHTML = "";
     if (cookies.length > 0) {
@@ -2413,7 +2418,7 @@ export class ResponseViewer {
   #renderTimeline() {
     if (this.#activeTab !== "timeline") return;
 
-    const pane = this._tabContent?.querySelector("#res-tab-timeline");
+    const pane = this.#tabContent?.querySelector("#res-tab-timeline");
     if (!pane) return;
     pane.innerHTML = "";
 
@@ -2731,7 +2736,7 @@ export class ResponseViewer {
    * @param {string[]} lines
    */
   #renderConsole(lines) {
-    const pane = this._tabContent.querySelector("#res-tab-console");
+    const pane = this.#tabContent.querySelector("#res-tab-console");
     if (!pane) return;
     pane.innerHTML = "";
 
@@ -2791,7 +2796,7 @@ export class ResponseViewer {
   }
 
   #updateTimestampLabels() {
-    const pane = this._tabContent?.querySelector("#res-tab-timeline");
+    const pane = this.#tabContent?.querySelector("#res-tab-timeline");
     if (!pane) return;
     pane.querySelectorAll(".timeline-item").forEach((item, idx) => {
       const entry = this.#timelineEntries[idx];
@@ -2880,10 +2885,10 @@ export class ResponseViewer {
   }
 
   #setStatus(code, text, time, size) {
-    this._statusBar.querySelector(".res-status-badge").textContent = code;
-    this._statusBar.querySelector(".res-status-text").textContent = text;
-    this._statusBar.querySelector(".res-time").textContent = time;
-    this._statusBar.querySelector(".res-size").textContent = size;
+    this.#statusBar.querySelector(".res-status-badge").textContent = code;
+    this.#statusBar.querySelector(".res-status-text").textContent = text;
+    this.#statusBar.querySelector(".res-time").textContent = time;
+    this.#statusBar.querySelector(".res-size").textContent = size;
   }
 
   #statusClass(code) {
