@@ -20,6 +20,7 @@ import {
   isFunctionCall,
 } from "./variable-resolver.js";
 import { PopupManager } from "../popup-manager.js";
+import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
 import Prism from "../vendor/prism.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
@@ -2780,10 +2781,10 @@ export class RequestEditor {
     if (this.#graphqlFetching) return;
     const rawUrl = this.#urlPillEditor.getValue().trim();
     if (!rawUrl) {
-      PopupManager.notify({
-        title: "No URL",
-        message: "Enter the GraphQL endpoint URL before fetching its schema.",
-      });
+      Notifications.warning(
+        "Enter the GraphQL endpoint URL before fetching its schema.",
+        { title: "No URL" },
+      );
       return;
     }
 
@@ -2847,9 +2848,8 @@ export class RequestEditor {
         statusBadge.setAttribute("aria-label", "Schema fetch failed");
         statusBadge.title = err?.message ?? "Could not fetch the schema.";
       }
-      PopupManager.notify({
+      Notifications.error(err?.message ?? "Could not fetch the schema.", {
         title: "GraphQL introspection failed",
-        message: err?.message ?? "Could not fetch the schema.",
       });
     } finally {
       this.#graphqlFetching = false;
@@ -2923,11 +2923,10 @@ export class RequestEditor {
   #graphqlSchemaSDL() {
     const sdl = introspectionToSDL(this.#graphqlIntrospection);
     if (!sdl) {
-      PopupManager.notify({
-        title: "Schema unavailable",
-        message:
-          "The fetched schema could not be rendered. Try fetching it again.",
-      });
+      Notifications.warning(
+        "The fetched schema could not be rendered. Try fetching it again.",
+        { title: "Schema unavailable" },
+      );
       return null;
     }
     return sdl;
@@ -4157,11 +4156,10 @@ export class RequestEditor {
 
     // ── Path params must all be named — a blank token can't be substituted ──
     if (this.#pathParams.some((p) => !(p.name ?? "").trim())) {
-      PopupManager.notify({
-        title: "Incomplete path parameter",
-        message:
-          "A path parameter has a blank name. Name every path parameter (or remove its token from the URL) before sending.",
-      });
+      Notifications.warning(
+        "A path parameter has a blank name. Name every path parameter (or remove its token from the URL) before sending.",
+        { title: "Incomplete path parameter" },
+      );
       return;
     }
 

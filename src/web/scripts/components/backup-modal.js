@@ -1,6 +1,7 @@
 "use strict";
 
 import { PopupManager } from "../popup-manager.js";
+import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
 
@@ -53,9 +54,8 @@ export class BackupModal {
     const prep = await window.wurl.backup.prepareImport();
     if (!prep || prep.canceled) return;
     if (!prep.ok) {
-      PopupManager.notify({
-        title: "Restore Backup Failed",
-        message: prep.error || "Could not read the backup file.",
+      Notifications.error(prep.error || "Could not read the backup file.", {
+        title: "Restore backup failed",
       });
       return;
     }

@@ -18,6 +18,7 @@
 "use strict";
 
 import { PopupManager } from "../popup-manager.js";
+import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
 import { deepClone } from "../utils/clone.js";
@@ -1085,17 +1086,15 @@ export class TreeView {
     navigator.clipboard
       .writeText(curl)
       .then(() => {
-        PopupManager.notify({
-          title: "Copied to Clipboard",
-          message: "The cURL command has been copied to your clipboard.",
-          autoCloseMs: 1500,
-        });
+        Notifications.success(
+          "The cURL command has been copied to your clipboard.",
+        );
       })
       .catch(() => {
-        PopupManager.notify({
-          title: "Copy Failed",
-          message: "Unable to write to the clipboard. Please try again.",
-        });
+        Notifications.error(
+          "Unable to write to the clipboard. Please try again.",
+          { title: "Copy failed" },
+        );
       });
   }
 
