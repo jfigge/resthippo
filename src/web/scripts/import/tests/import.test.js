@@ -214,7 +214,9 @@ const INSOMNIA_V5_FIXTURE = {
           url: "https://api.example.com/users/1",
           method: "get",
           meta: { id: "req_abc123", description: "" },
-          headers: [{ name: "Accept", value: "application/json", disabled: false }],
+          headers: [
+            { name: "Accept", value: "application/json", disabled: false },
+          ],
           parameters: [],
           body: {},
           authentication: { type: "bearer", token: "tok-123", disabled: false },

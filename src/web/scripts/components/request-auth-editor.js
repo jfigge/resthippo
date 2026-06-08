@@ -1713,7 +1713,7 @@ export class RequestAuthEditor {
           autocomplete="off"
           spellcheck="false"
           aria-label="Issuer URL"
-          value="${(this.#authOAuth2.discoveredIssuer ?? "").replace(/"/g, "&quot;")}"
+          value="${escapeHtml(this.#authOAuth2.discoveredIssuer)}"
         />
         <p class="discover-dialog-error" aria-live="polite" hidden></p>
       </div>

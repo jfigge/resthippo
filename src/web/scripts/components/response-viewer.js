@@ -15,7 +15,7 @@
 import Prism from "../vendor/prism.js";
 import renderMarkdown from "../vendor/markdown.js";
 import { icon } from "../icons.js";
-import { escapeHtml } from "../utils/html.js";
+import { escapeHtml, escapeHtmlText, escapeHtmlAttr } from "../utils/html.js";
 
 const TABS = [
   { id: "body", label: "Body" },
@@ -192,14 +192,15 @@ function prettyHtml(html) {
     const doc = new DOMParser().parseFromString(html, "text/html");
     if (!doc || !doc.documentElement) return html;
 
-    const escAttr = (v) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-    const escText = (v) =>
-      v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
+    // This reconstructs displayed HTML *source*, so use the minimal-fidelity
+    // serializers (escapeHtmlText/escapeHtmlAttr) rather than escapeHtml — a
+    // literal `"` in text or `<` in an attribute must round-trip unchanged.
     const openTag = (el) => {
       const attrs = Array.from(el.attributes)
         .map((a) =>
-          a.value === "" ? ` ${a.name}` : ` ${a.name}="${escAttr(a.value)}"`,
+          a.value === ""
+            ? ` ${a.name}`
+            : ` ${a.name}="${escapeHtmlAttr(a.value)}"`,
         )
         .join("");
       return `<${el.tagName.toLowerCase()}${attrs}>`;
@@ -234,7 +235,8 @@ function prettyHtml(html) {
         out.push(pad + open);
         // script/style are code (CDATA-like, kept literal); pre/textarea are
         // text and must be re-escaped to valid source.
-        const body = tag === "script" || tag === "style" ? raw : escText(raw);
+        const body =
+          tag === "script" || tag === "style" ? raw : escapeHtmlText(raw);
         pushLines(body, INDENT.repeat(depth + 1));
         out.push(pad + close);
         return;
@@ -248,7 +250,9 @@ function prettyHtml(html) {
       // A lone text child stays inline: <title>Hello</title>.
       if (kids.length === 1 && kids[0].nodeType === Node.TEXT_NODE) {
         const t = kids[0].textContent.trim();
-        out.push(pad + openTag(node) + (t ? escText(t) : "") + close(tag));
+        out.push(
+          pad + openTag(node) + (t ? escapeHtmlText(t) : "") + close(tag),
+        );
         return;
       }
 
@@ -267,7 +271,7 @@ function prettyHtml(html) {
           break;
         case Node.TEXT_NODE: {
           const t = child.textContent.trim();
-          if (t) out.push(pad + escText(t));
+          if (t) out.push(pad + escapeHtmlText(t));
           break;
         }
         case Node.COMMENT_NODE:

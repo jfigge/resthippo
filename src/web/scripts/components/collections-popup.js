@@ -1010,39 +1010,73 @@ export class CollectionsPopup {
     const li = document.createElement("li");
     li.className = "cookies-row";
 
+    // ── name=value row + edit/delete actions ──────────────────────────────
+    const main = document.createElement("div");
+    main.className = "cookies-row-main";
+
+    const nv = document.createElement("span");
+    nv.className = "cookies-nv";
+    const nameEl = document.createElement("span");
+    nameEl.className = "cookies-name";
+    nameEl.textContent = cookie.name;
+    const valueEl = document.createElement("span");
+    valueEl.className = "cookies-value";
+    valueEl.textContent = cookie.value;
+    nv.append(nameEl, document.createTextNode("="), valueEl);
+
+    const actions = document.createElement("div");
+    actions.className = "cookies-row-actions";
+
+    const editBtn = document.createElement("button");
+    editBtn.className = "icon-btn cookies-edit";
+    editBtn.title = "Edit cookie";
+    editBtn.setAttribute("aria-label", "Edit cookie");
+    editBtn.innerHTML = ICON_EDIT; // static developer markup (SVG)
+    editBtn.addEventListener("click", () => {
+      this.#editingCookieIdent = this.#identOf(cookie);
+      this.#renderCookies();
+    });
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "icon-btn params-delete-btn cookies-delete";
+    deleteBtn.title = "Delete cookie";
+    deleteBtn.setAttribute("aria-label", "Delete cookie");
+    wireDeleteConfirm(deleteBtn, () => this.#deleteCookie(cookie));
+
+    actions.append(editBtn, deleteBtn);
+    main.append(nv, actions);
+
+    // ── scope / expiry / flags meta row ───────────────────────────────────
+    const meta = document.createElement("div");
+    meta.className = "cookies-row-meta";
+
+    const scope = document.createElement("span");
+    scope.className = "cookies-scope";
+    scope.textContent = `${cookie.domain}${cookie.path}`;
+
+    const expiry = document.createElement("span");
+    expiry.className = "cookies-expiry";
+    expiry.textContent = this.#formatExpiry(cookie.expires);
+
+    meta.append(scope, expiry);
+
     const flags = [];
     if (cookie.secure) flags.push("Secure");
     if (cookie.httpOnly) flags.push("HttpOnly");
     if (cookie.sameSite) flags.push(`SameSite=${cookie.sameSite}`);
-    const flagsHtml = flags.length
-      ? `<span class="cookies-flags">${flags.map((f) => `<span class="cookies-flag">${escapeHtml(f)}</span>`).join("")}</span>`
-      : "";
+    if (flags.length) {
+      const flagsEl = document.createElement("span");
+      flagsEl.className = "cookies-flags";
+      for (const f of flags) {
+        const flag = document.createElement("span");
+        flag.className = "cookies-flag";
+        flag.textContent = f;
+        flagsEl.appendChild(flag);
+      }
+      meta.appendChild(flagsEl);
+    }
 
-    li.innerHTML = `
-      <div class="cookies-row-main">
-        <span class="cookies-nv">
-          <span class="cookies-name">${escapeHtml(cookie.name)}</span>=<span class="cookies-value">${escapeHtml(cookie.value)}</span>
-        </span>
-        <div class="cookies-row-actions">
-          <button class="icon-btn cookies-edit" title="Edit cookie" aria-label="Edit cookie">${ICON_EDIT}</button>
-          <button class="icon-btn params-delete-btn cookies-delete" title="Delete cookie" aria-label="Delete cookie"></button>
-        </div>
-      </div>
-      <div class="cookies-row-meta">
-        <span class="cookies-scope">${escapeHtml(cookie.domain)}${escapeHtml(cookie.path)}</span>
-        <span class="cookies-expiry">${escapeHtml(this.#formatExpiry(cookie.expires))}</span>
-        ${flagsHtml}
-      </div>
-    `;
-
-    li.querySelector(".cookies-edit").addEventListener("click", () => {
-      this.#editingCookieIdent = this.#identOf(cookie);
-      this.#renderCookies();
-    });
-    wireDeleteConfirm(li.querySelector(".cookies-delete"), () =>
-      this.#deleteCookie(cookie),
-    );
-
+    li.append(main, meta);
     return li;
   }
 

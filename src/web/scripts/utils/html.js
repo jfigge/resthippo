@@ -1,33 +1,72 @@
 /**
- * html.js — HTML-escaping helper.
+ * html.js — the single home for HTML string-escaping helpers.
  *
- * `escapeHtml` escapes the four characters that matter when injecting
- * caller-supplied strings into `innerHTML`: `&`, `<`, `>` and `"`. Escaping the
- * double-quote makes the result equally safe inside a double-quoted attribute
- * value (`value="${escapeHtml(x)}"`) and in element text, so one helper covers
- * both contexts used across the renderer. All attribute values in this codebase
- * use double quotes; if a single-quoted-attribute context ever arises, escape
- * `'` as well at that call site.
+ * Two related-but-distinct jobs live here:
  *
- * This replaces the half-dozen private `#escape`/`#esc`/`#escapeHtml` copies
- * that previously lived in individual components — two of which omitted the
- * `"` escape and were unsafe inside attributes.
+ *  1. Injection escaping — `escapeHtml`. Use this when interpolating
+ *     caller-supplied data into an `innerHTML` template. It escapes the four
+ *     characters that matter (`&`, `<`, `>`, `"`), so the result is safe in
+ *     BOTH element text and a double-quoted attribute value without the call
+ *     site having to know which context it lands in. Over-escaping is invisible
+ *     here because the browser un-escapes the entities when it renders.
  *
- *   import { escapeHtml } from "../utils/html.js";
- *   el.innerHTML = `<span title="${escapeHtml(name)}">${escapeHtml(name)}</span>`;
+ *         el.innerHTML = `<span title="${escapeHtml(name)}">${escapeHtml(name)}</span>`;
+ *
+ *  2. Source serialization — `escapeHtmlText` / `escapeHtmlAttr`. Use these
+ *     when reconstructing readable HTML *source* that will itself be displayed
+ *     (e.g. the pretty-printed body view, which is shown to the user verbatim).
+ *     There, over-escaping is VISIBLE — a literal `"` in text must stay a `"`,
+ *     not become `&quot;` — so each helper escapes only the minimum its context
+ *     requires while staying injection-safe for that context:
+ *       • `escapeHtmlText` — HTML text node:            `&`, `<`, `>`
+ *       • `escapeHtmlAttr` — double-quoted attribute:   `&`, `"`
+ *
+ * Prefer `escapeHtml` unless you are deliberately serializing source and the
+ * extra entities would be seen by the user. All attribute values in this
+ * codebase use double quotes; if a single-quoted-attribute context ever arises,
+ * escape `'` as well at that call site.
+ *
+ * This file replaces the per-component `#escape`/`#esc`/`escAttr`/`escText`
+ * copies that previously lived in individual components — some of which omitted
+ * the `"` (unsafe inside attributes) or the `&` escape.
  */
 
 "use strict";
 
 /**
+ * Escape a value for an HTML text node: `&`, `<`, `>`.
+ * Safe and faithful inside element text (does not touch `"`).
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function escapeHtmlText(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
+ * Escape a value for a double-quoted HTML attribute value: `&`, `"`.
+ * Safe and faithful inside `attr="…"` (does not touch `<`/`>`, which are legal
+ * literally in attribute values).
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function escapeHtmlAttr(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
  * Escape a value for safe insertion into HTML text or a double-quoted attribute.
+ * The four-character superset (`&`, `<`, `>`, `"`) — the default for injecting
+ * caller data into `innerHTML`, where you don't want to track which context the
+ * value lands in.
  * @param {unknown} value
  * @returns {string}
  */
 export function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return escapeHtmlText(value).replace(/"/g, "&quot;");
 }
