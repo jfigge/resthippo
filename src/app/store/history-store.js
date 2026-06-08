@@ -13,7 +13,6 @@
  */
 "use strict";
 
-const fs = require("fs");
 const path = require("path");
 const {
   readJSON,
@@ -22,6 +21,9 @@ const {
   validateID,
   newUUID,
   notFoundError,
+  remove,
+  listDir,
+  exists,
 } = require("./io");
 
 /** Maximum allowed page size. */
@@ -62,17 +64,12 @@ class HistoryStore {
     const cursor = options.cursor ?? "";
 
     const histDir = this._paths.historyDir(collId, requestId);
-    if (!fs.existsSync(histDir)) {
+    if (!exists(histDir)) {
       return { items: [], nextCursor: "" };
     }
 
     // Load all entry files.
-    let files;
-    try {
-      files = fs.readdirSync(histDir).filter((f) => f.endsWith(".json"));
-    } catch {
-      return { items: [], nextCursor: "" };
-    }
+    const files = listDir(histDir).filter((f) => f.endsWith(".json"));
 
     const entries = [];
     for (const file of files) {
@@ -188,16 +185,8 @@ class HistoryStore {
       historyId,
     );
 
-    try {
-      fs.unlinkSync(respPath);
-    } catch {
-      /* missing response file is fine */
-    }
-    try {
-      fs.unlinkSync(entryPath);
-    } catch {
-      /* missing entry file is fine */
-    }
+    remove(respPath);
+    remove(entryPath);
   }
 
   // ── Clear ─────────────────────────────────────────────────────────────────
@@ -216,16 +205,8 @@ class HistoryStore {
     const histDir = this._paths.historyDir(collId, requestId);
     const respDir = this._paths.responsesDir(collId, requestId);
 
-    try {
-      fs.rmSync(histDir, { recursive: true, force: true });
-    } catch {
-      /* missing history dir is fine */
-    }
-    try {
-      fs.rmSync(respDir, { recursive: true, force: true });
-    } catch {
-      /* missing responses dir is fine */
-    }
+    remove(histDir);
+    remove(respDir);
   }
 
   // ── Trim ────────────────────────────────────────────────────────────────────
@@ -241,14 +222,9 @@ class HistoryStore {
    */
   _trimRequest(collId, reqId, max) {
     const histDir = this._paths.historyDir(collId, reqId);
-    if (!fs.existsSync(histDir)) return;
+    if (!exists(histDir)) return;
 
-    let files;
-    try {
-      files = fs.readdirSync(histDir).filter((f) => f.endsWith(".json"));
-    } catch {
-      return;
-    }
+    const files = listDir(histDir).filter((f) => f.endsWith(".json"));
 
     const entries = [];
     for (const file of files) {
@@ -265,16 +241,8 @@ class HistoryStore {
 
     for (let i = max; i < entries.length; i++) {
       const e = entries[i];
-      try {
-        fs.unlinkSync(this._paths.responsePath(collId, reqId, e.id));
-      } catch {
-        /* ok */
-      }
-      try {
-        fs.unlinkSync(this._paths.historyEntryPath(collId, reqId, e.id));
-      } catch {
-        /* ok */
-      }
+      remove(this._paths.responsePath(collId, reqId, e.id));
+      remove(this._paths.historyEntryPath(collId, reqId, e.id));
     }
   }
 
@@ -288,43 +256,19 @@ class HistoryStore {
   trimAllHistory(maxEntries) {
     const max = Math.max(0, maxEntries);
     const collectionsDir = this._paths.collectionsDir();
-    if (!fs.existsSync(collectionsDir)) return;
 
-    let collIds;
-    try {
-      collIds = fs.readdirSync(collectionsDir).filter((name) => {
-        try {
-          return fs.statSync(path.join(collectionsDir, name)).isDirectory();
-        } catch {
-          return false;
-        }
-      });
-    } catch {
-      return;
-    }
+    const collIds = listDir(collectionsDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
 
     for (const collId of collIds) {
       const historyBase = path.join(
         this._paths.collectionDir(collId),
         "history",
       );
-      if (!fs.existsSync(historyBase)) continue;
-
-      let reqIds;
-      try {
-        reqIds = fs.readdirSync(historyBase);
-      } catch {
-        continue;
-      }
-
-      for (const reqId of reqIds) {
-        try {
-          if (!fs.statSync(path.join(historyBase, reqId)).isDirectory())
-            continue;
-        } catch {
-          continue;
-        }
-        this._trimRequest(collId, reqId, max);
+      for (const entry of listDir(historyBase, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        this._trimRequest(collId, entry.name, max);
       }
     }
   }

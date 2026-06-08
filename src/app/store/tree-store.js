@@ -17,13 +17,13 @@
  */
 "use strict";
 
-const fs = require("fs");
 const {
   readJSON,
   writeJSON,
   ensureDir,
   validateID,
   notFoundError,
+  exists,
 } = require("./io");
 
 class TreeStore {
@@ -78,7 +78,7 @@ function _validateTreeRefs(nodes, collectionId, paths) {
   for (const node of nodes) {
     if (node.type === "requestRef") {
       const p = paths.requestPath(collectionId, node.id);
-      if (!fs.existsSync(p)) {
+      if (!exists(p)) {
         throw notFoundError(
           `requestRef ${node.id} not found in collection ${collectionId}`,
         );

@@ -7,7 +7,7 @@
  */
 "use strict";
 
-const fs = require("fs");
+const { listDir } = require("./io");
 
 class Resolver {
   /**
@@ -78,29 +78,13 @@ class Resolver {
 
   _rebuild() {
     const collectionsDir = this._paths.collectionsDir();
-    if (!fs.existsSync(collectionsDir)) return;
 
-    let entries;
-    try {
-      entries = fs.readdirSync(collectionsDir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-
-    for (const entry of entries) {
+    for (const entry of listDir(collectionsDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       const collId = entry.name;
       const reqsDir = this._paths.requestsDir(collId);
-      if (!fs.existsSync(reqsDir)) continue;
 
-      let files;
-      try {
-        files = fs.readdirSync(reqsDir);
-      } catch {
-        continue;
-      }
-
-      for (const file of files) {
+      for (const file of listDir(reqsDir)) {
         if (!file.endsWith(".json")) continue;
         const reqId = file.slice(0, -5);
         if (reqId.length === 0) continue;

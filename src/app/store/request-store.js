@@ -19,6 +19,7 @@ const {
   validateID,
   newUUID,
   notFoundError,
+  remove,
 } = require("./io");
 const { encryptRequest, decryptRequest } = require("./crypto");
 
@@ -113,11 +114,7 @@ class RequestStore {
       this._appendToTree(collectionId, collectionId, req.id);
     } catch (treeErr) {
       // Best-effort rollback: remove the request file so we don't leave orphans.
-      try {
-        fs.unlinkSync(this._paths.requestPath(collectionId, req.id));
-      } catch {
-        /* ignore */
-      }
+      remove(this._paths.requestPath(collectionId, req.id));
       throw treeErr;
     }
 
@@ -192,6 +189,9 @@ class RequestStore {
     const collId = this._resolver.resolve(id);
     const reqPath = this._paths.requestPath(collId, id);
 
+    // Deliberately a direct unlinkSync, not the best-effort io.remove(): this
+    // delete is NOT fire-and-forget — a missing file must surface as NOT_FOUND
+    // and any other error must propagate, both of which io.remove() would swallow.
     try {
       fs.unlinkSync(reqPath);
     } catch (err) {

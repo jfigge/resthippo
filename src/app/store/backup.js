@@ -43,7 +43,6 @@
  */
 "use strict";
 
-const fs = require("fs");
 const path = require("path");
 
 const io = require("./io");
@@ -183,8 +182,8 @@ class BackupStore {
       : [];
 
     if (mode === "replace") {
-      this._rmDir(this._paths.collectionsDir());
-      this._rmDir(this._paths.environmentsDir());
+      io.remove(this._paths.collectionsDir());
+      io.remove(this._paths.environmentsDir());
     }
 
     // ── Manifest (collections list + settings) ──
@@ -252,14 +251,8 @@ class BackupStore {
   /** Read every raw request file in a collection, transforming secrets per `mode`. */
   _readRequests(collId, mode, password) {
     const dir = this._paths.requestsDir(collId);
-    let names;
-    try {
-      names = fs.readdirSync(dir);
-    } catch {
-      return [];
-    }
     const requests = [];
-    for (const name of names) {
+    for (const name of io.listDir(dir)) {
       if (!name.endsWith(".json") || io.isTempFileName(name)) continue;
       const req = io.readJSON(path.join(dir, name));
       if (req === null) continue;
@@ -270,15 +263,10 @@ class BackupStore {
 
   /** List immediate sub-directory names under collections/ (skips index.json). */
   _listCollectionIds() {
-    let entries;
-    try {
-      entries = fs.readdirSync(this._paths.collectionsDir(), {
-        withFileTypes: true,
-      });
-    } catch {
-      return [];
-    }
-    return entries.filter((e) => e.isDirectory()).map((e) => e.name);
+    return io
+      .listDir(this._paths.collectionsDir(), { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
   }
 
   // ── Private: import helpers ───────────────────────────────────────────────
@@ -332,11 +320,6 @@ class BackupStore {
       ),
       environments: [...byId.values()],
     };
-  }
-
-  /** Recursively remove a directory if it exists (best-effort). */
-  _rmDir(dir) {
-    fs.rmSync(dir, { recursive: true, force: true });
   }
 }
 

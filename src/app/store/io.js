@@ -11,9 +11,6 @@ const path = require("path");
 const { randomUUID } = require("crypto");
 const { migrate } = require("./migrations");
 
-/** fs.promises handle for the async, per-path-serialized write path. */
-const fsp = fs.promises;
-
 // ── Directory helpers ─────────────────────────────────────────────────────────
 
 /**
@@ -103,77 +100,6 @@ function atomicWrite(filePath, data) {
   }
 }
 
-// ── Serialized async writes ─────────────────────────────────────────────────────
-
-/**
- * Per-target promise chain. Overlapping async writes to the same path run one
- * after another so their temp→rename steps can never interleave. Single-process,
- * single-writer model: last write wins.
- * @type {Map<string, Promise<*>>}
- */
-const writeChains = new Map();
-
-/**
- * Run `task` after any pending write to `filePath` settles — whether that prior
- * write resolved or rejected — and return `task`'s result/rejection to the caller.
- * @param {string} filePath
- * @param {() => Promise<*>} task
- * @returns {Promise<*>}
- */
-function serialize(filePath, task) {
-  const key = path.resolve(filePath);
-  const prev = writeChains.get(key) || Promise.resolve();
-  const run = prev.then(task, task);
-  // The stored chain swallows errors so one failed write never stalls later ones.
-  const tail = run.then(
-    () => {},
-    () => {},
-  );
-  writeChains.set(key, tail);
-  tail.then(() => {
-    if (writeChains.get(key) === tail) writeChains.delete(key);
-  });
-  return run;
-}
-
-/**
- * Async, per-path-serialized counterpart to {@link atomicWrite}.
- * @param {string} filePath
- * @param {string|Buffer} data
- * @returns {Promise<void>}
- */
-function atomicWriteAsync(filePath, data) {
-  return serialize(filePath, async () => {
-    await fsp.mkdir(path.dirname(filePath), { recursive: true });
-    const tmpPath = tempPathFor(filePath);
-    const tmpKey = path.resolve(tmpPath);
-    activeTempPaths.add(tmpKey);
-    try {
-      await fsp.writeFile(tmpPath, data, "utf8");
-      await fsp.rename(tmpPath, filePath);
-    } catch (err) {
-      try {
-        await fsp.unlink(tmpPath);
-      } catch {
-        /* ignore */
-      }
-      throw err;
-    } finally {
-      activeTempPaths.delete(tmpKey);
-    }
-  });
-}
-
-/**
- * Async, per-path-serialized counterpart to {@link writeJSON}.
- * @param {string} filePath
- * @param {*} obj
- * @returns {Promise<void>}
- */
-function writeJSONAsync(filePath, obj) {
-  return atomicWriteAsync(filePath, JSON.stringify(migrate(obj), null, 2));
-}
-
 // ── JSON helpers ──────────────────────────────────────────────────────────────
 
 /**
@@ -205,6 +131,52 @@ function readJSON(filePath) {
     if (err.code === "ENOENT") return null;
     throw err;
   }
+}
+
+// ── Filesystem helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Best-effort recursive delete of a file or directory.
+ *
+ * Never throws: a missing path is a no-op (via `force`), and any other failure
+ * is swallowed. This matches the delete call sites it replaces, which all treat
+ * removal as fire-and-forget cleanup. Callers that must distinguish "did not
+ * exist" from "removed" should not use this helper.
+ *
+ * @param {string} targetPath File or directory to remove.
+ */
+function remove(targetPath) {
+  try {
+    fs.rmSync(targetPath, { recursive: true, force: true });
+  } catch {
+    /* best-effort: a failed cleanup is never fatal */
+  }
+}
+
+/**
+ * List a directory's entries, returning `[]` when it is missing or unreadable.
+ *
+ * `opts` is forwarded verbatim to fs.readdirSync, so `{ withFileTypes: true }`
+ * yields Dirent objects exactly as the underlying call would.
+ *
+ * @param {string} dir
+ * @param {object} [opts] Options forwarded to fs.readdirSync.
+ * @returns {string[]|import('fs').Dirent[]}
+ */
+function listDir(dir, opts) {
+  try {
+    return fs.readdirSync(dir, opts);
+  } catch {
+    return []; // missing / unreadable dir — nothing to list
+  }
+}
+
+/**
+ * @param {string} targetPath
+ * @returns {boolean} True if the path exists.
+ */
+function exists(targetPath) {
+  return fs.existsSync(targetPath);
 }
 
 // ── Orphan temp-file GC ─────────────────────────────────────────────────────────
@@ -307,10 +279,11 @@ function notFoundError(message) {
 module.exports = {
   ensureDir,
   atomicWrite,
-  atomicWriteAsync,
   writeJSON,
-  writeJSONAsync,
   readJSON,
+  remove,
+  listDir,
+  exists,
   gcOrphanTempFiles,
   isTempFileName,
   newTempPath,

@@ -396,11 +396,8 @@ function safeCallWrite(channel, fn) {
       const oldestRef = spilledBodies.keys().next().value;
       const old = spilledBodies.get(oldestRef);
       spilledBodies.delete(oldestRef);
-      try {
-        fs.unlinkSync(old.path);
-      } catch {
-        // Already gone (manual delete or startup GC) — nothing to do.
-      }
+      // Already gone (manual delete or startup GC) is fine — best-effort.
+      io.remove(old.path);
     }
     return ref;
   }
@@ -1094,11 +1091,7 @@ function safeCallWrite(channel, fn) {
           const previewEncoding = binary ? "base64" : "utf8";
           spillStream.end(() => {
             if (spillError) {
-              try {
-                fs.unlinkSync(spillPath);
-              } catch {
-                // best-effort
-              }
+              io.remove(spillPath);
               consoleLog.push(
                 `* Failed to buffer full response to disk: ${spillError.message}`,
               );
@@ -1143,11 +1136,7 @@ function safeCallWrite(channel, fn) {
             } catch {
               // best-effort
             }
-            try {
-              fs.unlinkSync(spillPath);
-            } catch {
-              // best-effort
-            }
+            io.remove(spillPath);
           }
           resolve({
             status: code,
@@ -2012,11 +2001,8 @@ function safeCallWrite(channel, fn) {
   /** Remove the just-loaded temp .pdf, if any. */
   function _cleanupTemp() {
     if (_pdfPreviewPath) {
-      try {
-        fs.unlinkSync(_pdfPreviewPath);
-      } catch {
-        // best-effort — startup GC will reap it otherwise
-      }
+      // best-effort — startup GC will reap it otherwise
+      io.remove(_pdfPreviewPath);
       _pdfPreviewPath = null;
     }
   }

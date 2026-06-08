@@ -7,8 +7,7 @@
  */
 "use strict";
 
-const fs = require("fs");
-const { readJSON, writeJSON, ensureDir, validateID } = require("./io");
+const { readJSON, writeJSON, ensureDir, validateID, remove } = require("./io");
 const { encryptSettings, decryptSettings } = require("./crypto");
 
 /** Default manifest returned on first run (no file yet). */
@@ -75,10 +74,7 @@ class CollectionStore {
    */
   deleteCollection(collectionId) {
     validateID(collectionId, "collectionId");
-    fs.rmSync(this._paths.collectionDir(collectionId), {
-      recursive: true,
-      force: true,
-    });
+    remove(this._paths.collectionDir(collectionId));
     if (this._resolver) this._resolver.invalidate();
   }
 }

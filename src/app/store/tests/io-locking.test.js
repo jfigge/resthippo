@@ -1,6 +1,7 @@
 /**
- * io-locking.test.js — Tests for per-path write serialization and the
- * orphaned temp-file garbage collector (feature 03).
+ * io-locking.test.js — Tests for the orphaned temp-file garbage collector
+ * (feature 03), the temp-name matcher, and the remove/listDir/exists
+ * filesystem helpers.
  */
 "use strict";
 
@@ -73,64 +74,64 @@ test("gcOrphanTempFiles tolerates a missing directory", () => {
   assert.deepStrictEqual(io.gcOrphanTempFiles(missing), []);
 });
 
-// ── Per-path serialization ──────────────────────────────────────────────────────
+// ── Filesystem helpers: remove / listDir / exists ───────────────────────────────
 
-test("writeJSONAsync serializes overlapping writes to the same path (last wins)", async () => {
+test("remove deletes a single file", () => {
   const dir = tmpDir();
-  const target = path.join(dir, "data.json");
+  const file = path.join(dir, "data.json");
+  fs.writeFileSync(file, "x");
 
-  await Promise.all([
-    io.writeJSONAsync(target, { n: 1 }),
-    io.writeJSONAsync(target, { n: 2 }),
-    io.writeJSONAsync(target, { n: 3 }),
-  ]);
-
-  // The file parses cleanly (never a partial temp) and reflects the last write.
-  assert.strictEqual(io.readJSON(target).n, 3);
-  // No temp files left behind.
-  const leftovers = fs.readdirSync(dir).filter((f) => io.isTempFileName(f));
-  assert.deepStrictEqual(leftovers, []);
+  io.remove(file);
+  assert.strictEqual(fs.existsSync(file), false);
 });
 
-test("many concurrent async writes never leave a corrupt file", async () => {
+test("remove deletes a directory tree recursively", () => {
   const dir = tmpDir();
-  const target = path.join(dir, "data.json");
+  const tree = path.join(dir, "a", "b");
+  fs.mkdirSync(tree, { recursive: true });
+  fs.writeFileSync(path.join(tree, "f.json"), "x");
 
-  const writes = [];
-  for (let i = 0; i < 25; i++) {
-    writes.push(io.writeJSONAsync(target, { i }));
-  }
-  await Promise.all(writes);
-
-  // Whatever landed parses cleanly and is the last-issued value.
-  assert.strictEqual(io.readJSON(target).i, 24);
-  const leftovers = fs.readdirSync(dir).filter((f) => io.isTempFileName(f));
-  assert.deepStrictEqual(leftovers, []);
+  io.remove(path.join(dir, "a"));
+  assert.strictEqual(fs.existsSync(path.join(dir, "a")), false);
 });
 
-test("writeJSONAsync to different paths both land", async () => {
+test("remove is a best-effort no-op on a missing path", () => {
   const dir = tmpDir();
-  const a = path.join(dir, "a.json");
-  const b = path.join(dir, "b.json");
-
-  await Promise.all([
-    io.writeJSONAsync(a, { k: "a" }),
-    io.writeJSONAsync(b, { k: "b" }),
-  ]);
-
-  assert.strictEqual(io.readJSON(a).k, "a");
-  assert.strictEqual(io.readJSON(b).k, "b");
+  assert.doesNotThrow(() => io.remove(path.join(dir, "never-existed")));
 });
 
-test("atomicWriteAsync cleans up temp file on error", async () => {
+test("listDir returns entry names", () => {
   const dir = tmpDir();
-  // Renaming a temp file onto an existing directory path fails; the temp file
-  // must not be left behind.
-  const target = path.join(dir, "subdir");
-  fs.mkdirSync(target);
+  fs.writeFileSync(path.join(dir, "a.json"), "1");
+  fs.writeFileSync(path.join(dir, "b.json"), "2");
 
-  await assert.rejects(() => io.atomicWriteAsync(target, "data"));
+  assert.deepStrictEqual(io.listDir(dir).sort(), ["a.json", "b.json"]);
+});
 
-  const leftovers = fs.readdirSync(dir).filter((f) => io.isTempFileName(f));
-  assert.deepStrictEqual(leftovers, []);
+test("listDir forwards options (withFileTypes yields Dirents)", () => {
+  const dir = tmpDir();
+  fs.mkdirSync(path.join(dir, "sub"));
+  fs.writeFileSync(path.join(dir, "file.json"), "x");
+
+  const entries = io.listDir(dir, { withFileTypes: true });
+  const dirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+  const files = entries.filter((e) => e.isFile()).map((e) => e.name);
+
+  assert.deepStrictEqual(dirs, ["sub"]);
+  assert.deepStrictEqual(files, ["file.json"]);
+});
+
+test("listDir returns [] for a missing directory", () => {
+  const dir = tmpDir();
+  assert.deepStrictEqual(io.listDir(path.join(dir, "missing")), []);
+});
+
+test("exists reflects presence of files and directories", () => {
+  const dir = tmpDir();
+  const file = path.join(dir, "here.json");
+
+  assert.strictEqual(io.exists(file), false);
+  fs.writeFileSync(file, "x");
+  assert.strictEqual(io.exists(file), true);
+  assert.strictEqual(io.exists(dir), true);
 });
