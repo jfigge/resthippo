@@ -34,7 +34,7 @@
   background-color: var(--color-mantle);
   border-bottom: 1px solid var(--color-surface-2);
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-subtext);

@@ -35,12 +35,19 @@
   --color-info: #89dceb;
 
   /* ── HTTP method colours ──────────────────────────────────────────────── */
-  --color-method-get: #a6e3a1;
+  /* GET/DELETE/HEAD reuse the success/error/warning palette — derived once here
+     so each theme defines them a single time. The inner var() resolves per-theme
+     at the use site (same late-binding trick as --tint-error-hover below), so a
+     new palette only needs to set --color-success / -error / -warning. POST /
+     PUT / PATCH / OPTIONS / WS are genuinely distinct hues (and in the grey
+     themes PUT stays blue while the accent is monochrome), so each theme sets
+     those explicitly. */
+  --color-method-get: var(--color-success);
   --color-method-post: #fab387;
   --color-method-put: #89b4fa;
   --color-method-patch: #cba6f7;
-  --color-method-delete: #f38ba8;
-  --color-method-head: #f9e2af;
+  --color-method-delete: var(--color-error);
+  --color-method-head: var(--color-warning);
   --color-method-options: #94e2d5;
   --color-method-ws: #89dceb; /* WebSocket — full-duplex protocol badge */
 
@@ -66,6 +73,14 @@
   --font-size-md: calc(var(--font-size-base) + 1px);
   --font-size-lg: calc(var(--font-size-base) + 3px);
   --font-size-xl: calc(var(--font-size-base) + 7px);
+
+  /* Weights — three steps on one scale: medium for subtle emphasis on muted /
+     secondary text (inactive tabs, pill labels, sub-headers); semibold for
+     primary labels, headings and active tabs/nav; bold for the strongest
+     accents (method badges, key headings). */
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
 
   /* ── Spacing ─────────────────────────────────────────────────────────── */
   --space-1: 2px;
@@ -104,7 +119,6 @@
 
   /* ── Splitter ────────────────────────────────────────────────────────── */
   --splitter-size: 2px;
-  --splitter-hit: 12px;
 
   /* ── Panel default sizes ─────────────────────────────────────────────── */
   --panel-nav-basis: 240px;
@@ -134,12 +148,9 @@
   --color-error: #d20f39;
   --color-info: #179299;
 
-  --color-method-get: #40a02b;
   --color-method-post: #fe640b;
   --color-method-put: #1e66f5;
   --color-method-patch: #8839ef;
-  --color-method-delete: #d20f39;
-  --color-method-head: #df8e1d;
   --color-method-options: #179299;
   --color-method-ws: #209fb5; /* Catppuccin Latte sapphire — distinct from OPTIONS' teal */
 }
@@ -167,12 +178,9 @@
   --color-error: #e07070;
   --color-info: #70b8d0;
 
-  --color-method-get: #80c080;
   --color-method-post: #d09060;
   --color-method-put: #8090d0;
   --color-method-patch: #a880c0;
-  --color-method-delete: #e07070;
-  --color-method-head: #d4b060;
   --color-method-options: #70b8d0;
   --color-method-ws: #6aa6e0; /* bluer cyan — distinct from OPTIONS' #70b8d0 */
 }
@@ -200,12 +208,9 @@
   --color-error: #b82020;
   --color-info: #1870a0;
 
-  --color-method-get: #2a7a2a;
   --color-method-post: #b05010;
   --color-method-put: #2050c0;
   --color-method-patch: #6820b0;
-  --color-method-delete: #b82020;
-  --color-method-head: #9a6800;
   --color-method-options: #1870a0;
   --color-method-ws: #2060b8; /* bluer cyan — distinct from OPTIONS' #1870a0 */
 }
@@ -264,7 +269,7 @@ body {
   background: transparent;
   color: var(--color-text);
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
   box-sizing: border-box;
   transition:
@@ -287,7 +292,7 @@ body {
   background: var(--color-accent);
   border-color: var(--color-accent);
   color: var(--color-crust);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .btn--primary:hover {
@@ -319,7 +324,7 @@ body {
   background-color: var(--color-warning);
   border-color: transparent;
   color: var(--color-base);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
 .btn--warning:hover {

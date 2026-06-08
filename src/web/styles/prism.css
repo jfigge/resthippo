@@ -101,7 +101,7 @@ pre[class*="language-"] {
 .token.important,
 .token.variable {
   color: var(--color-warning);
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
 /* --- Shared miscellaneous -------------------------------------------------- */
@@ -130,7 +130,7 @@ pre[class*="language-"] {
 }
 
 .token.bold {
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
 }
 
 .token.italic {

@@ -2775,6 +2775,12 @@ export class ResponseViewer {
       () => this.#updateTimestampLabels(),
       10_000,
     );
+    // This background "Xs ago" ticker must never keep a process alive: under
+    // `node --test` (jsdom) a viewer left on the timeline tab would otherwise
+    // hang the runner forever. unref() exists on Node's Timeout; in the
+    // Electron/Chromium renderer setInterval returns a number, so the optional
+    // call is a harmless no-op there (the interval still fires every 10s).
+    this.#timestampTimer?.unref?.();
   }
 
   #stopTimestampUpdater() {

@@ -66,7 +66,7 @@
 }
 
 .ws-console-state {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-sm);
 }
 
@@ -131,7 +131,7 @@
 }
 
 .ws-frame-glyph {
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   text-align: center;
   width: 1.1em;
 }
@@ -231,7 +231,7 @@
 .ws-composer-format button[aria-pressed="true"] {
   background: var(--color-surface-2);
   color: var(--color-text);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .ws-composer-subproto {
@@ -248,7 +248,7 @@
 
 .ws-composer-send {
   flex: 0 0 auto;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-sm);
   padding: var(--space-1) var(--space-4);
   border: 1px solid var(--color-accent);
