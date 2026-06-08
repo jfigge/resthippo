@@ -556,9 +556,21 @@ export const PopupManager = {
   },
 
   /**
-   * Show a context menu at the given viewport coordinates.
+   * Show a context / dropdown menu at the given viewport coordinates.
    * The overlay mask is made interactive but transparent — clicking anywhere
    * outside the menu closes it immediately with no confirmation.
+   *
+   * This is the canonical path for every anchored DOM menu (HTTP-method picker,
+   * layout picker, …): callers build the element and pass an anchor point;
+   * openMenu handles mount, the click-capturing mask, viewport clamping, and
+   * fires wurl:popup-opened / -closed via the shared mask. Components must NOT
+   * roll their own outside-click/mount logic. Close with PopupManager.close().
+   *
+   * Invariant: only open a menu when no other popup is already active. Menus
+   * reuse the single _activePopup/mask slot, and the popup-opened/-closed events
+   * are coalesced to the mask's visibility — opening a menu on top of an
+   * existing popup would skip the second `opened` and unbalance listeners that
+   * count popup depth (e.g. response-viewer's native preview overlays).
    *
    * @param {HTMLElement} element  - The context-menu DOM element to display
    * @param {number}      x        - Desired left position (clientX)

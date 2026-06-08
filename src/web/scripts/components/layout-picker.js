@@ -1,6 +1,7 @@
 "use strict";
 
 import { icon } from "../icons.js";
+import { PopupManager } from "../popup-manager.js";
 
 /**
  * layout-picker.js — Panel-layout selector
@@ -9,6 +10,10 @@ import { icon } from "../icons.js";
  * dropdown showing the four available panel arrangements.  Two trigger buttons
  * can be bound to the same picker instance (header bar + remove-headers bar),
  * matching the pattern used for the collections popup.
+ *
+ * The dropdown goes through `PopupManager.openMenu()` — the canonical path for
+ * anchored menus — so it does not register its own outside-click/mount logic.
+ * See the "Popups & menus" note in CLAUDE.md.
  *
  * Usage:
  *   import { LayoutPicker } from "./components/layout-picker.js";
@@ -74,8 +79,14 @@ export class LayoutPicker {
   #layout = 1;
   #onSelect;
   #menu = null;
-  #menuHandler = null;
   #triggers = [];
+
+  // Drops our stale #menu reference whenever PopupManager closes the menu by
+  // any path (item select, mask click, window resize) — all fire
+  // wurl:popup-closed — so the next trigger click re-opens instead of no-oping.
+  #onPopupClosed = () => {
+    this.#menu = null;
+  };
 
   /**
    * @param {{ layout?: number, onSelect?: (layout: number) => void }} opts
@@ -135,7 +146,6 @@ export class LayoutPicker {
 
   #openMenu(nearEl) {
     if (this.#menu) return;
-    window.dispatchEvent(new CustomEvent("wurl:popup-opened"));
 
     const menu = document.createElement("div");
     menu.className = "layout-picker__menu";
@@ -170,37 +180,28 @@ export class LayoutPicker {
       menu.appendChild(item);
     }
 
-    this.#positionMenu(menu, nearEl);
-    document.body.appendChild(menu);
+    const { x, y } = this.#menuPosition(nearEl);
+    PopupManager.openMenu(menu, x, y);
     this.#menu = menu;
 
-    this.#menuHandler = (e) => {
-      if (
-        !menu.contains(e.target) &&
-        !this.#triggers.some((t) => t === e.target || t.contains(e.target))
-      ) {
-        this.#closeMenu();
-      }
-    };
-    document.addEventListener("mousedown", this.#menuHandler, {
-      capture: true,
+    // openMenu owns the click-capturing mask and fires wurl:popup-opened. A
+    // mask click or window resize closes the menu via PopupManager and fires
+    // wurl:popup-closed — listen once to drop our reference (see #onPopupClosed).
+    window.addEventListener("wurl:popup-closed", this.#onPopupClosed, {
+      once: true,
     });
   }
 
   #closeMenu() {
     if (!this.#menu) return;
-    this.#menu.remove();
-    this.#menu = null;
-    if (this.#menuHandler) {
-      document.removeEventListener("mousedown", this.#menuHandler, {
-        capture: true,
-      });
-      this.#menuHandler = null;
-    }
-    window.dispatchEvent(new CustomEvent("wurl:popup-closed"));
+    // PopupManager.close() fires wurl:popup-closed → #onPopupClosed nulls #menu.
+    PopupManager.close();
   }
 
-  #positionMenu(menu, nearEl) {
+  // Anchor point for openMenu: left-aligned under the trigger, flipped above it
+  // when the menu would overflow the bottom. openMenu's own viewport clamp acts
+  // only as a safety net for the (unused-for-layout) right-edge case.
+  #menuPosition(nearEl) {
     const W = window.innerWidth;
     const H = window.innerHeight;
     const MW = 200;
@@ -210,6 +211,6 @@ export class LayoutPicker {
     const below = r.bottom + 4;
     const above = r.top - MH - 4;
     const top = below + MH > H - 4 ? Math.max(4, above) : below;
-    menu.style.cssText = `left:${left}px; top:${top}px;`;
+    return { x: left, y: top };
   }
 }

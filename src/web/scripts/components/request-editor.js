@@ -625,18 +625,16 @@ export class RequestEditor {
     );
 
     let _methodMenu = null;
-    let _methodMenuHandler = null;
-
+    // Drops the stale reference when PopupManager closes the menu by any path
+    // (item select, custom Enter, mask click, window resize) — all fire
+    // wurl:popup-closed — so the next trigger click re-opens.
+    const _onMethodMenuClosed = () => {
+      _methodMenu = null;
+    };
     const _closeMethodMenu = () => {
       if (!_methodMenu) return;
-      _methodMenu.remove();
-      _methodMenu = null;
-      if (_methodMenuHandler) {
-        document.removeEventListener("mousedown", _methodMenuHandler, {
-          capture: true,
-        });
-        _methodMenuHandler = null;
-      }
+      // PopupManager.close() fires wurl:popup-closed → _onMethodMenuClosed.
+      PopupManager.close();
     };
 
     methodSel.addEventListener("mousedown", (e) => {
@@ -726,21 +724,15 @@ export class RequestEditor {
       menu.appendChild(customRow);
 
       const r = methodSel.getBoundingClientRect();
-      menu.style.cssText = `left:${r.left}px; top:${r.bottom + 4}px;`;
-      document.body.appendChild(menu);
+      PopupManager.openMenu(menu, r.left, r.bottom + 4);
       _methodMenu = menu;
 
-      _methodMenuHandler = (ev) => {
-        if (
-          !menu.contains(ev.target) &&
-          ev.target !== methodSel &&
-          !methodSel.contains(ev.target)
-        ) {
-          _closeMethodMenu();
-        }
-      };
-      document.addEventListener("mousedown", _methodMenuHandler, {
-        capture: true,
+      // openMenu owns the click-capturing mask (replacing the old bespoke
+      // outside-click handler) and fires wurl:popup-opened. A mask click or
+      // window resize closes via PopupManager and fires wurl:popup-closed —
+      // listen once to drop our reference (see _onMethodMenuClosed).
+      window.addEventListener("wurl:popup-closed", _onMethodMenuClosed, {
+        once: true,
       });
     });
 

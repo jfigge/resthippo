@@ -5,7 +5,14 @@ import { buildFunctionToken } from "./variable-resolver.js";
 /**
  * PillPicker — lightweight inline dropdown that opens when the user types "{{".
  *
- * Owned entirely by VariablePillEditor; does NOT use PopupManager.
+ * Owned entirely by VariablePillEditor; intentionally does NOT use PopupManager
+ * (the one menu that opts out of the "menus go through openMenu" convention —
+ * see the "Popups & menus" note in CLAUDE.md). PopupManager.openMenu() mounts a
+ * full-page mask with `pointer-events: auto`, which would block all interaction
+ * with the contenteditable editor underneath — but this picker is a typeahead
+ * that must coexist with that still-focused editor. So VariablePillEditor owns
+ * the mount, outside-click handler and teardown (#pickerOutsideHandler /
+ * #closePicker / destroy()); PillPicker only builds/positions/destroys its element.
  * The editor retains keyboard focus throughout — arrow keys / Enter / Escape
  * are forwarded by the editor via selectNext() / selectPrev() / getSelected().
  *
