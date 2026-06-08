@@ -47,6 +47,9 @@ function findPostmanRequest(items, name) {
 
 const valueOf = (entries, key) => entries.find((e) => e.key === key);
 
+/** Find a canonical { name, value, secure } variable entry by name. */
+const varOf = (list, name) => list.find((v) => v.name === name);
+
 // ── Postman import ───────────────────────────────────────────────────────────
 
 const POSTMAN_FIXTURE = {
@@ -93,7 +96,10 @@ test("postman: detects format and parses collection-level variables", () => {
     JSON.stringify(POSTMAN_FIXTURE),
   );
   assert.equal(collection.name, "Sample API");
-  assert.equal(variables.baseUrl, "https://api.example.com");
+  // Variables are returned in the canonical { name, value, secure } array shape.
+  assert.deepEqual(variables, [
+    { name: "baseUrl", value: "https://api.example.com", secure: false },
+  ]);
 });
 
 test("postman: parses nested folder, request, method, body, and headers", () => {
@@ -157,9 +163,9 @@ test("insomnia: detects format and extracts base-environment variables", () => {
     JSON.stringify(INSOMNIA_FIXTURE),
   );
   assert.equal(collection.name, "My Workspace");
-  assert.equal(variables.token, "abc");
+  assert.equal(varOf(variables, "token").value, "abc");
   // Non-string values are JSON-stringified so they stay recoverable.
-  assert.equal(variables.obj, JSON.stringify({ nested: 1 }));
+  assert.equal(varOf(variables, "obj").value, JSON.stringify({ nested: 1 }));
 });
 
 test("insomnia: builds folder → request hierarchy with auth", () => {
@@ -222,7 +228,7 @@ test("openapi: detects format, resolves templated base URL and converts path par
     JSON.stringify(OPENAPI_FIXTURE),
   );
   assert.equal(collection.name, "Petstore");
-  assert.equal(variables.baseUrl, "https://api.example.com/v2");
+  assert.equal(varOf(variables, "baseUrl").value, "https://api.example.com/v2");
 
   const req = findRequest(collection, "getPet");
   // {petId} → {{petId}}, base server var substituted.
@@ -254,7 +260,7 @@ test("swagger 2.0: detected and base URL built from host + basePath", () => {
     },
   };
   const { collection, variables } = parseImport(JSON.stringify(swagger));
-  assert.equal(variables.baseUrl, "https://api.legacy.test/v1");
+  assert.equal(varOf(variables, "baseUrl").value, "https://api.legacy.test/v1");
   const req = findRequest(collection, "ping");
   assert.equal(req.url, "https://api.legacy.test/v1/ping");
 });
@@ -493,15 +499,9 @@ test("parseImport throws on content that is neither JSON nor YAML", () => {
 test("round-trip: key request fields survive Postman import → export", () => {
   const { collection, variables } = parsePostman(POSTMAN_FIXTURE);
 
-  // Collection variables are an object on import; the exporter wants the
-  // canonical { name, value, secure } array shape.
-  const varList = Object.entries(variables).map(([name, value]) => ({
-    name,
-    value,
-    secure: false,
-  }));
-
-  const exported = JSON.parse(exportToPostman(collection, varList));
+  // Importers and exporters now agree on the canonical { name, value, secure }
+  // array shape, so the variables pass straight through with no conversion.
+  const exported = JSON.parse(exportToPostman(collection, variables));
 
   // Collection name and variable round-trip.
   assert.equal(exported.info.name, "Sample API");
@@ -522,6 +522,34 @@ test("round-trip: key request fields survive Postman import → export", () => {
   assert.equal(valueOf(login.auth.basic, "password").value, "");
 });
 
+test("round-trip: a Postman secret variable preserves its secure flag", () => {
+  const data = {
+    info: {
+      name: "Secrets",
+      schema:
+        "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    },
+    variable: [
+      { key: "apiKey", value: "s3cr3t", type: "secret" },
+      { key: "host", value: "https://api.example.com" },
+    ],
+    item: [],
+  };
+
+  // Import maps Postman's type:"secret" onto the canonical secure flag.
+  const { collection, variables } = parsePostman(data);
+  assert.equal(varOf(variables, "apiKey").secure, true);
+  assert.equal(varOf(variables, "host").secure, false);
+
+  // Export re-emits it as type:"secret" with the value redacted, so the secure
+  // flag survives a full import → export round-trip.
+  const exported = JSON.parse(exportToPostman(collection, variables));
+  const apiKey = valueOf(exported.variable, "apiKey");
+  assert.equal(apiKey.type, "secret");
+  assert.equal(apiKey.value, "");
+  assert.equal(valueOf(exported.variable, "host").type, undefined);
+});
+
 // ── Import → export round-trip (Insomnia v4) ─────────────────────────────────
 
 test("round-trip: wurl → Insomnia v4 export → import preserves structure", () => {
@@ -529,12 +557,12 @@ test("round-trip: wurl → Insomnia v4 export → import preserves structure", (
     id: "c1",
     type: "collection",
     name: "Sample API",
-    variables: {},
+    variables: [],
     children: [
       {
         type: "collection",
         name: "Auth",
-        variables: {},
+        variables: [],
         children: [
           {
             type: "request",
@@ -564,7 +592,7 @@ test("round-trip: wurl → Insomnia v4 export → import preserves structure", (
 
   // Workspace name → collection name; base-environment variable round-trips.
   assert.equal(reimported.name, "Sample API");
-  assert.equal(variables.baseUrl, "https://api.example.com");
+  assert.equal(varOf(variables, "baseUrl").value, "https://api.example.com");
 
   // The nested folder + request survive with their fields intact.
   const login = findRequest(reimported, "Login");
@@ -591,7 +619,7 @@ test("round-trip: GraphQL body survives a wurl → Postman → wurl cycle", () =
     id: "c1",
     type: "collection",
     name: "GraphQL API",
-    variables: {},
+    variables: [],
     children: [
       {
         type: "request",
@@ -629,7 +657,7 @@ test("round-trip: GraphQL body survives a wurl → Insomnia → wurl cycle", () 
     id: "c1",
     type: "collection",
     name: "GraphQL API",
-    variables: {},
+    variables: [],
     children: [
       {
         type: "request",
@@ -660,7 +688,7 @@ test("round-trip: form-data file field + path variables survive a Postman cycle"
     id: "c1",
     type: "collection",
     name: "Files API",
-    variables: {},
+    variables: [],
     children: [
       {
         type: "request",

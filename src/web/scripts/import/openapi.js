@@ -436,7 +436,9 @@ function refWarnings(resolver) {
  * Parse an OpenAPI 3.x or Swagger 2.0 spec.
  *
  * @param {object} spec  Parsed JSON / YAML object
- * @returns {{ collection: object, variables: object, warnings: string[] }}
+ * @returns {{ collection: object,
+ *   variables: { name: string, value: string, secure: boolean }[],
+ *   warnings: string[] }}  Variables use the canonical array shape.
  */
 export function parseOpenApi(spec) {
   const isV3 = Boolean(spec.openapi);
@@ -536,7 +538,7 @@ export function parseOpenApi(spec) {
       id: crypto.randomUUID(),
       type: "collection",
       name: tag,
-      variables: {},
+      variables: [],
       children: requests,
     }));
   }
@@ -546,10 +548,13 @@ export function parseOpenApi(spec) {
       id: crypto.randomUUID(),
       type: "collection",
       name: title,
-      variables: {},
+      variables: [],
       children,
     },
-    variables: baseUrl ? { baseUrl } : {},
+    // Canonical array shape; the templated base URL becomes a `baseUrl` variable.
+    variables: baseUrl
+      ? [{ name: "baseUrl", value: baseUrl, secure: false }]
+      : [],
     warnings: refWarnings(resolver),
   };
 }

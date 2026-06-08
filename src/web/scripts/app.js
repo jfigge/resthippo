@@ -2942,11 +2942,14 @@ async function handleImport() {
   // the error to the write-error sink (a toast) and returns false — so branch on
   // the result and bail without claiming success rather than catching.
   let saved;
-  const incoming = normalizeVariables(variables);
+  // Importers return variables already in the canonical array shape, so no
+  // conversion is needed here — just guard against a missing list.
+  const incoming = variables ?? [];
   if (incoming.length > 0) {
     // Merge import variables with existing ones — existing values take
     // precedence. Both are kept in the canonical array shape; conflicts are
-    // resolved by name with the current entry winning.
+    // resolved by name with the current entry winning. currentRaw comes from
+    // disk and may still be a legacy map, so it is normalized before merging.
     const { variables: currentRaw } = await loadCollectionData(activeId);
     const byName = new Map();
     for (const entry of incoming) byName.set(entry.name, entry);

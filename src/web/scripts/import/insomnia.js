@@ -112,7 +112,9 @@ function parseBody(body) {
  * Parse an Insomnia v3 / v4 export.
  *
  * @param {object} data  Parsed JSON
- * @returns {{ collection: object, variables: object }}
+ * @returns {{ collection: object,
+ *   variables: { name: string, value: string, secure: boolean }[] }}
+ *   Variables use the canonical array shape.
  */
 export function parseInsomnia(data) {
   const resources = data.resources ?? [];
@@ -128,8 +130,10 @@ export function parseInsomnia(data) {
     childrenOf.get(r.parentId).push(r);
   }
 
-  // Extract base environment variables (skip sub-environments)
-  const variables = {};
+  // Extract base environment variables (skip sub-environments). Canonical array
+  // shape: [{ name, value, secure }]. Insomnia's base environment carries no
+  // per-variable secret flag, so secure defaults to false.
+  const variables = [];
   const envs = (childrenOf.get(wsId) ?? []).filter(
     (r) => r._type === "environment",
   );
@@ -138,7 +142,11 @@ export function parseInsomnia(data) {
     for (const [k, v] of Object.entries(baseEnv.data)) {
       // String() on an object yields "[object Object]"; JSON.stringify keeps
       // the structure recoverable when the user references the variable.
-      variables[k] = typeof v === "string" ? v : JSON.stringify(v);
+      variables.push({
+        name: k,
+        value: typeof v === "string" ? v : JSON.stringify(v),
+        secure: false,
+      });
     }
   }
 
@@ -171,7 +179,7 @@ export function parseInsomnia(data) {
         id: crypto.randomUUID(),
         type: "collection",
         name: resource.name ?? "Folder",
-        variables: {},
+        variables: [],
         children: (childrenOf.get(resource._id) ?? [])
           .filter((r) => r._type === "request" || r._type === "request_group")
           .map(buildNode)
@@ -192,7 +200,7 @@ export function parseInsomnia(data) {
       id: crypto.randomUUID(),
       type: "collection",
       name: workspace.name ?? "Imported Collection",
-      variables: {},
+      variables: [],
       children,
     },
     variables,

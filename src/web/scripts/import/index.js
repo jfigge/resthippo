@@ -40,7 +40,9 @@ function detectFormat(data) {
  *   - OpenAPI 3.x and Swagger 2.0 (.json, .yaml, .yml)
  *
  * @param {string} content  Raw file content
- * @returns {{ collection: object, variables: object }}
+ * @returns {{ collection: object,
+ *   variables: { name: string, value: string, secure: boolean }[],
+ *   warnings?: string[] }}  Variables use the canonical array shape.
  * @throws {Error} if the format is unrecognized or the file is invalid
  */
 export function parseImport(content) {

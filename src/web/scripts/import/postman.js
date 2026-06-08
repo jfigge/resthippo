@@ -182,7 +182,7 @@ function parseItem(item) {
       id: crypto.randomUUID(),
       type: "collection",
       name: item.name ?? "Folder",
-      variables: {},
+      variables: [],
       children: item.item.map(parseItem).filter(Boolean),
     };
   }
@@ -211,17 +211,26 @@ function parseItem(item) {
  * Parse a Postman v2.0 / v2.1 collection export.
  *
  * @param {object} data  Parsed JSON
- * @returns {{ collection: object, variables: object }}
+ * @returns {{ collection: object,
+ *   variables: { name: string, value: string, secure: boolean }[] }}
+ *   Variables use the canonical array shape. Postman flags a secret collection
+ *   variable with type:"secret" (its value is exported blank), mapped to secure.
  */
 export function parsePostman(data) {
   // Support both top-level and wrapped ({ collection: { ... } }) formats
   const root = data.collection ?? data;
   const info = root.info ?? {};
   const items = root.item ?? [];
-  const variables = {};
+  const variables = [];
 
   for (const v of root.variable ?? []) {
-    if (v.key) variables[v.key] = v.value ?? "";
+    if (v.key) {
+      variables.push({
+        name: v.key,
+        value: v.value ?? "",
+        secure: v.type === "secret",
+      });
+    }
   }
 
   return {
@@ -229,7 +238,7 @@ export function parsePostman(data) {
       id: crypto.randomUUID(),
       type: "collection",
       name: info.name ?? "Imported Collection",
-      variables: {},
+      variables: [],
       children: items.map(parseItem).filter(Boolean),
     },
     variables,
