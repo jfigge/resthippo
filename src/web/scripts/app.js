@@ -100,8 +100,10 @@ function _buildSnapshot(node) {
     .map((h) => `${h.enabled ? "" : "# "}${h.name}: ${h.value}`)
     .join("\n");
 
-  const authType = node.authType ?? "none";
   const authEnabled = node.authEnabled ?? true;
+  // A disabled auth is never applied to the request, so don't track it in the
+  // timeline snapshot — record it as "none", the same as an unselected auth.
+  const authType = authEnabled ? (node.authType ?? "none") : "none";
   let authBulk = "";
   if (authType === "basic") {
     const b = node.authBasic ?? {};
