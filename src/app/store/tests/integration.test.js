@@ -91,9 +91,11 @@ describe("EnvironmentStore — first-run defaults", () => {
   });
   afterEach(() => rmTmpDir(tmpDir));
 
-  test("getEnvironments returns version 1 by default", () => {
+  test("getEnvironments default carries no hand-written version field", () => {
+    // Versioning lives solely in the schemaVersion envelope stamped by io.js /
+    // migrations.js — store payloads no longer hand-write a `version` field.
     const env = envStore.getEnvironments();
-    assert.equal(env.version, 1);
+    assert.equal(env.version, undefined);
   });
 
   test("getEnvironments returns empty environments list by default", () => {

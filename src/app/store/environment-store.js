@@ -2,7 +2,7 @@
  * environment-store.js — Manages global + named environment variables.
  *
  * Data is stored in environments/index.json under the userData root.
- * Shape: { version, globalVariables, activeEnvironmentId, environments:[{id,name,variables}] }
+ * Shape: { globalVariables, activeEnvironmentId, environments:[{id,name,variables}] }
  * Variable collections (globalVariables, each environment's variables) are the
  * canonical array shape: [{ name, value, secure }].
  */
@@ -16,7 +16,6 @@ const {
 } = require("./crypto");
 
 const DEFAULT_ENVIRONMENTS = Object.freeze({
-  version: 1,
   globalVariables: [],
   activeEnvironmentId: null,
   environments: [],
@@ -28,7 +27,6 @@ class EnvironmentStore {
    */
   constructor(paths) {
     this._paths = paths;
-    ensureDir(this._paths.environmentsDir());
   }
 
   /**

@@ -61,7 +61,6 @@ describe("CollectionStore", () => {
 
   test("getManifest returns default on first run", () => {
     const manifest = store.getManifest();
-    assert.equal(manifest.version, 2);
     assert.deepEqual(manifest.collections, []);
     assert.equal(manifest.activeCollectionId, null);
   });
@@ -109,7 +108,6 @@ describe("CollectionsStore", () => {
 
   test("getCollections returns minimal default on first run", () => {
     const env = store.getCollections("env-abc");
-    assert.equal(env.version, 1);
     assert.deepEqual(env.collections, []);
   });
 
@@ -134,7 +132,6 @@ describe("CollectionsStore", () => {
     store.saveCollections("env-x", data);
     const loaded = store.getCollections("env-x");
 
-    assert.equal(loaded.version, 1);
     assert.equal(
       loaded.variables.find((v) => v.name === "baseUrl").value,
       "https://api.example.com",

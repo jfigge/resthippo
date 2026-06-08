@@ -12,7 +12,6 @@ const { encryptSettings, decryptSettings } = require("./crypto");
 
 /** Default manifest returned on first run (no file yet). */
 const DEFAULT_MANIFEST = Object.freeze({
-  version: 2,
   collections: [],
   activeCollectionId: null,
   settings: {},
@@ -21,14 +20,13 @@ const DEFAULT_MANIFEST = Object.freeze({
 class CollectionStore {
   /**
    * @param {import('./paths').Paths}       paths
-   * @param {import('./resolver').Resolver} [resolver]
+   * @param {import('./resolver').Resolver} resolver
    *   Shared resolver cache, invalidated when a collection is deleted so stale
    *   request→collection mappings cannot resolve to the removed collection.
    */
   constructor(paths, resolver) {
     this._paths = paths;
-    this._resolver = resolver ?? null;
-    ensureDir(this._paths.collectionsDir());
+    this._resolver = resolver;
   }
 
   /**
@@ -75,7 +73,7 @@ class CollectionStore {
   deleteCollection(collectionId) {
     validateID(collectionId, "collectionId");
     remove(this._paths.collectionDir(collectionId));
-    if (this._resolver) this._resolver.invalidate();
+    this._resolver.invalidate();
   }
 }
 

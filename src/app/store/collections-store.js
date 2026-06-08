@@ -2,7 +2,7 @@
  * collections-store.js — Assembles / decomposes the legacy collection blob.
  *
  * The legacy API shape is:
- *   { version: 1, collections: [ <nested collDoc tree> ], variables: {...} }
+ *   { collections: [ <nested collDoc tree> ], variables: {...} }
  *
  * where each collDoc is:
  *   { id, type: "collection", name, variables, children: [ <request | collDoc> ] }
@@ -42,28 +42,28 @@ class CollectionsStore {
 
   /**
    * Assemble and return the legacy collection blob for `id`.
-   * Returns a minimal default `{ version:1, collections:[] }` when no data exists.
+   * Returns a minimal default `{ collections:[] }` when no data exists.
    *
    * @param {string} id  Collection ID
-   * @returns {object}   Legacy blob: { version, collections, variables }
+   * @returns {object}   Legacy blob: { collections, variables }
    */
   getCollections(id) {
     validateID(id, "collectionId");
 
     const meta = readJSON(this._paths.metadataPath(id));
     if (meta === null) {
-      return { version: 1, collections: [] };
+      return { collections: [] };
     }
 
     const variables = decryptVariables(meta.variables ?? [], "collection", id);
 
     const tree = readJSON(this._paths.treePath(id));
     if (tree === null) {
-      return { version: 1, collections: [], variables };
+      return { collections: [], variables };
     }
 
     const collections = this._buildLegacyCollections(id, tree.children ?? []);
-    return { version: 1, collections, variables };
+    return { collections, variables };
   }
 
   // ── Write ───────────────────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ class CollectionsStore {
    * Invalidates the resolver cache so new request→collection mappings are found.
    *
    * @param {string} id    Environment / collection ID
-   * @param {object} data  Legacy blob: { version?, collections?, variables? }
+   * @param {object} data  Legacy blob: { collections?, variables? }
    */
   saveCollections(id, data) {
     validateID(id, "collectionId");

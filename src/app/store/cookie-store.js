@@ -21,7 +21,7 @@
 const { readJSON, writeJSON, ensureDir, validateID } = require("./io");
 const jar = require("./cookie-jar");
 
-const DEFAULT_JAR = Object.freeze({ schemaVersion: 1, cookies: [] });
+const DEFAULT_JAR = Object.freeze({ cookies: [] });
 
 class CookieStore {
   /**
@@ -43,9 +43,9 @@ class CookieStore {
    * Read the raw jar document for a collection, returning a fresh default when
    * the file does not exist yet. Does not prune — see {@link listCookies}.
    * @param {string} collectionId
-   * @returns {{schemaVersion:number,cookies:object[]}}
+   * @returns {{cookies:object[]}}
    */
-  _read(collectionId) {
+  _readJar(collectionId) {
     validateID(collectionId, "collectionId");
     const data = readJSON(this._paths.cookiesPath(collectionId));
     if (!data || !Array.isArray(data.cookies))
@@ -58,7 +58,7 @@ class CookieStore {
    * @param {string} collectionId
    * @param {object[]} cookies
    */
-  _write(collectionId, cookies) {
+  _writeJar(collectionId, cookies) {
     validateID(collectionId, "collectionId");
     ensureDir(this._paths.collectionDir(collectionId));
     writeJSON(this._paths.cookiesPath(collectionId), { cookies });
@@ -72,9 +72,9 @@ class CookieStore {
    */
   listCookies(collectionId) {
     const now = this._now();
-    const data = this._read(collectionId);
+    const data = this._readJar(collectionId);
     const live = jar.pruneExpired(data.cookies, now);
-    if (live.length !== data.cookies.length) this._write(collectionId, live);
+    if (live.length !== data.cookies.length) this._writeJar(collectionId, live);
     return live;
   }
 
@@ -93,7 +93,7 @@ class CookieStore {
   captureSetCookies(collectionId, requestUrl, setCookieLines) {
     if (!Array.isArray(setCookieLines) || setCookieLines.length === 0) return;
     const now = this._now();
-    const data = this._read(collectionId);
+    const data = this._readJar(collectionId);
     let cookies = jar.pruneExpired(data.cookies, now);
     let changed = false;
     for (const line of setCookieLines) {
@@ -103,7 +103,7 @@ class CookieStore {
       changed = true;
     }
     if (changed || cookies.length !== data.cookies.length) {
-      this._write(collectionId, cookies);
+      this._writeJar(collectionId, cookies);
     }
   }
 
@@ -116,7 +116,7 @@ class CookieStore {
    */
   cookieHeaderFor(collectionId, requestUrl) {
     const now = this._now();
-    const data = this._read(collectionId);
+    const data = this._readJar(collectionId);
     const matching = jar.selectCookies(data.cookies, requestUrl, now);
     return jar.serializeCookieHeader(matching);
   }
@@ -129,13 +129,13 @@ class CookieStore {
    */
   upsertCookie(collectionId, cookie) {
     const now = this._now();
-    const data = this._read(collectionId);
+    const data = this._readJar(collectionId);
     const next = jar.upsertCookie(
       data.cookies,
       { creation: now, ...cookie },
       now,
     );
-    this._write(collectionId, next);
+    this._writeJar(collectionId, next);
   }
 
   /**
@@ -144,9 +144,9 @@ class CookieStore {
    * @param {{name:string,domain:string,path:string}} ident
    */
   deleteCookie(collectionId, ident) {
-    const data = this._read(collectionId);
+    const data = this._readJar(collectionId);
     const next = data.cookies.filter((c) => !jar.sameIdentity(c, ident));
-    this._write(collectionId, next);
+    this._writeJar(collectionId, next);
   }
 
   /**
@@ -155,7 +155,7 @@ class CookieStore {
    * @param {string} collectionId
    */
   clearJar(collectionId) {
-    this._write(collectionId, []);
+    this._writeJar(collectionId, []);
   }
 }
 
