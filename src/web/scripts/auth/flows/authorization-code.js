@@ -22,9 +22,9 @@ import {
 import { generateCodeVerifier, generateCodeChallenge } from "../utils/pkce.js";
 import { generateState, validateState, discardState } from "../utils/state.js";
 import { buildUrl, extractAuthCode } from "../utils/url.js";
+import { mergeExtraParams } from "../utils/params.js";
 import { oauthResultFromError } from "../types/oauth-types.js";
 import {
-  configurationError,
   stateMismatchError,
   popupCancelledError,
   OAuthError,
@@ -43,24 +43,8 @@ import { applyClientAuth, requestToken } from "./token-exchange.js";
  * @returns {Promise<import('../types/oauth-types').OAuthResult>}
  */
 export async function authorizationCodeFlow(config) {
-  // ── Validate ──────────────────────────────────────────────────────────────
-  if (!config.clientId?.trim())
-    return oauthResultFromError(configurationError("Client ID is required."));
-  if (!config.authUrl?.trim())
-    return oauthResultFromError(configurationError("Auth URL is required."));
-  if (!config.accessTokenUrl?.trim())
-    return oauthResultFromError(
-      configurationError("Access Token URL is required."),
-    );
-
-  try {
-    new URL(config.authUrl.trim());
-  } catch {
-    return oauthResultFromError(
-      configurationError("Auth URL is not a valid URL."),
-    );
-  }
-
+  // Config (required fields + authUrl validity) is validated up front by the
+  // executor via validateOAuthConfig(); this flow assumes a valid config.
   const clientId = config.clientId.trim();
   const accessTokenUrl = config.accessTokenUrl.trim();
   const isPkce = config.clientType === "public";
@@ -105,11 +89,7 @@ export async function authorizationCodeFlow(config) {
   }
 
   // Extra custom parameters
-  if (config.extraParams && typeof config.extraParams === "object") {
-    for (const [k, v] of Object.entries(config.extraParams)) {
-      if (k && v != null && v !== "") authParams[k] = String(v);
-    }
-  }
+  mergeExtraParams(authParams, config.extraParams);
 
   const authUrl = buildUrl(config.authUrl.trim(), authParams);
 
@@ -178,21 +158,16 @@ export async function authorizationCodeFlow(config) {
   if (config.scope?.trim()) tokenParams.scope = config.scope.trim();
 
   // Extra custom token params
-  if (config.extraTokenParams && typeof config.extraTokenParams === "object") {
-    for (const [k, v] of Object.entries(config.extraTokenParams)) {
-      if (k && v != null && v !== "") tokenParams[k] = String(v);
-    }
-  }
+  mergeExtraParams(tokenParams, config.extraTokenParams);
 
   // Confidential clients authenticate with their secret; PKCE/public clients
   // prove possession with the code_verifier alone (client_id is already in the
   // token params above), so they skip client authentication entirely.
   const tokenHeaders = {};
-  if (!isPkce) {
-    applyClientAuth(tokenParams, tokenHeaders, config, {
-      sendEmptySecret: true,
-    });
-  }
+  applyClientAuth(tokenParams, tokenHeaders, config, {
+    sendEmptySecret: true,
+    skip: isPkce,
+  });
 
   return requestToken(accessTokenUrl, tokenParams, tokenHeaders, config);
 }

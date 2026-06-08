@@ -363,12 +363,23 @@ await test("validateOAuthConfig passes for valid client_credentials config", asy
   assert.equal(err, null);
 });
 
+await test("validateOAuthConfig requires a grant type", async () => {
+  assert.equal(validateOAuthConfig({}), "Grant type is required.");
+});
+
 await test("validateOAuthConfig fails when clientId is missing", async () => {
   const err = validateOAuthConfig({
     grantType: "client_credentials",
     accessTokenUrl: "https://x.com",
   });
-  assert.ok(typeof err === "string" && err.length > 0);
+  assert.equal(err, "Client ID is required.");
+});
+
+await test("validateOAuthConfig checks accessTokenUrl before clientId (deterministic first error)", async () => {
+  // Both fields missing: the non-implicit accessTokenUrl check runs before the
+  // per-grant switch, so its message wins regardless of which grant it is.
+  const err = validateOAuthConfig({ grantType: "client_credentials" });
+  assert.equal(err, "Access Token URL is required.");
 });
 
 await test("validateOAuthConfig fails when accessTokenUrl is missing for password grant", async () => {
@@ -379,7 +390,60 @@ await test("validateOAuthConfig fails when accessTokenUrl is missing for passwor
     password: "p",
     // missing accessTokenUrl
   });
-  assert.ok(typeof err === "string");
+  assert.equal(err, "Access Token URL is required.");
+});
+
+await test("validateOAuthConfig reports missing username / password for the password grant", async () => {
+  const base = {
+    grantType: "password",
+    clientId: "id",
+    accessTokenUrl: "https://token.example.com",
+  };
+  assert.equal(
+    validateOAuthConfig({ ...base, password: "p" }),
+    "Username is required.",
+  );
+  assert.equal(
+    validateOAuthConfig({ ...base, username: "u" }),
+    "Password is required.",
+  );
+});
+
+await test("validateOAuthConfig requires authUrl for the authorization_code grant", async () => {
+  const err = validateOAuthConfig({
+    grantType: "authorization_code",
+    clientId: "id",
+    accessTokenUrl: "https://token.example.com",
+    // missing authUrl
+  });
+  assert.equal(err, "Auth URL is required.");
+});
+
+await test("validateOAuthConfig rejects a malformed authUrl for popup grants", async () => {
+  const authCode = validateOAuthConfig({
+    grantType: "authorization_code",
+    clientId: "id",
+    accessTokenUrl: "https://token.example.com",
+    authUrl: "not a url",
+  });
+  assert.equal(authCode, "Auth URL is not a valid URL.");
+
+  const implicit = validateOAuthConfig({
+    grantType: "implicit",
+    clientId: "id",
+    authUrl: "not a url",
+  });
+  assert.equal(implicit, "Auth URL is not a valid URL.");
+});
+
+await test("validateOAuthConfig passes for valid authorization_code config", async () => {
+  const err = validateOAuthConfig({
+    grantType: "authorization_code",
+    clientId: "id",
+    accessTokenUrl: "https://token.example.com",
+    authUrl: "https://auth.example.com/authorize",
+  });
+  assert.equal(err, null);
 });
 
 await test("validateOAuthConfig passes for implicit flow (no token URL required)", async () => {
@@ -389,6 +453,126 @@ await test("validateOAuthConfig passes for implicit flow (no token URL required)
     authUrl: "https://auth.example.com",
   });
   assert.equal(err, null);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// mergeExtraParams helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+group("mergeExtraParams");
+
+import { mergeExtraParams } from "../utils/params.js";
+
+await test("mergeExtraParams copies entries and coerces values to strings", async () => {
+  const target = { grant_type: "x" };
+  const out = mergeExtraParams(target, { a: "1", n: 5, b: true });
+  assert.equal(out, target); // mutates and returns the same object
+  assert.equal(target.a, "1");
+  assert.equal(target.n, "5");
+  assert.equal(target.b, "true");
+});
+
+await test("mergeExtraParams skips null, undefined and empty-string values", async () => {
+  const target = {};
+  mergeExtraParams(target, { keep: "yes", n: null, u: undefined, e: "" });
+  assert.deepEqual(target, { keep: "yes" });
+});
+
+await test("mergeExtraParams ignores non-object sources", async () => {
+  const target = { a: "1" };
+  mergeExtraParams(target, null);
+  mergeExtraParams(target, undefined);
+  mergeExtraParams(target, "nope");
+  assert.deepEqual(target, { a: "1" });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// applyClientAuth helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+group("applyClientAuth");
+
+import { applyClientAuth } from "../flows/token-exchange.js";
+
+await test("header mode (default): client_id in body, Basic header only when a secret exists", async () => {
+  const withSecret = { params: {}, headers: {} };
+  applyClientAuth(withSecret.params, withSecret.headers, {
+    clientId: "cid",
+    clientSecret: "sec",
+  });
+  assert.equal(withSecret.params.client_id, "cid");
+  assert.equal(withSecret.headers["Authorization"], `Basic ${btoa("cid:sec")}`);
+
+  const noSecret = { params: {}, headers: {} };
+  applyClientAuth(noSecret.params, noSecret.headers, { clientId: "cid" });
+  assert.equal(noSecret.params.client_id, "cid");
+  assert.equal(noSecret.headers["Authorization"], undefined);
+});
+
+await test("body mode: secret omitted when empty unless sendEmptySecret is set", async () => {
+  const omit = { params: {}, headers: {} };
+  applyClientAuth(omit.params, omit.headers, {
+    clientId: "cid",
+    credentials: "body",
+  });
+  assert.equal(omit.params.client_id, "cid");
+  assert.ok(!("client_secret" in omit.params));
+
+  const empty = { params: {}, headers: {} };
+  applyClientAuth(
+    empty.params,
+    empty.headers,
+    { clientId: "cid", credentials: "body" },
+    { sendEmptySecret: true },
+  );
+  assert.equal(empty.params.client_secret, "");
+});
+
+await test("skip: applies no client authentication at all (public/PKCE client)", async () => {
+  const params = {};
+  const headers = {};
+  applyClientAuth(
+    params,
+    headers,
+    { clientId: "cid", clientSecret: "sec" },
+    { skip: true },
+  );
+  assert.deepEqual(params, {});
+  assert.deepEqual(headers, {});
+});
+
+await test("optionalClient header mode: omits client_id from body, sends Basic when client_id present", async () => {
+  const params = {};
+  const headers = {};
+  applyClientAuth(
+    params,
+    headers,
+    { clientId: "cid" }, // no secret
+    { optionalClient: true },
+  );
+  assert.ok(!("client_id" in params), "client_id should not be echoed in body");
+  assert.equal(headers["Authorization"], `Basic ${btoa("cid:")}`);
+});
+
+await test("optionalClient with no client_id sends nothing", async () => {
+  const params = {};
+  const headers = {};
+  applyClientAuth(params, headers, {}, { optionalClient: true });
+  assert.deepEqual(params, {});
+  assert.deepEqual(headers, {});
+});
+
+await test("optionalClient body mode behaves like the standard body mode", async () => {
+  const params = {};
+  const headers = {};
+  applyClientAuth(
+    params,
+    headers,
+    { clientId: "cid", clientSecret: "sec", credentials: "body" },
+    { optionalClient: true },
+  );
+  assert.equal(params.client_id, "cid");
+  assert.equal(params.client_secret, "sec");
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -422,8 +606,10 @@ await test("client credentials flow: success", async () => {
   assert.equal(result.expiresIn, 3600);
 });
 
-await test("client credentials flow: missing config returns error", async () => {
-  const result = await clientCredentialsFlow({
+await test("executor rejects missing client_credentials config before dispatch", async () => {
+  // Flows assume an already-validated config; the executor is the single place
+  // that enforces required fields via validateOAuthConfig.
+  const result = await oauthExecutor.acquireToken({
     grantType: "client_credentials",
     // missing clientId and accessTokenUrl
   });
@@ -520,8 +706,8 @@ await test("password flow: success", async () => {
   assert.equal(result.refreshToken, "rt");
 });
 
-await test("password flow: missing username returns config error", async () => {
-  const result = await passwordFlow({
+await test("executor rejects missing password-grant username before dispatch", async () => {
+  const result = await oauthExecutor.acquireToken({
     grantType: "password",
     clientId: "cid",
     password: "p",

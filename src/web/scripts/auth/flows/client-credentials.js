@@ -10,8 +10,7 @@
 "use strict";
 
 import { applyClientAuth, requestToken } from "./token-exchange.js";
-import { oauthResultFromError } from "../types/oauth-types.js";
-import { configurationError } from "../types/oauth-errors.js";
+import { mergeExtraParams } from "../utils/params.js";
 
 /**
  * Execute the Client Credentials flow.
@@ -24,13 +23,7 @@ import { configurationError } from "../types/oauth-errors.js";
  * @returns {Promise<import('../types/oauth-types').OAuthResult>}
  */
 export async function clientCredentialsFlow(config) {
-  // ── Validate ──────────────────────────────────────────────────────────────
-  if (!config.clientId?.trim())
-    return oauthResultFromError(configurationError("Client ID is required."));
-  if (!config.accessTokenUrl?.trim())
-    return oauthResultFromError(
-      configurationError("Access Token URL is required."),
-    );
+  // Config is validated up front by the executor via validateOAuthConfig().
 
   // ── Build parameters ────────────────────────────────────────────────────────
   const params = { grant_type: "client_credentials" };
@@ -40,11 +33,7 @@ export async function clientCredentialsFlow(config) {
   if (config.resource?.trim()) params.resource = config.resource.trim();
 
   // Merge any extra custom parameters from advanced settings
-  if (config.extraParams && typeof config.extraParams === "object") {
-    for (const [k, v] of Object.entries(config.extraParams)) {
-      if (k && v != null && v !== "") params[k] = String(v);
-    }
-  }
+  mergeExtraParams(params, config.extraParams);
 
   // ── Client authentication ────────────────────────────────────────────────────
   const headers = {};

@@ -10,8 +10,7 @@
 "use strict";
 
 import { applyClientAuth, requestToken } from "./token-exchange.js";
-import { oauthResultFromError } from "../types/oauth-types.js";
-import { configurationError } from "../types/oauth-errors.js";
+import { mergeExtraParams } from "../utils/params.js";
 
 /**
  * Execute the Resource Owner Password Credentials grant.
@@ -20,37 +19,27 @@ import { configurationError } from "../types/oauth-errors.js";
  * @returns {Promise<import('../types/oauth-types').OAuthResult>}
  */
 export async function passwordFlow(config) {
-  // ── Validate ──────────────────────────────────────────────────────────────
-  if (!config.accessTokenUrl?.trim())
-    return oauthResultFromError(
-      configurationError("Access Token URL is required."),
-    );
-  if (!config.clientId?.trim())
-    return oauthResultFromError(configurationError("Client ID is required."));
-  if (!config.username?.trim())
-    return oauthResultFromError(configurationError("Username is required."));
-  if (!config.password?.trim())
-    return oauthResultFromError(configurationError("Password is required."));
+  // Config is validated up front by the executor via validateOAuthConfig().
 
   // ── Build parameters ────────────────────────────────────────────────────────
   // Passwords are sent verbatim — trimming would silently corrupt secrets that
   // legitimately contain leading or trailing whitespace. Existence is checked
-  // above against the trimmed value, which still rejects all-whitespace input.
+  // by validateOAuthConfig against the trimmed value, which still rejects
+  // all-whitespace input.
   const params = {
     grant_type: "password",
     username: config.username.trim(),
     password: config.password, // intentionally not logged, not trimmed
   };
 
+  // The password grant carries scope and audience but not `resource`: RFC 8707
+  // resource indicators are scoped to the redirect-based grants in this client,
+  // so the omission here is intentional, not incidental.
   if (config.scope?.trim()) params.scope = config.scope.trim();
   if (config.audience?.trim()) params.audience = config.audience.trim();
 
   // Extra custom parameters
-  if (config.extraParams && typeof config.extraParams === "object") {
-    for (const [k, v] of Object.entries(config.extraParams)) {
-      if (k && v != null && v !== "") params[k] = String(v);
-    }
-  }
+  mergeExtraParams(params, config.extraParams);
 
   // ── Client authentication ────────────────────────────────────────────────────
   const headers = {};

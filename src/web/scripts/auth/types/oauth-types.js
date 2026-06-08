@@ -92,8 +92,30 @@ export function oauthResultFromError(error) {
 // ── OAuth config schema ──────────────────────────────────────────────────────
 
 /**
+ * Whether `value` parses as an absolute URL.
+ *
+ * @param {string} value
+ * @returns {boolean}
+ */
+function isValidUrl(value) {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Validate that a config object has the minimum required fields for the
  * chosen grant type.  Returns the first validation error message or null.
+ *
+ * This is the single source of required-field validation for every grant: the
+ * executor (oauth-executor.js) calls it before dispatching, and the individual
+ * flows assume the config has already passed through here — they do not
+ * re-validate. The popup grants (authorization-code, implicit) additionally get
+ * their `authUrl` checked for URL validity here so a malformed value is rejected
+ * before a window is opened.
  *
  * @param {object} config - authOAuth2 state from the request editor
  * @returns {string|null}
@@ -115,6 +137,8 @@ export function validateOAuthConfig(config) {
     case GrantType.AUTHORIZATION_CODE:
       if (!config.clientId?.trim()) return "Client ID is required.";
       if (!config.authUrl?.trim()) return "Auth URL is required.";
+      if (!isValidUrl(config.authUrl.trim()))
+        return "Auth URL is not a valid URL.";
       break;
 
     case GrantType.PASSWORD:
@@ -125,6 +149,8 @@ export function validateOAuthConfig(config) {
 
     case GrantType.IMPLICIT:
       if (!config.authUrl?.trim()) return "Auth URL is required.";
+      if (!isValidUrl(config.authUrl.trim()))
+        return "Auth URL is not a valid URL.";
       if (!config.clientId?.trim()) return "Client ID is required.";
       break;
 

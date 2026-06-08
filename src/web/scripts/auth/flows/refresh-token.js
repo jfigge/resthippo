@@ -10,7 +10,7 @@
 
 "use strict";
 
-import { basicAuthHeader, requestToken } from "./token-exchange.js";
+import { applyClientAuth, requestToken } from "./token-exchange.js";
 import { oauthResultFromError } from "../types/oauth-types.js";
 import { configurationError } from "../types/oauth-errors.js";
 
@@ -22,13 +22,12 @@ import { configurationError } from "../types/oauth-errors.js";
  * @returns {Promise<import('../types/oauth-types').OAuthResult>}
  */
 export async function refreshTokenFlow(config, refreshToken) {
+  // The refresh token is a runtime argument (not part of the config validated by
+  // validateOAuthConfig), so it is still checked here. Config fields such as
+  // accessTokenUrl were validated by the executor before this flow runs.
   if (!refreshToken?.trim())
     return oauthResultFromError(
       configurationError("No refresh token available."),
-    );
-  if (!config.accessTokenUrl?.trim())
-    return oauthResultFromError(
-      configurationError("Access Token URL is required."),
     );
 
   const params = {
@@ -37,23 +36,16 @@ export async function refreshTokenFlow(config, refreshToken) {
   };
   const headers = {};
 
+  // Refresh sends scope but neither audience nor `resource`: a refresh may only
+  // narrow the originally granted scope (RFC 6749 §6), and the other indicators
+  // were already bound at the initial grant. The omission is intentional.
   if (config.scope?.trim()) params.scope = config.scope.trim();
 
-  // Client authentication. Unlike the other token-acquiring grants, the refresh
-  // exchange treats client_id as optional and does NOT echo it into the body
-  // under header auth, so it keeps its own block rather than using
-  // applyClientAuth(); only the Basic header construction is shared.
-  const credMethod = config.credentials ?? "header";
-  if (credMethod === "body") {
-    params.client_id = config.clientId?.trim() ?? "";
-    if (config.clientSecret?.trim())
-      params.client_secret = config.clientSecret.trim();
-  } else if (config.clientId?.trim()) {
-    headers["Authorization"] = basicAuthHeader(
-      config.clientId.trim(),
-      config.clientSecret?.trim() ?? "",
-    );
-  }
+  // Client authentication. The refresh grant treats the client as optional: under
+  // header auth it omits client_id from the body and authenticates with Basic
+  // whenever a client_id is present, even without a secret. `optionalClient`
+  // captures exactly that divergence.
+  applyClientAuth(params, headers, config, { optionalClient: true });
 
   return requestToken(config.accessTokenUrl.trim(), params, headers, config);
 }

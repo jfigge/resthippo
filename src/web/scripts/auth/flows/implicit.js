@@ -26,12 +26,12 @@ import {
   decodeIdTokenPayload,
 } from "../utils/nonce.js";
 import { buildUrl, extractImplicitToken } from "../utils/url.js";
+import { mergeExtraParams } from "../utils/params.js";
 import {
   oauthResultFromError,
   createOAuthResult,
 } from "../types/oauth-types.js";
 import {
-  configurationError,
   stateMismatchError,
   popupCancelledError,
   OAuthError,
@@ -45,20 +45,8 @@ import {
  * @returns {Promise<import('../types/oauth-types').OAuthResult>}
  */
 export async function implicitFlow(config) {
-  // ── Validate ─────────────────────────────────────────────────────────────
-  if (!config.clientId?.trim())
-    return oauthResultFromError(configurationError("Client ID is required."));
-  if (!config.authUrl?.trim())
-    return oauthResultFromError(configurationError("Auth URL is required."));
-
-  try {
-    new URL(config.authUrl.trim());
-  } catch {
-    return oauthResultFromError(
-      configurationError("Auth URL is not a valid URL."),
-    );
-  }
-
+  // Config (required fields + authUrl validity) is validated up front by the
+  // executor via validateOAuthConfig(); this flow assumes a valid config.
   const redirectUri = config.redirectUri?.trim() || DEFAULT_REDIRECT_URI;
 
   // ── CSRF state ────────────────────────────────────────────────────────────
@@ -99,11 +87,7 @@ export async function implicitFlow(config) {
   if (config.resource?.trim()) authParams.resource = config.resource.trim();
 
   // Advanced / extra params
-  if (config.extraParams && typeof config.extraParams === "object") {
-    for (const [k, v] of Object.entries(config.extraParams)) {
-      if (k && v != null && v !== "") authParams[k] = String(v);
-    }
-  }
+  mergeExtraParams(authParams, config.extraParams);
 
   const authUrl = buildUrl(config.authUrl.trim(), authParams);
 

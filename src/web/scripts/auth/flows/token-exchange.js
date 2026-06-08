@@ -49,10 +49,15 @@ export function basicAuthHeader(clientId, clientSecret = "") {
  *   "header" (default): client_id stays in the body and the secret is sent as an
  *             HTTP Basic Authorization header — only when a secret is present.
  *
- * Used by the grants that always carry client_id in the body (client-credentials,
- * password, and the confidential authorization-code exchange). The refresh-token
- * grant deliberately does NOT use this helper: it treats client_id as optional
- * and omits it from the body under header auth, so it builds its own block.
+ * This is the single client-authentication path for every token-acquiring grant.
+ * Three behaviours that genuinely differ between grants are selected via `opts`
+ * rather than re-implemented at the call site:
+ *
+ *   • client-credentials / password — defaults.
+ *   • authorization-code — `{ sendEmptySecret: true }` for confidential clients;
+ *     public (PKCE) clients pass `{ skip: true }` since possession is proven by
+ *     the code_verifier alone.
+ *   • refresh-token — `{ optionalClient: true }` (see below).
  *
  * @param {Record<string,string>} params  - form body params (mutated)
  * @param {Record<string,string>} headers - request headers (mutated)
@@ -61,17 +66,34 @@ export function basicAuthHeader(clientId, clientSecret = "") {
  * @param {boolean} [opts.sendEmptySecret=false] - in "body" mode, emit
  *        client_secret even when empty (the confidential authorization-code
  *        grant sends `client_secret=""` rather than omitting the field).
+ * @param {boolean} [opts.skip=false] - apply no client authentication at all
+ *        (public/PKCE authorization-code clients).
+ * @param {boolean} [opts.optionalClient=false] - treat the client as optional,
+ *        per the refresh-token grant (RFC 6749 §6): under header auth omit
+ *        client_id from the body and send the Basic header whenever a client_id
+ *        is present, even without a secret (public clients may refresh).
  */
 export function applyClientAuth(params, headers, config, opts = {}) {
-  const { sendEmptySecret = false } = opts;
+  const {
+    sendEmptySecret = false,
+    skip = false,
+    optionalClient = false,
+  } = opts;
+  if (skip) return;
+
   const clientId = config.clientId?.trim() ?? "";
   const secret = config.clientSecret?.trim() ?? "";
   const credMethod = config.credentials ?? "header";
 
-  params.client_id = clientId;
   if (credMethod === "body") {
+    params.client_id = clientId;
     if (secret || sendEmptySecret) params.client_secret = secret;
-  } else if (secret) {
+    return;
+  }
+
+  // Header (HTTP Basic) credentials mode.
+  if (!optionalClient) params.client_id = clientId;
+  if (optionalClient ? clientId : secret) {
     headers["Authorization"] = basicAuthHeader(clientId, secret);
   }
 }
