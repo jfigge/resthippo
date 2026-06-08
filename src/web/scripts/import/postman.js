@@ -1,5 +1,14 @@
 "use strict";
 
+import {
+  buildAuth,
+  noBody,
+  rawBody,
+  fileBody,
+  graphqlBody,
+  formBody,
+} from "./shape.js";
+
 function parseUrl(url) {
   if (typeof url === "string") return url;
   if (!url) return "";
@@ -39,46 +48,38 @@ function parseQueryFromUrl(url) {
   }));
 }
 
+// Map Postman's auth representation onto the neutral descriptor consumed by the
+// shared `buildAuth` (which owns the canonical wurl auth shape). Postman stores
+// each scheme's fields as a key/value array; we read those out by key here.
 function parseAuth(auth) {
-  if (!auth || auth.type === "noauth")
-    return { authEnabled: false, authType: "none" };
+  if (!auth || auth.type === "noauth") return buildAuth(null);
 
   const { type } = auth;
   if (type === "basic") {
     const byKey = _kvArray(auth.basic);
-    return {
-      authEnabled: true,
-      authType: "basic",
-      authBasic: {
-        username: byKey.username ?? "",
-        password: byKey.password ?? "",
-      },
-    };
+    return buildAuth({
+      type: "basic",
+      username: byKey.username,
+      password: byKey.password,
+    });
   }
   if (type === "bearer") {
     const byKey = _kvArray(auth.bearer);
-    return {
-      authEnabled: true,
-      authType: "bearer",
-      authBearer: { token: byKey.token ?? "" },
-    };
+    return buildAuth({ type: "bearer", token: byKey.token });
   }
   if (type === "oauth2") {
     const byKey = _kvArray(auth.oauth2);
-    return {
-      authEnabled: true,
-      authType: "oauth2",
-      authOAuth2: {
-        grantType: byKey.grant_type ?? "authorization_code",
-        clientId: byKey.clientId ?? "",
-        clientSecret: byKey.clientSecret ?? "",
-        accessTokenUrl: byKey.accessTokenUrl ?? "",
-        authUrl: byKey.authUrl ?? "",
-        scope: byKey.scope ?? "",
-      },
-    };
+    return buildAuth({
+      type: "oauth2",
+      grantType: byKey.grant_type,
+      clientId: byKey.clientId,
+      clientSecret: byKey.clientSecret,
+      accessTokenUrl: byKey.accessTokenUrl,
+      authUrl: byKey.authUrl,
+      scope: byKey.scope,
+    });
   }
-  return { authEnabled: false, authType: "none" };
+  return buildAuth(null);
 }
 
 function _kvArray(arr) {
@@ -86,8 +87,10 @@ function _kvArray(arr) {
   return Object.fromEntries(arr.map((i) => [i.key, i.value ?? ""]));
 }
 
-function parseBody(body) {
-  if (!body || body.mode === "none") return { bodyType: "no-body" };
+// Map Postman's `mode`-tagged body onto the shared canonical body builders.
+// `warnings` (optional) collects non-fatal lossy conversions.
+function parseBody(body, warnings) {
+  if (!body || body.mode === "none") return noBody();
 
   switch (body.mode) {
     case "raw": {
@@ -100,62 +103,51 @@ function parseBody(body) {
             : lang === "yaml"
               ? "yaml"
               : "text";
-      return { bodyType: type, bodyText: body.raw ?? "" };
+      return rawBody(type, body.raw);
     }
     case "urlencoded":
-      return {
-        bodyType: "form-urlencoded",
-        bodyFormRows: (body.urlencoded ?? []).map((r) => ({
+      return formBody(
+        "form-urlencoded",
+        (body.urlencoded ?? []).map((r) => ({
           enabled: !r.disabled,
-          name: r.key ?? "",
-          value: r.value ?? "",
+          name: r.key,
+          value: r.value,
         })),
-      };
+      );
     case "formdata":
-      return {
-        bodyType: "form-data",
-        bodyFormRows: (body.formdata ?? []).map((r) => {
+      return formBody(
+        "form-data",
+        (body.formdata ?? []).map((r) => {
           if (r.type === "file") {
-            // Postman's `src` is a path string (or an array of paths for a
-            // multi-file field — we take the first; wurl is one file per row).
+            // Postman's `src` is a path string, or an array of paths for a
+            // multi-file field. wurl is one file per row, so we take the first
+            // and warn that the rest were dropped.
+            if (Array.isArray(r.src) && r.src.length > 1) {
+              warnings?.push(
+                `Form-data field "${r.key ?? ""}" listed ${r.src.length} files; ` +
+                  `only the first was imported (wurl supports one file per field).`,
+              );
+            }
             const filePath = Array.isArray(r.src)
               ? (r.src[0] ?? "")
               : (r.src ?? "");
             return {
               enabled: !r.disabled,
-              name: r.key ?? "",
-              value: "",
-              kind: "file",
-              filePath,
-              fileName: filePath.split(/[\\/]/).pop() ?? "",
-              contentType: r.contentType ?? "",
+              name: r.key,
+              file: { path: filePath, contentType: r.contentType },
             };
           }
-          return {
-            enabled: !r.disabled,
-            name: r.key ?? "",
-            value: r.value ?? "",
-          };
+          return { enabled: !r.disabled, name: r.key, value: r.value };
         }),
-      };
+      );
     case "graphql": {
       const gql = body.graphql ?? {};
-      // Postman variables is usually a JSON string, but tolerate an object.
-      const variables =
-        typeof gql.variables === "string"
-          ? gql.variables
-          : gql.variables != null
-            ? JSON.stringify(gql.variables, null, 2)
-            : "";
-      return {
-        bodyType: "graphql",
-        bodyGraphql: { query: gql.query ?? "", variables },
-      };
+      return graphqlBody(gql.query, gql.variables);
     }
     case "file":
-      return { bodyType: "file", bodyFilePath: body.src ?? "" };
+      return fileBody(body.src);
     default:
-      return { bodyType: "no-body" };
+      return noBody();
   }
 }
 
@@ -176,14 +168,14 @@ function parsePathVars(url) {
   }));
 }
 
-function parseItem(item) {
+function parseItem(item, warnings) {
   if (Array.isArray(item.item)) {
     return {
       id: crypto.randomUUID(),
       type: "collection",
       name: item.name ?? "Folder",
       variables: [],
-      children: item.item.map(parseItem).filter(Boolean),
+      children: item.item.map((it) => parseItem(it, warnings)).filter(Boolean),
     };
   }
 
@@ -202,7 +194,7 @@ function parseItem(item) {
       value: h.value ?? "",
     })),
     notes: _descriptionText(req.description),
-    ...parseBody(req.body),
+    ...parseBody(req.body, warnings),
     ...parseAuth(req.auth),
   };
 }
@@ -212,9 +204,11 @@ function parseItem(item) {
  *
  * @param {object} data  Parsed JSON
  * @returns {{ collection: object,
- *   variables: { name: string, value: string, secure: boolean }[] }}
+ *   variables: { name: string, value: string, secure: boolean }[],
+ *   warnings: string[] }}
  *   Variables use the canonical array shape. Postman flags a secret collection
  *   variable with type:"secret" (its value is exported blank), mapped to secure.
+ *   `warnings` reports non-fatal lossy conversions; see `parseImport`.
  */
 export function parsePostman(data) {
   // Support both top-level and wrapped ({ collection: { ... } }) formats
@@ -222,6 +216,7 @@ export function parsePostman(data) {
   const info = root.info ?? {};
   const items = root.item ?? [];
   const variables = [];
+  const warnings = [];
 
   for (const v of root.variable ?? []) {
     if (v.key) {
@@ -239,8 +234,9 @@ export function parsePostman(data) {
       type: "collection",
       name: info.name ?? "Imported Collection",
       variables: [],
-      children: items.map(parseItem).filter(Boolean),
+      children: items.map((it) => parseItem(it, warnings)).filter(Boolean),
     },
     variables,
+    warnings,
   };
 }

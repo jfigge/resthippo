@@ -39,10 +39,19 @@ function detectFormat(data) {
  *   - Insomnia v3 / v4 (.json)
  *   - OpenAPI 3.x and Swagger 2.0 (.json, .yaml, .yml)
  *
+ * Error contract: only `parseImport` throws, and only when the input cannot be
+ * dispatched at all — content that is neither JSON nor YAML, or a parsed object
+ * whose format is unrecognized. Once a format is identified, the per-format
+ * sub-parser (`parsePostman`/`parseInsomnia`/`parseOpenApi`) never throws on
+ * malformed-but-parseable input: it produces a best-effort collection and
+ * reports any non-fatal lossy conversions through `warnings`. All three
+ * sub-parsers return the same `{ collection, variables, warnings }` shape, so
+ * the consumer (`app.js`) can read `warnings` uniformly.
+ *
  * @param {string} content  Raw file content
  * @returns {{ collection: object,
  *   variables: { name: string, value: string, secure: boolean }[],
- *   warnings?: string[] }}  Variables use the canonical array shape.
+ *   warnings: string[] }}  Variables use the canonical array shape.
  * @throws {Error} if the format is unrecognized or the file is invalid
  */
 export function parseImport(content) {

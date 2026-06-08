@@ -1,111 +1,83 @@
 "use strict";
 
+import { buildAuth, noBody, rawBody, graphqlBody, formBody } from "./shape.js";
+
+// Map Insomnia's auth representation onto the neutral descriptor consumed by the
+// shared `buildAuth`. Insomnia stores each scheme's fields as direct properties
+// (and names its OAuth2 redirect field `authorizationUrl`, not `authUrl`).
 function parseAuth(auth) {
   // Insomnia stores a disabled auth as `{ type, disabled: true, … }` rather
   // than changing `type` — treat it as no-auth so the imported request behaves
   // the way the user saw it in Insomnia.
   if (!auth || !auth.type || auth.type === "none" || auth.disabled === true) {
-    return { authEnabled: false, authType: "none" };
+    return buildAuth(null);
   }
 
   const { type } = auth;
   if (type === "basic") {
-    return {
-      authEnabled: true,
-      authType: "basic",
-      authBasic: {
-        username: auth.username ?? "",
-        password: auth.password ?? "",
-      },
-    };
+    return buildAuth({
+      type: "basic",
+      username: auth.username,
+      password: auth.password,
+    });
   }
   if (type === "bearer") {
-    return {
-      authEnabled: true,
-      authType: "bearer",
-      authBearer: { token: auth.token ?? "" },
-    };
+    return buildAuth({ type: "bearer", token: auth.token });
   }
   if (type === "oauth2") {
-    return {
-      authEnabled: true,
-      authType: "oauth2",
-      authOAuth2: {
-        grantType: auth.grantType ?? "authorization_code",
-        clientId: auth.clientId ?? "",
-        clientSecret: auth.clientSecret ?? "",
-        accessTokenUrl: auth.accessTokenUrl ?? "",
-        authUrl: auth.authorizationUrl ?? "",
-        scope: auth.scope ?? "",
-      },
-    };
+    return buildAuth({
+      type: "oauth2",
+      grantType: auth.grantType,
+      clientId: auth.clientId,
+      clientSecret: auth.clientSecret,
+      accessTokenUrl: auth.accessTokenUrl,
+      authUrl: auth.authorizationUrl,
+      scope: auth.scope,
+    });
   }
-  return { authEnabled: false, authType: "none" };
+  return buildAuth(null);
 }
 
+// Map Insomnia's `mimeType`-tagged body onto the shared canonical body builders.
 function parseBody(body) {
-  if (!body || !body.mimeType) return { bodyType: "no-body" };
+  if (!body || !body.mimeType) return noBody();
 
   const mime = body.mimeType;
   if (mime.includes("graphql")) {
     // Insomnia's text is a JSON string { query, variables }. Some exporters put
     // the raw query directly in text — fall back to that if it isn't JSON.
-    let query = "";
-    let variables = "";
     try {
       const parsed = JSON.parse(body.text ?? "");
-      query = parsed.query ?? "";
-      variables =
-        parsed.variables == null
-          ? ""
-          : typeof parsed.variables === "string"
-            ? parsed.variables
-            : JSON.stringify(parsed.variables, null, 2);
+      return graphqlBody(parsed.query, parsed.variables);
     } catch {
-      query = body.text ?? "";
+      return graphqlBody(body.text, "");
     }
-    return { bodyType: "graphql", bodyGraphql: { query, variables } };
   }
-  if (mime.includes("json"))
-    return { bodyType: "json", bodyText: body.text ?? "" };
-  if (mime.includes("xml"))
-    return { bodyType: "xml", bodyText: body.text ?? "" };
-  if (mime.includes("yaml"))
-    return { bodyType: "yaml", bodyText: body.text ?? "" };
+  if (mime.includes("json")) return rawBody("json", body.text);
+  if (mime.includes("xml")) return rawBody("xml", body.text);
+  if (mime.includes("yaml")) return rawBody("yaml", body.text);
   if (mime === "application/x-www-form-urlencoded") {
-    return {
-      bodyType: "form-urlencoded",
-      bodyFormRows: (body.params ?? []).map((p) => ({
+    return formBody(
+      "form-urlencoded",
+      (body.params ?? []).map((p) => ({
         enabled: !p.disabled,
-        name: p.name ?? "",
-        value: p.value ?? "",
+        name: p.name,
+        value: p.value,
       })),
-    };
+    );
   }
   if (mime === "multipart/form-data") {
-    return {
-      bodyType: "form-data",
-      bodyFormRows: (body.params ?? []).map((p) =>
+    return formBody(
+      "form-data",
+      (body.params ?? []).map((p) =>
         p.type === "file"
-          ? {
-              enabled: !p.disabled,
-              name: p.name ?? "",
-              value: "",
-              kind: "file",
-              filePath: p.fileName ?? "",
-              fileName: (p.fileName ?? "").split(/[\\/]/).pop() ?? "",
-              contentType: "",
-            }
-          : {
-              enabled: !p.disabled,
-              name: p.name ?? "",
-              value: p.value ?? "",
-            },
+          ? { enabled: !p.disabled, name: p.name, file: { path: p.fileName } }
+          : { enabled: !p.disabled, name: p.name, value: p.value },
       ),
-    };
+    );
   }
-  if (body.text) return { bodyType: "text", bodyText: body.text };
-  return { bodyType: "no-body" };
+  if (body.text) return rawBody("text", body.text);
+  return noBody();
 }
 
 /**
@@ -113,11 +85,14 @@ function parseBody(body) {
  *
  * @param {object} data  Parsed JSON
  * @returns {{ collection: object,
- *   variables: { name: string, value: string, secure: boolean }[] }}
- *   Variables use the canonical array shape.
+ *   variables: { name: string, value: string, secure: boolean }[],
+ *   warnings: string[] }}
+ *   Variables use the canonical array shape. `warnings` reports non-fatal lossy
+ *   conversions (e.g. dropped sub-environments); see `parseImport`.
  */
 export function parseInsomnia(data) {
   const resources = data.resources ?? [];
+  const warnings = [];
 
   const workspace = resources.find((r) => r._type === "workspace") ?? {};
   const wsId = workspace._id ?? "";
@@ -148,6 +123,21 @@ export function parseInsomnia(data) {
         secure: false,
       });
     }
+  }
+
+  // wurl imports a single flat variable set, so any sub-environments (Insomnia's
+  // per-environment overrides, e.g. "Production"/"Staging") are dropped. Count
+  // every environment resource in the export beyond the one we imported and warn
+  // — silently keeping only the base would hide that the others were lost.
+  const skippedEnvs =
+    resources.filter((r) => r._type === "environment").length -
+    (baseEnv ? 1 : 0);
+  if (skippedEnvs > 0) {
+    warnings.push(
+      `Skipped ${skippedEnvs} additional Insomnia environment` +
+        `${skippedEnvs !== 1 ? "s" : ""}; only the base environment's ` +
+        `variables were imported.`,
+    );
   }
 
   function buildNode(resource) {
@@ -204,5 +194,6 @@ export function parseInsomnia(data) {
       children,
     },
     variables,
+    warnings,
   };
 }

@@ -21,6 +21,12 @@ import { parseImport } from "../index.js";
 import { parsePostman } from "../postman.js";
 import { parseInsomnia } from "../insomnia.js";
 import { parseOpenApi } from "../openapi.js";
+import {
+  buildAuth,
+  graphqlBody,
+  normalizeGraphqlVariables,
+  formBody,
+} from "../shape.js";
 import { exportToPostman } from "../../export/postman.js";
 import { exportToInsomnia } from "../../export/insomnia.js";
 
@@ -734,4 +740,191 @@ test("round-trip: form-data file field + path variables survive a Postman cycle"
   assert.equal(file.kind, "file");
   assert.equal(file.filePath, "/tmp/a.pdf");
   assert.equal(file.contentType, "application/pdf");
+});
+
+// ── Shared canonical-shape builders (import/shape.js) ─────────────────────────
+
+test("shape.buildAuth: neutral descriptor → canonical wurl auth fields", () => {
+  // null / unknown → no-auth; this is what every importer maps an absent or
+  // unsupported scheme to.
+  assert.deepEqual(buildAuth(null), { authEnabled: false, authType: "none" });
+  assert.deepEqual(buildAuth({ type: "saml" }), {
+    authEnabled: false,
+    authType: "none",
+  });
+
+  assert.deepEqual(buildAuth({ type: "basic", username: "u", password: "p" }), {
+    authEnabled: true,
+    authType: "basic",
+    authBasic: { username: "u", password: "p" },
+  });
+  assert.deepEqual(buildAuth({ type: "bearer", token: "t" }), {
+    authEnabled: true,
+    authType: "bearer",
+    authBearer: { token: "t" },
+  });
+
+  // oauth2 fills wurl defaults for omitted fields (notably grantType).
+  assert.deepEqual(buildAuth({ type: "oauth2", clientId: "cid" }), {
+    authEnabled: true,
+    authType: "oauth2",
+    authOAuth2: {
+      grantType: "authorization_code",
+      clientId: "cid",
+      clientSecret: "",
+      accessTokenUrl: "",
+      authUrl: "",
+      scope: "",
+    },
+  });
+});
+
+test("shape.normalizeGraphqlVariables: string passes through, object stringifies, null → ''", () => {
+  assert.equal(normalizeGraphqlVariables('{"id":1}'), '{"id":1}');
+  assert.equal(normalizeGraphqlVariables(null), "");
+  assert.equal(normalizeGraphqlVariables(undefined), "");
+  assert.equal(
+    normalizeGraphqlVariables({ id: 1 }),
+    JSON.stringify({ id: 1 }, null, 2),
+  );
+});
+
+test("shape.graphqlBody: builds the canonical graphql body with normalized variables", () => {
+  assert.deepEqual(graphqlBody("query { x }", { id: 1 }), {
+    bodyType: "graphql",
+    bodyGraphql: {
+      query: "query { x }",
+      variables: JSON.stringify({ id: 1 }, null, 2),
+    },
+  });
+  // Missing query/variables default to empty strings.
+  assert.deepEqual(graphqlBody(), {
+    bodyType: "graphql",
+    bodyGraphql: { query: "", variables: "" },
+  });
+});
+
+test("shape.formBody: owns the file/text row shape and derives fileName from path", () => {
+  const out = formBody("form-data", [
+    { enabled: true, name: "caption", value: "hi" },
+    {
+      enabled: false,
+      name: "doc",
+      file: { path: "/a/b/c.pdf", contentType: "application/pdf" },
+    },
+    { enabled: true, name: "bare", file: { path: "" } }, // no contentType → ""
+  ]);
+  assert.equal(out.bodyType, "form-data");
+  assert.deepEqual(out.bodyFormRows, [
+    { enabled: true, name: "caption", value: "hi" },
+    {
+      enabled: false,
+      name: "doc",
+      value: "",
+      kind: "file",
+      filePath: "/a/b/c.pdf",
+      fileName: "c.pdf",
+      contentType: "application/pdf",
+    },
+    {
+      enabled: true,
+      name: "bare",
+      value: "",
+      kind: "file",
+      filePath: "",
+      fileName: "",
+      contentType: "",
+    },
+  ]);
+});
+
+// ── Uniform return shape + warnings channel ──────────────────────────────────
+
+test("all importers return a warnings array (empty for clean input)", () => {
+  assert.deepEqual(parsePostman(POSTMAN_FIXTURE).warnings, []);
+  assert.deepEqual(parseInsomnia(INSOMNIA_FIXTURE).warnings, []);
+  assert.deepEqual(parseOpenApi(OPENAPI_FIXTURE).warnings, []);
+});
+
+test("postman: a multi-file form-data field is imported lossily and warned about", () => {
+  const data = {
+    info: {
+      name: "Files",
+      schema:
+        "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    },
+    item: [
+      {
+        name: "Upload",
+        request: {
+          method: "POST",
+          url: "https://api.example.com/upload",
+          body: {
+            mode: "formdata",
+            formdata: [
+              { key: "docs", type: "file", src: ["/tmp/a.pdf", "/tmp/b.pdf"] },
+            ],
+          },
+        },
+      },
+    ],
+  };
+  const { collection, warnings } = parsePostman(data);
+
+  // Only the first file survives (wurl is one file per field) …
+  const upload = findRequest(collection, "Upload");
+  const file = upload.bodyFormRows.find((r) => r.name === "docs");
+  assert.equal(file.filePath, "/tmp/a.pdf");
+
+  // … and that loss is surfaced, not silent.
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /docs/);
+  assert.match(warnings[0], /only the first/i);
+
+  // A single-file field does not warn.
+  data.item[0].request.body.formdata[0].src = "/tmp/only.pdf";
+  assert.deepEqual(parsePostman(data).warnings, []);
+});
+
+test("insomnia: dropped sub-environments are reported via warnings", () => {
+  const data = structuredClone(INSOMNIA_FIXTURE);
+  // Add two extra environments beyond the base; wurl imports only the base.
+  data.resources.push(
+    {
+      _id: "env_prod",
+      _type: "environment",
+      parentId: "env_base",
+      name: "Production",
+      data: { token: "prod" },
+    },
+    {
+      _id: "env_stg",
+      _type: "environment",
+      parentId: "env_base",
+      name: "Staging",
+      data: { token: "stg" },
+    },
+  );
+  const { variables, warnings } = parseInsomnia(data);
+
+  // Base environment variables still import unchanged.
+  assert.equal(varOf(variables, "token").value, "abc");
+
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /Skipped 2 additional Insomnia environments/);
+});
+
+test("parseImport surfaces sub-parser warnings on the uniform return", () => {
+  // The dispatcher does not strip warnings; the consumer (app.js) reads them.
+  const data = structuredClone(INSOMNIA_FIXTURE);
+  data.resources.push({
+    _id: "env_prod",
+    _type: "environment",
+    parentId: "env_base",
+    name: "Production",
+    data: {},
+  });
+  const { warnings } = parseImport(JSON.stringify(data));
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /Skipped 1 additional Insomnia environment;/);
 });
