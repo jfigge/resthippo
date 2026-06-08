@@ -19,7 +19,7 @@ import assert from "node:assert/strict";
 
 import { parseImport } from "../index.js";
 import { parsePostman } from "../postman.js";
-import { parseInsomnia } from "../insomnia.js";
+import { parseInsomnia, parseInsomniaV5 } from "../insomnia.js";
 import { parseOpenApi } from "../openapi.js";
 import {
   buildAuth,
@@ -196,6 +196,99 @@ test("insomnia: a disabled auth block is treated as no-auth", () => {
   const req = findRequest(parseInsomnia(data).collection, "Get User");
   assert.equal(req.authEnabled, false);
   assert.equal(req.authType, "none");
+});
+
+// ── Insomnia v5 import ────────────────────────────────────────────────────────
+
+const INSOMNIA_V5_FIXTURE = {
+  type: "collection.insomnia.rest/5.0",
+  name: "My Workspace",
+  meta: { id: "wrk_abc123" },
+  collection: [
+    {
+      name: "Users",
+      meta: { id: "fld_abc123", sortKey: -500 },
+      children: [
+        {
+          name: "Get User",
+          url: "https://api.example.com/users/1",
+          method: "get",
+          meta: { id: "req_abc123", description: "" },
+          headers: [{ name: "Accept", value: "application/json", disabled: false }],
+          parameters: [],
+          body: {},
+          authentication: { type: "bearer", token: "tok-123", disabled: false },
+        },
+      ],
+    },
+  ],
+  environments: {
+    name: "Base Environment",
+    meta: { id: "env_abc123" },
+    data: { token: "abc", obj: { nested: 1 } },
+  },
+};
+
+test("insomnia-v5: detects format and extracts base-environment variables", () => {
+  const { collection, variables } = parseImport(
+    JSON.stringify(INSOMNIA_V5_FIXTURE),
+  );
+  assert.equal(collection.name, "My Workspace");
+  assert.equal(varOf(variables, "token").value, "abc");
+  // Non-string values are JSON-stringified so they stay recoverable.
+  assert.equal(varOf(variables, "obj").value, JSON.stringify({ nested: 1 }));
+});
+
+test("insomnia-v5: builds folder → request hierarchy with auth", () => {
+  const { collection } = parseInsomniaV5(INSOMNIA_V5_FIXTURE);
+  const folder = collection.children[0];
+  assert.equal(folder.name, "Users");
+
+  const req = findRequest(collection, "Get User");
+  assert.equal(req.method, "GET");
+  assert.equal(req.url, "https://api.example.com/users/1");
+  assert.equal(req.authType, "bearer");
+  assert.deepEqual(req.authBearer, { token: "tok-123" });
+});
+
+test("insomnia-v5: a disabled auth block is treated as no-auth", () => {
+  const data = structuredClone(INSOMNIA_V5_FIXTURE);
+  data.collection[0].children[0].authentication = {
+    type: "bearer",
+    token: "x",
+    disabled: true,
+  };
+  const req = findRequest(parseInsomniaV5(data).collection, "Get User");
+  assert.equal(req.authEnabled, false);
+  assert.equal(req.authType, "none");
+});
+
+test("insomnia-v5: dropped sub-environments are reported via warnings", () => {
+  const data = structuredClone(INSOMNIA_V5_FIXTURE);
+  data.environments.subEnvironments = [
+    { name: "Production", meta: { id: "env_prod" }, data: { token: "prod" } },
+    { name: "Staging", meta: { id: "env_stg" }, data: { token: "stg" } },
+  ];
+  const { variables, warnings } = parseInsomniaV5(data);
+
+  // Base environment variables still import unchanged.
+  assert.equal(varOf(variables, "token").value, "abc");
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /Skipped 2 additional Insomnia environments/);
+});
+
+test("insomnia-v5: non-HTTP items (no method, no children) are skipped", () => {
+  const data = structuredClone(INSOMNIA_V5_FIXTURE);
+  // A WebSocket entry has a url but no method and no children array.
+  data.collection.push({
+    name: "WS Echo",
+    url: "ws://localhost/ws",
+    meta: { id: "ws-req_abc" },
+  });
+  const { collection } = parseInsomniaV5(data);
+  // Only the folder survives; the WebSocket entry is skipped.
+  assert.equal(collection.children.length, 1);
+  assert.equal(collection.children[0].type, "collection");
 });
 
 // ── OpenAPI / Swagger import ─────────────────────────────────────────────────
@@ -843,6 +936,7 @@ test("shape.formBody: owns the file/text row shape and derives fileName from pat
 test("all importers return a warnings array (empty for clean input)", () => {
   assert.deepEqual(parsePostman(POSTMAN_FIXTURE).warnings, []);
   assert.deepEqual(parseInsomnia(INSOMNIA_FIXTURE).warnings, []);
+  assert.deepEqual(parseInsomniaV5(INSOMNIA_V5_FIXTURE).warnings, []);
   assert.deepEqual(parseOpenApi(OPENAPI_FIXTURE).warnings, []);
 });
 

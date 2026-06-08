@@ -81,6 +81,101 @@ function parseBody(body) {
 }
 
 /**
+ * Parse an Insomnia v5 export (YAML, type: "collection.insomnia.rest/5.0").
+ *
+ * V5 replaced the flat `resources[]` graph of v3/v4 with a hierarchical nested
+ * tree: the workspace is the root document itself, HTTP requests and folders are
+ * in `collection[]` (children are inline), and environments live in an
+ * `environments` object rather than as separate resources.
+ *
+ * The auth and body representations are wire-compatible with v4, so the shared
+ * `parseAuth` and `parseBody` helpers work without modification.
+ *
+ * @param {object} data  Parsed YAML (or JSON)
+ * @returns {{ collection: object,
+ *   variables: { name: string, value: string, secure: boolean }[],
+ *   warnings: string[] }}
+ */
+export function parseInsomniaV5(data) {
+  const warnings = [];
+
+  // Extract base environment variables. V5 carries no per-variable secret flag.
+  const variables = [];
+  const env = data.environments;
+  if (env?.data && typeof env.data === "object") {
+    for (const [k, v] of Object.entries(env.data)) {
+      variables.push({
+        name: k,
+        value: typeof v === "string" ? v : JSON.stringify(v),
+        secure: false,
+      });
+    }
+  }
+
+  // Sub-environments are dropped; warn if any exist.
+  const subEnvs = env?.subEnvironments ?? [];
+  if (subEnvs.length > 0) {
+    warnings.push(
+      `Skipped ${subEnvs.length} additional Insomnia environment` +
+        `${subEnvs.length !== 1 ? "s" : ""}; only the base environment's ` +
+        `variables were imported.`,
+    );
+  }
+
+  // V5 discriminates folders from requests by the presence of a `children`
+  // array. Non-HTTP items (WebSocket, gRPC, Socket.IO) lack both `children`
+  // and `method` and are skipped.
+  function buildNode(item) {
+    if (Array.isArray(item.children)) {
+      return {
+        id: crypto.randomUUID(),
+        type: "collection",
+        name: item.name ?? "Folder",
+        variables: [],
+        children: item.children.map(buildNode).filter(Boolean),
+      };
+    }
+
+    if (item.method) {
+      return {
+        id: crypto.randomUUID(),
+        type: "request",
+        name: item.name ?? "Request",
+        method: (item.method ?? "GET").toUpperCase(),
+        url: item.url ?? "",
+        headers: (item.headers ?? []).map((h) => ({
+          enabled: !h.disabled,
+          name: h.name ?? "",
+          value: h.value ?? "",
+        })),
+        params: (item.parameters ?? []).map((p) => ({
+          enabled: !p.disabled,
+          name: p.name ?? "",
+          value: p.value ?? "",
+        })),
+        notes: item.meta?.description ?? "",
+        ...parseBody(item.body),
+        ...parseAuth(item.authentication),
+      };
+    }
+
+    return null; // WebSocket / gRPC / Socket.IO — not importable as HTTP requests
+  }
+
+  return {
+    collection: {
+      id: crypto.randomUUID(),
+      type: "collection",
+      name: data.name ?? "Imported Collection",
+      variables: [],
+      children: (data.collection ?? []).map(buildNode).filter(Boolean),
+    },
+    variables,
+    warnings,
+  };
+}
+
+/**
  * Parse an Insomnia v3 / v4 export.
  *
  * @param {object} data  Parsed JSON

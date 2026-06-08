@@ -2,7 +2,7 @@
 
 import { parse as parseYaml } from "../vendor/yaml.js";
 import { parsePostman } from "./postman.js";
-import { parseInsomnia } from "./insomnia.js";
+import { parseInsomnia, parseInsomniaV5 } from "./insomnia.js";
 import { parseOpenApi } from "./openapi.js";
 
 /**
@@ -21,6 +21,14 @@ function detectFormat(data) {
   if (data._type === "export" && data.__export_format != null)
     return "insomnia";
 
+  // Insomnia v5 (YAML, type: "collection.insomnia.rest/5.0")
+  if (
+    typeof data.type === "string" &&
+    data.type.includes("insomnia.rest/5") &&
+    Array.isArray(data.collection)
+  )
+    return "insomnia-v5";
+
   // OpenAPI 3.x
   if (typeof data.openapi === "string" && data.openapi.startsWith("3."))
     return "openapi";
@@ -37,6 +45,7 @@ function detectFormat(data) {
  * Supports:
  *   - Postman v2.0 / v2.1 (.json)
  *   - Insomnia v3 / v4 (.json)
+ *   - Insomnia v5 (.yaml)
  *   - OpenAPI 3.x and Swagger 2.0 (.json, .yaml, .yml)
  *
  * Error contract: only `parseImport` throws, and only when the input cannot be
@@ -72,11 +81,13 @@ export function parseImport(content) {
       return parsePostman(data);
     case "insomnia":
       return parseInsomnia(data);
+    case "insomnia-v5":
+      return parseInsomniaV5(data);
     case "openapi":
       return parseOpenApi(data);
     default:
       throw new Error(
-        "Unrecognized format. Supported: Postman v2.x, Insomnia v3/v4, OpenAPI 3.x, Swagger 2.0.",
+        "Unrecognized format. Supported: Postman v2.x, Insomnia v3/v4/v5, OpenAPI 3.x, Swagger 2.0.",
       );
   }
 }
