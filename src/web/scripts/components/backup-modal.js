@@ -111,8 +111,8 @@ export class BackupModal {
         <div class="backup-error" role="alert" aria-live="polite"></div>
       </div>
       <div class="popup-footer">
-        <button class="popup-btn popup-btn--secondary js-cancel">Cancel</button>
-        <button class="popup-btn popup-btn--primary js-submit">Create Backup</button>
+        <button class="btn popup-btn btn--secondary js-cancel">Cancel</button>
+        <button class="btn popup-btn btn--primary js-submit">Create Backup</button>
       </div>
     `;
     return el;
@@ -148,8 +148,8 @@ export class BackupModal {
         <div class="backup-error" role="alert" aria-live="polite"></div>
       </div>
       <div class="popup-footer">
-        <button class="popup-btn popup-btn--secondary js-cancel">Cancel</button>
-        <button class="popup-btn popup-btn--primary js-submit">Restore Backup</button>
+        <button class="btn popup-btn btn--secondary js-cancel">Cancel</button>
+        <button class="btn popup-btn btn--primary js-submit">Restore Backup</button>
       </div>
     `;
     return el;

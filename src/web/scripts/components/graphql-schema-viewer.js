@@ -63,9 +63,9 @@ export class GraphQLSchemaViewer {
         <pre class="graphql-schema-viewer-pre"><code class="language-graphql">${codeHtml}</code></pre>
       </div>
       <div class="popup-footer">
-        <button class="popup-btn popup-btn--secondary js-copy">Copy</button>
-        <button class="popup-btn popup-btn--secondary js-download">Download</button>
-        <button class="popup-btn popup-btn--primary js-close">Close</button>
+        <button class="btn popup-btn btn--secondary js-copy">Copy</button>
+        <button class="btn popup-btn btn--secondary js-download">Download</button>
+        <button class="btn popup-btn btn--primary js-close">Close</button>
       </div>
     `;
     return el;

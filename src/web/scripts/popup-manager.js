@@ -124,8 +124,8 @@ function _ensureConfirm() {
       <p>You have unsaved changes. Are you sure you want to discard them?</p>
     </div>
     <div class="popup-footer">
-      <button class="popup-btn popup-btn--secondary" id="pm-confirm-keep">Keep editing</button>
-      <button class="popup-btn popup-btn--danger"    id="pm-confirm-discard">Discard</button>
+      <button class="btn popup-btn btn--secondary" id="pm-confirm-keep">Keep editing</button>
+      <button class="btn popup-btn btn--danger"    id="pm-confirm-discard">Discard</button>
     </div>
   `;
   document.body.appendChild(_confirmEl);
@@ -332,7 +332,7 @@ export const PopupManager = {
     message,
     note,
     confirmLabel = "Confirm",
-    confirmClass = "popup-btn--danger",
+    confirmClass = "btn--danger",
     onConfirm,
   }) {
     const noteHtml = note
@@ -351,8 +351,8 @@ export const PopupManager = {
           ${noteHtml}
         </div>
         <div class="popup-footer">
-          <button class="popup-btn popup-btn--secondary" data-action="cancel">Cancel</button>
-          <button class="popup-btn ${confirmClass}"      data-action="confirm">${escapeHtml(confirmLabel)}</button>
+          <button class="btn popup-btn btn--secondary" data-action="cancel">Cancel</button>
+          <button class="btn popup-btn ${confirmClass}"      data-action="confirm">${escapeHtml(confirmLabel)}</button>
         </div>
       `,
       focusSel: "[data-action='cancel']",
@@ -387,7 +387,7 @@ export const PopupManager = {
       message,
       note: "Take a backup beforehand if you may need to restore it — this cannot be undone otherwise.",
       confirmLabel: "Delete",
-      confirmClass: "popup-btn--danger",
+      confirmClass: "btn--danger",
       onConfirm,
     });
   },
@@ -505,8 +505,8 @@ export const PopupManager = {
           <ul class="var-warn-list" role="list">${itemsHtml}</ul>
         </div>
         <div class="popup-footer">
-          <button class="popup-btn popup-btn--secondary" data-action="cancel">Cancel</button>
-          <button class="popup-btn popup-btn--warning"   data-action="proceed">${escapeHtml(actionLabel)}</button>
+          <button class="btn popup-btn btn--secondary" data-action="cancel">Cancel</button>
+          <button class="btn popup-btn btn--warning"   data-action="proceed">${escapeHtml(actionLabel)}</button>
         </div>
       `,
       focusSel: "[data-action='cancel']",
@@ -541,7 +541,7 @@ export const PopupManager = {
           ${message ? `<p>${escapeHtml(message)}</p>` : ""}
         </div>
         <div class="popup-footer">
-          <button class="popup-btn popup-btn--primary" data-action="ok">OK</button>
+          <button class="btn popup-btn btn--primary" data-action="ok">OK</button>
         </div>
       `,
       focusSel: "[data-action='ok']",

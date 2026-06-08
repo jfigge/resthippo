@@ -77,11 +77,9 @@ const DEFAULT_SETTINGS = {
   splitterNav: 240,
   splitterRes: 340,
   splitterRowRes: 320,
-  // GraphQL Query/Variables split (persisted editor layout). graphqlSplitFlow is
-  // the orientation ("column" = stacked, "row" = side by side); the two fractions
-  // are the Variables pane's share of the container per orientation, or null to
-  // use the default flex ratio.
-  graphqlSplitFlow: "row",
+  // GraphQL Query/Variables split position. The orientation is derived from the
+  // app layout (not persisted); these two fractions are the Variables pane's
+  // share of the container per orientation, or null to use the default flex ratio.
   graphqlVarsFractionColumn: null,
   graphqlVarsFractionRow: null,
   // Code folding in the GraphQL Query/Variables editors (gutter carets). On by

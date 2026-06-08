@@ -319,7 +319,7 @@ export class CollectionsPopup {
         </div>
       </div>
       <div class="popup-footer coll-popup-footer">
-        <button class="popup-btn popup-btn--primary js-close">Close</button>
+        <button class="btn popup-btn btn--primary js-close">Close</button>
       </div>
     `;
 
@@ -1090,8 +1090,8 @@ export class CollectionsPopup {
         </label>
       </div>
       <div class="cookies-edit-actions">
-        <button class="popup-btn popup-btn--secondary cookies-edit-cancel">Cancel</button>
-        <button class="popup-btn popup-btn--primary cookies-edit-save">Save</button>
+        <button class="btn popup-btn btn--secondary cookies-edit-cancel">Cancel</button>
+        <button class="btn popup-btn btn--primary cookies-edit-save">Save</button>
       </div>
     `;
 
@@ -1171,7 +1171,7 @@ export class CollectionsPopup {
       title: "Clear All Cookies?",
       message: `Remove every cookie stored for this collection? Subsequent requests will send no cookies until new ones are captured. This cannot be undone.`,
       confirmLabel: "Clear All",
-      confirmClass: "popup-btn--danger",
+      confirmClass: "btn--danger",
       onConfirm: async () => {
         // Failure surfaces a toast inside clearCookies(); bail without reloading.
         if (!(await clearCookies(this.#selectedId))) return;

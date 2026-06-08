@@ -2,39 +2,11 @@
 
 /* ═══════════════════════════════════════════════════════════════════════════
    BASE CONTROLS
-   Canonical building blocks for buttons and text inputs. Component-specific
-   classes layer their own colours/sizing on top of these — heights come from
-   the --control-h-* tokens (theme.css) so every control aligns to one scale.
+   Canonical text inputs. (The shared .btn button base + .btn--* colour variants
+   live in theme.css so the Theme Editor window, which doesn't load this file,
+   can share them too.) Heights come from the --control-h-* tokens (theme.css)
+   so every control aligns to one scale.
    ═══════════════════════════════════════════════════════════════════════════ */
-
-/* Text button: height + horizontal padding + typography. Pair with a colour
-   modifier (e.g. .popup-btn--primary) for fill/border treatment. */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  height: var(--control-h-md);
-  padding: 0 var(--space-5);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  cursor: pointer;
-  box-sizing: border-box;
-  transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast),
-    color var(--transition-fast),
-    opacity var(--transition-fast);
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 /* Text input / select. Component classes may override height (e.g. dense
    table rows use --control-h-xs) and background. .auth-field-input shares
@@ -779,23 +751,16 @@ html.show-method-icons .req-method-menu-item-label::before {
   font-size: var(--font-size-base);
 }
 
+/* Composes .btn; bespoke (mono, accent outline) rather than a standard colour
+   variant. */
 .req-send-btn {
-  height: var(--control-h-md);
-  padding: 0 var(--space-5);
   background: var(--color-surface-1);
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-sm);
+  border-color: var(--color-accent);
   color: var(--color-accent);
   font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
   font-weight: 700;
-  cursor: pointer;
-  border-color: var(--color-accent);
   white-space: nowrap;
   flex-shrink: 0;
-  transition:
-    background-color var(--transition-fast),
-    color var(--transition-fast);
 }
 
 .req-send-btn:hover {
@@ -1157,11 +1122,6 @@ html.show-method-icons .req-method-menu-item-label::before {
   flex: 0 0 var(--splitter-size);
 }
 
-/* Layout toggle in the body type bar — stacked ⇄ side by side. */
-.body-graphql-flow-btn {
-  padding: var(--space-1) var(--space-2);
-}
-
 .body-graphql-pane-label {
   display: flex;
   align-items: center;
@@ -1185,6 +1145,13 @@ html.show-method-icons .req-method-menu-item-label::before {
    layout toggle and the "Fetch schema" button. Empty until a fetch runs, then a
    green tick on success or a red X on failure. The glyph inherits `color` via
    currentColor, so the state rules below recolor it. */
+/* Pushes the schema status badge + Fetch button to the trailing edge of the
+   GraphQL body-type bar, so there is always a clear gap after the type picker —
+   independent of whether the (collapsing) status badge is currently shown. */
+.body-graphql-bar-spacer {
+  flex: 1 1 auto;
+}
+
 .body-graphql-status {
   display: inline-flex;
   align-items: center;
@@ -1299,24 +1266,13 @@ html.show-method-icons .req-method-menu-item-label::before {
   margin: 0;
 }
 
+/* Composes .btn .btn--secondary; only margin + the accent-ish border on hover
+   are feature-specific. */
 .body-file-browse-btn {
-  height: var(--control-h-md);
-  padding: 0 var(--space-5);
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  cursor: pointer;
   margin-top: var(--space-2);
-  transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast);
 }
 
 .body-file-browse-btn:hover {
-  background: var(--color-surface-2);
   border-color: var(--color-overlay-0);
 }
 
@@ -1347,21 +1303,14 @@ html.show-method-icons .req-method-menu-item-label::before {
   white-space: nowrap;
 }
 
+/* Composes .btn; smaller neutral outline that turns error-red on hover. */
 .body-file-reset-btn {
   height: var(--control-h-sm);
   padding: 0 var(--space-4);
-  background: transparent;
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-sm);
+  border-color: var(--color-surface-2);
   color: var(--color-subtext);
   font-size: var(--font-size-xs);
-  font-weight: 600;
-  cursor: pointer;
   flex-shrink: 0;
-  transition:
-    color var(--transition-fast),
-    border-color var(--transition-fast),
-    background-color var(--transition-fast);
 }
 
 .body-file-reset-btn:hover {
@@ -2480,20 +2429,16 @@ html.show-method-icons .req-method-menu-item-label::before {
   flex: 1 1 auto;
 }
 
+/* Composes .btn .btn--secondary; compact (no fixed height), accent border on
+   hover. font-weight resets to normal — these are inline banner actions. */
 .res-truncation-btn {
   flex: 0 0 auto;
+  height: auto;
   padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-1);
-  color: var(--color-text);
-  font-family: inherit;
-  font-size: var(--font-size-sm);
-  cursor: pointer;
+  font-weight: 400;
 }
 
 .res-truncation-btn:hover {
-  background: var(--color-surface-2);
   border-color: var(--color-accent);
 }
 
@@ -3075,10 +3020,37 @@ html.show-method-icons .req-method-menu-item-label::before {
 
 /* ── Timeline tab ──────────────────────────────────────────────────────────  */
 
+/* Master/detail split: a scrolling list of run entries on the left, the
+   selected entry's request snapshot on the right. */
+.timeline-pane {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
 .timeline-list {
   display: flex;
   flex-direction: column;
+  flex: 0 0 42%;
+  min-width: 180px;
+  overflow-y: auto;
+  border-right: 1px solid var(--color-surface-1);
   padding: var(--space-3) 0;
+}
+
+/* Side-by-side app layout (data-layout="1", landscape) puts the response in a
+   tall, narrow column — stack the list above the detail (a horizontal split) so
+   each spans the column's full width. Every other layout gives the response a
+   wider band where the default left/right split reads better. */
+#app-main[data-layout="1"] .timeline-pane {
+  flex-direction: column;
+}
+
+#app-main[data-layout="1"] .timeline-list {
+  flex-basis: 40%;
+  min-width: 0;
+  border-right: none;
+  border-bottom: 1px solid var(--color-surface-1);
 }
 
 .timeline-item {
@@ -3094,53 +3066,6 @@ html.show-method-icons .req-method-menu-item-label::before {
   cursor: pointer;
   color: var(--color-subtext);
   transition: background-color var(--transition-fast);
-}
-
-/* Per-entry actions (✕ delete, Delete All) pinned to the top-right corner.
-   Hidden until the row is hovered; the latest entry keeps its actions visible
-   so "Delete All" is always discoverable. */
-.timeline-actions {
-  position: absolute;
-  top: var(--space-2);
-  right: var(--space-3);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.timeline-item:hover .timeline-actions,
-.timeline-item:focus-within .timeline-actions,
-.timeline-item--latest .timeline-actions {
-  opacity: 1;
-}
-
-.timeline-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1px var(--space-2);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
-  line-height: 1.4;
-  color: var(--color-overlay-0);
-  cursor: pointer;
-  user-select: none;
-  transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
-}
-
-.timeline-action:hover,
-.timeline-action:focus-visible {
-  color: var(--color-error);
-  background: var(--color-surface-1);
-  outline: none;
-}
-
-.timeline-action--clear-all {
-  font-family: var(--font-mono);
 }
 
 .timeline-timestamp {
@@ -3200,23 +3125,27 @@ html.show-method-icons .req-method-menu-item-label::before {
   white-space: nowrap;
 }
 
-/* ── Timeline entry tooltip (.timeline-tooltip) ───────────────────────────── */
+/* ── Timeline detail panel (.timeline-detail) ─────────────────────────────── */
 
-.timeline-tooltip {
-  position: fixed;
-  z-index: 900;
-  width: 280px;
-  max-height: 420px;
+/* Detail column of the master/detail split — shows the selected run's request
+   snapshot. Scrolls independently of the entry list. */
+.timeline-detail {
+  flex: 1;
+  min-width: 0;
   overflow-y: auto;
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-float);
   padding: var(--space-2) 0 var(--space-3);
   overscroll-behavior: contain;
 }
 
-.timeline-tooltip-section {
+.timeline-detail-empty {
+  padding: var(--space-6) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-overlay-0);
+  font-style: italic;
+  text-align: center;
+}
+
+.timeline-detail-section {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3229,13 +3158,13 @@ html.show-method-icons .req-method-menu-item-label::before {
   user-select: none;
 }
 
-.timeline-tooltip-section + .timeline-tooltip-section {
+.timeline-detail-section + .timeline-detail-section {
   border-top: 1px solid
     color-mix(in srgb, var(--color-surface-2) 50%, transparent);
   margin-top: var(--space-2);
 }
 
-.timeline-tooltip-copy-btn {
+.timeline-detail-copy-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3249,16 +3178,16 @@ html.show-method-icons .req-method-menu-item-label::before {
     background-color var(--transition-fast);
 }
 
-.timeline-tooltip-copy-btn:hover {
+.timeline-detail-copy-btn:hover {
   color: var(--color-accent);
   background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
-.timeline-tooltip-copy-btn--copied {
+.timeline-detail-copy-btn--copied {
   color: var(--color-success) !important;
 }
 
-.timeline-tooltip-value {
+.timeline-detail-value {
   padding: 1px var(--space-4) 1px var(--space-6);
   font-size: var(--font-size-xs);
   color: var(--color-text);
@@ -3266,14 +3195,14 @@ html.show-method-icons .req-method-menu-item-label::before {
   line-height: 1.5;
 }
 
-.timeline-tooltip-none {
+.timeline-detail-none {
   padding: 1px var(--space-4) 1px var(--space-6);
   font-size: var(--font-size-xs);
   color: var(--color-overlay-0);
   font-style: italic;
 }
 
-.timeline-tooltip-kv {
+.timeline-detail-kv {
   padding: 1px var(--space-4) 1px var(--space-6);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
@@ -3282,7 +3211,7 @@ html.show-method-icons .req-method-menu-item-label::before {
   line-height: 1.5;
 }
 
-.timeline-tooltip-kv--disabled {
+.timeline-detail-kv--disabled {
   color: var(--color-overlay-0);
 }
 
@@ -3424,54 +3353,10 @@ html.show-method-icons .req-method-menu-item-label::before {
   opacity: 0.7;
 }
 
-/* Popup buttons — the canonical dialog action button (.btn at the lg height).
-   Colour treatment comes from the --primary / --secondary / --danger / --warning
-   modifiers below. */
+/* Popup buttons — the canonical dialog action button: .btn at the dialog (lg)
+   height. Colour comes from the shared .btn--* variants. */
 .popup-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
   height: var(--control-h-lg);
-  padding: 0 var(--space-5);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid transparent;
-  box-sizing: border-box;
-  transition:
-    opacity var(--transition-fast),
-    background-color var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.popup-btn--primary {
-  background: var(--color-accent);
-  color: var(--color-crust);
-}
-
-.popup-btn--primary:hover {
-  opacity: 0.85;
-}
-
-.popup-btn--secondary {
-  background: var(--color-surface-1);
-  color: var(--color-text);
-  border-color: var(--color-surface-2);
-}
-
-.popup-btn--secondary:hover {
-  background: var(--color-surface-2);
-}
-
-.popup-btn--danger {
-  background: var(--color-error);
-  color: var(--color-crust);
-}
-
-.popup-btn--danger:hover {
-  opacity: 0.85;
 }
 
 /* Confirm popup specifics */
@@ -4229,23 +4114,6 @@ html.show-method-icons .req-method-menu-item-label::before {
   min-height: 0;
   resize: none;
   /* inherits .body-text-editor typography/colours */
-}
-
-/*
- * Reset button in the "awaiting second click" confirm state.
- * Exact same visual language as .tree-ctxmenu-item--confirming.
- */
-.popup-btn--warning {
-  background-color: var(--color-warning);
-  color: var(--color-base);
-  font-weight: 700;
-  border-color: transparent;
-}
-
-.popup-btn--warning:hover {
-  background-color: var(--color-warning);
-  color: var(--color-base);
-  opacity: 0.85;
 }
 
 /* KV (table) mode — wraps the header row, scrollable list, and add bar */
@@ -5401,7 +5269,6 @@ input[type="checkbox"]:disabled {
 
 /* Clear All shares the .icon-btn appearance; cursor + danger hover + disabled
    state mirror the per-row delete affordances. */
-/* Mirrors the timeline "Delete All" control (.timeline-action--clear-all). */
 .cookies-clear-btn {
   display: inline-flex;
   align-items: center;

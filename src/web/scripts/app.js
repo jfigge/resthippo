@@ -495,6 +495,11 @@ function applyLayout(layout) {
   _splitter2?.setFlow(mode === "landscape" ? "row" : "column");
   placeCtrlGroup(layout, currentSettings.removeHeaders ?? false);
   placeCollectionsButton(currentSettings.removeHeaders ?? false);
+  // Broadcast so panels that adapt their own internal splits to the layout can
+  // react (e.g. RequestEditor flips the GraphQL Query/Variables split).
+  window.dispatchEvent(
+    new CustomEvent("wurl:layout-changed", { detail: { layout } }),
+  );
 }
 
 /** Build the detached env/layout/settings control group element. */
@@ -867,13 +872,15 @@ function initEventBus() {
   //   ws-state              { state }                     app.js → RequestEditor
   //
   // Timeline / history
-  //   timeline-select       { requestNode, requestUrl, response }
+  //   timeline-select       { requestUrl, response }              view a past run (non-destructive)
+  //   timeline-restore      { requestNode, requestUrl, response } replay snapshot into the editor
   //   timeline-delete-entry { requestId, historyId }
   //   timeline-clear        { requestId }
   //   timeline-update       { requestId, entries, isRequestSwitch }  app.js → ResponseViewer
   //
   // Settings / theme
   //   settings-changed      { <settingKeys> }             consumed by several panels
+  //   layout-changed        { layout }                    panels adapt internal splits
   //   history-trim          { historyCount }
   //   theme-preview         vars | null                   (from preload)
   //   theme-apply           themeName                     (from preload)
@@ -1195,8 +1202,8 @@ function initEventBus() {
     const nowMs = Date.now();
     const reqUrl = _lastRequestSnapshot.url ?? "";
     // Store the snapshot (bulk-string) format, matching the success path. The
-    // timeline-select handler restores it via loadSnapshot() and the hover
-    // tooltip reads params/headers as bulk text, both of which require strings.
+    // timeline-restore handler replays it via loadSnapshot() and the timeline
+    // detail panel reads params/headers as bulk text, both of which need strings.
     const reqNode = _buildSnapshot(node);
     const resp = {
       request: e.detail.request ?? {},
@@ -1431,15 +1438,10 @@ function initEventBus() {
 
   // Replay a historical entry: restore the request editor state and display the
   // saved response without actually re-running the request.
-  window.addEventListener("wurl:timeline-select", (e) => {
-    const { requestNode, requestUrl = "", response } = e.detail;
-    const restoredNode = requestEditor.loadSnapshot(requestNode);
-    if (restoredNode?.id) {
-      const { id, ...nodeFields } = restoredNode;
-      treeView.updateNode(id, nodeFields, { silent: true });
-      _selectedNode = { ..._selectedNode, id, ...nodeFields };
-      _scheduleRequestSave();
-    }
+  // Load a past run's response into the body/headers/cookies/console tabs
+  // without recording a new history entry. Shared by timeline-select (view) and
+  // timeline-restore (view + replay into the editor).
+  function _viewTimelineResponse(requestUrl, response) {
     _skipNextHistory = true;
     if (response?.error) {
       window.dispatchEvent(
@@ -1461,6 +1463,28 @@ function initEventBus() {
         }),
       );
     }
+  }
+
+  // Selecting a timeline entry is non-destructive: show its response, but leave
+  // the live request editor untouched (the snapshot is shown in the timeline
+  // detail panel instead).
+  window.addEventListener("wurl:timeline-select", (e) => {
+    const { requestUrl = "", response } = e.detail;
+    _viewTimelineResponse(requestUrl, response);
+  });
+
+  // Restoring (the right-click action) replays the snapshot back into the editor
+  // — the one destructive timeline action — then shows its response.
+  window.addEventListener("wurl:timeline-restore", (e) => {
+    const { requestNode, requestUrl = "", response } = e.detail;
+    const restoredNode = requestEditor.loadSnapshot(requestNode);
+    if (restoredNode?.id) {
+      const { id, ...nodeFields } = restoredNode;
+      treeView.updateNode(id, nodeFields, { silent: true });
+      _selectedNode = { ..._selectedNode, id, ...nodeFields };
+      _scheduleRequestSave();
+    }
+    _viewTimelineResponse(requestUrl, response);
   });
 
   // When the request editor fires a preference change (e.g. List Headers toggle),

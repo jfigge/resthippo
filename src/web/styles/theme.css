@@ -240,3 +240,88 @@ body {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BASE BUTTON
+   Canonical text-button base + colour variants. Lives here (not components.css)
+   because both the main window and the Theme Editor window load theme.css, so
+   this is the only place a button base can be genuinely shared between them.
+   Feature buttons compose .btn and layer their own sizing/colour on top; heights
+   come from the --control-h-* tokens above so every control aligns to one scale.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Text button: height + horizontal padding + typography. Pair with a colour
+   variant (e.g. .btn--primary) for fill/border treatment. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-h-md);
+  padding: 0 var(--space-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Colour variants — the single source for primary/secondary/danger/warning fill
+   treatment. Pair with .btn (or a feature button that composes it). border-color
+   and font-weight are set explicitly so these also match the Theme Editor's
+   custom-sized buttons, whose base border/weight differ from .btn's. */
+.btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-crust);
+  font-weight: 600;
+}
+
+.btn--primary:hover {
+  background: var(--color-accent);
+  opacity: 0.85;
+}
+
+.btn--secondary {
+  background: var(--color-surface-1);
+  border-color: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.btn--secondary:hover {
+  background: var(--color-surface-2);
+}
+
+.btn--danger {
+  background: var(--color-error);
+  border-color: var(--color-error);
+  color: var(--color-crust);
+}
+
+.btn--danger:hover {
+  opacity: 0.85;
+}
+
+.btn--warning {
+  background-color: var(--color-warning);
+  border-color: transparent;
+  color: var(--color-base);
+  font-weight: 700;
+}
+
+.btn--warning:hover {
+  opacity: 0.85;
+}

@@ -61,9 +61,7 @@ body {
 
 .sidebar-btn {
   padding: 3px 8px;
-  background: var(--color-surface-0);
-  color: var(--color-text);
-  border: 1px solid var(--color-surface-2);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
@@ -71,19 +69,17 @@ body {
   cursor: pointer;
 }
 
-.sidebar-btn:hover {
+/* Neutral default fill. The shared .btn--primary (theme.css) supplies its own
+   colours; since it loads earlier, these equal-specificity base rules must not
+   touch the primary variant — hence the :not(.btn--primary) guard. */
+.sidebar-btn:not(.btn--primary) {
+  background: var(--color-surface-0);
+  border-color: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.sidebar-btn:not(.btn--primary):hover {
   background: var(--color-surface-1);
-}
-
-.sidebar-btn--primary {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-crust);
-}
-
-.sidebar-btn--primary:hover {
-  opacity: 0.85;
-  background: var(--color-accent);
 }
 
 #theme-list {
@@ -208,45 +204,48 @@ body {
 
 .editor-btn {
   padding: 5px 12px;
-  border: 1px solid var(--color-surface-2);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--color-surface-0);
-  color: var(--color-text);
   font-family: var(--font-sans);
   font-size: var(--font-size-xs);
   cursor: pointer;
   transition: background var(--transition-fast);
 }
 
-.editor-btn:hover {
+/* Default + outline-danger sit on a surface fill; the filled .btn--primary does
+   not. (.btn--primary loads earlier from theme.css, so the guards stop these
+   equal-specificity base rules from overriding the shared variant.) */
+.editor-btn:not(.btn--primary) {
+  background: var(--color-surface-0);
+}
+
+/* Neutral default border + text; .btn--primary and .editor-btn--danger each
+   supply their own. */
+.editor-btn:not(.btn--primary):not(.editor-btn--danger) {
+  border-color: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.editor-btn:not(.btn--primary):not(.editor-btn--danger):hover {
   background: var(--color-surface-1);
-}
-
-.editor-btn.btn-primary {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-crust);
-  font-weight: 600;
-}
-
-.editor-btn.btn-primary:hover {
-  opacity: 0.85;
-}
-
-.editor-btn.btn-danger {
-  color: var(--color-error);
-  border-color: var(--color-error);
-}
-
-.editor-btn.btn-danger:hover {
-  background: var(--color-error);
-  color: var(--color-crust);
 }
 
 .editor-btn:disabled {
   opacity: 0.4;
   cursor: default;
   pointer-events: none;
+}
+
+/* Outline danger — distinct from the filled .btn--danger: error text/border that
+   fills red on hover. */
+.editor-btn--danger {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.editor-btn--danger:hover {
+  background: var(--color-error);
+  color: var(--color-crust);
 }
 
 /* ── Color grid ──────────────────────────────────────────────────────────── */

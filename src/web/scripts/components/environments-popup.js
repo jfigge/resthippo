@@ -235,7 +235,7 @@ export class EnvironmentsPopup {
         </div>
       </div>
       <div class="popup-footer env-popup-footer">
-        <button class="popup-btn popup-btn--primary js-close">Close</button>
+        <button class="btn popup-btn btn--primary js-close">Close</button>
       </div>
     `;
 

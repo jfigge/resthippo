@@ -459,13 +459,20 @@ export class RequestEditor {
   #gqlEditors = null;
   // GraphQL Query/Variables split layout — session-level UI prefs (not persisted,
   // not part of the request). #bodyGraphqlFlow is the container flex-direction:
-  // "column" = stacked (vertical splitter, drag ↕), "row" = side by side
-  // (horizontal splitter, drag ↔), toggled at runtime. #bodyGraphqlVarsSize is
-  // the Variables pane's share of the container's main axis as a FRACTION (0..1),
-  // kept per orientation; null → use the default flex ratio. Storing a fraction
-  // (rather than px) preserves the split's aspect ratio when the window resizes.
+  // "column" = stacked (horizontal splitter, drag ↕), "row" = side by side
+  // (vertical splitter, drag ↔). It is chosen automatically from the app layout
+  // (#flowForLayout): the side-by-side layout puts the editor in a narrow column
+  // so the panes stack; wider layouts place them side by side. #bodyGraphqlVarsSize
+  // is the Variables pane's share of the container's main axis as a FRACTION
+  // (0..1), kept per orientation; null → use the default flex ratio. Storing a
+  // fraction (rather than px) preserves the split's aspect ratio on resize.
   #bodyGraphqlFlow = "row";
   #bodyGraphqlVarsSize = { column: null, row: null };
+  // Live GraphQL split element refs, so a layout change can re-apply the flow in
+  // place (the panes are never rebuilt, preserving content/focus). Set per render.
+  #gqlWrap = null;
+  #gqlSplitter = null;
+  #gqlVarsPane = null;
   // Observes the GraphQL container so the pane sizes re-derive from the fraction
   // on window/panel resize. Recreated per render, disconnected on body re-render.
   #gqlResizeObserver = null;
@@ -587,6 +594,19 @@ export class RequestEditor {
     };
     window.addEventListener("wurl:response-received", resetSendBtn);
     window.addEventListener("wurl:request-error", resetSendBtn);
+
+    // The GraphQL Query/Variables split orientation tracks the app layout: the
+    // side-by-side layout stacks the panes, wider layouts place them side by
+    // side. Re-apply in place when the layout changes while a GraphQL body is up.
+    window.addEventListener("wurl:layout-changed", (e) => {
+      const flow = this.#flowForLayout(e.detail?.layout);
+      if (flow === this.#bodyGraphqlFlow) return;
+      if (this.#bodyType === "graphql" && this.#gqlWrap) {
+        this.#applyGqlFlow(flow);
+      } else {
+        this.#bodyGraphqlFlow = flow;
+      }
+    });
   }
 
   /** Root DOM element — pass to Panel.mount(). */
@@ -767,7 +787,7 @@ export class RequestEditor {
     sendGroup.className = "req-send-group";
 
     const sendBtn = document.createElement("button");
-    sendBtn.className = "req-send-btn";
+    sendBtn.className = "btn req-send-btn";
     sendBtn.dataset.method = this.#method.toLowerCase();
     sendBtn.textContent = "Send";
     sendBtn.setAttribute("aria-label", "Send request");
@@ -832,7 +852,7 @@ export class RequestEditor {
 
     const connectBtn = document.createElement("button");
     connectBtn.type = "button";
-    connectBtn.className = "req-send-btn";
+    connectBtn.className = "btn req-send-btn";
     connectBtn.dataset.method = "ws";
     connectBtn.textContent = "Connect";
     connectBtn.setAttribute("aria-label", "Connect WebSocket");
@@ -1271,14 +1291,17 @@ export class RequestEditor {
     // Remove any Prettify button / validation badge left over from a previous text type
     this.#bodyTypeBarEl?.querySelector(".body-prettify-btn")?.remove();
     this.#bodyTypeBarEl?.querySelector(".body-validate-badge")?.remove();
-    // Remove any GraphQL fetch-schema button / layout toggle / status badge from
-    // a prior render, dismiss a stale query-autocomplete dropdown, and stop
-    // observing the old GraphQL container.
+    // Remove any GraphQL fetch-schema button / status badge from a prior render,
+    // dismiss a stale query-autocomplete dropdown, and stop observing the old
+    // GraphQL container (and drop its element refs).
     this.#bodyTypeBarEl?.querySelector(".body-graphql-fetch-btn")?.remove();
-    this.#bodyTypeBarEl?.querySelector(".body-graphql-flow-btn")?.remove();
     this.#bodyTypeBarEl?.querySelector(".body-graphql-status")?.remove();
+    this.#bodyTypeBarEl?.querySelector(".body-graphql-bar-spacer")?.remove();
     this.#gqlResizeObserver?.disconnect();
     this.#gqlResizeObserver = null;
+    this.#gqlWrap = null;
+    this.#gqlSplitter = null;
+    this.#gqlVarsPane = null;
     this.#revalidateGqlQuery = null; // reassigned by #renderBodyGraphql when applicable
     this.#gqlEditors = null; // reassigned by #renderBodyGraphql when applicable
     _gqlAc.hide();
@@ -1858,8 +1881,14 @@ export class RequestEditor {
     // fetch runs, then shows a green tick on success or a red X on failure; the
     // tick carries the View / Download context menu.
     let statusBadge = null;
-    let flowToggleBtn = null;
     if (this.#bodyTypeBarEl) {
+      // Always-present spacer separating the body-type picker from the schema
+      // status/fetch cluster, so the gap holds whether or not the tick/error
+      // badge is showing (the badge itself collapses when empty).
+      const spacer = document.createElement("span");
+      spacer.className = "body-graphql-bar-spacer";
+      this.#bodyTypeBarEl.appendChild(spacer);
+
       statusBadge = document.createElement("span");
       statusBadge.className = "body-graphql-status";
       statusBadge.setAttribute("aria-live", "polite");
@@ -1875,15 +1904,8 @@ export class RequestEditor {
         this.#showSchemaContextMenu(e.clientX, e.clientY);
       });
 
-      // Toggle the Query/Variables split between stacked and side by side. The
-      // glyph shows the layout it switches TO; applyFlow() (below) keeps it in
-      // sync. Listener is wired after the panes exist.
-      flowToggleBtn = document.createElement("button");
-      flowToggleBtn.type = "button";
-      flowToggleBtn.className = "icon-btn body-graphql-flow-btn";
-      this.#bodyTypeBarEl.appendChild(flowToggleBtn);
-
-      // Status icon sits between the layout toggle and the Fetch button.
+      // The Query/Variables split orientation is chosen from the app layout (see
+      // #flowForLayout / applyFlow below), so there is no manual toggle button.
       this.#bodyTypeBarEl.appendChild(statusBadge);
 
       const fetchBtn = document.createElement("button");
@@ -2058,46 +2080,19 @@ export class RequestEditor {
     // Track both editors so a folding toggle (settings / context menu) applies live.
     this.#gqlEditors = [q, v];
 
-    // Apply the current split layout (stacked vs side by side) to the container,
-    // splitter, and Variables-pane size, and refresh the toggle button. Switching
-    // is in-place — the editors are never rebuilt, so content/focus survive.
-    const applyFlow = (flow) => {
-      this.#bodyGraphqlFlow = flow;
-      const row = flow === "row";
-      wrap.classList.toggle("body-graphql--row", row);
-      // row flow → vertical splitter bar (col-resize, --h);
-      // column flow → horizontal splitter bar (row-resize, --v).
-      splitter.classList.toggle("splitter--h", row);
-      splitter.classList.toggle("splitter--v", !row);
-      splitter.setAttribute(
-        "aria-orientation",
-        row ? "vertical" : "horizontal",
-      );
-      this.#applyGqlVarsSize(varsPane, wrap);
-      if (flowToggleBtn) {
-        // Glyph shows the CURRENT layout (house style, cf. the form-data
-        // text/file toggle); the tooltip names the action.
-        flowToggleBtn.innerHTML = icon(!row ? "columns" : "rows", { size: 14 });
-        const title = row
-          ? "Stack the Query and Variables panes (drag to resize ↕)"
-          : "Place the Query and Variables panes side by side (drag to resize ↔)";
-        flowToggleBtn.title = title;
-        flowToggleBtn.setAttribute("aria-label", title);
-      }
-    };
-    if (flowToggleBtn) {
-      flowToggleBtn.addEventListener("click", () => {
-        const next = this.#bodyGraphqlFlow === "row" ? "column" : "row";
-        applyFlow(next);
-        this.#persistGqlSetting({ graphqlSplitFlow: next });
-      });
-    }
-    // Attach first so applyFlow() can read real container dimensions, then wire
+    // Store refs so #applyGqlFlow (and a later layout change) can re-orient the
+    // split in place — the editors are never rebuilt, so content/focus survive.
+    this.#gqlWrap = wrap;
+    this.#gqlSplitter = splitter;
+    this.#gqlVarsPane = varsPane;
+
+    // Attach first so #applyGqlFlow can read real container dimensions, then wire
     // dragging and observe the container so the split keeps its aspect ratio when
     // the window or surrounding panels resize.
     el.appendChild(wrap);
     this.#applyGraphqlHeaderRows();
-    applyFlow(this.#bodyGraphqlFlow);
+    // Orientation follows the app layout: side by side → stacked, else side by side.
+    this.#applyGqlFlow(this.#flowForLayout(this.#currentAppLayout()));
     this.#wireGqlSplitter(splitter, varsPane, wrap);
     this.#gqlResizeObserver?.disconnect();
     if (typeof ResizeObserver !== "undefined") {
@@ -2118,6 +2113,41 @@ export class RequestEditor {
     // Validate the pre-loaded query now that the editor is laid out (inline
     // markers need real geometry, so this runs after el.appendChild(wrap)).
     this.#revalidateGqlQuery?.();
+  }
+
+  /**
+   * Apply the GraphQL split orientation to the container, splitter, and Variables
+   * pane, in place (the editors are not rebuilt). "row" = side by side (vertical
+   * splitter, drag ↔); "column" = stacked (horizontal splitter, drag ↕).
+   */
+  #applyGqlFlow(flow) {
+    this.#bodyGraphqlFlow = flow;
+    const wrap = this.#gqlWrap;
+    const splitter = this.#gqlSplitter;
+    if (!wrap || !splitter) return;
+    const row = flow === "row";
+    wrap.classList.toggle("body-graphql--row", row);
+    // row flow → vertical splitter bar (col-resize, --h);
+    // column flow → horizontal splitter bar (row-resize, --v).
+    splitter.classList.toggle("splitter--h", row);
+    splitter.classList.toggle("splitter--v", !row);
+    splitter.setAttribute("aria-orientation", row ? "vertical" : "horizontal");
+    this.#applyGqlVarsSize(this.#gqlVarsPane, wrap);
+  }
+
+  /**
+   * The Query/Variables split orientation for an app layout. The side-by-side
+   * layout (1) puts the editor in a narrow column, so the panes stack ("column",
+   * a horizontal splitter); every wider layout places them side by side ("row").
+   */
+  #flowForLayout(layout) {
+    return Number(layout) === 1 ? "column" : "row";
+  }
+
+  /** The current app layout (1–4) read from #app-main; defaults to 2. */
+  #currentAppLayout() {
+    const v = Number(document.getElementById("app-main")?.dataset.layout);
+    return v >= 1 && v <= 4 ? v : 2;
   }
 
   /**
@@ -2948,7 +2978,7 @@ export class RequestEditor {
     sub.textContent = "or";
 
     const browseBtn = document.createElement("button");
-    browseBtn.className = "body-file-browse-btn";
+    browseBtn.className = "btn btn--secondary body-file-browse-btn";
     browseBtn.textContent = "Browse…";
 
     const fileInput = document.createElement("input");
@@ -3020,7 +3050,7 @@ export class RequestEditor {
     pathText.textContent = this.#bodyFilePath;
 
     const resetBtn = document.createElement("button");
-    resetBtn.className = "body-file-reset-btn";
+    resetBtn.className = "btn body-file-reset-btn";
     resetBtn.textContent = "Reset";
     resetBtn.title = "Remove selected file";
     resetBtn.addEventListener("click", () => {
@@ -4438,19 +4468,12 @@ export class RequestEditor {
       );
     }
 
-    // GraphQL split orientation + position. Apply only the keys that differ from
-    // the live state so unrelated settings changes don't disturb the editor; if
-    // something did change and the GraphQL body is on screen, re-render it so the
-    // restored layout takes effect.
+    // GraphQL Variables-pane position (a fraction kept per orientation). Apply
+    // only the keys that differ from the live state so unrelated settings changes
+    // don't disturb the editor; if something did change and the GraphQL body is on
+    // screen, re-render it so the restored sizes take effect. The split
+    // orientation itself is layout-driven (see #flowForLayout), not a setting.
     let gqlChanged = false;
-    if (
-      (settings.graphqlSplitFlow === "row" ||
-        settings.graphqlSplitFlow === "column") &&
-      settings.graphqlSplitFlow !== this.#bodyGraphqlFlow
-    ) {
-      this.#bodyGraphqlFlow = settings.graphqlSplitFlow;
-      gqlChanged = true;
-    }
     const setFrac = (flow, val) => {
       const frac = typeof val === "number" && val > 0 && val < 1 ? val : null;
       if (frac !== this.#bodyGraphqlVarsSize[flow]) {

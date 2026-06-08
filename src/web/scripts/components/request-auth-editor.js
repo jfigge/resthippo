@@ -1201,7 +1201,7 @@ export class RequestAuthEditor {
 
       const clearBtn = document.createElement("button");
       clearBtn.type = "button";
-      clearBtn.className = "body-file-reset-btn";
+      clearBtn.className = "btn body-file-reset-btn";
       clearBtn.textContent = "Clear Token";
       clearBtn.addEventListener("click", () => {
         this.#authOAuth2.token = "";
@@ -1215,7 +1215,7 @@ export class RequestAuthEditor {
 
       const clearSessionBtn = document.createElement("button");
       clearSessionBtn.type = "button";
-      clearSessionBtn.className = "body-file-reset-btn";
+      clearSessionBtn.className = "btn body-file-reset-btn";
       clearSessionBtn.textContent = "Clear Session";
       clearSessionBtn.title =
         "Clear stored token and — in Electron — erase all session cookies and browser storage " +
@@ -1718,8 +1718,8 @@ export class RequestAuthEditor {
         <p class="discover-dialog-error" aria-live="polite" hidden></p>
       </div>
       <div class="popup-footer">
-        <button class="popup-btn popup-btn--secondary" data-action="cancel">Cancel</button>
-        <button class="popup-btn popup-btn--primary"   data-action="discover">Discover</button>
+        <button class="btn popup-btn btn--secondary" data-action="cancel">Cancel</button>
+        <button class="btn popup-btn btn--primary"   data-action="discover">Discover</button>
       </div>
     `;
 

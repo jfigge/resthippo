@@ -16,7 +16,6 @@ import Prism from "../vendor/prism.js";
 import renderMarkdown from "../vendor/markdown.js";
 import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
-import { wireDeleteConfirm } from "../delete-confirm.js";
 
 const TABS = [
   { id: "body", label: "Body" },
@@ -345,9 +344,6 @@ export class ResponseViewer {
   #timelineSelected = -1; // index of the selected entry (-1 = none)
   #requestId = null; // id of the request whose timeline is shown (for delete/clear)
   #timestampTimer = null; // setInterval handle for live timestamp updates
-  #tooltipEl = null; // singleton hover tooltip for timeline entries
-  #tooltipTimer = null; // setTimeout handle for hint delay
-  #tooltipCursor = { x: 0, y: 0 }; // last known cursor position
 
   constructor() {
     this.#el = document.createElement("div");
@@ -1622,14 +1618,14 @@ export class ResponseViewer {
     if (response.bodyRef) {
       const viewBtn = document.createElement("button");
       viewBtn.type = "button";
-      viewBtn.className = "res-truncation-btn";
+      viewBtn.className = "btn btn--secondary res-truncation-btn";
       viewBtn.textContent = "View full";
       viewBtn.addEventListener("click", () => this.#loadFullBody(response));
       banner.appendChild(viewBtn);
 
       const saveBtn = document.createElement("button");
       saveBtn.type = "button";
-      saveBtn.className = "res-truncation-btn";
+      saveBtn.className = "btn btn--secondary res-truncation-btn";
       saveBtn.textContent = "Save to file";
       saveBtn.addEventListener("click", () => this.#saveFullBody(response));
       banner.appendChild(saveBtn);
@@ -2409,7 +2405,11 @@ export class ResponseViewer {
 
   // ── Timeline rendering ────────────────────────────────────────────────────
 
-  /** Re-render the timeline pane from the cached #timelineEntries array. */
+  /**
+   * Re-render the timeline pane from the cached #timelineEntries array. The pane
+   * is a master/detail split: a list of run entries on the left and the selected
+   * entry's request snapshot on the right.
+   */
   #renderTimeline() {
     if (this.#activeTab !== "timeline") return;
 
@@ -2427,148 +2427,142 @@ export class ResponseViewer {
       return;
     }
 
+    const split = document.createElement("div");
+    split.className = "timeline-pane";
+
     const list = document.createElement("div");
     list.className = "timeline-list";
+    this.#timelineEntries.forEach((entry, idx) =>
+      list.appendChild(this.#buildTimelineRow(entry, idx)),
+    );
 
-    this.#timelineEntries.forEach((entry, idx) => {
-      const {
-        status = 0,
-        statusText = "",
-        elapsed = 0,
-        size = 0,
-      } = entry.response ?? {};
-      const item = document.createElement("button");
-      item.className = "timeline-item";
-      item.setAttribute("type", "button");
-      if (idx === this.#timelineSelected)
-        item.classList.add("timeline-item--selected");
+    const detail = document.createElement("div");
+    detail.className = "timeline-detail";
+    this.#renderTimelineDetail(detail);
 
-      const ts = document.createElement("span");
-      ts.className = "timeline-timestamp";
-      ts.textContent = this.#formatTimestamp(entry.timestamp);
+    split.appendChild(list);
+    split.appendChild(detail);
+    pane.appendChild(split);
+  }
 
-      const record = document.createElement("div");
-      record.className = "timeline-record";
+  /** Build one timeline list row for the entry at `idx`. */
+  #buildTimelineRow(entry, idx) {
+    const {
+      status = 0,
+      statusText = "",
+      elapsed = 0,
+      size = 0,
+    } = entry.response ?? {};
+    const item = document.createElement("button");
+    item.className = "timeline-item";
+    item.setAttribute("type", "button");
+    if (idx === this.#timelineSelected)
+      item.classList.add("timeline-item--selected");
+    if (idx === 0) item.classList.add("timeline-item--latest");
 
-      const badge = document.createElement("span");
-      badge.className = `timeline-badge ${this.#statusClass(status)}`;
-      badge.textContent = status || "ERR";
+    const ts = document.createElement("span");
+    ts.className = "timeline-timestamp";
+    ts.textContent = this.#formatTimestamp(entry.timestamp);
 
-      const text = document.createElement("span");
-      text.className = "timeline-text";
-      text.textContent = statusText || (status ? "" : "Error");
+    const record = document.createElement("div");
+    record.className = "timeline-record";
 
-      const meta = document.createElement("span");
-      meta.className = "timeline-meta";
+    const badge = document.createElement("span");
+    badge.className = `timeline-badge ${this.#statusClass(status)}`;
+    badge.textContent = status || "ERR";
 
-      const time = document.createElement("span");
-      time.className = "timeline-time";
-      time.textContent = elapsed ? `${elapsed} ms` : "";
+    const text = document.createElement("span");
+    text.className = "timeline-text";
+    text.textContent = statusText || (status ? "" : "Error");
 
-      const sizeEl = document.createElement("span");
-      sizeEl.className = "timeline-size";
-      sizeEl.textContent = size ? this.#formatSize(size) : "";
+    const meta = document.createElement("span");
+    meta.className = "timeline-meta";
 
-      meta.appendChild(time);
-      meta.appendChild(sizeEl);
-      record.appendChild(badge);
-      record.appendChild(text);
-      record.appendChild(meta);
-      item.appendChild(ts);
-      item.appendChild(record);
+    const time = document.createElement("span");
+    time.className = "timeline-time";
+    time.textContent = elapsed ? `${elapsed} ms` : "";
 
-      // Per-entry actions: every entry gets a ✕ to delete itself; the latest
-      // entry (idx 0) additionally gets a "Delete All" to clear the whole
-      // history. Nested controls are <span role="button"> because the row is
-      // itself a <button> (nested <button> is invalid HTML).
-      const actions = document.createElement("span");
-      actions.className = "timeline-actions";
+    const sizeEl = document.createElement("span");
+    sizeEl.className = "timeline-size";
+    sizeEl.textContent = size ? this.#formatSize(size) : "";
 
-      if (idx === 0) {
-        item.classList.add("timeline-item--latest");
-        const clearAll = document.createElement("span");
-        clearAll.className = "timeline-action timeline-action--clear-all";
-        clearAll.setAttribute("role", "button");
-        clearAll.setAttribute("tabindex", "0");
-        clearAll.title = "Delete all history for this request";
-        wireDeleteConfirm(
-          clearAll,
-          () => {
-            clearTimeout(this.#tooltipTimer);
-            this.#hideTooltip();
-            this.#clearTimeline();
-          },
-          { restingHtml: "Delete All", confirmHtml: "Confirm?" },
-        );
-        actions.appendChild(clearAll);
-      }
+    meta.appendChild(time);
+    meta.appendChild(sizeEl);
+    record.appendChild(badge);
+    record.appendChild(text);
+    record.appendChild(meta);
+    item.appendChild(ts);
+    item.appendChild(record);
 
-      const del = document.createElement("span");
-      del.className = "timeline-action timeline-action--delete";
-      del.setAttribute("role", "button");
-      del.setAttribute("tabindex", "0");
-      del.title = "Delete this entry";
-      del.setAttribute("aria-label", "Delete this entry");
-      wireDeleteConfirm(
-        del,
-        () => {
-          clearTimeout(this.#tooltipTimer);
-          this.#hideTooltip();
-          this.#deleteTimelineEntry(entry.id);
-        },
-        { size: 12 },
-      );
-      actions.appendChild(del);
+    // Left-click selects the entry: highlight it, render its request snapshot in
+    // the detail panel, and load that run's response into the other tabs. This
+    // is non-destructive — it never overwrites the live request. Use the
+    // right-click "Restore" action for that.
+    item.addEventListener("click", () => this.#selectTimelineEntry(idx));
 
-      // The row tooltip must not appear while the cursor is over the action
-      // buttons (Delete All / trashcan). Cancel any pending/visible tooltip on
-      // enter, and re-arm it on leave so moving back onto the row body works.
-      actions.addEventListener("mouseenter", () => {
-        clearTimeout(this.#tooltipTimer);
-        this.#tooltipTimer = null;
-        this.#hideTooltip();
-      });
-      actions.addEventListener("mouseleave", (e) => {
-        this.#tooltipCursor = { x: e.clientX, y: e.clientY };
-        this.#tooltipTimer = setTimeout(() => this.#showTooltip(entry), 600);
-      });
-
-      item.appendChild(actions);
-
-      item.addEventListener("click", () => {
-        this.#timelineSelected = idx;
-        this.#renderTimeline();
-        window.dispatchEvent(
-          new CustomEvent("wurl:timeline-select", {
-            detail: {
-              requestNode: entry.requestNode,
-              requestUrl: entry.requestUrl ?? "",
-              response: entry.response,
-            },
-          }),
-        );
-      });
-
-      item.addEventListener("mouseenter", (e) => {
-        this.#tooltipCursor = { x: e.clientX, y: e.clientY };
-        this.#tooltipTimer = setTimeout(() => this.#showTooltip(entry), 600);
-      });
-      item.addEventListener("mousemove", (e) => {
-        this.#tooltipCursor = { x: e.clientX, y: e.clientY };
-      });
-      item.addEventListener("mouseleave", () => {
-        clearTimeout(this.#tooltipTimer);
-        if (this.#tooltipEl && !this.#tooltipEl.hidden) {
-          this.#tooltipTimer = setTimeout(() => this.#hideTooltip(), 120);
-        } else {
-          this.#tooltipTimer = null;
-        }
-      });
-
-      list.appendChild(item);
+    // Right-click opens the OS-native actions menu (restore / copy / delete).
+    item.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      this.#selectTimelineEntry(idx);
+      this.#showTimelineContextMenu(entry, e.clientX, e.clientY);
     });
 
-    pane.appendChild(list);
+    return item;
+  }
+
+  /**
+   * Select a timeline entry: highlight the row, render its request snapshot in
+   * the detail panel, and dispatch wurl:timeline-select so app.js loads that
+   * run's response into the body/headers/cookies tabs. Non-destructive — the
+   * live request editor is left untouched.
+   */
+  #selectTimelineEntry(idx) {
+    this.#timelineSelected = idx;
+    this.#renderTimeline();
+    const entry = this.#timelineEntries[idx];
+    if (!entry) return;
+    window.dispatchEvent(
+      new CustomEvent("wurl:timeline-select", {
+        detail: {
+          requestUrl: entry.requestUrl ?? "",
+          response: entry.response,
+        },
+      }),
+    );
+  }
+
+  /**
+   * OS-native right-click menu for a timeline entry. "Restore" replays the
+   * snapshot back into the request editor (the one destructive action, now
+   * explicit); the rest cover copy and history lifecycle.
+   */
+  async #showTimelineContextMenu(entry, x, y) {
+    const url = entry.requestUrl || entry.requestNode?.url || "";
+    const items = [
+      { id: "restore", label: "Restore Into Editor" },
+      { id: "copy-url", label: "Copy URL", enabled: !!url },
+      { type: "separator" },
+      { id: "delete", label: "Delete Entry" },
+      { id: "delete-all", label: "Delete All History" },
+    ];
+    const clickedId = await window.wurl.ui.contextMenu({ items, x, y });
+    if (clickedId === "restore") {
+      window.dispatchEvent(
+        new CustomEvent("wurl:timeline-restore", {
+          detail: {
+            requestNode: entry.requestNode,
+            requestUrl: entry.requestUrl ?? "",
+            response: entry.response,
+          },
+        }),
+      );
+    } else if (clickedId === "copy-url") {
+      if (url) navigator.clipboard.writeText(url).catch(() => {});
+    } else if (clickedId === "delete") {
+      this.#deleteTimelineEntry(entry.id);
+    } else if (clickedId === "delete-all") {
+      this.#clearTimeline();
+    }
   }
 
   /**
@@ -2595,76 +2589,56 @@ export class ResponseViewer {
     );
   }
 
-  // ── Timeline entry tooltip ────────────────────────────────────────────────
+  // ── Timeline detail panel ─────────────────────────────────────────────────
 
-  /** Lazily create (once) the singleton tooltip element appended to <body>. */
-  #ensureTooltip() {
-    if (this.#tooltipEl) return;
-    const el = document.createElement("div");
-    el.className = "timeline-tooltip";
-    el.hidden = true;
-    el.addEventListener("mouseenter", () => {
-      clearTimeout(this.#tooltipTimer);
-      this.#tooltipTimer = null;
-    });
-    el.addEventListener("mouseleave", () => this.#hideTooltip());
-    document.body.appendChild(el);
-    this.#tooltipEl = el;
-  }
-
-  #showTooltip(entry) {
-    this.#ensureTooltip();
-    const el = this.#tooltipEl;
-    const snapshot = entry.requestNode ?? {};
-
-    el.innerHTML = "";
+  /**
+   * Render the selected entry's request snapshot into the detail `container`.
+   * With no explicit selection (-1) the latest entry is previewed. Shows what
+   * the run was sent with: method, URL, params, headers, auth — each section
+   * with a copy button. (Disabled rows render greyed, prefixed with "# ".)
+   */
+  #renderTimelineDetail(container) {
+    const idx = this.#timelineSelected >= 0 ? this.#timelineSelected : 0;
+    const snapshot = this.#timelineEntries[idx]?.requestNode;
+    if (!snapshot) {
+      const ph = document.createElement("div");
+      ph.className = "timeline-detail-empty";
+      ph.textContent = "Select an entry to see the request that was sent";
+      container.appendChild(ph);
+      return;
+    }
 
     // Method — no copy
-    this.#appendTTSection(el, "Method");
-    this.#appendTTValue(el, snapshot.method ?? "GET");
+    this.#appendDetailSection(container, "Method");
+    this.#appendDetailValue(container, snapshot.method ?? "GET");
 
     // URL — copy if present
     const url = (snapshot.url ?? "").trim();
-    this.#appendTTSection(el, "URL", url || null);
-    this.#appendTTValue(el, url || "(none)");
+    this.#appendDetailSection(container, "URL", url || null);
+    this.#appendDetailValue(container, url || "(none)");
 
     // Parameters (already bulk-edit format)
     const paramsBulk = (snapshot.params ?? "").trim();
-    this.#appendTTSection(el, "Parameters", paramsBulk || null);
+    this.#appendDetailSection(container, "Parameters", paramsBulk || null);
     if (!paramsBulk) {
-      this.#appendTTNone(el);
+      this.#appendDetailNone(container);
     } else {
-      this.#appendTTBulkLines(el, paramsBulk);
+      this.#appendDetailBulkLines(container, paramsBulk);
     }
 
     // Headers (already bulk-edit format)
     const headersBulk = (snapshot.headers ?? "").trim();
-    this.#appendTTSection(el, "Headers", headersBulk || null);
+    this.#appendDetailSection(container, "Headers", headersBulk || null);
     if (!headersBulk) {
-      this.#appendTTNone(el);
+      this.#appendDetailNone(container);
     } else {
-      this.#appendTTBulkLines(el, headersBulk);
+      this.#appendDetailBulkLines(container, headersBulk);
     }
 
     // Auth
     const authCopy = this.#buildAuthCopyText(snapshot);
-    this.#appendTTSection(el, "Auth", authCopy);
-    this.#appendTTAuth(el, snapshot);
-
-    // Position near cursor — measure after content is set
-    el.hidden = false;
-    const { x, y } = this.#tooltipCursor;
-    const tw = el.offsetWidth;
-    const th = el.offsetHeight;
-    const gap = 14;
-    let left = x + gap;
-    let top = y + gap;
-    if (left + tw > window.innerWidth - 8) left = x - tw - gap;
-    if (top + th > window.innerHeight - 8) top = y - th - gap;
-    left = Math.max(left, 8);
-    top = Math.max(top, 8);
-    el.style.left = `${left}px`;
-    el.style.top = `${top}px`;
+    this.#appendDetailSection(container, "Auth", authCopy);
+    this.#appendDetailAuth(container, snapshot);
   }
 
   #buildAuthCopyText(snapshot) {
@@ -2676,30 +2650,26 @@ export class ResponseViewer {
     return lines.join("\n");
   }
 
-  #hideTooltip() {
-    if (this.#tooltipEl) this.#tooltipEl.hidden = true;
-  }
-
-  #appendTTSection(parent, label, copyText = null) {
+  #appendDetailSection(parent, label, copyText = null) {
     const row = document.createElement("div");
-    row.className = "timeline-tooltip-section";
+    row.className = "timeline-detail-section";
     const lbl = document.createElement("span");
     lbl.textContent = label;
     row.appendChild(lbl);
     if (copyText) {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "timeline-tooltip-copy-btn";
+      btn.className = "timeline-detail-copy-btn";
       btn.title = `Copy ${label.toLowerCase()} to clipboard`;
       btn.innerHTML = ResponseViewer.#SVG_COPY;
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         navigator.clipboard.writeText(copyText).then(() => {
           btn.innerHTML = ResponseViewer.#SVG_CHECK;
-          btn.classList.add("timeline-tooltip-copy-btn--copied");
+          btn.classList.add("timeline-detail-copy-btn--copied");
           setTimeout(() => {
             btn.innerHTML = ResponseViewer.#SVG_COPY;
-            btn.classList.remove("timeline-tooltip-copy-btn--copied");
+            btn.classList.remove("timeline-detail-copy-btn--copied");
           }, 1500);
         });
       });
@@ -2708,44 +2678,44 @@ export class ResponseViewer {
     parent.appendChild(row);
   }
 
-  #appendTTValue(parent, text) {
+  #appendDetailValue(parent, text) {
     const el = document.createElement("div");
-    el.className = "timeline-tooltip-value";
+    el.className = "timeline-detail-value";
     el.textContent = text;
     parent.appendChild(el);
   }
 
-  #appendTTNone(parent) {
+  #appendDetailNone(parent) {
     const el = document.createElement("div");
-    el.className = "timeline-tooltip-none";
+    el.className = "timeline-detail-none";
     el.textContent = "none";
     parent.appendChild(el);
   }
 
-  #appendTTAuth(parent, snapshot) {
+  #appendDetailAuth(parent, snapshot) {
     const type = snapshot.authType ?? "none";
     if (type === "none") {
-      this.#appendTTNone(parent);
+      this.#appendDetailNone(parent);
       return;
     }
-    this.#appendTTLine(parent, `type: ${type}`);
+    this.#appendDetailLine(parent, `type: ${type}`);
     const bulk = (snapshot.auth ?? "").trim();
-    if (bulk) this.#appendTTBulkLines(parent, bulk);
+    if (bulk) this.#appendDetailBulkLines(parent, bulk);
   }
 
   /** Render each non-empty line of a bulk-format string as an indented row. */
-  #appendTTBulkLines(parent, bulk) {
+  #appendDetailBulkLines(parent, bulk) {
     for (const line of bulk.split("\n")) {
       const t = line.trim();
       if (!t) continue;
-      this.#appendTTLine(parent, t, !t.startsWith("# "));
+      this.#appendDetailLine(parent, t, !t.startsWith("# "));
     }
   }
 
-  #appendTTLine(parent, text, enabled = true) {
+  #appendDetailLine(parent, text, enabled = true) {
     const el = document.createElement("div");
     el.className =
-      "timeline-tooltip-kv" + (enabled ? "" : " timeline-tooltip-kv--disabled");
+      "timeline-detail-kv" + (enabled ? "" : " timeline-detail-kv--disabled");
     el.textContent = text;
     parent.appendChild(el);
   }

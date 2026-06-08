@@ -160,8 +160,8 @@ export class PillEditorPopup {
         </div>
       </div>
       <div class="popup-footer">
-        <button class="popup-btn popup-btn--secondary js-cancel">Cancel</button>
-        <button class="popup-btn popup-btn--primary   js-done">Done</button>
+        <button class="btn popup-btn btn--secondary js-cancel">Cancel</button>
+        <button class="btn popup-btn btn--primary   js-done">Done</button>
       </div>
     `;
     return el;

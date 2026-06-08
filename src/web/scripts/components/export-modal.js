@@ -100,8 +100,8 @@ export class ExportModal {
         <div class="backup-error" role="alert" aria-live="polite"></div>
       </div>
       <div class="popup-footer">
-        <button class="popup-btn popup-btn--secondary js-cancel">Cancel</button>
-        <button class="popup-btn popup-btn--primary js-submit">Export</button>
+        <button class="btn popup-btn btn--secondary js-cancel">Cancel</button>
+        <button class="btn popup-btn btn--primary js-submit">Export</button>
       </div>
     `;
     return el;

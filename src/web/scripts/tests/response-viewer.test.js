@@ -373,3 +373,153 @@ test("Download sends base64 bodies with base64 encoding and a typed name", async
   );
   assert.equal(captured.content, HELLO_B64, "the raw base64 body is forwarded");
 });
+
+// ── Timeline (master/detail + right-click actions) ─────────────────────────
+
+/** Build a timeline history entry with a sensible default request snapshot. */
+function timelineEntry(over = {}) {
+  return {
+    id: over.id ?? "h1",
+    requestUrl: over.requestUrl ?? "http://x/users",
+    requestNode: over.requestNode ?? {
+      id: "req1",
+      method: "GET",
+      url: over.requestUrl ?? "http://x/users",
+      params: "",
+      headers: "x-test: 1",
+      authType: "none",
+      authEnabled: true,
+      auth: "",
+      bodyType: "no-body",
+      body: "",
+    },
+    response: over.response ?? {
+      status: 200,
+      statusText: "OK",
+      elapsed: 5,
+      size: 12,
+      headers: {},
+      cookies: [],
+      body: "{}",
+    },
+    timestamp: over.timestamp ?? 1700000000000,
+  };
+}
+
+/** Feed entries to the viewer and switch to the (now-rendered) Timeline tab. */
+async function openTimeline(window, viewer, entries) {
+  window.dispatchEvent(
+    new window.CustomEvent("wurl:timeline-update", {
+      detail: { requestId: "req1", entries, isRequestSwitch: false },
+    }),
+  );
+  const tab = viewer.element.querySelector('.res-tab-btn[data-tab="timeline"]');
+  tab.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 10));
+}
+
+test("the timeline renders a master list and the latest entry's detail", async () => {
+  const { window, viewer } = mountViewer();
+  await openTimeline(window, viewer, [
+    timelineEntry({ id: "h1", requestUrl: "http://x/latest" }),
+    timelineEntry({ id: "h2", requestUrl: "http://x/older" }),
+  ]);
+
+  assert.equal(
+    viewer.element.querySelectorAll(".timeline-list .timeline-item").length,
+    2,
+    "one row per history entry",
+  );
+  // With no explicit selection the detail panel previews the latest entry.
+  assert.match(
+    viewer.element.querySelector(".timeline-detail").textContent,
+    /http:\/\/x\/latest/,
+  );
+  // The old hover tooltip is gone.
+  assert.equal(document.querySelector(".timeline-tooltip"), null);
+});
+
+test("clicking a timeline entry views it non-destructively (select, not restore)", async () => {
+  const { window, viewer } = mountViewer();
+  await openTimeline(window, viewer, [
+    timelineEntry({ id: "h1", requestUrl: "http://x/latest" }),
+    timelineEntry({ id: "h2", requestUrl: "http://x/older" }),
+  ]);
+
+  let selected = null;
+  let restored = false;
+  window.addEventListener("wurl:timeline-select", (e) => (selected = e.detail));
+  window.addEventListener("wurl:timeline-restore", () => (restored = true));
+
+  // Click the second (older) row.
+  const rows = viewer.element.querySelectorAll(".timeline-list .timeline-item");
+  rows[1].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 10));
+
+  assert.ok(selected, "timeline-select fired");
+  assert.equal(selected.requestUrl, "http://x/older");
+  assert.equal(
+    selected.requestNode,
+    undefined,
+    "select is view-only — it carries no snapshot to replay",
+  );
+  assert.equal(restored, false, "clicking never restores into the editor");
+  assert.match(
+    viewer.element.querySelector(".timeline-detail").textContent,
+    /http:\/\/x\/older/,
+    "detail panel follows the selection",
+  );
+  assert.ok(
+    viewer.element
+      .querySelectorAll(".timeline-item")[1]
+      .classList.contains("timeline-item--selected"),
+  );
+});
+
+test("right-click → Restore dispatches timeline-restore with the snapshot", async () => {
+  const { window, viewer } = mountViewer();
+  await openTimeline(window, viewer, [timelineEntry({ id: "h1" })]);
+
+  window.wurl.ui = { contextMenu: async () => "restore" };
+  let restored = null;
+  window.addEventListener(
+    "wurl:timeline-restore",
+    (e) => (restored = e.detail),
+  );
+
+  viewer.element
+    .querySelector(".timeline-item")
+    .dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 10));
+
+  assert.ok(restored, "timeline-restore fired");
+  assert.equal(
+    restored.requestNode?.id,
+    "req1",
+    "carries the request snapshot",
+  );
+});
+
+test("right-click → Delete Entry dispatches timeline-delete-entry", async () => {
+  const { window, viewer } = mountViewer();
+  await openTimeline(window, viewer, [
+    timelineEntry({ id: "h1" }),
+    timelineEntry({ id: "h2" }),
+  ]);
+
+  window.wurl.ui = { contextMenu: async () => "delete" };
+  let deleted = null;
+  window.addEventListener(
+    "wurl:timeline-delete-entry",
+    (e) => (deleted = e.detail),
+  );
+
+  viewer.element
+    .querySelectorAll(".timeline-item")[1]
+    .dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 10));
+
+  assert.ok(deleted, "timeline-delete-entry fired");
+  assert.equal(deleted.requestId, "req1");
+  assert.equal(deleted.historyId, "h2", "targets the right-clicked entry");
+});

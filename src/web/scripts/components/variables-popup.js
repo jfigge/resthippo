@@ -175,7 +175,7 @@ export class VariablesPopup {
         </div>
       </div>
       <div class="popup-footer vars-popup-footer">
-        <button class="popup-btn popup-btn--primary js-close"
+        <button class="btn popup-btn btn--primary js-close"
                 title="Save and close">Close</button>
       </div>
     `;
