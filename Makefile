@@ -69,7 +69,7 @@ KC := docker exec $(CONTAINER_NAME) /opt/keycloak/bin/kcadm.sh
 KC_SERVER := http://localhost:8080
 
 # ─── Default ──────────────────────────────────────────────────────────────────
-all: clean fmt lint test build
+all: clean install fmt lint test build
 	@echo "Build complete"
 
 # ─── Version / Info ───────────────────────────────────────────────────────────
