@@ -84,6 +84,8 @@ describe("encryptString / decryptString (no-op mode)", () => {
       () => decryptString("enc:v1:abc123"),
       (err) => {
         assert.ok(err instanceof DecryptError);
+        // `.code` is the canonical discriminator; `.reason` is its back-compat alias.
+        assert.equal(err.code, "encryption-unavailable");
         assert.equal(err.reason, "encryption-unavailable");
         return true;
       },
@@ -257,6 +259,7 @@ describe("decrypt failure branch (mock safeStorage that throws)", () => {
       () => decryptString("enc:v1:" + Buffer.from("x").toString("base64")),
       (err) => {
         assert.ok(err instanceof DecryptError);
+        assert.equal(err.code, "decrypt-failed");
         assert.equal(err.reason, "decrypt-failed");
         return true;
       },
@@ -596,6 +599,8 @@ describe("encryptWithPassword / decryptWithPassword", () => {
       () => decryptWithPassword(ct, "wrong"),
       (err) => {
         assert.ok(err instanceof PasswordError);
+        // `.code` is the field backup:import discriminates on; `.reason` is its alias.
+        assert.equal(err.code, "bad-password");
         assert.equal(err.reason, "bad-password");
         return true;
       },

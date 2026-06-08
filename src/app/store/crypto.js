@@ -38,15 +38,21 @@ const PREFIX = "enc:v1:";
  * marked encrypted, or because safeStorage.decryptString() threw (corrupted
  * blob, keystore/profile mismatch, rotated key).
  *
- * It deliberately carries NO secret material — only a machine-readable
- * `reason` — so it is safe to log and to surface to the renderer.
+ * It deliberately carries NO secret material — only a machine-readable code —
+ * so it is safe to log and to surface to the renderer.
+ *
+ * `.code` is the project-wide error discriminator (see io.js / backup.js and the
+ * "Main-process error conventions" note in main.js). `.reason` is a retained
+ * alias holding the same value, kept for back-compat with existing callers, unit
+ * tests, and the per-entry `decryptError` marker recorded by decryptVariables.
  */
 class DecryptError extends Error {
   /** @param {"encryption-unavailable"|"decrypt-failed"} reason */
   constructor(reason) {
     super(`decrypt failed: ${reason}`);
     this.name = "DecryptError";
-    this.reason = reason;
+    this.code = reason;
+    this.reason = reason; // back-compat alias for .code
   }
 }
 
@@ -424,15 +430,17 @@ const TAG_LEN = 16;
 
 /**
  * Tagged error for password-based decryption failures. Like {@link DecryptError}
- * it carries only a machine-readable `reason`, never secret material, so it is
- * safe to log and surface.
+ * it carries only a machine-readable code, never secret material, so it is safe
+ * to log and surface. `.code` is the canonical discriminator; `.reason` mirrors
+ * it for back-compat (see DecryptError above).
  */
 class PasswordError extends Error {
   /** @param {"bad-password"|"malformed"} reason */
   constructor(reason) {
     super(`password decrypt failed: ${reason}`);
     this.name = "PasswordError";
-    this.reason = reason;
+    this.code = reason;
+    this.reason = reason; // back-compat alias for .code
   }
 }
 

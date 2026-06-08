@@ -71,11 +71,18 @@ function normalizeRetry(policy) {
   };
 }
 
-/** True when a result is a timeout failure (status 0, timed-out error). */
+/**
+ * True when a result is a timeout failure (status 0, timed-out error).
+ *
+ * Classification keys off the canonical `.code` discriminator (the HTTP path
+ * stamps `result.error.code` with the Node error code), falling back to `.name`
+ * for older/synthetic results that only carry a name.
+ */
 function isTimeoutResult(result) {
   const err = result && result.error;
   if (!err) return false;
-  return err.name === "ETIMEDOUT" || /timed out/i.test(err.message || "");
+  const kind = err.code || err.name;
+  return kind === "ETIMEDOUT" || /timed out/i.test(err.message || "");
 }
 
 /**
@@ -95,7 +102,7 @@ function retryReason(result, policy) {
       return policy.onTimeout ? "timeout" : null;
     }
     if (policy.onConnectionError) {
-      return `connection error (${result.error.name || "network"})`;
+      return `connection error (${result.error.code || result.error.name || "network"})`;
     }
     return null;
   }

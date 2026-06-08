@@ -85,6 +85,17 @@ describe("retryReason", () => {
     assert.equal(retryReason(r, policy), "timeout");
   });
 
+  it("classifies a timeout off the canonical .code field", () => {
+    // The live HTTP path stamps result.error.code; classification must key off it.
+    const r = { status: 0, error: { code: "ETIMEDOUT", message: "x" } };
+    assert.equal(retryReason(r, policy), "timeout");
+  });
+
+  it("classifies a connection error off the canonical .code field", () => {
+    const r = { status: 0, error: { code: "ECONNREFUSED", message: "x" } };
+    assert.match(retryReason(r, policy), /connection error \(ECONNREFUSED\)/);
+  });
+
   it("recognises a timeout by message text", () => {
     const r = {
       status: 0,

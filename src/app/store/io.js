@@ -254,6 +254,9 @@ function gcOrphanTempFiles(dir, opts = {}) {
 }
 
 // ── ID validation ─────────────────────────────────────────────────────────────
+//
+// Tagged errors in this module advertise their kind on `.code` — the project-wide
+// error discriminator (see the "Main-process error conventions" note in main.js).
 
 /**
  * Forbidden character pattern for storage IDs.

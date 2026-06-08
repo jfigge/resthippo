@@ -95,6 +95,26 @@ function getStores() {
   return _stores;
 }
 
+// ── Main-process error conventions ──────────────────────────────────────────
+// Two rules keep error handling uniform across io / crypto / backup / http / ws.
+//
+// 1. ERROR TAGGING. Thrown errors advertise their kind on a single discriminator
+//    field, `.code` (a stable machine-readable string). io.js (INVALID_ID,
+//    NOT_FOUND), backup.js (INVALID_BACKUP) and crypto.js (DecryptError /
+//    PasswordError, whose `.code` mirrors the legacy `.reason` alias) all set it,
+//    and net/retry.js classifies HTTP failures off `result.error.code`. Callers
+//    discriminate on `.code` alone — never a mix of `.code`/`.reason`/`.name`.
+//
+// 2. RETURN SHAPES. There is one shape per operation class:
+//      • Storage / throwing ops  → throw a tagged error; the IPC handler wraps it
+//        in safeCall / safeCallWrite (below) so the renderer sees a quiet
+//        fallback or a discriminable `{ __wurlError }` envelope.
+//      • Result-or-error ops (http:execute, http:body:get, functions:invoke) →
+//        return the result envelope carrying a structured `{ name, message }`
+//        under `error` on failure (never a bare string).
+//      • Streaming / command-ack ops (ws send/ping/close, http:body:save) →
+//        return `{ ok, reason }`.
+
 /**
  * Wrap a store call so errors are logged and a safe fallback is returned
  * instead of triggering an unhandled rejection in the renderer.
@@ -1189,7 +1209,8 @@ function safeCallWrite(channel, fn) {
       req.on("timeout", () => {
         consoleLog.push(`* Timed out after ${timeout}ms`);
         // Tag with a code so the retry layer can tell a timeout apart from a
-        // plain connection error (result.error.name carries err.code).
+        // plain connection error (result.error.code carries err.code; .name is
+        // kept as the renderer-facing label).
         req.destroy(
           Object.assign(new Error(`Request timed out after ${timeout}ms`), {
             code: "ETIMEDOUT",
@@ -1210,7 +1231,10 @@ function safeCallWrite(channel, fn) {
           size: 0,
           consoleLog,
           error: {
+            // `.name` is the renderer-facing label; `.code` is the canonical
+            // discriminator the retry layer classifies on (see net/retry.js).
             name: err.code || err.name || "NetworkError",
+            code: err.code || err.name || "NetworkError",
             message: err.message,
           },
         });
@@ -1892,7 +1916,12 @@ function safeCallWrite(channel, fn) {
               result: typeof val === "string" ? val : JSON.stringify(val),
             };
           }
-          return { error: "complex jq queries require the dev server" };
+          return {
+            error: {
+              name: "JqUnsupported",
+              message: "complex jq queries require the dev server",
+            },
+          };
         }
         case "hmac": {
           const { algo, key, message } = args;
@@ -1919,10 +1948,22 @@ function safeCallWrite(channel, fn) {
           return { result: val !== undefined ? String(val) : "" };
         }
         default:
-          return { error: `unknown function: ${fn}` };
+          return {
+            error: {
+              name: "UnknownFunction",
+              message: `unknown function: ${fn}`,
+            },
+          };
       }
     } catch (err) {
-      return { error: err.message ?? String(err) };
+      // Match the structured { name, message } error the rest of the HTTP path
+      // returns rather than a bare string (see error-conventions note above).
+      return {
+        error: {
+          name: err.name || "Error",
+          message: err.message ?? String(err),
+        },
+      };
     }
   });
 })();
@@ -2574,7 +2615,9 @@ ipcMain.handle(
       });
       return { ok: true };
     } catch (err) {
-      if (err && err.reason === "bad-password") {
+      // Both failure kinds are discriminated on the single canonical `.code`
+      // field (PasswordError and the INVALID_BACKUP factory both set it).
+      if (err && err.code === "bad-password") {
         // Leave the modal open so the renderer can re-prompt for the password.
         return { ok: false, reason: "bad-password" };
       }
