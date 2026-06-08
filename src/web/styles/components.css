@@ -2052,6 +2052,15 @@ html.show-method-icons .req-method-menu-item-label::before {
   -webkit-text-security: none;
 }
 
+/* Zero-width caret-anchor guards the pill editor places beside pills must stay
+ * exempt too — masking their ZWS would surface it as a stray disc next to the
+ * pill (the reason an earlier fix replaced them with empty text nodes, which in
+ * turn left the caret unable to paint after a trailing pill). See .pill-guard
+ * in variable-pill-editor.js. */
+.secret-field--masked .secret-field-input .pill-guard {
+  -webkit-text-security: none;
+}
+
 /* An empty field holds no secret, so leave it unmasked. -webkit-text-security
  * is inherited (hence the pill exemption above), so otherwise it would mask the
  * placeholder hint — a ::before whose content is the field label, e.g. "Client

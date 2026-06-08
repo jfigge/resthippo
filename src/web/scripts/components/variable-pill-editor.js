@@ -256,14 +256,12 @@ export class VariablePillEditor {
 
     this.#ensureEdgePadding();
 
-    const caretNode = pill.nextSibling;
-    if (caretNode?.nodeType === Node.TEXT_NODE) {
-      const nr = document.createRange();
-      nr.setStart(caretNode, 0);
-      nr.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(nr);
-    }
+    // Place the caret just after the inserted pill via the logical model, so it
+    // lands inside the trailing guard span when the pill is now the last node
+    // (where a bare text position can't paint the caret).
+    const afterPill = this.#domToLogical(pill, 0) + 1;
+    const pos = this.#logicalToDom(afterPill);
+    this.#setCollapsedCaret(pos.node, pos.offset);
 
     this.#closePicker();
     this.#emitChange();
@@ -469,6 +467,11 @@ export class VariablePillEditor {
   #scanAndConvertAll() {
     const ctx = this.#getContext();
     const VAR_RE = /\{\{([^{}]+)\}\}/g;
+
+    // Text pasted/dropped while the caret was inside a guard span lands inside
+    // that (mask-exempt) span; pull it back into a top-level text node first so
+    // it is both masked and visible to the scan below.
+    this.#exfiltrateGuards();
 
     for (const child of [...this.#el.childNodes]) {
       if (child.nodeType !== Node.TEXT_NODE) continue;
@@ -789,14 +792,11 @@ export class VariablePillEditor {
 
     this.#ensureEdgePadding();
 
-    const caretNode = pill.nextSibling;
-    if (caretNode && caretNode.nodeType === Node.TEXT_NODE) {
-      const newRange = document.createRange();
-      newRange.setStart(caretNode, 0);
-      newRange.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(newRange);
-    }
+    // Land the caret just after the freshly-converted pill via the logical
+    // model (routes into the trailing guard span when the pill is last).
+    const afterPill = this.#domToLogical(pill, 0) + 1;
+    const pos = this.#logicalToDom(afterPill);
+    this.#setCollapsedCaret(pos.node, pos.offset);
   }
 
   // ── Key handling ──────────────────────────────────────────────────────────
@@ -1062,7 +1062,11 @@ export class VariablePillEditor {
       // "Effectively at start" when every char before the offset is ZWS.
       const before = startContainer.textContent.slice(0, startOffset);
       if (before.replace(/\u200B/g, "") === "") {
-        const prev = startContainer.previousSibling;
+        let prev = startContainer.previousSibling;
+        // Inside a guard span the pill is the guard's own previous sibling.
+        if (!prev && this.#isGuard(startContainer.parentNode)) {
+          prev = startContainer.parentNode.previousSibling;
+        }
         if (prev?.classList?.contains("variable-pill")) return prev;
       }
     }
@@ -1080,7 +1084,11 @@ export class VariablePillEditor {
       // "Effectively at end" when every char after the offset is ZWS.
       const after = startContainer.textContent.slice(startOffset);
       if (after.replace(/\u200B/g, "") === "") {
-        const next = startContainer.nextSibling;
+        let next = startContainer.nextSibling;
+        // Inside a guard span the pill is the guard's own next sibling.
+        if (!next && this.#isGuard(startContainer.parentNode)) {
+          next = startContainer.parentNode.nextSibling;
+        }
         if (next?.classList?.contains("variable-pill")) return next;
       }
     }
@@ -1156,6 +1164,9 @@ export class VariablePillEditor {
         for (const ch of child.textContent) {
           if (ch !== "\u200B") logical++;
         }
+      } else if (this.#isGuard(child)) {
+        // Guards carry no logical length; a caret inside one sits at this index.
+        if (child === targetNode || child.contains(targetNode)) return logical;
       } else if (child.classList?.contains("variable-pill")) {
         if (child === targetNode || child.contains(targetNode)) return logical;
         logical++;
@@ -1183,10 +1194,16 @@ export class VariablePillEditor {
         }
         // Exhausted this node — if remaining is 0, position at its end.
         if (remaining === 0) return { node: child, offset: text.length };
+      } else if (this.#isGuard(child)) {
+        // A guard span is the caret anchor beside a pill: placing the caret
+        // inside it (after its ZWS) paints right at the pill edge with nothing
+        // visible. It carries no logical length.
+        if (remaining === 0) return this.#caretInGuard(child);
       } else if (child.classList?.contains("variable-pill")) {
         if (remaining === 0) {
-          // "Before this pill" — land at the end of the preceding text node.
+          // "Before this pill" — prefer a guard/text anchor on its left.
           const prev = child.previousSibling;
+          if (this.#isGuard(prev)) return this.#caretInGuard(prev);
           if (prev?.nodeType === Node.TEXT_NODE) {
             return { node: prev, offset: prev.textContent.length };
           }
@@ -1197,12 +1214,25 @@ export class VariablePillEditor {
       }
     }
 
-    // Past the end — position at end of the last child.
+    // Past the end — land inside a trailing guard, or at the end of the last
+    // text node.
     const last = this.#el.lastChild;
+    if (this.#isGuard(last)) return this.#caretInGuard(last);
     if (last?.nodeType === Node.TEXT_NODE) {
       return { node: last, offset: last.textContent.length };
     }
     return { node: this.#el, offset: this.#el.childNodes.length };
+  }
+
+  /** DOM caret position just after a guard span's zero-width space. */
+  #caretInGuard(guard) {
+    const t = guard.firstChild;
+    if (t?.nodeType === Node.TEXT_NODE) {
+      return { node: t, offset: t.textContent.length };
+    }
+    // Defensive: a guard should always hold a ZWS text node.
+    const idx = [...this.#el.childNodes].indexOf(guard);
+    return { node: this.#el, offset: idx + 1 };
   }
 
   /** Collapse the selection to a single caret at the given DOM position. */
@@ -1370,10 +1400,14 @@ export class VariablePillEditor {
               )
             : `{{${node.dataset.variable}}}`;
         if (rem < serialized.length) {
-          // Cursor lands inside a pill (atomic) — snap to just after it
+          // Cursor lands inside a pill (atomic) — snap to just after it, landing
+          // in the trailing guard span when one follows so the caret paints.
           const after = node.nextSibling;
           const range = document.createRange();
-          if (after?.nodeType === Node.TEXT_NODE) {
+          if (this.#isGuard(after)) {
+            const pos = this.#caretInGuard(after);
+            range.setStart(pos.node, pos.offset);
+          } else if (after?.nodeType === Node.TEXT_NODE) {
             range.setStart(after, 0);
           } else {
             range.setStartAfter(node);
@@ -1391,7 +1425,10 @@ export class VariablePillEditor {
     const last = this.#el.lastChild;
     if (last) {
       const range = document.createRange();
-      if (last.nodeType === Node.TEXT_NODE) {
+      if (this.#isGuard(last)) {
+        const pos = this.#caretInGuard(last);
+        range.setStart(pos.node, pos.offset);
+      } else if (last.nodeType === Node.TEXT_NODE) {
         range.setStart(last, last.textContent.length);
       } else {
         range.setStartAfter(last);
@@ -1413,7 +1450,8 @@ export class VariablePillEditor {
   #isForeignNode(node) {
     return (
       node.nodeType === Node.ELEMENT_NODE &&
-      !node.classList.contains("variable-pill")
+      !node.classList.contains("variable-pill") &&
+      !node.classList.contains("pill-guard")
     );
   }
 
@@ -1421,15 +1459,16 @@ export class VariablePillEditor {
    * Native contenteditable editing can inject non-canonical nodes: Chromium
    * drops a filler `<br>` into an emptied field and occasionally wraps content
    * in a `<div>`.  Left in place, #ensureEdgePadding treats each as atomic
-   * content and sandwiches it in zero-width-space guards — and in a masked
-   * secret field (`-webkit-text-security: disc`) every such guard renders as a
-   * stray disc and every `<br>` as a spurious line break.  That is the "new
-   * line plus dots" artefact seen when clearing a secret.
+   * content and wraps it in caret-anchor guards — and in a masked secret field
+   * (`-webkit-text-security: disc`) a stray `<br>` renders as a spurious line
+   * break.  That is the "new line plus dots" artefact seen when clearing a
+   * secret.
    *
-   * When such nodes are present, rebuild the canonical flat model — text nodes
-   * and `.variable-pill` spans only — preserving the caret through the logical
-   * index, and re-pad.  Returns true when it acted (padding already done),
-   * false when there was nothing to clean so the caller can pad normally.
+   * When such nodes are present, rebuild the canonical flat model — text nodes,
+   * `.variable-pill` spans, and `.pill-guard` anchors only — preserving the
+   * caret through the logical index, and re-pad.  Returns true when it acted
+   * (padding already done), false when there was nothing to clean so the caller
+   * can pad normally.
    */
   #sanitizeArtifacts() {
     if (![...this.#el.childNodes].some((n) => this.#isForeignNode(n))) {
@@ -1492,46 +1531,151 @@ export class VariablePillEditor {
     return true;
   }
 
+  /** True for a `.variable-pill` span (atomic variable/function chip). */
+  #isPill(node) {
+    return (
+      node?.nodeType === Node.ELEMENT_NODE &&
+      node.classList.contains("variable-pill")
+    );
+  }
+
+  /** True for a `.pill-guard` caret-anchor span (see #ensureEdgePadding). */
+  #isGuard(node) {
+    return (
+      node?.nodeType === Node.ELEMENT_NODE &&
+      node.classList.contains("pill-guard")
+    );
+  }
+
   /**
-   * Guarantee navigable text nodes at both edges of the editor and between
-   * any two consecutive pill spans.
+   * A mask-exempt caret-anchor: a `<span class="pill-guard">` holding a single
+   * zero-width space.  Because the span carries no real caret text and is
+   * exempted from `-webkit-text-security` (see components.css), a Range placed
+   * inside it paints the caret right at the pill edge with nothing visible —
+   * unlike a bare ZWS (which masks to a stray disc) or an empty text node
+   * (which has no geometry, so the caret can't paint after a trailing pill).
+   */
+  #makeGuard() {
+    const span = document.createElement("span");
+    span.className = "pill-guard";
+    span.textContent = "\u200B";
+    return span;
+  }
+
+  /**
+   * Move any non-ZWS text that landed inside a guard span back out into a bare
+   * text node, so it is masked like every other secret character.
    *
-   * Without these guard nodes the browser has no text-node position to place
-   * the caret before the first pill or after the last pill, making it
-   * impossible to type in those regions.
+   * Guard spans are editable, so when the caret sits inside one (after arrowing
+   * past a trailing pill, say) a typed or pasted character is inserted into the
+   * span — which is mask-exempt, hence visible.  Running this from
+   * #ensureEdgePadding (before the change is serialised or painted) keeps the
+   * exposure within the same input handler, so no unmasked character is ever
+   * shown.  It is a no-op whenever every guard still holds only its ZWS.
+   */
+  #exfiltrateGuards() {
+    const sel = window.getSelection();
+    for (const g of this.#el.querySelectorAll(".pill-guard")) {
+      const extra = g.textContent.replace(/\u200B/g, "");
+      if (!extra) continue;
+      const t = document.createTextNode(extra);
+      g.after(t);
+      g.textContent = "\u200B";
+      if (sel) this.#setCollapsedCaret(t, t.textContent.length);
+    }
+  }
+
+  /**
+   * Guarantee a placeable, paint-able caret position beside every pill.
    *
-   * Guard nodes are empty text nodes ("").  An empty text node still gives the
-   * browser a placeable caret position adjacent to an atomic pill, but, unlike
-   * a zero-width space (U+200B), it has no character to render.  That matters
-   * in a masked secret field (`-webkit-text-security: disc`), where Chromium
-   * masks *every* character including a U+200B, so a ZWS guard would surface as
-   * a stray disc beside the caret.  An empty guard renders nothing in any state.
+   * Each pill is atomic, so the caret can only rest in a node adjacent to it.
+   * Real text on a side already provides that anchor; where a pill instead sits
+   * at an edge of the field or directly against another pill, we insert a
+   * `.pill-guard` span (see #makeGuard) to stand in.  Empty bare text nodes that
+   * end up flush against a pill are dropped — an empty text node has no geometry,
+   * so the browser cannot paint the caret there (it strands visibly at the pill's
+   * left edge), which is exactly the bug the guard spans fix.
    */
   #ensureEdgePadding() {
+    // Pull any secret characters back out of mask-exempt guards first.
+    this.#exfiltrateGuards();
+
     if (!this.#el.firstChild) {
       this.#el.appendChild(document.createTextNode(""));
       return;
     }
 
-    if (this.#el.firstChild.nodeType !== Node.TEXT_NODE) {
-      this.#el.insertBefore(document.createTextNode(""), this.#el.firstChild);
+    // Remember a collapsed caret so it can be restored if a mutation below
+    // removes the node it sits in (e.g. deleting the last character flush
+    // against a pill drops the now-empty text node it lived in).
+    const sel = window.getSelection();
+    const trackCaret =
+      sel &&
+      sel.rangeCount > 0 &&
+      sel.isCollapsed &&
+      this.#el.contains(sel.anchorNode);
+    const caretLog = trackCaret
+      ? this.#domToLogical(sel.anchorNode, sel.anchorOffset)
+      : 0;
+
+    // Drop empty bare text nodes flush against a pill — they offer no paintable
+    // caret box; a guard span replaces them below.
+    for (const n of [...this.#el.childNodes]) {
+      if (
+        n.nodeType === Node.TEXT_NODE &&
+        n.textContent.replace(/\u200B/g, "") === "" &&
+        (this.#isPill(n.previousSibling) || this.#isPill(n.nextSibling))
+      ) {
+        n.remove();
+      }
     }
 
-    if (this.#el.lastChild.nodeType !== Node.TEXT_NODE) {
-      this.#el.appendChild(document.createTextNode(""));
+    // A pill at either edge needs a guard on its outer side …
+    if (this.#isPill(this.#el.firstChild)) {
+      this.#el.insertBefore(this.#makeGuard(), this.#el.firstChild);
+    }
+    if (this.#isPill(this.#el.lastChild)) {
+      this.#el.appendChild(this.#makeGuard());
     }
 
+    // … and any two adjacent pills need one between them.
     let node = this.#el.firstChild;
     while (node && node.nextSibling) {
       const next = node.nextSibling;
-      if (
-        node.nodeType !== Node.TEXT_NODE &&
-        next.nodeType !== Node.TEXT_NODE
-      ) {
-        this.#el.insertBefore(document.createTextNode(""), next);
+      if (this.#isPill(node) && this.#isPill(next)) {
+        this.#el.insertBefore(this.#makeGuard(), next);
+        node = next;
       } else {
         node = next;
       }
+    }
+
+    // Remove redundant guards: any touching no pill, or whose outer side already
+    // has real text to anchor the caret.
+    for (const g of [...this.#el.querySelectorAll(".pill-guard")]) {
+      const prevPill = this.#isPill(g.previousSibling);
+      const nextPill = this.#isPill(g.nextSibling);
+      if (!prevPill && !nextPill) {
+        g.remove();
+        continue;
+      }
+      const outer = prevPill ? g.nextSibling : g.previousSibling;
+      if (
+        outer &&
+        outer.nodeType === Node.TEXT_NODE &&
+        outer.textContent.replace(/\u200B/g, "") !== ""
+      ) {
+        g.remove();
+      }
+    }
+
+    if (!this.#el.firstChild) this.#el.appendChild(document.createTextNode(""));
+
+    // If a removal above orphaned the caret, restore it to the same logical
+    // spot (which now routes into the adjacent guard so it paints).
+    if (trackCaret && !this.#el.contains(sel.anchorNode)) {
+      const pos = this.#logicalToDom(caretLog);
+      this.#setCollapsedCaret(pos.node, pos.offset);
     }
   }
 }
