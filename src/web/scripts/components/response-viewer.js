@@ -298,7 +298,7 @@ export class ResponseViewer {
 
   /** @type {HTMLElement} */
   #el;
-  #activeTab = "body...";
+  #activeTab = "body";
   #renderMode = "styled"; // "styled" | "raw" | "hex"
   #wrapResponseText = true; // wrap long lines in Styled mode (settings-controlled)
   #lastResponse = null; // cached so mode changes can re-render

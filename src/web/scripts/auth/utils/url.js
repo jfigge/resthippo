@@ -89,8 +89,14 @@ export function extractAuthCode(callbackUrl) {
  */
 export function extractImplicitToken(callbackUrl) {
   const { query, fragment } = parseUrlParams(callbackUrl);
-  // Prefer fragment; fall back to query for non-conformant IdPs
-  const p = fragment.get("access_token") ? fragment : query;
+  // Prefer fragment; fall back to query for non-conformant IdPs. Select by the
+  // presence of *any* expected field so id_token-only and error responses (which
+  // carry no access_token) are still read from the fragment.
+  const hasFragment =
+    fragment.get("access_token") ||
+    fragment.get("id_token") ||
+    fragment.get("error");
+  const p = hasFragment ? fragment : query;
   return {
     accessToken: p.get("access_token"),
     tokenType: p.get("token_type"),

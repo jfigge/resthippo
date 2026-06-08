@@ -110,8 +110,10 @@ export async function implicitFlow(config) {
   // ── Parse callback ────────────────────────────────────────────────────────
   const parts = extractImplicitToken(callbackUrl);
 
-  // CSRF state check
-  if (!validateState(parts.state)) {
+  // CSRF state check — must match *this* flow's issued state, not merely any
+  // outstanding one. The `!==` short-circuit avoids consuming another flow's
+  // pending state.
+  if (parts.state !== state || !validateState(parts.state)) {
     discardState(state);
     if (nonce) discardNonce(nonce);
     return oauthResultFromError(stateMismatchError());
@@ -155,7 +157,8 @@ export async function implicitFlow(config) {
       );
     }
     const payload = decodeIdTokenPayload(parts.idToken);
-    if (!payload || !validateNonce(payload.nonce)) {
+    // The claim must echo *this* flow's nonce, not merely any outstanding one.
+    if (!payload || payload.nonce !== nonce || !validateNonce(payload.nonce)) {
       discardNonce(nonce);
       return oauthResultFromError(
         new OAuthError(

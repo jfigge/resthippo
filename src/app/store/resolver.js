@@ -7,7 +7,7 @@
  */
 "use strict";
 
-const { listDir } = require("./io");
+const { listDir, notFoundError } = require("./io");
 
 class Resolver {
   /**
@@ -30,9 +30,7 @@ class Resolver {
     this._ensure();
     const collId = this._cache.get(requestId);
     if (!collId) {
-      const err = new Error(`request not found: ${requestId}`);
-      err.code = "NOT_FOUND";
-      throw err;
+      throw notFoundError(`request not found: ${requestId}`);
     }
     return collId;
   }

@@ -111,7 +111,11 @@ function atomicWrite(filePath, data) {
  * @param {*} obj
  */
 function writeJSON(filePath, obj) {
-  atomicWrite(filePath, JSON.stringify(migrate(obj), null, 2));
+  const json = JSON.stringify(migrate(obj), null, 2);
+  if (typeof json !== "string") {
+    throw new Error(`refusing to write non-serializable JSON to ${filePath}`);
+  }
+  atomicWrite(filePath, json);
 }
 
 /**

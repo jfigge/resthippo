@@ -116,8 +116,10 @@ export async function authorizationCodeFlow(config) {
     errorDescription,
   } = extractAuthCode(callbackUrl);
 
-  // CSRF state check
-  if (!validateState(returnedState)) {
+  // CSRF state check — must match *this* flow's issued state, not merely any
+  // outstanding one (the registry alone can't distinguish concurrent flows).
+  // The `!==` short-circuit avoids consuming another flow's pending state.
+  if (returnedState !== state || !validateState(returnedState)) {
     discardState(state);
     return oauthResultFromError(stateMismatchError());
   }

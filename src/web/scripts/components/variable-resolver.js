@@ -50,29 +50,35 @@ export function parseFunctionCall(content) {
   const argsStr = trimmed.slice(parenIdx + 1, closeIdx).trim();
   if (!argsStr) return { name, rawArgs: [] };
 
-  // Split by comma, respecting double-quoted strings
+  // Split by comma, respecting double-quoted strings with backslash escapes —
+  // the inverse of buildFunctionToken() below (which escapes `\` and `"`).
+  const unquote = (arg) =>
+    arg.length >= 2 && arg.startsWith('"') && arg.endsWith('"')
+      ? arg.slice(1, -1).replace(/\\(["\\])/g, "$1")
+      : arg;
   const rawArgs = [];
   let current = "";
   let inQuote = false;
+  let escaped = false;
   for (const ch of argsStr) {
-    if (ch === '"') {
+    if (escaped) {
+      current += ch;
+      escaped = false;
+    } else if (ch === "\\" && inQuote) {
+      current += ch;
+      escaped = true;
+    } else if (ch === '"') {
       inQuote = !inQuote;
       current += ch;
     } else if (ch === "," && !inQuote) {
-      const arg = current.trim();
-      rawArgs.push(
-        arg.startsWith('"') && arg.endsWith('"') ? arg.slice(1, -1) : arg,
-      );
+      rawArgs.push(unquote(current.trim()));
       current = "";
     } else {
       current += ch;
     }
   }
   const last = current.trim();
-  if (last)
-    rawArgs.push(
-      last.startsWith('"') && last.endsWith('"') ? last.slice(1, -1) : last,
-    );
+  if (last) rawArgs.push(unquote(last));
 
   return { name, rawArgs };
 }

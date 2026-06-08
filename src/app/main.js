@@ -2381,9 +2381,19 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
   // Level limits (1,1) means the page is always at 100% visual zoom.
   win.webContents.setVisualZoomLevelLimits(1, 1).catch(() => {});
 
-  // Open <a target="_blank"> links in the system browser
+  // Open <a target="_blank"> links in the system browser. Only hand safe web
+  // schemes to the OS — shell.openExternal will launch arbitrary URI handlers
+  // (file:, smb:, custom protocols), a known RCE/credential-leak vector.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    let scheme = "";
+    try {
+      scheme = new URL(url).protocol;
+    } catch {
+      return { action: "deny" };
+    }
+    if (scheme === "http:" || scheme === "https:" || scheme === "mailto:") {
+      shell.openExternal(url).catch(() => {});
+    }
     return { action: "deny" };
   });
 
