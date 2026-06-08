@@ -204,3 +204,99 @@ test("oauth2 maps to a flow; clientSecret never appears", () => {
     "oauth2 clientSecret leaked into export",
   );
 });
+
+test("api-key auth maps to an apiKey scheme with name + placement", () => {
+  const out = exportObject({
+    id: "c1",
+    name: "C",
+    children: [
+      {
+        type: "request",
+        name: "R",
+        method: "GET",
+        url: "https://x/data",
+        authEnabled: true,
+        authType: "apikey",
+        authApiKey: { name: "X-API-Key", value: "k-secret", addTo: "query" },
+      },
+    ],
+  });
+
+  const scheme = out.components.securitySchemes.apiKeyAuth;
+  assert.equal(scheme.type, "apiKey");
+  assert.equal(scheme.in, "query");
+  assert.equal(scheme.name, "X-API-Key");
+  assert.deepEqual(out.paths["/data"].get.security, [{ apiKeyAuth: [] }]);
+  assert.ok(!JSON.stringify(out).includes("k-secret"), "api-key value leaked");
+});
+
+test("digest and ntlm map to http schemes", () => {
+  const out = exportObject({
+    id: "c1",
+    name: "C",
+    children: [
+      {
+        type: "request",
+        name: "D",
+        method: "GET",
+        url: "https://x/d",
+        authEnabled: true,
+        authType: "digest",
+        authDigest: { username: "u", password: "d-secret" },
+      },
+      {
+        type: "request",
+        name: "N",
+        method: "GET",
+        url: "https://x/n",
+        authEnabled: true,
+        authType: "ntlm",
+        authNtlm: { username: "u", password: "n-secret", domain: "CORP" },
+      },
+    ],
+  });
+
+  assert.deepEqual(out.components.securitySchemes.digestAuth, {
+    type: "http",
+    scheme: "digest",
+  });
+  assert.deepEqual(out.components.securitySchemes.ntlmAuth, {
+    type: "http",
+    scheme: "ntlm",
+  });
+  assert.deepEqual(out.paths["/d"].get.security, [{ digestAuth: [] }]);
+  assert.deepEqual(out.paths["/n"].get.security, [{ ntlmAuth: [] }]);
+  const json = JSON.stringify(out);
+  assert.ok(!json.includes("d-secret"), "digest password leaked");
+  assert.ok(!json.includes("n-secret"), "ntlm password leaked");
+});
+
+test("aws-iam maps to a SigV4-tagged apiKey scheme; no keys leak", () => {
+  const out = exportObject({
+    id: "c1",
+    name: "C",
+    children: [
+      {
+        type: "request",
+        name: "R",
+        method: "GET",
+        url: "https://x/data",
+        authEnabled: true,
+        authType: "aws-iam",
+        authAwsIam: {
+          accessKeyId: "AKIA-ID",
+          secretAccessKey: "AWS-SECRET-LEAK",
+          sessionToken: "AWS-TOKEN-LEAK",
+        },
+      },
+    ],
+  });
+
+  const scheme = out.components.securitySchemes.awsAuth;
+  assert.equal(scheme.type, "apiKey");
+  assert.equal(scheme["x-amazon-apigateway-authtype"], "awsSigv4");
+  assert.deepEqual(out.paths["/data"].get.security, [{ awsAuth: [] }]);
+  const json = JSON.stringify(out);
+  assert.ok(!json.includes("AWS-SECRET-LEAK"), "aws secret key leaked");
+  assert.ok(!json.includes("AWS-TOKEN-LEAK"), "aws session token leaked");
+});

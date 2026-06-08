@@ -43,15 +43,23 @@ export function redactVariables(list) {
 
 /**
  * Format-neutral, secret-free view of a request node's authentication, or null
- * when the request has no enabled auth. Secret fields (basic password, bearer
- * token, oauth2 clientSecret) are omitted entirely; identifiers and URLs are
- * kept so the receiving tool retains the auth scheme and only needs the secret
- * re-entered. Each exporter maps this onto its own auth representation.
+ * when the request has no enabled auth. Secret fields (passwords, bearer/API-key
+ * values, oauth2 clientSecret, AWS secret key & session token) are omitted
+ * entirely; identifiers, placement, URLs, and non-secret config (username,
+ * clientId, API-key name, NTLM domain/workstation, AWS accessKeyId/region/
+ * service) are kept — by analogy to basic auth, the access key id is the
+ * identifier and the secret access key the secret — so the receiving tool
+ * retains the auth scheme and only needs the secret re-entered. Each exporter
+ * maps this onto its own auth representation.
  *
  * @param {object} node  wurl request node
  * @returns {null
  *   | { type: "basic", username: string }
  *   | { type: "bearer" }
+ *   | { type: "apikey", name: string, addTo: "header" | "query" }
+ *   | { type: "digest", username: string }
+ *   | { type: "ntlm", username: string, domain: string, workstation: string }
+ *   | { type: "aws-iam", accessKeyId: string, region: string, service: string }
  *   | { type: "oauth2", grantType: string, clientId: string,
  *       accessTokenUrl: string, authUrl: string, scope: string }}
  */
@@ -65,6 +73,35 @@ export function redactedAuth(node) {
   }
   if (type === "bearer") {
     return { type: "bearer" };
+  }
+  if (type === "apikey") {
+    const a = node.authApiKey ?? {};
+    return {
+      type: "apikey",
+      name: a.name ?? "",
+      addTo: a.addTo === "query" ? "query" : "header",
+    };
+  }
+  if (type === "digest") {
+    return { type: "digest", username: node.authDigest?.username ?? "" };
+  }
+  if (type === "ntlm") {
+    const n = node.authNtlm ?? {};
+    return {
+      type: "ntlm",
+      username: n.username ?? "",
+      domain: n.domain ?? "",
+      workstation: n.workstation ?? "",
+    };
+  }
+  if (type === "aws-iam") {
+    const a = node.authAwsIam ?? {};
+    return {
+      type: "aws-iam",
+      accessKeyId: a.accessKeyId ?? "",
+      region: a.region ?? "",
+      service: a.service ?? "",
+    };
   }
   if (type === "oauth2") {
     const o = node.authOAuth2 ?? {};

@@ -151,6 +151,108 @@ test("oauth2 clientSecret is redacted, non-secret fields are kept", () => {
   assert.equal(auth.grantType, "client_credentials");
 });
 
+test("api-key auth keeps name/placement, redacts the value", () => {
+  const out = exportObject({
+    id: "c1",
+    name: "C",
+    children: [
+      {
+        type: "request",
+        name: "R",
+        method: "GET",
+        url: "https://x",
+        authEnabled: true,
+        authType: "apikey",
+        authApiKey: { name: "X-API-Key", value: "k-secret", addTo: "query" },
+      },
+    ],
+  });
+
+  const auth = findRequest(out.resources, "R").authentication;
+  assert.equal(auth.type, "apikey");
+  assert.equal(auth.key, "X-API-Key");
+  assert.equal(auth.addTo, "queryParams");
+  assert.equal(auth.value, "");
+});
+
+test("digest auth keeps username, redacts the password", () => {
+  const out = exportObject({
+    id: "c1",
+    name: "C",
+    children: [
+      {
+        type: "request",
+        name: "R",
+        method: "GET",
+        url: "https://x",
+        authEnabled: true,
+        authType: "digest",
+        authDigest: { username: "alice", password: "d-secret" },
+      },
+    ],
+  });
+
+  const auth = findRequest(out.resources, "R").authentication;
+  assert.equal(auth.type, "digest");
+  assert.equal(auth.username, "alice");
+  assert.equal(auth.password, "");
+});
+
+test("ntlm auth keeps username, redacts the password", () => {
+  const out = exportObject({
+    id: "c1",
+    name: "C",
+    children: [
+      {
+        type: "request",
+        name: "R",
+        method: "GET",
+        url: "https://x",
+        authEnabled: true,
+        authType: "ntlm",
+        authNtlm: { username: "alice", password: "n-secret", domain: "CORP" },
+      },
+    ],
+  });
+
+  const auth = findRequest(out.resources, "R").authentication;
+  assert.equal(auth.type, "ntlm");
+  assert.equal(auth.username, "alice");
+  assert.equal(auth.password, "");
+});
+
+test("aws-iam auth keeps accessKeyId/region/service, redacts the secret key & token", () => {
+  const out = exportObject({
+    id: "c1",
+    name: "C",
+    children: [
+      {
+        type: "request",
+        name: "R",
+        method: "GET",
+        url: "https://x",
+        authEnabled: true,
+        authType: "aws-iam",
+        authAwsIam: {
+          accessKeyId: "AKIA-ID",
+          secretAccessKey: "aws-secret",
+          region: "us-east-1",
+          service: "s3",
+          sessionToken: "aws-token",
+        },
+      },
+    ],
+  });
+
+  const auth = findRequest(out.resources, "R").authentication;
+  assert.equal(auth.type, "iam");
+  assert.equal(auth.accessKeyId, "AKIA-ID");
+  assert.equal(auth.region, "us-east-1");
+  assert.equal(auth.service, "s3");
+  assert.equal(auth.secretAccessKey, "");
+  assert.equal(auth.sessionToken, "");
+});
+
 test("the exported file contains no secret values anywhere", () => {
   const json = exportToInsomnia(
     {
@@ -166,13 +268,62 @@ test("the exported file contains no secret values anywhere", () => {
           authType: "basic",
           authBasic: { username: "alice", password: "PASS-LEAK" },
         },
+        {
+          type: "request",
+          name: "RK",
+          method: "GET",
+          url: "https://x",
+          authEnabled: true,
+          authType: "apikey",
+          authApiKey: { name: "X-Key", value: "KEY-LEAK", addTo: "header" },
+        },
+        {
+          type: "request",
+          name: "RD",
+          method: "GET",
+          url: "https://x",
+          authEnabled: true,
+          authType: "digest",
+          authDigest: { username: "u", password: "DIGEST-LEAK" },
+        },
+        {
+          type: "request",
+          name: "RN",
+          method: "GET",
+          url: "https://x",
+          authEnabled: true,
+          authType: "ntlm",
+          authNtlm: { username: "u", password: "NTLM-LEAK", domain: "D" },
+        },
+        {
+          type: "request",
+          name: "RA",
+          method: "GET",
+          url: "https://x",
+          authEnabled: true,
+          authType: "aws-iam",
+          authAwsIam: {
+            accessKeyId: "AKIA-ID",
+            secretAccessKey: "AWS-SECRET-LEAK",
+            sessionToken: "AWS-TOKEN-LEAK",
+          },
+        },
       ],
     },
     [{ name: "apiKey", value: "VAR-LEAK", secure: true }],
   );
 
-  assert.ok(!json.includes("PASS-LEAK"), "basic password leaked into export");
-  assert.ok(!json.includes("VAR-LEAK"), "secure variable leaked into export");
+  for (const leak of [
+    "PASS-LEAK",
+    "KEY-LEAK",
+    "DIGEST-LEAK",
+    "NTLM-LEAK",
+    "AWS-SECRET-LEAK",
+    "AWS-TOKEN-LEAK",
+    "VAR-LEAK",
+  ]) {
+    assert.ok(!json.includes(leak), `${leak} leaked into export`);
+  }
 });
 
 test("resources graph links workspace → folder → request by parentId", () => {

@@ -26,6 +26,48 @@ function exportAuth(node) {
       bearer: [{ key: "token", value: "", type: "string" }],
     };
   }
+  if (auth.type === "apikey") {
+    return {
+      type: "apikey",
+      apikey: [
+        { key: "key", value: auth.name, type: "string" },
+        { key: "value", value: "", type: "string" },
+        { key: "in", value: auth.addTo, type: "string" },
+      ],
+    };
+  }
+  if (auth.type === "digest") {
+    return {
+      type: "digest",
+      digest: [
+        { key: "username", value: auth.username, type: "string" },
+        { key: "password", value: "", type: "string" },
+      ],
+    };
+  }
+  if (auth.type === "ntlm") {
+    return {
+      type: "ntlm",
+      ntlm: [
+        { key: "username", value: auth.username, type: "string" },
+        { key: "password", value: "", type: "string" },
+        { key: "domain", value: auth.domain, type: "string" },
+        { key: "workstation", value: auth.workstation, type: "string" },
+      ],
+    };
+  }
+  if (auth.type === "aws-iam") {
+    return {
+      type: "awsv4",
+      awsv4: [
+        { key: "accessKey", value: auth.accessKeyId, type: "string" },
+        { key: "secretKey", value: "", type: "string" },
+        { key: "sessionToken", value: "", type: "string" },
+        { key: "region", value: auth.region, type: "string" },
+        { key: "service", value: auth.service, type: "string" },
+      ],
+    };
+  }
   if (auth.type === "oauth2") {
     return {
       type: "oauth2",

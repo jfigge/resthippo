@@ -214,6 +214,35 @@ function securityScheme(node, schemes) {
     schemes.bearerAuth ??= { type: "http", scheme: "bearer" };
     return "bearerAuth";
   }
+  if (auth.type === "apikey") {
+    schemes.apiKeyAuth ??= {
+      type: "apiKey",
+      in: auth.addTo === "query" ? "query" : "header",
+      name: auth.name || "X-API-Key",
+    };
+    return "apiKeyAuth";
+  }
+  if (auth.type === "digest") {
+    schemes.digestAuth ??= { type: "http", scheme: "digest" };
+    return "digestAuth";
+  }
+  if (auth.type === "ntlm") {
+    // NTLM has no standard OpenAPI scheme; `http`+`scheme: ntlm` is the
+    // widely-recognised convention (Azure / autorest).
+    schemes.ntlmAuth ??= { type: "http", scheme: "ntlm" };
+    return "ntlmAuth";
+  }
+  if (auth.type === "aws-iam") {
+    // AWS SigV4 has no native OpenAPI scheme; the de-facto representation is an
+    // apiKey on the Authorization header tagged with the API Gateway auth type.
+    schemes.awsAuth ??= {
+      type: "apiKey",
+      in: "header",
+      name: "Authorization",
+      "x-amazon-apigateway-authtype": "awsSigv4",
+    };
+    return "awsAuth";
+  }
   if (auth.type === "oauth2") {
     if (!schemes.oauth2Auth) {
       const flows = {};

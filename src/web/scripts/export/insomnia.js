@@ -116,6 +116,42 @@ function exportAuth(node) {
   if (auth.type === "bearer") {
     return { type: "bearer", disabled: false, token: "", prefix: "" };
   }
+  if (auth.type === "apikey") {
+    return {
+      type: "apikey",
+      disabled: false,
+      key: auth.name,
+      value: "",
+      addTo: auth.addTo === "query" ? "queryParams" : "header",
+    };
+  }
+  if (auth.type === "digest") {
+    return {
+      type: "digest",
+      disabled: false,
+      username: auth.username,
+      password: "",
+    };
+  }
+  if (auth.type === "ntlm") {
+    return {
+      type: "ntlm",
+      disabled: false,
+      username: auth.username,
+      password: "",
+    };
+  }
+  if (auth.type === "aws-iam") {
+    return {
+      type: "iam",
+      disabled: false,
+      accessKeyId: auth.accessKeyId,
+      secretAccessKey: "",
+      sessionToken: "",
+      region: auth.region,
+      service: auth.service,
+    };
+  }
   if (auth.type === "oauth2") {
     return {
       type: "oauth2",
