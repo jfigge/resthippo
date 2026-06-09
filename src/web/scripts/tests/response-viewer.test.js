@@ -289,9 +289,9 @@ test("a PDF response in dev mode offers a save fallback (no native overlay)", as
 });
 
 // Right-click the Body tab and pick a context-menu item by its id. The viewer's
-// menu delegates to window.wurl.ui.contextMenu, so the mock returns the choice.
+// menu delegates to window.wurl.ui.contextMenu.show, so the mock returns the choice.
 async function pickBodyMenu(window, viewer, id) {
-  window.wurl.ui = { contextMenu: async () => id };
+  window.wurl.ui = { contextMenu: { show: async () => id } };
   const bodyTab = viewer.element.querySelector('.res-tab-btn[data-tab="body"]');
   bodyTab.dispatchEvent(
     new window.MouseEvent("contextmenu", { bubbles: true }),
@@ -345,9 +345,11 @@ test("Download sends base64 bodies with base64 encoding and a typed name", async
   const { window, viewer } = mountViewer();
   let captured = null;
   window.wurl.export = {
-    saveFile: (filename, content, filters, encoding) => {
-      captured = { filename, content, filters, encoding };
-      return Promise.resolve(true);
+    file: {
+      save: (filename, content, filters, encoding) => {
+        captured = { filename, content, filters, encoding };
+        return Promise.resolve(true);
+      },
     },
   };
 
@@ -364,7 +366,7 @@ test("Download sends base64 bodies with base64 encoding and a typed name", async
 
   await pickBodyMenu(window, viewer, "download");
 
-  assert.ok(captured, "export.saveFile was invoked");
+  assert.ok(captured, "export.file.save was invoked");
   assert.equal(captured.encoding, "base64", "bytes are written, not UTF-8");
   assert.match(
     captured.filename,
@@ -480,7 +482,7 @@ test("right-click → Restore dispatches timeline-restore with the snapshot", as
   const { window, viewer } = mountViewer();
   await openTimeline(window, viewer, [timelineEntry({ id: "h1" })]);
 
-  window.wurl.ui = { contextMenu: async () => "restore" };
+  window.wurl.ui = { contextMenu: { show: async () => "restore" } };
   let restored = null;
   window.addEventListener(
     "wurl:timeline-restore",
@@ -507,7 +509,7 @@ test("right-click → Delete Entry dispatches timeline-delete-entry", async () =
     timelineEntry({ id: "h2" }),
   ]);
 
-  window.wurl.ui = { contextMenu: async () => "delete" };
+  window.wurl.ui = { contextMenu: { show: async () => "delete" } };
   let deleted = null;
   window.addEventListener(
     "wurl:timeline-delete-entry",

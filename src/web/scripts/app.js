@@ -257,7 +257,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       t.tagName === "TEXTAREA" ||
       t.isContentEditable;
     if (isEditable) {
-      window.wurl.ui.editContextMenu(e.clientX, e.clientY);
+      window.wurl.ui.contextMenu.edit(e.clientX, e.clientY);
     }
   });
 
@@ -2896,7 +2896,7 @@ async function _gatherHistory(rootNode) {
 /** Run the native save dialog for an already-serialized export and notify. */
 async function _saveExport(filename, content, format, successMsg) {
   try {
-    const saved = await window.wurl.export.saveFile(
+    const saved = await window.wurl.export.file.save(
       filename,
       content,
       _exportFilters(format),
@@ -2917,7 +2917,7 @@ async function _saveExport(filename, content, format, successMsg) {
  * @param {object} collection  Wurl collection node
  */
 function handleExport(collection) {
-  if (!window.wurl?.export?.saveFile) {
+  if (!window.wurl?.export?.file?.save) {
     Notifications.info("Export is only available in the desktop app.");
     return;
   }
@@ -2928,7 +2928,7 @@ function handleExport(collection) {
 
 /** Serialize a single collection to the chosen format and save it. */
 async function runCollectionExport(collection, format) {
-  if (!window.wurl?.export?.saveFile) return;
+  if (!window.wurl?.export?.file?.save) return;
 
   let variables = [];
   try {
@@ -2965,7 +2965,7 @@ async function runCollectionExport(collection, format) {
  * merged by name (first collection wins on a clash).
  */
 async function runWorkspaceExport(format) {
-  if (!window.wurl?.export?.saveFile) return;
+  if (!window.wurl?.export?.file?.save) return;
 
   const children = [];
   const mergedVars = [];
@@ -3027,14 +3027,14 @@ async function runWorkspaceExport(format) {
 }
 
 async function handleImport() {
-  if (!window.wurl?.import?.openFile) {
+  if (!window.wurl?.import?.file?.open) {
     Notifications.info("Import is only available in the desktop app.");
     return;
   }
 
   let file;
   try {
-    file = await window.wurl.import.openFile();
+    file = await window.wurl.import.file.open();
   } catch (err) {
     Notifications.error(`Import failed: ${String(err.message ?? err)}`, {
       title: "Import",

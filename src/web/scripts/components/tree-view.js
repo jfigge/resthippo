@@ -544,7 +544,7 @@ export class TreeView {
 
   /** Minimal context menu for a favorites row: unfavorite. */
   async #showQuickContextMenu(entry, x, y) {
-    const clickedId = await window.wurl.ui.contextMenu({
+    const clickedId = await window.wurl.ui.contextMenu.show({
       items: [{ id: "unfavorite", label: "Unfavorite" }],
       x,
       y,
@@ -702,7 +702,7 @@ export class TreeView {
           : it,
       );
 
-      const clickedId = await window.wurl.ui.contextMenu({
+      const clickedId = await window.wurl.ui.contextMenu.show({
         items: items.map(({ id, label, type, enabled }) => ({
           id,
           label,

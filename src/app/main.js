@@ -1706,7 +1706,7 @@ function safeCallWrite(channel, fn) {
 // Called from the renderer's contextmenu handler when the target is editable.
 (function initEditContextMenuIPC() {
   ipcMain.handle(
-    "ui:edit-context-menu",
+    "ui:context-menu:edit",
     (event, { x, y, extraItems, opts } = {}) => {
       return new Promise((resolve) => {
         let resultId = null;
@@ -1810,7 +1810,7 @@ function safeCallWrite(channel, fn) {
    * Load a URL into the preview view and set its bounds.
    * Creates the view if it does not yet exist.
    */
-  ipcMain.handle("htmlPreview:loadUrl", async (_event, url, bounds) => {
+  ipcMain.handle("preview:html:load-url", async (_event, url, bounds) => {
     const view = _ensureView();
     if (!view) return;
 
@@ -1825,7 +1825,7 @@ function safeCallWrite(channel, fn) {
   /**
    * Reposition/resize the preview view (called by the ResizeObserver in renderer).
    */
-  ipcMain.handle("htmlPreview:resize", async (_event, bounds) => {
+  ipcMain.handle("preview:html:resize", async (_event, bounds) => {
     if (!_htmlPreviewView) return;
     _htmlPreviewView.setBounds(_intBounds(bounds));
   });
@@ -1833,7 +1833,7 @@ function safeCallWrite(channel, fn) {
   /**
    * Show the preview view at the given bounds (re-attaches if needed).
    */
-  ipcMain.handle("htmlPreview:show", async (_event, bounds) => {
+  ipcMain.handle("preview:html:show", async (_event, bounds) => {
     const view = _ensureView();
     if (!view) return;
     if (bounds) view.setBounds(_intBounds(bounds));
@@ -1843,7 +1843,7 @@ function safeCallWrite(channel, fn) {
    * Temporarily hide the preview view by removing it from the content view.
    * The instance is retained so it can be re-shown without reloading.
    */
-  ipcMain.handle("htmlPreview:hide", async (_event) => {
+  ipcMain.handle("preview:html:hide", async (_event) => {
     if (
       _htmlPreviewView &&
       _htmlPreviewAdded &&
@@ -1860,7 +1860,7 @@ function safeCallWrite(channel, fn) {
    * Called just before hiding the view for a popup so a static snapshot can
    * stand in while the popup is open.
    */
-  ipcMain.handle("htmlPreview:capture", async (_event) => {
+  ipcMain.handle("preview:html:capture", async (_event) => {
     if (!_htmlPreviewView || !_htmlPreviewAdded) return null;
     try {
       const image = await _htmlPreviewView.webContents.capturePage();
@@ -1875,7 +1875,7 @@ function safeCallWrite(channel, fn) {
    * Destroy the preview view entirely (called when the response changes or the
    * user switches to raw mode).
    */
-  ipcMain.handle("htmlPreview:destroy", async (_event) => {
+  ipcMain.handle("preview:html:destroy", async (_event) => {
     if (_htmlPreviewAdded && _mainWin && !_mainWin.isDestroyed()) {
       _mainWin.contentView.removeChildView(_htmlPreviewView);
       _htmlPreviewAdded = false;
@@ -2025,7 +2025,7 @@ function safeCallWrite(channel, fn) {
    * Write base64 PDF bytes to a temp file and load it into the preview view.
    */
   ipcMain.handle(
-    "pdfPreview:loadFile",
+    "preview:pdf:load-file",
     async (_event, { base64 } = {}, bounds) => {
       const view = _ensureView();
       if (!view) return { ok: false };
@@ -2050,18 +2050,18 @@ function safeCallWrite(channel, fn) {
     },
   );
 
-  ipcMain.handle("pdfPreview:resize", async (_event, bounds) => {
+  ipcMain.handle("preview:pdf:resize", async (_event, bounds) => {
     if (!_pdfPreviewView) return;
     _pdfPreviewView.setBounds(_intBounds(bounds));
   });
 
-  ipcMain.handle("pdfPreview:show", async (_event, bounds) => {
+  ipcMain.handle("preview:pdf:show", async (_event, bounds) => {
     const view = _ensureView();
     if (!view) return;
     if (bounds) view.setBounds(_intBounds(bounds));
   });
 
-  ipcMain.handle("pdfPreview:hide", async (_event) => {
+  ipcMain.handle("preview:pdf:hide", async (_event) => {
     if (
       _pdfPreviewView &&
       _pdfPreviewAdded &&
@@ -2073,7 +2073,7 @@ function safeCallWrite(channel, fn) {
     }
   });
 
-  ipcMain.handle("pdfPreview:destroy", async (_event) => {
+  ipcMain.handle("preview:pdf:destroy", async (_event) => {
     if (_pdfPreviewAdded && _mainWin && !_mainWin.isDestroyed()) {
       _mainWin.contentView.removeChildView(_pdfPreviewView);
       _pdfPreviewAdded = false;
@@ -2440,7 +2440,7 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
 
 // ─── Import / Export IPC ──────────────────────────────────────────────────────
 ipcMain.handle(
-  "export:save-file",
+  "export:file:save",
   async (_event, { filename, content, filters, encoding }) => {
     const result = await dialog.showSaveDialog(_mainWin ?? undefined, {
       defaultPath: filename,
@@ -2461,7 +2461,7 @@ ipcMain.handle(
   },
 );
 
-ipcMain.handle("import:open-file", async () => {
+ipcMain.handle("import:file:open", async () => {
   const result = await dialog.showOpenDialog(_mainWin ?? undefined, {
     title: "Import Collection",
     filters: [{ name: "API Collections", extensions: ["json", "yaml", "yml"] }],
@@ -2555,7 +2555,7 @@ ipcMain.handle("backup:export", async (_event, { mode, password } = {}) => {
  * @returns {Promise<{ ok: boolean, canceled?: boolean, filePath?: string,
  *                      secretsMode?: string, error?: string }>}
  */
-ipcMain.handle("backup:prepare-import", async () => {
+ipcMain.handle("backup:prepare", async () => {
   const win = _backupWin();
 
   const open = await dialog.showOpenDialog(win, {

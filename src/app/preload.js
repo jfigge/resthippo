@@ -270,15 +270,17 @@ contextBridge.exposeInMainWorld("wurl", {
    *
    * When a response is too large for renderer memory it is spilled to a temp
    * file in the main process: `truncated` is set, `body` carries only a preview,
-   * and `bodyRef` redeems the full payload via getBody / saveBody below.
+   * and `bodyRef` redeems the full payload via body.get / body.save below.
    */
   http: {
     execute: (descriptor) => ipcRenderer.invoke("http:execute", descriptor),
-    /** Fetch the full text of a spilled response body. → { body, size, contentType } | { error } */
-    getBody: (ref) => ipcRenderer.invoke("http:body:get", ref),
-    /** Save a spilled response body straight to a user-chosen file. → { ok, path? , reason? } */
-    saveBody: (ref, filename) =>
-      ipcRenderer.invoke("http:body:save", { ref, filename }),
+    body: {
+      /** Fetch the full text of a spilled response body. → { body, size, contentType } | { error } */
+      get: (ref) => ipcRenderer.invoke("http:body:get", ref),
+      /** Save a spilled response body straight to a user-chosen file. → { ok, path? , reason? } */
+      save: (ref, filename) =>
+        ipcRenderer.invoke("http:body:save", { ref, filename }),
+    },
   },
 
   /**
@@ -350,34 +352,32 @@ contextBridge.exposeInMainWorld("wurl", {
   },
 
   /**
-   * HTML response live-preview — overlays a WebContentsView on the response body
-   * pane and loads the original request URL so the page renders natively.
+   * Native response previews — each overlays an isolated WebContentsView on the
+   * response body pane. Bounds shape: { x, y, width, height } (integer pixels,
+   * viewport-relative).
    *
-   * Bounds shape: { x, y, width, height }  (integer pixels, viewport-relative)
+   *   html — loads the original request URL so the page renders natively.
+   *   pdf  — Chromium's native pdfium viewer; the renderer passes the PDF bytes
+   *          as base64 and the main process writes them to a temp file.
    */
-  htmlPreview: {
-    loadUrl: (url, bounds) =>
-      ipcRenderer.invoke("htmlPreview:loadUrl", url, bounds),
-    resize: (bounds) => ipcRenderer.invoke("htmlPreview:resize", bounds),
-    show: (bounds) => ipcRenderer.invoke("htmlPreview:show", bounds),
-    hide: () => ipcRenderer.invoke("htmlPreview:hide"),
-    capture: () => ipcRenderer.invoke("htmlPreview:capture"),
-    destroy: () => ipcRenderer.invoke("htmlPreview:destroy"),
-  },
-
-  /**
-   * PDF response preview — overlays an isolated WebContentsView (Chromium's
-   * native pdfium viewer) on the response body pane. The renderer passes the
-   * PDF bytes as base64; the main process writes them to a temp file and loads
-   * it. Bounds shape matches htmlPreview: { x, y, width, height } (px).
-   */
-  pdfPreview: {
-    loadFile: (base64, bounds) =>
-      ipcRenderer.invoke("pdfPreview:loadFile", { base64 }, bounds),
-    resize: (bounds) => ipcRenderer.invoke("pdfPreview:resize", bounds),
-    show: (bounds) => ipcRenderer.invoke("pdfPreview:show", bounds),
-    hide: () => ipcRenderer.invoke("pdfPreview:hide"),
-    destroy: () => ipcRenderer.invoke("pdfPreview:destroy"),
+  preview: {
+    html: {
+      loadUrl: (url, bounds) =>
+        ipcRenderer.invoke("preview:html:load-url", url, bounds),
+      resize: (bounds) => ipcRenderer.invoke("preview:html:resize", bounds),
+      show: (bounds) => ipcRenderer.invoke("preview:html:show", bounds),
+      hide: () => ipcRenderer.invoke("preview:html:hide"),
+      capture: () => ipcRenderer.invoke("preview:html:capture"),
+      destroy: () => ipcRenderer.invoke("preview:html:destroy"),
+    },
+    pdf: {
+      loadFile: (base64, bounds) =>
+        ipcRenderer.invoke("preview:pdf:load-file", { base64 }, bounds),
+      resize: (bounds) => ipcRenderer.invoke("preview:pdf:resize", bounds),
+      show: (bounds) => ipcRenderer.invoke("preview:pdf:show", bounds),
+      hide: () => ipcRenderer.invoke("preview:pdf:hide"),
+      destroy: () => ipcRenderer.invoke("preview:pdf:destroy"),
+    },
   },
 
   functions: {
@@ -391,7 +391,9 @@ contextBridge.exposeInMainWorld("wurl", {
    * @returns {Promise<{ filename: string, content: string }|null>}
    */
   import: {
-    openFile: () => ipcRenderer.invoke("import:open-file"),
+    file: {
+      open: () => ipcRenderer.invoke("import:file:open"),
+    },
   },
 
   /**
@@ -405,13 +407,15 @@ contextBridge.exposeInMainWorld("wurl", {
    * @returns {Promise<boolean>}
    */
   export: {
-    saveFile: (filename, content, filters, encoding) =>
-      ipcRenderer.invoke("export:save-file", {
-        filename,
-        content,
-        filters,
-        encoding,
-      }),
+    file: {
+      save: (filename, content, filters, encoding) =>
+        ipcRenderer.invoke("export:file:save", {
+          filename,
+          content,
+          filters,
+          encoding,
+        }),
+    },
   },
 
   /**
@@ -432,7 +436,7 @@ contextBridge.exposeInMainWorld("wurl", {
      * @returns {Promise<{ ok: boolean, canceled?: boolean, filePath?: string,
      *                      secretsMode?: string, error?: string }>}
      */
-    prepareImport: () => ipcRenderer.invoke("backup:prepare-import"),
+    prepare: () => ipcRenderer.invoke("backup:prepare"),
     /**
      * Apply a backup. `opts.mode` is "merge" | "replace"; `opts.password` is
      * needed only to recover password-protected secrets.
@@ -445,35 +449,37 @@ contextBridge.exposeInMainWorld("wurl", {
    * UI bridges to native chrome that the renderer cannot create itself.
    */
   ui: {
-    /**
-     * Show a native OS context menu at (x, y) and resolve with the id of the
-     * clicked item, or null if the menu was dismissed.
-     *
-     * @param {{
-     *   items: Array<{ id?: string, label?: string, type?: "separator", enabled?: boolean }>,
-     *   x?: number,
-     *   y?: number,
-     * }} options
-     * @returns {Promise<string|null>}
-     */
-    contextMenu: ({ items, x, y } = {}) =>
-      ipcRenderer.invoke("ui:context-menu:show", { items, x, y }),
+    contextMenu: {
+      /**
+       * Show a native OS context menu at (x, y) and resolve with the id of the
+       * clicked item, or null if the menu was dismissed.
+       *
+       * @param {{
+       *   items: Array<{ id?: string, label?: string, type?: "separator", enabled?: boolean }>,
+       *   x?: number,
+       *   y?: number,
+       * }} options
+       * @returns {Promise<string|null>}
+       */
+      show: ({ items, x, y } = {}) =>
+        ipcRenderer.invoke("ui:context-menu:show", { items, x, y }),
 
-    /**
-     * Show a Cut / Copy / Paste / Select All menu for the focused text input,
-     * optionally with custom items appended (extraItems) and/or prepended
-     * (opts.leadingItems) — both support separator / checkbox / radio / plain
-     * (id + label) entries. Resolves the clicked custom item's id, or null (the
-     * native edit roles resolve null too).
-     *
-     * @param {number} x
-     * @param {number} y
-     * @param {Array<{ id?: string, label?: string, type?: "separator"|"checkbox"|"radio", checked?: boolean, enabled?: boolean }>} [extraItems]
-     * @param {{ leadingItems?: Array<object> }} [opts]
-     * @returns {Promise<string|null>}
-     */
-    editContextMenu: (x, y, extraItems, opts) =>
-      ipcRenderer.invoke("ui:edit-context-menu", { x, y, extraItems, opts }),
+      /**
+       * Show a Cut / Copy / Paste / Select All menu for the focused text input,
+       * optionally with custom items appended (extraItems) and/or prepended
+       * (opts.leadingItems) — both support separator / checkbox / radio / plain
+       * (id + label) entries. Resolves the clicked custom item's id, or null (the
+       * native edit roles resolve null too).
+       *
+       * @param {number} x
+       * @param {number} y
+       * @param {Array<{ id?: string, label?: string, type?: "separator"|"checkbox"|"radio", checked?: boolean, enabled?: boolean }>} [extraItems]
+       * @param {{ leadingItems?: Array<object> }} [opts]
+       * @returns {Promise<string|null>}
+       */
+      edit: (x, y, extraItems, opts) =>
+        ipcRenderer.invoke("ui:context-menu:edit", { x, y, extraItems, opts }),
+    },
 
     openThemeEditor: () => ipcRenderer.invoke("ui:open-theme-editor"),
   },

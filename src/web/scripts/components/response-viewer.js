@@ -449,13 +449,13 @@ export class ResponseViewer {
       // context menu / dialog is not obscured. (No snapshot: a brief blank under
       // a transient menu is acceptable.)
       if (this.#pdfPreviewActive && window.wurl?.isElectron) {
-        window.wurl.pdfPreview.hide().catch(() => {});
+        window.wurl.preview.pdf.hide().catch(() => {});
       }
       if (!this.#htmlPreviewActive || !window.wurl?.isElectron) return;
       // Only capture on the first popup; nested popups reuse the existing snapshot.
       if (this.#popupDepth === 1) {
         this.#snapshotPending = true;
-        const dataUrl = await window.wurl.htmlPreview
+        const dataUrl = await window.wurl.preview.html
           .capture()
           .catch(() => null);
         // If the popup was dismissed while capture was in-flight, #snapshotPending
@@ -466,7 +466,7 @@ export class ResponseViewer {
           this.#showPreviewSnapshot(dataUrl);
         }
       }
-      window.wurl.htmlPreview.hide().catch(() => {});
+      window.wurl.preview.html.hide().catch(() => {});
     });
     window.addEventListener("wurl:popup-closed", () => {
       this.#popupDepth = Math.max(0, this.#popupDepth - 1);
@@ -484,7 +484,7 @@ export class ResponseViewer {
       ) {
         requestAnimationFrame(() => {
           if (this.#pdfPreviewActive && this.#popupDepth === 0) {
-            window.wurl.pdfPreview
+            window.wurl.preview.pdf
               .show(this.#computeBounds(this.#pdfHost))
               .catch(() => {});
           }
@@ -494,7 +494,7 @@ export class ResponseViewer {
       if (this.#activeTab !== "preview") return; // preview tab not visible — stay hidden
       requestAnimationFrame(() => {
         if (!this.#htmlPreviewActive || this.#popupDepth > 0) return;
-        window.wurl.htmlPreview
+        window.wurl.preview.html
           .show(this.#computePreviewBounds())
           .catch(() => {});
       });
@@ -615,7 +615,7 @@ export class ResponseViewer {
     const { filename, ext, filterName } = this.#downloadNaming(resp);
     // Binary bodies travel as base64 and are decoded to bytes by the main
     // process so the saved file is byte-accurate; text is written as UTF-8.
-    window.wurl?.export?.saveFile(
+    window.wurl?.export?.file?.save(
       filename,
       resp.body,
       [
@@ -1090,7 +1090,7 @@ export class ResponseViewer {
       { type: "separator" },
       { id: "download", label: "Download..." },
     ];
-    const clickedId = await window.wurl.ui.contextMenu({ items, x, y });
+    const clickedId = await window.wurl.ui.contextMenu.show({ items, x, y });
     if (clickedId === "download") {
       this.#downloadBody();
     } else if (clickedId) {
@@ -1117,7 +1117,7 @@ export class ResponseViewer {
         },
       );
     }
-    const clickedId = await window.wurl.ui.contextMenu({ items, x, y });
+    const clickedId = await window.wurl.ui.contextMenu.show({ items, x, y });
     if (clickedId === "copy") {
       if (selectedText) {
         navigator.clipboard.writeText(selectedText).catch(() => {});
@@ -1537,7 +1537,7 @@ export class ResponseViewer {
 
     const reposition = () => {
       if (this.#pdfPreviewActive) {
-        window.wurl?.pdfPreview
+        window.wurl?.preview?.pdf
           ?.resize(this.#computeBounds(host))
           .catch(() => {});
       }
@@ -1554,7 +1554,7 @@ export class ResponseViewer {
 
     requestAnimationFrame(() => {
       if (!this.#pdfPreviewActive) return;
-      window.wurl?.pdfPreview
+      window.wurl?.preview?.pdf
         ?.loadFile(base64, this.#computeBounds(host))
         .catch(() => {});
     });
@@ -1581,8 +1581,8 @@ export class ResponseViewer {
       this.#pdfSettingsHandler = null;
     }
     this.#pdfHost = null;
-    if (window.wurl?.pdfPreview?.destroy) {
-      window.wurl.pdfPreview.destroy().catch(() => {});
+    if (window.wurl?.preview?.pdf?.destroy) {
+      window.wurl.preview.pdf.destroy().catch(() => {});
     }
   }
 
@@ -1664,7 +1664,7 @@ export class ResponseViewer {
       return;
     }
 
-    const res = await window.wurl?.http?.getBody(response.bodyRef);
+    const res = await window.wurl?.http?.body?.get(response.bodyRef);
     if (!res || res.error) {
       // Cache miss / read error — forget the ref so the banner stops offering it.
       response.bodyRef = null;
@@ -1687,7 +1687,7 @@ export class ResponseViewer {
   async #saveFullBody(response) {
     if (!response.bodyRef) return;
     const { filename } = this.#downloadNaming(response);
-    const result = await window.wurl?.http?.saveBody(
+    const result = await window.wurl?.http?.body?.save(
       response.bodyRef,
       filename,
     );
@@ -1944,8 +1944,8 @@ export class ResponseViewer {
     // (pane width/height changes) or font-size changes (pane grows/shrinks as
     // sibling elements like the tab-strip change height).
     this.#resizeObserver = new ResizeObserver(() => {
-      if (this.#htmlPreviewActive && window.wurl?.htmlPreview?.resize) {
-        window.wurl.htmlPreview.resize(this.#computePreviewBounds());
+      if (this.#htmlPreviewActive && window.wurl?.preview?.html?.resize) {
+        window.wurl.preview.html.resize(this.#computePreviewBounds());
       }
     });
     this.#resizeObserver.observe(pane);
@@ -1956,10 +1956,11 @@ export class ResponseViewer {
     // (triggering the ResizeObserver), but a deferred reposition ensures we
     // pick up the final layout even if the observer fires before reflow settles.
     this.#settingsHandler = () => {
-      if (!this.#htmlPreviewActive || !window.wurl?.htmlPreview?.resize) return;
+      if (!this.#htmlPreviewActive || !window.wurl?.preview?.html?.resize)
+        return;
       requestAnimationFrame(() => {
-        if (this.#htmlPreviewActive && window.wurl?.htmlPreview?.resize) {
-          window.wurl.htmlPreview.resize(this.#computePreviewBounds());
+        if (this.#htmlPreviewActive && window.wurl?.preview?.html?.resize) {
+          window.wurl.preview.html.resize(this.#computePreviewBounds());
         }
       });
     };
@@ -1967,11 +1968,12 @@ export class ResponseViewer {
 
     // Also reposition when the Electron window itself is resized.
     this.#winResizeHandler = () => {
-      if (!this.#htmlPreviewActive || !window.wurl?.htmlPreview?.resize) return;
+      if (!this.#htmlPreviewActive || !window.wurl?.preview?.html?.resize)
+        return;
       // Defer one frame so the renderer layout has finished reflowing.
       requestAnimationFrame(() => {
-        if (this.#htmlPreviewActive && window.wurl?.htmlPreview?.resize) {
-          window.wurl.htmlPreview.resize(this.#computePreviewBounds());
+        if (this.#htmlPreviewActive && window.wurl?.preview?.html?.resize) {
+          window.wurl.preview.html.resize(this.#computePreviewBounds());
         }
       });
     };
@@ -1980,7 +1982,7 @@ export class ResponseViewer {
     // Defer the first loadUrl call so the pane has been laid out.
     requestAnimationFrame(() => {
       if (!this.#htmlPreviewActive) return; // destroyed before frame fired
-      window.wurl?.htmlPreview
+      window.wurl?.preview?.html
         ?.loadUrl(url, this.#computePreviewBounds())
         .catch(() => {});
     });
@@ -2052,8 +2054,8 @@ export class ResponseViewer {
     }
 
     // Destroy the Electron WebContentsView.
-    if (window.wurl?.htmlPreview?.destroy) {
-      window.wurl.htmlPreview.destroy().catch(() => {});
+    if (window.wurl?.preview?.html?.destroy) {
+      window.wurl.preview.html.destroy().catch(() => {});
     }
   }
 
@@ -2122,7 +2124,7 @@ export class ResponseViewer {
           if (window.wurl?.isElectron) {
             requestAnimationFrame(() => {
               if (this.#htmlPreviewActive && this.#activeTab === "preview") {
-                window.wurl.htmlPreview
+                window.wurl.preview.html
                   .show(this.#computePreviewBounds())
                   .catch(() => {});
               }
@@ -2142,7 +2144,7 @@ export class ResponseViewer {
       // Leaving Preview tab — hide the overlay/iframe but keep it alive.
       if (this.#htmlPreviewActive) {
         if (window.wurl?.isElectron) {
-          window.wurl.htmlPreview.hide().catch(() => {});
+          window.wurl.preview.html.hide().catch(() => {});
         }
         if (this.#iframeEl) this.#iframeEl.style.display = "none";
       }
@@ -2159,13 +2161,13 @@ export class ResponseViewer {
             this.#activeTab === "body" &&
             this.#pdfHost
           ) {
-            window.wurl.pdfPreview
+            window.wurl.preview.pdf
               .show(this.#computeBounds(this.#pdfHost))
               .catch(() => {});
           }
         });
       } else if (prevTab === "body" && tabId !== "body") {
-        window.wurl.pdfPreview.hide().catch(() => {});
+        window.wurl.preview.pdf.hide().catch(() => {});
       }
     }
 
@@ -2553,7 +2555,7 @@ export class ResponseViewer {
       { id: "delete", label: "Delete Entry" },
       { id: "delete-all", label: "Delete All History" },
     ];
-    const clickedId = await window.wurl.ui.contextMenu({ items, x, y });
+    const clickedId = await window.wurl.ui.contextMenu.show({ items, x, y });
     if (clickedId === "restore") {
       window.dispatchEvent(
         new CustomEvent("wurl:timeline-restore", {

@@ -2382,7 +2382,7 @@ export class RequestEditor {
    * as SDL.
    */
   async #showSchemaContextMenu(x, y) {
-    const id = await window.wurl?.ui?.contextMenu({
+    const id = await window.wurl?.ui?.contextMenu?.show({
       items: [
         { id: "view", label: "View Schema" },
         { id: "download", label: "Download Schema" },
@@ -2423,7 +2423,7 @@ export class RequestEditor {
   #downloadGraphqlSchema() {
     const sdl = this.#graphqlSchemaSDL();
     if (!sdl) return;
-    window.wurl?.export?.saveFile("schema.graphql", sdl, [
+    window.wurl?.export?.file?.save("schema.graphql", sdl, [
       { name: "GraphQL Schema", extensions: ["graphql", "gql"] },
       { name: "All Files", extensions: ["*"] },
     ]);

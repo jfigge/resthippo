@@ -107,7 +107,7 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-cookies test-auth test-net test-content-type test-oauth test-export test-components test-import test-data-store test-quick-access test-renderer-components test-renderer-e2e
+test: test-js test-cookies test-auth test-net test-content-type test-ipc test-oauth test-export test-components test-import test-data-store test-quick-access test-renderer-components test-renderer-e2e
 
 test-js:
 	@echo "Running JavaScript store tests..."
@@ -132,6 +132,11 @@ test-net:
 test-content-type:
 	@echo "Running content-type (binary detection) tests..."
 	@node --test $(APP_DIR)/tests/http-content-type.test.js
+	@echo "--------------------------------"
+
+test-ipc:
+	@echo "Running IPC channel handler/preload parity tests..."
+	@node --test $(APP_DIR)/tests/ipc-parity.test.js
 	@echo "--------------------------------"
 
 test-oauth:
@@ -661,7 +666,7 @@ mock-down:
         install \
         fmt fmt-check \
         lint \
-        test test-js test-cookies test-auth test-content-type test-oauth test-export test-components test-import \
+        test test-js test-cookies test-auth test-content-type test-ipc test-oauth test-export test-components test-import \
         test-data-store test-renderer-components test-renderer-e2e \
         debug \
         build build-mac build-linux build-win \

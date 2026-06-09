@@ -19,7 +19,7 @@ export class BackupModal {
   #el;
   #variant; // "export" | "import"
   #secretsMode = "none"; // import: secret mode of the chosen file
-  #filePath = null; // import: path returned by prepareImport
+  #filePath = null; // import: path returned by prepare
   #errorEl = null;
   #pwFieldsEl = null; // export/import: password field container
   #busy = false;
@@ -51,7 +51,7 @@ export class BackupModal {
    * password-protected). Aborts silently if the user cancels the file picker.
    */
   static async openImport() {
-    const prep = await window.wurl.backup.prepareImport();
+    const prep = await window.wurl.backup.prepare();
     if (!prep || prep.canceled) return;
     if (!prep.ok) {
       Notifications.error(prep.error || "Could not read the backup file.", {
