@@ -14,6 +14,7 @@
 import { LayoutPicker } from "./components/layout-picker.js";
 import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
+import { applyCaptures } from "./components/captures.js";
 import {
   buildRequestPayload,
   applyPathParams,
@@ -1200,6 +1201,13 @@ function initEventBus() {
       _refreshEditorVariableContext(node.id);
       _dispatchTimelineUpdate(node.id);
     }
+
+    // Post-response captures (Feature 03). Run on genuine sends only (never on a
+    // history replay), independent of whether history recording is enabled. The
+    // 2xx gate and empty-rules short-circuit live inside _applyCapturesForNode.
+    if (!skipHistory && node?.captures?.length) {
+      await _applyCapturesForNode(node, e.detail);
+    }
   });
 
   // Record network-level failures (ENOTFOUND, ETIMEDOUT, etc.) in the timeline.
@@ -1843,6 +1851,158 @@ function initEventBus() {
         ...envVariables,
       });
     }
+  }
+
+  // ── Post-response captures (Feature 03) ──────────────────────────────────
+
+  /**
+   * Run a request's capture rules against a freshly received response and write
+   * the extracted values into their target variable scopes.
+   *
+   * Gated on a 2xx response (a failed login must not clobber a good token).
+   * Persistence reuses the existing env / collection variable handlers — which
+   * encrypt `secure` values, refresh the variables UI, and route write failures
+   * into the Notifications.error sink — so this adds no new write path. Never
+   * surfaces a captured value (secure or not): toasts and the response marker
+   * carry variable names + scopes only.
+   *
+   * Also called by the future collection runner (Feature 02) between requests.
+   *
+   * @param {object} node    selected request node (carries `captures`)
+   * @param {object} detail  wurl:response-received detail (status/headers/body)
+   */
+  async function _applyCapturesForNode(node, detail) {
+    const rules = node?.captures;
+    if (!Array.isArray(rules) || rules.length === 0) return;
+    const status = detail?.status ?? 0;
+    if (status < 200 || status >= 300) return; // 2xx-only
+
+    const { writes, warnings } = applyCaptures(
+      { status, headers: detail?.headers ?? {}, body: detail?.body ?? "" },
+      rules,
+    );
+
+    // Group writes by scope so each scope is persisted once.
+    const byScope = { environment: [], collection: [], global: [] };
+    for (const w of writes) {
+      if (byScope[w.scope]) byScope[w.scope].push(w);
+    }
+
+    const applied = []; // { scope, name } — drives the success summary
+    let envTouched = false;
+
+    // Global variables
+    if (byScope.global.length) {
+      const variables = _mergeCaptureWrites(
+        currentEnvironments.globalVariables,
+        byScope.global,
+      );
+      await handleEnvVarsSave({ id: null, variables });
+      byScope.global.forEach((w) =>
+        applied.push({ scope: "global", name: w.name }),
+      );
+      envTouched = true;
+    }
+
+    // Active environment
+    if (byScope.environment.length) {
+      const activeId = currentEnvironments.activeEnvironmentId;
+      const activeEnv = currentEnvironments.environments.find(
+        (e) => e.id === activeId,
+      );
+      if (!activeId || !activeEnv) {
+        Notifications.warning(
+          `No active environment — skipped capturing ${_captureNameList(
+            byScope.environment,
+          )}.`,
+          { title: "Capture skipped" },
+        );
+      } else {
+        const variables = _mergeCaptureWrites(
+          activeEnv.variables,
+          byScope.environment,
+        );
+        await handleEnvVarsSave({ id: activeId, variables });
+        byScope.environment.forEach((w) =>
+          applied.push({ scope: "env", name: w.name }),
+        );
+        envTouched = true;
+      }
+    }
+
+    // Active collection
+    if (byScope.collection.length) {
+      const activeCollId = currentColls.activeCollectionId;
+      const activeColl = currentColls.collections.find(
+        (c) => c.id === activeCollId,
+      );
+      if (!activeCollId || !activeColl) {
+        Notifications.warning(
+          `No active collection — skipped capturing ${_captureNameList(
+            byScope.collection,
+          )}.`,
+          { title: "Capture skipped" },
+        );
+      } else {
+        const variables = _mergeCaptureWrites(
+          activeColl.variables,
+          byScope.collection,
+        );
+        await handleVarsSave({ envId: activeCollId, variables });
+        byScope.collection.forEach((w) =>
+          applied.push({ scope: "coll", name: w.name }),
+        );
+      }
+    }
+
+    // Reflect new env/global values in any open popup + the picker.
+    if (envTouched) {
+      environmentsPopup.update(currentEnvironments);
+      envPicker.load(currentEnvironments);
+    }
+
+    // Surface outcomes — names + scopes only, never values.
+    if (applied.length) {
+      const summary = applied.map((a) => `${a.scope}.${a.name}`).join(", ");
+      Notifications.info(
+        `Captured ${applied.length} variable${
+          applied.length === 1 ? "" : "s"
+        } → ${summary}`,
+      );
+      window.dispatchEvent(
+        new CustomEvent("wurl:captures-applied", {
+          detail: { count: applied.length },
+        }),
+      );
+    }
+    if (warnings.length) {
+      Notifications.warning(
+        `${warnings.length} capture${
+          warnings.length === 1 ? "" : "s"
+        } found no value: ${_captureNameList(warnings)}`,
+      );
+    }
+  }
+
+  /** Comma-join capture entry names for a message (names only — never values). */
+  function _captureNameList(entries) {
+    return entries.map((e) => e.name).join(", ");
+  }
+
+  /**
+   * Upsert capture writes (matched by name) into a canonical variable array,
+   * carrying each write's `secure` flag. Returns a fresh array; the input is not
+   * mutated.
+   */
+  function _mergeCaptureWrites(existing, writes) {
+    const list = normalizeVariables(existing);
+    for (const w of writes) {
+      const entry = { name: w.name, value: w.value, secure: !!w.secure };
+      const i = list.findIndex((v) => v.name === w.name);
+      if (i >= 0) list[i] = entry;
+      else list.push(entry);
+    }
+    return list;
   }
 
   // When the request editor mutates a field (method, url, params, body, auth, …),

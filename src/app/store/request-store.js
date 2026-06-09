@@ -53,6 +53,9 @@ const PATCHABLE_FIELDS = [
   "authAwsIam",
   "preRequestScript",
   "afterResponseScript",
+  // Post-response capture rules (Feature 03): extract values from a successful
+  // response and write them into a variable scope. See components/captures.js.
+  "captures",
 ];
 
 class RequestStore {

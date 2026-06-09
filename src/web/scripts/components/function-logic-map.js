@@ -1,31 +1,13 @@
 "use strict";
 
 import { invokeBackend } from "./function-backend.js";
+import { extractJsonPath } from "./json-path.js";
 
-// Simple dot-path jq evaluator for the common REST subset.
-// Handles: .field  .field.nested  .[0]  .
-// Delegates anything else to the backend.
+// Simple dot-path jq evaluator for the common REST subset (.field .nested .[0] .).
+// Shared with post-response captures via json-path.js; returns null for queries
+// outside the subset so the caller can delegate to the backend.
 function _simpleJq(jsonStr, query) {
-  if (!jsonStr.trim()) return "";
-  const q = query.trim();
-  if (q === ".") {
-    const data = JSON.parse(jsonStr);
-    return typeof data === "string" ? data : JSON.stringify(data);
-  }
-  if (!/^(\.[a-zA-Z_][a-zA-Z0-9_]*|\.\[\d+\])+$/.test(q)) {
-    return null; // not a simple query — caller falls back to backend
-  }
-  let val = JSON.parse(jsonStr);
-  for (const seg of q.match(/\.[a-zA-Z_][a-zA-Z0-9_]*|\.\[\d+\]/g) ?? []) {
-    if (seg.startsWith(".[")) {
-      val = val?.[parseInt(seg.slice(2, -1), 10)];
-    } else {
-      val = val?.[seg.slice(1)];
-    }
-  }
-  if (val === undefined || val === null) return "";
-  if (typeof val === "string") return val;
-  return JSON.stringify(val);
+  return extractJsonPath(jsonStr, query);
 }
 
 export const logicMap = {

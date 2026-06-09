@@ -1513,6 +1513,36 @@ html.show-method-icons .req-method-menu-item-label::before {
   grid-template-columns: 1fr 1fr 28px 28px;
 }
 
+/* Captures editor (Feature 03) — reuses the params grid scaffolding but with a
+   wider column set: handle | enabled | source | path | scope | name | secret | delete. */
+.captures-header-row.params-header-row,
+.captures-row.params-row {
+  grid-template-columns:
+    24px 28px minmax(78px, 0.7fr) minmax(110px, 1.3fr)
+    minmax(104px, 0.9fr) minmax(110px, 1.3fr) 56px 28px;
+}
+
+.captures-col-secure {
+  text-align: center;
+}
+
+.captures-secure {
+  justify-self: center;
+}
+
+.captures-source,
+.captures-scope {
+  cursor: pointer;
+}
+
+.captures-hint {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
 /* Drop phantom placeholder shown while dragging a param row */
 .params-drop-phantom {
   height: var(--control-h-sm);
@@ -2293,6 +2323,23 @@ html.show-method-icons .req-method-menu-item-label::before {
   color: var(--color-overlay-0);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
+}
+
+/* Post-response capture marker (Feature 03) — count only, never values. */
+.res-captured-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success);
+  background: var(--color-surface-1);
+  white-space: nowrap;
+}
+
+.res-captured-badge[hidden] {
+  display: none;
 }
 
 /* Tab strip */

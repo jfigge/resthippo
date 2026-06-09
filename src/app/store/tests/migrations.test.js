@@ -3,7 +3,7 @@
  */
 "use strict";
 
-const { test, describe, afterEach } = require("node:test");
+const { test, describe, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
@@ -87,10 +87,17 @@ describe("migrate — versioning", () => {
 });
 
 describe("migrate — forward chain order", () => {
-  // These tests temporarily append migrations to the shared MIGRATIONS array to
-  // exercise the runner; each restores the array so no other test is affected.
+  // These tests drive the runner against a synthetic MIGRATIONS list. Snapshot
+  // the real migrations, clear the array so each test starts from a known-empty
+  // chain, and restore the originals afterwards so neither these tests nor any
+  // other suite is perturbed by the production migration set.
+  let saved;
+  beforeEach(() => {
+    saved = MIGRATIONS.splice(0, MIGRATIONS.length);
+  });
   afterEach(() => {
     MIGRATIONS.length = 0;
+    MIGRATIONS.push(...saved);
   });
 
   test("runs every migration newer than the doc's version, in order", () => {

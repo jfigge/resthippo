@@ -151,7 +151,7 @@ test-export:
 
 test-components:
 	@echo "Running renderer component tests (variable resolution, request payload)..."
-	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js
+	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js $(WEB_DIR)/scripts/components/tests/captures.test.js
 	@echo "--------------------------------"
 
 test-import:

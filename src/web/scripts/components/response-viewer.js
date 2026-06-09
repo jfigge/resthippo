@@ -380,6 +380,12 @@ export class ResponseViewer {
       this.#showError(e.detail),
     );
 
+    // Post-response captures (Feature 03): show a small marker on the status bar
+    // summarising how many variables were captured. Count only — never values.
+    window.addEventListener("wurl:captures-applied", (e) =>
+      this.#showCapturedBadge(e.detail?.count ?? 0),
+    );
+
     // Update the timeline tab whenever history changes.
     // When isRequestSwitch is true the dispatch comes after the history load
     // is complete (sync from memory or after async storage fetch), so it is
@@ -538,6 +544,7 @@ export class ResponseViewer {
     bar.innerHTML = `
       <span class="res-status-badge" aria-label="HTTP status"></span>
       <span class="res-status-text"></span>
+      <span class="res-captured-badge" title="Variables captured from this response" hidden></span>
       <span class="res-meta">
         <span class="res-time"  title="Elapsed time"></span>
         <span class="res-size"  title="Response size"></span>
@@ -2895,6 +2902,30 @@ export class ResponseViewer {
     this.#statusBar.querySelector(".res-status-text").textContent = text;
     this.#statusBar.querySelector(".res-time").textContent = time;
     this.#statusBar.querySelector(".res-size").textContent = size;
+    // A fresh status render clears any captured marker from the previous
+    // response; the next wurl:captures-applied (fired after the response is
+    // shown) re-shows it if this response captured anything.
+    this.#hideCapturedBadge();
+  }
+
+  /** Show the post-response captured-variable marker (count only — never values). */
+  #showCapturedBadge(count) {
+    const badge = this.#statusBar?.querySelector(".res-captured-badge");
+    if (!badge) return;
+    if (!count || count < 1) {
+      this.#hideCapturedBadge();
+      return;
+    }
+    badge.textContent = `⤓ ${count} captured`;
+    badge.hidden = false;
+  }
+
+  #hideCapturedBadge() {
+    const badge = this.#statusBar?.querySelector(".res-captured-badge");
+    if (badge) {
+      badge.hidden = true;
+      badge.textContent = "";
+    }
   }
 
   #statusClass(code) {

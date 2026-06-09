@@ -27,7 +27,16 @@ const BASE_SCHEMA_VERSION = 1;
  *
  * @type {Array<(doc: object) => object>}
  */
-const MIGRATIONS = [];
+const MIGRATIONS = [
+  // v1 → v2: seed request documents with an empty `captures` array (Feature 03).
+  // `migrate()` runs on EVERY stored document (manifests, trees, env files, …),
+  // so this transform is type-guarded to touch request docs only — other shapes
+  // pass through untouched.
+  (doc) =>
+    doc && doc.type === "request" && !Array.isArray(doc.captures)
+      ? { ...doc, captures: [] }
+      : doc,
+];
 
 /** The version every freshly written / migrated document is stamped with. */
 const CURRENT_SCHEMA_VERSION = BASE_SCHEMA_VERSION + MIGRATIONS.length;

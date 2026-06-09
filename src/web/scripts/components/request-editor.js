@@ -52,6 +52,7 @@ import {
   textToHeaderRows,
   disposePillEditors,
 } from "./kv-editor-shared.js";
+import { wireDeleteConfirm } from "../delete-confirm.js";
 
 // Standard HTTP request headers offered in the header-name combo box.
 // Custom values are always accepted too (free-text input).
@@ -341,6 +342,7 @@ const TABS = [
   { id: "headers", label: "Headers" },
   { id: "body", label: "Body" },
   { id: "auth", label: "Auth" },
+  { id: "captures", label: "Captures" },
   { id: "notes", label: "Notes" },
 ];
 
@@ -351,6 +353,7 @@ const WS_TABS = [
   { id: "headers", label: "Headers" },
   { id: "message", label: "Message" },
   { id: "auth", label: "Auth" },
+  { id: "captures", label: "Captures" },
   { id: "notes", label: "Notes" },
 ];
 
@@ -438,6 +441,17 @@ export class RequestEditor {
   // Notes state
   #notes = "";
   #notesEl = null; // the <textarea> inside the Notes tab pane
+
+  // Captures state (Feature 03) — post-response rules that extract a value and
+  // write it into a variable scope. [{ id, enabled, source, path, target:{scope,name}, secure }]
+  #captures = [];
+  #capturesListEl = null;
+  #capturesDeleteAllCleanup = null;
+  #capturesDrag = new DragReorderController({
+    getItems: () => this.#captures,
+    render: () => this.#renderCapturesList(),
+    dispatch: () => this.#dispatchCapturesUpdated(),
+  });
 
   // Body state
   #bodyType = "no-body";
@@ -1163,6 +1177,7 @@ export class RequestEditor {
     if (tabId === "body") return this.#buildBodyEditor();
     if (tabId === "message") return this.#buildMessageEditor();
     if (tabId === "auth") return this.#auth.element;
+    if (tabId === "captures") return this.#buildCapturesEditor();
     if (tabId === "notes") return this.#buildNotesEditor();
     return document.createElement("div");
   }
@@ -1194,6 +1209,292 @@ export class RequestEditor {
     window.dispatchEvent(
       new CustomEvent("wurl:request-updated", {
         detail: { id: this.#currentNodeId, notes: this.#notes },
+        bubbles: true,
+      }),
+    );
+  }
+
+  // ── Captures editor (Feature 03) ───────────────────────────────────────────
+  // Post-response rules: after a successful (2xx) response, app.js extracts a
+  // value (status / header / body dot-path) and writes it into the chosen
+  // variable scope. This tab edits the rules; execution lives in app.js.
+  #buildCapturesEditor() {
+    const container = document.createElement("div");
+    container.className = "params-editor captures-editor";
+
+    // Toolbar — Add + Delete All (mirrors the KV editors' toolbar).
+    const toolbar = document.createElement("div");
+    toolbar.className = "params-toolbar";
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "icon-btn params-toolbar-btn";
+    addBtn.title = "Add capture";
+    addBtn.setAttribute("aria-label", "Add capture");
+    addBtn.innerHTML = `<span class="icon">${icon("add", { size: 15 })}</span>`;
+    addBtn.addEventListener("click", () => this.#addCapture());
+
+    const delAllBtn = document.createElement("button");
+    delAllBtn.className =
+      "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
+    delAllBtn.title = "Delete all captures";
+    delAllBtn.setAttribute("aria-label", "Delete all captures");
+    delAllBtn.textContent = "Delete All";
+    this.#capturesDeleteAllCleanup = this.#wireDeleteAllConfirm(
+      delAllBtn,
+      () => this.#captures.length,
+      () => this.#deleteAllCaptures(),
+    );
+
+    toolbar.appendChild(addBtn);
+    toolbar.appendChild(delAllBtn);
+    container.appendChild(toolbar);
+
+    // Explainer — static, developer-authored copy.
+    const hint = document.createElement("div");
+    hint.className = "captures-hint";
+    hint.textContent =
+      "After a successful (2xx) response, extract a value and write it into a " +
+      "variable scope so later requests can use it as {{name}}.";
+    container.appendChild(hint);
+
+    // Column headers + scrollable list.
+    const wrap = document.createElement("div");
+    wrap.style.cssText =
+      "display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden";
+
+    const colHeaders = document.createElement("div");
+    colHeaders.className = "params-header-row captures-header-row";
+    colHeaders.innerHTML = `
+      <span class="params-col-handle"></span>
+      <span class="params-col-enabled"></span>
+      <span>Source</span>
+      <span>Path / Name</span>
+      <span>Scope</span>
+      <span>Variable</span>
+      <span class="captures-col-secure">Secret</span>
+      <span class="params-col-delete"></span>`;
+    wrap.appendChild(colHeaders);
+
+    const list = document.createElement("div");
+    list.className = "params-list captures-list";
+    this.#capturesDrag.attach(list);
+    this.#capturesListEl = list;
+    wrap.appendChild(list);
+
+    container.appendChild(wrap);
+
+    this.#renderCapturesList();
+    return container;
+  }
+
+  #renderCapturesList() {
+    if (!this.#capturesListEl) return;
+    this.#capturesListEl.innerHTML = "";
+
+    if (this.#captures.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "params-empty";
+      empty.textContent = "No captures — click  +  to add one.";
+      this.#capturesListEl.appendChild(empty);
+      return;
+    }
+
+    this.#captures.forEach((rule, index) => {
+      this.#capturesListEl.appendChild(this.#buildCaptureRow(rule, index));
+    });
+  }
+
+  #buildCaptureRow(rule, index) {
+    const row = document.createElement("div");
+    row.className = "params-row captures-row";
+    row.dataset.id = rule.id;
+    row.dataset.index = String(index);
+    row.draggable = true;
+    if (rule.enabled === false) row.classList.add("params-row--disabled");
+
+    // Drag handle
+    const handle = document.createElement("span");
+    handle.className = "params-drag-handle";
+    handle.setAttribute("aria-hidden", "true");
+    handle.title = "Drag to reorder";
+    handle.innerHTML = icon("drag", { width: 10, height: 16 });
+
+    // Enabled checkbox
+    const enabled = document.createElement("input");
+    enabled.type = "checkbox";
+    enabled.className = "params-checkbox";
+    enabled.checked = rule.enabled !== false;
+    enabled.setAttribute("aria-label", "Enable capture");
+    enabled.title = enabled.checked ? "Disable capture" : "Enable capture";
+    enabled.addEventListener("change", () => {
+      rule.enabled = enabled.checked;
+      row.classList.toggle("params-row--disabled", !enabled.checked);
+      enabled.title = enabled.checked ? "Disable capture" : "Enable capture";
+      this.#dispatchCapturesUpdated();
+    });
+
+    // Source select (Body / Header / Status)
+    const source = this.#buildCaptureSelect(
+      "captures-source",
+      [
+        { value: "body", label: "Body" },
+        { value: "header", label: "Header" },
+        { value: "status", label: "Status" },
+      ],
+      rule.source ?? "body",
+      "Capture source",
+    );
+
+    // Path / name input — meaning + placeholder depend on the source.
+    const path = document.createElement("input");
+    path.type = "text";
+    path.className = "params-input captures-path";
+    path.value = rule.path ?? "";
+    path.spellcheck = false;
+    path.setAttribute("aria-label", "Capture path or header name");
+    const syncPath = () => {
+      const s = rule.source ?? "body";
+      path.disabled = s === "status";
+      path.placeholder =
+        s === "body" ? ".access_token" : s === "header" ? "Header-Name" : "—";
+    };
+    syncPath();
+    path.addEventListener("input", () => {
+      rule.path = path.value;
+      this.#dispatchCapturesUpdated();
+    });
+    source.addEventListener("change", () => {
+      rule.source = source.value;
+      syncPath();
+      this.#dispatchCapturesUpdated();
+    });
+
+    // Target scope select
+    const scope = this.#buildCaptureSelect(
+      "captures-scope",
+      [
+        { value: "environment", label: "Environment" },
+        { value: "collection", label: "Collection" },
+        { value: "global", label: "Global" },
+      ],
+      rule.target?.scope ?? "environment",
+      "Target variable scope",
+    );
+    scope.addEventListener("change", () => {
+      rule.target = { ...rule.target, scope: scope.value };
+      this.#dispatchCapturesUpdated();
+    });
+
+    // Target variable name
+    const name = document.createElement("input");
+    name.type = "text";
+    name.className = "params-input captures-name";
+    name.value = rule.target?.name ?? "";
+    name.placeholder = "variableName";
+    name.spellcheck = false;
+    name.setAttribute("aria-label", "Target variable name");
+    name.addEventListener("input", () => {
+      rule.target = { ...rule.target, name: name.value };
+      this.#dispatchCapturesUpdated();
+    });
+
+    // Secret toggle — a padlock button matching the variable dialogs (open
+    // padlock = plaintext, closed = encrypted at rest). A distinct control from
+    // the enable checkbox so the two aren't confused.
+    const secure = document.createElement("button");
+    secure.type = "button";
+    secure.className = "icon-btn params-secure-btn captures-secure";
+    const applySecure = () => {
+      secure.classList.toggle("params-secure-btn--active", !!rule.secure);
+      secure.innerHTML = icon(rule.secure ? "lock" : "lockOpen", { size: 14 });
+      const label = rule.secure
+        ? "Secret (encrypted at rest)"
+        : "Mark captured variable secret";
+      secure.title = label;
+      secure.setAttribute("aria-label", label);
+      secure.setAttribute("aria-pressed", String(!!rule.secure));
+    };
+    applySecure();
+    secure.addEventListener("click", () => {
+      rule.secure = !rule.secure;
+      applySecure();
+      this.#dispatchCapturesUpdated();
+    });
+
+    // Delete button (two-click confirm, shared behaviour)
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "icon-btn params-delete-btn";
+    deleteBtn.title = "Delete capture";
+    deleteBtn.setAttribute("aria-label", "Delete capture");
+    wireDeleteConfirm(deleteBtn, () => this.#removeCapture(rule.id));
+
+    this.#capturesDrag.wireRow(row, rule.id);
+
+    row.appendChild(handle);
+    row.appendChild(enabled);
+    row.appendChild(source);
+    row.appendChild(path);
+    row.appendChild(scope);
+    row.appendChild(name);
+    row.appendChild(secure);
+    row.appendChild(deleteBtn);
+    return row;
+  }
+
+  /** Build a styled <select> for a capture row (no user data in option text). */
+  #buildCaptureSelect(className, options, value, ariaLabel) {
+    const sel = document.createElement("select");
+    sel.className = `params-input ${className}`;
+    sel.setAttribute("aria-label", ariaLabel);
+    for (const opt of options) {
+      const o = document.createElement("option");
+      o.value = opt.value;
+      o.textContent = opt.label;
+      sel.appendChild(o);
+    }
+    sel.value = value;
+    return sel;
+  }
+
+  #addCapture() {
+    this.#captures.push(this.#normalizeCaptureRule({}));
+    this.#renderCapturesList();
+    this.#dispatchCapturesUpdated();
+  }
+
+  #deleteAllCaptures() {
+    if (this.#captures.length === 0) return;
+    this.#captures = [];
+    this.#renderCapturesList();
+    this.#dispatchCapturesUpdated();
+  }
+
+  #removeCapture(id) {
+    this.#captures = this.#captures.filter((c) => c.id !== id);
+    this.#renderCapturesList();
+    this.#dispatchCapturesUpdated();
+  }
+
+  /** Fill a stored/blank capture rule with defaults + a stable id. */
+  #normalizeCaptureRule(r) {
+    return {
+      id: r.id ?? crypto.randomUUID(),
+      enabled: r.enabled !== false,
+      source: r.source ?? "body",
+      path: r.path ?? "",
+      target: {
+        scope: r.target?.scope ?? "environment",
+        name: r.target?.name ?? "",
+      },
+      secure: !!r.secure,
+    };
+  }
+
+  #dispatchCapturesUpdated() {
+    if (!this.#currentNodeId) return;
+    window.dispatchEvent(
+      new CustomEvent("wurl:request-updated", {
+        detail: { id: this.#currentNodeId, captures: this.#captures },
         bubbles: true,
       }),
     );
@@ -4021,6 +4322,7 @@ export class RequestEditor {
     this.#paramsDeleteAllCleanup?.();
     this.#headersDeleteAllCleanup?.();
     this.#bodyFormDeleteAllCleanup?.();
+    this.#capturesDeleteAllCleanup?.();
 
     // Protocol — rebuild the url bar + tabs when switching between HTTP and
     // WebSocket so the right controls (method vs WS, Body vs Message) render.
@@ -4158,6 +4460,12 @@ export class RequestEditor {
     // Notes
     this.#notes = node.notes ?? "";
     if (this.#notesEl) this.#notesEl.value = this.#notes;
+
+    // Captures (Feature 03)
+    this.#captures = Array.isArray(node.captures)
+      ? node.captures.map((r) => this.#normalizeCaptureRule(r))
+      : [];
+    this.#renderCapturesList();
   }
 
   /**
