@@ -80,6 +80,15 @@ const ICONS = {
       '<path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>' +
       '<polyline points="13 2 13 9 20 9"/>',
   },
+  // "{ }" braces — marks a WebSocket message as JSON. Drawn as a filled glyph
+  // like `text` so the two states of the format toggle read as a matched pair.
+  json: {
+    inner:
+      '<text x="12" y="12" text-anchor="middle" dominant-baseline="central"' +
+      ' font-size="24" font-weight="800">{ }</text>',
+    fill: "currentColor",
+    stroke: "none",
+  },
   // Open eye — the "reveal" affordance on a masked secret field.
   eye: {
     inner:

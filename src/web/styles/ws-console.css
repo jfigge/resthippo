@@ -214,24 +214,19 @@
   flex: 0 0 auto;
 }
 
+/* Text/JSON message-format toggle — a single quiet icon button (mirrors the
+   form-data type toggle): it swaps its glyph ("Aa" ⇄ "{ }") to show the
+   current format and flips it on click. Muted, brightening on hover/focus. */
 .ws-composer-format {
-  display: inline-flex;
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
+  width: 28px;
+  height: var(--control-h-sm);
+  flex: 0 0 auto;
+  color: var(--color-overlay-0);
 }
-.ws-composer-format button {
-  border: 0;
-  background: var(--color-surface-1);
-  color: var(--color-subtext);
-  font-size: var(--font-size-xs);
-  padding: var(--space-1) var(--space-2);
-  cursor: pointer;
-}
-.ws-composer-format button[aria-pressed="true"] {
-  background: var(--color-surface-2);
+.ws-composer-format:hover,
+.ws-composer-format:focus {
   color: var(--color-text);
-  font-weight: var(--font-weight-semibold);
+  outline: none;
 }
 
 .ws-composer-subproto {

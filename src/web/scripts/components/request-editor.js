@@ -914,33 +914,28 @@ export class RequestEditor {
     const bar = document.createElement("div");
     bar.className = "ws-composer-bar";
 
-    // Text / JSON format toggle.
-    const fmt = document.createElement("div");
-    fmt.className = "ws-composer-format";
-    fmt.setAttribute("role", "group");
-    fmt.setAttribute("aria-label", "Message format");
-    const fmtBtns = {};
-    for (const f of ["text", "json"]) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = f === "text" ? "Text" : "JSON";
-      b.setAttribute("aria-pressed", String(this.#wsMessageFormat === f));
-      b.addEventListener("click", () => {
-        this.#wsMessageFormat = f;
-        this.#syncWsFormatButtons?.();
-        this.#dispatchWsFieldUpdate({ wsMessageFormat: f });
-      });
-      fmtBtns[f] = b;
-      fmt.appendChild(b);
-    }
+    // Text / JSON format toggle — a single icon button (mirroring the
+    // form-data type toggle) whose glyph shows the CURRENT format and flips
+    // to the other on click. "Aa" = plain text, "{ }" = JSON.
+    const fmt = document.createElement("button");
+    fmt.type = "button";
+    fmt.className = "icon-btn ws-composer-format";
     this.#syncWsFormatButtons = () => {
-      for (const k of Object.keys(fmtBtns)) {
-        fmtBtns[k].setAttribute(
-          "aria-pressed",
-          String(k === this.#wsMessageFormat),
-        );
-      }
+      const isJson = this.#wsMessageFormat === "json";
+      fmt.innerHTML = icon(isJson ? "json" : "text", { size: 14 });
+      const label = isJson
+        ? "JSON message — switch to text"
+        : "Text message — switch to JSON";
+      fmt.title = label;
+      fmt.setAttribute("aria-label", label);
     };
+    fmt.addEventListener("click", () => {
+      this.#wsMessageFormat =
+        this.#wsMessageFormat === "json" ? "text" : "json";
+      this.#syncWsFormatButtons();
+      this.#dispatchWsFieldUpdate({ wsMessageFormat: this.#wsMessageFormat });
+    });
+    this.#syncWsFormatButtons();
 
     const subproto = document.createElement("input");
     subproto.type = "text";
