@@ -257,11 +257,8 @@
   cursor: not-allowed;
 }
 
-.ws-composer-textarea {
-  flex: 1 1 auto;
-  min-height: 0;
-  resize: none;
-}
+/* The message body is a PillCodeEditor (.pce--embedded); it fills this flex
+   column via its own embedded sizing — see components.css. */
 
 .ws-composer-hint {
   flex: 0 0 auto;

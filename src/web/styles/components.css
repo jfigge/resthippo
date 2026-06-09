@@ -876,179 +876,6 @@ html.show-method-icons .req-method-menu-item-label::before {
 
 .body-validate-badge {
   padding-left: var(--space-4);
-}
-
-/* ── Syntax-highlighting overlay for JSON / YAML / XML body editors ─────── */
-
-/*
- * Wrapper that stacks a <pre> highlight layer behind the <textarea>.
- * It takes the place of the textarea in the flex column (flex:1 fills height).
- */
-.body-editor-wrap {
-  position: relative;
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-}
-
-/*
- * The <pre><code> highlight layer — sits behind the textarea, never receives
- * pointer events, and is kept pixel-aligned by sharing the same font metrics.
- */
-.body-editor-pre {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  padding: var(--space-4) var(--space-5);
-  font-family: var(--font-mono), monospace;
-  font-size: var(--font-size-sm);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-all;
-  overflow: hidden; /* scroll is driven by the textarea */
-  pointer-events: none;
-  user-select: none;
-  box-sizing: border-box;
-  background: var(--color-base);
-  color: var(--color-text); /* fallback for any un-tokenised text */
-}
-
-/*
- * Transparent textarea — sits on top of the pre, handles all editing.
- * caret-color keeps the cursor visible even though the text is invisible.
- */
-.body-text-editor--overlay {
-  flex: 1;
-  position: relative;
-  z-index: 1;
-  color: transparent;
-  caret-color: var(--color-text);
-  background: transparent;
-  overflow: auto;
-}
-
-/* ── Code folding (GraphQL Query / Variables editors) ───────────────────── */
-/* These editors never wrap (one logical line per visual row) — long lines scroll
-   horizontally. No-wrap is kept even when folding is off so the validation
-   underlines stay aligned. */
-.body-editor-wrap--folding .body-editor-pre,
-.body-editor-wrap--folding .body-text-editor--overlay {
-  white-space: pre;
-  word-break: normal;
-  overflow-wrap: normal;
-}
-
-/* When folding is ON, pad the text clear of the gutter and show the gutter. */
-.body-editor-wrap--fold-on .body-editor-pre,
-.body-editor-wrap--fold-on .body-text-editor--overlay {
-  padding-left: calc(var(--space-6) + var(--space-3));
-}
-
-.body-fold-gutter {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: calc(var(--space-6) + var(--space-3));
-  z-index: 2; /* above the textarea so the carets are clickable */
-  overflow: hidden;
-  pointer-events: none; /* clicks fall through to the textarea … */
-  background: var(--color-base); /* masks code scrolled under it */
-  user-select: none;
-  display: none; /* shown only when folding is enabled */
-}
-.body-editor-wrap--fold-on .body-fold-gutter {
-  display: block;
-}
-
-/* Translated by JS to track the textarea's vertical scroll. */
-.body-fold-gutter-inner {
-  padding-top: var(--space-4); /* match the editor's top padding */
-  will-change: transform;
-}
-
-/* One row per visible line; height matches the editor line box (line-height 1.6
-   × font-size-sm) so carets stay aligned with their code. */
-.body-fold-row {
-  height: calc(var(--font-size-sm) * 1.6);
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: var(--space-2);
-}
-
-.body-fold-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1em;
-  height: 1em;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--color-overlay-0);
-  cursor: pointer;
-  pointer-events: auto; /* … except the carets themselves */
-  transition: transform var(--transition-fast);
-}
-
-.body-fold-toggle:hover {
-  color: var(--color-text);
-}
-
-.body-fold-toggle svg {
-  width: 8px;
-  height: 6px;
-}
-
-/* Collapsed: rotate the down-caret to point right. */
-.body-fold-toggle--collapsed {
-  transform: rotate(-90deg);
-}
-
-/* Elision marker appended to a collapsed opener line in the highlight layer. */
-.body-fold-ellipsis {
-  color: var(--color-overlay-0);
-}
-
-/* ── GraphQL query validation markers ───────────────────────────────────── */
-/* Underline layer: sits above the highlight <pre> but below the (transparent)
-   textarea, so the caret/selection stay on top; never takes pointer events. */
-.body-gql-markers {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.body-gql-markers-inner {
-  position: absolute;
-  inset: 0;
-  will-change: transform;
-}
-
-/* Red wavy underline under an offending token. The wave is an alpha mask so the
-   colour stays a theme token; if mask is unsupported it degrades to a thin bar. */
-.body-gql-underline {
-  position: absolute;
-  height: 3px;
-  background-color: var(--color-error);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='6'%20height='3'%3E%3Cpath%20d='M0%202%20Q1.5%200%203%202%20T6%202'%20stroke='black'%20fill='none'%20stroke-width='1'/%3E%3C/svg%3E")
-    repeat-x bottom left / 6px 3px;
-  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='6'%20height='3'%3E%3Cpath%20d='M0%202%20Q1.5%200%203%202%20T6%202'%20stroke='black'%20fill='none'%20stroke-width='1'/%3E%3C/svg%3E")
-    repeat-x bottom left / 6px 3px;
-}
-
-/* Gutter flag on a line that carries a validation error (hover for the message);
-   coexists with a fold caret on the same row. */
-.body-fold-row--error {
-  box-shadow: inset 2px 0 0 var(--color-error);
-  pointer-events: auto;
-  cursor: help;
-}
-
-.body-validate-badge {
   font-size: var(--font-size-xs);
   font-weight: 400;
 }
@@ -1135,12 +962,6 @@ html.show-method-icons .req-method-menu-item-label::before {
   background: var(--color-surface-1);
   border-bottom: 1px solid var(--color-surface-2);
 }
-
-.body-graphql-pane .body-editor-wrap {
-  flex: 1;
-  min-height: 0;
-}
-
 /* GraphQL introspection status icon in the body type bar — sits between the
    layout toggle and the "Fetch schema" button. Empty until a fetch runs, then a
    green tick on success or a red X on failure. The glyph inherits `color` via
@@ -1171,6 +992,151 @@ html.show-method-icons .req-method-menu-item-label::before {
 }
 .body-graphql-status[data-state="error"] {
   color: var(--color-error);
+}
+
+/* ── PillCodeEditor (multi-line {{pill}} code editor) ────────────────────────
+   One contenteditable document; lines are `.pce-line` blocks and {{variable}} /
+   function tokens are atomic pill islands. Used for the JSON/YAML/XML/plain body,
+   the GraphQL Query/Variables panes, and the WebSocket message composer. See
+   src/web/scripts/components/pill-code-editor.js. */
+.pce {
+  position: relative;
+  max-height: 60vh;
+  padding: 8px 0;
+  overflow: auto;
+  background: var(--color-base);
+  border: 1px solid var(--color-surface-1);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 20px;
+}
+
+/* Embedded in a request-editor pane: fill the flex column rather than carry the
+   base `.pce` fixed max-height + standalone border. */
+.pce--embedded {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+}
+
+/* Positioned wrapper so the gutter can be absolutely placed against each line's
+   measured offsetTop and still scroll with the document. */
+.pce-inner {
+  position: relative;
+  min-width: min-content;
+}
+
+/* Gutter width and the matching .pce-doc margin-left are MEASURED and set by
+   the editor (so each column's space is reclaimed exactly when its feature is
+   off). Each column uses display:none when inactive so the cell shrinks. */
+.pce-gutter {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  user-select: none;
+  pointer-events: none;
+}
+.pce-gutter-cell {
+  position: absolute;
+  display: flex;
+  align-items: baseline;
+  height: 20px;
+}
+.pce-gutter-cell--hidden {
+  display: none;
+}
+.pce-num {
+  display: none; /* off → its column collapses to zero width */
+  min-width: 2.5em;
+  padding-right: 4px;
+  text-align: right;
+  color: var(--color-overlay-0);
+}
+.pce--nums .pce-num {
+  display: block;
+}
+.pce-fold {
+  display: none; /* off → its column collapses to zero width */
+  width: 1.2em;
+  text-align: center;
+  color: var(--color-subtext);
+  visibility: hidden;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.pce--fold .pce-fold {
+  display: block;
+}
+.pce--fold .pce-fold--opener {
+  visibility: visible;
+}
+
+/* The single editing host. `pre` preserves leading indentation and runs of
+   spaces; wrap mode swaps only the line END behaviour (roll over vs. roll off). */
+.pce-doc {
+  outline: none;
+  white-space: pre;
+  padding: 0 8px;
+  caret-color: var(--color-text);
+  /* margin-left is set by the editor to the measured gutter width */
+}
+.pce--wrap .pce-doc {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pce-line {
+  min-height: 20px;
+}
+.pce-line--hidden {
+  display: none;
+}
+
+/* Pills are atomic: kill the native per-character selection paint inside a pill
+   so it never looks "half-selected"; the whole-pill highlight is the
+   .variable-pill--selected class toggled by the editor. */
+.pce-doc .variable-pill::selection,
+.pce-doc .variable-pill ::selection {
+  background: transparent;
+}
+
+/* Read-only: still selectable/copyable, but no caret and pills aren't clickable. */
+.pce--readonly .pce-doc {
+  caret-color: transparent;
+}
+.pce--readonly .variable-pill {
+  cursor: default;
+}
+
+/* Rich error overlay: wavy underlines positioned over the document. The layer
+   itself never blocks editing (pointer-events:none); only the squiggle strips
+   opt back in so the error message shows as a native tooltip on hover. */
+.pce-markers {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.pce-error-squiggle {
+  position: absolute;
+  height: 4px;
+  pointer-events: auto;
+  cursor: help;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='4'%3E%3Cpath d='M0 3 Q1.5 0 3 3 T6 3' fill='none' stroke='%23f38ba8' stroke-width='1'/%3E%3C/svg%3E")
+    repeat-x left center;
+}
+
+/* Empty-document placeholder. */
+.pce-doc[data-empty="true"]::before {
+  content: attr(data-placeholder);
+  color: var(--color-overlay-0);
+  font-style: italic;
+  pointer-events: none;
 }
 
 /* Read-only GraphQL schema viewer (opened from the loaded badge's menu). */
@@ -1317,42 +1283,6 @@ html.show-method-icons .req-method-menu-item-label::before {
   color: var(--color-error);
   border-color: var(--color-error);
   background-color: color-mix(in srgb, var(--color-error) 10%, transparent);
-}
-
-/* ── Prettify button (sits in the type-selector bar, left side) ──────────── */
-.body-prettify-btn {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-4);
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  margin-left: auto;
-  transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast),
-    color var(--transition-fast);
-}
-
-.body-prettify-btn:hover {
-  background-color: var(--color-surface-2);
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-}
-
-.body-prettify-btn:active {
-  opacity: 0.8;
-}
-
-.body-prettify-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  pointer-events: none;
 }
 
 /* Body-type selector in the toolbar */

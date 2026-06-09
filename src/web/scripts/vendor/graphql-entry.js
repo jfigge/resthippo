@@ -4,6 +4,7 @@
  * Re-exports the minimal slice of graphql-js needed to fully validate a query
  * in the editor:
  *   - parse              syntax check (throws GraphQLError on malformed input)
+ *   - print              format a parsed query AST back to canonical text
  *   - validate           schema validation of a parsed document
  *   - buildClientSchema  turn an introspection result into a GraphQLSchema
  *   - printSchema        render a GraphQLSchema back to SDL (view / download)
@@ -18,6 +19,7 @@
 
 export {
   parse,
+  print,
   validate,
   buildClientSchema,
   printSchema,

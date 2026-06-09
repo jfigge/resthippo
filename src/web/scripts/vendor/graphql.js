@@ -13201,4 +13201,4 @@ function printDescription(def, indentation = "", firstInBlock = true) {
     indentation && !firstInBlock ? "\n" + indentation : indentation;
   return prefix + blockString.replace(/\n/g, "\n" + indentation) + "\n";
 }
-export { GraphQLError, buildClientSchema, parse, printSchema, validate };
+export { GraphQLError, buildClientSchema, parse, print, printSchema, validate };

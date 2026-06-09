@@ -261,6 +261,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  // Undo / Redo routed from the app Edit menu (main → preload → wurl:edit-action).
+  // A focused multi-line code editor (.pce-doc) runs its own snapshot undo/redo
+  // and handles this itself; for plain inputs / textareas / other editables, fall
+  // back to the browser's native editing command.
+  window.addEventListener("wurl:edit-action", (e) => {
+    const action = e.detail?.action;
+    if (action !== "undo" && action !== "redo") return;
+    const el = document.activeElement;
+    if (el?.closest?.(".pce-doc")) return; // PillCodeEditor handles its own
+    if (
+      el &&
+      (el.tagName === "INPUT" ||
+        el.tagName === "TEXTAREA" ||
+        el.isContentEditable)
+    ) {
+      document.execCommand(action);
+    }
+  });
+
   // Set --font-ui to the OS-native context-menu typeface so custom menus
   // feel native. Each major OS uses a distinct system font for its menus.
   const PLATFORM_UI_FONTS = {

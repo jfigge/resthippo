@@ -5,13 +5,10 @@
 "use strict";
 
 import {
-  parse as parseYaml,
-  stringify as stringifyYaml,
-} from "../vendor/yaml.js";
-import {
   VariablePillEditor,
   getPickerDebounceMs,
 } from "./variable-pill-editor.js";
+import { PillCodeEditor } from "./pill-code-editor.js";
 import {
   resolveStringAsync,
   collectTemplateVariables,
@@ -22,7 +19,6 @@ import {
 import { PopupManager } from "../popup-manager.js";
 import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
-import Prism from "../vendor/prism.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
 import {
   buildRequestPayload,
@@ -42,7 +38,6 @@ import {
   introspectionToSDL,
 } from "./graphql-validate.js";
 import { GraphQLSchemaViewer } from "./graphql-schema-viewer.js";
-import { caretCoordinates } from "../utils/caret-coords.js";
 import { RequestAuthEditor } from "./request-auth-editor.js";
 import {
   DragReorderController,
@@ -461,11 +456,21 @@ export class RequestEditor {
   #graphqlIntrospection = null; // raw introspection ({ __schema }) for graphql-js validation
   #revalidateGqlQuery = null; // fn() to re-run query validation, or null when not in GraphQL mode
   #graphqlFetching = false; // guards against concurrent "Fetch schema" clicks
-  // Code folding in the GraphQL editors — a global, persisted preference toggled
-  // from Appearance settings or each editor's right-click menu. #gqlEditors holds
-  // the live Query/Variables editor handles so a toggle applies without a rebuild.
-  #editorFolding = true;
-  #gqlEditors = null;
+  // PillCodeEditor view preferences — global, persisted (via
+  // wurl:editor-setting-changed), and shared by every code editor (body text,
+  // GraphQL Query/Variables, WebSocket message). Each editor's right-click menu
+  // toggles one of these and fires `pce:setting-change`; #makeCodeEditor mirrors
+  // the change onto all live editors and persists it. `folding` keeps the legacy
+  // `editorFolding` settings key for backward compatibility.
+  #editorView = {
+    wrap: false,
+    lineNumbers: true,
+    folding: true,
+    highlight: true,
+  };
+  // Live PillCodeEditor instances, so a view-setting change applies to all of
+  // them at once and they can be torn down (destroy()) on re-render.
+  #codeEditors = new Set();
   // GraphQL Query/Variables split layout — session-level UI prefs (not persisted,
   // not part of the request). #bodyGraphqlFlow is the container flex-direction:
   // "column" = stacked (horizontal splitter, drag ↕), "row" = side by side
@@ -504,7 +509,7 @@ export class RequestEditor {
   #wsMessageFormat = "text"; // "text" | "json" (persisted)
   #wsSubprotocols = ""; // comma-separated handshake subprotocols (persisted)
   #wsState = "idle"; // idle|connecting|open|closing|closed|error (session-only)
-  #wsMessageEl = null; // composer <textarea>
+  #wsMessageEl = null; // composer PillCodeEditor instance
   #wsSubprotoEl = null; // subprotocols <input>
   #wsSendBtn = null; // composer Send button
   #wsConnectBtn = null; // url-bar Connect/Disconnect button
@@ -890,6 +895,9 @@ export class RequestEditor {
    */
   #rebuildLayout() {
     this.#renderedProtocol = this.#protocol;
+    // Tear down PillCodeEditors (body text / GraphQL / WS message) before the
+    // DOM is wiped, so their document + ResizeObserver listeners are removed.
+    this.#disposeCodeEditors();
     // Drop stale element refs the render methods will reassign.
     this.#methodSel = this.#methodSelLabel = this.#sendBtn = null;
     this.#wsConnectBtn = this.#wsSendBtn = null;
@@ -933,6 +941,10 @@ export class RequestEditor {
       this.#wsMessageFormat =
         this.#wsMessageFormat === "json" ? "text" : "json";
       this.#syncWsFormatButtons();
+      // Re-language the editor so highlighting matches the chosen format.
+      this.#wsMessageEl?.setLanguage(
+        this.#wsMessageFormat === "json" ? "json" : "text",
+      );
       this.#dispatchWsFieldUpdate({ wsMessageFormat: this.#wsMessageFormat });
     });
     this.#syncWsFormatButtons();
@@ -960,29 +972,37 @@ export class RequestEditor {
 
     bar.append(fmt, subproto, sendBtn);
 
-    const ta = document.createElement("textarea");
-    ta.className = "body-text-editor ws-composer-textarea";
-    ta.placeholder = "Message to send… (supports {{variables}})";
-    ta.spellcheck = false;
-    ta.value = this.#wsMessage;
-    ta.setAttribute("aria-label", "WebSocket message");
-    ta.addEventListener("input", () => {
-      this.#wsMessage = ta.value;
-      this.#dispatchWsFieldUpdate({ wsMessage: ta.value });
+    // The message body is a PillCodeEditor (text or JSON, per the format toggle).
+    // Rich (inline) errors are disabled; the composer has no validity badge.
+    const editor = this.#makeCodeEditor({
+      language: this.#wsMessageFormat === "json" ? "json" : "text",
+      richErrors: false,
+      value: this.#wsMessage,
+      placeholder: "Message to send… (supports {{variables}})",
+      onInput: (v) => {
+        this.#wsMessage = v;
+        this.#dispatchWsFieldUpdate({ wsMessage: v });
+      },
     });
-    ta.addEventListener("keydown", (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-        e.preventDefault();
-        this.#sendWebSocketMessage();
-      }
-    });
-    this.#wsMessageEl = ta;
+    editor.element.classList.add("ws-composer-editor");
+    // ⌘/Ctrl+Enter sends; capture so we pre-empt the editor's newline insertion.
+    editor.element.addEventListener(
+      "keydown",
+      (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+          e.preventDefault();
+          this.#sendWebSocketMessage();
+        }
+      },
+      true,
+    );
+    this.#wsMessageEl = editor;
 
     const hint = document.createElement("div");
     hint.className = "ws-composer-hint";
     hint.textContent = "Connect first, then send. ⌘/Ctrl+Enter to send.";
 
-    container.append(bar, ta, hint);
+    container.append(bar, editor.element, hint);
     return container;
   }
 
@@ -1050,7 +1070,9 @@ export class RequestEditor {
   /** Resolve {{var}} tokens in the composed message and send it. */
   async #sendWebSocketMessage() {
     if (this.#wsState !== "open") return;
-    const raw = this.#wsMessageEl ? this.#wsMessageEl.value : this.#wsMessage;
+    const raw = this.#wsMessageEl
+      ? this.#wsMessageEl.getValue()
+      : this.#wsMessage;
     const data = await resolveStringAsync(raw ?? "", this.#variableContext);
     window.dispatchEvent(
       new CustomEvent("wurl:ws-send", { detail: { data }, bubbles: true }),
@@ -1294,8 +1316,11 @@ export class RequestEditor {
     if (!el) return;
     el.innerHTML = "";
     this.#disposePillEditors(this.#bodyFormPillEditors);
-    // Remove any Prettify button / validation badge left over from a previous text type
-    this.#bodyTypeBarEl?.querySelector(".body-prettify-btn")?.remove();
+    // Tear down any PillCodeEditors from the previous body type (removes their
+    // document selectionchange + ResizeObserver listeners). The WebSocket
+    // message editor lives in a different tab/protocol and is never present here.
+    this.#disposeCodeEditors();
+    // Remove any validation badge left over from a previous text type
     this.#bodyTypeBarEl?.querySelector(".body-validate-badge")?.remove();
     // Remove any GraphQL fetch-schema button / status badge from a prior render,
     // dismiss a stale query-autocomplete dropdown, and stop observing the old
@@ -1309,7 +1334,6 @@ export class RequestEditor {
     this.#gqlSplitter = null;
     this.#gqlVarsPane = null;
     this.#revalidateGqlQuery = null; // reassigned by #renderBodyGraphql when applicable
-    this.#gqlEditors = null; // reassigned by #renderBodyGraphql when applicable
     _gqlAc.hide();
     // Reset body form drag state whenever we switch panels
     this.#bfListEl = null;
@@ -1657,226 +1681,98 @@ export class RequestEditor {
   }
 
   // ── Text editor (JSON / YAML / XML / Plain Text) ──────────────────────────
-  #renderBodyText(el, type, canPrettify) {
-    const ta = document.createElement("textarea");
-    ta.className = canPrettify
-      ? "body-text-editor body-text-editor--overlay"
-      : "body-text-editor";
-    ta.value = this.#bodyText;
-    ta.placeholder = `Enter ${type === "text" ? "plain text" : type.toUpperCase()} body here…`;
-    ta.spellcheck = false;
-    ta.setAttribute("aria-label", `${type} body`);
-
-    // For JSON / YAML / XML: wrap textarea + syntax-highlight overlay
-    let codeEl = null;
-    if (canPrettify) {
-      const wrap = document.createElement("div");
-      wrap.className = "body-editor-wrap";
-
-      const pre = document.createElement("pre");
-      pre.className = "body-editor-pre";
-      pre.setAttribute("aria-hidden", "true");
-      codeEl = document.createElement("code");
-      codeEl.className = `language-${type === "yaml" ? "yaml" : type === "xml" ? "markup" : "json"}`;
-      pre.appendChild(codeEl);
-      wrap.appendChild(pre);
-      wrap.appendChild(ta);
-      el.appendChild(wrap);
-
-      // Keep scroll positions in sync
-      ta.addEventListener("scroll", () => {
-        pre.scrollTop = ta.scrollTop;
-        pre.scrollLeft = ta.scrollLeft;
-      });
-
-      // Initial highlight
-      this.#syncHighlight(ta, codeEl, type);
-    } else {
-      el.appendChild(ta);
-    }
-
-    // ── Inline validation (JSON / YAML / XML) ─────────────────────────────
-    const canValidate = canPrettify && type !== "text";
-    let validateBadge = null;
-    let prettyBtnRef = null;
-    let validateTimer = null;
-    const VALIDATE_MS = 400;
-
-    const applyValidity = (state /* "valid" | "invalid" | null */) => {
-      if (prettyBtnRef) prettyBtnRef.disabled = state === "invalid";
-      if (!validateBadge) return;
-      validateBadge.dataset.state = state ?? "";
-      if (state === "valid") {
-        validateBadge.textContent = "✓ VALID";
-        validateBadge.title = `${type.toUpperCase()} is valid`;
-      } else if (state === "invalid") {
-        validateBadge.textContent = "X INVALID";
-        validateBadge.title = `${type.toUpperCase()} has a syntax error`;
-      } else {
-        validateBadge.textContent = "";
-        validateBadge.title = "";
-      }
-    };
-
-    const scheduleValidation = () => {
-      clearTimeout(validateTimer);
-      validateTimer = setTimeout(() => {
-        const text = ta.value;
-        if (!text.trim()) {
-          applyValidity(null);
-          return;
-        }
-        applyValidity(this.#validate(type, text) ? "valid" : "invalid");
-      }, VALIDATE_MS);
-    };
-
-    ta.addEventListener("input", () => {
-      this.#bodyText = ta.value;
-      this.#dispatchBodyUpdated();
-      if (canValidate) scheduleValidation();
-      if (codeEl) this.#syncHighlight(ta, codeEl, type);
+  // ── Shared PillCodeEditor factory ─────────────────────────────────────────
+  /**
+   * Build a PillCodeEditor seeded with the shared view settings and the request's
+   * variable context, register it for teardown + cross-editor sync, and wire its
+   * right-click `pce:setting-change` so a view toggle (wrap / line numbers /
+   * folding / highlight) applies to every live editor and persists globally.
+   */
+  #makeCodeEditor(opts = {}) {
+    const editor = new PillCodeEditor({
+      wrap: this.#editorView.wrap,
+      lineNumbers: this.#editorView.lineNumbers,
+      folding: this.#editorView.folding,
+      highlight: this.#editorView.highlight,
+      getContext: () => this.#variableContext,
+      getItems: () => this.#getItems(),
+      ...opts,
     });
+    editor.element.classList.add("pce--embedded");
+    editor.element.addEventListener("pce:setting-change", (e) => {
+      const { key, value } = e.detail ?? {};
+      if (!(key in this.#editorView)) return;
+      this.#editorView[key] = value;
+      const setter = {
+        wrap: "setWrap",
+        lineNumbers: "setLineNumbers",
+        folding: "setFolding",
+        highlight: "setHighlight",
+      }[key];
+      // Mirror the toggle onto every OTHER live editor so the panes stay in sync.
+      for (const ed of this.#codeEditors)
+        if (ed !== editor && setter) ed[setter](value);
+      // Persist globally — `folding` keeps the legacy `editorFolding` key.
+      const settingKey = {
+        wrap: "editorWrap",
+        lineNumbers: "editorLineNumbers",
+        folding: "editorFolding",
+        highlight: "editorHighlight",
+      }[key];
+      if (settingKey) this.#persistGqlSetting({ [settingKey]: value });
+    });
+    this.#codeEditors.add(editor);
+    return editor;
+  }
 
-    // Inject badge + Prettify button into the type selector bar
-    if (canPrettify && this.#bodyTypeBarEl) {
-      // Validation badge (appears between the type select and the Prettify btn)
-      validateBadge = document.createElement("span");
+  /** Destroy + unregister every live PillCodeEditor (before a re-render). */
+  #disposeCodeEditors() {
+    for (const ed of this.#codeEditors) ed.destroy();
+    this.#codeEditors.clear();
+  }
+
+  #renderBodyText(el, type, validated) {
+    // `type` is one of json / yaml / xml / text — all valid PillCodeEditor
+    // languages. Rich (inline squiggle) errors are disabled for the body editor;
+    // validity instead drives the type-bar badge via the `pce:validity` event.
+    const editor = this.#makeCodeEditor({
+      value: this.#bodyText,
+      language: type,
+      richErrors: false,
+      placeholder: `Enter ${type === "text" ? "plain text" : type.toUpperCase()} body here…`,
+      onInput: (v) => {
+        this.#bodyText = v;
+        this.#dispatchBodyUpdated();
+      },
+    });
+    el.appendChild(editor.element);
+
+    // Validation badge — only for the validated types (JSON / YAML / XML),
+    // tracking the editor's `pce:validity` event. Prettify lives in the
+    // editor's own context menu (right-click), so there's no toolbar button.
+    if (validated && this.#bodyTypeBarEl) {
+      const validateBadge = document.createElement("span");
       validateBadge.className = "body-validate-badge";
       validateBadge.setAttribute("aria-live", "polite");
       validateBadge.dataset.state = "";
       this.#bodyTypeBarEl.appendChild(validateBadge);
 
-      // Prettify button
-      const prettyBtn = document.createElement("button");
-      prettyBtnRef = prettyBtn;
-      prettyBtn.className =
-        "params-toolbar-btn params-delete-all-btn body-prettify-btn";
-      prettyBtn.title = `Prettify ${type.toUpperCase()}`;
-      prettyBtn.textContent = "Prettify";
-      prettyBtn.addEventListener("click", () => {
-        const prettified = this.#prettify(type, ta.value);
-        ta.value = prettified;
-        this.#bodyText = prettified;
-        this.#dispatchBodyUpdated();
-        if (codeEl) this.#syncHighlight(ta, codeEl, type);
-        // Immediate re-validate after prettifying (no debounce needed)
-        if (canValidate) {
-          applyValidity(
-            ta.value.trim()
-              ? this.#validate(type, ta.value)
-                ? "valid"
-                : "invalid"
-              : null,
-          );
+      editor.element.addEventListener("pce:validity", (e) => {
+        const state = e.detail?.state; // true | false | null
+        validateBadge.dataset.state =
+          state == null ? "" : state ? "valid" : "invalid";
+        if (state === true) {
+          validateBadge.textContent = "✓ VALID";
+          validateBadge.title = `${type.toUpperCase()} is valid`;
+        } else if (state === false) {
+          validateBadge.textContent = "X INVALID";
+          validateBadge.title = `${type.toUpperCase()} has a syntax error`;
+        } else {
+          validateBadge.textContent = "";
+          validateBadge.title = "";
         }
       });
-      this.#bodyTypeBarEl.appendChild(prettyBtn);
-
-      // Validate any pre-loaded content immediately on render
-      if (canValidate && ta.value.trim()) {
-        applyValidity(this.#validate(type, ta.value) ? "valid" : "invalid");
-      }
-    }
-  }
-
-  /** Validate body text for a given type. Returns true = valid, false = invalid. */
-  #validate(type, text) {
-    if (!text.trim()) return null;
-    try {
-      if (type === "json") {
-        JSON.parse(text);
-        return true;
-      }
-      if (type === "yaml") {
-        parseYaml(text);
-        return true;
-      }
-      if (type === "xml") {
-        const doc = new DOMParser().parseFromString(text, "application/xml");
-        return !doc.querySelector("parsererror");
-      }
-    } catch {
-      /* fall through */
-    }
-    return false;
-  }
-
-  /** Prettify the given text for a body type. */
-  #prettify(type, text) {
-    if (!text.trim()) return text;
-    try {
-      if (type === "json") {
-        return JSON.stringify(JSON.parse(text), null, 2);
-      }
-      if (type === "xml") {
-        // Use DOMParser then a simple indent pass
-        const doc = new DOMParser().parseFromString(text, "application/xml");
-        if (doc.querySelector("parsererror")) return text;
-        const raw = new XMLSerializer()
-          .serializeToString(doc)
-          .replace(/>\s*</g, ">\n<");
-        let indent = 0;
-        return raw
-          .split("\n")
-          .map((line) => {
-            const trimmed = line.trim();
-            if (!trimmed) return "";
-            if (trimmed.startsWith("</")) indent = Math.max(0, indent - 1);
-            const out = "  ".repeat(indent) + trimmed;
-            if (
-              !trimmed.startsWith("</") &&
-              !trimmed.startsWith("<?") &&
-              !trimmed.endsWith("/>") &&
-              !trimmed.includes("</")
-            )
-              indent++;
-            return out;
-          })
-          .filter((l) => l !== "")
-          .join("\n");
-      }
-      if (type === "yaml") {
-        return stringifyYaml(parseYaml(text));
-      }
-    } catch {
-      /* invalid — return unchanged */
-    }
-    return text;
-  }
-
-  /**
-   * Synchronise the Prism syntax-highlight overlay with the textarea content.
-   * @param {HTMLTextAreaElement} ta
-   * @param {HTMLElement}         codeEl  — the <code> element inside the overlay <pre>
-   * @param {string}              type    — "json" | "yaml" | "xml" | "graphql"
-   */
-  #syncHighlight(ta, codeEl, type) {
-    const text = ta.value;
-    if (!text) {
-      codeEl.innerHTML = "";
-      return;
-    }
-    const lang =
-      { yaml: "yaml", xml: "markup", graphql: "graphql", json: "json" }[type] ??
-      "json";
-    try {
-      // Prism.highlight returns an HTML string with token spans.
-      // We append a trailing newline so the pre always has the same height as
-      // the textarea (a trailing \n in a <pre> is ignored by the browser).
-      codeEl.innerHTML =
-        Prism.highlight(
-          text,
-          Prism.languages[lang] ?? Prism.languages.plaintext,
-          lang,
-        ) + "\n";
-    } catch {
-      // If Prism doesn't have the grammar fall back to escaped plain text
-      codeEl.textContent = text;
-    }
-    // Keep the pre's scroll position in sync with the textarea
-    if (codeEl.parentElement) {
-      codeEl.parentElement.scrollTop = ta.scrollTop;
-      codeEl.parentElement.scrollLeft = ta.scrollLeft;
+      editor.revalidate(); // sync the badge to any pre-loaded content now
     }
   }
 
@@ -1973,7 +1869,17 @@ export class RequestEditor {
         text,
         this.#graphqlIntrospection,
       );
-      q?.setMarkers(errors);
+      // Map graphql-js errors (full-text start/end offsets) to the editor's
+      // { line, col, length } squiggle shape (the editor clamps the span to the
+      // line). richErrors are on for the Query editor, so these render inline.
+      q?.setErrors(
+        errors.map((e) => ({
+          line: e.line,
+          col: e.column,
+          length: Math.max(1, (e.end ?? 0) - (e.start ?? 0)),
+          message: e.message,
+        })),
+      );
       if (!text.trim()) {
         applyQueryValidity(null, "");
       } else if (errors.length) {
@@ -2000,21 +1906,26 @@ export class RequestEditor {
       qValidateTimer = setTimeout(() => runQueryValidation(text), 400);
     };
 
+    // The Query editor owns its (schema-aware) validation: externalErrors turns
+    // off the editor's built-in GraphQL parse so runQueryValidation drives the
+    // squiggles via setErrors(). richErrors on → those squiggles render inline.
     let q;
-    q = this.#buildGqlEditor({
-      lang: "graphql",
+    q = this.#makeCodeEditor({
+      language: "graphql",
+      externalErrors: true,
+      richErrors: true,
       value: this.#bodyGraphqlQuery,
       placeholder: "query {\n  …\n}",
-      ariaLabel: "GraphQL query",
-      onInput: (v, ta, codeEl) => {
+      onInput: (v) => {
         this.#bodyGraphqlQuery = v;
         this.#dispatchBodyUpdated();
-        this.#syncHighlight(ta, codeEl, "graphql");
         scheduleQueryValidation(v);
+        q?._gqlRefresh?.(); // refresh the schema-field autocomplete popup
       },
+      onCaret: () => q?._gqlRefresh?.(),
     });
-    queryPane.appendChild(q.wrap);
-    this.#wireGqlAutocomplete(q.ta, q.codeEl);
+    queryPane.appendChild(q.element);
+    this.#wireGqlAutocomplete(q);
     // Exposed so #fetchGraphqlSchema can re-validate once a schema arrives.
     this.#revalidateGqlQuery = () => runQueryValidation(this.#bodyGraphqlQuery);
     wrap.appendChild(queryPane);
@@ -2054,37 +1965,25 @@ export class RequestEditor {
         varsBadge.title = "";
       }
     };
-    let varsTimer = null;
-    const scheduleVarsValidation = (text) => {
-      clearTimeout(varsTimer);
-      varsTimer = setTimeout(() => {
-        applyVarsValidity(
-          !text.trim()
-            ? null
-            : this.#validate("json", text)
-              ? "valid"
-              : "invalid",
-        );
-      }, 400);
-    };
 
-    const v = this.#buildGqlEditor({
-      lang: "json",
+    // Variables are JSON — let the editor validate itself (richErrors on → inline
+    // JSON squiggles) and drive the pane badge from its `pce:validity` event.
+    const v = this.#makeCodeEditor({
+      language: "json",
+      richErrors: true,
       value: this.#bodyGraphqlVariables,
       placeholder: '{\n  "key": "value"\n}',
-      ariaLabel: "GraphQL variables (JSON)",
-      onInput: (val, ta, codeEl) => {
+      onInput: (val) => {
         this.#bodyGraphqlVariables = val;
         this.#dispatchBodyUpdated();
-        this.#syncHighlight(ta, codeEl, "json");
-        scheduleVarsValidation(val);
       },
     });
-    varsPane.appendChild(v.wrap);
+    v.element.addEventListener("pce:validity", (e) => {
+      const s = e.detail?.state; // true | false | null
+      applyVarsValidity(s == null ? null : s ? "valid" : "invalid");
+    });
+    varsPane.appendChild(v.element);
     wrap.appendChild(varsPane);
-
-    // Track both editors so a folding toggle (settings / context menu) applies live.
-    this.#gqlEditors = [q, v];
 
     // Store refs so #applyGqlFlow (and a later layout change) can re-orient the
     // split in place — the editors are never rebuilt, so content/focus survive.
@@ -2108,16 +2007,10 @@ export class RequestEditor {
       this.#gqlResizeObserver.observe(wrap);
     }
 
-    // Validate any pre-loaded variables immediately on render.
-    if (this.#bodyGraphqlVariables.trim()) {
-      applyVarsValidity(
-        this.#validate("json", this.#bodyGraphqlVariables)
-          ? "valid"
-          : "invalid",
-      );
-    }
-    // Validate the pre-loaded query now that the editor is laid out (inline
-    // markers need real geometry, so this runs after el.appendChild(wrap)).
+    // Sync both badges to any pre-loaded content now the editors are laid out
+    // (the Query editor's inline markers need real geometry, so this runs after
+    // el.appendChild(wrap)). v.revalidate() re-emits `pce:validity`.
+    v.revalidate();
     this.#revalidateGqlQuery?.();
   }
 
@@ -2266,420 +2159,35 @@ export class RequestEditor {
   }
 
   /**
-   * Build one Prism-overlay editor (textarea + syntax-highlight <pre>) for the
-   * GraphQL panes. Mirrors the wrap used by #renderBodyText but without the
-   * type-bar Prettify/validate wiring (those differ per pane).
-   *
-   * Adds indentation-based code folding: a gutter of click-to-toggle carets sits
-   * to the left of each pane, and collapsing a block hides its inner lines. A
-   * <textarea> can't hide arbitrary line ranges, so while folds are collapsed the
-   * textarea shows a reduced "display" text while `fullText` holds the canonical
-   * content. Any edit first expands every fold (see the beforeinput handler), so
-   * onInput — and therefore the persisted value — always sees the full text.
-   * Folding requires one logical line per visual row, so these editors don't wrap.
+   * Wire schema-aware autocomplete (fields / arguments / enum values) onto the
+   * GraphQL Query PillCodeEditor. The editor reports the caret offset + screen
+   * coords; `editor._gqlRefresh` is invoked from the editor's onInput/onCaret
+   * hooks (see #renderBodyGraphql). The editor's own `{{` variable picker takes
+   * priority — while it's open this autocomplete stays hidden and defers its
+   * navigation keys.
    */
-  #buildGqlEditor({ lang, value, placeholder, ariaLabel, onInput }) {
-    const MAX_FOLD_LINES = 5000; // above this, skip folding and behave as plain
-
-    // Folding can be turned off globally (Appearance setting / editor context
-    // menu). When off we keep the no-wrap layout (so validation underlines stay
-    // aligned) but hide the gutter + carets — the --fold-on class drives that.
-    let foldingEnabled = this.#editorFolding !== false;
-
-    const wrap = document.createElement("div");
-    wrap.className =
-      "body-editor-wrap body-editor-wrap--folding" +
-      (foldingEnabled ? " body-editor-wrap--fold-on" : "");
-
-    const pre = document.createElement("pre");
-    pre.className = "body-editor-pre";
-    pre.setAttribute("aria-hidden", "true");
-    const prismLang = lang === "graphql" ? "graphql" : "json";
-    const codeEl = document.createElement("code");
-    codeEl.className = `language-${prismLang}`;
-    pre.appendChild(codeEl);
-
-    // Fold gutter — carets live in `inner`, which is translated to track scroll.
-    const gutter = document.createElement("div");
-    gutter.className = "body-fold-gutter";
-    const gutterInner = document.createElement("div");
-    gutterInner.className = "body-fold-gutter-inner";
-    gutter.appendChild(gutterInner);
-
-    // Validation marker layer — red underlines, positioned in content coords and
-    // translated to track scroll (same trick as the gutter). Sits above the
-    // highlight <pre> but below the <textarea>, and never takes pointer events.
-    const markers = document.createElement("div");
-    markers.className = "body-gql-markers";
-    const markersInner = document.createElement("div");
-    markersInner.className = "body-gql-markers-inner";
-    markers.appendChild(markersInner);
-
-    const ta = document.createElement("textarea");
-    ta.className = "body-text-editor body-text-editor--overlay";
-    ta.value = value;
-    ta.placeholder = placeholder;
-    ta.spellcheck = false;
-    ta.wrap = "off"; // folding aligns one gutter row per logical line
-    ta.setAttribute("aria-label", ariaLabel);
-
-    wrap.appendChild(pre);
-    wrap.appendChild(markers);
-    wrap.appendChild(gutter);
-    wrap.appendChild(ta);
-
-    // ── Fold state ────────────────────────────────────────────────────────
-    // `collapsed` holds SOURCE line indices of collapsed openers; `folded` is
-    // true while the textarea shows a reduced view (and `fullText` is then the
-    // canonical content). When not folded the textarea itself is the source.
-    const collapsed = new Set();
-    let folded = false;
-    let fullText = value;
-
-    // Indentation-based fold ranges (mirrors the response viewer): a line whose
-    // next non-blank line is more deeply indented opens a fold that runs until
-    // indentation returns to its own depth. foldEnd: openerIdx -> last child idx.
-    const computeFoldEnds = (lines) => {
-      const foldEnd = new Map();
-      if (lines.length > MAX_FOLD_LINES) return foldEnd;
-      const indent = lines.map((l) =>
-        l.trim() === "" ? null : l.length - l.trimStart().length,
-      );
-      for (let i = 0; i < lines.length; i++) {
-        const depth = indent[i];
-        if (depth === null) continue;
-        let next = i + 1;
-        while (next < lines.length && indent[next] === null) next++;
-        if (next < lines.length && indent[next] > depth) {
-          let end = i;
-          for (
-            let k = i + 1;
-            k < lines.length && (indent[k] === null || indent[k] > depth);
-            k++
-          ) {
-            if (indent[k] !== null) end = k;
-          }
-          foldEnd.set(i, end);
-        }
-      }
-      return foldEnd;
-    };
-
-    // Resolve fold ranges and the visible "display" lines (collapsed folds'
-    // inner lines skipped) from the given canonical text, with a map back to
-    // source lines. Callers pass fullText during fold ops and the live textarea
-    // value after edits — never inferred, so a reduced display is never mistaken
-    // for the source.
-    const buildView = (source) => {
-      const lines = source.split("\n");
-      const foldEnd = computeFoldEnds(lines);
-      // Drop collapsed openers that text edits turned into non-openers.
-      for (const i of [...collapsed]) if (!foldEnd.has(i)) collapsed.delete(i);
-
-      const displayLines = [];
-      const lineMap = []; // displayIdx -> source line idx
-      const collapsedRows = new Set(); // display indices that are collapsed openers
-      let coverEnd = -1;
-      for (let i = 0; i < lines.length; i++) {
-        if (i <= coverEnd) continue;
-        if (collapsed.has(i)) {
-          collapsedRows.add(displayLines.length);
-          coverEnd = foldEnd.get(i);
-        }
-        lineMap.push(i);
-        displayLines.push(lines[i]);
-      }
-      return { source, lines, foldEnd, displayLines, lineMap, collapsedRows };
-    };
-
-    // Paint the highlight layer. With no folds defer to the shared whole-blob
-    // highlighter (identical to non-folding editors); with folds highlight each
-    // visible line and append an elision marker to collapsed openers.
-    const highlight = (view) => {
-      if (!folded) {
-        this.#syncHighlight(ta, codeEl, lang);
-        return;
-      }
-      const grammar = Prism.languages[prismLang] ?? Prism.languages.plaintext;
-      codeEl.innerHTML =
-        view.displayLines
-          .map((line, idx) => {
-            const h = Prism.highlight(line, grammar, prismLang);
-            return view.collapsedRows.has(idx)
-              ? h + '<span class="body-fold-ellipsis"> ⋯</span>'
-              : h;
-          })
-          .join("\n") + "\n";
-      pre.scrollTop = ta.scrollTop;
-      pre.scrollLeft = ta.scrollLeft;
-    };
-
-    // Rebuild the gutter: one row per display line, a caret on each fold opener.
-    const renderGutter = (view) => {
-      gutterInner.replaceChildren();
-      if (!foldingEnabled) return; // no carets when folding is off
-      const frag = document.createDocumentFragment();
-      view.displayLines.forEach((_, idx) => {
-        const row = document.createElement("div");
-        row.className = "body-fold-row";
-        const src = view.lineMap[idx];
-        if (view.foldEnd.has(src)) {
-          const isCollapsed = collapsed.has(src);
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "body-fold-toggle";
-          btn.classList.toggle("body-fold-toggle--collapsed", isCollapsed);
-          btn.setAttribute("aria-expanded", String(!isCollapsed));
-          btn.setAttribute("aria-label", isCollapsed ? "Expand" : "Collapse");
-          btn.innerHTML = icon("caret", { size: null });
-          // Keep textarea focus/selection when clicking the gutter.
-          btn.addEventListener("mousedown", (e) => e.preventDefault());
-          btn.addEventListener("click", () => toggleFold(src));
-          row.appendChild(btn);
-        }
-        frag.appendChild(row);
-      });
-      gutterInner.appendChild(frag);
-      gutterInner.style.transform = `translateY(${-ta.scrollTop}px)`;
-    };
-
-    // setValue rewrites the textarea to the (possibly folded) display text — done
-    // when folds change, not after edits (where the textarea is already current).
-    const refresh = (source, setValue) => {
-      const view = buildView(source);
-      if (setValue) {
-        const top = ta.scrollTop;
-        const left = ta.scrollLeft;
-        ta.value = view.displayLines.join("\n");
-        ta.scrollTop = top;
-        ta.scrollLeft = left;
-      }
-      renderGutter(view);
-      highlight(view);
-      renderMarkers();
-      return view;
-    };
-
-    // Map a caret offset in the display text to the equivalent offset in fullText.
-    const displayPosToFull = (pos, view) => {
-      const ds = view.displayLines;
-      let acc = 0;
-      let row = 0;
-      for (; row < ds.length; row++) {
-        if (pos <= acc + ds[row].length) break;
-        acc += ds[row].length + 1; // + newline
-      }
-      if (row >= ds.length) row = Math.max(0, ds.length - 1);
-      const col = Math.max(0, pos - acc);
-      const srcLine = view.lineMap[row] ?? 0;
-      let fullAcc = 0;
-      for (let i = 0; i < srcLine; i++) fullAcc += view.lines[i].length + 1;
-      return fullAcc + Math.min(col, view.lines[srcLine]?.length ?? 0);
-    };
-
-    // Expand every fold (preserving the caret) before an edit mutates the text,
-    // so fullText stays the single source of truth.
-    const expandAllForEdit = () => {
-      if (!folded) return;
-      const view = buildView(fullText);
-      const start = displayPosToFull(ta.selectionStart, view);
-      const end = displayPosToFull(ta.selectionEnd, view);
-      collapsed.clear();
-      folded = false;
-      ta.value = fullText;
-      ta.setSelectionRange(start, end);
-      refresh(fullText, false);
-    };
-
-    const toggleFold = (src) => {
-      if (!foldingEnabled) return;
-      if (!folded) fullText = ta.value; // snapshot before the first fold
-      if (collapsed.has(src)) collapsed.delete(src);
-      else collapsed.add(src);
-      folded = collapsed.size > 0;
-      refresh(fullText, true);
-      ta.focus();
-    };
-
-    // Turn folding on/off live. Off: expand any collapsed folds (preserving the
-    // caret) so the textarea holds the full text, then hide the gutter/carets;
-    // the gutter padding goes away via the --fold-on class while no-wrap stays.
-    const setFoldingEnabled = (on) => {
-      on = !!on;
-      if (on === foldingEnabled) return;
-      if (!on && folded) {
-        const view = buildView(fullText);
-        const start = displayPosToFull(ta.selectionStart, view);
-        const end = displayPosToFull(ta.selectionEnd, view);
-        collapsed.clear();
-        folded = false;
-        ta.value = fullText;
-        ta.setSelectionRange(start, end);
-      }
-      foldingEnabled = on;
-      wrap.classList.toggle("body-editor-wrap--fold-on", on);
-      refresh(ta.value, false); // rebuild gutter + reposition markers for new padding
-    };
-
-    // ── Validation markers ────────────────────────────────────────────────────
-    // Errors carry full-text {line, column, start, end}. We position underlines
-    // in display coordinates (so folds are honoured) and flag the matching gutter
-    // row; an error inside a collapsed fold is attributed to its visible opener.
-    let markerErrors = [];
-
-    const syncMarkerScroll = () => {
-      markersInner.style.transform = `translate(${-ta.scrollLeft}px, ${-ta.scrollTop}px)`;
-    };
-
-    const renderMarkers = () => {
-      markersInner.replaceChildren();
-      for (const row of gutterInner.children) {
-        row.classList.remove("body-fold-row--error");
-        if (row.dataset.errorTitle) {
-          row.removeAttribute("title");
-          delete row.dataset.errorTitle;
-        }
-      }
-      if (!markerErrors.length) return;
-
-      const view = buildView(folded ? fullText : ta.value);
-      // Cumulative start offset of each display line (for in-line positioning).
-      const dispStart = [];
-      let acc = 0;
-      for (const dl of view.displayLines) {
-        dispStart.push(acc);
-        acc += dl.length + 1;
-      }
-
-      const taRect = ta.getBoundingClientRect();
-      const rowMsgs = new Map(); // displayRow -> [message]
-
-      for (const err of markerErrors) {
-        const srcLine = Math.max(0, (err.line ?? 1) - 1);
-        let displayRow = view.lineMap.indexOf(srcLine);
-        let hidden = false;
-        if (displayRow === -1) {
-          // Inside a collapsed fold — attribute to the covering opener row.
-          for (const opener of collapsed) {
-            const end = view.foldEnd.get(opener);
-            if (end !== undefined && srcLine > opener && srcLine <= end) {
-              displayRow = view.lineMap.indexOf(opener);
-              hidden = true;
-              break;
-            }
-          }
-        }
-        if (displayRow === -1) continue;
-
-        if (!rowMsgs.has(displayRow)) rowMsgs.set(displayRow, []);
-        rowMsgs
-          .get(displayRow)
-          .push(`${err.line}:${err.column}  ${err.message}`);
-        if (hidden) continue; // can't underline a line that isn't shown
-
-        const col = Math.max(0, (err.column ?? 1) - 1);
-        const lineLen = view.lines[srcLine]?.length ?? 0;
-        const startDisp = dispStart[displayRow] + col;
-        const span = Math.max(1, Math.min(err.end - err.start, lineLen - col));
-        const a = caretCoordinates(ta, startDisp);
-        const b = caretCoordinates(ta, startDisp + span);
-        const u = document.createElement("div");
-        u.className = "body-gql-underline";
-        u.style.left = `${a.left - taRect.left + ta.scrollLeft}px`;
-        u.style.top = `${a.top - taRect.top + ta.scrollTop + a.height - 2}px`;
-        u.style.width = `${Math.max(2, b.left - a.left)}px`;
-        markersInner.appendChild(u);
-      }
-
-      for (const [displayRow, msgs] of rowMsgs) {
-        const row = gutterInner.children[displayRow];
-        if (!row) continue;
-        row.classList.add("body-fold-row--error");
-        row.title = msgs.join("\n");
-        row.dataset.errorTitle = "1";
-      }
-      syncMarkerScroll();
-    };
-
-    // ── Wiring ──────────────────────────────────────────────────────────────
-    ta.addEventListener("scroll", () => {
-      pre.scrollTop = ta.scrollTop;
-      pre.scrollLeft = ta.scrollLeft;
-      gutterInner.style.transform = `translateY(${-ta.scrollTop}px)`;
-      syncMarkerScroll();
-    });
-
-    // Right-click → edit menu (Cut/Copy/Paste) plus a "Code folding" toggle.
-    // stopPropagation pre-empts app.js's generic editable-field menu.
-    ta.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.#showEditorContextMenu(e.clientX, e.clientY);
-    });
-
-    // Auto-expand before an edit lands. keydown handles the common keyboard case
-    // (mutating value+selection here lets the default insertion proceed cleanly);
-    // beforeinput is the catch-all for paste / cut / drop / IME. expandAllForEdit
-    // is idempotent, so the two firing together is harmless.
-    ta.addEventListener("keydown", (e) => {
-      if (!folded || e.ctrlKey || e.metaKey || e.altKey) return;
-      const edits =
-        e.key.length === 1 ||
-        e.key === "Enter" ||
-        e.key === "Backspace" ||
-        e.key === "Delete" ||
-        e.key === "Tab";
-      if (edits) expandAllForEdit();
-    });
-    ta.addEventListener("beforeinput", expandAllForEdit);
-
-    ta.addEventListener("input", () => {
-      // beforeinput already expanded any folds, so the textarea holds full text.
-      folded = false;
-      onInput(ta.value, ta, codeEl); // persists + repaints highlight
-      renderGutter(buildView(ta.value));
-      // Stale markers (offsets shifted by the edit) are cleared now; the debounced
-      // validator repaints them via setMarkers once typing pauses.
-      markersInner.replaceChildren();
-    });
-
-    // The autocomplete-accept path sets ta.value directly (bypassing beforeinput);
-    // these let it expand folds before, and resync the gutter after, that edit.
-    ta._foldExpand = expandAllForEdit;
-    ta._foldSync = () => {
-      folded = false;
-      renderGutter(buildView(ta.value));
-    };
-
-    // Replace the current inline-validation markers and repaint them.
-    const setMarkers = (errors) => {
-      markerErrors = Array.isArray(errors) ? errors : [];
-      renderMarkers();
-    };
-
-    refresh(value, true);
-    return { wrap, ta, codeEl, setMarkers, setFoldingEnabled };
-  }
-
-  /** Wire schema-aware autocomplete (fields / arguments / enum values) onto the query textarea. */
-  #wireGqlAutocomplete(ta, codeEl) {
+  #wireGqlAutocomplete(editor) {
     const showSuggestions = () => {
-      if (!this.#graphqlSchema) {
+      if (!this.#graphqlSchema || editor.isPickerOpen()) {
         _gqlAc.hide();
         return;
       }
-      const pos = ta.selectionStart ?? ta.value.length;
-      const res = suggestAtCursor(ta.value, pos, this.#graphqlSchema);
-      if (!res) {
+      const pos = editor.getCaretOffset();
+      if (pos < 0) {
         _gqlAc.hide();
         return;
       }
-      const coords = caretCoordinates(ta, pos);
+      const res = suggestAtCursor(editor.getValue(), pos, this.#graphqlSchema);
+      const coords = res ? editor.caretCoords() : null;
+      if (!res || !coords) {
+        _gqlAc.hide();
+        return;
+      }
       const anchor = _gqlAnchorAt(coords);
       _gqlAc.show(
         anchor,
         res.items,
-        (label) => this.#applyGqlSuggestion(ta, codeEl, label),
+        (label) => this.#applyGqlSuggestion(editor, label),
         {
           minWidth: 220,
           renderItem: (item, entry) => {
@@ -2701,9 +2209,9 @@ export class RequestEditor {
     };
 
     // Hold the popup back by the configurable picker-debounce so it doesn't cover
-    // the query the instant you type/click. Mirrors the {{ }} picker: while the
-    // popup is already open it updates immediately (responsive filtering); while
-    // it's hidden, the first appearance waits out the debounce.
+    // the query the instant you type/move the caret. Mirrors the {{ }} picker:
+    // while the popup is already open it updates immediately (responsive
+    // filtering); while it's hidden, the first appearance waits out the debounce.
     let acTimer = null;
     const cancelRefresh = () => {
       clearTimeout(acTimer);
@@ -2714,56 +2222,59 @@ export class RequestEditor {
       if (_gqlAc.visible) showSuggestions();
       else acTimer = setTimeout(showSuggestions, getPickerDebounceMs());
     };
+    // Driven by the editor's onInput / onCaret hooks.
+    editor._gqlRefresh = refresh;
 
-    ta.addEventListener("input", refresh);
-    ta.addEventListener("click", refresh);
-    ta.addEventListener("keyup", (e) => {
-      if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) refresh();
-    });
-    ta.addEventListener("blur", () => {
+    // Navigation / accept keys — capture phase so we pre-empt the editor's own
+    // Enter→newline. Only while the popup is up AND the {{ }} picker is closed
+    // (it owns those keys when active).
+    editor.element.addEventListener(
+      "keydown",
+      (e) => {
+        if (e.key === "Escape") cancelRefresh();
+        if (!_gqlAc.visible || editor.isPickerOpen()) return;
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          _gqlAc.navigate(1);
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          _gqlAc.navigate(-1);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          _gqlAc.hide();
+        } else if (e.key === "Enter" || e.key === "Tab") {
+          const label = _gqlAc.activeLabel();
+          if (label !== null) {
+            e.preventDefault();
+            this.#applyGqlSuggestion(editor, label);
+          }
+        }
+      },
+      true,
+    );
+
+    editor.element.addEventListener("focusout", () => {
       cancelRefresh();
       _gqlAc.scheduleHide();
     });
-    ta.addEventListener("keydown", (e) => {
-      // Escape also cancels a pending (not-yet-shown) popup.
-      if (e.key === "Escape") cancelRefresh();
-      if (!_gqlAc.visible) return;
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        _gqlAc.navigate(1);
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        _gqlAc.navigate(-1);
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        _gqlAc.hide();
-      } else if (e.key === "Enter" || e.key === "Tab") {
-        const label = _gqlAc.activeLabel();
-        if (label !== null) {
-          e.preventDefault();
-          this.#applyGqlSuggestion(ta, codeEl, label);
-        }
-      }
-    });
   }
 
-  /** Replace the word being typed at the caret with the chosen suggestion. */
-  #applyGqlSuggestion(ta, codeEl, label) {
-    ta._foldExpand?.(); // accepting a suggestion is an edit — expand folds first
-    const pos = ta.selectionStart ?? ta.value.length;
-    const before = ta.value.slice(0, pos);
+  /** Replace the identifier being typed at the caret with the chosen suggestion. */
+  #applyGqlSuggestion(editor, label) {
+    const value = editor.getValue();
+    const pos = editor.getCaretOffset();
+    if (pos < 0) {
+      _gqlAc.hide();
+      return;
+    }
+    const before = value.slice(0, pos);
     const m = /[_A-Za-z][_A-Za-z0-9]*$/.exec(before);
     const start = m ? pos - m[0].length : pos;
-    ta.value = ta.value.slice(0, start) + label + ta.value.slice(pos);
-    const caret = start + label.length;
-    ta.setSelectionRange(caret, caret);
-    this.#bodyGraphqlQuery = ta.value;
-    this.#dispatchBodyUpdated();
-    this.#syncHighlight(ta, codeEl, "graphql");
-    ta._foldSync?.(); // refresh the fold gutter for the inserted text
-    this.#revalidateGqlQuery?.(); // re-validate + repaint markers for the new text
+    // replaceRange fires the editor's onInput → persists + schedules validation;
+    // the dropdown's item mousedown preventDefault keeps the caret, so no refocus.
+    editor.replaceRange(start, pos, label);
     _gqlAc.hide();
-    ta.focus();
+    this.#revalidateGqlQuery?.(); // re-validate now rather than waiting on debounce
   }
 
   /**
@@ -2881,34 +2392,6 @@ export class RequestEditor {
     });
     if (id === "view") this.#viewGraphqlSchema();
     else if (id === "download") this.#downloadGraphqlSchema();
-  }
-
-  /**
-   * Right-click menu for a GraphQL editor: the native Cut/Copy/Paste roles plus
-   * a "Code folding" checkbox that flips the global setting live.
-   */
-  async #showEditorContextMenu(x, y) {
-    const id = await window.wurl?.ui?.editContextMenu(x, y, [
-      { type: "separator" },
-      {
-        id: "toggle-folding",
-        type: "checkbox",
-        checked: this.#editorFolding,
-        label: "Code folding",
-      },
-    ]);
-    if (id === "toggle-folding") this.#setEditorFolding(!this.#editorFolding);
-  }
-
-  /**
-   * Set the global editor-folding preference: apply it to the live GraphQL
-   * editors and persist it (Appearance settings reflect it on next open).
-   */
-  #setEditorFolding(on) {
-    on = !!on;
-    this.#editorFolding = on;
-    this.#gqlEditors?.forEach((ed) => ed.setFoldingEnabled(on));
-    this.#persistGqlSetting({ editorFolding: on });
   }
 
   /**
@@ -4463,13 +3946,18 @@ export class RequestEditor {
       this.#applyBodyFormHeaderRow();
       this.#applyGraphqlHeaderRows();
     }
-    if (settings.editorFolding != null) {
-      this.#editorFolding = !!settings.editorFolding;
-      // Apply live to any on-screen GraphQL editors (no rebuild needed).
-      this.#gqlEditors?.forEach((ed) =>
-        ed.setFoldingEnabled(this.#editorFolding),
-      );
-    }
+    // PillCodeEditor view preferences (folding keeps the legacy `editorFolding`
+    // key). Update the shared state and apply live to every on-screen editor
+    // (body text, GraphQL Query/Variables, WebSocket message) without a rebuild.
+    const applyView = (key, value, setter) => {
+      if (value == null) return;
+      this.#editorView[key] = !!value;
+      for (const ed of this.#codeEditors) ed[setter](!!value);
+    };
+    applyView("folding", settings.editorFolding, "setFolding");
+    applyView("wrap", settings.editorWrap, "setWrap");
+    applyView("lineNumbers", settings.editorLineNumbers, "setLineNumbers");
+    applyView("highlight", settings.editorHighlight, "setHighlight");
 
     // GraphQL Variables-pane position (a fraction kept per orientation). Apply
     // only the keys that differ from the live state so unrelated settings changes
@@ -4653,7 +4141,12 @@ export class RequestEditor {
     this.#wsMessage = node.wsMessage ?? "";
     this.#wsMessageFormat = node.wsMessageFormat === "json" ? "json" : "text";
     this.#wsSubprotocols = node.wsSubprotocols ?? "";
-    if (this.#wsMessageEl) this.#wsMessageEl.value = this.#wsMessage;
+    if (this.#wsMessageEl) {
+      this.#wsMessageEl.setValue(this.#wsMessage);
+      this.#wsMessageEl.setLanguage(
+        this.#wsMessageFormat === "json" ? "json" : "text",
+      );
+    }
     if (this.#wsSubprotoEl) this.#wsSubprotoEl.value = this.#wsSubprotocols;
     this.#syncWsFormatButtons?.();
     if (this.#protocol === "websocket") this.#applyWsState("idle");

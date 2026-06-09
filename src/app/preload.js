@@ -22,6 +22,15 @@ ipcRenderer.on("menu:import", () => {
   window.dispatchEvent(new CustomEvent("wurl:import-requested"));
 });
 
+// Edit-menu Undo/Redo (and their ⌘Z/⌘⇧Z accelerators) are routed here instead
+// of using native roles, so the focused multi-line code editor can run its own
+// snapshot undo/redo; app.js falls back to document.execCommand for plain inputs.
+ipcRenderer.on("menu:edit-action", (_event, action) => {
+  window.dispatchEvent(
+    new CustomEvent("wurl:edit-action", { detail: { action } }),
+  );
+});
+
 ipcRenderer.on("menu:export-all", () => {
   window.dispatchEvent(new CustomEvent("wurl:export-all-requested"));
 });
@@ -452,16 +461,19 @@ contextBridge.exposeInMainWorld("wurl", {
 
     /**
      * Show a Cut / Copy / Paste / Select All menu for the focused text input,
-     * optionally with extra custom items appended (checkbox/separator). Resolves
-     * the clicked custom item's id, or null (edit roles resolve null too).
+     * optionally with custom items appended (extraItems) and/or prepended
+     * (opts.leadingItems) — both support separator / checkbox / radio / plain
+     * (id + label) entries. Resolves the clicked custom item's id, or null (the
+     * native edit roles resolve null too).
      *
      * @param {number} x
      * @param {number} y
      * @param {Array<{ id?: string, label?: string, type?: "separator"|"checkbox"|"radio", checked?: boolean, enabled?: boolean }>} [extraItems]
+     * @param {{ leadingItems?: Array<object> }} [opts]
      * @returns {Promise<string|null>}
      */
-    editContextMenu: (x, y, extraItems) =>
-      ipcRenderer.invoke("ui:edit-context-menu", { x, y, extraItems }),
+    editContextMenu: (x, y, extraItems, opts) =>
+      ipcRenderer.invoke("ui:edit-context-menu", { x, y, extraItems, opts }),
 
     openThemeEditor: () => ipcRenderer.invoke("ui:open-theme-editor"),
   },

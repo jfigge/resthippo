@@ -1705,49 +1705,63 @@ function safeCallWrite(channel, fn) {
 // Pops a Cut / Copy / Paste / Select All menu for text input fields.
 // Called from the renderer's contextmenu handler when the target is editable.
 (function initEditContextMenuIPC() {
-  ipcMain.handle("ui:edit-context-menu", (event, { x, y, extraItems } = {}) => {
-    return new Promise((resolve) => {
-      let resultId = null;
-      const win =
-        BrowserWindow.fromWebContents(event.sender) ?? _mainWin ?? undefined;
+  ipcMain.handle(
+    "ui:edit-context-menu",
+    (event, { x, y, extraItems, opts } = {}) => {
+      return new Promise((resolve) => {
+        let resultId = null;
+        const win =
+          BrowserWindow.fromWebContents(event.sender) ?? _mainWin ?? undefined;
 
-      // Standard edit roles (handled natively) plus any caller-supplied custom
-      // items (e.g. a "Code folding" checkbox). Custom clicks resolve their id.
-      const template = [
-        { label: "Cut", role: "cut" },
-        { label: "Copy", role: "copy" },
-        { label: "Paste", role: "paste" },
-        { type: "separator" },
-        { label: "Select All", role: "selectAll" },
-      ];
-      for (const item of extraItems ?? []) {
-        if (item?.type === "separator") {
-          template.push({ type: "separator" });
-          continue;
-        }
-        const entry = {
-          label: String(item.label ?? ""),
-          enabled: item.enabled !== false,
-          click: () => {
-            resultId = item.id ?? null;
-          },
+        // Turn a caller-supplied custom item into a menu template entry. A click
+        // records the item's id (resolved when the menu closes); separators and
+        // checkbox/radio state pass through. Plain items (id + label) become
+        // ordinary clickable rows — e.g. the editor's custom Undo / Redo, whose
+        // logic lives in the renderer, not in a native role.
+        const pushCustom = (list) => {
+          for (const item of list ?? []) {
+            if (item?.type === "separator") {
+              template.push({ type: "separator" });
+              continue;
+            }
+            const entry = {
+              label: String(item.label ?? ""),
+              enabled: item.enabled !== false,
+              click: () => {
+                resultId = item.id ?? null;
+              },
+            };
+            if (item.type === "checkbox" || item.type === "radio") {
+              entry.type = item.type;
+              entry.checked = !!item.checked;
+            }
+            template.push(entry);
+          }
         };
-        if (item.type === "checkbox" || item.type === "radio") {
-          entry.type = item.type;
-          entry.checked = !!item.checked;
-        }
-        template.push(entry);
-      }
 
-      const menu = Menu.buildFromTemplate(template);
-      const popupOpts = { window: win, callback: () => resolve(resultId) };
-      if (Number.isFinite(x) && Number.isFinite(y)) {
-        popupOpts.x = Math.round(x);
-        popupOpts.y = Math.round(y);
-      }
-      menu.popup(popupOpts);
-    });
-  });
+        // opts.leadingItems (custom) come first, then the native edit roles, then
+        // any extraItems (e.g. the code editor's view toggles).
+        const template = [];
+        pushCustom(opts?.leadingItems);
+        template.push(
+          { label: "Cut", role: "cut" },
+          { label: "Copy", role: "copy" },
+          { label: "Paste", role: "paste" },
+          { type: "separator" },
+          { label: "Select All", role: "selectAll" },
+        );
+        pushCustom(extraItems);
+
+        const menu = Menu.buildFromTemplate(template);
+        const popupOpts = { window: win, callback: () => resolve(resultId) };
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          popupOpts.x = Math.round(x);
+          popupOpts.y = Math.round(y);
+        }
+        menu.popup(popupOpts);
+      });
+    },
+  );
 })();
 
 // ─── HTML Preview IPC ─────────────────────────────────────────────────────────
@@ -2856,8 +2870,25 @@ function buildMenu() {
     {
       label: "Edit",
       submenu: [
-        { role: "undo" },
-        { role: "redo" },
+        // Routed to the renderer (not native roles) so the multi-line code
+        // editor's own snapshot undo/redo can take over when it's focused; the
+        // renderer falls back to document.execCommand for plain inputs.
+        {
+          label: "Undo",
+          accelerator: "CmdOrCtrl+Z",
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:edit-action", "undo");
+          },
+        },
+        {
+          label: "Redo",
+          accelerator: "Shift+CmdOrCtrl+Z",
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:edit-action", "redo");
+          },
+        },
         { type: "separator" },
         { role: "cut" },
         { role: "copy" },

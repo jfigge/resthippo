@@ -152,24 +152,6 @@ export class SettingsPopup {
               />
             </div>
 
-            <div class="settings-row settings-row--toggle">
-              <label class="settings-label" for="setting-wrap-response-text">Wrap response text</label>
-              <input
-                class="settings-toggle"
-                id="setting-wrap-response-text"
-                type="checkbox"
-              />
-            </div>
-
-            <div class="settings-row settings-row--toggle" title="Show fold carets in the GraphQL Query and Variables editors">
-              <label class="settings-label" for="setting-editor-folding">Editor folding</label>
-              <input
-                class="settings-toggle"
-                id="setting-editor-folding"
-                type="checkbox"
-              />
-            </div>
-
             <div class="settings-row settings-row--toggle" title="Show a Recents tab of recently used requests in the collections sidebar">
               <label class="settings-label" for="setting-show-recents">Show recents</label>
               <input
@@ -550,8 +532,6 @@ export class SettingsPopup {
       fontFamily: this.#el.querySelector("#setting-font-family").value,
       removeHeaders: this.#el.querySelector("#setting-remove-headers").checked,
       methodIcons: this.#el.querySelector("#setting-method-icons").checked,
-      wrapResponseText: this.#el.querySelector("#setting-wrap-response-text")
-        .checked,
       showRecents: this.#el.querySelector("#setting-show-recents").checked,
       timeout:
         parseInt(this.#el.querySelector("#setting-timeout").value, 10) || 0,
@@ -565,7 +545,6 @@ export class SettingsPopup {
           this.#el.querySelector("#setting-picker-debounce").value,
           10,
         ) || 200,
-      editorFolding: this.#el.querySelector("#setting-editor-folding").checked,
       proxyEnabled: this.#el.querySelector("#setting-proxy-enabled").checked,
       proxyUrl: this.#el.querySelector("#setting-proxy-url").value.trim(),
       proxyAuthEnabled: this.#el.querySelector("#setting-proxy-auth-enabled")
@@ -688,10 +667,6 @@ export class SettingsPopup {
       this.#el.querySelector("#setting-method-icons").checked =
         settings.methodIcons;
     }
-    if (settings.wrapResponseText !== undefined) {
-      this.#el.querySelector("#setting-wrap-response-text").checked =
-        settings.wrapResponseText;
-    }
     if (settings.showRecents !== undefined) {
       this.#el.querySelector("#setting-show-recents").checked =
         settings.showRecents;
@@ -717,10 +692,6 @@ export class SettingsPopup {
       this.#el.querySelector("#setting-picker-debounce").value = String(
         settings.pickerDebounceMs,
       );
-    }
-    if (settings.editorFolding !== undefined) {
-      this.#el.querySelector("#setting-editor-folding").checked =
-        settings.editorFolding;
     }
     if (settings.proxyEnabled !== undefined) {
       this.#el.querySelector("#setting-proxy-enabled").checked =
