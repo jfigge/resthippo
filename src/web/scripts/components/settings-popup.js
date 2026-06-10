@@ -135,7 +135,7 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row settings-row--toggle" id="setting-remove-headers-row">
-              <label class="settings-label" for="setting-remove-headers">Remove headers</label>
+              <label class="settings-label" for="setting-remove-headers">Hide headers</label>
               <input
                 class="settings-toggle"
                 id="setting-remove-headers"
@@ -144,7 +144,7 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row settings-row--toggle" id="setting-method-icons-row" title="Show an icon for each HTTP method instead of its name">
-              <label class="settings-label" for="setting-method-icons">Method icons</label>
+              <label class="settings-label" for="setting-method-icons">Use method icons</label>
               <input
                 class="settings-toggle"
                 id="setting-method-icons"
@@ -153,10 +153,19 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row settings-row--toggle" title="Show a Recents tab of recently used requests in the collections sidebar">
-              <label class="settings-label" for="setting-show-recents">Show recents</label>
+              <label class="settings-label" for="setting-show-recents">Show recently used tab</label>
               <input
                 class="settings-toggle"
                 id="setting-show-recents"
+                type="checkbox"
+              />
+            </div>
+
+            <div class="settings-row settings-row--toggle" title="Show the resolved URL preview bar above the Params editor">
+              <label class="settings-label" for="setting-show-url-preview">Show URL preview</label>
+              <input
+                class="settings-toggle"
+                id="setting-show-url-preview"
                 type="checkbox"
               />
             </div>
@@ -533,6 +542,8 @@ export class SettingsPopup {
       removeHeaders: this.#el.querySelector("#setting-remove-headers").checked,
       methodIcons: this.#el.querySelector("#setting-method-icons").checked,
       showRecents: this.#el.querySelector("#setting-show-recents").checked,
+      showUrlPreview: this.#el.querySelector("#setting-show-url-preview")
+        .checked,
       timeout:
         parseInt(this.#el.querySelector("#setting-timeout").value, 10) || 0,
       followRedirects: this.#el.querySelector("#setting-follow-redirects")
@@ -670,6 +681,10 @@ export class SettingsPopup {
     if (settings.showRecents !== undefined) {
       this.#el.querySelector("#setting-show-recents").checked =
         settings.showRecents;
+    }
+    if (settings.showUrlPreview !== undefined) {
+      this.#el.querySelector("#setting-show-url-preview").checked =
+        settings.showUrlPreview;
     }
     if (settings.timeout !== undefined) {
       this.#el.querySelector("#setting-timeout").value = String(

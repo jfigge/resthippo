@@ -21,9 +21,9 @@ wurl supports `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, and a
 
 Type the request URL into the bar. You can drop
 [`{{variables}}`](variables-and-environments.md) anywhere in it — for example
-`{{baseUrl}}/users/{{userId}}`. When **Show URL Preview** is on, wurl shows the
-fully-resolved URL beneath the params, so you can confirm exactly what will be
-sent.
+`{{baseUrl}}/users/{{userId}}`. When **Show URL preview** is on (Settings →
+Appearance), wurl shows the fully-resolved URL beneath the params, so you can
+confirm exactly what will be sent.
 
 Press <kbd>Enter</kbd> in the URL bar to send the request, or click **Send**.
 While a request is in flight the button becomes **Cancel**.

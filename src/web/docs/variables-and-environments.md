@@ -15,7 +15,7 @@ available in the current scope. Pick one and wurl inserts it as a highlighted
 ![The variable typeahead](images/variable-typeahead.png)
 
 At send time, every `{{name}}` is replaced with its resolved value. With
-[**Show URL Preview**](requests.md#url) on, you can see the resolved URL before
+[**Show URL preview**](requests.md#url) on, you can see the resolved URL before
 you send.
 
 ## Scopes

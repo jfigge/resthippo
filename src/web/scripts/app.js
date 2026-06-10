@@ -970,7 +970,7 @@ function initEventBus() {
   //   originating request (null on history replays, which always target the
   //   selected request); requestNode is the tree-node snapshot taken at send
   //   time so results route correctly even after the selection moves on.
-  //   editor-setting-changed { <settingKey>: value }      e.g. showUrlPreview
+  //   editor-setting-changed { <settingKey>: value }      e.g. listHeaders
   //
   // WebSocket
   //   ws-connect            { url, headers, subprotocols, … }
@@ -2614,8 +2614,8 @@ function _retryDescriptor(settings) {
     backoffMs: settings.retryBackoffMs ?? 500,
     multiplier: settings.retryBackoffMultiplier ?? 2,
     maxDelayMs: settings.retryMaxDelayMs ?? 10000,
-    onConnectionError: settings.retryOnConnectionError !== false,
-    onTimeout: settings.retryOnTimeout !== false,
+    onConnectionError: settings.retryOnConnectionError === true,
+    onTimeout: settings.retryOnTimeout === true,
     statusCodes: settings.retryStatusCodes ?? "",
   };
 }

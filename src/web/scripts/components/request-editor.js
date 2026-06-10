@@ -3037,24 +3037,8 @@ export class RequestEditor {
 
   // ── Params editor ────────────────────────────────────────────────────────
   #buildParamsEditor() {
-    // Right-side toggle: show / hide the URL preview bar
-    const { label: showUrlLabel } = this.#buildToolbarToggle({
-      text: "Show URL Preview",
-      title: "Show or hide the URL preview bar",
-      id: "url-preview-toggle",
-      checked: this.#urlPreviewEnabled,
-      onChange: (checked) => {
-        this.#urlPreviewEnabled = checked;
-        this.#updateUrlPreview();
-        window.dispatchEvent(
-          new CustomEvent("wurl:editor-setting-changed", {
-            detail: { showUrlPreview: checked },
-            bubbles: true,
-          }),
-        );
-      },
-    });
-
+    // The URL preview bar's visibility is controlled from Settings → Appearance
+    // ("Show URL preview"), applied via applySettings(); see #urlPreviewEnabled.
     const {
       container,
       addBtn,
@@ -3080,7 +3064,6 @@ export class RequestEditor {
         this.#dispatchParamsUpdated();
       },
       drag: this.#paramsDrag,
-      rightToggle: showUrlLabel,
       previewBar: this.#buildUrlPreviewBar(),
     });
 
@@ -3605,15 +3588,17 @@ export class RequestEditor {
     copyBtn.textContent = "Copy";
     copyBtn.title = "Copy URL to clipboard";
     copyBtn.setAttribute("aria-label", "Copy URL to clipboard");
-    copyBtn.addEventListener("click", () => {
-      const text = input.value;
+    copyBtn.addEventListener("click", async () => {
+      // Copy the *unresolved* template: variables/functions stay as `{{name}}`
+      // tokens rather than the resolved values shown in the preview bar, so the
+      // copied URL is reusable and never leaks resolved secrets.
+      const text = await this.#buildPreviewUrl(false);
       if (!text) return;
-      navigator.clipboard.writeText(text).then(() => {
-        copyBtn.textContent = "Copied!";
-        setTimeout(() => {
-          copyBtn.textContent = "Copy";
-        }, 1500);
-      });
+      await navigator.clipboard.writeText(text);
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => {
+        copyBtn.textContent = "Copy";
+      }, 1500);
     });
 
     bar.appendChild(input);
@@ -3625,34 +3610,47 @@ export class RequestEditor {
     return bar;
   }
 
-  /** Assemble the URL string with enabled query parameters appended. */
-  async #buildPreviewUrl() {
+  /**
+   * Assemble the URL string with enabled query parameters appended.
+   * @param {boolean} [resolve=true] when `false`, leave `{{variable}}` /
+   *   function tokens literal and skip percent-encoding, yielding a reusable
+   *   URL template (used by the Copy button) rather than the resolved preview.
+   */
+  async #buildPreviewUrl(resolve = true) {
     const ctx = this.#variableContext;
+    const rv = (s) =>
+      resolve ? resolveStringAsync(s ?? "", ctx) : Promise.resolve(s ?? "");
 
     const urlParts = await Promise.all(
       tokenize(this.#url ?? "").map(async (tok) => {
         if (tok.type === "text") return tok.content;
         const raw = `{{${tok.content}}}`;
-        return resolveStringAsync(raw, ctx);
+        return resolve ? resolveStringAsync(raw, ctx) : raw;
       }),
     );
     // Substitute path params before percent-encoding so `{id}` braces aren't
-    // mangled by encodeBaseUrl (which would otherwise %7B-escape them).
-    const substituted = applyPathParams(
-      urlParts.join(""),
-      await resolvePathParamValues(this.#pathParams, (s) =>
-        resolveStringAsync(s, ctx),
-      ),
-    );
-    const base = encodeBaseUrl(substituted);
+    // mangled by encodeBaseUrl (which would otherwise %7B-escape them). In raw
+    // mode path values pass through unresolved/unencoded so any `{{var}}` in
+    // them survives too.
+    const pathValues = new Map();
+    for (const p of this.#pathParams ?? []) {
+      const name = (p.name ?? "").trim();
+      if (!name) continue;
+      const v = await rv(p.value);
+      pathValues.set(name, resolve ? encodeURIComponent(v) : v);
+    }
+    const substituted = applyPathParams(urlParts.join(""), pathValues);
+    const base = resolve ? encodeBaseUrl(substituted) : substituted;
 
     const enabled = this.#params.filter((p) => p.enabled && p.name.trim());
     if (!enabled.length) return base;
     const pairs = await Promise.all(
       enabled.map(async (p) => {
-        const name = await resolveStringAsync(p.name, ctx);
-        const value = await resolveStringAsync(p.value, ctx);
-        return `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
+        const name = await rv(p.name);
+        const value = await rv(p.value);
+        return resolve
+          ? `${encodeURIComponent(name)}=${encodeURIComponent(value)}`
+          : `${name}=${value}`;
       }),
     );
     const qs = pairs.join("&");
@@ -4270,10 +4268,8 @@ export class RequestEditor {
       if (!this.#headerSuggestionsEnabled) _hdrAc.hide();
     }
     if (settings.showUrlPreview != null) {
+      // Toggled from Settings → Appearance; just reflect it onto the bar.
       this.#urlPreviewEnabled = !!settings.showUrlPreview;
-      // Sync the Show URL checkbox by ID
-      const cb = this.#el.querySelector("#url-preview-toggle");
-      if (cb) cb.checked = this.#urlPreviewEnabled;
       this.#updateUrlPreview();
     }
     if (settings.removeHeaders != null) {

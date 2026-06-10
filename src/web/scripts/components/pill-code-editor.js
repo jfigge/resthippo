@@ -575,7 +575,7 @@ export class PillCodeEditor {
   async #showContextMenu(e) {
     e.preventDefault();
     e.stopPropagation(); // pre-empt the app's generic editable-field menu
-    const show = window.wurl?.ui?.editContextMenu;
+    const show = window.wurl?.ui?.contextMenu?.edit;
     if (!show) return;
     const ml = this.#multiline;
     // Undo / Redo lead the menu (above the native Cut/Copy/Paste). They drive the

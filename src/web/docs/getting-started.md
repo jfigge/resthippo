@@ -49,7 +49,8 @@ remembers the positions.
 
 3. **Enter the URL.** Type into the URL bar. You can use
    [`{{variables}}`](variables-and-environments.md) anywhere — wurl shows the
-   resolved URL beneath the bar when **Show URL Preview** is on.
+   resolved URL beneath the bar when **Show URL preview** is on (Settings →
+   Appearance).
 4. **Add query params, headers, or a body** in the tabs below (all optional).
    See [Building Requests](requests.md).
 5. **Click `Send`** (or press <kbd>Enter</kbd> while the URL bar is focused).
