@@ -1,0 +1,3664 @@
+{
+  "kind": "wurl-backup",
+  "schemaVersion": 2,
+  "exportedAt": "2026-06-10T14:16:15.285Z",
+  "secretsIncluded": true,
+  "secretsMode": "password",
+  "manifest": {
+    "version": 2,
+    "collections": [
+      {
+        "id": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+        "name": "COLLECTION",
+        "sendCookies": true
+      }
+    ],
+    "activeCollectionId": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+    "settings": {
+      "theme": "grey-dark",
+      "fontSize": 13,
+      "fontFamily": "inter",
+      "layout": 1,
+      "timeout": 30000,
+      "followRedirects": true,
+      "verifySsl": true,
+      "proxyEnabled": false,
+      "proxyUrl": "encp:v1:jigMUv4uxA2i/mnXdl0fcI5fESAiRJHE4ctN6S137rF3rsHYBw/5zrng20fvJ7+EMp1+jY1Yryn0IAPw2Ajy/PY=",
+      "proxyAuthEnabled": true,
+      "proxyUsername": "encp:v1:tc4ld0u3Sg7YliJQArm/BcSLmtsMyXFheVWnjhKxH0QQjcSO6TSlaONPzw0vpdyjTw==",
+      "proxyPassword": "encp:v1:zif3k9FJTnGboXAFk3LJkfY6qRLVLyAEPuTqXy+AzRc3+4CGQpECh55db+QEO7o+X7gTjg==",
+      "proxyBypass": "",
+      "retryEnabled": true,
+      "retryMaxAttempts": 3,
+      "retryBackoffMs": 500,
+      "retryBackoffMultiplier": 2,
+      "retryMaxDelayMs": 10000,
+      "retryOnConnectionError": true,
+      "retryOnTimeout": true,
+      "retryStatusCodes": "",
+      "splitterNav": 268,
+      "splitterRes": 362,
+      "splitterRowRes": 416.75,
+      "graphqlVarsFractionColumn": 0.7770906304728546,
+      "graphqlVarsFractionRow": 0.1982470267591675,
+      "editorFolding": false,
+      "listHeaders": true,
+      "showUrlPreview": true,
+      "varsBulkEditor": false,
+      "selectedRequestIds": {
+        "089f9b40-d3e1-485d-8fdc-eda146c29ef5": "9499f5a2-0078-47e5-915e-e73c52cc8de8",
+        "77494ffc-ca28-4f10-ab71-afb35df7bad2": "e48b72f7-a415-4102-99a2-bca806e15d63",
+        "33234f80-1e60-4abe-a0b9-c472ada25b39": "9499f5a2-0078-47e5-915e-e73c52cc8de8"
+      },
+      "responseBodyRenderMode": "styled",
+      "methodIcons": false,
+      "wrapResponseText": false,
+      "oauth2Advanced": true,
+      "historyCount": 5,
+      "customThemes": [],
+      "favorites": [],
+      "recents": [
+        {
+          "collectionId": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+          "requestId": "70c1aef6-2f94-435b-ba44-62cb1e5009a9",
+          "name": "Delay 10s",
+          "method": "GET"
+        },
+        {
+          "collectionId": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+          "requestId": "dce4ab6a-b507-4668-9ad2-d734f22efaf7",
+          "name": "Delay 20s",
+          "method": "GET"
+        },
+        {
+          "collectionId": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+          "requestId": "4cd2b537-04b5-4909-b606-d29d135eea4e",
+          "name": "Delay 35s",
+          "method": "GET"
+        },
+        {
+          "collectionId": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+          "requestId": "5edd83b8-37aa-4fd2-b8a3-515306cb989f",
+          "name": "Delay 15s",
+          "method": "GET"
+        },
+        {
+          "collectionId": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+          "requestId": "b24a3c6b-8977-413c-97e9-1b93f56377cb",
+          "name": "Echo",
+          "method": "POST"
+        },
+        {
+          "collectionId": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+          "requestId": "3cbd509c-d91f-4524-a793-0a23d37b0d2c",
+          "name": "Echo",
+          "method": "POST"
+        },
+        {
+          "collectionId": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+          "requestId": "b9c5c781-1a9e-40e5-aa6c-80390d20bf4a",
+          "name": "Google",
+          "method": "GET"
+        },
+        {
+          "collectionId": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+          "requestId": "6ab2254b-30ee-4e59-a9e5-41b2cc8db260",
+          "name": "Subprotocol handshake",
+          "method": "GET",
+          "protocol": "websocket"
+        }
+      ],
+      "showRecents": false,
+      "graphqlSplitFlow": "row",
+      "useCookieJar": true,
+      "selectedRequestId": null,
+      "removeHeaders": false,
+      "doubleClickExecute": false,
+      "pickerDebounceMs": 500,
+      "editorLineNumbers": false,
+      "editorHighlight": true,
+      "editorWrap": false
+    },
+    "schemaVersion": 2
+  },
+  "environments": {
+    "version": 1,
+    "globalVariables": [
+      {
+        "name": "G",
+        "value": "1",
+        "secure": false
+      },
+      {
+        "name": "E",
+        "value": "Global",
+        "secure": false
+      },
+      {
+        "name": "mockUrl",
+        "value": "http://127.0.0.1:8888",
+        "secure": false
+      }
+    ],
+    "activeEnvironmentId": "6740ff29-a741-4968-b788-5d1d73a06182",
+    "environments": [
+      {
+        "id": "6740ff29-a741-4968-b788-5d1d73a06182",
+        "name": "DEV",
+        "variables": [
+          {
+            "name": "E",
+            "value": "dev",
+            "secure": false
+          },
+          {
+            "name": "F",
+            "value": "f",
+            "secure": false
+          },
+          {
+            "name": "baseUrl",
+            "value": "https://dev.global-network-service.qateradatacloud.com",
+            "secure": false
+          }
+        ]
+      },
+      {
+        "id": "3485da4c-7f59-4e87-b668-af71c1c8d7d9",
+        "name": "QA",
+        "variables": [
+          {
+            "name": "E",
+            "value": "qa",
+            "secure": false
+          }
+        ]
+      }
+    ],
+    "schemaVersion": 2
+  },
+  "collections": [
+    {
+      "id": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+      "metadata": {
+        "id": "089f9b40-d3e1-485d-8fdc-eda146c29ef5",
+        "variables": [
+          {
+            "name": "domain",
+            "value": "qateradatacloud.com",
+            "secure": false
+          }
+        ],
+        "schemaVersion": 2
+      },
+      "tree": {
+        "children": [],
+        "schemaVersion": 2
+      },
+      "requests": [
+        {
+          "id": "011b573c-b147-44d2-887a-703bb4c0ef58",
+          "type": "request",
+          "name": "GET via query string",
+          "method": "GET",
+          "url": "{{mockUrl}}/graphql",
+          "params": [
+            {
+              "id": "7f156837-25a7-4117-9dce-22778eba381b",
+              "name": "query",
+              "value": "{ users { id name email role } }",
+              "enabled": true
+            }
+          ],
+          "notes": "The mock also accepts GraphQL over GET, reading the query (and optional `variables`) from the query string instead of a JSON body. Here the query travels as the `query` param (URL-encoded by wurl) and returns the same users list.\n\nPrereq: `make mock-up`. Add a second param `variables` with a JSON value to pass variables over GET. Note: wurl's GraphQL body editor is POST-oriented, so this uses plain query params with No Body rather than the GraphQL body mode.",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "02f1fe16-8545-4eda-b5d5-f3992aadc640",
+          "type": "request",
+          "name": "text/css",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "08466827-2fd1-4292-b641-291f05433dfd",
+          "type": "request",
+          "name": "Basic",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/{{requestName()}}",
+          "authEnabled": true,
+          "authType": "basic",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:swMuuNjwg9tK/q/RM2UR+l+bJdE+wFn0EFsenXgLFYfzmztK62hhV/V/feuDN2txrO/ELg=="
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "notes": "Basic\nBearer\nAPI Key\nDigest\nAWS CLI\nNTLM",
+          "captures": []
+        },
+        {
+          "id": "08e6dddd-9875-4fd1-87d3-b98cbde409e7",
+          "type": "request",
+          "name": "Request Name",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "09a5a4ce-0051-4156-b025-ba7a681d298e",
+          "type": "request",
+          "name": "All auth types",
+          "method": "GET",
+          "url": "http://localhost:8888/auth",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:/dV1h2CeryZtiumeRTlrSmFYxPHJhiYh7qVcZNUvcm42DdxIDZZw0Rc5XCwZaWOouQCr/g=="
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "notes": "Basic\nBearer\nAPI Key\nDigest\nAWS CLI\nNTLM",
+          "captures": []
+        },
+        {
+          "id": "09e569cb-dbca-4e92-bfeb-35aac2f20b2b",
+          "type": "request",
+          "name": "Environment Name",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo/{{environmentName()}}",
+          "bodyType": "json",
+          "bodyFormRows": [],
+          "bodyText": "{\n  \"sdsd\": 1\n}",
+          "bodyFilePath": "",
+          "preRequestScript": "",
+          "afterResponseScript": "",
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "0a7c681c-047d-4112-abfb-294a60fc749d",
+          "type": "request",
+          "name": "Echo — websocket.org",
+          "url": "wss://echo.websocket.org",
+          "protocol": "websocket",
+          "wsMessage": "Ping",
+          "wsMessageFormat": "text",
+          "wsSubprotocols": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "0d31273f-6348-47fc-8e1c-14c132f4d156",
+          "type": "request",
+          "name": "Relayed (baseline)",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo",
+          "headers": [],
+          "notes": "Baseline — confirms traffic actually goes through the forward proxy.\n\nPrereqs: `make mock-up`; Settings ▸ Proxy enabled with URL http://localhost:9999.\n\nThe response should carry the header `X-Proxy-Relayed: wurl-mock`, stamped by the mock forward proxy. This is a plain-HTTP target, so the proxy uses the absolute-URI forward path (not a CONNECT tunnel).",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "0dae1fbb-f50a-444b-852d-6eda965ffedc",
+          "type": "request",
+          "name": "Success",
+          "method": "GET",
+          "url": "{{baseUrl}}/health",
+          "pathParams": [],
+          "headers": [
+            {
+              "id": "cf6e8a86-2b8c-466c-90e4-56e6f88189c1",
+              "name": "X-PROXY-ERROR",
+              "value": "2",
+              "enabled": true
+            }
+          ],
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "0e56e34c-d18b-458a-91f8-d9e5e512c847",
+          "type": "request",
+          "name": "png",
+          "method": "GET",
+          "url": "http://127.0.0.1:8888/binary/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "0ea9a45d-71af-4ce4-99d1-c2334f18eb95",
+          "type": "request",
+          "name": "Resource Owner Password",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/bearer",
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "password",
+            "clientType": "confidential",
+            "clientId": "password-grant-client",
+            "clientSecret": "encp:v1:sPwfWnFG5ZaYib5AFqNibDWB/lnbpeTH9k5ZG7VPn6IbuEb5ukV5+HWTyxikliJJiEWYBCPcbUOoVvT6KwTyZobT/CyU",
+            "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+            "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "encp:v1:8oUgotZQuFGpW3+JzIhMIEtNxmDiDULVHvZVbelZUkSnIVwyH+BImALxY1OYRpQ=",
+            "password": "encp:v1:prEZz8UvA1buSq3ovn2QRrIBBuYke6hMPfY+cJMdJkL1jZrNcVrlbRr4G1NH1SBma60=",
+            "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+            "discoveredScopes": [
+              "openid",
+              "offline_access",
+              "microprofile-jwt",
+              "email",
+              "phone",
+              "web-origins",
+              "acr",
+              "organization",
+              "address",
+              "roles",
+              "basic",
+              "profile",
+              "service_account"
+            ]
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "1172fb29-d100-4765-8951-a75bbd04b05a",
+          "type": "request",
+          "name": "jpeg",
+          "method": "GET",
+          "url": "http://127.0.0.1:8888/binary/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "147f41d5-b58d-448a-a4f4-c6a426e00994",
+          "type": "request",
+          "name": "Query: users list",
+          "method": "POST",
+          "url": "{{mockUrl}}/graphql",
+          "bodyType": "graphql",
+          "bodyGraphql": {
+            "query": "query ListUsers {\n  users(role: ADMIN, active: true) {\n    id\n    name\n    email\n    role\n    active\n  }\n}",
+            "variables": ""
+          },
+          "notes": "List query returning `[User!]!`.\n\nPrereq: `make mock-up`.\n\nThe mock returns a canned two-user list (Alice id 1 / ADMIN / active, Bob id 2 / USER / inactive); the `role` and `active` arguments are accepted but not actually filtered by the mock. operationName is \"ListUsers\".",
+          "schemaVersion": 2,
+          "headers": [
+            {
+              "id": "3497f658-a5f5-4e37-8b61-5b897f8956d2",
+              "name": "",
+              "value": "",
+              "enabled": true
+            },
+            {
+              "id": "1ae7bfe0-bf2b-45c4-aacd-90ce3e3b7a47",
+              "name": "",
+              "value": "",
+              "enabled": true
+            }
+          ],
+          "params": [
+            {
+              "id": "2d03a820-6fe5-40e3-ae44-a5fe2abda2be",
+              "name": "",
+              "value": "",
+              "enabled": true
+            },
+            {
+              "id": "6839d9d1-1bda-4200-b3e6-41fbd2caab01",
+              "name": "",
+              "value": "",
+              "enabled": true
+            }
+          ],
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "16f84016-d9fe-4621-b308-30c9f5b8f57e",
+          "type": "request",
+          "name": "New Request",
+          "url": "",
+          "method": "GET",
+          "params": [],
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "1959461c-674a-474a-b9f4-1805f36f3075",
+          "type": "request",
+          "name": "json",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo",
+          "bodyType": "json",
+          "bodyFormRows": [
+            {
+              "id": "328bdbc3-ea86-451d-b29d-522f78b2ee84",
+              "name": "Text1",
+              "value": "Something",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "f438a6fb-2ec8-4d09-a5da-f61b4ac280e6",
+              "name": "Text2",
+              "value": "",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "242909f9-cf9b-480d-aef6-4ea8de3b8485",
+              "name": "Text3",
+              "value": "Anything",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "f0e6586f-cf14-4703-9df9-831cb111e9f8",
+              "name": "Text4",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "f836c23b-b40a-48c1-a7e6-058f25e77eb0",
+              "name": "File1",
+              "value": "",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "b92543ad-f8b7-4c4d-9b62-b74664e8943f",
+              "name": "File2",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "70a7d8a2-e333-4f49-8cf6-eaad87f0ade0",
+              "name": "File3",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "c6974ed6-6eca-4afa-ab0f-83b7ae294048",
+              "name": "File4",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            }
+          ],
+          "bodyText": "{\n  \"method\": \"POST\",\n  \"url\": \"/echo\",\n  \"path\": \"/echo\",\n  \"protocol\": \"HTTP/1.1\",\n  \"host\": \"127.0.0.1:8888\",\n  \"remoteAddr\": \"127.0.0.1:57258\",\n  \"params\": {},\n  \"headers\": {\n    \"Connection\": [\n      \"close\"\n    ],\n    \"Content-Length\": [\n      \"35\"\n    ],\n    \"Content-Type\": [\n      \"application/json\"\n    ]\n  },\n  \"cookies\": {},\n  \"contentLength\": 35,\n  \"body\": \"{\\n  \\\"sample\\\": 1,\\n  \\\"text\\\": \\\"sdsd\\\"\\n}\"\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 2,
+          "params": [],
+          "pathParams": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "notes": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "1c22465c-3d40-4c96-b335-1c81c1d5785e",
+          "type": "request",
+          "name": "SOCKS5 tunnel",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo",
+          "headers": [],
+          "notes": "Routes through the mock SOCKS5 proxy instead of the HTTP forward proxy.\n\nPrereqs: `make mock-up`; set Settings ▸ Proxy URL to socks5://localhost:9998.\n\nSOCKS relays raw bytes, so there's no `X-Proxy-Relayed` header and X-Proxy-Error is ignored — success confirms the SOCKS path works. For SOCKS auth, start the mock with MOCK_PROXY_USER/MOCK_PROXY_PASS and set matching proxy credentials in Settings (RFC 1929 user/pass).",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "2017b589-d839-4367-9c2c-bf75603296d9",
+          "type": "request",
+          "name": "gif",
+          "method": "GET",
+          "url": "http://127.0.0.1:8888/binary/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "241aa255-cc35-4a57-8183-526d6b99581a",
+          "type": "request",
+          "name": "large",
+          "method": "GET",
+          "url": "http://127.0.0.1:8888/volume/{{requestName()}}",
+          "params": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "bodyType": "no-body",
+          "notes": "",
+          "bodyText": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "262238dc-15e5-4017-bb30-8aae74d4a090",
+          "type": "request",
+          "name": "Variables: {{var}} interpolation",
+          "method": "POST",
+          "url": "{{mockUrl}}/graphql",
+          "bodyType": "graphql",
+          "bodyGraphql": {
+            "query": "query GetUser($id: ID!) {\n  user(id: $id) {\n    id\n    name\n    role\n  }\n}",
+            "variables": "{\n  \"id\": \"{{userId}}\"\n}"
+          },
+          "notes": "Verifies that {{var}} tokens resolve in the GraphQL panes before the body is serialized (Feature 34, step 2).\n\nThe `userId` variable is defined on this GraphQL folder (value 777). Because the mock's `user` resolver echoes `variables.id`, the response `data.user.id` will be \"777\" — visible proof the token was interpolated. Interpolation works in the Query pane too (e.g. an inline `role: {{someRole}}` enum), not just in Variables.",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "2c3c8456-633f-441c-8a00-bf3952bca5f7",
+          "type": "request",
+          "name": "Swagger",
+          "method": "GET",
+          "url": "{{baseUrl}}/swagger/#",
+          "params": [],
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "pathParams": [],
+          "captures": []
+        },
+        {
+          "id": "2e5339d4-747b-46d0-b1be-fbf397188cac",
+          "type": "request",
+          "name": "ChatGPT",
+          "method": "GET",
+          "url": "https://chatgpt.com",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "2f48edc0-3c1c-433b-9171-1c72e88f7fc2",
+          "type": "request",
+          "name": "text/javascript",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "32ff6585-3729-49b0-b334-3d3e440a9500",
+          "type": "request",
+          "name": "Client",
+          "method": "POST",
+          "url": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "83656dfc-7c1d-4849-ba68-e2e796c8e922",
+              "name": "grant_type",
+              "value": "client_credentials",
+              "enabled": true
+            },
+            {
+              "id": "a00ad237-d9c5-48c6-8a68-a96e9f24cf54",
+              "name": "client_id",
+              "value": "client-credentials-client",
+              "enabled": true
+            },
+            {
+              "id": "4e8c3151-ed47-4742-aa5c-908bfe2ca292",
+              "name": "client_secret",
+              "value": "super-secret-client-value",
+              "enabled": true
+            }
+          ],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "params": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "notes": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "333c4be6-a060-48b2-9ea6-06a833a29157",
+          "type": "request",
+          "name": "Get User",
+          "method": "GET",
+          "url": "https://jsonplaceholder.typicode.com/users/1",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "33c23da6-e200-4edd-a3af-ec15e64f22e1",
+          "type": "request",
+          "name": "Response HTTP status",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{responseStatus(\"Client\")}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "34359a9e-4f06-4e45-87b4-85da902cdb5e",
+          "type": "request",
+          "name": "HTTPS via CONNECT tunnel",
+          "method": "GET",
+          "url": "{{baseUrl}}/health",
+          "headers": [],
+          "notes": "HTTPS target → the proxy opens a CONNECT tunnel and blindly relays encrypted bytes.\n\nBecause the tunnel is end-to-end, X-Proxy-Error is invisible here (only the plain-HTTP forward path can read it) — success itself proves the tunnel works. The CONNECT acknowledgement carries `X-Proxy-Relayed: wurl-mock`.\n\nPrereqs: Settings ▸ Proxy enabled with URL http://localhost:9999. Requires the {{baseUrl}} host (DEV environment) to be reachable; swap in any reachable https:// URL to test CONNECT against a different host.",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "35b8dade-69e0-4e23-b485-c040fdedfbd3",
+          "type": "request",
+          "name": "NTLM",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/{{requestName()}}",
+          "authEnabled": true,
+          "authType": "ntlm",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "implicit",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "authNtlm": {
+            "username": "user",
+            "password": "encp:v1:tBA//5fvmxyfbbx6DiDcddr/GBJjGoQkAa2ml28BHCNFhU4qbSQgriakjakdUhfqcWIVOg==",
+            "domain": "localhost",
+            "workstation": "apollo"
+          },
+          "captures": []
+        },
+        {
+          "id": "372dcef3-6c18-41ea-97d1-c810f703d3c7",
+          "type": "request",
+          "name": "Retry: timeout",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo",
+          "headers": [
+            {
+              "id": "5ea72394-be1e-4135-a46c-e3807cbe6a98",
+              "name": "X-Proxy-Error",
+              "value": "2:timeout",
+              "enabled": true
+            },
+            {
+              "id": "f00f5183-db86-4286-bccf-fc6c08e64996",
+              "name": "X-Proxy-Error-Delay",
+              "value": "1500",
+              "enabled": true
+            },
+            {
+              "id": "77de570d-382a-4d00-b1e3-cac58fbb942f",
+              "name": "",
+              "value": "",
+              "enabled": true
+            }
+          ],
+          "notes": "`X-Proxy-Error: 2:timeout` makes the forward proxy hang ~1500ms (X-Proxy-Error-Delay) on the 1st delivery then close — surfacing as a timeout — before succeeding on the 2nd.\n\nPrereqs: Settings ▸ Retry enabled with 'retry on timeout' (on by default), Max attempts ≥ 2, and a request Timeout below the delay (e.g. set Settings ▸ Timeout to 1000ms, or raise X-Proxy-Error-Delay above the timeout).",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "3cbd509c-d91f-4524-a793-0a23d37b0d2c",
+          "type": "request",
+          "name": "Echo",
+          "method": "POST",
+          "url": "https://echo.free.beeceptor.com/{{folder}}/2/{{pass}}",
+          "params": [
+            {
+              "id": "1f71a741-bc2b-4e17-be26-e150fba6a66b",
+              "name": "fred",
+              "value": "{{pass}}",
+              "enabled": true
+            }
+          ],
+          "headers": [
+            {
+              "id": "2982ba63-7ef1-41c1-b3f8-b38f71cdfeaa",
+              "name": "Accept",
+              "value": "",
+              "enabled": true
+            }
+          ],
+          "bodyType": "yaml",
+          "bodyFormRows": [],
+          "bodyText": "G: \"{{G}}\"\nE: \"{{E}}\"\nF: \"{{F}}\"\n",
+          "bodyFilePath": "",
+          "authEnabled": false,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:6cutkhaEyUmDE+py8u7I5tO5Av+DhzIraJ9RY+YkR9VrmPmhPlgLGqbAVhJ50iXEvHIefw=="
+          },
+          "authBearer": {
+            "token": "encp:v1:b1Ffg3G/cwv7ztBI3muMKWUR7POOJ6AMt5VMyFdAlKxkYgnDJV/jpPjbAei8NgbIqQ=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "oauth-code-client",
+            "clientSecret": "encp:v1:yze9JKaCYYvgW6tKauM5elHnGj8sRD/F5jh7pOUetG+4ZDpUh7I9V8WEGgDkLvL/mqJPoIW0LVuAQY9jus8fFNkCIZnw",
+            "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+            "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+            "scope": "email profile openid",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "http://localhost:3000/callback",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "notes": "",
+          "schemaVersion": 2,
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "3e9baffb-2f8b-4965-93e8-da3632a8adc1",
+          "type": "request",
+          "name": "Status",
+          "method": "GET",
+          "url": "{{gns_url}}/networks/status/0c12ebf7-0830-4b8e-956a-875782fb1a7c",
+          "authEnabled": true,
+          "authType": "bearer",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": "encp:v1:91CFBGO8x6Vlm0qA/OKnCQ1lYeHidBfLxPf8HNkhBnjYK4KcirOtgJ+lxFDwuWUtQCoi8fyjPgveQvnXYjRz5ZYScikN7aKRFuBpBlYVrkI4D+hTdsQh7HymkxFs8++77k1o6z3vU0QBZeHt"
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "params": [],
+          "schemaVersion": 2,
+          "notes": "",
+          "captures": []
+        },
+        {
+          "id": "44bcda46-1981-49de-9e93-d425cff5146d",
+          "type": "request",
+          "name": "UUIDv4",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{uuid()}}",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:BpF1IgVSVrpxHTWQLN24rZlNUyo2STGpEKJ7v8SpWHkfr38cFEqWvzYHdKK23qfxqSaCHw=="
+          },
+          "authBearer": {
+            "token": "encp:v1:Btu7G1U3s7PglOQv/YhH99o4qYKzVbMAYx3vdh0oF8xMsv5P87TaA4+tMP6dlFVj5Q=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "a24a1b71-efa5-4abf-978f-f60cf02ddfd2",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "5296ee10-bb3d-4097-97e4-4ec43e02325c",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 2,
+          "pathParams": [],
+          "captures": []
+        },
+        {
+          "id": "468964e3-7543-4b4a-a475-0c58c3e28b71",
+          "type": "request",
+          "name": "Introspection (fetch schema)",
+          "method": "POST",
+          "url": "{{mockUrl}}/graphql",
+          "bodyType": "graphql",
+          "bodyGraphql": {
+            "query": "query IntrospectionQuery {\n  schema {\n    queryType { name }\n    mutationType { name }\n    types {\n      kind\n      name\n    }\n  }\n}",
+            "variables": ""
+          },
+          "notes": "Schema introspection — the same path the editor's \"Fetch schema\" button uses to power query autocomplete.\n\nPrereq: `make mock-up`.\n\nAny query containing `__schema` (or named `IntrospectionQuery`) makes the mock return its canned schema: types Query/Mutation/User, enum Role {ADMIN, USER, GUEST}. Tip: instead of sending this, click \"Fetch schema\" in the GraphQL body toolbar to enable autocomplete in the Query pane.",
+          "schemaVersion": 2,
+          "bodyFormRows": [],
+          "bodyText": "query IntrospectionQuery {\n  __schema {\n    queryType { name }\n    mutationType { name }\n    types {\n      kind\n      name\n    }\n  }\n}",
+          "bodyFilePath": "",
+          "captures": []
+        },
+        {
+          "id": "46ef31d5-4942-47a9-aa75-a6e22340d9fd",
+          "type": "request",
+          "name": "medium",
+          "method": "GET",
+          "url": "http://127.0.0.1:8888/volume/{{requestName()}}",
+          "params": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "bodyType": "no-body",
+          "notes": "",
+          "bodyText": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "4cd2b537-04b5-4909-b606-d29d135eea4e",
+          "type": "request",
+          "name": "Delay 35s",
+          "url": "http://127.0.0.1:8888/delay?seconds=35",
+          "method": "GET",
+          "captures": [],
+          "schemaVersion": 2
+        },
+        {
+          "id": "4d9a7783-3d64-4c9f-a47c-bfda649e83ca",
+          "type": "request",
+          "name": "Error: unknown field",
+          "method": "POST",
+          "url": "{{mockUrl}}/graphql",
+          "bodyType": "graphql",
+          "bodyGraphql": {
+            "query": "query BadField {\n  unknownField {\n    id\n  }\n}",
+            "variables": ""
+          },
+          "notes": "Exercises the GraphQL error path. `unknownField` matches none of the mock's root fields (user / users / createUser), so it returns the GraphQL-conventional HTTP 200 with an `errors` array (\"Cannot query the requested field on type \\\"Query\\\".\") and no `data`.\n\nPrereq: `make mock-up`. Confirms the response viewer surfaces a 200-with-errors response correctly, not just transport errors.",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "4f74f938-d5fc-44f6-afbf-98429a6c2be4",
+          "type": "request",
+          "name": "octet-stream",
+          "method": "GET",
+          "url": "http://127.0.0.1:8888/binary/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "514dc2a0-7885-4db8-a77b-5ef8afcc788e",
+          "type": "request",
+          "name": "Client Credentials",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/bearer",
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "client-credentials-client",
+            "clientSecret": "encp:v1:RGR73+xylBLfnyARoN5Aacy7L1pk6gz2lJw3KhWD8cibPAKmkfNGd4yMXeWL07S2a8WwBmMqVZekGcBh0K2ac5BUYuwY",
+            "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+            "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+            "discoveredScopes": [
+              "openid",
+              "offline_access",
+              "microprofile-jwt",
+              "email",
+              "phone",
+              "web-origins",
+              "acr",
+              "organization",
+              "address",
+              "roles",
+              "basic",
+              "profile",
+              "service_account"
+            ]
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "51e1a1b0-a859-4773-93a2-0d2d05706ae9",
+          "type": "request",
+          "name": "pdf",
+          "method": "GET",
+          "url": "http://127.0.0.1:8888/binary/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "54faa6c6-24c1-4f11-9d2e-96569e5fb057",
+          "type": "request",
+          "name": "Retry: connection reset",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo",
+          "headers": [
+            {
+              "id": "1be258b9-619b-46de-b286-a8c50bfef213",
+              "name": "X-Proxy-Error",
+              "value": "2:reset",
+              "enabled": true
+            }
+          ],
+          "notes": "`X-Proxy-Error: 2:reset` makes the forward proxy abruptly close the connection on the 1st delivery — a connection error — then succeed on the 2nd.\n\nPrereqs: Settings ▸ Retry enabled with 'retry on connection error' (on by default), Max attempts ≥ 2.\n\nExercises the connection-error retry condition rather than a status code.",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "57aa2ad8-dedf-4cf7-bab5-1a37aea897df",
+          "type": "request",
+          "name": "100",
+          "method": "GET",
+          "url": "http://localhost:8888/status/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "59f4338d-c6e4-43ed-9e56-8bb2dd30cf4a",
+          "type": "request",
+          "name": "Authorization Code-CC",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/bearer",
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "oauth-code-client",
+            "clientSecret": "",
+            "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+            "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+            "scope": "email",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "http://localhost:3000/callback",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "headers": [
+            {
+              "id": "6fb3c523-d9dc-483a-8c7b-04a18f774cc6",
+              "name": "",
+              "value": "",
+              "enabled": true
+            }
+          ],
+          "params": [
+            {
+              "id": "690b57ba-78bc-4668-b02c-6b51856873b2",
+              "name": "",
+              "value": "",
+              "enabled": true
+            }
+          ],
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "5d9e83d5-3522-4e31-af6e-6d2e2de74fac",
+          "type": "request",
+          "name": "Folder Name",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{folderName(\"0\")}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "5edd83b8-37aa-4fd2-b8a3-515306cb989f",
+          "type": "request",
+          "name": "Delay 15s",
+          "url": "http://127.0.0.1:8888/delay?seconds=15",
+          "method": "GET",
+          "captures": [],
+          "schemaVersion": 2
+        },
+        {
+          "id": "6183d912-a2ed-490a-a147-cc88a2eeaae0",
+          "type": "request",
+          "name": "Query: user by id",
+          "method": "POST",
+          "url": "{{mockUrl}}/graphql",
+          "bodyType": "graphql",
+          "bodyGraphql": {
+            "query": "query GetUser($id: ID!) {\n  user(id: $id) {\n    id\n    name\n    email\n    active\n  }\n}",
+            "variables": "{\n  \"id\": \"42\"\n}"
+          },
+          "notes": "Core single-object query with a variable and a named operation.\n\nPrereq: `make mock-up`.\n\nThe mock's `user` resolver echoes back `variables.id`, so the response `data.user.id` will be \"42\" (name Alice, role ADMIN). operationName is auto-derived as \"GetUser\" from the named query. Change the `id` variable to see it flow through.",
+          "schemaVersion": 2,
+          "bodyFormRows": [],
+          "bodyText": "{\n  \"sdsd\": \"sd\"\n}",
+          "bodyFilePath": "",
+          "params": [
+            {
+              "id": "1395b59b-e170-4f72-8995-5d84b9c10b10",
+              "name": "dgh",
+              "value": "d",
+              "enabled": true
+            },
+            {
+              "id": "f52d99d8-ec66-4dfb-8edc-0f94e9380555",
+              "name": "dfgh",
+              "value": "dfgh",
+              "enabled": true
+            }
+          ],
+          "pathParams": [],
+          "headers": [
+            {
+              "id": "eba740a5-347d-4f97-92d8-d215d2f825eb",
+              "name": "",
+              "value": "",
+              "enabled": true
+            }
+          ],
+          "authType": "none",
+          "authEnabled": true,
+          "captures": []
+        },
+        {
+          "id": "62e93fcc-1acb-4f4c-97ec-21f9b592a8d3",
+          "type": "request",
+          "name": "404",
+          "method": "GET",
+          "url": "http://localhost:8888/status/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "641a045e-41d4-4fba-9b45-2876325506a9",
+          "type": "request",
+          "name": "Stream — Binance trades",
+          "url": "wss://stream.binance.com:9443/ws/btcusdt@trade",
+          "protocol": "websocket",
+          "wsMessage": "",
+          "wsMessageFormat": "text",
+          "wsSubprotocols": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "657d58d0-907c-4954-aa12-45b516ea7d6a",
+          "type": "request",
+          "name": "ApiKey",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/{{requestName()}}",
+          "authEnabled": true,
+          "authType": "apikey",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "X-Auth-Token",
+            "value": "encp:v1:hO54GB33Xu2emMUNFKmpGXfgSfHajMlA+1qsmFR/Spk7W0WyzQ3xmsZItxNpQFnq6A==",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "67399eca-1585-446e-948a-b38f042b3476",
+          "type": "request",
+          "name": "Health",
+          "method": "GET",
+          "url": "{{baseUrl}}/health",
+          "schemaVersion": 2,
+          "useCookieJar": true,
+          "captures": []
+        },
+        {
+          "id": "67f4e36a-ad41-4cdc-a80c-cc73122e8cdf",
+          "type": "request",
+          "name": "All status types",
+          "method": "GET",
+          "url": "http://localhost:8888/status",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "6ab2254b-30ee-4e59-a9e5-41b2cc8db260",
+          "type": "request",
+          "name": "Subprotocol handshake",
+          "url": "wss://ws.postman-echo.com/raw",
+          "protocol": "websocket",
+          "wsMessage": "negotiated subprotocol test",
+          "wsMessageFormat": "json",
+          "wsSubprotocols": "chat, superchat",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "6e304e78-9963-4ad7-a364-a9815651e939",
+          "type": "request",
+          "name": "yaml",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo",
+          "bodyType": "yaml",
+          "bodyFormRows": [
+            {
+              "id": "570f2347-d7f9-4d7c-b617-aad10611e05d",
+              "name": "Text1",
+              "value": "Something",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "86ddde7e-ff1e-4d02-af95-0f3135a5382c",
+              "name": "Text2",
+              "value": "",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "d93bcbfc-52a9-4a90-b211-c2a79b98183e",
+              "name": "Text3",
+              "value": "Anything",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "cad6f592-512a-4c8c-b74d-64596475cf7e",
+              "name": "Text4",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "828dc06e-de58-4e6a-9223-70a0f019c264",
+              "name": "File1",
+              "value": "",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "0aa4b68d-a9ef-48ef-9306-c40173168d79",
+              "name": "File2",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "e62145fd-517f-45f8-a00e-8f941f9d76cc",
+              "name": "File3",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "1ccb6f55-00ec-4883-9ae1-28739cfa5218",
+              "name": "File4",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            }
+          ],
+          "bodyText": "sample: 1\ntext: sdsd",
+          "bodyFilePath": "",
+          "schemaVersion": 2,
+          "params": [],
+          "pathParams": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "notes": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "6e3984ac-a783-428d-b99f-aaf8538a5ed1",
+          "type": "request",
+          "name": "application/yaml",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "bodyType": "no-body",
+          "notes": "",
+          "bodyText": "",
+          "captures": []
+        },
+        {
+          "id": "70c1aef6-2f94-435b-ba44-62cb1e5009a9",
+          "type": "request",
+          "name": "Delay 10s",
+          "url": "http://127.0.0.1:8888/delay?seconds=10",
+          "method": "GET",
+          "captures": [],
+          "schemaVersion": 2
+        },
+        {
+          "id": "71876e43-15e0-435a-a37c-f0b925adcf27",
+          "type": "request",
+          "name": "Format",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{now(\"ISO\")}}",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:nmULKv/A6Hl8Sciyf9maLeNXbkAg/c6vkOnVpyw5AOxxhZxtgmMBRr5IhB/fMU5prtDv/A=="
+          },
+          "authBearer": {
+            "token": "encp:v1:7oDYsPPnyn5zEey7v/w0n+yx1NYsyx6vGYhVETx2p4JXMKJdE2HH5YgdySGptPOrlQ=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "51d9ad0d-2c1c-4a95-ba6e-c090a174f990",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "e743d51f-974a-4f8e-80fb-1fcdb33a546e",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "7391ec72-3759-453e-9e44-7d4f49509b17",
+          "type": "request",
+          "name": "Proxy auth (Basic 407)",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo",
+          "headers": [],
+          "notes": "Exercises proxy authentication on the forward proxy.\n\nStart the mock with credentials:\n  MOCK_PROXY_USER=alice MOCK_PROXY_PASS=s3cret make mock-up\n\nThe forward proxy then answers 407 Proxy Authentication Required until a matching Basic Proxy-Authorization arrives. Set Settings ▸ Proxy username/password to alice / s3cret to succeed; clear them to observe the 407 (which also carries `X-Proxy-Relayed: wurl-mock`).",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "75ff0bb2-9560-4dc7-a6ba-545a420d3fd3",
+          "type": "request",
+          "name": "Error: missing query (400)",
+          "method": "POST",
+          "url": "{{mockUrl}}/graphql",
+          "bodyType": "graphql",
+          "bodyGraphql": {
+            "query": "",
+            "variables": "{\n  \"id\": \"1\"\n}"
+          },
+          "notes": "Sends a body with variables but an empty `query`, producing `{\"query\":\"\",\"variables\":{\"id\":\"1\"}}`. The mock rejects it with HTTP 400 and an `errors` array (\"no GraphQL query provided\").\n\nPrereq: `make mock-up`. Demonstrates the non-200 GraphQL error path (vs. the 200-with-errors case in \"Error: unknown field\"). Type a query into the Query pane to turn this into a success.",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "79b20782-c595-4503-a6f8-1b76c8ec7f0e",
+          "type": "request",
+          "name": "Invalid scheme (negative)",
+          "url": "http://ws.postman-echo.com/raw",
+          "protocol": "websocket",
+          "wsMessage": "should never send — connect must fail",
+          "wsMessageFormat": "text",
+          "wsSubprotocols": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "7b41691d-e1c0-470d-b7f9-c39bfcdfd4eb",
+          "type": "request",
+          "name": "URL Percent encode",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{urlDecode(\"%64\")}}",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:e3LFvJK8SXAwQqfxl+AowiWB4uOSDAmxEvWJMd3czAIR6VBBUg1DG0mlj6OoFpkMSuX1Og=="
+          },
+          "authBearer": {
+            "token": "encp:v1:OBx36DId+Cjft1WXQdakIaIGzrojGBQfBAHUQwNV4KCYGyB0iqN0jeobxbm3juRszQ=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "3d5eee13-2379-4efb-b9f7-cbf157b2d100",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "3a32304d-fc36-4858-b411-fc4ac3ed5b4a",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "7b5f4e96-8196-4220-b3a7-36cb3f181d72",
+          "type": "request",
+          "name": "Stream — Coinbase ticker",
+          "url": "wss://ws-feed.exchange.coinbase.com",
+          "protocol": "websocket",
+          "wsMessage": "{\n  \"type\": \"subscribe\",\n  \"product_ids\": [\"BTC-USD\"],\n  \"channels\": [\"ticker\"]\n}",
+          "wsMessageFormat": "json",
+          "wsSubprotocols": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "829e2111-99d3-4844-b16c-bd2b8d656b97",
+          "type": "request",
+          "name": "Collection Name",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{collectionName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "83652cc8-c756-443f-9292-d76a7ca2b869",
+          "type": "request",
+          "name": "text/html",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "84319c35-11b9-4a6e-b888-03e25fcf1991",
+          "type": "request",
+          "name": "small",
+          "method": "GET",
+          "url": "http://127.0.0.1:8888/volume/{{requestName()}}",
+          "params": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "bodyType": "no-body",
+          "notes": "",
+          "bodyText": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "86e9a2ca-1bd4-4569-ac0c-21c5dcadbc64",
+          "type": "request",
+          "name": "Digest",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/{{requestName()}}",
+          "authEnabled": true,
+          "authType": "digest",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "user",
+            "password": "encp:v1:2Kz5KQDWFNzLl0ScYDO/72DL5Fuj1KJ4kTLBHmv5Mqr4tlxhN45JM1H/7zaOHEsXhwDfyw=="
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "8cdca1d6-68b9-4670-a296-015bf1820b1a",
+          "type": "request",
+          "name": "All Mime Types",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "8d50f223-5a4b-40da-a0c5-816a82aff5e6",
+          "type": "request",
+          "name": "GET",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo",
+          "schemaVersion": 2,
+          "authEnabled": true,
+          "authType": "basic",
+          "authBasic": {
+            "username": "test",
+            "password": "encp:v1:4w2pSp1Edgh92dQx9sSV53nE+56zn5jeJXBOa8LDamL+dySMHytvGqjTuZamaHOPKTk="
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "8e5b647d-8cd8-473c-bf73-e6005584f8ba",
+          "type": "request",
+          "name": "JSON echo — Postman",
+          "url": "wss://ws.postman-echo.com/raw",
+          "protocol": "websocket",
+          "wsMessage": "{\n  \"type\": \"greeting\",\n  \"from\": \"wurl\",\n  \"payload\": {\n    \"hello\": \"world\",\n    \"n\": 42\n  }\n}",
+          "wsMessageFormat": "json",
+          "wsSubprotocols": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "9004c668-1953-46ce-b117-3adde977882c",
+          "type": "request",
+          "name": "Response Body",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{response(\"Client\", \".access_token\")}}",
+          "params": [],
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "93f74bb5-6809-4130-a59c-7eef9e5dd52e",
+          "type": "request",
+          "name": "all types",
+          "method": "GET",
+          "url": "http://127.0.0.1:8888/binary",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "9499f5a2-0078-47e5-915e-e73c52cc8de8",
+          "type": "request",
+          "name": "Echo — Postman",
+          "url": "wss://ws.postman-echo.com/raw",
+          "protocol": "websocket",
+          "wsMessage": "{\n  \"Hello from wurl\":\"assa{{G}}\"\n}",
+          "wsMessageFormat": "json",
+          "wsSubprotocols": "",
+          "schemaVersion": 2,
+          "params": [],
+          "captures": []
+        },
+        {
+          "id": "9706080f-1f3a-4be3-8c65-48cf71a3e478",
+          "type": "request",
+          "name": "Multi-form",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo",
+          "bodyType": "form-data",
+          "bodyFormRows": [
+            {
+              "id": "5ed90d9c-8fbb-487c-9b77-96c7e41cf56c",
+              "name": "Text1",
+              "value": "",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "caed473e-345c-44c4-b903-3e79e212078b",
+              "name": "Text2",
+              "value": "",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "6a674e8b-c0ec-46f7-88ff-2f5a07b21404",
+              "name": "Text3",
+              "value": "Anything",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "8909bb02-4e21-4714-aeb7-dd1f4c972718",
+              "name": "Text4",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "0f8abf9a-eba2-40fc-9589-3fc31768c45b",
+              "name": "File1",
+              "value": "",
+              "enabled": true,
+              "kind": "file",
+              "filePath": "/Users/jason/Downloads/graphql.json",
+              "fileName": "graphql.json",
+              "contentType": "application/json"
+            },
+            {
+              "id": "4cb3f339-e031-471e-9e74-b45dd70d7e8f",
+              "name": "File2",
+              "value": "",
+              "enabled": false,
+              "kind": "file",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "ccf19206-4b1b-43d6-97af-03329756f575",
+              "name": "File3",
+              "value": "",
+              "enabled": false,
+              "kind": "file",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "d5494f7a-225c-4bf0-958b-7a5920d401b1",
+              "name": "File4",
+              "value": "",
+              "enabled": false,
+              "kind": "file",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            }
+          ],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "schemaVersion": 2,
+          "params": [],
+          "pathParams": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "notes": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "972cf49b-29cb-4777-9902-82f487b942ae",
+          "type": "request",
+          "name": "500",
+          "method": "GET",
+          "url": "http://localhost:8888/status/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "99b6572f-989d-4a5f-a9b2-780cce552f35",
+          "type": "request",
+          "name": "Retry: exhausted (gives up)",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo",
+          "headers": [
+            {
+              "id": "ea70f5a2-82c1-4c11-a795-ff896abb78df",
+              "name": "X-Proxy-Error",
+              "value": "10",
+              "enabled": true
+            }
+          ],
+          "notes": "`X-Proxy-Error: 10` fails the first 9 deliveries (502). With Max attempts < 10 the request exhausts its retries and surfaces the error; the Console shows every attempt.\n\nPrereqs: Settings ▸ Retry enabled, 502 in retry status codes, Max attempts < 10.\n\nGotcha: the per-URL counter only resets on a success, so each exhausted run leaves the count partway up — after enough runs it can eventually reach 10 and pass. Lower the header value or raise Max attempts to drive it to success deliberately.",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "9e0e8fdc-499a-475f-9c81-5e16b17c7193",
+          "type": "request",
+          "name": "200",
+          "method": "GET",
+          "url": "http://localhost:8888/status/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "9fa85454-54f8-4d59-8e75-d08fafa862b2",
+          "type": "request",
+          "name": "Animated",
+          "method": "GET",
+          "url": "https://qodeinteractive.com/magazine/{{domain}}scroll-triggered-animations/",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "a0372511-3463-4fce-9b1a-639e81443762",
+          "type": "request",
+          "name": "Response Header",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{responseHeader(\"Client\", \"content-type\")}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "a03f4a37-c588-484d-b9a5-d4c1e5e0c5c3",
+          "type": "request",
+          "name": "Custom handshake headers",
+          "url": "wss://ws.postman-echo.com/raw",
+          "protocol": "websocket",
+          "wsMessage": "headers were sent on the upgrade",
+          "wsMessageFormat": "text",
+          "wsSubprotocols": "",
+          "headers": [
+            {
+              "id": "7dd30392-0259-4b1b-bcf1-51ddca2800a6",
+              "name": "X-Test-Header",
+              "value": "wurl-websocket",
+              "enabled": true
+            },
+            {
+              "id": "349a3b9f-8a07-477e-ae88-e39721c65901",
+              "name": "Origin",
+              "value": "https://wurl.test",
+              "enabled": true
+            }
+          ],
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "a38a4ad2-44d9-4980-bde5-573f7304a3e6",
+          "type": "request",
+          "name": "all types",
+          "method": "GET",
+          "url": "http://127.0.0.1:8888/volume",
+          "params": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "bodyType": "no-body",
+          "notes": "",
+          "bodyText": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "a4b3e64a-189b-46e9-8775-391bfadd9deb",
+          "type": "request",
+          "name": "POST",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "a78ae507-9847-4e85-953a-9a48d48ec157",
+          "type": "request",
+          "name": "PATCH",
+          "method": "PATCH",
+          "url": "{{mockUrl}}/echo",
+          "schemaVersion": 2,
+          "pathParams": [],
+          "captures": []
+        },
+        {
+          "id": "ad4047da-6326-405b-9a54-585b90bc355d",
+          "type": "request",
+          "name": "Mutation: createUser",
+          "method": "POST",
+          "url": "{{mockUrl}}/graphql",
+          "bodyType": "graphql",
+          "bodyGraphql": {
+            "query": "mutation CreateUser($name: String!, $role: Role) {\n  createUser(name: $name, role: $role) {\n    id\n    name\n    email\n    role\n    active\n  }\n}",
+            "variables": "{\n  \"name\": \"Carol\",\n  \"role\": \"ADMIN\"\n}"
+          },
+          "notes": "Mutation with variables and an enum argument.\n\nPrereq: `make mock-up`.\n\nThe mock's `createUser` echoes back `variables.name` and `variables.role` (defaults \"New User\" / \"USER\" if omitted) and returns the new user with id \"100\", active true, email derived from the name. operationName is \"CreateUser\".",
+          "schemaVersion": 2,
+          "params": [],
+          "pathParams": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "captures": []
+        },
+        {
+          "id": "af477318-caa4-44a0-b268-3b96b92b5a50",
+          "type": "request",
+          "name": "Implicit",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/bearer",
+          "schemaVersion": 2,
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "implicit",
+            "clientType": "confidential",
+            "clientId": "implicit-client",
+            "clientSecret": "",
+            "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+            "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "http://localhost:3002/callback",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+            "discoveredScopes": [
+              "openid",
+              "offline_access",
+              "microprofile-jwt",
+              "email",
+              "phone",
+              "web-origins",
+              "acr",
+              "organization",
+              "address",
+              "roles",
+              "basic",
+              "profile",
+              "service_account"
+            ]
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "b170c96a-0d0d-4ec9-a488-de8fa6241831",
+          "type": "request",
+          "name": "Echo — websocket.events",
+          "url": "wss://echo.websocket.events",
+          "protocol": "websocket",
+          "wsMessage": "hello",
+          "wsMessageFormat": "text",
+          "wsSubprotocols": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "b1abf554-7501-4fc6-8482-9563958e6a65",
+          "type": "request",
+          "name": "303",
+          "method": "GET",
+          "url": "http://localhost:8888/status/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "b24a3c6b-8977-413c-97e9-1b93f56377cb",
+          "type": "request",
+          "name": "Echo",
+          "method": "POST",
+          "url": "https://echo.free.beeceptor.com/{{folder}}/2/{{pass}}",
+          "params": [
+            {
+              "id": "c84aa77f-23c1-4737-9bc5-60ba384df381",
+              "name": "foo",
+              "value": "bar",
+              "enabled": true
+            },
+            {
+              "id": "a5351981-ceee-4730-8ad9-68fdf7feb548",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "2657dab7-e63a-4241-a292-41459ea33b6a",
+              "name": "dsafadsfasdf",
+              "value": "{{pass}}",
+              "enabled": true
+            }
+          ],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "pathParams": [],
+          "bodyType": "no-body",
+          "notes": "",
+          "bodyText": "",
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "b538d961-0375-404b-aaad-2803db56cf0a",
+          "type": "request",
+          "name": "Retry: custom 503 status",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo",
+          "headers": [
+            {
+              "id": "7ad60556-df7b-4e26-b88a-be6be78c2cb6",
+              "name": "X-Proxy-Error",
+              "value": "2:503",
+              "enabled": true
+            }
+          ],
+          "notes": "`X-Proxy-Error: 2:503` makes the forward proxy return 503 for the 1st delivery, then succeed on the 2nd.\n\nPrereqs: Settings ▸ Retry enabled with 503 in the retry status codes (Max attempts ≥ 2).\n\nDemonstrates retrying a specific opted-in status code (vs. the default 502). Change the value after the colon to test other codes.",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "b7bb54e4-e3f2-4ba4-a5fe-46002de1a639",
+          "type": "request",
+          "name": "Bad Certificate",
+          "method": "GET",
+          "url": "https://expired.badssl.com/",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "b93dc239-e292-4c76-8c93-a6514056b5d0",
+          "type": "request",
+          "name": "Swagger-doc",
+          "method": "GET",
+          "url": "{{baseUrl}}/swagger-spec.yaml",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "b9c5c781-1a9e-40e5-aa6c-80390d20bf4a",
+          "type": "request",
+          "name": "Google",
+          "method": "GET",
+          "url": "https://google.com",
+          "headers": [],
+          "schemaVersion": 2,
+          "useCookieJar": false,
+          "params": [],
+          "authType": "none",
+          "authEnabled": true,
+          "bodyType": "no-body",
+          "notes": "",
+          "bodyText": "",
+          "captures": []
+        },
+        {
+          "id": "bafab2b7-f4ef-49c6-a172-e3275bd15d6f",
+          "type": "request",
+          "name": "text/markdown",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "bodyType": "no-body",
+          "notes": "",
+          "bodyText": "",
+          "captures": []
+        },
+        {
+          "id": "bb51258c-2575-4a4c-afb5-5981e631ff3e",
+          "type": "request",
+          "name": "OPTIONS",
+          "method": "OPTIONS",
+          "url": "{{mockUrl}}/echo",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "bcc8ab64-db19-4681-9bc7-72ca4e4801d4",
+          "type": "request",
+          "name": "Base64 Decode",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{base64decode(\"dXNlcm5hbWUvcGFzc3dvcmQ=\")}}",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:ASpYAd23JFcR6cpeCaC1FXH1VWIxV0iO39hADtnA7uO20l9FQALuvSXhXLnlqTWhVPdqSg=="
+          },
+          "authBearer": {
+            "token": "encp:v1:pih1OX5e7IPIpCXZkeeCcq8KZa+c+oZBBoqto1yvjMOsU5LuhgXfZp2bi9cVnk9x8A=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "693136ba-f9f1-4298-9308-e56192cf78b8",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "8912cab0-509c-4a5d-a56c-9df6fa628dc3",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "bf3d5600-7e58-4183-ba42-7f6fa35a52d9",
+          "type": "request",
+          "name": "Claude",
+          "method": "GET",
+          "url": "https://claude.ai/settings/usage",
+          "authEnabled": false,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "bf489378-ae6f-4428-8129-ac5cd73a1eb6",
+          "type": "request",
+          "name": "application/json",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 2,
+          "authEnabled": true,
+          "authType": "apikey",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "c3a016ca-8f5e-420a-8ad5-503a109c9742",
+          "type": "request",
+          "name": "xml",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo",
+          "bodyType": "xml",
+          "bodyFormRows": [
+            {
+              "id": "53020a92-9d20-4d6f-8181-f13722b534fd",
+              "name": "Text1",
+              "value": "Something",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "f87e57b4-2785-4a93-ac82-ffe6052922c5",
+              "name": "Text2",
+              "value": "",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "82432737-0b0e-4e6f-b53c-87647d44e3cb",
+              "name": "Text3",
+              "value": "Anything",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "05eae808-abb1-40f2-acf9-8e77cec29a13",
+              "name": "Text4",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "12c4f8d7-3f43-4865-bb1e-aac49b6ce4c6",
+              "name": "File1",
+              "value": "",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "2c49f0f5-09b5-42a6-b902-f28ec8112326",
+              "name": "File2",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "0053fea1-a4ca-4a0f-bf16-be35fb2c3cc9",
+              "name": "File3",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "cad897cc-c31b-425f-a2f8-642566f00144",
+              "name": "File4",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            }
+          ],
+          "bodyText": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<book>\n  <title>The Great Gatsby</title>\n  <author>F. Scott Fitzgerald</author>\n</book>",
+          "bodyFilePath": "",
+          "schemaVersion": 2,
+          "params": [],
+          "pathParams": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "notes": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "caee13ce-3831-44cc-937d-03b5c6cdcb3c",
+          "type": "request",
+          "name": "Random Int",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{randomInt(\"0\", \"100\")}}?exanmple=1",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:xzaGgK+1V230tdi3mt+B7uwC9Ubf+cIIiazlAdET6CBaWb55xhYVUZBOlGrS/vs5gVyxFw=="
+          },
+          "authBearer": {
+            "token": "encp:v1:nSLLjg9thkYRlNOVK9o0kPMT+Xq7mLlGK/nUt4ir6DszRf2HdeSN8y0mwowDhlNj6A=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "49a081a3-d9a9-40ee-8d33-b54861999f08",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "d7c232c3-1882-43bf-bc8e-a2f82ded569f",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "cdd04d87-b3b7-47ee-a2f7-a534495e7d5b",
+          "type": "request",
+          "name": "PUT",
+          "method": "PUT",
+          "url": "{{mockUrl}}/echo",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "d0c079e0-882b-44f0-8c9a-07d086a617c4",
+          "type": "request",
+          "name": "Retry: 502 then succeed",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo",
+          "headers": [
+            {
+              "id": "50a0f455-ef52-4d22-8e12-94ca24d00e63",
+              "name": "X-Proxy-Error",
+              "value": "3",
+              "enabled": true
+            }
+          ],
+          "notes": "The forward proxy returns 502 Bad Gateway for the first 2 deliveries of this URL, then forwards the 3rd upstream.\n\nPrereqs: Settings ▸ Retry enabled, Max attempts ≥ 3, and 502 in the retry status codes.\n\nThe per-URL fault counter resets after a success, so this is repeatable. Watch the response Console for the attempt count.",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "dc374cfc-d9ca-434b-832a-1e6bbcfff21e",
+          "type": "request",
+          "name": "Balls",
+          "method": "GET",
+          "url": "https://bouncyballs.org",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "dce4ab6a-b507-4668-9ad2-d734f22efaf7",
+          "type": "request",
+          "name": "Delay 20s",
+          "url": "http://127.0.0.1:8888/delay?seconds=20",
+          "method": "GET",
+          "captures": [],
+          "schemaVersion": 2
+        },
+        {
+          "id": "e31041a1-4d9d-486f-992f-89a69efee2ea",
+          "type": "request",
+          "name": "Local server (template)",
+          "url": "ws://localhost:8080",
+          "protocol": "websocket",
+          "wsMessage": "hello local",
+          "wsMessageFormat": "text",
+          "wsSubprotocols": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "e48b72f7-a415-4102-99a2-bca806e15d63",
+          "type": "request",
+          "name": "Token",
+          "method": "POST",
+          "url": "https://login-dev.qacustomer.teradata.com/as/token.oauth2",
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "b93f202b-12ca-4db4-895c-f087eece8b5e",
+              "name": "grant_type",
+              "value": "password",
+              "enabled": true
+            },
+            {
+              "id": "27b59a41-7bf6-44d3-80ec-a04b4bc6f355",
+              "name": "username",
+              "value": "{{username}}",
+              "enabled": true
+            },
+            {
+              "id": "fbc15143-3393-4be2-add4-17297f264a3a",
+              "name": "password",
+              "value": "aQOANeHfwiS0jEvu1V2NBlXa3B1Qdi8R",
+              "enabled": true
+            },
+            {
+              "id": "482ede68-e23f-433c-b46c-72aa240dd3de",
+              "name": "scope",
+              "value": "openid profile email",
+              "enabled": true
+            },
+            {
+              "id": "7334a844-c1e8-4d11-a315-c0c30aa37095",
+              "name": "client_id",
+              "value": "sso-confidential",
+              "enabled": true
+            },
+            {
+              "id": "aa0772b5-e85c-44bc-b148-80207e8a1f83",
+              "name": "client_secret",
+              "value": "El5B3JmIPKKy1E6l8Gvh5M7pZHG6wo1uqAZo1yP7nyyoqd6lhsAzxiNcqRYL5cvB",
+              "enabled": true
+            }
+          ],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "oauth-code-client",
+            "clientSecret": "encp:v1:dR3ozRlNxyukLJrJbJpeKltVjZEwBPmx6uPm1AKko68Y0x5orqZy9Eb5muuURLZGrCbSsgm+9VqqDkSMwlTk5N904/Mu",
+            "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+            "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+            "scope": "email profile openid",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "http://localhost:3000/callback",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "params": [
+            {
+              "id": "a2114c27-e519-47ac-9be2-414980829967",
+              "name": "",
+              "value": "",
+              "enabled": true
+            }
+          ],
+          "headers": [],
+          "notes": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "e49e970d-cc22-465e-96e0-fd3abfbd8d5b",
+          "type": "request",
+          "name": "Base64 Encode",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{base64encode(\"username/password\")}}",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:8TqQ4mTMpgi45gZrsD5RvD8cl0ojxASso3KNoJum9PCLAZhtssR+I4KV8Ngto9xf36SC8Q=="
+          },
+          "authBearer": {
+            "token": "encp:v1:lQhaxOdpxn7Yj4x3zfBDZJBwagZZbxfP3sVHDfh8xT21wsfJvHsWhMuelEeCPP86WQ=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "289bfe45-2ac9-4e88-9a67-ab3a06e20f1f",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "fb13b13e-0abf-493d-8c37-a9df9a502a39",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "e4a05436-625d-4c10-900f-fb85bbd0087c",
+          "type": "request",
+          "name": "DELETE",
+          "method": "DELETE",
+          "url": "{{mockUrl}}/echo",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "e7f59944-8890-4cee-909a-402d85bb4d8d",
+          "type": "request",
+          "name": "Bearer",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/{{requestName()}}",
+          "authEnabled": true,
+          "authType": "bearer",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:nd9h+3bFWxzD6uQxhqfCdueXiLm6594WZK8WCejkPAYz+814hIQULGfizZjCJGKsHqF7/g=="
+          },
+          "authBearer": {
+            "token": "encp:v1:ifbb/qLKVjh0gH3FUfR0gxynwKQ1qo8w5HvRrZF5+u//uYhShq4yHTjJFJ3oset8CB76qg=="
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "e95a5265-80fc-46fd-bbc6-e33b92e2d27b",
+          "type": "request",
+          "name": "Environment Variable",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{environmentVariable(\"USER\")}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "edc83124-ba65-4b4f-b6cd-142c03a5b29f",
+          "type": "request",
+          "name": "HEAD",
+          "method": "HEAD",
+          "url": "{{mockUrl}}/echo",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "ef47205c-ef74-4366-a172-6c7bf7ffef6e",
+          "type": "request",
+          "name": "CUSTOM",
+          "method": "BANANA",
+          "url": "{{mockUrl}}/echo",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "eff31f9b-00f7-4de9-9453-9bf7c9716787",
+          "type": "request",
+          "name": "AWS",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/{{requestName()}}",
+          "authEnabled": true,
+          "authType": "aws-iam",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "implicit",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "encp:v1:ECknCMsApcj8Cl+70oHyK+HU1o9dBBeWIrAQxA0z/LhqcTdZrUjnkoihuCKA519cB+mPeFOsqg==",
+            "secretAccessKey": "encp:v1:M3frn0Vj4K0z0QkDhmZg0OsKfIueDFPUsrEpGJnjJvX9tlpfvMdGywu7vpiTLtsa50dbJmbcekep6m4=",
+            "region": "us-east-1",
+            "service": "execute-api",
+            "sessionToken": "encp:v1:82mTmePQt6NShsyV4HasMtGFgj/AMJKJmnAlGflUKdsW6fozwsglyGVqcF0DCMWptI5GTWydBC8="
+          },
+          "schemaVersion": 2,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "f22cc187-2b9c-43c6-822f-97400985a841",
+          "type": "request",
+          "name": "application/xml",
+          "method": "GET",
+          "url": "http://localhost:8888/mimes/{{requestName()}}",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "f6e3d5c4-b9ee-4112-88d4-d3b41f94cf2c",
+          "type": "request",
+          "name": "URL Percent decode",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/{{urlEncode(\"QW ER\")}}",
+          "authEnabled": true,
+          "authType": "none",
+          "authBasic": {
+            "username": "user",
+            "password": "encp:v1:kuKiqRHUYEzcE+clNZC36WH3p+mjKCH1AYpkWmCbO5LWK6F2YLTzbsRTW9gB0imzSwaTRQ=="
+          },
+          "authBearer": {
+            "token": "encp:v1:Wr2J+sMfWGd5rpJMixNMJntKz0l1702P38Cl2IXiQubePFFb8TANcO/+Nvl1QXt/Rg=="
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "999",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "456",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "form-urlencoded",
+          "bodyFormRows": [
+            {
+              "id": "514168cf-b3bb-4172-a778-e4612a618e26",
+              "name": "name",
+              "value": "value",
+              "enabled": true
+            },
+            {
+              "id": "33a2d985-18c5-47bd-a783-bb82f3c21cd1",
+              "name": "question",
+              "value": "answer",
+              "enabled": true
+            }
+          ],
+          "bodyText": "{\n  \"sds\": 1\n}",
+          "bodyFilePath": "",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "fca529ad-ed0a-4b7f-ac03-db605299ba2c",
+          "type": "request",
+          "name": "Authorization Code-PK",
+          "method": "GET",
+          "url": "http://localhost:8888/auth/bearer",
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authOAuth2": {
+            "grantType": "authorization_code",
+            "clientType": "public",
+            "clientId": "oauth-pkce-client",
+            "clientSecret": "",
+            "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+            "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "http://localhost:3001/callback",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+            "discoveredScopes": [
+              "openid",
+              "offline_access",
+              "microprofile-jwt",
+              "email",
+              "phone",
+              "web-origins",
+              "acr",
+              "organization",
+              "address",
+              "roles",
+              "basic",
+              "profile",
+              "service_account"
+            ]
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "schemaVersion": 2,
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "fd798795-0fa8-4bcb-bd42-f6bb1dfa7709",
+          "type": "request",
+          "name": "Bypass list (direct connect)",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo",
+          "headers": [],
+          "notes": "Verifies the no-proxy bypass list.\n\nAdd `127.0.0.1` (or `localhost`) to Settings ▸ Proxy bypass list. The request then connects directly to the mock API, ignoring the proxy — so the response should NOT carry `X-Proxy-Relayed`.\n\nRemove the host from the bypass list and the header reappears, confirming traffic is back on the proxy. ({{mockUrl}} is http://127.0.0.1:8888.)",
+          "schemaVersion": 2,
+          "captures": []
+        },
+        {
+          "id": "fefc41b6-e7c7-4325-9c38-d355628235aa",
+          "type": "request",
+          "name": "plain",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo",
+          "bodyType": "text",
+          "bodyFormRows": [
+            {
+              "id": "b5bbbb2c-10a8-4155-b3bc-563a580c3f6a",
+              "name": "Text1",
+              "value": "Something",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "68b2e9df-4c82-430a-9c6b-ef86e5049b2d",
+              "name": "Text2",
+              "value": "",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "19a15dbd-31ff-4684-8ad1-be205013ca8f",
+              "name": "Text3",
+              "value": "Anything",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "8b02aa82-cabd-49a0-83be-4ee96777878d",
+              "name": "Text4",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "1d53ac52-1bd0-45a8-81d3-6966186e4577",
+              "name": "File1",
+              "value": "",
+              "enabled": true,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "8f0eb4b6-55c1-4af3-9576-debf41a8aa70",
+              "name": "File2",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "5b4125d7-47ca-4c9f-a78f-be8078c7919b",
+              "name": "File3",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            },
+            {
+              "id": "51b1f905-2f4e-4b98-85b2-202c86637f17",
+              "name": "File4",
+              "value": "",
+              "enabled": false,
+              "kind": "text",
+              "filePath": "",
+              "fileName": "",
+              "contentType": ""
+            }
+          ],
+          "bodyText": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<book>\n  <title>The Great Gatsby</title>\n  <author>F. Scott Fitzgerald</author>\n</book>",
+          "bodyFilePath": "",
+          "schemaVersion": 2,
+          "params": [],
+          "pathParams": [],
+          "headers": [],
+          "authType": "none",
+          "authEnabled": true,
+          "notes": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        }
+      ]
+    },
+    {
+      "id": "2c129834-ba11-4eaa-b6eb-ef9a99ee9a44",
+      "metadata": {
+        "id": "2c129834-ba11-4eaa-b6eb-ef9a99ee9a44",
+        "variables": {},
+        "schemaVersion": 2
+      },
+      "tree": {
+        "children": [],
+        "schemaVersion": 2
+      },
+      "requests": []
+    },
+    {
+      "id": "77494ffc-ca28-4f10-ab71-afb35df7bad2",
+      "metadata": {
+        "id": "77494ffc-ca28-4f10-ab71-afb35df7bad2",
+        "variables": {},
+        "schemaVersion": 2
+      },
+      "tree": {
+        "children": [],
+        "schemaVersion": 2
+      },
+      "requests": []
+    }
+  ]
+}
