@@ -19,6 +19,13 @@ body {
   font-family: var(--font-sans);
 }
 
+/* The bootstrap mounts .docs-layout into this wrapper; it must carry the full
+   viewport height through so the layout's height:100% resolves and the panes
+   scroll internally instead of growing the page. */
+#docs-root {
+  height: 100%;
+}
+
 /* ── Two-pane layout ───────────────────────────────────────────────────────── */
 .docs-layout {
   display: flex;
@@ -34,6 +41,9 @@ body {
   padding: var(--space-4) var(--space-3);
   background: var(--color-mantle);
   border-right: 1px solid var(--color-surface-2);
+  /* min-height:0 lets this flex child shrink below its content height so its
+     own overflow-y scrolls instead of stretching the row. */
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -77,6 +87,10 @@ body {
 /* ── Reading pane ──────────────────────────────────────────────────────────── */
 .docs-content {
   flex: 1 1 auto;
+  /* min-height:0 is required for overflow-y to take effect on a flex child —
+     without it the pane grows to its content height and a long page scrolls off
+     the window with no scrollbar. */
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-5) var(--space-6);
   font-size: var(--font-size-md);
