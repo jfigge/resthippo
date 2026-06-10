@@ -1,0 +1,218 @@
+/* docs.css — Styling for the standalone user-guide window (docs.html).
+ *
+ * Self-contained (like theme-editor.css): the docs window loads only reset.css +
+ * theme.css + this file. The markdown element rules mirror the response viewer's
+ * rendered-markdown styling but are scoped to `.docs-content`, keeping the help
+ * window independent of the main app stylesheet. */
+
+html,
+body {
+  height: 100%;
+}
+
+.docs-window {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-base);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
+
+/* ── Two-pane layout ───────────────────────────────────────────────────────── */
+.docs-layout {
+  display: flex;
+  height: 100%;
+}
+
+/* ── Contents list ─────────────────────────────────────────────────────────── */
+.docs-nav {
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-3);
+  background: var(--color-mantle);
+  border-right: 1px solid var(--color-surface-2);
+  overflow-y: auto;
+}
+
+.docs-nav-title {
+  padding: var(--space-1) var(--space-3) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-overlay-0);
+}
+
+.docs-nav-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-subtext);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.docs-nav-item:hover {
+  background: var(--color-surface-1);
+  color: var(--color-text);
+}
+
+.docs-nav-item--active {
+  background: var(--color-accent);
+  color: var(--color-crust);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Reading pane ──────────────────────────────────────────────────────────── */
+.docs-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-6);
+  font-size: var(--font-size-md);
+  line-height: 1.6;
+  outline: none;
+}
+
+.docs-content > :first-child {
+  margin-top: 0;
+}
+
+.docs-content > :last-child {
+  margin-bottom: 0;
+}
+
+.docs-content h1,
+.docs-content h2,
+.docs-content h3,
+.docs-content h4,
+.docs-content h5,
+.docs-content h6 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  color: var(--color-text);
+}
+
+.docs-content h1 {
+  font-size: 1.6em;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-surface-2);
+}
+
+.docs-content h2 {
+  font-size: 1.35em;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--color-surface-2);
+}
+
+.docs-content h3 {
+  font-size: 1.15em;
+}
+
+.docs-content h4 {
+  font-size: 1em;
+}
+
+.docs-content p {
+  margin: 0 0 var(--space-3);
+}
+
+.docs-content ul,
+.docs-content ol {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-5);
+}
+
+.docs-content li {
+  margin: var(--space-1) 0;
+}
+
+.docs-content li > ul,
+.docs-content li > ol {
+  margin: var(--space-1) 0;
+}
+
+.docs-content a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.docs-content a:hover {
+  text-decoration: underline;
+}
+
+.docs-content code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  padding: 0.15em 0.35em;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+}
+
+.docs-content pre {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  overflow-x: auto;
+}
+
+.docs-content pre code {
+  padding: 0;
+  font-size: var(--font-size-sm);
+  background: none;
+}
+
+.docs-content blockquote {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  border-left: 3px solid var(--color-surface-2);
+  color: var(--color-subtext);
+}
+
+.docs-content hr {
+  margin: var(--space-4) 0;
+  border: none;
+  border-top: 1px solid var(--color-surface-2);
+}
+
+.docs-content table {
+  margin: 0 0 var(--space-3);
+  border-collapse: collapse;
+}
+
+.docs-content th,
+.docs-content td {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-surface-2);
+  text-align: left;
+}
+
+.docs-content th {
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-surface-2);
+}
+
+/* Frame screenshots so they read as captures rather than inline art. */
+.docs-content img {
+  display: block;
+  max-width: 100%;
+  margin: var(--space-3) 0;
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-md);
+}
+
+.docs-error {
+  color: var(--color-error);
+}

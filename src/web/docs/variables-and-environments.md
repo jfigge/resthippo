@@ -1,0 +1,104 @@
+# Variables & Environments
+
+[← Back to contents](README.md)
+
+Variables let you write a request once and reuse it across hosts, users, and
+runs. Anywhere you can type — the URL, params, headers, body, or auth fields —
+you can insert a variable with double-brace syntax: `{{name}}`.
+
+## Using variables
+
+Type `{{` in any field to open the **typeahead**, which lists the variables
+available in the current scope. Pick one and wurl inserts it as a highlighted
+**pill**:
+
+![The variable typeahead](images/variable-typeahead.png)
+
+At send time, every `{{name}}` is replaced with its resolved value. With
+[**Show URL Preview**](requests.md#url) on, you can see the resolved URL before
+you send.
+
+## Scopes
+
+A variable can be defined at four levels. When the same name exists in more than
+one, the **most specific scope wins**:
+
+```
+Folder  ▸  Collection  ▸  Environment  ▸  Global
+(most specific)                        (most general)
+```
+
+- **Global** — available everywhere, in every collection.
+- **Environment** — defined in the active environment (see below). Switching
+  environments swaps these values.
+- **Collection** — defined on a collection, shared by every request in it.
+- **Folder** — defined on a folder, scoped to the requests inside it.
+
+So a `baseUrl` set in your **Local** environment overrides a global `baseUrl`,
+and a folder-level override beats them both.
+
+### Collection variables
+
+Open the [Collections manager](collections.md#collections) and use the
+**Variables** tab to edit a collection's variables:
+
+![Collection variables](images/collection-variables.png)
+
+Folder variables work the same way — right-click a folder and choose
+**Variables**.
+
+## Environments
+
+An **environment** is a named set of variables you can switch between — the
+classic use is one environment per deployment (Local, Staging, Production), each
+with its own `baseUrl`, credentials, and IDs.
+
+Click the **environment picker** in the header (it shows the active environment,
+e.g. `LOCAL`) to open the environments editor:
+
+![The environments editor](images/environments-popup.png)
+
+- **Global** is always first; its variables are available everywhere.
+- Below it are your named environments. Click one to **make it active** — a
+  check marks the active environment, and all `{{variables}}` resolve against it.
+- **+** adds an environment; drag to reorder; double-click to rename; the trash
+  icon deletes.
+- The **Variables** tab on the right edits the selected environment's variables
+  as a key/value grid (or as plain text via **Bulk editor**). Changes save
+  automatically.
+
+### Secure variables
+
+Mark a variable **secure** (the lock icon) to **encrypt it at rest** and mask it
+in the UI. Revealed secrets re-mask themselves automatically after a short time.
+Use secure variables for tokens and passwords you reference from
+[auth fields](authentication.md).
+
+## Captures
+
+Captures close the loop: after a request succeeds, pull a value **out** of the
+response and write it into a variable that later requests can use. A login
+request can capture the returned token; the next request sends it as a Bearer
+token — no copy-paste.
+
+Configure them on the **Captures** tab of the request:
+
+![The Captures tab](images/captures-tab.png)
+
+Each capture rule has:
+
+| Field           | Meaning                                                                |
+| --------------- | ---------------------------------------------------------------------- |
+| **Source**      | Where to read from: the **Body**, a **Header**, or the **Status** code |
+| **Path / Name** | For Body, a dot-path like `.data.token`; for Header, the header name   |
+| **Scope**       | Where to write: **Environment**, **Collection**, or **Global**         |
+| **Variable**    | The variable name to write                                             |
+| **Secret**      | Mark the captured value secure (encrypted, masked)                     |
+
+Captures run after any successful (2xx) response. wurl shows a small toast
+confirming what was written (e.g. _Captured 1 variable → env.token_), and the
+response status bar shows a **captured** badge.
+
+---
+
+Next: [GraphQL →](graphql.md)

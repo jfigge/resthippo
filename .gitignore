@@ -2,6 +2,9 @@
 build/
 dist/
 data/
+data.backup/
+data-docs/
+.docs-build/
 
 # ── Node / npm ────────────────────────────────────────────────────────────────
 src/node_modules/
@@ -33,3 +36,8 @@ dev.env
 data/collections.json
 features/
 CLAUDE.md
+
+# ── Docs screenshot originals ─────────────────────────────────────────────────
+# Full-resolution PNGs from the .docs-build pipeline. The copies bundled under
+# src/web/docs/images are downscaled 50%; these originals stay local.
+docs-originals/

@@ -61,6 +61,7 @@ let _devServerProcess = null;
 let _mainWin = null; // set once createWindow() runs
 let _aboutWin = null; // singleton about window
 let _themeEditorWin = null; // singleton theme editor window
+let _docsWin = null; // singleton user-guide window
 let _htmlPreviewView = null; // WebContentsView instance, created lazily
 let _htmlPreviewAdded = false; // whether the view is currently a child of contentView
 let _pdfPreviewView = null; // WebContentsView for native PDF preview, created lazily
@@ -1701,6 +1702,29 @@ function safeCallWrite(channel, fn) {
   });
 })();
 
+// ─── User-guide docs IPC ──────────────────────────────────────────────────────
+// Returns the markdown source of a bundled help page so the renderer's DocsViewer
+// can render it. Loading text over IPC (rather than fetch) works identically under
+// both load modes — file:// (make debug / packaged) and the http dev server.
+// `page` is a bare slug; the file lives at src/web/docs/<slug>.md. The slug is
+// strictly validated and the resolved path is confirmed to stay inside docsDir,
+// so a crafted name can't escape the docs directory.
+(function initDocsIPC() {
+  const docsDir = path.join(__dirname, "..", "web", "docs");
+
+  ipcMain.handle("docs:read", async (_event, page) => {
+    if (typeof page !== "string" || !/^[A-Za-z0-9-]+$/.test(page)) {
+      throw new Error(`Invalid docs page: ${page}`);
+    }
+    const filePath = path.join(docsDir, `${page}.md`);
+    // Defense in depth: even with the regex above, confirm containment.
+    if (path.relative(docsDir, filePath).startsWith("..")) {
+      throw new Error(`Docs page outside docs dir: ${page}`);
+    }
+    return fs.promises.readFile(filePath, "utf8");
+  });
+})();
+
 // ─── Edit context menu IPC ────────────────────────────────────────────────────
 // Pops a Cut / Copy / Paste / Select All menu for text input fields.
 // Called from the renderer's contextmenu handler when the target is editable.
@@ -2762,6 +2786,63 @@ function showThemeEditor() {
   });
 }
 
+// ─── User guide ───────────────────────────────────────────────────────────────
+// Independent, non-modal window (no `parent`) so the guide can stay open beside
+// the main window while the user keeps working. Markdown is rendered in-window;
+// its narrow preload (preload-docs.js) only exposes the docs:read IPC.
+function showDocsWindow() {
+  if (_docsWin) {
+    _docsWin.focus();
+    return;
+  }
+  let theme = "mocha";
+  try {
+    theme =
+      getStores().collectionStore().getManifest()?.settings?.theme ?? "mocha";
+  } catch {
+    /* fall back to default theme */
+  }
+  _docsWin = new BrowserWindow({
+    width: 960,
+    height: 720,
+    minWidth: 640,
+    minHeight: 480,
+    resizable: true,
+    autoHideMenuBar: true,
+    title: "wurl User Guide",
+    icon: appIcon,
+    backgroundColor: "#1e1e2e",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      preload: path.join(__dirname, "preload-docs.js"),
+    },
+  });
+  _docsWin.loadFile(path.join(__dirname, "..", "web", "docs.html"), {
+    query: { theme },
+  });
+
+  // Open <a target="_blank"> doc links (DOMPurify forces target=_blank) in the
+  // system browser. Mirror the main window: only hand safe web schemes to the OS.
+  _docsWin.webContents.setWindowOpenHandler(({ url }) => {
+    let scheme = "";
+    try {
+      scheme = new URL(url).protocol;
+    } catch {
+      return { action: "deny" };
+    }
+    if (scheme === "http:" || scheme === "https:" || scheme === "mailto:") {
+      shell.openExternal(url).catch(() => {});
+    }
+    return { action: "deny" };
+  });
+
+  _docsWin.once("closed", () => {
+    _docsWin = null;
+  });
+}
+
 (function initThemeEditorIPC() {
   ipcMain.handle("ui:open-theme-editor", () => showThemeEditor());
   ipcMain.on("theme:preview", (_e, themeData) => {
@@ -2934,6 +3015,18 @@ function buildMenu() {
     {
       label: "Window",
       submenu: [{ role: "minimize" }, { role: "zoom" }, { role: "close" }],
+    },
+    {
+      label: "Help",
+      // role: "help" lets macOS group this as the standard Help menu.
+      role: "help",
+      submenu: [
+        {
+          label: "wurl User Guide",
+          accelerator: "CmdOrCtrl+/",
+          click: showDocsWindow,
+        },
+      ],
     },
   ];
 
