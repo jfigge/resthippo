@@ -326,6 +326,124 @@ describe("BackupStore.importAll", () => {
     }
   });
 
+  test("merge mode matches collections by name when IDs differ", () => {
+    // The most common cross-machine scenario: source and destination both have
+    // a collection with the same name but different UUIDs.  After merge the
+    // backup data must land in the existing slot — not create a duplicate.
+    const env = src.backupStore().exportAll({ includeSecrets: true });
+
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      dest.collectionStore().saveManifest({
+        version: 2,
+        collections: [{ id: "dest-coll", name: "My Collection" }],
+        activeCollectionId: "dest-coll",
+        settings: { theme: "latte" },
+      });
+      dest.collectionsStore().saveCollections("dest-coll", {
+        version: 1,
+        collections: [],
+      });
+
+      dest.backupStore().importAll(env, { mode: "merge" });
+
+      const manifest = dest.collectionStore().getManifest();
+      // No duplicate — only one "My Collection" entry with the destination's ID.
+      assert.equal(manifest.collections.length, 1);
+      assert.equal(manifest.collections[0].id, "dest-coll");
+      assert.equal(manifest.collections[0].name, "My Collection");
+      // Active selection and settings preserved (current wins in merge).
+      assert.equal(manifest.activeCollectionId, "dest-coll");
+      assert.equal(manifest.settings.theme, "latte");
+      // Backup data is accessible via the destination's collection ID.
+      assert.ok(
+        findRequest(
+          dest.collectionsStore().getCollections("dest-coll").collections,
+          "req-1",
+        ),
+        "backup request must be accessible under the destination collection ID",
+      );
+    } finally {
+      rmTmpDir(destDir);
+    }
+  });
+
+  test("merge mode does not import orphaned source collection directories", () => {
+    // exportAll scans the filesystem and may include directories that were
+    // never registered in the source manifest. They must not be written to or
+    // registered in the destination.
+    const env = src.backupStore().exportAll({ includeSecrets: true });
+    const orphanColl = {
+      id: "orphan-abc",
+      metadata: { id: "orphan-abc", variables: [] },
+      tree: { children: [] },
+      requests: [],
+    };
+    const envWithOrphan = {
+      ...env,
+      collections: [...env.collections, orphanColl],
+    };
+
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      dest.backupStore().importAll(envWithOrphan, { mode: "merge" });
+
+      const manifest = dest.collectionStore().getManifest();
+      assert.ok(
+        !manifest.collections.some((c) => c.id === "orphan-abc"),
+        "orphaned collection must not appear in the manifest",
+      );
+      assert.equal(
+        fs.existsSync(path.join(destDir, "collections", "orphan-abc")),
+        false,
+        "orphaned collection directory must not be created",
+      );
+    } finally {
+      rmTmpDir(destDir);
+    }
+  });
+
+  test("merge mode registers collections when backup manifest uses legacy environments key", () => {
+    // Simulates a backup produced before the manifest key was renamed from
+    // `environments` to `collections`. _mergeManifest handles these via the
+    // environments key fallback.
+    const env = src.backupStore().exportAll({ includeSecrets: true });
+    const legacyManifest = {
+      ...env.manifest,
+      environments: env.manifest.collections,
+    };
+    delete legacyManifest.collections;
+    const legacyEnv = { ...env, manifest: legacyManifest };
+
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      dest.collectionStore().saveManifest({
+        version: 2,
+        collections: [{ id: "existing", name: "Existing" }],
+        activeCollectionId: "existing",
+        settings: { theme: "latte" },
+      });
+
+      dest.backupStore().importAll(legacyEnv, { mode: "merge" });
+
+      const manifest = dest.collectionStore().getManifest();
+      const ids = manifest.collections.map((c) => c.id).sort();
+      assert.ok(
+        ids.includes("existing"),
+        "existing collection must be preserved",
+      );
+      assert.ok(
+        ids.includes("coll-1"),
+        "restored collection must be registered",
+      );
+    } finally {
+      rmTmpDir(destDir);
+    }
+  });
+
   test("rejects a non-backup document", () => {
     const dest = new Stores(makeTmpDir());
     assert.throws(() => dest.backupStore().importAll({ kind: "something" }), {

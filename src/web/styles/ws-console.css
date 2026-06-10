@@ -198,6 +198,17 @@
   cursor: default;
 }
 
+/* ── Live-connection dot in the request tree ─────────────────────────────── */
+.tree-node-ws-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+  animation: ws-pulse 2s ease-in-out infinite;
+  margin-left: auto;
+}
+
 /* ── Message composer (request editor) ───────────────────────────────────── */
 .ws-composer {
   display: flex;

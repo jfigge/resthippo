@@ -73,6 +73,7 @@ import { exportToOpenApi } from "./export/openapi.js";
 import { exportToHar } from "./export/har.js";
 import { BackupModal } from "./components/backup-modal.js";
 import { ExportModal } from "./components/export-modal.js";
+import { PopupManager } from "./popup-manager.js";
 
 // ─── History state ────────────────────────────────────────────────────────────
 // Per-request in-memory execution history. Keyed by request node ID.
@@ -350,14 +351,19 @@ function adaptExistingPanel(id) {
 }
 
 // ─── Components ───────────────────────────────────────────────────────────────
-let treeView, requestEditor, responseViewer, wsConsole;
+let treeView, requestEditor, responseViewer;
+// wsConsole is a mutable pointer to whichever WsConsole instance is currently
+// visible in the response pane. Starts as the idle placeholder; swaps to a
+// per-connection instance when a connection is opened or resumed.
+let wsConsole;
 
 function initComponents() {
   treeView = new TreeView();
   requestEditor = new RequestEditor();
   responseViewer = new ResponseViewer();
-  // WebSocket frame log (Feature 32) shares the Response pane; hidden until a
-  // WebSocket request is selected, when it swaps in for the Response viewer.
+  // Idle-state placeholder console — shown when a WS request is selected but
+  // not yet connected. Per-connection consoles are created in wurl:ws-connect
+  // and swapped in via _setResponsePane.
   wsConsole = new WsConsole();
 
   panelNav.mount(treeView);
@@ -377,36 +383,91 @@ function initComponents() {
 }
 
 // ─── WebSocket connection orchestration (Feature 32) ──────────────────────────
-// One active connection at a time: { id, requestId, state }. The socket lives in
-// the main process; here we route its pushes to the console + editor and ensure
-// it is torn down when the user navigates away (auto-disconnect, no leaks).
-let _wsConn = null;
+// Multiple connections can be live simultaneously (one per request). Each entry
+// in _wsConns owns its own WsConsole instance so the frame log survives
+// navigation. wsConsole points to whichever console is currently visible.
+// The socket infrastructure lives in the main process; the renderer only routes
+// pushes and manages the per-connection state here.
 
-/** Show the WebSocket console (true) or the normal Response viewer (false). */
-function _setResponsePane(showWs) {
-  if (!wsConsole || !responseViewer) return;
-  wsConsole.element.style.display = showWs ? "" : "none";
-  responseViewer.element.style.display = showWs ? "none" : "";
+/** @type {Map<string, { id: string, requestId: string|null, state: string, console: WsConsole }>} */
+const _wsConns = new Map(); // keyed by socket id
+
+/** Return the live entry for a given request id, or null. */
+function _connForRequest(requestId) {
+  for (const entry of _wsConns.values()) {
+    if (entry.requestId === requestId) return entry;
+  }
+  return null;
 }
 
-/** Route a status push to the console, and lifecycle states to the editor button. */
+/** Return a Set of request ids that currently have live connections. */
+function _getLiveRequestIds() {
+  return new Set(Array.from(_wsConns.values()).map((e) => e.requestId));
+}
+
+/** Return the human name of a request by id, falling back to the raw id. */
+function _getRequestLabel(requestId) {
+  const all = getAllRequests(treeView?.getItems() ?? []);
+  return all.find((r) => r.id === requestId)?.name ?? requestId ?? "Unknown";
+}
+
+/**
+ * Show the WebSocket console (true) or the normal Response viewer (false).
+ * When showWs is true, optionally swap in a specific console instance.
+ */
+function _setResponsePane(showWs, consoleInstance) {
+  if (!responseViewer) return;
+  responseViewer.element.style.display = showWs ? "none" : "";
+  if (!showWs) {
+    if (wsConsole) wsConsole.element.style.display = "none";
+    return;
+  }
+  const target = consoleInstance ?? wsConsole;
+  if (target && target !== wsConsole) {
+    if (wsConsole) wsConsole.element.style.display = "none";
+    wsConsole = target;
+    if (!wsConsole.element.parentNode) {
+      panelResponse.body.appendChild(wsConsole.element);
+    }
+  }
+  if (wsConsole) wsConsole.element.style.display = "";
+}
+
+/** Route a status push to the correct connection's console. */
 function _onWsStatus(status) {
-  if (!_wsConn || status.id !== _wsConn.id) return;
-  wsConsole.applyStatus(status);
+  const entry = _wsConns.get(status.id);
+  if (!entry) return;
+  entry.console.applyStatus(status);
   const s = status.state;
   if (["connecting", "open", "closing", "closed", "error"].includes(s)) {
-    _wsConn.state = s;
+    entry.state = s;
+  }
+  const isForeground = entry.requestId === _selectedNode?.id;
+  if (isForeground) {
     window.dispatchEvent(
       new CustomEvent("wurl:ws-state", { detail: { state: s } }),
     );
   }
-  if (s === "closed") _wsConn = null; // socket gone; further pushes are ignored
+  if (s === "closed" || s === "error") {
+    _wsConns.delete(entry.id);
+    if (!isForeground) {
+      const label = _getRequestLabel(entry.requestId);
+      if (s === "error") {
+        Notifications.warning(`WebSocket "${label}" disconnected with error.`);
+      } else {
+        Notifications.info(`WebSocket "${label}" closed.`);
+      }
+      entry.console.element.remove();
+    }
+    treeView?.setWsLiveIds(_getLiveRequestIds());
+  }
 }
 
-/** Route an inbound frame push to the console. */
+/** Route an inbound frame push to the correct connection's console. */
 function _onWsMessage(frame) {
-  if (!_wsConn || frame.id !== _wsConn.id) return;
-  wsConsole.addFrame({
+  const entry = _wsConns.get(frame.id);
+  if (!entry) return;
+  entry.console.addFrame({
     direction: "received",
     data: frame.data,
     binary: frame.binary,
@@ -414,16 +475,38 @@ function _onWsMessage(frame) {
   });
 }
 
-/** Close the active connection (best-effort) and stop routing its pushes. */
-async function _closeWsConn() {
-  if (!_wsConn) return;
-  const { id } = _wsConn;
-  _wsConn = null;
+/** Close the connection for a specific request (best-effort). */
+async function _closeWsConn(requestId) {
+  const entry = _connForRequest(requestId);
+  if (!entry) return;
+  _wsConns.delete(entry.id);
+  treeView?.setWsLiveIds(_getLiveRequestIds());
   try {
-    await window.wurl?.ws?.close({ id, code: 1000, reason: "switch" });
+    await window.wurl?.ws?.close({
+      id: entry.id,
+      code: 1000,
+      reason: "switch",
+    });
   } catch {
     /* socket already gone */
   }
+}
+
+/**
+ * Show a modal asking whether to keep a live WS connection in the background.
+ * Resolves true = keep open, false = disconnect.
+ */
+function _askKeepWsAlive(label) {
+  return new Promise((resolve) => {
+    PopupManager.confirm({
+      title: "WebSocket connection is open",
+      message: `"${label}" has an open connection. Keep it running in the background, or disconnect now?`,
+      confirmLabel: "Keep open",
+      confirmClass: "btn--primary",
+      onConfirm: () => resolve(true),
+      onCancel: () => resolve(false),
+    });
+  });
 }
 
 // ─── Splitters ────────────────────────────────────────────────────────────────
@@ -949,25 +1032,40 @@ function initEventBus() {
   // When a request is selected in the tree, load it into the editor
   window.addEventListener("wurl:request-selected", async (e) => {
     const node = e.detail;
+    const prevNodeId = _selectedNode?.id;
     _selectedNode = node;
     // Set variable context BEFORE load() so pill editors render with correct validation
     _refreshEditorVariableContext(node.id);
     requestEditor.load(node);
 
-    // WebSocket (Feature 32): swap the Response pane to the live frame log for a
-    // ws request, and auto-disconnect any socket that belonged to a different
-    // request so only one connection is ever live (no leaks).
+    // WebSocket: swap the response pane to the frame log for a WS request.
+    // If navigating away from a live connection, prompt the user to keep it
+    // open in the background or disconnect. Returning to a background connection
+    // restores its console and state without resetting the log.
     const isWs = node?.protocol === "websocket";
-    if (isWs && _wsConn && _wsConn.requestId === node?.id) {
-      // Re-selecting the same live connection — keep it and its log.
-      _setResponsePane(true);
+    const prevConn = _connForRequest(prevNodeId);
+    if (prevConn && node?.id !== prevNodeId) {
+      const active =
+        prevConn.state === "open" || prevConn.state === "connecting";
+      if (active) {
+        const keep = await _askKeepWsAlive(_getRequestLabel(prevNodeId));
+        if (!keep) {
+          await _closeWsConn(prevNodeId);
+          if (isWs) wsConsole.reset();
+        }
+        // If keep=true, entry stays in _wsConns with its console intact.
+      }
+    }
+    const resumeConn = _connForRequest(node?.id);
+    if (isWs && resumeConn) {
+      // Resume: swap the background connection's console into the pane.
+      _setResponsePane(true, resumeConn.console);
       window.dispatchEvent(
         new CustomEvent("wurl:ws-state", {
-          detail: { state: _wsConn.state ?? "idle" },
+          detail: { state: resumeConn.state ?? "idle" },
         }),
       );
     } else {
-      if (_wsConn) await _closeWsConn();
       _setResponsePane(isWs);
       if (isWs) {
         wsConsole.reset();
@@ -1049,7 +1147,11 @@ function initEventBus() {
       );
       return;
     }
-    await _closeWsConn(); // enforce a single active connection
+    // Close any existing connection for this request (re-connect scenario).
+    await _closeWsConn(_selectedNode?.id);
+    // Create a fresh console for this connection and swap it into the pane.
+    const newConsole = new WsConsole();
+    _setResponsePane(true, newConsole);
     wsConsole.reset();
     wsConsole.applyStatus({ state: "connecting" });
     window.dispatchEvent(
@@ -1065,11 +1167,13 @@ function initEventBus() {
     };
     try {
       const { id } = await window.wurl.ws.open(desc);
-      _wsConn = {
+      _wsConns.set(id, {
         id,
         requestId: _selectedNode?.id ?? null,
         state: "connecting",
-      };
+        console: newConsole,
+      });
+      treeView?.setWsLiveIds(_getLiveRequestIds());
     } catch (err) {
       wsConsole.applyStatus({
         state: "error",
@@ -1082,13 +1186,14 @@ function initEventBus() {
   });
 
   window.addEventListener("wurl:ws-send", async (e) => {
-    if (!_wsConn || !window.wurl?.ws) return;
+    const entry = _connForRequest(_selectedNode?.id);
+    if (!entry || !window.wurl?.ws) return;
     const data = e.detail?.data ?? "";
-    const res = await window.wurl.ws.send({ id: _wsConn.id, data });
+    const res = await window.wurl.ws.send({ id: entry.id, data });
     if (res?.ok) {
-      wsConsole.addFrame({ direction: "sent", data, ts: Date.now() });
+      entry.console.addFrame({ direction: "sent", data, ts: Date.now() });
     } else {
-      wsConsole.applyStatus({
+      entry.console.applyStatus({
         state: "system",
         message: `Send failed: ${res?.reason ?? "unknown"}`,
       });
@@ -1096,18 +1201,19 @@ function initEventBus() {
   });
 
   window.addEventListener("wurl:ws-disconnect", async () => {
-    if (!_wsConn || !window.wurl?.ws) return;
-    _wsConn.state = "closing";
-    wsConsole.applyStatus({ state: "closing" });
+    const entry = _connForRequest(_selectedNode?.id);
+    if (!entry || !window.wurl?.ws) return;
+    entry.state = "closing";
+    entry.console.applyStatus({ state: "closing" });
     window.dispatchEvent(
       new CustomEvent("wurl:ws-state", { detail: { state: "closing" } }),
     );
     await window.wurl.ws.close({
-      id: _wsConn.id,
+      id: entry.id,
       code: 1000,
       reason: "client",
     });
-    // The "closed" push nulls _wsConn and updates the console + editor.
+    // The "closed" push removes the entry and updates the console + editor.
   });
 
   // Cache response data so function pills like response() / responseHeader() can resolve

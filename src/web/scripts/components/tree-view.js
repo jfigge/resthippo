@@ -129,6 +129,9 @@ export class TreeView {
   /** @type {Set<string>} — ids of requests currently in flight (requests run concurrently) */
   #loadingIds = new Set();
 
+  /** @type {Set<string>} — ids of requests with a live background WebSocket connection */
+  #wsLiveIds = new Set();
+
   /**
    * @param {object}   [opts]
    * @param {object[]} [opts.items]  - Initial tree data
@@ -1715,6 +1718,7 @@ export class TreeView {
       if (isFav) li.classList.add("tree-node--favorite");
       // Restore the in-flight spinner across re-renders (drag, rename, …).
       if (this.#loadingIds.has(node.id)) li.classList.add("tree-node--loading");
+      if (this.#wsLiveIds.has(node.id)) li.classList.add("tree-node--ws-live");
       li.innerHTML = `
         <div class="tree-node-row" tabindex="0">
           ${this.#methodBadgeHtml(node.protocol, node.method)}
@@ -1728,6 +1732,9 @@ export class TreeView {
       // class alone was re-applied above; the control is a real element).
       if (this.#loadingIds.has(node.id)) {
         row.appendChild(this.#makeStopBtn(node.id));
+      }
+      if (this.#wsLiveIds.has(node.id)) {
+        row.appendChild(this.#makeWsLiveDot());
       }
 
       // Left-click: select request
@@ -1874,6 +1881,38 @@ export class TreeView {
     } else if (!loading && existing) {
       existing.remove();
     }
+  }
+
+  /**
+   * Update which request nodes show a live-WebSocket indicator dot.
+   * Called by app.js whenever the set of background connections changes.
+   * @param {Set<string>} ids - requestIds with an open connection
+   */
+  setWsLiveIds(ids) {
+    const prev = this.#wsLiveIds;
+    this.#wsLiveIds = ids instanceof Set ? ids : new Set(ids);
+    const changed = new Set([...prev, ...this.#wsLiveIds]);
+    for (const id of changed) {
+      const li = this.#el.querySelector(`[data-id="${CSS.escape(id)}"]`);
+      if (!li) continue;
+      const isLive = this.#wsLiveIds.has(id);
+      li.classList.toggle("tree-node--ws-live", isLive);
+      const row = li.querySelector(":scope > .tree-node-row");
+      const existing = row?.querySelector(".tree-node-ws-dot");
+      if (isLive && row && !existing) {
+        row.appendChild(this.#makeWsLiveDot());
+      } else if (!isLive && existing) {
+        existing.remove();
+      }
+    }
+  }
+
+  #makeWsLiveDot() {
+    const dot = document.createElement("span");
+    dot.className = "tree-node-ws-dot";
+    dot.setAttribute("aria-hidden", "true");
+    dot.title = "WebSocket connection open";
+    return dot;
   }
 
   /**

@@ -186,8 +186,17 @@ class BackupStore {
       io.remove(this._paths.environmentsDir());
     }
 
+    // ── Name-based ID mapping (merge mode only) ───────────────────────────────
+    // In merge mode, a backup collection that does not match any existing
+    // collection by ID but DOES match one by name should be merged into that
+    // existing slot rather than creating a duplicate.  The map is keyed by the
+    // backup collection's ID and values the effective (current) ID to use for
+    // writing files and for the manifest entry.
+    const idMap =
+      mode === "merge" ? this._buildNameIdMap(envelope.manifest) : new Map();
+
     // ── Manifest (collections list + settings) ──
-    const manifest = this._mergeManifest(envelope.manifest, mode);
+    const manifest = this._mergeManifest(envelope.manifest, mode, idMap);
     if (manifest) {
       io.ensureDir(this._paths.collectionsDir());
       io.writeJSON(this._paths.manifestPath(), manifest);
@@ -201,17 +210,32 @@ class BackupStore {
     }
 
     // ── Per-collection files ──
+    // In merge mode, only write collections that are listed in the backup's own
+    // manifest.  The exportAll filesystem scan can pick up orphaned collection
+    // directories on the source machine that were never registered in its manifest;
+    // those should not be silently promoted to named collections on the destination.
+    const allowedBackupIds = _manifestCollectionIds(envelope.manifest);
+
     let requestCount = 0;
     for (const coll of collections) {
       if (!coll || typeof coll !== "object" || !coll.id) continue;
-      const id = coll.id;
+      if (
+        mode === "merge" &&
+        allowedBackupIds !== null &&
+        !allowedBackupIds.has(coll.id)
+      )
+        continue;
+
+      // Apply the name-based mapping so data lands in the correct collection slot.
+      const id = idMap.get(coll.id) ?? coll.id;
       io.validateID(id, "collectionId");
       io.ensureDir(this._paths.collectionDir(id));
       io.ensureDir(this._paths.requestsDir(id));
 
+      const rawMeta = coll.metadata ?? { id, variables: [] };
       io.writeJSON(
         this._paths.metadataPath(id),
-        coll.metadata ?? { id, variables: [] },
+        rawMeta.id !== id ? { ...rawMeta, id } : rawMeta,
       );
       io.writeJSON(this._paths.treePath(id), coll.tree ?? { children: [] });
 
@@ -275,8 +299,17 @@ class BackupStore {
    * Compute the manifest to persist. In replace mode the backup manifest wins
    * outright; in merge mode the collections lists are unioned by id while the
    * existing settings / active selection are preserved.
+   *
+   * `idMap` carries name-based remappings (backup ID → existing ID) computed by
+   * `_buildNameIdMap`. A backup collection whose ID appears as a key in `idMap`
+   * is already represented in the destination manifest under a different ID, so
+   * its incoming entry is skipped — the existing entry takes priority.
+   *
+   * Both `incoming.collections` and the legacy `incoming.environments` key are
+   * checked so that older backups (before the field was renamed) are handled
+   * correctly. The same fallback applies to the on-disk `current` manifest.
    */
-  _mergeManifest(incoming, mode) {
+  _mergeManifest(incoming, mode, idMap = new Map()) {
     if (!incoming || typeof incoming !== "object") return null;
     if (mode === "replace") return incoming;
 
@@ -284,15 +317,60 @@ class BackupStore {
     if (!current || typeof current !== "object") return incoming;
 
     const byId = new Map();
-    for (const c of current.collections ?? []) if (c && c.id) byId.set(c.id, c);
-    for (const c of incoming.collections ?? [])
+    for (const c of current.collections ?? current.environments ?? [])
       if (c && c.id) byId.set(c.id, c);
+    for (const c of incoming.collections ?? incoming.environments ?? []) {
+      if (!c || !c.id) continue;
+      // Skip collections that were remapped to an existing entry by name: the
+      // current entry already in byId is the canonical one to keep.
+      if (idMap.has(c.id)) continue;
+      byId.set(c.id, c);
+    }
 
     return {
       ...current,
       collections: [...byId.values()],
       settings: { ...(incoming.settings ?? {}), ...(current.settings ?? {}) },
     };
+  }
+
+  /**
+   * Build a backup-ID → existing-ID map for collections that match an existing
+   * collection by name but not by ID.  Used in merge mode so that a backup's
+   * "My API" collection is restored into the existing "My API" slot rather than
+   * creating a duplicate with a different ID.
+   *
+   * @param {object|null} incomingManifest  The backup's manifest (envelope.manifest).
+   * @returns {Map<string,string>}  backupId → effectiveId
+   */
+  _buildNameIdMap(incomingManifest) {
+    const map = new Map();
+    if (!incomingManifest || typeof incomingManifest !== "object") return map;
+
+    const current = io.readJSON(this._paths.manifestPath());
+    if (!current || typeof current !== "object") return map;
+
+    // Build name → current-ID lookup and a set of current IDs (for fast lookup).
+    const currentByName = new Map();
+    const currentIds = new Set();
+    for (const c of current.collections ?? current.environments ?? []) {
+      if (c && c.id) {
+        currentIds.add(c.id);
+        if (c.name) currentByName.set(c.name, c.id);
+      }
+    }
+
+    for (const c of incomingManifest.collections ??
+      incomingManifest.environments ??
+      []) {
+      if (!c || !c.id) continue;
+      if (currentIds.has(c.id)) continue; // ID already matches — no remapping needed
+      if (c.name && currentByName.has(c.name)) {
+        map.set(c.id, currentByName.get(c.name));
+      }
+    }
+
+    return map;
   }
 
   /**
@@ -330,6 +408,25 @@ module.exports = {
   SECRETS_MACHINE,
   SECRETS_PASSWORD,
 };
+
+/**
+ * Return the Set of collection IDs listed in `manifest` (checking both the
+ * current `collections` key and the legacy `environments` key), or `null` when
+ * `manifest` is absent. A `null` return means "no manifest available — allow
+ * all"; an empty Set means "manifest present but lists nothing".
+ * @param {object|null|undefined} manifest
+ * @returns {Set<string>|null}
+ */
+function _manifestCollectionIds(manifest) {
+  if (!manifest || typeof manifest !== "object") return null;
+  const ids = new Set();
+  for (const key of ["collections", "environments"]) {
+    for (const c of manifest[key] ?? []) {
+      if (c && c.id) ids.add(c.id);
+    }
+  }
+  return ids;
+}
 
 /** @param {string} message @returns {Error} */
 function _invalidBackup(message) {

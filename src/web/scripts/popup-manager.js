@@ -325,6 +325,7 @@ export const PopupManager = {
    *   confirmLabel?: string,
    *   confirmClass?: string,
    *   onConfirm:     () => void,
+   *   onCancel?:     () => void,
    * }} opts
    */
   confirm({
@@ -334,6 +335,7 @@ export const PopupManager = {
     confirmLabel = "Confirm",
     confirmClass = "btn--danger",
     onConfirm,
+    onCancel,
   }) {
     const noteHtml = note
       ? `<p class="popup-confirm-note">${escapeHtml(note)}</p>`
@@ -361,7 +363,7 @@ export const PopupManager = {
 
     dlg
       .querySelector("[data-action='cancel']")
-      .addEventListener("click", () => dismiss());
+      .addEventListener("click", () => dismiss(onCancel));
     dlg
       .querySelector("[data-action='confirm']")
       .addEventListener("click", () => dismiss(onConfirm));
