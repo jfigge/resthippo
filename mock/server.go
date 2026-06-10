@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // addr is the main HTTP API listen address, overridable via MOCK_PORT (see
@@ -226,6 +227,37 @@ func main() {
 		w.Header().Set("Content-Type", ctype)
 		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 		w.Write(body)
+	})
+
+	// /delay sleeps for the requested number of seconds (clamped to [1, 30])
+	// before returning, so the client's loading state, timing waterfall and
+	// timeout/cancel handling can be exercised against a known delay.
+	http.HandleFunc("/delay", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/delay" {
+			http.NotFound(w, r)
+			return
+		}
+		// seconds is required and must be an integer; "" (missing) also errors.
+		requested, err := strconv.Atoi(r.URL.Query().Get("seconds"))
+		if err != nil {
+			http.Error(w, "invalid or missing 'seconds' query parameter (integer required)", http.StatusBadRequest)
+			return
+		}
+		// Clamp to [1, 30]: <=1 -> 1, >=30 -> 30.
+		secs := requested
+		if secs < 1 {
+			secs = 1
+		}
+		if secs > 30 {
+			secs = 30
+		}
+		time.Sleep(time.Duration(secs) * time.Second)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"requested": requested, // raw value before clamping (shows the clamp)
+			"delayed":   secs,      // seconds actually slept
+			"unit":      "seconds",
+		})
 	})
 
 	// /echo reflects the incoming request (any method, custom verbs included)

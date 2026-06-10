@@ -167,6 +167,11 @@ URL, query params, headers, cookies and body. The response is JSON by default,
 or XML/YAML/HTML when the `Accept` header asks for one of those
 (`application/xml`, `application/yaml`, `text/html`).
 
+For testing loading states, the timing waterfall and timeout/cancel handling it
+exposes `GET /delay?seconds=<n>`, which sleeps for `n` seconds (clamped to
+`1`–`30`) before returning JSON. A missing or non-integer `seconds` returns
+`400`.
+
 For the WebSocket client it exposes `ws://localhost:8888/ws` (and `/ws/echo`),
 which echoes every frame back; `/ws/time`, which pushes a timestamped JSON frame
 once per second (to test received-without-send traffic); and `/ws/reject`, which

@@ -641,6 +641,7 @@ mock-up: mock-build
 	@echo "  GET http://localhost:$(MOCK_PORT)/mimes/<type>"
 	@echo "  GET http://localhost:$(MOCK_PORT)/status"
 	@echo "  GET http://localhost:$(MOCK_PORT)/status/<code>"
+	@echo "  GET http://localhost:$(MOCK_PORT)/delay?seconds=<1-30>  sleeps N seconds (clamped) then returns JSON"
 	@echo "  GET http://localhost:$(MOCK_PORT)/auth"
 	@echo "  GET http://localhost:$(MOCK_PORT)/auth/<type>"
 	@echo "  ANY http://localhost:$(MOCK_PORT)/echo  reflects the request back (json/xml/yaml/html via Accept)"

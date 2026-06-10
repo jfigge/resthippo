@@ -221,6 +221,49 @@
   white-space: nowrap;
 }
 
+/* In-flight stop control — sits at the row's right edge while the request
+   runs. Requests execute concurrently, so any number of rows can spin at
+   once. The spinner ring doubles as a cancel button: hovering reveals a stop
+   square (browser-tab style) and clicking aborts that request only. */
+.tree-node-stop {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tree-node-stop::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+  border: 2px solid var(--color-surface-2);
+  border-top-color: var(--color-accent);
+  animation: spin 0.8s linear infinite;
+}
+
+.tree-node-stop::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--color-error);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.tree-node-stop:hover::after,
+.tree-node-stop:focus-visible::after {
+  opacity: 1;
+}
+
 mark.tree-highlight {
   background: transparent;
   color: var(--color-warning);
@@ -2812,6 +2855,15 @@ html.show-method-icons .req-method-menu-item-label::before {
 .res-spinner {
   display: inline-block;
   animation: spin 1s linear infinite;
+}
+
+/* Live elapsed readout under the loading hourglass; monospace + tabular
+   digits so the ticking value doesn't jitter the centered layout. */
+.res-loading-timer {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-sm);
+  color: var(--color-overlay-0);
 }
 
 /* ── Generic error status badge class ───────────────────────────────────────  */

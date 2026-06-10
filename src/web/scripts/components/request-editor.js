@@ -560,7 +560,9 @@ export class RequestEditor {
   // Global "Remove Headers" setting — applied to body-form column label row
   #removeHeaders = false;
 
-  #requestInFlight = false;
+  // IDs of requests currently in flight. Requests run concurrently, so the
+  // Send/Stop button reflects only the request loaded in the editor.
+  #inFlightIds = new Set();
 
   // ── Variable pill editor support ───────────────────────────────────────────
   /** Current variable resolution context: { envVariables, folderChain, … } */
@@ -606,24 +608,19 @@ export class RequestEditor {
     // #renderUrlBar, which can re-run on a protocol switch) and operating on the
     // current this.#sendBtn, so no listeners leak across rebuilds. No-op in
     // WebSocket mode, which has a Connect button driven by #applyWsState instead.
-    window.addEventListener("wurl:request-loading", () => {
-      this.#requestInFlight = true;
-      const b = this.#sendBtn;
-      if (!b || this.#protocol === "websocket") return;
-      b.textContent = "Stop";
-      b.setAttribute("aria-label", "Stop request");
-      b.classList.add("req-send-btn--cancel");
+    // Each lifecycle event carries the requestId it belongs to (requests run
+    // concurrently); events without one — history replays — fall back to the
+    // loaded request, matching the pre-concurrency reset behavior.
+    window.addEventListener("wurl:request-loading", (e) => {
+      this.#inFlightIds.add(e.detail?.requestId ?? this.#currentNodeId);
+      this.#applySendButtonState();
     });
-    const resetSendBtn = () => {
-      this.#requestInFlight = false;
-      const b = this.#sendBtn;
-      if (!b || this.#protocol === "websocket") return;
-      b.textContent = "Send";
-      b.setAttribute("aria-label", "Send request");
-      b.classList.remove("req-send-btn--cancel");
+    const settleSendBtn = (e) => {
+      this.#inFlightIds.delete(e.detail?.requestId ?? this.#currentNodeId);
+      this.#applySendButtonState();
     };
-    window.addEventListener("wurl:response-received", resetSendBtn);
-    window.addEventListener("wurl:request-error", resetSendBtn);
+    window.addEventListener("wurl:response-received", settleSendBtn);
+    window.addEventListener("wurl:request-error", settleSendBtn);
 
     // The GraphQL Query/Variables split orientation tracks the app layout: the
     // side-by-side layout stacks the panes, wider layouts place them side by
@@ -642,6 +639,30 @@ export class RequestEditor {
   /** Root DOM element — pass to Panel.mount(). */
   get element() {
     return this.#el;
+  }
+
+  /** True when the request currently loaded in the editor is in flight. */
+  #currentRequestInFlight() {
+    return this.#inFlightIds.has(this.#currentNodeId);
+  }
+
+  /**
+   * Sync the Send/Stop button with the in-flight state of the LOADED request.
+   * Called on lifecycle events and on load(), so switching to a running
+   * request shows Stop and switching to an idle one shows Send.
+   */
+  #applySendButtonState() {
+    const b = this.#sendBtn;
+    if (!b || this.#protocol === "websocket") return;
+    if (this.#currentRequestInFlight()) {
+      b.textContent = "Stop";
+      b.setAttribute("aria-label", "Stop request");
+      b.classList.add("req-send-btn--cancel");
+    } else {
+      b.textContent = "Send";
+      b.setAttribute("aria-label", "Send request");
+      b.classList.remove("req-send-btn--cancel");
+    }
   }
 
   // ── URL bar ─────────────────────────────────────────────────────────────
@@ -822,8 +843,12 @@ export class RequestEditor {
     sendBtn.textContent = "Send";
     sendBtn.setAttribute("aria-label", "Send request");
     sendBtn.addEventListener("click", () => {
-      if (this.#requestInFlight) {
-        window.dispatchEvent(new CustomEvent("wurl:cancel-request"));
+      if (this.#currentRequestInFlight()) {
+        window.dispatchEvent(
+          new CustomEvent("wurl:cancel-request", {
+            detail: { requestId: this.#currentNodeId },
+          }),
+        );
       } else {
         this.#sendRequest();
       }
@@ -3927,6 +3952,10 @@ export class RequestEditor {
 
   // ── Send ─────────────────────────────────────────────────────────────────
   async #sendRequest(force = false) {
+    // Capture the id now — the user may load another request while the async
+    // steps below (OAuth, cache preload) run, and this send belongs to the
+    // request that was loaded when it started.
+    const requestId = this.#currentNodeId ?? null;
     const rawUrl = this.#urlPillEditor.getValue().trim();
     if (!rawUrl) {
       this.#urlPillEditor.focus();
@@ -4052,7 +4081,9 @@ export class RequestEditor {
         // ── Signal loading while the OAuth flow runs ───────────────────────
         // This turns the Send button into "Stop" immediately so the user can
         // cancel a long-running popup before the request fires.
-        window.dispatchEvent(new CustomEvent("wurl:request-loading"));
+        window.dispatchEvent(
+          new CustomEvent("wurl:request-loading", { detail: { requestId } }),
+        );
 
         // ── Acquire token (cache → refresh → full flow) ────────────────────
         let _oauthResult;
@@ -4064,6 +4095,7 @@ export class RequestEditor {
           window.dispatchEvent(
             new CustomEvent("wurl:request-error", {
               detail: {
+                requestId,
                 request: {
                   method: this.#method,
                   url: finalUrl,
@@ -4082,7 +4114,7 @@ export class RequestEditor {
         }
 
         // ── Guard: user clicked Stop while the popup / token request was in flight ──
-        if (!this.#requestInFlight) return;
+        if (!this.#inFlightIds.has(requestId)) return;
 
         // ── Handle flow failure ────────────────────────────────────────────
         if (!_oauthResult.success || !_oauthResult.accessToken) {
@@ -4091,6 +4123,7 @@ export class RequestEditor {
           window.dispatchEvent(
             new CustomEvent("wurl:request-error", {
               detail: {
+                requestId,
                 request: {
                   method: this.#method,
                   url: finalUrl,
@@ -4127,6 +4160,7 @@ export class RequestEditor {
     window.dispatchEvent(
       new CustomEvent("wurl:send-request", {
         detail: {
+          requestId,
           method: this.#method,
           url: finalUrl,
           headers,
@@ -4337,6 +4371,10 @@ export class RequestEditor {
       this.#methodSel.dataset.method = node.method.toLowerCase();
       this.#sendBtn.dataset.method = node.method.toLowerCase();
     }
+
+    // Requests run concurrently: the loaded request may already be in flight
+    // (Stop) while others run in the background, or idle (Send) while they do.
+    this.#applySendButtonState();
 
     const url = node.url ?? "";
     this.#url = url;

@@ -877,12 +877,16 @@ function initEventBus() {
   //   folder-vars-open      { nodeId, folderName, variables }
   //
   // Request lifecycle           (RequestEditor / app.js ↔ panels)
-  //   send-request          { method, url, headers, … }
-  //   cancel-request        —
-  //   request-loading       —                             in-flight; show spinner
+  //   send-request          { requestId, method, url, headers, … }
+  //   cancel-request        { requestId }                 stop that request's run
+  //   request-loading       { requestId }                 in-flight; show spinner
   //   request-updated       { id, …partial }              editor mutated a field
-  //   request-error         { request, name, message, hint, elapsed, consoleLog }
-  //   response-received     { …response, request }
+  //   request-error         { requestId, requestNode, request, name, message, hint, elapsed, consoleLog }
+  //   response-received     { …response, requestId, requestNode, request }
+  //   Requests run concurrently: requestId routes each lifecycle event to its
+  //   originating request (null on history replays, which always target the
+  //   selected request); requestNode is the tree-node snapshot taken at send
+  //   time so results route correctly even after the selection moves on.
   //   editor-setting-changed { <settingKey>: value }      e.g. showUrlPreview
   //
   // WebSocket
@@ -1112,7 +1116,9 @@ function initEventBus() {
     const skipHistory = _skipNextHistory;
     _skipNextHistory = false;
 
-    const node = _selectedNode;
+    // Route to the request that was sent, not the current selection — with
+    // concurrent requests the user may have moved on while this one ran.
+    const node = e.detail.requestNode ?? _selectedNode;
     const name = node?.name;
     if (!name) return;
 
@@ -1122,7 +1128,7 @@ function initEventBus() {
     if (!skipHistory && _maxHistory > 0 && node?.id) {
       const histId = crypto.randomUUID();
       const nowMs = Date.now();
-      const reqUrl = _lastRequestSnapshot?.url ?? "";
+      const reqUrl = e.detail.request?.url ?? "";
       const reqNode = _buildSnapshot(node);
       const resp = {
         request: e.detail.request ?? {},
@@ -1198,8 +1204,11 @@ function initEventBus() {
       _responseCache[name] = latest?.response?.body ?? "";
       _responseHeaders[name] = latest?.response?.headers ?? {};
       _responseStatus[name] = latest?.response?.status ?? 0;
-      _refreshEditorVariableContext(node.id);
-      _dispatchTimelineUpdate(node.id);
+      // Refresh pill context for whichever request is loaded in the editor —
+      // a background response may make its response() pills resolvable.
+      _refreshEditorVariableContext(_selectedNode?.id);
+      // Only repaint the timeline pane when it is showing this request.
+      if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
     }
 
     // Post-response captures (Feature 03). Run on genuine sends only (never on a
@@ -1218,16 +1227,17 @@ function initEventBus() {
     _skipNextHistory = false;
 
     if (skipHistory) return;
-    if (_cancelCurrentRequest) return;
     if (e.detail?.name === "AbortError") return;
-    if (!_lastRequestSnapshot) return;
+    // Pre-send failures that never reached the network (e.g. the no-URL
+    // guard) carry an empty request URL and are not recorded.
+    if (!e.detail?.request?.url) return;
 
-    const node = _selectedNode;
+    const node = e.detail.requestNode ?? _selectedNode;
     if (!node?.id || _maxHistory <= 0) return;
 
     const histId = crypto.randomUUID();
     const nowMs = Date.now();
-    const reqUrl = _lastRequestSnapshot.url ?? "";
+    const reqUrl = e.detail.request?.url ?? "";
     // Store the snapshot (bulk-string) format, matching the success path. The
     // timeline-restore handler replays it via loadSnapshot() and the timeline
     // detail panel reads params/headers as bulk text, both of which need strings.
@@ -1298,7 +1308,7 @@ function initEventBus() {
       _responseHeaders[errName] = errLatest?.response?.headers ?? {};
       _responseStatus[errName] = errLatest?.response?.status ?? 0;
     }
-    _dispatchTimelineUpdate(node.id);
+    if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
   });
 
   // Auto-save whenever the tree is mutated (add / remove collection or request)
@@ -2033,12 +2043,11 @@ function initEventBus() {
     }
   });
 
-  // Active AbortController for the current in-flight Go-dev-mode request
-  let _activeAbortController = null;
-  // Flag set when the user cancels; prevents stale results from being displayed
-  let _cancelCurrentRequest = false;
-  // Snapshot of the most-recently-started request (used in cancel error detail)
-  let _lastRequestSnapshot = null;
+  // In-flight executions, one record per running request. Requests run
+  // concurrently, so each execution carries its own cancel flag, request
+  // snapshot, and (in Go-dev mode) AbortController.
+  // Record shape: { requestId, snapshot, abortController, cancelled }
+  const _inFlightExecs = new Set();
   // Currently selected tree node (request or folder), for context functions
   let _selectedNode = null;
   // Response caches keyed by request name — fed into variable context for function pills
@@ -2077,17 +2086,27 @@ function initEventBus() {
     );
   });
 
-  window.addEventListener("wurl:cancel-request", () => {
-    _cancelCurrentRequest = true;
-    if (_activeAbortController) {
-      _activeAbortController.abort();
-      _activeAbortController = null;
+  window.addEventListener("wurl:cancel-request", (e) => {
+    const requestId = e.detail?.requestId ?? null;
+    // Cancel the execution(s) belonging to this request; with no requestId
+    // (legacy callers) cancel everything in flight.
+    let snapshot = null;
+    for (const exec of _inFlightExecs) {
+      if (requestId !== null && exec.requestId !== requestId) continue;
+      exec.cancelled = true;
+      exec.abortController?.abort();
+      exec.abortController = null;
+      snapshot = exec.snapshot;
+      _inFlightExecs.delete(exec);
     }
-    // Give instant feedback: treat cancel as an error
+    // Give instant feedback: treat cancel as an error. Dispatched even when no
+    // execution matched — an OAuth-phase cancel happens before the execution
+    // is registered, and the editor/panels still need the state reset.
     window.dispatchEvent(
       new CustomEvent("wurl:request-error", {
         detail: {
-          request: _lastRequestSnapshot ?? {
+          requestId,
+          request: snapshot ?? {
             method: "GET",
             url: "",
             headers: {},
@@ -2127,6 +2146,7 @@ function initEventBus() {
   // native layer (Electron IPC or the Go dev-server proxy endpoint).
   window.addEventListener("wurl:send-request", async (e) => {
     const descriptor = e.detail;
+    const requestId = descriptor?.requestId ?? _selectedNode?.id ?? null;
 
     // ── Guard: URL must be a non-empty string ────────────────────────────────
     const rawUrl = descriptor?.url;
@@ -2134,6 +2154,7 @@ function initEventBus() {
       window.dispatchEvent(
         new CustomEvent("wurl:request-error", {
           detail: {
+            requestId,
             request: {
               method: descriptor?.method ?? "GET",
               url: rawUrl ?? "",
@@ -2166,15 +2187,33 @@ function initEventBus() {
       saveSettings(currentSettings);
     }
 
-    window.dispatchEvent(new CustomEvent("wurl:request-loading"));
+    // Snapshot the originating tree node now: requests run concurrently, so
+    // by the time the response arrives the selection may point elsewhere. The
+    // snapshot routes history/captures back to the request actually sent.
+    const requestNode =
+      _selectedNode?.id === requestId
+        ? _selectedNode
+        : _findNodeById(treeView?.getItems() ?? [], requestId);
 
-    _cancelCurrentRequest = false;
-    _lastRequestSnapshot = {
+    const requestSnapshot = {
       method: descriptor.method,
       url: descriptor.url,
       headers: descriptor.headers ?? {},
       body: typeof descriptor.body === "string" ? descriptor.body : null,
     };
+
+    // Register this execution so wurl:cancel-request can abort it individually.
+    const exec = {
+      requestId,
+      snapshot: requestSnapshot,
+      abortController: null,
+      cancelled: false,
+    };
+    _inFlightExecs.add(exec);
+
+    window.dispatchEvent(
+      new CustomEvent("wurl:request-loading", { detail: { requestId } }),
+    );
 
     // ── Build the descriptor for the native layer ────────────────────────────
     const nativeDesc = {
@@ -2228,7 +2267,7 @@ function initEventBus() {
         // The Go server makes the outgoing request server-side so CORS is
         // never a factor.  AbortController gives us cancellation support.
         const controller = new AbortController();
-        _activeAbortController = controller;
+        exec.abortController = controller;
 
         const res = await fetch("/api/execute", {
           method: "POST",
@@ -2236,14 +2275,14 @@ function initEventBus() {
           body: JSON.stringify(nativeDesc),
           signal: controller.signal,
         });
-        _activeAbortController = null;
+        exec.abortController = null;
 
         if (!res.ok) throw new Error(`Execute API returned HTTP ${res.status}`);
         result = await res.json();
       }
 
-      // Discard the result if the user already cancelled
-      if (_cancelCurrentRequest) return;
+      // Discard the result if the user already cancelled this execution
+      if (exec.cancelled) return;
 
       // ── Dispatch result ──────────────────────────────────────────────────
       if (result.error && result.status === 0) {
@@ -2251,7 +2290,9 @@ function initEventBus() {
         window.dispatchEvent(
           new CustomEvent("wurl:request-error", {
             detail: {
-              request: _lastRequestSnapshot,
+              requestId,
+              requestNode,
+              request: requestSnapshot,
               name: result.error.name,
               message: result.error.message,
               hint: _buildHint(result.error.name, result.error.message),
@@ -2265,7 +2306,9 @@ function initEventBus() {
         window.dispatchEvent(
           new CustomEvent("wurl:response-received", {
             detail: {
-              request: _lastRequestSnapshot,
+              requestId,
+              requestNode,
+              request: requestSnapshot,
               status: result.status,
               statusText: result.statusText,
               headers: result.headers ?? {},
@@ -2286,8 +2329,7 @@ function initEventBus() {
         );
       }
     } catch (err) {
-      if (_cancelCurrentRequest) return;
-      _activeAbortController = null;
+      if (exec.cancelled) return;
 
       const errName = (err instanceof Error ? err.name : "Error") || "Error";
       const msg = (err instanceof Error ? err.message : String(err)) || "";
@@ -2295,7 +2337,9 @@ function initEventBus() {
       window.dispatchEvent(
         new CustomEvent("wurl:request-error", {
           detail: {
-            request: _lastRequestSnapshot,
+            requestId,
+            requestNode,
+            request: requestSnapshot,
             name: errName,
             message: msg,
             hint: _buildHint(errName, msg),
@@ -2304,6 +2348,8 @@ function initEventBus() {
           },
         }),
       );
+    } finally {
+      _inFlightExecs.delete(exec);
     }
   });
 }

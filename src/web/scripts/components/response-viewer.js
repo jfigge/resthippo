@@ -354,6 +354,11 @@ export class ResponseViewer {
   #requestId = null; // id of the request whose timeline is shown (for delete/clear)
   #timestampTimer = null; // setInterval handle for live timestamp updates
 
+  // Concurrent-request routing
+  #selectedRequestId = null; // id of the selected request — lifecycle events for others are ignored
+  #inFlightStarts = new Map(); // request id → send time (epoch ms), for all in-flight requests
+  #loadingTimer = null; // setInterval handle for the live elapsed readout while loading
+
   constructor() {
     this.#el = document.createElement("div");
     this.#el.className = "response-viewer";
@@ -363,22 +368,43 @@ export class ResponseViewer {
     this.#renderTabContent();
     this.#renderSearchBar(); // inserted between tab-strip and tab-content
 
-    // Track the active request's method so the Body tab colour stays in sync.
+    // Track the active request's method so the Body tab colour stays in sync,
+    // and its id so concurrent lifecycle events can be routed (below).
     window.addEventListener("wurl:request-selected", (e) => {
+      this.#selectedRequestId = e.detail?.id ?? null;
       if (e.detail?.method) this.#setCurrentMethod(e.detail.method);
     });
     window.addEventListener("wurl:request-updated", (e) => {
       if (e.detail?.method) this.#setCurrentMethod(e.detail.method);
     });
 
-    // Listen for responses
-    window.addEventListener("wurl:response-received", (e) =>
-      this.#showResponse(e.detail),
-    );
-    window.addEventListener("wurl:request-loading", () => this.#showLoading());
-    window.addEventListener("wurl:request-error", (e) =>
-      this.#showError(e.detail),
-    );
+    // Listen for responses. Requests run concurrently: each lifecycle event
+    // carries the requestId it belongs to, and only events for the SELECTED
+    // request touch the panes — background results are recorded in history by
+    // app.js and shown when their request is next selected. Events without a
+    // requestId (history replays) always target the selected request.
+    const isSelected = (rid) => rid == null || rid === this.#selectedRequestId;
+    window.addEventListener("wurl:response-received", (e) => {
+      const rid = e.detail?.requestId;
+      if (rid != null) this.#inFlightStarts.delete(rid);
+      if (isSelected(rid)) this.#showResponse(e.detail);
+    });
+    window.addEventListener("wurl:request-loading", (e) => {
+      const rid = e.detail?.requestId;
+      // Keep the earliest mark — an OAuth send dispatches loading twice
+      // (token acquisition, then the request itself).
+      if (rid != null && !this.#inFlightStarts.has(rid)) {
+        this.#inFlightStarts.set(rid, Date.now());
+      }
+      if (isSelected(rid)) {
+        this.#showLoading(rid != null ? this.#inFlightStarts.get(rid) : null);
+      }
+    });
+    window.addEventListener("wurl:request-error", (e) => {
+      const rid = e.detail?.requestId;
+      if (rid != null) this.#inFlightStarts.delete(rid);
+      if (isSelected(rid)) this.#showError(e.detail);
+    });
 
     // Post-response captures (Feature 03): show a small marker on the status bar
     // summarising how many variables were captured. Count only — never values.
@@ -398,7 +424,15 @@ export class ResponseViewer {
       if (e.detail?.isRequestSwitch) {
         if (this.#activeTab !== "body") this.#switchTab("body");
         const entry = this.#timelineEntries[0];
-        if (entry?.response?.error) {
+        if (
+          this.#requestId != null &&
+          this.#inFlightStarts.has(this.#requestId)
+        ) {
+          // Switched to a request that is still running — show its live
+          // loading state (timed from its own send) rather than the
+          // previous run from history.
+          this.#showLoading(this.#inFlightStarts.get(this.#requestId));
+        } else if (entry?.response?.error) {
           this.#showError({
             ...entry.response.error,
             elapsed: entry.response.elapsed,
@@ -2190,7 +2224,11 @@ export class ResponseViewer {
   }
 
   // ── Response states ───────────────────────────────────────────────────────
-  #showLoading() {
+  /**
+   * @param {number|null} [startedAt]  Epoch ms of the request's send, so a
+   *   switch back to an in-flight request resumes its true elapsed time.
+   */
+  #showLoading(startedAt = null) {
     this.#lastResponse = null;
     this.#destroyHtmlPreview();
     this.#teardownBinaryEphemera();
@@ -2198,19 +2236,44 @@ export class ResponseViewer {
     this.#setStatus("", "", "", "");
     const bodyPane = this.#bodyPane;
     bodyPane.innerHTML = "";
-    bodyPane.appendChild(
-      this.#placeholder({
-        icon: "⏳",
-        text: "Sending request…",
-        iconClass: "res-spinner",
-      }),
-    );
+    const placeholder = this.#placeholder({
+      icon: "⏳",
+      text: "Sending request…",
+      iconClass: "res-spinner",
+    });
+
+    // Live elapsed readout under the hourglass, ticking until the request
+    // settles (#showResponse / #showError / #clearToEmpty stop it).
+    this.#stopLoadingTimer();
+    const timerEl = document.createElement("span");
+    timerEl.className = "res-loading-timer";
+    placeholder.appendChild(timerEl);
+    const t0 = startedAt ?? Date.now();
+    const tick = () => {
+      timerEl.textContent = `${((Date.now() - t0) / 1000).toFixed(1)} s`;
+    };
+    tick();
+    this.#loadingTimer = setInterval(tick, 100);
+    // Under Node/jsdom (tests) the interval would otherwise hold the event
+    // loop open and hang `node --test`; in the browser unref doesn't exist.
+    this.#loadingTimer?.unref?.();
+
+    bodyPane.appendChild(placeholder);
 
     // Clear console pane on each new request
     this.#renderConsole([]);
   }
 
+  /** Stop the live elapsed readout (idempotent). */
+  #stopLoadingTimer() {
+    if (this.#loadingTimer) {
+      clearInterval(this.#loadingTimer);
+      this.#loadingTimer = null;
+    }
+  }
+
   #showError(detail) {
+    this.#stopLoadingTimer();
     this.#lastResponse = null;
     this.#destroyHtmlPreview();
     this.#teardownBinaryEphemera();
@@ -2254,6 +2317,7 @@ export class ResponseViewer {
 
   /** Reset the viewer to its initial empty state (no response loaded). */
   #clearToEmpty() {
+    this.#stopLoadingTimer();
     this.#lastResponse = null;
     this.#destroyHtmlPreview();
     this.#teardownBinaryEphemera();
@@ -2284,6 +2348,7 @@ export class ResponseViewer {
    * @param {string[]} response.consoleLog
    */
   #showResponse(response, requestUrl) {
+    this.#stopLoadingTimer();
     const {
       request = {},
       status = 0,

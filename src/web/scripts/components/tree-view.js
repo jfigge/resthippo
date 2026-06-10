@@ -126,6 +126,9 @@ export class TreeView {
   /** @type {HTMLButtonElement|null} */
   #tabRecBtn = null;
 
+  /** @type {Set<string>} — ids of requests currently in flight (requests run concurrently) */
+  #loadingIds = new Set();
+
   /**
    * @param {object}   [opts]
    * @param {object[]} [opts.items]  - Initial tree data
@@ -152,6 +155,17 @@ export class TreeView {
         e.dataTransfer.dropEffect = "move";
       }
     });
+
+    // Per-node in-flight spinner: requests run concurrently, so each node
+    // tracks its own loading state from the requestId carried by the
+    // lifecycle events. The TreeView is an app-lifetime singleton, so these
+    // window listeners are intentionally never removed.
+    window.addEventListener("wurl:request-loading", (e) =>
+      this.#setNodeLoading(e.detail?.requestId, true),
+    );
+    const settleNode = (e) => this.#setNodeLoading(e.detail?.requestId, false);
+    window.addEventListener("wurl:response-received", settleNode);
+    window.addEventListener("wurl:request-error", settleNode);
 
     // Container-level: handle the actual drop (phantom target stores where to drop)
     this.#el.addEventListener("drop", (e) => {
@@ -1699,6 +1713,8 @@ export class TreeView {
       // spot.
       const isFav = this.#favoriteIds.has(node.id);
       if (isFav) li.classList.add("tree-node--favorite");
+      // Restore the in-flight spinner across re-renders (drag, rename, …).
+      if (this.#loadingIds.has(node.id)) li.classList.add("tree-node--loading");
       li.innerHTML = `
         <div class="tree-node-row" tabindex="0">
           ${this.#methodBadgeHtml(node.protocol, node.method)}
@@ -1708,6 +1724,11 @@ export class TreeView {
 
       const row = li.querySelector(".tree-node-row");
       row.insertBefore(this.#makeFavHotspot(node.id), row.firstChild);
+      // Restore the stop/spinner control when re-rendering mid-flight (the
+      // class alone was re-applied above; the control is a real element).
+      if (this.#loadingIds.has(node.id)) {
+        row.appendChild(this.#makeStopBtn(node.id));
+      }
 
       // Left-click: select request
       row.addEventListener("click", () => {
@@ -1829,6 +1850,52 @@ export class TreeView {
       el.classList.remove("tree-node--active");
     });
     li.classList.add("tree-node--active");
+  }
+
+  /**
+   * Toggle the in-flight spinner on a request node. Any number of nodes can
+   * be loading at once. #loadingIds is the source of truth so #createNode can
+   * re-apply the state across re-renders while a request is still running.
+   */
+  #setNodeLoading(requestId, loading) {
+    if (!requestId) return;
+    if (loading) {
+      this.#loadingIds.add(requestId);
+    } else {
+      this.#loadingIds.delete(requestId);
+    }
+    const li = this.#el.querySelector(`[data-id="${CSS.escape(requestId)}"]`);
+    if (!li) return;
+    li.classList.toggle("tree-node--loading", loading);
+    const row = li.querySelector(":scope > .tree-node-row");
+    const existing = row?.querySelector(".tree-node-stop");
+    if (loading && row && !existing) {
+      row.appendChild(this.#makeStopBtn(requestId));
+    } else if (!loading && existing) {
+      existing.remove();
+    }
+  }
+
+  /**
+   * The per-node stop control: shows the in-flight spinner ring and cancels
+   * the request on click — the only way to stop a run that is not the one
+   * loaded in the editor (whose URL-bar button reads Stop).
+   */
+  #makeStopBtn(requestId) {
+    const btn = document.createElement("button");
+    btn.className = "tree-node-stop";
+    btn.setAttribute("aria-label", "Stop request");
+    btn.title = "Stop request";
+    btn.addEventListener("click", (e) => {
+      // Cancel only — do not select the row.
+      e.stopPropagation();
+      window.dispatchEvent(
+        new CustomEvent("wurl:cancel-request", { detail: { requestId } }),
+      );
+    });
+    // Keep rapid clicks from bubbling into the row's double-click-to-execute.
+    btn.addEventListener("dblclick", (e) => e.stopPropagation());
+    return btn;
   }
 
   #selectRequest(node, li) {
