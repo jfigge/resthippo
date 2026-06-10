@@ -32,6 +32,7 @@ const {
   makeProxyAgent,
 } = require("./net/proxy");
 const { normalizeRetry, retryReason, backoffDelay } = require("./net/retry");
+const { computeTiming, formatTiming } = require("./net/timing");
 const { WebSocketHub } = require("./net/websocket");
 const {
   parseChallenge,
@@ -769,7 +770,16 @@ function safeCallWrite(channel, fn) {
             : {}),
       };
 
+      // Per-leg timing marks (absolute ms). The socket handler and the response
+      // path below populate the rest; computeTiming turns them into the phase
+      // waterfall surfaced on the result. Each recursive leg (redirect / auth)
+      // gets its own marks, so the resolved result carries the FINAL leg's
+      // breakdown — the connection that produced the response the user sees.
+      const t = { start: Date.now() };
+
       const req = lib.request(options, (res) => {
+        // First response byte (headers received) — the TTFB marker.
+        t.response = Date.now();
         const code = res.statusCode;
         const phrase = res.statusMessage;
 
@@ -1033,6 +1043,7 @@ function safeCallWrite(channel, fn) {
         });
 
         res.on("end", () => {
+          t.end = Date.now();
           const elapsed = Date.now() - startTime;
 
           consoleLog.push(`< ${httpVersion} ${code} ${phrase}`);
@@ -1046,6 +1057,13 @@ function safeCallWrite(channel, fn) {
           consoleLog.push(
             `* Connection to host ${parsed.hostname} left intact`,
           );
+
+          // Per-phase timing waterfall (DNS/TCP/TLS/TTFB/download) appended to
+          // the verbose Console log; absent phases (plain HTTP, reused sockets)
+          // are skipped. Persisted with consoleLog, so it replays from history.
+          for (const line of formatTiming(computeTiming(t, { isHttps }))) {
+            consoleLog.push(line);
+          }
 
           captureCookies(useCookieJar, collectionId, rawUrl, res.headers);
 
@@ -1154,8 +1172,10 @@ function safeCallWrite(channel, fn) {
       });
 
       req.on("socket", (socket) => {
+        t.socket = Date.now();
         // ── DNS resolution ──────────────────────────────────────────────────
         socket.on("lookup", (err, address, _family, hostname) => {
+          t.lookup = Date.now();
           if (err) {
             consoleLog.push(
               `* Could not resolve host '${hostname}': ${err.message}`,
@@ -1168,6 +1188,7 @@ function safeCallWrite(channel, fn) {
 
         // ── TCP connection established ───────────────────────────────────────
         socket.on("connect", () => {
+          t.connect = Date.now();
           const remoteAddr = socket.remoteAddress;
           const remotePort = socket.remotePort;
           consoleLog.push(
@@ -1183,6 +1204,7 @@ function safeCallWrite(channel, fn) {
         // ── TLS handshake complete (HTTPS only) ─────────────────────────────
         if (isHttps) {
           socket.on("secureConnect", () => {
+            t.secure = Date.now();
             const protocol = socket.getProtocol();
             const cipher = socket.getCipher();
             consoleLog.push(

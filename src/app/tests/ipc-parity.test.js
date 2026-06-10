@@ -47,6 +47,7 @@ const handlers = channelsFor(read("main.js"), "ipcMain\\.handle");
 const invokes = [
   ...channelsFor(read("preload.js"), "ipcRenderer\\.invoke"),
   ...channelsFor(read("preload-theme-editor.js"), "ipcRenderer\\.invoke"),
+  ...channelsFor(read("preload-docs.js"), "ipcRenderer\\.invoke"),
 ];
 
 test("no IPC channel is handled more than once in main.js", () => {

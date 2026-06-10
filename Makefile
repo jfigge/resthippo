@@ -125,8 +125,8 @@ test-auth:
 	@echo "--------------------------------"
 
 test-net:
-	@echo "Running proxy / retry / websocket tests..."
-	@node --test $(APP_DIR)/net/tests/proxy.test.js $(APP_DIR)/net/tests/retry.test.js $(APP_DIR)/net/tests/websocket.test.js
+	@echo "Running proxy / retry / websocket / timing tests..."
+	@node --test $(APP_DIR)/net/tests/proxy.test.js $(APP_DIR)/net/tests/retry.test.js $(APP_DIR)/net/tests/websocket.test.js $(APP_DIR)/net/tests/timing.test.js
 	@echo "--------------------------------"
 
 test-content-type:

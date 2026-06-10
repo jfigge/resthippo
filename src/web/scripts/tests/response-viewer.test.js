@@ -525,3 +525,26 @@ test("right-click → Delete Entry dispatches timeline-delete-entry", async () =
   assert.equal(deleted.requestId, "req1");
   assert.equal(deleted.historyId, "h2", "targets the right-clicked entry");
 });
+
+// ── Timing breakdown (Feature 45) ───────────────────────────────────────────
+// The waterfall is surfaced as `* ...` lines in the Console pane (built in the
+// main process and carried in consoleLog), so the renderer just needs to show
+// them like any other verbose log line.
+
+test("shows the timing breakdown lines in the Console pane", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      consoleLog: [
+        "* Request timing:",
+        "*   DNS lookup        10 ms",
+        "*   Total            219 ms",
+      ],
+    }),
+  );
+  const console = viewer.element.querySelector("#res-tab-console").textContent;
+  assert.match(console, /Request timing:/);
+  assert.match(console, /DNS lookup\s+10 ms/);
+  assert.match(console, /Total\s+219 ms/);
+});
