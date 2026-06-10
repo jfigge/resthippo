@@ -123,8 +123,15 @@ class BackupStore {
       if (metadata === null) continue; // not a real collection dir
       metadata = _exportMetadata(metadata, mode, password);
       const rawTree = io.readJSON(this._paths.treePath(id)) ?? { children: [] };
-      const tree = _exportTree(rawTree, mode, password);
       const requests = this._readRequests(id, mode, password);
+      // When the on-disk tree is empty but request files exist, reconstruct a
+      // flat folder so the backup is self-consistent and restores without loss.
+      const reqIds = requests.map((r) => r.id).filter(Boolean);
+      const tree = _exportTree(
+        _ensureTreeHasRequests(id, rawTree, reqIds),
+        mode,
+        password,
+      );
       collections.push({ id, metadata, tree, requests });
     }
 
@@ -237,8 +244,9 @@ class BackupStore {
         this._paths.metadataPath(id),
         rawMeta.id !== id ? { ...rawMeta, id } : rawMeta,
       );
-      io.writeJSON(this._paths.treePath(id), coll.tree ?? { children: [] });
 
+      // Write requests first so their IDs are available for tree recovery below.
+      const writtenReqIds = [];
       for (const req of Array.isArray(coll.requests) ? coll.requests : []) {
         if (!req || typeof req !== "object" || !req.id) continue;
         try {
@@ -247,8 +255,17 @@ class BackupStore {
           continue;
         }
         io.writeJSON(this._paths.requestPath(id, req.id), req);
+        writtenReqIds.push(req.id);
         requestCount += 1;
       }
+
+      // Write tree. When the backup tree is empty but requests were restored,
+      // build a minimal flat folder so the requests are visible after import
+      // instead of being silently inaccessible.
+      io.writeJSON(
+        this._paths.treePath(id),
+        _ensureTreeHasRequests(id, coll.tree, writtenReqIds),
+      );
     }
 
     // New request→collection mappings are now on disk.
@@ -426,6 +443,37 @@ function _manifestCollectionIds(manifest) {
     }
   }
   return ids;
+}
+
+/**
+ * Return a tree suitable for writing. When the incoming tree has no children
+ * but there are restored request IDs, build a minimal single-folder tree so
+ * the requests are visible after import rather than silently inaccessible.
+ * When the tree already has content it is returned unchanged.
+ *
+ * The recovery folder uses the collection ID as both its id and name, matching
+ * the layout RequestStore.createRequest produces for a brand-new collection.
+ *
+ * @param {string}   collId
+ * @param {object}   [tree]
+ * @param {string[]} reqIds  IDs of requests that were successfully written
+ * @returns {object}
+ */
+function _ensureTreeHasRequests(collId, tree, reqIds) {
+  const base = tree ?? { children: [] };
+  if ((base.children ?? []).length > 0 || reqIds.length === 0) return base;
+  return {
+    ...base,
+    children: [
+      {
+        id: collId,
+        type: "folder",
+        name: collId,
+        variables: [],
+        children: reqIds.map((rid) => ({ id: rid, type: "requestRef" })),
+      },
+    ],
+  };
 }
 
 /** @param {string} message @returns {Error} */

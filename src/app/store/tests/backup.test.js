@@ -186,6 +186,25 @@ describe("BackupStore.exportAll", () => {
     assert.equal(env.exportedAt, "2026-01-01T00:00:00.000Z");
   });
 
+  test("builds recovery tree when source tree is empty but requests exist", () => {
+    // Force tree.json to empty — simulates a source machine whose tree was
+    // wiped by a broken prior restore while request files remain on disk.
+    const treeFile = path.join(tmpDir, "collections", "coll-1", "tree.json");
+    fs.writeFileSync(treeFile, JSON.stringify({ children: [] }));
+
+    const env = stores.backupStore().exportAll();
+    const coll = env.collections.find((c) => c.id === "coll-1");
+    assert.ok(coll, "collection must be present");
+    assert.ok(
+      (coll.tree.children ?? []).length > 0,
+      "exported tree must not be empty when request files exist",
+    );
+    assert.ok(
+      JSON.stringify(coll.tree).includes("req-1"),
+      "exported tree must reference req-1",
+    );
+  });
+
   test("excludes history / response payloads", () => {
     const env = stores.backupStore().exportAll();
     assert.equal(env.history, undefined);
@@ -439,6 +458,32 @@ describe("BackupStore.importAll", () => {
         ids.includes("coll-1"),
         "restored collection must be registered",
       );
+    } finally {
+      rmTmpDir(destDir);
+    }
+  });
+
+  test("restores requests when backup tree is empty", () => {
+    // Simulates a backup created from a machine where tree.json was empty
+    // (e.g. after a broken prior restore left requests on disk but no tree).
+    // The requests must be accessible after import rather than silently lost.
+    const env = src.backupStore().exportAll({ includeSecrets: true });
+    const envWithEmptyTree = {
+      ...env,
+      collections: env.collections.map((c) => ({
+        ...c,
+        tree: { children: [] },
+      })),
+    };
+
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      dest.backupStore().importAll(envWithEmptyTree, { mode: "replace" });
+
+      const blob = dest.collectionsStore().getCollections("coll-1");
+      const req = findRequest(blob.collections, "req-1");
+      assert.ok(req, "request must be visible even when backup tree was empty");
     } finally {
       rmTmpDir(destDir);
     }
