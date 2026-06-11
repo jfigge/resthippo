@@ -32,6 +32,7 @@ import { icon } from "../icons.js";
 import { deepClone } from "../utils/clone.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
 import { normalizeVariables } from "./variable-shape.js";
+import { t } from "../i18n.js";
 
 // ── SVG icons ─────────────────────────────────────────────────────────────────
 
@@ -186,56 +187,56 @@ export class EnvironmentsPopup {
     el.className = "popup environments-popup";
     el.setAttribute("role", "dialog");
     el.setAttribute("aria-modal", "true");
-    el.setAttribute("aria-label", "Environments");
+    el.setAttribute("aria-label", t("environments.title"));
 
     el.innerHTML = `
       <div class="popup-header">
-        <span class="popup-title">Environments</span>
-        <button class="popup-close" aria-label="Close environments" title="Close">${icon("close", { size: 13 })}</button>
+        <span class="popup-title">${t("environments.title")}</span>
+        <button class="popup-close" aria-label="${t("environments.closeAria")}" title="${t("common.close")}">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body env-popup-body">
         <div class="env-sidebar">
           <div class="env-sidebar-toolbar">
-            <button class="icon-btn env-new-btn" title="Add environment" aria-label="Add environment">${ICON_ADD}</button>
+            <button class="icon-btn env-new-btn" title="${t("environments.addEnvironment")}" aria-label="${t("environments.addEnvironment")}">${ICON_ADD}</button>
           </div>
-          <ul class="env-list" role="listbox" aria-label="Environments"></ul>
+          <ul class="env-list" role="listbox" aria-label="${t("environments.title")}"></ul>
         </div>
         <div class="env-main">
-          <div class="env-tabs" role="tablist" aria-label="Environment editor">
+          <div class="env-tabs" role="tablist" aria-label="${t("environments.editorAria")}">
             <button class="env-tab env-tab--active" role="tab" aria-selected="true"
-                    data-panel="vars" type="button">Variables</button>
+                    data-panel="vars" type="button">${t("common.variables")}</button>
           </div>
           <div class="env-panels">
             <section class="env-panel env-panel--vars"
-                     data-panel="vars" role="tabpanel" aria-label="Variables">
+                     data-panel="vars" role="tabpanel" aria-label="${t("common.variables")}">
               <div class="env-vars-toolbar">
                 <label class="params-toolbar-toggle-label env-bulk-label"
-                       title="Toggle between bulk text editor and key/value row editor">
+                       title="${t("kv.bulkEditorTitle")}">
                   <input type="checkbox" class="params-toolbar-toggle env-bulk-toggle" checked>
-                  Bulk editor
+                  ${t("kv.bulkEditor")}
                 </label>
-                <button class="icon-btn params-toolbar-btn env-add-btn" title="Add variable" aria-label="Add variable" style="display:none"><span class="icon">${icon("add", { size: 15 })}</span></button>
-                <span class="env-vars-hint">One  name=value  per line · prefix  $  for secure</span>
+                <button class="icon-btn params-toolbar-btn env-add-btn" title="${t("vars.add")}" aria-label="${t("vars.add")}" style="display:none"><span class="icon">${icon("add", { size: 15 })}</span></button>
+                <span class="env-vars-hint">${t("kv.varsHint")}</span>
               </div>
               <textarea
                 class="body-text-editor env-textarea"
                 spellcheck="false"
                 autocomplete="off"
-                placeholder="name=value&#10;baseUrl=https://example.com&#10;apiKey=abc123"
-                aria-label="Variables editor"
+                placeholder="${t("vars.bulkPlaceholder")}"
+                aria-label="${t("vars.editorAria")}"
               ></textarea>
               <div class="env-kv-wrap" style="display:none">
                 <div class="env-kv-header params-header-row">
-                  <span>Name</span><span class="params-col-value">Value</span><span></span><span></span>
+                  <span>${t("kv.name")}</span><span class="params-col-value">${t("kv.value")}</span><span></span><span></span>
                 </div>
-                <div class="env-kv-list params-list" aria-label="Variables"></div>
+                <div class="env-kv-list params-list" aria-label="${t("common.variables")}"></div>
               </div>
             </section>
           </div>
         </div>
       </div>
       <div class="popup-footer env-popup-footer">
-        <button class="btn popup-btn btn--primary js-close">Close</button>
+        <button class="btn popup-btn btn--primary js-close">${t("common.close")}</button>
       </div>
     `;
 
@@ -427,7 +428,7 @@ export class EnvironmentsPopup {
       if (state?.mode === "rename" && state.id === env.id) {
         ul.appendChild(
           this.#buildEditingItem({
-            placeholder: "Environment name…",
+            placeholder: t("environments.namePlaceholder"),
             defaultValue: env.name,
             active: env.id === this.#data.activeEnvironmentId,
           }),
@@ -449,7 +450,7 @@ export class EnvironmentsPopup {
     // environment will naturally land. Escape removes it.
     if (state?.mode === "add") {
       const item = this.#buildEditingItem({
-        placeholder: "New environment name…",
+        placeholder: t("environments.renamePlaceholder"),
       });
       ul.appendChild(item);
       requestAnimationFrame(() => item.scrollIntoView({ block: "nearest" }));
@@ -484,7 +485,7 @@ export class EnvironmentsPopup {
       const handle = document.createElement("span");
       handle.className = "params-drag-handle env-list-item-drag";
       handle.setAttribute("aria-hidden", "true");
-      handle.title = "Drag to reorder";
+      handle.title = t("common.dragReorder");
       handle.innerHTML = icon("drag", { width: 10, height: 16 });
       li.appendChild(handle);
 
@@ -512,7 +513,7 @@ export class EnvironmentsPopup {
 
       const renameBtn = document.createElement("button");
       renameBtn.className = "coll-action-btn";
-      renameBtn.title = "Rename environment";
+      renameBtn.title = t("environments.rename");
       renameBtn.innerHTML = ICON_RENAME;
       renameBtn.setAttribute("aria-label", `Rename ${name}`);
       renameBtn.addEventListener("click", (e) => {
@@ -522,7 +523,7 @@ export class EnvironmentsPopup {
 
       const deleteBtn = document.createElement("button");
       deleteBtn.className = "coll-action-btn coll-action-btn--danger";
-      deleteBtn.title = "Delete environment";
+      deleteBtn.title = t("environments.delete");
       deleteBtn.innerHTML = icon("trash", { size: 13 });
       deleteBtn.setAttribute("aria-label", `Delete ${name}`);
       deleteBtn.addEventListener("click", (e) => {
@@ -557,7 +558,7 @@ export class EnvironmentsPopup {
     input.value = defaultValue;
     input.autocomplete = "off";
     input.spellcheck = false;
-    input.setAttribute("aria-label", "Environment name");
+    input.setAttribute("aria-label", t("environments.nameAria"));
 
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
@@ -610,7 +611,7 @@ export class EnvironmentsPopup {
 
   #flagNameError(input) {
     input.classList.add("env-name-input--error");
-    input.title = "An environment with this name already exists.";
+    input.title = t("environments.nameExists");
     clearTimeout(this.#nameErrorTimer);
     this.#nameErrorTimer = setTimeout(() => {
       input.classList.remove("env-name-input--error");
@@ -693,7 +694,7 @@ export class EnvironmentsPopup {
 
   #confirmDelete(env) {
     PopupManager.confirmDelete({
-      title: "Delete Environment?",
+      title: t("environments.deleteTitle"),
       message: `Delete the environment "${env.name}" and all its variables?`,
       onConfirm: () => this.#deleteEnvironment(env),
     });
@@ -834,7 +835,7 @@ export class EnvironmentsPopup {
     if (this.#rows.length === 0) {
       const empty = document.createElement("div");
       empty.className = "params-empty";
-      empty.textContent = "No variables — click  +  to add one.";
+      empty.textContent = t("collections.variablesEmpty");
       kvList.appendChild(empty);
       return;
     }
@@ -849,9 +850,9 @@ export class EnvironmentsPopup {
     const nameIn = document.createElement("input");
     nameIn.type = "text";
     nameIn.className = "params-input params-name";
-    nameIn.placeholder = "Name";
+    nameIn.placeholder = t("kv.name");
     nameIn.value = row.name;
-    nameIn.setAttribute("aria-label", "Variable name");
+    nameIn.setAttribute("aria-label", t("vars.name"));
     nameIn.setAttribute("autocomplete", "off");
     nameIn.addEventListener("input", () => {
       row.name = nameIn.value;
@@ -870,9 +871,9 @@ export class EnvironmentsPopup {
     const valIn = document.createElement("input");
     valIn.type = "text";
     valIn.className = "params-input params-value";
-    valIn.placeholder = "Value";
+    valIn.placeholder = t("kv.value");
     valIn.value = row.value;
-    valIn.setAttribute("aria-label", "Variable value");
+    valIn.setAttribute("aria-label", t("vars.value"));
     valIn.addEventListener("input", () => {
       row.value = valIn.value;
       this.#saveFromRows();
@@ -944,8 +945,8 @@ export class EnvironmentsPopup {
 
     const del = document.createElement("button");
     del.className = "icon-btn params-delete-btn";
-    del.title = "Delete variable";
-    del.setAttribute("aria-label", "Delete variable");
+    del.title = t("vars.delete");
+    del.setAttribute("aria-label", t("vars.delete"));
     wireDeleteConfirm(del, () => {
       this.#rows = this.#rows.filter((r) => r.id !== row.id);
       this.#renderRows();

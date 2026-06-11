@@ -22,7 +22,11 @@
 
 "use strict";
 
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
+import { applyCatalog } from "../i18n.js";
 
 const GLOBAL_KEYS = [
   "CustomEvent",
@@ -107,3 +111,28 @@ export function resetDom() {
 // `Element` while evaluating — has its globals in place before any component
 // module is imported.
 export const window = resetDom();
+
+// Load the English catalog so components resolve real display text through t()
+// under test, mirroring what i18n.init() does at app startup. Without this t()
+// returns bare keys, and text-based selectors (e.g. [aria-label="Send request"])
+// would never match. Persisted in the i18n module singleton, so it survives the
+// per-test resetDom() above; renderer i18n.test.js overrides it per case via its
+// own applyCatalog() fixtures.
+const EN_CATALOG = JSON.parse(
+  fs.readFileSync(
+    path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "..",
+      "locales",
+      "en.json",
+    ),
+    "utf8",
+  ),
+);
+applyCatalog({
+  active: "en",
+  lang: "en",
+  messages: EN_CATALOG,
+  fallback: EN_CATALOG,
+});

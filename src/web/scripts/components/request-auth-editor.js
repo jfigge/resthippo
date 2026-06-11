@@ -22,6 +22,7 @@ import { PopupManager } from "../popup-manager.js";
 import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
+import { t } from "../i18n.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
 import {
   AutocompleteDropdown,
@@ -338,19 +339,19 @@ export class RequestAuthEditor {
     const typeSelect = document.createElement("select");
     typeSelect.className = "body-type-select";
     typeSelect.id = "auth-type-select";
-    typeSelect.setAttribute("aria-label", "Auth type");
+    typeSelect.setAttribute("aria-label", t("auth.typeAria"));
     typeSelect.innerHTML = `
-      <optgroup label="Auth Types">
-        <option value="basic">Basic</option>
-        <option value="bearer">Bearer Token</option>
-        <option value="apikey">API Key</option>
-        <option value="digest">Digest</option>
-        <option value="ntlm">NTLM</option>
-        <option value="oauth2">OAuth 2.0</option>
-        <option value="aws-iam">AWS IAM</option>
+      <optgroup label="${t("auth.typeGroupAuth")}">
+        <option value="basic">${t("auth.type.basic")}</option>
+        <option value="bearer">${t("auth.type.bearer")}</option>
+        <option value="apikey">${t("auth.type.apikey")}</option>
+        <option value="digest">${t("auth.type.digest")}</option>
+        <option value="ntlm">${t("auth.type.ntlm")}</option>
+        <option value="oauth2">${t("auth.type.oauth2")}</option>
+        <option value="aws-iam">${t("auth.type.awsIam")}</option>
       </optgroup>
-      <optgroup label="Other">
-        <option value="none">None</option>
+      <optgroup label="${t("auth.typeGroupOther")}">
+        <option value="none">${t("auth.type.none")}</option>
       </optgroup>
     `;
     typeSelect.value = this.#authType;
@@ -376,8 +377,8 @@ export class RequestAuthEditor {
 
     // ── Bulk Editor toggle — shown for all auth types except None ─────────
     const { label: bulkLabel, check: bulkCheck } = buildToolbarToggle({
-      text: " Bulk Editor",
-      title: "Toggle bulk text editor",
+      text: " " + t("kv.bulkEditor"),
+      title: t("kv.bulkEditorTitle"),
       checked: this.#authBulkMode,
       onChange: (checked) => {
         this.#authBulkMode = checked;
@@ -401,9 +402,8 @@ export class RequestAuthEditor {
     const discoverBtn = document.createElement("button");
     discoverBtn.type = "button";
     discoverBtn.className = "params-delete-all-btn auth-discover-btn";
-    discoverBtn.textContent = "Discover";
-    discoverBtn.title =
-      "Discover OAuth 2.0 endpoints from an OpenID Connect issuer URL";
+    discoverBtn.textContent = t("auth.discover");
+    discoverBtn.title = t("auth.discoverTitle");
     discoverBtn.hidden = this.#authType !== "oauth2";
     this.#discoverBtnEl = discoverBtn;
     discoverBtn.addEventListener("click", () => {
@@ -413,7 +413,7 @@ export class RequestAuthEditor {
 
     const enabledLabel = document.createElement("label");
     enabledLabel.className = "params-toolbar-toggle-label";
-    enabledLabel.title = "Enable or disable authentication for this request";
+    enabledLabel.title = t("auth.enabledTitle");
 
     const enabledCheck = document.createElement("input");
     enabledCheck.type = "checkbox";
@@ -430,7 +430,7 @@ export class RequestAuthEditor {
     });
 
     enabledLabel.appendChild(enabledCheck);
-    enabledLabel.append(" Enabled");
+    enabledLabel.append(" " + t("auth.enabled"));
     enabledLabel.classList.toggle(
       "params-toolbar-toggle-label--hidden",
       this.#authType === "none",
@@ -701,7 +701,7 @@ export class RequestAuthEditor {
   #renderAuthNone(el) {
     const msg = document.createElement("div");
     msg.className = "params-empty";
-    msg.textContent = "No authentication will be sent with this request.";
+    msg.textContent = t("auth.noneMessage");
     el.appendChild(msg);
   }
 
@@ -711,8 +711,8 @@ export class RequestAuthEditor {
     form.className = "auth-form";
 
     form.appendChild(
-      this.#buildAuthPillField("Username", {
-        placeholder: "Username",
+      this.#buildAuthPillField(t("auth.username"), {
+        placeholder: t("auth.username"),
         value: this.#authBasic.username,
         onInput: (v) => {
           this.#authBasic.username = v;
@@ -722,8 +722,8 @@ export class RequestAuthEditor {
     );
 
     form.appendChild(
-      this.#buildAuthPillField("Password", {
-        placeholder: "Password",
+      this.#buildAuthPillField(t("auth.password"), {
+        placeholder: t("auth.password"),
         value: this.#authBasic.password,
         decryptPath: "authBasic.password",
         onInput: (v) => {
@@ -742,15 +742,15 @@ export class RequestAuthEditor {
     form.className = "auth-form";
 
     form.appendChild(
-      this.#buildAuthPillField("Token", {
-        placeholder: "Enter your bearer token…",
+      this.#buildAuthPillField(t("auth.bearer.token"), {
+        placeholder: t("auth.bearer.tokenPlaceholder"),
         value: this.#authBearer.token,
         decryptPath: "authBearer.token",
         onInput: (v) => {
           this.#authBearer.token = v;
           this.#dispatchAuthUpdated();
         },
-        hint: "Sent as: Authorization: Bearer <token>",
+        hint: t("auth.bearer.tokenHint"),
       }),
     );
 
@@ -773,8 +773,8 @@ export class RequestAuthEditor {
     );
 
     form.appendChild(
-      this.#buildAuthPillField("Value", {
-        placeholder: "Enter your API key…",
+      this.#buildAuthPillField(t("auth.apiKey.value"), {
+        placeholder: t("auth.apiKey.valuePlaceholder"),
         value: this.#authApiKey.value,
         decryptPath: "authApiKey.value",
         onInput: (v) => {
@@ -785,13 +785,13 @@ export class RequestAuthEditor {
     );
 
     form.appendChild(
-      this.#buildAuthFieldSelect("Add to", {
+      this.#buildAuthFieldSelect(t("auth.apiKey.addTo"), {
         options: [
-          { value: "header", label: "Header" },
-          { value: "query", label: "Query Params" },
+          { value: "header", label: t("auth.apiKey.header") },
+          { value: "query", label: t("auth.apiKey.queryParams") },
         ],
         value: this.#authApiKey.addTo,
-        ariaLabel: "Add API key to",
+        ariaLabel: t("auth.apiKey.addToAria"),
         onInput: (v) => {
           this.#authApiKey.addTo = v;
           this.#dispatchAuthUpdated();
@@ -808,8 +808,8 @@ export class RequestAuthEditor {
     form.className = "auth-form";
 
     form.appendChild(
-      this.#buildAuthPillField("Username", {
-        placeholder: "Username",
+      this.#buildAuthPillField(t("auth.username"), {
+        placeholder: t("auth.username"),
         value: this.#authDigest.username,
         onInput: (v) => {
           this.#authDigest.username = v;
@@ -819,15 +819,15 @@ export class RequestAuthEditor {
     );
 
     form.appendChild(
-      this.#buildAuthPillField("Password", {
-        placeholder: "Password",
+      this.#buildAuthPillField(t("auth.password"), {
+        placeholder: t("auth.password"),
         value: this.#authDigest.password,
         decryptPath: "authDigest.password",
         onInput: (v) => {
           this.#authDigest.password = v;
           this.#dispatchAuthUpdated();
         },
-        hint: "Challenge/response (RFC 2617 / 7616) is negotiated when the request is sent.",
+        hint: t("auth.digest.hint"),
       }),
     );
 
@@ -840,8 +840,8 @@ export class RequestAuthEditor {
     form.className = "auth-form";
 
     form.appendChild(
-      this.#buildAuthPillField("Username", {
-        placeholder: "Username (or DOMAIN\\username)",
+      this.#buildAuthPillField(t("auth.username"), {
+        placeholder: t("auth.ntlm.usernamePlaceholder"),
         value: this.#authNtlm.username,
         onInput: (v) => {
           this.#authNtlm.username = v;
@@ -851,8 +851,8 @@ export class RequestAuthEditor {
     );
 
     form.appendChild(
-      this.#buildAuthPillField("Password", {
-        placeholder: "Password",
+      this.#buildAuthPillField(t("auth.password"), {
+        placeholder: t("auth.password"),
         value: this.#authNtlm.password,
         decryptPath: "authNtlm.password",
         onInput: (v) => {
@@ -863,8 +863,8 @@ export class RequestAuthEditor {
     );
 
     form.appendChild(
-      this.#buildAuthPillField("Domain", {
-        placeholder: "NT domain (optional)",
+      this.#buildAuthPillField(t("auth.ntlm.domain"), {
+        placeholder: t("auth.ntlm.domainPlaceholder"),
         value: this.#authNtlm.domain,
         onInput: (v) => {
           this.#authNtlm.domain = v;
@@ -874,14 +874,14 @@ export class RequestAuthEditor {
     );
 
     form.appendChild(
-      this.#buildAuthPillField("Workstation", {
-        placeholder: "Client workstation name (optional)",
+      this.#buildAuthPillField(t("auth.ntlm.workstation"), {
+        placeholder: t("auth.ntlm.workstationPlaceholder"),
         value: this.#authNtlm.workstation,
         onInput: (v) => {
           this.#authNtlm.workstation = v;
           this.#dispatchAuthUpdated();
         },
-        hint: "The NTLM handshake (MS-NLMP) is negotiated over a single keep-alive connection when the request is sent.",
+        hint: t("auth.ntlm.hint"),
       }),
     );
 
@@ -895,16 +895,22 @@ export class RequestAuthEditor {
 
     // ── Grant Type ────────────────────────────────────────────────────────
     const allGrantTypes = [
-      { value: "authorization_code", label: "Authorization Code" },
-      { value: "client_credentials", label: "Client Credentials" },
-      { value: "password", label: "Resource Owner Password" },
-      { value: "implicit", label: "Implicit" },
+      {
+        value: "authorization_code",
+        label: t("auth.oauth2.grant.authorizationCode"),
+      },
+      {
+        value: "client_credentials",
+        label: t("auth.oauth2.grant.clientCredentials"),
+      },
+      { value: "password", label: t("auth.oauth2.grant.password") },
+      { value: "implicit", label: t("auth.oauth2.grant.implicit") },
     ];
     form.appendChild(
-      this.#buildAuthFieldSelect("Grant Type", {
+      this.#buildAuthFieldSelect(t("auth.oauth2.grantType"), {
         options: allGrantTypes,
         value: this.#authOAuth2.grantType,
-        ariaLabel: "Grant type",
+        ariaLabel: t("auth.oauth2.grantTypeAria"),
         onInput: (v) => {
           this.#authOAuth2.grantType = v;
           this.#renderAuthContent();
@@ -917,14 +923,17 @@ export class RequestAuthEditor {
     if (this.#authOAuth2.grantType === "authorization_code") {
       // Omit PKCE option if the server explicitly does not support it
       const clientTypeOptions = [
-        { value: "confidential", label: "Confidential Client" },
-        { value: "public", label: "Public Client (PKCE)" },
+        {
+          value: "confidential",
+          label: t("auth.oauth2.clientTypeConfidential"),
+        },
+        { value: "public", label: t("auth.oauth2.clientTypePublic") },
       ];
       form.appendChild(
-        this.#buildAuthFieldSelect("Client Type", {
+        this.#buildAuthFieldSelect(t("auth.oauth2.clientType"), {
           options: clientTypeOptions,
           value: this.#authOAuth2.clientType ?? "confidential",
-          ariaLabel: "Client type",
+          ariaLabel: t("auth.oauth2.clientTypeAria"),
           onInput: (v) => {
             this.#authOAuth2.clientType = v;
             this.#renderAuthContent();
@@ -936,8 +945,8 @@ export class RequestAuthEditor {
 
     // ── Client ID (all grant types) ────────────────────────────────────────
     form.appendChild(
-      this.#buildAuthPillField("Client ID", {
-        placeholder: "Client ID",
+      this.#buildAuthPillField(t("auth.oauth2.clientId"), {
+        placeholder: t("auth.oauth2.clientId"),
         value: this.#authOAuth2.clientId,
         onInput: (v) => {
           this.#authOAuth2.clientId = v;
@@ -952,8 +961,8 @@ export class RequestAuthEditor {
       this.#authOAuth2.clientType === "public";
     if (this.#authOAuth2.grantType !== "implicit" && !isPublicClient) {
       form.appendChild(
-        this.#buildAuthPillField("Client Secret", {
-          placeholder: "Client Secret",
+        this.#buildAuthPillField(t("auth.oauth2.clientSecret"), {
+          placeholder: t("auth.oauth2.clientSecret"),
           value: this.#authOAuth2.clientSecret,
           decryptPath: "authOAuth2.clientSecret",
           onInput: (v) => {
@@ -967,8 +976,8 @@ export class RequestAuthEditor {
     // ── Access Token URL (not shown for implicit) ──────────────────────────
     if (this.#authOAuth2.grantType !== "implicit") {
       form.appendChild(
-        this.#buildAuthPillField("Access Token URL", {
-          placeholder: "https://example.com/oauth/token",
+        this.#buildAuthPillField(t("auth.oauth2.accessTokenUrl"), {
+          placeholder: t("auth.oauth2.accessTokenUrlPlaceholder"),
           value: this.#authOAuth2.accessTokenUrl,
           onInput: (v) => {
             this.#authOAuth2.accessTokenUrl = v;
@@ -983,8 +992,8 @@ export class RequestAuthEditor {
       ["authorization_code", "implicit"].includes(this.#authOAuth2.grantType)
     ) {
       form.appendChild(
-        this.#buildAuthPillField("Auth URL", {
-          placeholder: "https://example.com/oauth/authorize",
+        this.#buildAuthPillField(t("auth.oauth2.authUrl"), {
+          placeholder: t("auth.oauth2.authUrlPlaceholder"),
           value: this.#authOAuth2.authUrl,
           onInput: (v) => {
             this.#authOAuth2.authUrl = v;
@@ -999,14 +1008,14 @@ export class RequestAuthEditor {
       ["authorization_code", "implicit"].includes(this.#authOAuth2.grantType)
     ) {
       form.appendChild(
-        this.#buildAuthPillField("Redirect URI", {
-          placeholder: "http://localhost:7777/oauth/callback",
+        this.#buildAuthPillField(t("auth.oauth2.redirectUri"), {
+          placeholder: t("auth.oauth2.redirectUriPlaceholder"),
           value: this.#authOAuth2.redirectUri ?? "",
           onInput: (v) => {
             this.#authOAuth2.redirectUri = v;
             this.#dispatchAuthUpdated();
           },
-          hint: "Callback URL registered with your OAuth provider (intercepted by wurl)",
+          hint: t("auth.oauth2.redirectUriHint"),
         }),
       );
     }
@@ -1014,8 +1023,8 @@ export class RequestAuthEditor {
     // ── Username / Password (resource owner password only) ─────────────────
     if (this.#authOAuth2.grantType === "password") {
       form.appendChild(
-        this.#buildAuthPillField("Username", {
-          placeholder: "Username",
+        this.#buildAuthPillField(t("auth.username"), {
+          placeholder: t("auth.username"),
           value: this.#authOAuth2.username ?? "",
           onInput: (v) => {
             this.#authOAuth2.username = v;
@@ -1024,8 +1033,8 @@ export class RequestAuthEditor {
         }),
       );
       form.appendChild(
-        this.#buildAuthPillField("Password", {
-          placeholder: "Password",
+        this.#buildAuthPillField(t("auth.password"), {
+          placeholder: t("auth.password"),
           value: this.#authOAuth2.password ?? "",
           decryptPath: "authOAuth2.password",
           onInput: (v) => {
@@ -1060,14 +1069,14 @@ export class RequestAuthEditor {
     advCheck.id = "oauth2-advanced-toggle";
     advCheck.className = "params-toolbar-toggle";
     advCheck.checked = this.#oauth2Advanced;
-    advCheck.setAttribute("aria-label", "Show advanced OAuth 2.0 options");
+    advCheck.setAttribute("aria-label", t("auth.oauth2.advancedAria"));
     advCheck.addEventListener("change", () => {
       this.#oauth2Advanced = advCheck.checked;
       this.#renderAuthContent();
     });
 
     advLabel.appendChild(advCheck);
-    advLabel.append(" Advanced");
+    advLabel.append(" " + t("auth.oauth2.advanced"));
     advRow.appendChild(advLabel);
     form.appendChild(advRow);
 
@@ -1078,14 +1087,17 @@ export class RequestAuthEditor {
       // Response Type — implicit only
       if (grant === "implicit") {
         form.appendChild(
-          this.#buildAuthFieldSelect("Response Type", {
+          this.#buildAuthFieldSelect(t("auth.oauth2.responseType"), {
             options: [
-              { value: "access_token", label: "Access token" },
-              { value: "id_token", label: "Id token" },
-              { value: "both", label: "Both" },
+              {
+                value: "access_token",
+                label: t("auth.oauth2.responseAccessToken"),
+              },
+              { value: "id_token", label: t("auth.oauth2.responseIdToken") },
+              { value: "both", label: t("auth.oauth2.responseBoth") },
             ],
             value: this.#authOAuth2.responseType ?? "access_token",
-            ariaLabel: "Response type",
+            ariaLabel: t("auth.oauth2.responseTypeAria"),
             onInput: (v) => {
               this.#authOAuth2.responseType = v;
               this.#dispatchAuthUpdated();
@@ -1097,8 +1109,8 @@ export class RequestAuthEditor {
       // State — authorization_code, implicit
       if (["authorization_code", "implicit"].includes(grant)) {
         form.appendChild(
-          this.#buildAuthPillField("State", {
-            placeholder: "Random string for CSRF protection",
+          this.#buildAuthPillField(t("auth.oauth2.state"), {
+            placeholder: t("auth.oauth2.statePlaceholder"),
             value: this.#authOAuth2.state ?? "",
             onInput: (v) => {
               this.#authOAuth2.state = v;
@@ -1113,13 +1125,13 @@ export class RequestAuthEditor {
         ["authorization_code", "password", "client_credentials"].includes(grant)
       ) {
         form.appendChild(
-          this.#buildAuthFieldSelect("Credentials", {
+          this.#buildAuthFieldSelect(t("auth.oauth2.credentials"), {
             options: [
-              { value: "header", label: "As basic auth header" },
-              { value: "body", label: "In request body" },
+              { value: "header", label: t("auth.oauth2.credentialsHeader") },
+              { value: "body", label: t("auth.oauth2.credentialsBody") },
             ],
             value: this.#authOAuth2.credentials ?? "header",
-            ariaLabel: "Credentials transmission method",
+            ariaLabel: t("auth.oauth2.credentialsAria"),
             onInput: (v) => {
               this.#authOAuth2.credentials = v;
               this.#dispatchAuthUpdated();
@@ -1130,8 +1142,8 @@ export class RequestAuthEditor {
 
       // Audience — all grant types
       form.appendChild(
-        this.#buildAuthPillField("Audience", {
-          placeholder: "https://api.example.com",
+        this.#buildAuthPillField(t("auth.oauth2.audience"), {
+          placeholder: t("auth.oauth2.audiencePlaceholder"),
           value: this.#authOAuth2.audience ?? "",
           onInput: (v) => {
             this.#authOAuth2.audience = v;
@@ -1143,8 +1155,8 @@ export class RequestAuthEditor {
       // Resource — authorization_code, client_credentials
       if (["authorization_code", "client_credentials"].includes(grant)) {
         form.appendChild(
-          this.#buildAuthPillField("Resource", {
-            placeholder: "https://resource.example.com",
+          this.#buildAuthPillField(t("auth.oauth2.resource"), {
+            placeholder: t("auth.oauth2.resourcePlaceholder"),
             value: this.#authOAuth2.resource ?? "",
             onInput: (v) => {
               this.#authOAuth2.resource = v;
@@ -1157,8 +1169,8 @@ export class RequestAuthEditor {
       // Origin — authorization_code only
       if (grant === "authorization_code") {
         form.appendChild(
-          this.#buildAuthPillField("Origin", {
-            placeholder: "https://app.example.com",
+          this.#buildAuthPillField(t("auth.oauth2.origin"), {
+            placeholder: t("auth.oauth2.originPlaceholder"),
             value: this.#authOAuth2.origin ?? "",
             onInput: (v) => {
               this.#authOAuth2.origin = v;
@@ -1170,14 +1182,14 @@ export class RequestAuthEditor {
 
       // Header Prefix — all grant types, kept last so its hint text sits at the bottom
       form.appendChild(
-        this.#buildAuthPillField("Header Prefix", {
-          placeholder: "Bearer",
+        this.#buildAuthPillField(t("auth.oauth2.headerPrefix"), {
+          placeholder: t("auth.oauth2.headerPrefixPlaceholder"),
           value: this.#authOAuth2.headerPrefix ?? "",
           onInput: (v) => {
             this.#authOAuth2.headerPrefix = v;
             this.#dispatchAuthUpdated();
           },
-          hint: "Overrides the default 'Bearer' token prefix in the Authorization header",
+          hint: t("auth.oauth2.headerPrefixHint"),
         }),
       );
     }
@@ -1186,7 +1198,7 @@ export class RequestAuthEditor {
     if (this.#authOAuth2.token) {
       const tokenSection = document.createElement("div");
       tokenSection.className = "auth-section-title";
-      tokenSection.textContent = "Current Access Token";
+      tokenSection.textContent = t("auth.oauth2.currentToken");
       form.appendChild(tokenSection);
 
       const tokenDisplay = document.createElement("div");
@@ -1202,7 +1214,7 @@ export class RequestAuthEditor {
       const clearBtn = document.createElement("button");
       clearBtn.type = "button";
       clearBtn.className = "btn body-file-reset-btn";
-      clearBtn.textContent = "Clear Token";
+      clearBtn.textContent = t("auth.oauth2.clearToken");
       clearBtn.addEventListener("click", () => {
         this.#authOAuth2.token = "";
         this.#authOAuth2.refreshToken = "";
@@ -1216,10 +1228,8 @@ export class RequestAuthEditor {
       const clearSessionBtn = document.createElement("button");
       clearSessionBtn.type = "button";
       clearSessionBtn.className = "btn body-file-reset-btn";
-      clearSessionBtn.textContent = "Clear Session";
-      clearSessionBtn.title =
-        "Clear stored token and — in Electron — erase all session cookies and browser storage " +
-        "so the next login flow starts fresh.";
+      clearSessionBtn.textContent = t("auth.oauth2.clearSession");
+      clearSessionBtn.title = t("auth.oauth2.clearSessionTitle");
       clearSessionBtn.addEventListener("click", async () => {
         // Clear token state and executor cache
         this.#authOAuth2.token = "";
@@ -1230,14 +1240,12 @@ export class RequestAuthEditor {
         // Clear Electron session (cookies, localStorage, cache, …)
         if (typeof window.wurl?.oauth?.clearSession === "function") {
           clearSessionBtn.disabled = true;
-          clearSessionBtn.textContent = "Clearing…";
+          clearSessionBtn.textContent = t("auth.oauth2.clearing");
           try {
             await window.wurl.oauth.clearSession();
           } catch (err) {
             console.warn("[oauth] clearSession failed:", err.message);
-            Notifications.warning(
-              "Could not clear the saved OAuth login session.",
-            );
+            Notifications.warning(t("auth.oauth2.clearSessionFailed"));
           }
         }
 
@@ -1262,9 +1270,11 @@ export class RequestAuthEditor {
           Math.floor((this.#authOAuth2.expiresAt - Date.now()) / 1000),
         );
         if (remaining > 0) {
-          expiryEl.textContent = `Expires in ~${remaining}s`;
+          expiryEl.textContent = t("auth.oauth2.expiresIn", {
+            seconds: remaining,
+          });
         } else {
-          expiryEl.textContent = "⚠ Token may be expired";
+          expiryEl.textContent = t("auth.oauth2.tokenExpired");
           expiryEl.style.color = "var(--color-error, #f38ba8)";
         }
         form.appendChild(expiryEl);
@@ -1279,10 +1289,9 @@ export class RequestAuthEditor {
     getTokenBtn.type = "button";
     getTokenBtn.className = "params-delete-all-btn auth-get-token-btn";
     getTokenBtn.textContent = this.#authOAuth2.token
-      ? "Refresh Token"
-      : "Get Token";
-    getTokenBtn.title =
-      "Acquire an OAuth 2.0 access token using the configured settings";
+      ? t("auth.oauth2.refreshToken")
+      : t("auth.oauth2.getToken");
+    getTokenBtn.title = t("auth.oauth2.getTokenTitle");
 
     const tokenStatusEl = document.createElement("span");
     tokenStatusEl.className = "auth-token-status";
@@ -1290,7 +1299,7 @@ export class RequestAuthEditor {
     getTokenBtn.addEventListener("click", async () => {
       const tokenNodeId = this.#getCurrentNodeId();
       getTokenBtn.disabled = true;
-      getTokenBtn.textContent = "Fetching…";
+      getTokenBtn.textContent = t("auth.oauth2.fetching");
       tokenStatusEl.textContent = "";
       tokenStatusEl.className = "auth-token-status";
 
@@ -1304,11 +1313,13 @@ export class RequestAuthEditor {
           this.#authOAuth2.token = result.accessToken;
           this.#authOAuth2.refreshToken = result.refreshToken ?? "";
           this.#authOAuth2.expiresAt = result.expiresAt ?? null;
-          tokenStatusEl.textContent = "✓ Token acquired";
+          tokenStatusEl.textContent = t("auth.oauth2.tokenAcquired");
           tokenStatusEl.className = "auth-token-status auth-token-status--ok";
         } else {
           const msg =
-            result.error?.description ?? result.error?.code ?? "Unknown error";
+            result.error?.description ??
+            result.error?.code ??
+            t("auth.oauth2.unknownError");
           tokenStatusEl.textContent = `✗ ${msg}`;
           tokenStatusEl.className =
             "auth-token-status auth-token-status--error";
@@ -1319,8 +1330,8 @@ export class RequestAuthEditor {
       } finally {
         getTokenBtn.disabled = false;
         getTokenBtn.textContent = this.#authOAuth2.token
-          ? "Refresh Token"
-          : "Get Token";
+          ? t("auth.oauth2.refreshToken")
+          : t("auth.oauth2.getToken");
       }
 
       this.#renderAuthContent();
@@ -1340,8 +1351,8 @@ export class RequestAuthEditor {
     form.className = "auth-form";
 
     form.appendChild(
-      this.#buildAuthPillField("Access Key ID", {
-        placeholder: "AKIAIOSFODNN7EXAMPLE",
+      this.#buildAuthPillField(t("auth.aws.accessKeyId"), {
+        placeholder: t("auth.aws.accessKeyIdPlaceholder"),
         value: this.#authAwsIam.accessKeyId,
         onInput: (v) => {
           this.#authAwsIam.accessKeyId = v;
@@ -1351,8 +1362,8 @@ export class RequestAuthEditor {
     );
 
     form.appendChild(
-      this.#buildAuthPillField("Secret Access Key", {
-        placeholder: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+      this.#buildAuthPillField(t("auth.aws.secretAccessKey"), {
+        placeholder: t("auth.aws.secretAccessKeyPlaceholder"),
         value: this.#authAwsIam.secretAccessKey,
         decryptPath: "authAwsIam.secretAccessKey",
         onInput: (v) => {
@@ -1363,8 +1374,8 @@ export class RequestAuthEditor {
     );
 
     form.appendChild(
-      this.#buildAuthPillField("Region", {
-        placeholder: "us-east-1",
+      this.#buildAuthPillField(t("auth.aws.region"), {
+        placeholder: t("auth.aws.regionPlaceholder"),
         value: this.#authAwsIam.region,
         onInput: (v) => {
           this.#authAwsIam.region = v;
@@ -1374,8 +1385,8 @@ export class RequestAuthEditor {
     );
 
     form.appendChild(
-      this.#buildAuthPillField("Service", {
-        placeholder: "execute-api",
+      this.#buildAuthPillField(t("auth.aws.service"), {
+        placeholder: t("auth.aws.servicePlaceholder"),
         value: this.#authAwsIam.service,
         onInput: (v) => {
           this.#authAwsIam.service = v;
@@ -1385,8 +1396,8 @@ export class RequestAuthEditor {
     );
 
     form.appendChild(
-      this.#buildAuthPillField("Session Token", {
-        placeholder: "Optional — for temporary / STS credentials",
+      this.#buildAuthPillField(t("auth.aws.sessionToken"), {
+        placeholder: t("auth.aws.sessionTokenPlaceholder"),
         value: this.#authAwsIam.sessionToken,
         decryptPath: "authAwsIam.sessionToken",
         onInput: (v) => {
@@ -1449,8 +1460,7 @@ export class RequestAuthEditor {
     if (failedDecrypt) {
       const warnEl = document.createElement("span");
       warnEl.className = "auth-field-decrypt-warning";
-      warnEl.textContent =
-        "Couldn't decrypt — re-enter this value to restore it.";
+      warnEl.textContent = t("auth.decryptFailed");
       wrapper.appendChild(warnEl);
     }
 
@@ -1477,16 +1487,16 @@ export class RequestAuthEditor {
 
     const lbl = document.createElement("label");
     lbl.className = "auth-field-label";
-    lbl.textContent = "Scope";
+    lbl.textContent = t("auth.oauth2.scope");
 
     const input = document.createElement("input");
     input.type = "text";
     input.className = "auth-field-input";
-    input.placeholder = "openid email profile";
+    input.placeholder = t("auth.oauth2.scopePlaceholder");
     input.value = value;
     input.name = "wurl-auth-scope";
     input.setAttribute("autocomplete", "off");
-    input.setAttribute("aria-label", "Scope");
+    input.setAttribute("aria-label", t("auth.oauth2.scope"));
     input.setAttribute("aria-autocomplete", "list");
     input.setAttribute("aria-haspopup", "listbox");
 
@@ -1538,8 +1548,7 @@ export class RequestAuthEditor {
 
     const hint = document.createElement("span");
     hint.className = "auth-field-hint";
-    hint.textContent =
-      "Space-separated list of requested scopes — type or pick from the list";
+    hint.textContent = t("auth.oauth2.scopeHint");
 
     wrapper.appendChild(lbl);
     wrapper.appendChild(input);
@@ -1559,16 +1568,16 @@ export class RequestAuthEditor {
 
     const lbl = document.createElement("label");
     lbl.className = "auth-field-label";
-    lbl.textContent = "Key";
+    lbl.textContent = t("auth.apiKey.name");
 
     const input = document.createElement("input");
     input.type = "text";
     input.className = "auth-field-input";
-    input.placeholder = "e.g. X-API-Key";
+    input.placeholder = t("auth.apiKey.namePlaceholder");
     input.value = value;
     input.name = "wurl-auth-apikey-name";
     input.setAttribute("autocomplete", "off");
-    input.setAttribute("aria-label", "API key name");
+    input.setAttribute("aria-label", t("auth.apiKey.nameAria"));
     input.setAttribute("aria-autocomplete", "list");
     input.setAttribute("aria-haspopup", "listbox");
 
@@ -1605,8 +1614,7 @@ export class RequestAuthEditor {
 
     const hint = document.createElement("span");
     hint.className = "auth-field-hint";
-    hint.textContent =
-      "Header (or query) name for the key — pick a common name or type your own";
+    hint.textContent = t("auth.apiKey.nameHint");
 
     wrapper.appendChild(lbl);
     wrapper.appendChild(input);
@@ -1691,35 +1699,31 @@ export class RequestAuthEditor {
     dlg.className = "popup popup-discover-issuer";
     dlg.setAttribute("role", "dialog");
     dlg.setAttribute("aria-modal", "true");
-    dlg.setAttribute("aria-label", "Discover OpenID Configuration");
+    dlg.setAttribute("aria-label", t("auth.discoverDialog.title"));
 
     dlg.innerHTML = `
       <div class="popup-header">
-        <span class="popup-title">Discover OpenID Configuration</span>
-        <button class="popup-close" aria-label="Close" data-action="close" title="Close">${icon("close", { size: 13 })}</button>
+        <span class="popup-title">${t("auth.discoverDialog.title")}</span>
+        <button class="popup-close" aria-label="${t("common.close")}" data-action="close" title="${t("common.close")}">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body discover-dialog-body">
-        <p class="discover-dialog-desc">
-          Enter the issuer URL to fetch the OpenID Connect discovery document
-          (<code>.well-known/openid-configuration</code>). Supported endpoints,
-          grant types, PKCE support, and available scopes will be applied automatically.
-        </p>
-        <label class="discover-dialog-label" for="discover-issuer-input">Issuer URL</label>
+        <p class="discover-dialog-desc">${t("auth.discoverDialog.desc")}</p>
+        <label class="discover-dialog-label" for="discover-issuer-input">${t("auth.discoverDialog.issuerLabel")}</label>
         <input
           id="discover-issuer-input"
           type="url"
           class="discover-dialog-input"
-          placeholder="https://login.example.com"
+          placeholder="${t("auth.discoverDialog.issuerPlaceholder")}"
           autocomplete="off"
           spellcheck="false"
-          aria-label="Issuer URL"
+          aria-label="${t("auth.discoverDialog.issuerLabel")}"
           value="${escapeHtml(this.#authOAuth2.discoveredIssuer)}"
         />
         <p class="discover-dialog-error" aria-live="polite" hidden></p>
       </div>
       <div class="popup-footer">
-        <button class="btn popup-btn btn--secondary" data-action="cancel">Cancel</button>
-        <button class="btn popup-btn btn--primary"   data-action="discover">Discover</button>
+        <button class="btn popup-btn btn--secondary" data-action="cancel">${t("auth.discoverDialog.cancel")}</button>
+        <button class="btn popup-btn btn--primary"   data-action="discover">${t("auth.discoverDialog.discover")}</button>
       </div>
     `;
 
@@ -1736,14 +1740,14 @@ export class RequestAuthEditor {
       errorEl.innerHTML = msg;
       errorEl.hidden = false;
       discoverEl.disabled = false;
-      discoverEl.textContent = "Discover";
+      discoverEl.textContent = t("auth.discoverDialog.discover");
       urlInput.focus();
     };
 
     const doDiscover = async () => {
       const raw = urlInput.value.trim();
       if (!raw) {
-        showError("Please enter an issuer URL.");
+        showError(t("auth.discoverDialog.enterUrl"));
         return;
       }
 
@@ -1754,7 +1758,7 @@ export class RequestAuthEditor {
 
       errorEl.hidden = true;
       discoverEl.disabled = true;
-      discoverEl.textContent = "Fetching…";
+      discoverEl.textContent = t("auth.discoverDialog.fetching");
 
       const base = raw.replace(/\/+$/, "");
       const discoveryUrl = `${base}/.well-known/openid-configuration`;
@@ -1764,7 +1768,10 @@ export class RequestAuthEditor {
         config = await _fetchJson(discoveryUrl);
       } catch (err) {
         showError(
-          `Could not fetch <code>${escapeHtml(discoveryUrl)}</code><br>${escapeHtml(err.message)}`,
+          t("auth.discoverDialog.fetchFailed", {
+            url: escapeHtml(discoveryUrl),
+            message: escapeHtml(err.message),
+          }),
         );
         // Clear any previously stored discovery data so stale scopes/issuer
         // from a prior successful lookup don't linger after a failed re-discover.

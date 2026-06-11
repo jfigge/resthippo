@@ -4,6 +4,7 @@ import { PopupManager } from "../popup-manager.js";
 import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
+import { t } from "../i18n.js";
 
 /**
  * BackupModal — theme-styled modal for creating and restoring whole-workspace
@@ -54,8 +55,8 @@ export class BackupModal {
     const prep = await window.wurl.backup.prepare();
     if (!prep || prep.canceled) return;
     if (!prep.ok) {
-      Notifications.error(prep.error || "Could not read the backup file.", {
-        title: "Restore backup failed",
+      Notifications.error(prep.error || t("backup.error.readFailed"), {
+        title: t("backup.error.restoreFailedTitle"),
       });
       return;
     }
@@ -79,30 +80,30 @@ export class BackupModal {
     el.className = "popup backup-modal";
     el.setAttribute("role", "dialog");
     el.setAttribute("aria-modal", "true");
-    el.setAttribute("aria-label", "Create backup");
+    el.setAttribute("aria-label", t("backup.createTitle"));
     el.innerHTML = `
       <div class="popup-header">
-        <span class="popup-title">Create Backup</span>
-        <button class="popup-close" aria-label="Close" title="Close">${icon("close", { size: 13 })}</button>
+        <span class="popup-title">${escapeHtml(t("backup.createTitle"))}</span>
+        <button class="popup-close" aria-label="${escapeHtml(t("common.close"))}" title="${escapeHtml(t("common.close"))}">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body backup-body">
-        <p class="backup-intro">Back up all collections, environments and settings to a single file. Choose how to handle secrets (passwords, tokens and keys).</p>
-        <div class="backup-mode-group" role="radiogroup" aria-label="Secret handling">
-          ${this.#modeOption("none", "Redacted", "Remove all secrets. Safe to share or move between machines.", true)}
-          ${this.#modeOption("machine", "This machine only", "Keep secrets encrypted with this machine's keystore. Restores only on this machine.", false)}
+        <p class="backup-intro">${escapeHtml(t("backup.createIntro"))}</p>
+        <div class="backup-mode-group" role="radiogroup" aria-label="${escapeHtml(t("backup.secretHandlingAria"))}">
+          ${this.#modeOption("none", t("backup.mode.redacted"), t("backup.mode.redactedDesc"), true)}
+          ${this.#modeOption("machine", t("backup.mode.machine"), t("backup.mode.machineDesc"), false)}
           ${this.#modeOption(
             "password",
-            "Password-protected",
-            "Keep secrets encrypted with a password. Restores anywhere using that password.",
+            t("backup.mode.passwordProtected"),
+            t("backup.mode.passwordProtectedDesc"),
             false,
             `
           <div class="backup-pw-fields" hidden>
             <label class="backup-field">
-              <span class="backup-field-label">Password</span>
+              <span class="backup-field-label">${escapeHtml(t("backup.password"))}</span>
               <input class="settings-input backup-input js-pw" type="password" autocomplete="new-password" spellcheck="false" />
             </label>
             <label class="backup-field">
-              <span class="backup-field-label">Confirm password</span>
+              <span class="backup-field-label">${escapeHtml(t("backup.confirmPassword"))}</span>
               <input class="settings-input backup-input js-pw-confirm" type="password" autocomplete="new-password" spellcheck="false" />
             </label>
           </div>`,
@@ -111,8 +112,8 @@ export class BackupModal {
         <div class="backup-error" role="alert" aria-live="polite"></div>
       </div>
       <div class="popup-footer">
-        <button class="btn popup-btn btn--secondary js-cancel">Cancel</button>
-        <button class="btn popup-btn btn--primary js-submit">Create Backup</button>
+        <button class="btn popup-btn btn--secondary js-cancel">${escapeHtml(t("common.cancel"))}</button>
+        <button class="btn popup-btn btn--primary js-submit">${escapeHtml(t("backup.create"))}</button>
       </div>
     `;
     return el;
@@ -126,30 +127,30 @@ export class BackupModal {
     el.className = "popup backup-modal";
     el.setAttribute("role", "dialog");
     el.setAttribute("aria-modal", "true");
-    el.setAttribute("aria-label", "Restore backup");
+    el.setAttribute("aria-label", t("backup.restoreTitle"));
     el.innerHTML = `
       <div class="popup-header">
-        <span class="popup-title">Restore Backup</span>
-        <button class="popup-close" aria-label="Close" title="Close">${icon("close", { size: 13 })}</button>
+        <span class="popup-title">${escapeHtml(t("backup.restoreTitle"))}</span>
+        <button class="popup-close" aria-label="${escapeHtml(t("common.close"))}" title="${escapeHtml(t("common.close"))}">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body backup-body">
-        <p class="backup-intro">Choose how to apply this backup to your workspace.</p>
-        <div class="backup-mode-group" role="radiogroup" aria-label="Restore mode">
-          ${this.#modeOption("merge", "Merge", "Add the backup's items to your workspace. Items with the same id are overwritten.", true)}
-          ${this.#modeOption("replace", "Replace", "Delete all current collections and environments first, then restore only the backup.", false)}
+        <p class="backup-intro">${escapeHtml(t("backup.restoreIntro"))}</p>
+        <div class="backup-mode-group" role="radiogroup" aria-label="${escapeHtml(t("backup.restoreModeAria"))}">
+          ${this.#modeOption("merge", t("backup.mode.merge"), t("backup.mode.mergeDesc"), true)}
+          ${this.#modeOption("replace", t("backup.mode.replace"), t("backup.mode.replaceDesc"), false)}
         </div>
         <div class="backup-pw-fields"${needsPw ? "" : " hidden"}>
-          <p class="backup-hint">This backup is password-protected. Enter the password to recover its secrets. Leave it blank to restore without secrets — secured variables are kept but their values are cleared.</p>
+          <p class="backup-hint">${escapeHtml(t("backup.passwordHint"))}</p>
           <label class="backup-field">
-            <span class="backup-field-label">Password</span>
+            <span class="backup-field-label">${escapeHtml(t("backup.password"))}</span>
             <input class="settings-input backup-input js-pw" type="password" autocomplete="off" spellcheck="false" />
           </label>
         </div>
         <div class="backup-error" role="alert" aria-live="polite"></div>
       </div>
       <div class="popup-footer">
-        <button class="btn popup-btn btn--secondary js-cancel">Cancel</button>
-        <button class="btn popup-btn btn--primary js-submit">Restore Backup</button>
+        <button class="btn popup-btn btn--secondary js-cancel">${escapeHtml(t("common.cancel"))}</button>
+        <button class="btn popup-btn btn--primary js-submit">${escapeHtml(t("backup.restore"))}</button>
       </div>
     `;
     return el;
@@ -250,11 +251,11 @@ export class BackupModal {
       const pw = this.#el.querySelector(".js-pw").value;
       const confirm = this.#el.querySelector(".js-pw-confirm").value;
       if (!pw) {
-        this.#showError("Enter a password to protect this backup.");
+        this.#showError(t("backup.error.passwordRequired"));
         return;
       }
       if (pw !== confirm) {
-        this.#showError("Passwords do not match.");
+        this.#showError(t("backup.error.passwordMismatch"));
         return;
       }
       password = pw;
@@ -286,7 +287,7 @@ export class BackupModal {
         password,
       });
       if (res && res.reason === "bad-password") {
-        this.#showError("Incorrect password. Please try again.");
+        this.#showError(t("backup.error.badPassword"));
         if (pwInput) {
           pwInput.value = "";
           pwInput.focus();

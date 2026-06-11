@@ -2,6 +2,7 @@
 
 import { icon } from "../icons.js";
 import { PopupManager } from "../popup-manager.js";
+import { t } from "../i18n.js";
 
 /**
  * layout-picker.js — Panel-layout selector
@@ -59,12 +60,8 @@ const LAYOUT_ICONS = {
       </svg>`,
 };
 
-const LAYOUT_LABELS = {
-  1: "Side by side",
-  2: "Left + stacked",
-  3: "Top + full bottom",
-  4: "All stacked",
-};
+// Layout option labels live in the i18n catalog under "layout.option.<n>" and
+// are resolved at render time (not module-load) so the active catalog is ready.
 
 const _CHEVRON = icon("caret", {
   size: null,
@@ -166,7 +163,7 @@ export class LayoutPicker {
     const menu = document.createElement("div");
     menu.className = "layout-picker-menu";
     menu.setAttribute("role", "listbox");
-    menu.setAttribute("aria-label", "Layout options");
+    menu.setAttribute("aria-label", t("layout.menuAria"));
     menu.addEventListener("mousedown", (e) => e.preventDefault());
     menu.addEventListener("keydown", (e) => this.#onMenuKeydown(e));
 
@@ -185,7 +182,7 @@ export class LayoutPicker {
       item.innerHTML = `
         <span class="layout-picker-item-check" aria-hidden="true">${_CHECK}</span>
         <span class="layout-picker-item-icon">${LAYOUT_ICONS[i]}</span>
-        <span class="layout-picker-item-label">${LAYOUT_LABELS[i]}</span>
+        <span class="layout-picker-item-label">${t("layout.option." + i)}</span>
       `;
 
       item.addEventListener("mousedown", (e) => {

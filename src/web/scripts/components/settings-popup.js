@@ -19,6 +19,7 @@
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
 import { wrapSecretField } from "./secret-field.js";
+import { t, LOCALE_OPTIONS } from "../i18n.js";
 
 export class SettingsPopup {
   /** @type {HTMLElement} */
@@ -45,6 +46,16 @@ export class SettingsPopup {
   };
 
   constructor() {
+    // DOM is built lazily on first use (#ensureBuilt), not here. This singleton
+    // is constructed at module load — before i18n.init() resolves the catalog —
+    // so building now would bake in untranslated keys (t() would return the key
+    // itself). open()/load()/refreshThemeList() all run after startup, when the
+    // catalog is ready.
+  }
+
+  /** Build the popup DOM and wire its events once, on first use. */
+  #ensureBuilt() {
+    if (this.#el) return;
     this.#el = this.#build();
     this.#wrapSecretFields();
     this.#bindEvents();
@@ -74,22 +85,22 @@ export class SettingsPopup {
     el.className = "popup settings-popup";
     el.setAttribute("role", "dialog");
     el.setAttribute("aria-modal", "true");
-    el.setAttribute("aria-label", "Settings");
+    el.setAttribute("aria-label", t("settings.title"));
 
     el.innerHTML = `
       <div class="popup-header">
-        <span class="popup-title">Settings</span>
-        <button class="popup-close" aria-label="Close settings" title="Close">${icon("close", { size: 13 })}</button>
+        <span class="popup-title">${t("settings.title")}</span>
+        <button class="popup-close" aria-label="${t("settings.closeAria")}" title="${t("settings.close")}">${icon("close", { size: 13 })}</button>
       </div>
 
       <div class="popup-body settings-popup-body">
         <!-- Left navigation list — one entry per settings panel -->
-        <nav class="settings-nav" role="tablist" aria-label="Settings sections">
-          <button class="settings-nav-item settings-nav-item--active" type="button" role="tab" aria-selected="true" data-panel="appearance">Appearance</button>
-          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="request">Request</button>
-          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="proxy">Proxy</button>
-          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="retries">Retries</button>
-          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="history">History</button>
+        <nav class="settings-nav" role="tablist" aria-label="${t("settings.navAria")}">
+          <button class="settings-nav-item settings-nav-item--active" type="button" role="tab" aria-selected="true" data-panel="appearance">${t("settings.nav.appearance")}</button>
+          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="request">${t("settings.nav.request")}</button>
+          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="proxy">${t("settings.nav.proxy")}</button>
+          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="retries">${t("settings.nav.retries")}</button>
+          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="history">${t("settings.nav.history")}</button>
         </nav>
 
         <!-- Right-hand stack of single-column panels; only the active one shows -->
@@ -97,13 +108,23 @@ export class SettingsPopup {
           <!-- Appearance ──────────────────────────────────────────────── -->
           <section class="settings-panel" role="tabpanel" data-panel="appearance">
             <div class="settings-row">
-              <label class="settings-label" for="setting-theme">Theme</label>
+              <label class="settings-label" for="setting-language">${t("settings.appearance.language")}</label>
+              <select class="settings-select" id="setting-language">
+                ${LOCALE_OPTIONS.map(
+                  (o) =>
+                    `<option value="${o.value}">${o.labelKey ? t(o.labelKey) : o.label}</option>`,
+                ).join("")}
+              </select>
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-label" for="setting-theme">${t("settings.appearance.theme")}</label>
               <select class="settings-select" id="setting-theme">
-                <optgroup label="Dark">
+                <optgroup label="${t("settings.appearance.themeDark")}">
                   <option value="mocha">Mocha</option>
                   <option value="grey-dark">Grey</option>
                 </optgroup>
-                <optgroup label="Light">
+                <optgroup label="${t("settings.appearance.themeLight")}">
                   <option value="latte">Latte</option>
                   <option value="grey-light">Grey</option>
                 </optgroup>
@@ -111,7 +132,7 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row">
-              <label class="settings-label" for="setting-font-size">Editor font size</label>
+              <label class="settings-label" for="setting-font-size">${t("settings.appearance.fontSize")}</label>
               <select class="settings-select" id="setting-font-size">
                 <option value="11">11 px</option>
                 <option value="12">12 px</option>
@@ -123,10 +144,10 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row">
-              <label class="settings-label" for="setting-font-family">UI font</label>
+              <label class="settings-label" for="setting-font-family">${t("settings.appearance.fontFamily")}</label>
               <select class="settings-select" id="setting-font-family">
                 <option value="inter">Inter</option>
-                <option value="system">System Default</option>
+                <option value="system">${t("settings.appearance.fontFamilySystem")}</option>
                 <option value="sf-pro">SF Pro (macOS)</option>
                 <option value="segoe">Segoe UI (Windows)</option>
                 <option value="ubuntu">Ubuntu (Linux)</option>
@@ -135,7 +156,7 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row settings-row--toggle" id="setting-remove-headers-row">
-              <label class="settings-label" for="setting-remove-headers">Hide headers</label>
+              <label class="settings-label" for="setting-remove-headers">${t("settings.appearance.hideHeaders")}</label>
               <input
                 class="settings-toggle"
                 id="setting-remove-headers"
@@ -143,8 +164,8 @@ export class SettingsPopup {
               />
             </div>
 
-            <div class="settings-row settings-row--toggle" id="setting-method-icons-row" title="Show an icon for each HTTP method instead of its name">
-              <label class="settings-label" for="setting-method-icons">Use method icons</label>
+            <div class="settings-row settings-row--toggle" id="setting-method-icons-row" title="${t("settings.appearance.useMethodIconsTitle")}">
+              <label class="settings-label" for="setting-method-icons">${t("settings.appearance.useMethodIcons")}</label>
               <input
                 class="settings-toggle"
                 id="setting-method-icons"
@@ -152,8 +173,8 @@ export class SettingsPopup {
               />
             </div>
 
-            <div class="settings-row settings-row--toggle" title="Show a Recents tab of recently used requests in the collections sidebar">
-              <label class="settings-label" for="setting-show-recents">Show recently used tab</label>
+            <div class="settings-row settings-row--toggle" title="${t("settings.appearance.showRecentsTitle")}">
+              <label class="settings-label" for="setting-show-recents">${t("settings.appearance.showRecents")}</label>
               <input
                 class="settings-toggle"
                 id="setting-show-recents"
@@ -161,8 +182,8 @@ export class SettingsPopup {
               />
             </div>
 
-            <div class="settings-row settings-row--toggle" title="Show the resolved URL preview bar above the Params editor">
-              <label class="settings-label" for="setting-show-url-preview">Show URL preview</label>
+            <div class="settings-row settings-row--toggle" title="${t("settings.appearance.showUrlPreviewTitle")}">
+              <label class="settings-label" for="setting-show-url-preview">${t("settings.appearance.showUrlPreview")}</label>
               <input
                 class="settings-toggle"
                 id="setting-show-url-preview"
@@ -174,7 +195,7 @@ export class SettingsPopup {
           <!-- Request ──────────────────────────────────────────────────── -->
           <section class="settings-panel" role="tabpanel" data-panel="request" hidden>
             <div class="settings-row">
-              <label class="settings-label" for="setting-timeout">Timeout (ms)</label>
+              <label class="settings-label" for="setting-timeout">${t("settings.request.timeout")}</label>
               <input
                 class="settings-input"
                 id="setting-timeout"
@@ -186,7 +207,7 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row">
-              <label class="settings-label" for="setting-picker-debounce">Picker debounce (ms)</label>
+              <label class="settings-label" for="setting-picker-debounce">${t("settings.request.pickerDebounce")}</label>
               <input
                 class="settings-input"
                 id="setting-picker-debounce"
@@ -199,7 +220,7 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row settings-row--toggle">
-              <label class="settings-label" for="setting-follow-redirects">Follow redirects</label>
+              <label class="settings-label" for="setting-follow-redirects">${t("settings.request.followRedirects")}</label>
               <input
                 class="settings-toggle"
                 id="setting-follow-redirects"
@@ -208,7 +229,7 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row settings-row--toggle">
-              <label class="settings-label" for="setting-dblclick-execute">Double-click requests to execute</label>
+              <label class="settings-label" for="setting-dblclick-execute">${t("settings.request.dblclickExecute")}</label>
               <input
                 class="settings-toggle"
                 id="setting-dblclick-execute"
@@ -217,7 +238,7 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row settings-row--toggle">
-              <label class="settings-label" for="setting-verify-ssl">Verify SSL certificates</label>
+              <label class="settings-label" for="setting-verify-ssl">${t("settings.request.verifySsl")}</label>
               <input
                 class="settings-toggle"
                 id="setting-verify-ssl"
@@ -229,29 +250,29 @@ export class SettingsPopup {
           <!-- Proxy ────────────────────────────────────────────────────── -->
           <section class="settings-panel" role="tabpanel" data-panel="proxy" hidden>
             <div class="settings-row settings-row--toggle">
-              <label class="settings-label" for="setting-proxy-enabled">Enable proxy</label>
+              <label class="settings-label" for="setting-proxy-enabled">${t("settings.proxy.enable")}</label>
               <input class="settings-toggle" id="setting-proxy-enabled" type="checkbox" />
             </div>
 
             <div class="settings-row">
-              <label class="settings-label" for="setting-proxy-url">Proxy URL</label>
+              <label class="settings-label" for="setting-proxy-url">${t("settings.proxy.url")}</label>
               <input
                 class="settings-input"
                 id="setting-proxy-url"
                 type="text"
-                placeholder="http://proxy:8080 or socks5://proxy:1080"
+                placeholder="${t("settings.proxy.urlPlaceholder")}"
               />
             </div>
-            <p class="settings-help">The proxy type is taken from the URL scheme: <code>http://</code>, <code>https://</code>, or <code>socks5://</code> / <code>socks4://</code>.</p>
+            <p class="settings-help">${t("settings.proxy.help")}</p>
 
             <div class="settings-row settings-row--toggle">
-              <label class="settings-label" for="setting-proxy-auth-enabled">Proxy authentication</label>
+              <label class="settings-label" for="setting-proxy-auth-enabled">${t("settings.proxy.auth")}</label>
               <input class="settings-toggle" id="setting-proxy-auth-enabled" type="checkbox" />
             </div>
 
             <div class="settings-row settings-row--credentials">
               <div class="settings-field">
-                <label class="settings-label" for="setting-proxy-username">Username</label>
+                <label class="settings-label" for="setting-proxy-username">${t("settings.proxy.username")}</label>
                 <input
                   class="settings-input"
                   id="setting-proxy-username"
@@ -260,7 +281,7 @@ export class SettingsPopup {
                 />
               </div>
               <div class="settings-field">
-                <label class="settings-label" for="setting-proxy-password">Password</label>
+                <label class="settings-label" for="setting-proxy-password">${t("settings.proxy.password")}</label>
                 <input
                   class="settings-input"
                   id="setting-proxy-password"
@@ -271,26 +292,26 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row settings-row--stacked">
-              <label class="settings-label" for="setting-proxy-bypass">Bypass for hosts</label>
+              <label class="settings-label" for="setting-proxy-bypass">${t("settings.proxy.bypass")}</label>
               <textarea
                 class="settings-input settings-textarea"
                 id="setting-proxy-bypass"
                 rows="3"
-                placeholder="localhost, 127.0.0.1, *.internal, 10.0.*"
+                placeholder="${t("settings.proxy.bypassPlaceholder")}"
               ></textarea>
             </div>
-            <p class="settings-help">Comma- or newline-separated hosts that connect directly. Supports suffixes (<code>example.com</code>), globs (<code>*.internal</code>), and <code>*</code> for all.</p>
+            <p class="settings-help">${t("settings.proxy.bypassHelp")}</p>
           </section>
 
           <!-- Retries ──────────────────────────────────────────────────── -->
           <section class="settings-panel" role="tabpanel" data-panel="retries" hidden>
             <div class="settings-row settings-row--toggle">
-              <label class="settings-label" for="setting-retry-enabled">Enable retries</label>
+              <label class="settings-label" for="setting-retry-enabled">${t("settings.retries.enable")}</label>
               <input class="settings-toggle" id="setting-retry-enabled" type="checkbox" />
             </div>
 
             <div class="settings-row">
-              <label class="settings-label" for="setting-retry-attempts">Max attempts</label>
+              <label class="settings-label" for="setting-retry-attempts">${t("settings.retries.maxAttempts")}</label>
               <input
                 class="settings-input"
                 id="setting-retry-attempts"
@@ -302,7 +323,7 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row">
-              <label class="settings-label" for="setting-retry-backoff">Backoff base (ms)</label>
+              <label class="settings-label" for="setting-retry-backoff">${t("settings.retries.backoffBase")}</label>
               <input
                 class="settings-input"
                 id="setting-retry-backoff"
@@ -314,7 +335,7 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row">
-              <label class="settings-label" for="setting-retry-multiplier">Backoff multiplier</label>
+              <label class="settings-label" for="setting-retry-multiplier">${t("settings.retries.backoffMultiplier")}</label>
               <input
                 class="settings-input"
                 id="setting-retry-multiplier"
@@ -326,7 +347,7 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row">
-              <label class="settings-label" for="setting-retry-max-delay">Max delay (ms)</label>
+              <label class="settings-label" for="setting-retry-max-delay">${t("settings.retries.maxDelay")}</label>
               <input
                 class="settings-input"
                 id="setting-retry-max-delay"
@@ -338,22 +359,22 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row settings-row--toggle">
-              <label class="settings-label" for="setting-retry-conn">Retry on connection errors</label>
+              <label class="settings-label" for="setting-retry-conn">${t("settings.retries.onConn")}</label>
               <input class="settings-toggle" id="setting-retry-conn" type="checkbox" />
             </div>
 
             <div class="settings-row settings-row--toggle">
-              <label class="settings-label" for="setting-retry-timeout">Retry on timeout</label>
+              <label class="settings-label" for="setting-retry-timeout">${t("settings.retries.onTimeout")}</label>
               <input class="settings-toggle" id="setting-retry-timeout" type="checkbox" />
             </div>
 
             <div class="settings-row">
-              <label class="settings-label" for="setting-retry-status">Retry on status codes</label>
+              <label class="settings-label" for="setting-retry-status">${t("settings.retries.onStatus")}</label>
               <input
                 class="settings-input"
                 id="setting-retry-status"
                 type="text"
-                placeholder="429, 503, 504"
+                placeholder="${t("settings.retries.statusPlaceholder")}"
               />
             </div>
           </section>
@@ -361,7 +382,7 @@ export class SettingsPopup {
           <!-- History ──────────────────────────────────────────────────── -->
           <section class="settings-panel" role="tabpanel" data-panel="history" hidden>
             <div class="settings-row">
-              <label class="settings-label" for="setting-history-count">Timeline entries</label>
+              <label class="settings-label" for="setting-history-count">${t("settings.history.timelineEntries")}</label>
               <select class="settings-select" id="setting-history-count">
                 <option value="1">1</option>
                 <option value="2">2</option>
@@ -380,7 +401,7 @@ export class SettingsPopup {
       </div>
 
       <div class="popup-footer">
-        <button class="btn popup-btn btn--primary js-close">Close</button>
+        <button class="btn popup-btn btn--primary js-close">${t("settings.close")}</button>
       </div>
     `;
 
@@ -499,8 +520,8 @@ export class SettingsPopup {
     const row = this.#el.querySelector("#setting-remove-headers-row");
     if (!cb || !row) return;
     row.title = cb.checked
-      ? "When headers are shown, the settings icon will move to the top right corner"
-      : "When headers are hidden, the settings icon will move to the bottom left corner";
+      ? t("settings.appearance.removeHeadersOnTitle")
+      : t("settings.appearance.removeHeadersOffTitle");
   }
 
   /**
@@ -535,6 +556,7 @@ export class SettingsPopup {
   /** Collect all setting values into a plain object (historyCount excluded — deferred). */
   #readValues() {
     return {
+      locale: this.#el.querySelector("#setting-language").value,
       theme: this.#el.querySelector("#setting-theme").value,
       fontSize:
         parseInt(this.#el.querySelector("#setting-font-size").value, 10) || 13,
@@ -603,6 +625,7 @@ export class SettingsPopup {
    * @param {object} [settings]
    */
   open(settings = {}) {
+    this.#ensureBuilt();
     this.#openHistoryCount = settings.historyCount ?? 5;
     this.refreshThemeList(settings.customThemes ?? []);
     this.#applyValues(settings);
@@ -624,12 +647,14 @@ export class SettingsPopup {
    * @param {object} settings
    */
   load(settings = {}) {
+    this.#ensureBuilt();
     if (settings.customThemes !== undefined)
       this.refreshThemeList(settings.customThemes);
     this.#applyValues(settings);
   }
 
   refreshThemeList(customThemes = []) {
+    this.#ensureBuilt();
     const sel = this.#el.querySelector("#setting-theme");
     const saved = sel.value;
     sel.querySelector("optgroup[data-custom]")?.remove();
@@ -638,12 +663,12 @@ export class SettingsPopup {
       return;
     }
     const group = document.createElement("optgroup");
-    group.label = "Custom";
+    group.label = t("settings.appearance.themeCustom");
     group.dataset.custom = "";
-    for (const t of customThemes) {
+    for (const theme of customThemes) {
       const opt = document.createElement("option");
-      opt.value = t.id;
-      opt.textContent = t.name;
+      opt.value = theme.id;
+      opt.textContent = theme.name;
       group.appendChild(opt);
     }
     // Keep separator + "Theme Editor…" pinned at the bottom.
@@ -656,6 +681,9 @@ export class SettingsPopup {
 
   /** Write a settings object back into the form controls. */
   #applyValues(settings) {
+    if (settings.locale !== undefined) {
+      this.#el.querySelector("#setting-language").value = settings.locale;
+    }
     if (settings.theme !== undefined) {
       this.#el.querySelector("#setting-theme").value = settings.theme;
     }

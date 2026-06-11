@@ -74,6 +74,8 @@ import { exportToHar } from "./export/har.js";
 import { BackupModal } from "./components/backup-modal.js";
 import { ExportModal } from "./components/export-modal.js";
 import { PopupManager } from "./popup-manager.js";
+import * as i18n from "./i18n.js";
+import { t } from "./i18n.js";
 
 // ─── History state ────────────────────────────────────────────────────────────
 // Per-request in-memory execution history. Keyed by request node ID.
@@ -238,6 +240,12 @@ async function _loadRequestHistory(requestId) {
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
+  // Resolve the active locale and load its catalog BEFORE any component renders,
+  // so every t() call below (and in the components mounted by initComponents)
+  // resolves against the right catalog. Also sets <html lang>. See i18n.js.
+  await i18n.init();
+  localizeChrome();
+
   // Suppress the browser's native context menu everywhere. For editable text
   // fields, show a Cut/Copy/Paste/Select All menu via the main process instead.
   document.addEventListener("contextmenu", (e) => {
@@ -299,8 +307,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // log-only — silent data loss. Reads keep degrading quietly (see data-store.js).
   setWriteErrorHandler(({ label, message }) => {
     Notifications.error(
-      message ? `${label} failed: ${message}` : `${label} failed.`,
-      { title: "Storage error" },
+      message
+        ? t("notifications.actionFailedDetail", { label, message })
+        : t("notifications.actionFailed", { label }),
+      { title: t("notifications.storageErrorTitle") },
     );
   });
 
@@ -312,6 +322,68 @@ document.addEventListener("DOMContentLoaded", async () => {
   await initCollections();
   installZoomHandlers();
 });
+
+// ─── Static chrome localization ────────────────────────────────────────────────
+/**
+ * Localize the static chrome declared in index.html — the header toolbar, the
+ * landmark regions, panel titles, and the splitters. These elements exist before
+ * any component mounts, so their text / title / aria-label literals are replaced
+ * from the active catalog once, right after i18n.init(). Components own their own
+ * dynamic strings via t(); this only covers the hand-authored HTML shell.
+ */
+function localizeChrome() {
+  const setText = (sel, key) => {
+    const el = document.querySelector(sel);
+    if (el) el.textContent = t(key);
+  };
+  const setAttrAll = (sel, attr, key) =>
+    document
+      .querySelectorAll(sel)
+      .forEach((el) => el.setAttribute(attr, t(key)));
+
+  // Header + landmark regions
+  setAttrAll("#app-header", "aria-label", "header.appHeaderAria");
+  setText(".app-subtitle", "header.subtitle");
+  setAttrAll(".header-icon-panel", "aria-label", "header.actionsAria");
+  setAttrAll("#app-main", "aria-label", "header.mainAria");
+
+  // Collections nav + its open buttons
+  setAttrAll("#panel-nav", "aria-label", "header.collections");
+  setText("#panel-nav .panel-title", "header.collections");
+  setAttrAll(
+    "#btn-collection, #btn-collection-nav",
+    "title",
+    "header.collections",
+  );
+  setAttrAll(
+    "#btn-collection, #btn-collection-nav",
+    "aria-label",
+    "header.collectionsAria",
+  );
+
+  // Toolbar triggers (header bar + nav-settings bar share these classes)
+  setAttrAll(".env-picker-trigger", "title", "header.environmentTitle");
+  setAttrAll(".env-picker-trigger", "aria-label", "header.environmentAria");
+  setAttrAll(".layout-picker-trigger", "title", "header.layoutAria");
+  setAttrAll(".layout-picker-trigger", "aria-label", "header.layoutAria");
+  setAttrAll(
+    "#btn-settings, #btn-settings-nav",
+    "title",
+    "header.settingsTitle",
+  );
+  setAttrAll(
+    "#btn-settings, #btn-settings-nav",
+    "aria-label",
+    "header.settingsAria",
+  );
+
+  // Request / response panels + splitters
+  setAttrAll("#panel-request", "aria-label", "header.requestPanelAria");
+  setAttrAll("#panel-response", "aria-label", "header.responsePanelAria");
+  setText("#panel-request .panel-title", "header.requestPanelTitle");
+  setText("#panel-response .panel-title", "header.responsePanelTitle");
+  setAttrAll(".splitter", "title", "header.resizeTitle");
+}
 
 // ─── Panels ───────────────────────────────────────────────────────────────────
 /**
@@ -499,9 +571,9 @@ async function _closeWsConn(requestId) {
 function _askKeepWsAlive(label) {
   return new Promise((resolve) => {
     PopupManager.confirm({
-      title: "WebSocket connection is open",
-      message: `"${label}" has an open connection. Keep it running in the background, or disconnect now?`,
-      confirmLabel: "Keep open",
+      title: t("app.wsOpen"),
+      message: t("app.wsCloseMessage", { label }),
+      confirmLabel: t("app.wsKeepOpen"),
       confirmClass: "btn--primary",
       onConfirm: () => resolve(true),
       onCancel: () => resolve(false),
@@ -612,12 +684,12 @@ function buildCtrlGroup() {
   group.innerHTML = `
     <span class="ctrl-divider" aria-hidden="true"></span>
     <button class="env-picker-trigger" id="btn-env-picker-ctrl"
-        title="Environment" aria-label="Select environment"
+        title="${t("header.environmentTitle")}" aria-label="${t("header.environmentAria")}"
         aria-haspopup="dialog"></button>
     <button class="layout-picker-trigger" id="btn-layout-ctrl"
-        aria-haspopup="listbox" aria-label="Change layout" title="Change layout"></button>
+        aria-haspopup="listbox" aria-label="${t("header.layoutAria")}" title="${t("header.layoutAria")}"></button>
     <button class="icon-btn header-icon-btn" id="btn-settings-ctrl"
-        title="Settings" aria-label="Open settings">
+        title="${t("header.settingsTitle")}" aria-label="${t("header.settingsAria")}">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
            fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1140,7 +1212,7 @@ function initEventBus() {
     if (window.wurl?.isElectron !== true || !window.wurl.ws) {
       wsConsole.applyStatus({
         state: "error",
-        message: "WebSocket connections require the wurl desktop app.",
+        message: t("app.wsDesktopOnly"),
       });
       window.dispatchEvent(
         new CustomEvent("wurl:ws-state", { detail: { state: "error" } }),
@@ -1532,11 +1604,20 @@ function initEventBus() {
   // Merge into currentSettings so fields not emitted by the popup (splitters,
   // selectedRequestIds, historyCount) are not silently dropped on each save.
   window.addEventListener("wurl:settings-changed", (e) => {
+    const prevLocale = currentSettings.locale ?? "system";
     currentSettings = { ...currentSettings, ...e.detail };
     applySettings(currentSettings);
-    saveSettings(currentSettings);
+    const saved = saveSettings(currentSettings);
     if (e.detail.historyCount !== undefined) {
       _maxHistory = e.detail.historyCount;
+    }
+    // A language change can't be retro-applied to already-rendered, imperatively
+    // built DOM piecemeal, so reload the window: every string re-resolves against
+    // the new catalog at startup (main reads settings.locale — hence the reload
+    // waits for the save to settle). Settings persist above and request edits
+    // autosave, so the reload loses nothing.
+    if (e.detail.locale !== undefined && e.detail.locale !== prevLocale) {
+      Promise.resolve(saved).finally(() => window.location.reload());
     }
   });
 
@@ -2031,7 +2112,7 @@ function initEventBus() {
           `No active environment — skipped capturing ${_captureNameList(
             byScope.environment,
           )}.`,
-          { title: "Capture skipped" },
+          { title: t("app.captureSkipped") },
         );
       } else {
         const variables = _mergeCaptureWrites(
@@ -2057,7 +2138,7 @@ function initEventBus() {
           `No active collection — skipped capturing ${_captureNameList(
             byScope.collection,
           )}.`,
-          { title: "Capture skipped" },
+          { title: t("app.captureSkipped") },
         );
       } else {
         const variables = _mergeCaptureWrites(
@@ -2219,8 +2300,8 @@ function initEventBus() {
             body: null,
           },
           name: "AbortError",
-          message: "Request cancelled.",
-          hint: "The request was cancelled by the user.",
+          message: t("app.requestCancelled"),
+          hint: t("app.requestCancelledHint"),
           elapsed: 0,
           consoleLog: ["* Request cancelled by user"],
         },
@@ -2268,8 +2349,8 @@ function initEventBus() {
               body: null,
             },
             name: "TypeError",
-            message: "No URL specified.",
-            hint: "Enter a URL in the request bar before sending.",
+            message: t("app.noUrl"),
+            hint: t("app.noUrlHint"),
             elapsed: 0,
             consoleLog: ["* Error: No URL specified."],
           },
@@ -3216,9 +3297,10 @@ async function _saveExport(filename, content, format, successMsg) {
     if (saved) Notifications.success(successMsg);
     return saved;
   } catch (err) {
-    Notifications.error(`Export failed: ${String(err.message ?? err)}`, {
-      title: "Export",
-    });
+    Notifications.error(
+      t("app.exportFailed", { message: String(err.message ?? err) }),
+      { title: t("app.exportTitle") },
+    );
     return false;
   }
 }
@@ -3230,7 +3312,7 @@ async function _saveExport(filename, content, format, successMsg) {
  */
 function handleExport(collection) {
   if (!window.wurl?.export?.file?.save) {
-    Notifications.info("Export is only available in the desktop app.");
+    Notifications.info(t("app.exportDesktopOnly"));
     return;
   }
   ExportModal.openCollection(collection, (format) =>
@@ -3340,7 +3422,7 @@ async function runWorkspaceExport(format) {
 
 async function handleImport() {
   if (!window.wurl?.import?.file?.open) {
-    Notifications.info("Import is only available in the desktop app.");
+    Notifications.info(t("app.importDesktopOnly"));
     return;
   }
 
@@ -3348,9 +3430,10 @@ async function handleImport() {
   try {
     file = await window.wurl.import.file.open();
   } catch (err) {
-    Notifications.error(`Import failed: ${String(err.message ?? err)}`, {
-      title: "Import",
-    });
+    Notifications.error(
+      t("app.importFailed", { message: String(err.message ?? err) }),
+      { title: t("app.importTitle") },
+    );
     return;
   }
   if (!file) return; // user cancelled the file dialog
@@ -3359,9 +3442,10 @@ async function handleImport() {
   try {
     parsed = parseImport(file.content);
   } catch (err) {
-    Notifications.error(`Import failed: ${String(err.message ?? err)}`, {
-      title: "Import",
-    });
+    Notifications.error(
+      t("app.importFailed", { message: String(err.message ?? err) }),
+      { title: t("app.importTitle") },
+    );
     return;
   }
 
@@ -3404,7 +3488,7 @@ async function handleImport() {
   // warning the user must dismiss — not buried in a success toast that auto-hides.
   if (parsed.warnings?.length) {
     Notifications.warning(`${base} ${parsed.warnings.join(" ")}`, {
-      title: "Imported with warnings",
+      title: t("app.importedWithWarnings"),
       duration: 0,
     });
   } else {

@@ -3,6 +3,7 @@
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
+import { t } from "../i18n.js";
 import {
   resolveVariable,
   buildFunctionToken,
@@ -147,21 +148,21 @@ export class PillEditorPopup {
 
     el.innerHTML = `
       <div class="popup-header">
-        <span class="popup-title">${escapeHtml(label)} editor</span>
-        <button class="popup-close" aria-label="Close" title="Close">${icon("close", { size: 13 })}</button>
+        <span class="popup-title">${escapeHtml(t("pillEditor.editorTitle", { label }))}</span>
+        <button class="popup-close" aria-label="${t("common.close")}" title="${t("common.close")}">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body pill-editor-body">
         ${bodyHtml}
         <hr class="pill-editor-divider" />
         <div class="pill-editor-preview">
-          <span class="pill-editor-preview-label">Live Preview</span>
+          <span class="pill-editor-preview-label">${t("pillEditor.livePreview")}</span>
           <span class="pill-editor-preview-value pill-editor-preview--undefined">—</span>
           <button class="pill-editor-preview-reveal secret-field-toggle" type="button" tabindex="-1" hidden></button>
         </div>
       </div>
       <div class="popup-footer">
-        <button class="btn popup-btn btn--secondary js-cancel">Cancel</button>
-        <button class="btn popup-btn btn--primary   js-done">Done</button>
+        <button class="btn popup-btn btn--secondary js-cancel">${t("common.cancel")}</button>
+        <button class="btn popup-btn btn--primary   js-done">${t("pillEditor.done")}</button>
       </div>
     `;
     return el;
@@ -169,15 +170,15 @@ export class PillEditorPopup {
 
   #variableBodyHtml() {
     return `
-      <span class="pill-editor-type-label">Select Variable</span>
-      <div class="pill-editor-var-suggestions" role="listbox" aria-label="Available variables" tabindex="0"></div>
+      <span class="pill-editor-type-label">${t("pillEditor.title")}</span>
+      <div class="pill-editor-var-suggestions" role="listbox" aria-label="${t("pillEditor.availableVars")}" tabindex="0"></div>
     `;
   }
 
   #functionBodyHtml(funcName, funcDef, rawArgs, getItems) {
     let paramsHtml;
     if (!funcDef?.params?.length) {
-      paramsHtml = `<p class="pill-editor-no-params">This function has no parameters.</p>`;
+      paramsHtml = `<p class="pill-editor-no-params">${t("pillEditor.noParams")}</p>`;
     } else {
       paramsHtml = `<div class="pill-editor-params">${funcDef.params
         .map((p, i) => {
@@ -215,7 +216,7 @@ export class PillEditorPopup {
 
           return `
             <div class="pill-editor-param-row">
-              <label class="pill-editor-param-label">${escapeHtml(p.label)}</label>
+              <label class="pill-editor-param-label">${escapeHtml(t(p.labelKey))}</label>
               ${inputHtml}
             </div>`;
         })
@@ -225,7 +226,7 @@ export class PillEditorPopup {
     return `
       <div class="pill-editor-func-header">
         <span class="pill-editor-func-name">${escapeHtml(funcName ?? "")}</span>
-        <span class="pill-editor-func-label">${escapeHtml(funcDef?.label ?? "")}</span>
+        <span class="pill-editor-func-label">${escapeHtml(funcDef?.labelKey ? t(funcDef.labelKey) : "")}</span>
       </div>
       ${paramsHtml}
       <div class="pill-editor-error" role="alert" aria-live="polite"></div>
@@ -238,7 +239,7 @@ export class PillEditorPopup {
     if (!this.#suggestionsEl) return;
 
     if (!this.#varNames.length) {
-      this.#suggestionsEl.innerHTML = `<div class="pill-editor-var-empty">No variables defined</div>`;
+      this.#suggestionsEl.innerHTML = `<div class="pill-editor-var-empty">${t("pillEditor.noVarsDefined")}</div>`;
       return;
     }
 
@@ -428,7 +429,7 @@ export class PillEditorPopup {
     this.#updateRevealBtn();
 
     if (value === null) {
-      this.#previewValueEl.textContent = "Undefined";
+      this.#previewValueEl.textContent = t("pillEditor.undefined");
       this.#previewValueEl.classList.add("pill-editor-preview--undefined");
       return;
     }

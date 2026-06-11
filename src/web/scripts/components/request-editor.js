@@ -19,6 +19,7 @@ import {
 import { PopupManager } from "../popup-manager.js";
 import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
+import { t } from "../i18n.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
 import {
   buildRequestPayload,
@@ -337,24 +338,27 @@ const HTTP_METHODS = [
   "OPTIONS",
 ];
 
+// Tab labels resolve from the i18n catalog at render time (see #renderTabStrip);
+// labelKey, not a literal, because these arrays are built at module load — before
+// the catalog is ready.
 const TABS = [
-  { id: "params", label: "Params" },
-  { id: "headers", label: "Headers" },
-  { id: "body", label: "Body" },
-  { id: "auth", label: "Auth" },
-  { id: "captures", label: "Captures" },
-  { id: "notes", label: "Notes" },
+  { id: "params", labelKey: "request.tab.params" },
+  { id: "headers", labelKey: "request.tab.headers" },
+  { id: "body", labelKey: "request.tab.body" },
+  { id: "auth", labelKey: "request.tab.auth" },
+  { id: "captures", labelKey: "request.tab.captures" },
+  { id: "notes", labelKey: "request.tab.notes" },
 ];
 
 // Tabs for a WebSocket request (Feature 32): the Body tab is replaced by the
 // Message composer. Params/Headers/Auth apply to the handshake; Notes are shared.
 const WS_TABS = [
-  { id: "params", label: "Params" },
-  { id: "headers", label: "Headers" },
-  { id: "message", label: "Message" },
-  { id: "auth", label: "Auth" },
-  { id: "captures", label: "Captures" },
-  { id: "notes", label: "Notes" },
+  { id: "params", labelKey: "request.tab.params" },
+  { id: "headers", labelKey: "request.tab.headers" },
+  { id: "message", labelKey: "request.tab.message" },
+  { id: "auth", labelKey: "request.tab.auth" },
+  { id: "captures", labelKey: "request.tab.captures" },
+  { id: "notes", labelKey: "request.tab.notes" },
 ];
 
 function _extractResponseFunctionRefs(templates) {
@@ -655,12 +659,12 @@ export class RequestEditor {
     const b = this.#sendBtn;
     if (!b || this.#protocol === "websocket") return;
     if (this.#currentRequestInFlight()) {
-      b.textContent = "Stop";
-      b.setAttribute("aria-label", "Stop request");
+      b.textContent = t("request.stop");
+      b.setAttribute("aria-label", t("request.stopAria"));
       b.classList.add("req-send-btn--cancel");
     } else {
-      b.textContent = "Send";
-      b.setAttribute("aria-label", "Send request");
+      b.textContent = t("request.send");
+      b.setAttribute("aria-label", t("request.sendAria"));
       b.classList.remove("req-send-btn--cancel");
     }
   }
@@ -681,7 +685,7 @@ export class RequestEditor {
 
     const methodSel = document.createElement("button");
     methodSel.className = "req-method-select";
-    methodSel.setAttribute("aria-label", "HTTP Method");
+    methodSel.setAttribute("aria-label", t("request.method.aria"));
     methodSel.setAttribute("aria-haspopup", "listbox");
     methodSel.type = "button";
     methodSel.dataset.method = this.#method.toLowerCase();
@@ -719,7 +723,7 @@ export class RequestEditor {
       const menu = document.createElement("div");
       menu.className = "req-method-menu";
       menu.setAttribute("role", "listbox");
-      menu.setAttribute("aria-label", "HTTP Method");
+      menu.setAttribute("aria-label", t("request.method.aria"));
       menu.addEventListener("mousedown", (ev) => ev.preventDefault());
 
       const _CHECK = icon("check", {
@@ -767,8 +771,8 @@ export class RequestEditor {
       // size=1 keeps the input from dictating the menu's max-content width;
       // flex:1 then grows it to fill the width set by the widest method row.
       customInput.size = 1;
-      customInput.placeholder = "Custom…";
-      customInput.setAttribute("aria-label", "Custom HTTP method");
+      customInput.placeholder = t("request.method.customPlaceholder");
+      customInput.setAttribute("aria-label", t("request.method.customAria"));
       if (!HTTP_METHODS.includes(this.#method))
         customInput.value = this.#method;
       customInput.addEventListener("input", () => {
@@ -810,7 +814,7 @@ export class RequestEditor {
     // URL pill editor — replaces the plain <input type="url">
     const urlEditor = new VariablePillEditor({
       placeholder: "https://api.example.com/endpoint",
-      ariaLabel: "Request URL",
+      ariaLabel: t("request.url.aria"),
       className: "req-url-input",
       getContext: () => this.#variableContext,
       getItems: () => this.#getItems(),
@@ -840,8 +844,8 @@ export class RequestEditor {
     const sendBtn = document.createElement("button");
     sendBtn.className = "btn req-send-btn";
     sendBtn.dataset.method = this.#method.toLowerCase();
-    sendBtn.textContent = "Send";
-    sendBtn.setAttribute("aria-label", "Send request");
+    sendBtn.textContent = t("request.send");
+    sendBtn.setAttribute("aria-label", t("request.sendAria"));
     sendBtn.addEventListener("click", () => {
       if (this.#currentRequestInFlight()) {
         window.dispatchEvent(
@@ -881,15 +885,15 @@ export class RequestEditor {
 
     const wsLabel = document.createElement("span");
     wsLabel.className = "req-method-select req-method-select--ws";
-    wsLabel.setAttribute("aria-label", "WebSocket");
+    wsLabel.setAttribute("aria-label", t("request.ws.label"));
     const lbl = document.createElement("span");
     lbl.className = "req-method-select-label";
-    lbl.textContent = "WS";
+    lbl.textContent = t("request.ws.badge");
     wsLabel.appendChild(lbl);
 
     const urlEditor = new VariablePillEditor({
       placeholder: "wss://echo.example.com",
-      ariaLabel: "WebSocket URL",
+      ariaLabel: t("request.ws.urlAria"),
       className: "req-url-input",
       getContext: () => this.#variableContext,
       getItems: () => this.#getItems(),
@@ -909,8 +913,8 @@ export class RequestEditor {
     connectBtn.type = "button";
     connectBtn.className = "btn req-send-btn";
     connectBtn.dataset.method = "ws";
-    connectBtn.textContent = "Connect";
-    connectBtn.setAttribute("aria-label", "Connect WebSocket");
+    connectBtn.textContent = t("request.ws.connect");
+    connectBtn.setAttribute("aria-label", t("request.ws.connectAria"));
     connectBtn.addEventListener("click", () => this.#toggleWsConnection());
     this.#wsConnectBtn = connectBtn;
     sendGroup.appendChild(connectBtn);
@@ -991,9 +995,9 @@ export class RequestEditor {
     const subproto = document.createElement("input");
     subproto.type = "text";
     subproto.className = "ws-composer-subproto";
-    subproto.placeholder = "Subprotocols (optional, comma-separated)";
+    subproto.placeholder = t("request.ws.subprotoPlaceholder");
     subproto.value = this.#wsSubprotocols;
-    subproto.setAttribute("aria-label", "WebSocket subprotocols");
+    subproto.setAttribute("aria-label", t("request.ws.subprotoAria"));
     subproto.addEventListener("input", () => {
       this.#wsSubprotocols = subproto.value;
       this.#dispatchWsFieldUpdate({ wsSubprotocols: subproto.value });
@@ -1003,9 +1007,9 @@ export class RequestEditor {
     const sendBtn = document.createElement("button");
     sendBtn.type = "button";
     sendBtn.className = "ws-composer-send";
-    sendBtn.textContent = "Send";
+    sendBtn.textContent = t("request.ws.send");
     sendBtn.disabled = this.#wsState !== "open";
-    sendBtn.setAttribute("aria-label", "Send message");
+    sendBtn.setAttribute("aria-label", t("request.ws.sendAria"));
     sendBtn.addEventListener("click", () => this.#sendWebSocketMessage());
     this.#wsSendBtn = sendBtn;
 
@@ -1017,7 +1021,7 @@ export class RequestEditor {
       language: this.#wsMessageFormat === "json" ? "json" : "text",
       richErrors: false,
       value: this.#wsMessage,
-      placeholder: "Message to send… (supports {{variables}})",
+      placeholder: t("request.ws.messagePlaceholder"),
       onInput: (v) => {
         this.#wsMessage = v;
         this.#dispatchWsFieldUpdate({ wsMessage: v });
@@ -1039,7 +1043,7 @@ export class RequestEditor {
 
     const hint = document.createElement("div");
     hint.className = "ws-composer-hint";
-    hint.textContent = "Connect first, then send. ⌘/Ctrl+Enter to send.";
+    hint.textContent = t("request.ws.hint");
 
     container.append(bar, editor.element, hint);
     return container;
@@ -1160,7 +1164,7 @@ export class RequestEditor {
     this.#tabsForProtocol().forEach((tab) => {
       const btn = document.createElement("button");
       btn.className = "req-tab-btn";
-      btn.textContent = tab.label;
+      btn.textContent = t(tab.labelKey);
       btn.dataset.tab = tab.id;
       btn.setAttribute("role", "tab");
       btn.setAttribute(
@@ -1214,10 +1218,10 @@ export class RequestEditor {
 
     const ta = document.createElement("textarea");
     ta.className = "body-text-editor notes-textarea";
-    ta.placeholder = "Add freeform notes about this request…";
+    ta.placeholder = t("request.notes.placeholder");
     ta.spellcheck = true;
     ta.value = this.#notes;
-    ta.setAttribute("aria-label", "Request notes");
+    ta.setAttribute("aria-label", t("request.notes.aria"));
 
     ta.addEventListener("input", () => {
       this.#notes = ta.value;
@@ -1253,17 +1257,17 @@ export class RequestEditor {
 
     const addBtn = document.createElement("button");
     addBtn.className = "icon-btn params-toolbar-btn";
-    addBtn.title = "Add capture";
-    addBtn.setAttribute("aria-label", "Add capture");
+    addBtn.title = t("request.captures.add");
+    addBtn.setAttribute("aria-label", t("request.captures.add"));
     addBtn.innerHTML = `<span class="icon">${icon("add", { size: 15 })}</span>`;
     addBtn.addEventListener("click", () => this.#addCapture());
 
     const delAllBtn = document.createElement("button");
     delAllBtn.className =
       "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
-    delAllBtn.title = "Delete all captures";
-    delAllBtn.setAttribute("aria-label", "Delete all captures");
-    delAllBtn.textContent = "Delete All";
+    delAllBtn.title = t("request.captures.deleteAll");
+    delAllBtn.setAttribute("aria-label", t("request.captures.deleteAll"));
+    delAllBtn.textContent = t("kv.deleteAll");
     this.#capturesDeleteAllCleanup = this.#wireDeleteAllConfirm(
       delAllBtn,
       () => this.#captures.length,
@@ -1277,9 +1281,7 @@ export class RequestEditor {
     // Explainer — static, developer-authored copy.
     const hint = document.createElement("div");
     hint.className = "captures-hint";
-    hint.textContent =
-      "After a successful (2xx) response, extract a value and write it into a " +
-      "variable scope so later requests can use it as {{name}}.";
+    hint.textContent = t("request.captures.hint");
     container.appendChild(hint);
 
     // Column headers + scrollable list.
@@ -1292,11 +1294,11 @@ export class RequestEditor {
     colHeaders.innerHTML = `
       <span class="params-col-handle"></span>
       <span class="params-col-enabled"></span>
-      <span>Source</span>
-      <span>Path / Name</span>
-      <span>Scope</span>
-      <span>Variable</span>
-      <span class="captures-col-secure">Secret</span>
+      <span>${t("request.captures.source")}</span>
+      <span>${t("request.captures.pathName")}</span>
+      <span>${t("request.captures.scope")}</span>
+      <span>${t("request.captures.variable")}</span>
+      <span class="captures-col-secure">${t("request.captures.secret")}</span>
       <span class="params-col-delete"></span>`;
     wrap.appendChild(colHeaders);
 
@@ -1319,7 +1321,7 @@ export class RequestEditor {
     if (this.#captures.length === 0) {
       const empty = document.createElement("div");
       empty.className = "params-empty";
-      empty.textContent = "No captures — click  +  to add one.";
+      empty.textContent = t("request.captures.empty");
       this.#capturesListEl.appendChild(empty);
       return;
     }
@@ -1341,7 +1343,7 @@ export class RequestEditor {
     const handle = document.createElement("span");
     handle.className = "params-drag-handle";
     handle.setAttribute("aria-hidden", "true");
-    handle.title = "Drag to reorder";
+    handle.title = t("request.dragReorder");
     handle.innerHTML = icon("drag", { width: 10, height: 16 });
 
     // Enabled checkbox
@@ -1349,12 +1351,16 @@ export class RequestEditor {
     enabled.type = "checkbox";
     enabled.className = "params-checkbox";
     enabled.checked = rule.enabled !== false;
-    enabled.setAttribute("aria-label", "Enable capture");
-    enabled.title = enabled.checked ? "Disable capture" : "Enable capture";
+    enabled.setAttribute("aria-label", t("request.captures.enable"));
+    enabled.title = enabled.checked
+      ? t("request.captures.disable")
+      : t("request.captures.enable");
     enabled.addEventListener("change", () => {
       rule.enabled = enabled.checked;
       row.classList.toggle("params-row--disabled", !enabled.checked);
-      enabled.title = enabled.checked ? "Disable capture" : "Enable capture";
+      enabled.title = enabled.checked
+        ? t("request.captures.disable")
+        : t("request.captures.enable");
       this.#dispatchCapturesUpdated();
     });
 
@@ -1362,12 +1368,12 @@ export class RequestEditor {
     const source = this.#buildCaptureSelect(
       "captures-source",
       [
-        { value: "body", label: "Body" },
-        { value: "header", label: "Header" },
-        { value: "status", label: "Status" },
+        { value: "body", label: t("request.captures.sourceBody") },
+        { value: "header", label: t("request.captures.sourceHeader") },
+        { value: "status", label: t("request.captures.sourceStatus") },
       ],
       rule.source ?? "body",
-      "Capture source",
+      t("request.captures.sourceAria"),
     );
 
     // Path / name input — meaning + placeholder depend on the source.
@@ -1376,7 +1382,7 @@ export class RequestEditor {
     path.className = "params-input captures-path";
     path.value = rule.path ?? "";
     path.spellcheck = false;
-    path.setAttribute("aria-label", "Capture path or header name");
+    path.setAttribute("aria-label", t("request.captures.pathPlaceholder"));
     const syncPath = () => {
       const s = rule.source ?? "body";
       path.disabled = s === "status";
@@ -1398,12 +1404,12 @@ export class RequestEditor {
     const scope = this.#buildCaptureSelect(
       "captures-scope",
       [
-        { value: "environment", label: "Environment" },
-        { value: "collection", label: "Collection" },
-        { value: "global", label: "Global" },
+        { value: "environment", label: t("request.captures.scopeEnvironment") },
+        { value: "collection", label: t("request.captures.scopeCollection") },
+        { value: "global", label: t("env.global") },
       ],
       rule.target?.scope ?? "environment",
-      "Target variable scope",
+      t("request.captures.scopeAria"),
     );
     scope.addEventListener("change", () => {
       rule.target = { ...rule.target, scope: scope.value };
@@ -1415,9 +1421,9 @@ export class RequestEditor {
     name.type = "text";
     name.className = "params-input captures-name";
     name.value = rule.target?.name ?? "";
-    name.placeholder = "variableName";
+    name.placeholder = t("request.captures.variablePlaceholder");
     name.spellcheck = false;
-    name.setAttribute("aria-label", "Target variable name");
+    name.setAttribute("aria-label", t("request.captures.variableAria"));
     name.addEventListener("input", () => {
       rule.target = { ...rule.target, name: name.value };
       this.#dispatchCapturesUpdated();
@@ -1433,8 +1439,8 @@ export class RequestEditor {
       secure.classList.toggle("params-secure-btn--active", !!rule.secure);
       secure.innerHTML = icon(rule.secure ? "lock" : "lockOpen", { size: 14 });
       const label = rule.secure
-        ? "Secret (encrypted at rest)"
-        : "Mark captured variable secret";
+        ? t("request.captures.secretOn")
+        : t("request.captures.secretOff");
       secure.title = label;
       secure.setAttribute("aria-label", label);
       secure.setAttribute("aria-pressed", String(!!rule.secure));
@@ -1449,8 +1455,8 @@ export class RequestEditor {
     // Delete button (two-click confirm, shared behaviour)
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "icon-btn params-delete-btn";
-    deleteBtn.title = "Delete capture";
-    deleteBtn.setAttribute("aria-label", "Delete capture");
+    deleteBtn.title = t("request.captures.delete");
+    deleteBtn.setAttribute("aria-label", t("request.captures.delete"));
     wireDeleteConfirm(deleteBtn, () => this.#removeCapture(rule.id));
 
     this.#capturesDrag.wireRow(row, rule.id);
@@ -1538,24 +1544,24 @@ export class RequestEditor {
     const typeSelect = document.createElement("select");
     typeSelect.className = "body-type-select";
     typeSelect.id = "body-type-select";
-    typeSelect.setAttribute("aria-label", "Body type");
+    typeSelect.setAttribute("aria-label", t("request.bodyType.aria"));
     typeSelect.innerHTML = `
-      <optgroup label="Structured">
-        <option value="form-data">Form Data</option>
-        <option value="form-urlencoded">Form URL Encoded</option>
+      <optgroup label="${t("request.bodyType.groupStructured")}">
+        <option value="form-data">${t("request.bodyType.formData")}</option>
+        <option value="form-urlencoded">${t("request.bodyType.formUrlEncoded")}</option>
       </optgroup>
-      <optgroup label="Text">
-        <option value="json">JSON</option>
-        <option value="yaml">YAML</option>
-        <option value="xml">XML</option>
-        <option value="text">Plain Text</option>
+      <optgroup label="${t("request.bodyType.groupText")}">
+        <option value="json">${t("request.bodyType.json")}</option>
+        <option value="yaml">${t("request.bodyType.yaml")}</option>
+        <option value="xml">${t("request.bodyType.xml")}</option>
+        <option value="text">${t("request.bodyType.plainText")}</option>
       </optgroup>
-      <optgroup label="GraphQL">
-        <option value="graphql">GraphQL</option>
+      <optgroup label="${t("request.bodyType.graphql")}">
+        <option value="graphql">${t("request.bodyType.graphql")}</option>
       </optgroup>
-      <optgroup label="Other">
-        <option value="file">File</option>
-        <option value="no-body" selected>No Body</option>
+      <optgroup label="${t("request.bodyType.groupOther")}">
+        <option value="file">${t("request.bodyType.file")}</option>
+        <option value="no-body" selected>${t("request.bodyType.noBody")}</option>
       </optgroup>
     `;
     typeSelect.value = this.#bodyType;
@@ -1576,8 +1582,8 @@ export class RequestEditor {
 
     const { label: bfBulkLabel, check: bfBulkCheck } = this.#buildToolbarToggle(
       {
-        text: " Bulk Editor",
-        title: "Toggle between bulk text editor and key/value row editor",
+        text: " " + t("kv.bulkEditor"),
+        title: t("kv.bulkEditorTitle"),
         checked: this.#bodyFormBulkMode,
         onChange: (checked) => this.#handleBodyFormBulkToggle(checked),
       },
@@ -1586,8 +1592,8 @@ export class RequestEditor {
 
     const addBtn = document.createElement("button");
     addBtn.className = "icon-btn params-toolbar-btn";
-    addBtn.title = "Add field";
-    addBtn.setAttribute("aria-label", "Add field");
+    addBtn.title = t("request.fields.add");
+    addBtn.setAttribute("aria-label", t("request.fields.add"));
     addBtn.innerHTML = `<span class="icon">${icon("add", { size: 15 })}</span>`;
     addBtn.addEventListener("click", () => {
       this.#bodyFormRows.push({
@@ -1603,8 +1609,8 @@ export class RequestEditor {
     const delAllBtn = document.createElement("button");
     delAllBtn.className =
       "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
-    delAllBtn.title = "Delete all fields";
-    delAllBtn.textContent = "Delete All";
+    delAllBtn.title = t("request.fields.deleteAll");
+    delAllBtn.textContent = t("kv.deleteAll");
 
     this.#bodyFormDeleteAllCleanup = this.#wireDeleteAllConfirm(
       delAllBtn,
@@ -1706,7 +1712,7 @@ export class RequestEditor {
   #renderBodyNone(el) {
     const msg = document.createElement("div");
     msg.className = "params-empty";
-    msg.textContent = "No body will be sent with this request.";
+    msg.textContent = t("request.bodyType.noneMessage");
     el.appendChild(msg);
   }
 
@@ -1722,7 +1728,7 @@ export class RequestEditor {
         ? "name=value\nfile=@/path/to/file\n# disabled=row"
         : "name=value\nfield1=foo\nfield2=bar\n# disabled=row";
     bfBulkTa.spellcheck = false;
-    bfBulkTa.setAttribute("aria-label", "Form fields bulk editor");
+    bfBulkTa.setAttribute("aria-label", t("request.fields.bulkAria"));
     bfBulkTa.value = this.#bodyFormToBulkText();
     bfBulkTa.addEventListener("input", () => {
       this.#bodyFormRows = this.#bodyFormFromBulkText(bfBulkTa.value);
@@ -1752,8 +1758,8 @@ export class RequestEditor {
       <span class="params-col-handle"></span>
       <span class="params-col-enabled"></span>
       ${typeCol}
-      <span class="params-col-name">Name</span>
-      <span class="params-col-value">Value</span>
+      <span class="params-col-name">${t("kv.name")}</span>
+      <span class="params-col-value">${t("kv.value")}</span>
       <span class="params-col-delete"></span>`;
     bfKvWrap.appendChild(hdr);
 
@@ -1768,7 +1774,7 @@ export class RequestEditor {
     if (!rows.length) {
       const empty = document.createElement("div");
       empty.className = "params-empty";
-      empty.textContent = "No fields — click  +  to add one.";
+      empty.textContent = t("request.fields.empty");
       list.appendChild(empty);
     } else {
       rows.forEach((row) => list.appendChild(this.#buildBfRow(row, rows)));
@@ -1799,8 +1805,8 @@ export class RequestEditor {
 
     // ── Name pill editor (text and file rows alike) ──────────────────────
     const nameEditor = new VariablePillEditor({
-      placeholder: "Name",
-      ariaLabel: "Field name",
+      placeholder: t("kv.name"),
+      ariaLabel: t("request.fields.nameAria"),
       className: "params-name",
       getContext: getCtx,
       getItems: getItms,
@@ -1820,8 +1826,8 @@ export class RequestEditor {
       valueEl = this.#buildBfFileCell(row);
     } else {
       const valueEditor = new VariablePillEditor({
-        placeholder: "Value",
-        ariaLabel: "Field value",
+        placeholder: t("kv.value"),
+        ariaLabel: t("request.fields.valueAria"),
         className: "params-value",
         getContext: getCtx,
         getItems: getItms,
@@ -1916,8 +1922,8 @@ export class RequestEditor {
 
       const clearBtn = document.createElement("button");
       clearBtn.className = "icon-btn bf-file-clear";
-      clearBtn.title = "Remove file";
-      clearBtn.setAttribute("aria-label", "Remove file");
+      clearBtn.title = t("request.file.remove");
+      clearBtn.setAttribute("aria-label", t("request.file.remove"));
       clearBtn.textContent = "×";
       clearBtn.addEventListener("click", () => {
         row.filePath = row.fileName = row.contentType = "";
@@ -1928,7 +1934,7 @@ export class RequestEditor {
     } else {
       const browseBtn = document.createElement("button");
       browseBtn.className = "bf-file-choose";
-      browseBtn.textContent = "Choose file…";
+      browseBtn.textContent = t("request.file.choose");
       browseBtn.addEventListener("click", () => fileInput.click());
       cell.appendChild(browseBtn);
     }
@@ -2091,7 +2097,7 @@ export class RequestEditor {
           validateBadge.textContent = "✓ VALID";
           validateBadge.title = `${type.toUpperCase()} is valid`;
         } else if (state === false) {
-          validateBadge.textContent = "X INVALID";
+          validateBadge.textContent = t("request.graphql.invalid");
           validateBadge.title = `${type.toUpperCase()} has a syntax error`;
         } else {
           validateBadge.textContent = "";
@@ -2139,9 +2145,8 @@ export class RequestEditor {
       const fetchBtn = document.createElement("button");
       fetchBtn.className =
         "params-toolbar-btn params-delete-all-btn body-graphql-fetch-btn";
-      fetchBtn.textContent = "Fetch schema";
-      fetchBtn.title =
-        "Run GraphQL introspection against the URL to enable query autocomplete";
+      fetchBtn.textContent = t("request.graphql.fetchSchema");
+      fetchBtn.title = t("request.graphql.fetchSchemaTitle");
       fetchBtn.addEventListener("click", () =>
         this.#fetchGraphqlSchema(statusBadge, fetchBtn),
       );
@@ -2156,7 +2161,7 @@ export class RequestEditor {
     queryPane.className = "body-graphql-pane body-graphql-pane--query";
     const queryLabel = document.createElement("div");
     queryLabel.className = "body-graphql-pane-label";
-    queryLabel.textContent = "Query";
+    queryLabel.textContent = t("request.graphql.query");
     const queryBadge = document.createElement("span");
     queryBadge.className = "body-validate-badge body-graphql-query-badge";
     queryBadge.setAttribute("aria-live", "polite");
@@ -2185,7 +2190,11 @@ export class RequestEditor {
     ) => {
       queryBadge.dataset.state = state ?? "";
       queryStatus.textContent =
-        state === "valid" ? "✓ VALID" : state === "invalid" ? "X INVALID" : "";
+        state === "valid"
+          ? t("request.graphql.valid")
+          : state === "invalid"
+            ? t("request.graphql.invalid")
+            : "";
       queryStatus.title = title ?? "";
       // Flag limited validation whenever a verdict is shown but no schema loaded.
       queryWarn.hidden = !state || Boolean(this.#graphqlIntrospection);
@@ -2262,7 +2271,7 @@ export class RequestEditor {
     const splitter = document.createElement("div");
     splitter.className = "splitter body-graphql-splitter";
     splitter.setAttribute("role", "separator");
-    splitter.setAttribute("aria-label", "Resize the Query and Variables panes");
+    splitter.setAttribute("aria-label", t("request.graphql.resizeAria"));
     splitter.tabIndex = 0;
     wrap.appendChild(splitter);
 
@@ -2271,7 +2280,7 @@ export class RequestEditor {
     varsPane.className = "body-graphql-pane body-graphql-pane--vars";
     const varsHeader = document.createElement("div");
     varsHeader.className = "body-graphql-pane-label";
-    varsHeader.textContent = "Variables";
+    varsHeader.textContent = t("common.variables");
     const varsBadge = document.createElement("span");
     varsBadge.className = "body-validate-badge body-graphql-vars-badge";
     varsBadge.setAttribute("aria-live", "polite");
@@ -2282,10 +2291,10 @@ export class RequestEditor {
       varsBadge.dataset.state = state ?? "";
       if (state === "valid") {
         varsBadge.textContent = "✓ VALID";
-        varsBadge.title = "Variables JSON is valid";
+        varsBadge.title = t("request.graphql.varsValid");
       } else if (state === "invalid") {
-        varsBadge.textContent = "X INVALID";
-        varsBadge.title = "Variables JSON has a syntax error";
+        varsBadge.textContent = t("request.graphql.invalid");
+        varsBadge.title = t("request.graphql.varsInvalid");
       } else {
         varsBadge.textContent = "";
         varsBadge.title = "";
@@ -2613,10 +2622,9 @@ export class RequestEditor {
     if (this.#graphqlFetching) return;
     const rawUrl = this.#urlPillEditor.getValue().trim();
     if (!rawUrl) {
-      Notifications.warning(
-        "Enter the GraphQL endpoint URL before fetching its schema.",
-        { title: "No URL" },
-      );
+      Notifications.warning(t("request.graphql.noUrlMessage"), {
+        title: t("request.url.none"),
+      });
       return;
     }
 
@@ -2626,7 +2634,7 @@ export class RequestEditor {
       statusBadge.dataset.state = "loading";
       statusBadge.innerHTML = "";
       statusBadge.removeAttribute("aria-label");
-      statusBadge.title = "Fetching schema…";
+      statusBadge.title = t("request.graphql.fetching");
     }
 
     const ctx = this.#variableContext;
@@ -2659,7 +2667,7 @@ export class RequestEditor {
       );
       const json = await executeIntrospection({ url: finalUrl, headers, body });
       const model = buildSchemaModel(json);
-      if (!model) throw new Error("Could not parse the introspection schema.");
+      if (!model) throw new Error(t("request.graphql.parseFailed"));
       this.#graphqlSchema = model;
       // Keep the raw introspection ({ __schema }) so graphql-js can build a real
       // schema for full query validation, then re-validate the live query.
@@ -2677,12 +2685,19 @@ export class RequestEditor {
       if (statusBadge) {
         statusBadge.dataset.state = "error";
         statusBadge.innerHTML = icon("close", { size: 14 });
-        statusBadge.setAttribute("aria-label", "Schema fetch failed");
-        statusBadge.title = err?.message ?? "Could not fetch the schema.";
+        statusBadge.setAttribute(
+          "aria-label",
+          t("request.graphql.fetchFailed"),
+        );
+        statusBadge.title =
+          err?.message ?? t("request.graphql.fetchSchemaFailed");
       }
-      Notifications.error(err?.message ?? "Could not fetch the schema.", {
-        title: "GraphQL introspection failed",
-      });
+      Notifications.error(
+        err?.message ?? t("request.graphql.fetchSchemaFailed"),
+        {
+          title: t("request.graphql.introspectionFailed"),
+        },
+      );
     } finally {
       this.#graphqlFetching = false;
       if (btn) btn.disabled = false;
@@ -2698,8 +2713,10 @@ export class RequestEditor {
     if (!badge || !this.#graphqlSchema) return;
     badge.dataset.state = "ok";
     badge.innerHTML = icon("check", { size: 14 });
-    badge.setAttribute("aria-label", "Schema loaded");
-    badge.title = `${this.#graphqlSchema.types.size} types available — right-click to view or download the schema`;
+    badge.setAttribute("aria-label", t("request.graphql.loaded"));
+    badge.title = t("request.graphql.typesAvailable", {
+      count: this.#graphqlSchema.types.size,
+    });
   }
 
   /**
@@ -2710,8 +2727,8 @@ export class RequestEditor {
   async #showSchemaContextMenu(x, y) {
     const id = await window.wurl?.ui?.contextMenu?.show({
       items: [
-        { id: "view", label: "View Schema" },
-        { id: "download", label: "Download Schema" },
+        { id: "view", label: t("request.graphql.viewSchema") },
+        { id: "download", label: t("request.graphql.downloadSchema") },
       ],
       x,
       y,
@@ -2727,10 +2744,9 @@ export class RequestEditor {
   #graphqlSchemaSDL() {
     const sdl = introspectionToSDL(this.#graphqlIntrospection);
     if (!sdl) {
-      Notifications.warning(
-        "The fetched schema could not be rendered. Try fetching it again.",
-        { title: "Schema unavailable" },
-      );
+      Notifications.warning(t("request.graphql.renderFailed"), {
+        title: t("request.graphql.unavailable"),
+      });
       return null;
     }
     return sdl;
@@ -2784,15 +2800,15 @@ export class RequestEditor {
 
     const label = document.createElement("p");
     label.className = "body-file-zone-label";
-    label.textContent = "Drop a file here";
+    label.textContent = t("request.file.drop");
 
     const sub = document.createElement("p");
     sub.className = "body-file-zone-sub";
-    sub.textContent = "or";
+    sub.textContent = t("request.file.or");
 
     const browseBtn = document.createElement("button");
     browseBtn.className = "btn btn--secondary body-file-browse-btn";
-    browseBtn.textContent = "Browse…";
+    browseBtn.textContent = t("request.file.browse");
 
     const fileInput = document.createElement("input");
     fileInput.type = "file";
@@ -2864,8 +2880,8 @@ export class RequestEditor {
 
     const resetBtn = document.createElement("button");
     resetBtn.className = "btn body-file-reset-btn";
-    resetBtn.textContent = "Reset";
-    resetBtn.title = "Remove selected file";
+    resetBtn.textContent = t("request.file.reset");
+    resetBtn.title = t("request.file.removeSelectedTitle");
     resetBtn.addEventListener("click", () => {
       this.#bodyFilePath = "";
       this.#bodyFileObject = null;
@@ -2946,8 +2962,8 @@ export class RequestEditor {
 
     // Bulk Editor toggle — leftmost in toolbar
     const { label: bulkLabel } = this.#buildToolbarToggle({
-      text: " Bulk Editor",
-      title: "Toggle between bulk text editor and key/value row editor",
+      text: " " + t("kv.bulkEditor"),
+      title: t("kv.bulkEditorTitle"),
       checked: o.bulkMode,
       onChange: o.onBulkToggle,
     });
@@ -2965,7 +2981,7 @@ export class RequestEditor {
       "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
     delAllBtn.title = `Delete all ${o.nounPlural}`;
     delAllBtn.setAttribute("aria-label", `Delete all ${o.nounPlural}`);
-    delAllBtn.textContent = "Delete All";
+    delAllBtn.textContent = t("kv.deleteAll");
 
     // Inline confirm: first click → "Confirm?"; second click → delete all.
     // Escape or clicking outside the button cancels.
@@ -3011,7 +3027,7 @@ export class RequestEditor {
       <span class="params-col-handle"></span>
       <span class="params-col-enabled"></span>
       <span class="params-col-name">${o.nameColLabel}</span>
-      <span class="params-col-value">Value</span>
+      <span class="params-col-value">${t("kv.value")}</span>
       <span class="params-col-delete"></span>`;
     kvWrap.appendChild(colHeaders);
 
@@ -3055,7 +3071,7 @@ export class RequestEditor {
       onAdd: () => this.#addParam(),
       getCount: () => this.#params.length,
       onDeleteAll: () => this.#deleteAllParams(),
-      nameColLabel: "Name",
+      nameColLabel: t("kv.name"),
       bulkPlaceholder: "name=value\nparam1=foo\nparam2=bar\n# disabled=row",
       bulkAriaLabel: "Parameters bulk editor",
       onBulkInput: (value) => {
@@ -3084,7 +3100,7 @@ export class RequestEditor {
     // Right-side toggle: show standard header-name suggestions
     const { label: listHdrLabel } = this.#buildToolbarToggle({
       text: " List Headers",
-      title: "Show standard header suggestions when editing the header name",
+      title: t("request.headers.suggestTitle"),
       id: "list-headers-toggle",
       checked: this.#headerSuggestionsEnabled,
       onChange: (checked) => {
@@ -3118,7 +3134,7 @@ export class RequestEditor {
       onAdd: () => this.#addHeader(),
       getCount: () => this.#headers.length,
       onDeleteAll: () => this.#deleteAllHeaders(),
-      nameColLabel: "Header",
+      nameColLabel: t("kv.header"),
       bulkPlaceholder:
         "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped",
       bulkAriaLabel: "Headers bulk editor",
@@ -3191,7 +3207,7 @@ export class RequestEditor {
     if (this.#headers.length === 0) {
       const empty = document.createElement("div");
       empty.className = "params-empty";
-      empty.textContent = "No headers — click  +  to add one.";
+      empty.textContent = t("request.headers.empty");
       this.#headersListEl.appendChild(empty);
       return;
     }
@@ -3212,9 +3228,9 @@ export class RequestEditor {
     const headerInput = document.createElement("input");
     headerInput.type = "text";
     headerInput.className = "params-input params-name";
-    headerInput.placeholder = "Header";
+    headerInput.placeholder = t("kv.header");
     headerInput.value = header.name;
-    headerInput.setAttribute("aria-label", "Header name");
+    headerInput.setAttribute("aria-label", t("request.headers.nameAria"));
     headerInput.setAttribute("autocomplete", "off");
     headerInput.addEventListener("focus", () => {
       if (this.#headerSuggestionsEnabled)
@@ -3262,8 +3278,8 @@ export class RequestEditor {
 
     // ── Value input ─────────────────────────────────────────────────────
     const valueEditor = new VariablePillEditor({
-      placeholder: "Value",
-      ariaLabel: "Header value",
+      placeholder: t("kv.value"),
+      ariaLabel: t("request.headers.valueAria"),
       className: "params-value",
       getContext: () => this.#variableContext,
       getItems: () => this.#getItems(),
@@ -3414,7 +3430,7 @@ export class RequestEditor {
     if (this.#params.length === 0 && !hasPath) {
       const empty = document.createElement("div");
       empty.className = "params-empty";
-      empty.textContent = "No parameters — click  +  to add one.";
+      empty.textContent = t("request.params.empty");
       this.#paramsListEl.appendChild(empty);
       this.#updateUrlPreview();
       return;
@@ -3467,17 +3483,17 @@ export class RequestEditor {
     nameInput.type = "text";
     nameInput.className = "params-name path-param-name";
     nameInput.value = pp.name;
-    nameInput.placeholder = "name";
+    nameInput.placeholder = t("request.pathParams.namePlaceholder");
     nameInput.spellcheck = false;
-    nameInput.setAttribute("aria-label", "Path parameter name");
+    nameInput.setAttribute("aria-label", t("request.pathParams.nameAria"));
     nameInput.addEventListener("input", () =>
       this.#renamePathParam(pp, nameInput.value),
     );
 
     // Value — a pill editor (variables/functions + secret reveal, as query values).
     const valueEditor = new VariablePillEditor({
-      placeholder: "Value",
-      ariaLabel: "Path parameter value",
+      placeholder: t("kv.value"),
+      ariaLabel: t("request.pathParams.valueAria"),
       className: "params-value",
       getContext: () => this.#variableContext,
       getItems: () => this.#getItems(),
@@ -3494,8 +3510,8 @@ export class RequestEditor {
     // Path-param indicator, shown in place of the enable/disable checkbox.
     const statusIcon = document.createElement("span");
     statusIcon.className = "path-param-icon";
-    statusIcon.title = "Path parameter";
-    statusIcon.setAttribute("aria-label", "Path parameter");
+    statusIcon.title = t("request.pathParams.label");
+    statusIcon.setAttribute("aria-label", t("request.pathParams.label"));
     statusIcon.innerHTML = icon("braces", { size: 14 });
 
     return this.#buildKvRow({
@@ -3578,16 +3594,16 @@ export class RequestEditor {
     input.type = "text";
     input.readOnly = true;
     input.className = "params-url-preview-input";
-    input.placeholder = "Enter a URL above to preview it here";
-    input.setAttribute("aria-label", "Request URL with query parameters");
+    input.placeholder = t("request.url.previewPlaceholder");
+    input.setAttribute("aria-label", t("request.url.previewAria"));
     input.tabIndex = -1;
 
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
     copyBtn.className = "params-url-preview-copy-btn";
-    copyBtn.textContent = "Copy";
-    copyBtn.title = "Copy URL to clipboard";
-    copyBtn.setAttribute("aria-label", "Copy URL to clipboard");
+    copyBtn.textContent = t("request.url.copy");
+    copyBtn.title = t("request.url.copyTitle");
+    copyBtn.setAttribute("aria-label", t("request.url.copyTitle"));
     copyBtn.addEventListener("click", async () => {
       // Copy the *unresolved* template: variables/functions stay as `{{name}}`
       // tokens rather than the resolved values shown in the preview bar, so the
@@ -3595,9 +3611,9 @@ export class RequestEditor {
       const text = await this.#buildPreviewUrl(false);
       if (!text) return;
       await navigator.clipboard.writeText(text);
-      copyBtn.textContent = "Copied!";
+      copyBtn.textContent = t("request.url.copied");
       setTimeout(() => {
-        copyBtn.textContent = "Copy";
+        copyBtn.textContent = t("request.url.copy");
       }, 1500);
     });
 
@@ -3676,8 +3692,8 @@ export class RequestEditor {
     const getCtx = () => this.#variableContext;
     const getItms = () => this.#getItems();
     const nameEditor = new VariablePillEditor({
-      placeholder: "Name",
-      ariaLabel: "Parameter name",
+      placeholder: t("kv.name"),
+      ariaLabel: t("request.params.nameAria"),
       className: "params-name",
       getContext: getCtx,
       getItems: getItms,
@@ -3694,8 +3710,8 @@ export class RequestEditor {
 
     // ── Value pill editor ─────────────────────────────────────────────────
     const valueEditor = new VariablePillEditor({
-      placeholder: "Value",
-      ariaLabel: "Parameter value",
+      placeholder: t("kv.value"),
+      ariaLabel: t("request.params.valueAria"),
       className: "params-value",
       getContext: getCtx,
       getItems: getItms,
@@ -3852,7 +3868,7 @@ export class RequestEditor {
         if (!this.#bodyFormRows.length) {
           const empty = document.createElement("div");
           empty.className = "params-empty";
-          empty.textContent = "No fields — click  +  to add one.";
+          empty.textContent = t("request.fields.empty");
           this.#bfListEl.appendChild(empty);
         } else {
           this.#bodyFormRows.forEach((row) =>
@@ -3962,10 +3978,9 @@ export class RequestEditor {
 
     // ── Path params must all be named — a blank token can't be substituted ──
     if (this.#pathParams.some((p) => !(p.name ?? "").trim())) {
-      Notifications.warning(
-        "A path parameter has a blank name. Name every path parameter (or remove its token from the URL) before sending.",
-        { title: "Incomplete path parameter" },
-      );
+      Notifications.warning(t("request.pathParams.incompleteBody"), {
+        title: t("request.pathParams.incomplete"),
+      });
       return;
     }
 
@@ -4102,7 +4117,7 @@ export class RequestEditor {
                 },
                 name: "OAuthError",
                 message: err?.message ?? String(err),
-                hint: "OAuth token acquisition failed before the request could be sent.",
+                hint: t("request.oauth.failedBefore"),
                 elapsed: 0,
                 consoleLog: [`* OAuth error: ${err?.message ?? err}`],
               },
@@ -4130,7 +4145,7 @@ export class RequestEditor {
                 },
                 name: _errCode,
                 message: _errMsg,
-                hint: "OAuth token acquisition failed. Check your OAuth configuration in the Auth tab.",
+                hint: t("request.oauth.failedCheck"),
                 elapsed: 0,
                 consoleLog: [`* OAuth ${_errCode}: ${_errMsg}`],
               },

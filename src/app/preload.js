@@ -73,6 +73,19 @@ contextBridge.exposeInMainWorld("wurl", {
   platform: process.platform,
 
   /**
+   * Internationalization — the main process resolves the active locale
+   * (persisted preference → OS locale → English) and returns the bundled
+   * catalog plus the English fallback. The renderer awaits load() once at
+   * startup; see src/web/scripts/i18n.js.
+   */
+  i18n: {
+    /**
+     * @returns {Promise<{ requested, system, active, lang, messages, fallback }>}
+     */
+    load: () => ipcRenderer.invoke("i18n:load"),
+  },
+
+  /**
    * Resolve the absolute filesystem path for a File chosen via an
    * <input type="file"> in the renderer. Electron removed the legacy
    * File.path property in v32; webUtils.getPathForFile — callable only from a

@@ -107,7 +107,7 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-cookies test-auth test-net test-content-type test-ipc test-oauth test-export test-components test-import test-data-store test-quick-access test-renderer-components test-renderer-e2e
+test: test-js test-cookies test-auth test-net test-content-type test-ipc test-oauth test-export test-components test-import test-data-store test-quick-access test-i18n test-renderer-components test-renderer-e2e
 
 test-js:
 	@echo "Running JavaScript store tests..."
@@ -167,6 +167,11 @@ test-data-store:
 test-quick-access:
 	@echo "Running favorites / recents helper tests (quick-access)..."
 	@node --test $(WEB_DIR)/scripts/tests/quick-access.test.js
+	@echo "--------------------------------"
+
+test-i18n:
+	@echo "Running i18n tests (locale resolver + t()/format + hardcoded-string guard)..."
+	@node --test $(APP_DIR)/tests/i18n.test.js $(APP_DIR)/tests/no-hardcoded-native-strings.test.js $(WEB_DIR)/scripts/tests/i18n.test.js $(WEB_DIR)/scripts/tests/no-hardcoded-strings.test.js
 	@echo "--------------------------------"
 
 test-renderer-components:

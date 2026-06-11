@@ -16,14 +16,17 @@ import Prism from "../vendor/prism.js";
 import renderMarkdown from "../vendor/markdown.js";
 import { icon } from "../icons.js";
 import { escapeHtml, escapeHtmlText, escapeHtmlAttr } from "../utils/html.js";
+import { t } from "../i18n.js";
 
+// Tab labels resolve from the i18n catalog at render time (labelKey, not a
+// literal) — this array is built at module load, before the catalog is ready.
 const TABS = [
-  { id: "body", label: "Body" },
-  { id: "preview", label: "Preview" }, // shown only for HTML responses
-  { id: "headers", label: "Headers" },
-  { id: "cookies", label: "Cookies" },
-  { id: "console", label: "Console" },
-  { id: "timeline", label: "Timeline" },
+  { id: "body", labelKey: "response.tab.body" },
+  { id: "preview", labelKey: "response.tab.preview" }, // shown only for HTML responses
+  { id: "headers", labelKey: "response.tab.headers" },
+  { id: "cookies", labelKey: "response.tab.cookies" },
+  { id: "console", labelKey: "response.tab.console" },
+  { id: "timeline", labelKey: "response.tab.timeline" },
 ];
 
 // ── Content-type classification ───────────────────────────────────────────────
@@ -597,12 +600,12 @@ export class ResponseViewer {
     const bar = document.createElement("div");
     bar.className = "res-status-bar";
     bar.innerHTML = `
-      <span class="res-status-badge" aria-label="HTTP status"></span>
+      <span class="res-status-badge" aria-label="${t("response.status.httpStatusAria")}"></span>
       <span class="res-status-text"></span>
-      <span class="res-captured-badge" title="Variables captured from this response" hidden></span>
+      <span class="res-captured-badge" title="${t("response.status.capturedTitle")}" hidden></span>
       <span class="res-meta">
-        <span class="res-time"  title="Elapsed time"></span>
-        <span class="res-size"  title="Response size"></span>
+        <span class="res-time"  title="${t("response.status.elapsedTitle")}"></span>
+        <span class="res-size"  title="${t("response.status.sizeTitle")}"></span>
       </span>
     `;
 
@@ -707,9 +710,9 @@ export class ResponseViewer {
       if (tab.id === this.#activeTab) btn.classList.add("res-tab-btn--active");
 
       if (tab.id === "body") {
-        btn.textContent = "Body…";
+        btn.textContent = t("response.tab.bodyMenu");
         btn.dataset.method = this.#currentMethod;
-        btn.title = "Secondary click for options";
+        btn.title = t("response.tab.bodyMenuTitle");
         btn.classList.add(this.#modeClass());
         // Right-click on the Body tab → render-mode context menu
         btn.addEventListener("contextmenu", (e) => {
@@ -718,7 +721,7 @@ export class ResponseViewer {
           this.#showBodyContextMenu(e.clientX, e.clientY);
         });
       } else {
-        btn.textContent = tab.label;
+        btn.textContent = t(tab.labelKey);
         if (tab.id === "preview") btn.hidden = true;
       }
 
@@ -781,14 +784,14 @@ export class ResponseViewer {
 
     const label = document.createElement("span");
     label.className = "res-search-label";
-    label.textContent = "Find";
+    label.textContent = t("response.find.label");
     label.setAttribute("aria-hidden", "true");
 
     const input = document.createElement("input");
     input.type = "text";
     input.className = "res-search-input";
-    input.placeholder = "Search…";
-    input.setAttribute("aria-label", "Search in response body");
+    input.placeholder = t("response.find.placeholder");
+    input.setAttribute("aria-label", t("response.find.inputAria"));
 
     const actions = document.createElement("div");
     actions.className = "res-search-actions";
@@ -796,40 +799,40 @@ export class ResponseViewer {
     // Previous-match button (up arrow)
     const prevBtn = document.createElement("button");
     prevBtn.className = "res-search-btn res-search-nav-btn";
-    prevBtn.title = "Previous match (Shift+Enter)";
-    prevBtn.setAttribute("aria-label", "Previous match");
+    prevBtn.title = t("response.find.prevTitle");
+    prevBtn.setAttribute("aria-label", t("response.find.prevAria"));
     prevBtn.disabled = true;
     prevBtn.innerHTML = icon("chevronUp", { size: 12 });
 
     // Next-match button (down arrow)
     const nextBtn = document.createElement("button");
     nextBtn.className = "res-search-btn res-search-nav-btn";
-    nextBtn.title = "Next match (Enter)";
-    nextBtn.setAttribute("aria-label", "Next match");
+    nextBtn.title = t("response.find.nextTitle");
+    nextBtn.setAttribute("aria-label", t("response.find.nextAria"));
     nextBtn.disabled = true;
     nextBtn.innerHTML = icon("chevronDown", { size: 12 });
 
     // Case-sensitivity toggle
     const caseBtn = document.createElement("button");
     caseBtn.className = "res-search-btn";
-    caseBtn.title = "Match case";
-    caseBtn.setAttribute("aria-label", "Match case");
+    caseBtn.title = t("response.find.caseTitle");
+    caseBtn.setAttribute("aria-label", t("response.find.caseTitle"));
     caseBtn.setAttribute("aria-pressed", "false");
-    caseBtn.textContent = "Cc";
+    caseBtn.textContent = t("response.find.caseLabel");
 
     // Regular-expression toggle
     const regexBtn = document.createElement("button");
     regexBtn.className = "res-search-btn";
-    regexBtn.title = "Regular expression";
-    regexBtn.setAttribute("aria-label", "Use regular expression");
+    regexBtn.title = t("response.find.regexTitle");
+    regexBtn.setAttribute("aria-label", t("response.find.regexAria"));
     regexBtn.setAttribute("aria-pressed", "false");
     regexBtn.textContent = ".*";
 
     // Close button
     const closeBtn = document.createElement("button");
     closeBtn.className = "res-search-btn res-search-close-btn";
-    closeBtn.title = "Close search (Escape)";
-    closeBtn.setAttribute("aria-label", "Close search");
+    closeBtn.title = t("response.find.closeTitle");
+    closeBtn.setAttribute("aria-label", t("response.find.closeAria"));
     closeBtn.innerHTML = icon("close", { size: 12 });
 
     actions.appendChild(prevBtn);
@@ -1091,14 +1094,14 @@ export class ResponseViewer {
   #emptyState() {
     return this.#placeholder({
       icon: "📡",
-      text: "Send a request to see the response",
+      text: t("response.placeholder.sendRequest"),
     });
   }
 
   #consolePlaceholder() {
     return this.#placeholder({
       icon: "🖥️",
-      text: "Verbose output from each request will appear here",
+      text: t("response.placeholder.consoleEmpty"),
     });
   }
 
@@ -1135,24 +1138,24 @@ export class ResponseViewer {
     const items = [
       {
         id: "styled",
-        label: "Styled",
+        label: t("menu.styled"),
         type: "checkbox",
         checked: this.#renderMode === "styled",
       },
       {
         id: "raw",
-        label: "Raw",
+        label: t("menu.raw"),
         type: "checkbox",
         checked: this.#renderMode === "raw",
       },
       {
         id: "hex",
-        label: "Hex",
+        label: t("menu.hex"),
         type: "checkbox",
         checked: this.#renderMode === "hex",
       },
       { type: "separator" },
-      { id: "download", label: "Download..." },
+      { id: "download", label: t("menu.download") },
     ];
     const clickedId = await window.wurl.ui.contextMenu.show({ items, x, y });
     if (clickedId === "download") {
@@ -1168,14 +1171,16 @@ export class ResponseViewer {
    */
   async #showBodyTextContextMenu(x, y) {
     const selectedText = window.getSelection()?.toString() ?? "";
-    const items = [{ id: "copy", label: "Copy", enabled: !!selectedText }];
+    const items = [
+      { id: "copy", label: t("menu.copy"), enabled: !!selectedText },
+    ];
     // Styled mode → offer the wrap toggle (Raw is never wrapped via this menu)
     if (this.#renderMode !== "raw") {
       items.push(
         { type: "separator" },
         {
           id: "wrap",
-          label: "Wrap",
+          label: t("menu.wrap"),
           type: "checkbox",
           checked: this.#wrapResponseText,
         },
@@ -1186,13 +1191,13 @@ export class ResponseViewer {
         items.push(
           {
             id: "lineNumbers",
-            label: "Line numbers",
+            label: t("menu.lineNumbers"),
             type: "checkbox",
             checked: this.#showLineNumbers,
           },
           {
             id: "codeFolding",
-            label: "Code folding",
+            label: t("menu.codeFolding"),
             type: "checkbox",
             checked: this.#showCodeFolding,
           },
@@ -1478,7 +1483,7 @@ export class ResponseViewer {
       pane.appendChild(
         this.#placeholder({
           icon: kind === "pdf" ? "📄" : "🖼️",
-          text: 'Large response — use "View full" above to preview.',
+          text: t("response.truncation.previewHint"),
         }),
       );
       return;
@@ -1530,7 +1535,7 @@ export class ResponseViewer {
       pane.appendChild(
         this.#placeholder({
           icon: "📄",
-          text: "PDF preview is available in the desktop app — use Save to file.",
+          text: t("response.placeholder.pdfDesktop"),
         }),
       );
       return;
@@ -1554,11 +1559,10 @@ export class ResponseViewer {
     if (shown < bytes.length) {
       const note = document.createElement("div");
       note.className = "res-hex-note";
-      note.textContent = `Showing the first ${this.#formatSize(
-        shown,
-      )} of ${this.#formatSize(
-        bytes.length,
-      )} — use Save to file for the full body.`;
+      note.textContent = t("response.truncation.hexNote", {
+        shown: this.#formatSize(shown),
+        total: this.#formatSize(bytes.length),
+      });
       pane.appendChild(note);
     }
 
@@ -1720,29 +1724,30 @@ export class ResponseViewer {
     const text = document.createElement("span");
     text.className = "res-truncation-text";
     const previewBytes = (response.body ?? "").length;
-    text.textContent = `Large response — showing the first ${this.#formatSize(
-      previewBytes,
-    )} of ${this.#formatSize(response.fullSize ?? 0)}.`;
+    text.textContent = t("response.truncation.banner", {
+      shown: this.#formatSize(previewBytes),
+      total: this.#formatSize(response.fullSize ?? 0),
+    });
     banner.appendChild(text);
 
     if (response.bodyRef) {
       const viewBtn = document.createElement("button");
       viewBtn.type = "button";
       viewBtn.className = "btn btn--secondary res-truncation-btn";
-      viewBtn.textContent = "View full";
+      viewBtn.textContent = t("response.truncation.viewFull");
       viewBtn.addEventListener("click", () => this.#loadFullBody(response));
       banner.appendChild(viewBtn);
 
       const saveBtn = document.createElement("button");
       saveBtn.type = "button";
       saveBtn.className = "btn btn--secondary res-truncation-btn";
-      saveBtn.textContent = "Save to file";
+      saveBtn.textContent = t("response.truncation.saveToFile");
       saveBtn.addEventListener("click", () => this.#saveFullBody(response));
       banner.appendChild(saveBtn);
     } else {
       const note = document.createElement("span");
       note.className = "res-truncation-note";
-      note.textContent = "Full response is no longer cached.";
+      note.textContent = t("response.truncation.notCached");
       banner.appendChild(note);
     }
 
@@ -1946,7 +1951,7 @@ export class ResponseViewer {
           const toggle = document.createElement("button");
           toggle.type = "button";
           toggle.className = "res-fold-toggle";
-          toggle.setAttribute("aria-label", "Toggle fold");
+          toggle.setAttribute("aria-label", t("response.fold.toggleAria"));
           toggle.setAttribute("aria-expanded", "true");
           toggle.innerHTML = icon("caret", { size: null });
           toggle.addEventListener("click", () => {
@@ -2067,7 +2072,7 @@ export class ResponseViewer {
     pane.appendChild(
       this.#placeholder({
         icon: "⏳",
-        text: "Loading preview…",
+        text: t("response.placeholder.loadingPreview"),
         className: "res-html-loading",
         iconClass: "res-spinner",
       }),
@@ -2140,7 +2145,7 @@ export class ResponseViewer {
 
     const iframe = document.createElement("iframe");
     iframe.src = url ?? "about:blank";
-    iframe.setAttribute("title", "HTML response preview");
+    iframe.setAttribute("title", t("response.preview.htmlTitle"));
     iframe.style.cssText =
       "position:absolute;inset:0;width:100%;height:100%;border:none;background:#fff;";
     pane.appendChild(iframe);
@@ -2330,7 +2335,7 @@ export class ResponseViewer {
     bodyPane.innerHTML = "";
     const placeholder = this.#placeholder({
       icon: "⏳",
-      text: "Sending request…",
+      text: t("response.placeholder.sending"),
       iconClass: "res-spinner",
     });
 
@@ -2542,7 +2547,11 @@ export class ResponseViewer {
       ct.className = "res-headers-table res-headers-table--thirds";
       // Header row
       const hdr = ct.insertRow();
-      ["Name", "Attributes", "Value"].forEach((lbl) => {
+      [
+        t("response.cookies.name"),
+        t("response.cookies.attributes"),
+        t("response.cookies.value"),
+      ].forEach((lbl) => {
         const th = document.createElement("th");
         th.textContent = lbl;
         th.style.fontWeight = "700";
@@ -2573,7 +2582,7 @@ export class ResponseViewer {
       cookiesPane.appendChild(ct);
     } else {
       cookiesPane.appendChild(
-        this.#placeholder({ text: "No cookies were set by this response" }),
+        this.#placeholder({ text: t("response.cookies.empty") }),
       );
     }
   }
@@ -2596,7 +2605,7 @@ export class ResponseViewer {
       pane.appendChild(
         this.#placeholder({
           icon: "🕓",
-          text: "No history yet — send a request to record an entry",
+          text: t("response.placeholder.historyEmpty"),
         }),
       );
       return;
@@ -2714,10 +2723,10 @@ export class ResponseViewer {
   async #showTimelineContextMenu(entry, x, y) {
     const url = entry.requestUrl || entry.requestNode?.url || "";
     const items = [
-      { id: "restore", label: "Restore Into Editor" },
+      { id: "restore", label: t("menu.restoreEntry") },
       { type: "separator" },
-      { id: "delete", label: "Delete Entry" },
-      { id: "delete-all", label: "Delete All History" },
+      { id: "delete", label: t("menu.deleteEntry") },
+      { id: "delete-all", label: t("menu.deleteAllHistory") },
     ];
     const clickedId = await window.wurl.ui.contextMenu.show({ items, x, y });
     if (clickedId === "restore") {
@@ -2777,23 +2786,34 @@ export class ResponseViewer {
     if (!snapshot) {
       const ph = document.createElement("div");
       ph.className = "timeline-detail-empty";
-      ph.textContent = "Select an entry to see the request that was sent";
+      ph.textContent = t("response.timeline.selectEntry");
       container.appendChild(ph);
       return;
     }
 
     // Method — no copy
-    this.#appendDetailSection(container, "Method");
+    this.#appendDetailSection(container, t("response.timeline.method"));
     this.#appendDetailValue(container, snapshot.method ?? "GET");
 
     // URL — copy if present
     const url = (snapshot.url ?? "").trim();
-    this.#appendDetailSection(container, "URL", url || null);
-    this.#appendDetailValue(container, url || "(none)");
+    this.#appendDetailSection(
+      container,
+      t("response.timeline.url"),
+      url || null,
+    );
+    this.#appendDetailValue(
+      container,
+      url || t("response.timeline.emptyValue"),
+    );
 
     // Parameters (already bulk-edit format)
     const paramsBulk = (snapshot.params ?? "").trim();
-    this.#appendDetailSection(container, "Parameters", paramsBulk || null);
+    this.#appendDetailSection(
+      container,
+      t("response.timeline.parameters"),
+      paramsBulk || null,
+    );
     if (!paramsBulk) {
       this.#appendDetailNone(container);
     } else {
@@ -2802,7 +2822,11 @@ export class ResponseViewer {
 
     // Headers (already bulk-edit format)
     const headersBulk = (snapshot.headers ?? "").trim();
-    this.#appendDetailSection(container, "Headers", headersBulk || null);
+    this.#appendDetailSection(
+      container,
+      t("response.timeline.headers"),
+      headersBulk || null,
+    );
     if (!headersBulk) {
       this.#appendDetailNone(container);
     } else {
@@ -2811,7 +2835,7 @@ export class ResponseViewer {
 
     // Auth
     const authCopy = this.#buildAuthCopyText(snapshot);
-    this.#appendDetailSection(container, "Auth", authCopy);
+    this.#appendDetailSection(container, t("response.timeline.auth"), authCopy);
     this.#appendDetailAuth(container, snapshot);
   }
 
@@ -2834,7 +2858,7 @@ export class ResponseViewer {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "timeline-detail-copy-btn";
-      btn.title = `Copy ${label.toLowerCase()} to clipboard`;
+      btn.title = t("response.timeline.copyTitle", { label });
       btn.innerHTML = ResponseViewer.#SVG_COPY;
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -2862,7 +2886,7 @@ export class ResponseViewer {
   #appendDetailNone(parent) {
     const el = document.createElement("div");
     el.className = "timeline-detail-none";
-    el.textContent = "none";
+    el.textContent = t("response.timeline.none");
     parent.appendChild(el);
   }
 

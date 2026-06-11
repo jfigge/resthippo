@@ -36,6 +36,7 @@
 
 import { icon } from "./icons.js";
 import { escapeHtml } from "./utils/html.js";
+import { t } from "./i18n.js";
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -167,7 +168,7 @@ function _show({ level, message, title, actionLabel, onAction, duration }) {
     </div>
     <div class="toast-controls">
       ${actionHtml}
-      <button type="button" class="toast-close" data-action="dismiss" aria-label="Dismiss notification">
+      <button type="button" class="toast-close" data-action="dismiss" aria-label="${escapeHtml(t("notifications.dismiss"))}">
         ${icon("close", { size: 14 })}
       </button>
     </div>

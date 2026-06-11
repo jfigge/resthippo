@@ -1,6 +1,7 @@
 "use strict";
 
 import { deepClone } from "./utils/clone.js";
+import { applyCatalog, t } from "./i18n.js";
 
 const BUILT_IN_THEMES = [
   {
@@ -129,23 +130,30 @@ const BUILT_IN_THEMES = [
   },
 ];
 
-const VAR_LABELS = {
-  "--color-base": "Base",
-  "--color-mantle": "Mantle",
-  "--color-crust": "Crust",
-  "--color-surface-0": "Surface 0",
-  "--color-surface-1": "Surface 1",
-  "--color-surface-2": "Surface 2",
-  "--color-overlay-0": "Overlay 0",
-  "--color-overlay-1": "Overlay 1",
-  "--color-text": "Text",
-  "--color-subtext": "Subtext",
-  "--color-accent": "Accent",
-  "--color-accent-dim": "Accent Dim",
-  "--color-success": "Success",
-  "--color-warning": "Warning",
-  "--color-error": "Error",
-  "--color-info": "Info",
+// Descriptive colour-role labels — localized; the i18n key is resolved via t()
+// at render time (the catalog isn't loaded when this module is first evaluated).
+const VAR_LABEL_KEYS = {
+  "--color-base": "themeEditor.var.base",
+  "--color-mantle": "themeEditor.var.mantle",
+  "--color-crust": "themeEditor.var.crust",
+  "--color-surface-0": "themeEditor.var.surface0",
+  "--color-surface-1": "themeEditor.var.surface1",
+  "--color-surface-2": "themeEditor.var.surface2",
+  "--color-overlay-0": "themeEditor.var.overlay0",
+  "--color-overlay-1": "themeEditor.var.overlay1",
+  "--color-text": "themeEditor.var.text",
+  "--color-subtext": "themeEditor.var.subtext",
+  "--color-accent": "themeEditor.var.accent",
+  "--color-accent-dim": "themeEditor.var.accentDim",
+  "--color-success": "themeEditor.var.success",
+  "--color-warning": "themeEditor.var.warning",
+  "--color-error": "themeEditor.var.error",
+  "--color-info": "themeEditor.var.info",
+};
+
+// HTTP-method (and WS) swatches: protocol keywords shown verbatim in every
+// locale, so they carry the literal token rather than an i18n key.
+const METHOD_LABELS = {
   "--color-method-get": "GET",
   "--color-method-post": "POST",
   "--color-method-put": "PUT",
@@ -156,7 +164,16 @@ const VAR_LABELS = {
   "--color-method-ws": "WS",
 };
 
-const VAR_KEYS = Object.keys(VAR_LABELS);
+// Grid order: descriptive roles first, then the method swatches.
+const VAR_KEYS = [
+  ...Object.keys(VAR_LABEL_KEYS),
+  ...Object.keys(METHOD_LABELS),
+];
+
+/** Display label for a colour token — a verbatim method token or a localized role. */
+function varLabel(key) {
+  return METHOD_LABELS[key] ?? t(VAR_LABEL_KEYS[key]);
+}
 
 // Sensible per-key defaults for any token a theme's vars omit — e.g. a custom
 // theme saved before a new token (like --color-method-ws) was introduced. Falls
@@ -168,7 +185,48 @@ let _customThemes = [];
 let _selectedId = null;
 let _editingTheme = null;
 
-function init() {
+/**
+ * Localize the hand-authored HTML shell once, after the catalog is applied and
+ * before any theme renders. Mirrors app.js's localizeChrome(): the static
+ * theme-editor.html ships English defaults; this replaces them from the active
+ * catalog. Dynamic strings (button labels that toggle, colour-grid rows) are
+ * owned by their render functions via t().
+ */
+function localizeChrome() {
+  const setText = (sel, key) => {
+    const el = document.querySelector(sel);
+    if (el) el.textContent = t(key);
+  };
+  const setAttr = (sel, attr, key) => {
+    const el = document.querySelector(sel);
+    if (el) el.setAttribute(attr, t(key));
+  };
+
+  document.title = t("themeEditor.windowTitle");
+  setText(".sidebar-title", "themeEditor.sidebarTitle");
+  setText("#btn-import-theme", "themeEditor.import");
+  setAttr("#btn-import-theme", "title", "themeEditor.importTitle");
+  setText("#btn-new-theme", "themeEditor.newTheme");
+  setAttr("#theme-name", "placeholder", "themeEditor.namePlaceholder");
+  setText(".color-scheme-label span", "themeEditor.mode");
+  setText('#theme-scheme option[value="dark"]', "themeEditor.schemeDark");
+  setText('#theme-scheme option[value="light"]', "themeEditor.schemeLight");
+  setText("#btn-export", "themeEditor.export");
+  setText("#btn-clone", "themeEditor.clone");
+  setText("#btn-delete", "common.delete");
+  setText("#btn-apply", "themeEditor.apply");
+  setText("#btn-save", "common.save");
+  setText("#empty-state", "themeEditor.emptyState");
+}
+
+async function init() {
+  try {
+    applyCatalog(await window.themeEditor.i18n.load());
+  } catch (err) {
+    console.warn("[theme-editor] i18n catalog load failed:", err?.message);
+  }
+  localizeChrome();
+
   window.themeEditor.getManifest().then((manifest) => {
     _customThemes = manifest?.settings?.customThemes ?? [];
     renderThemeList();
@@ -239,7 +297,7 @@ function makeThemeItem(theme, isBuiltIn) {
 
   const badge = document.createElement("span");
   badge.className = "theme-badge";
-  badge.textContent = isBuiltIn ? "built-in" : "";
+  badge.textContent = isBuiltIn ? t("themeEditor.builtIn") : "";
 
   li.appendChild(swatch);
   li.appendChild(label);
@@ -267,7 +325,7 @@ function selectBuiltInTheme(id) {
   document.getElementById("theme-scheme").value = theme.colorScheme;
   document.getElementById("theme-scheme").disabled = true;
   document.getElementById("btn-save").disabled = true;
-  document.getElementById("btn-save").textContent = "Save";
+  document.getElementById("btn-save").textContent = t("common.save");
   document.getElementById("btn-delete").disabled = true;
   document.getElementById("btn-apply").disabled = false;
   document.getElementById("btn-clone").disabled = false;
@@ -291,7 +349,7 @@ function selectCustomTheme(id) {
   document.getElementById("theme-scheme").value = theme.colorScheme;
   document.getElementById("theme-scheme").disabled = false;
   document.getElementById("btn-save").disabled = false;
-  document.getElementById("btn-save").textContent = "Save";
+  document.getElementById("btn-save").textContent = t("common.save");
   document.getElementById("btn-delete").disabled = false;
   document.getElementById("btn-apply").disabled = false;
   document.getElementById("btn-clone").disabled = false;
@@ -317,7 +375,7 @@ function renderColorGrid(vars, readOnly) {
     row.className = "color-row";
 
     const label = document.createElement("label");
-    label.textContent = VAR_LABELS[key];
+    label.textContent = varLabel(key);
     label.title = key;
 
     const picker = document.createElement("input");
@@ -374,14 +432,15 @@ function previewThemeData(theme) {
 }
 
 function markDirty() {
-  document.getElementById("btn-save").textContent = "Save*";
+  // Localized "Save" + a universal unsaved-state marker.
+  document.getElementById("btn-save").textContent = t("common.save") + "*";
 }
 
 function createNewTheme() {
   const base = BUILT_IN_THEMES[0];
   const newTheme = {
     id: crypto.randomUUID(),
-    name: "New Theme",
+    name: t("themeEditor.newThemeName"),
     colorScheme: "dark",
     vars: { ...base.vars },
   };
@@ -401,7 +460,7 @@ function cloneSelected() {
 
   const clone = {
     id: crypto.randomUUID(),
-    name: source.name + " Copy",
+    name: t("themeEditor.cloneName", { name: source.name }),
     colorScheme: source.colorScheme,
     vars: { ...source.vars },
   };
@@ -423,7 +482,7 @@ async function saveSelected() {
   updateSelectedClass();
 
   await persistCustomThemes();
-  document.getElementById("btn-save").textContent = "Save";
+  document.getElementById("btn-save").textContent = t("common.save");
 }
 
 async function deleteSelected() {
@@ -450,7 +509,7 @@ async function applySelected() {
         _customThemes[idx] = deepClone(_editingTheme);
         renderThemeList();
         updateSelectedClass();
-        document.getElementById("btn-save").textContent = "Save";
+        document.getElementById("btn-save").textContent = t("common.save");
       }
     }
     await persistCustomThemes();
@@ -475,7 +534,7 @@ async function importTheme() {
   if (!data || typeof data.vars !== "object") return;
   const newTheme = {
     id: crypto.randomUUID(),
-    name: String(data.name ?? "Imported Theme"),
+    name: String(data.name ?? t("themeEditor.importedThemeName")),
     colorScheme: data.colorScheme === "light" ? "light" : "dark",
     vars: {},
   };
@@ -501,8 +560,9 @@ async function persistCustomThemes() {
   if (result && result.__wurlError === true) {
     console.error("[theme-editor] saveManifest failed:", result.message);
     window.alert(
-      `Could not save your themes: ${result.message || "unknown error"}\n\n` +
-        "Your changes have not been persisted.",
+      t("themeEditor.saveFailed", {
+        message: result.message || t("themeEditor.unknownError"),
+      }),
     );
     return false;
   }

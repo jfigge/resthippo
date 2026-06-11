@@ -47,6 +47,7 @@ import {
   parse as parseGraphql,
   print as printGraphql,
 } from "../vendor/graphql.js";
+import { t } from "../i18n.js";
 
 const MAX_FOLD_LINES = 5000;
 const PICKER_DEBOUNCE_MS = 150;
@@ -593,8 +594,8 @@ export class PillCodeEditor {
     const leadingItems = this.#readonly
       ? []
       : [
-          { id: "undo", label: "Undo", enabled: this.canUndo },
-          { id: "redo", label: "Redo", enabled: this.canRedo },
+          { id: "undo", label: t("menu.undo"), enabled: this.canUndo },
+          { id: "redo", label: t("menu.redo"), enabled: this.canRedo },
           { type: "separator" },
         ];
     // Editor-specific items appended AFTER the native Cut/Copy/Paste/Select All.
@@ -606,7 +607,7 @@ export class PillCodeEditor {
       // nothing well-formed to reformat.
       items.push({
         id: "prettify",
-        label: "Prettify",
+        label: t("menu.prettify"),
         enabled: this.#isValid(),
       });
       items.push({ type: "separator" });
@@ -615,14 +616,14 @@ export class PillCodeEditor {
       id: "wrap",
       type: "checkbox",
       checked: this.#wrap,
-      label: "Wrap",
+      label: t("menu.wrap"),
     });
     items.push({
       id: "lineNumbers",
       type: "checkbox",
       checked: this.#lineNumbers,
       enabled: ml,
-      label: "Line numbers",
+      label: t("menu.lineNumbers"),
     });
     // Code folding + syntax highlighting are meaningless for plain text (no
     // grammar), so they're hidden there (and folding is force-disabled).
@@ -632,14 +633,14 @@ export class PillCodeEditor {
         type: "checkbox",
         checked: this.#folding,
         enabled: ml,
-        label: "Code folding",
+        label: t("menu.codeFolding"),
       });
       items.push({
         id: "highlight",
         type: "checkbox",
         checked: this.#highlight,
         enabled: ml,
-        label: "Syntax highlighting",
+        label: t("menu.syntaxHighlighting"),
       });
     }
     const id = await show(e.clientX, e.clientY, items, { leadingItems });
@@ -1148,7 +1149,7 @@ export class PillCodeEditor {
     span.contentEditable = "false";
     span.dataset.function = name;
     span.dataset.fnArgs = JSON.stringify(rawArgs);
-    span.textContent = funcDef?.label ?? name;
+    span.textContent = funcDef?.labelKey ? t(funcDef.labelKey) : name;
     span.title = buildFunctionToken(name, rawArgs);
     span.className = "variable-pill function-pill";
     span.addEventListener("click", (e) => {
@@ -1317,7 +1318,10 @@ export class PillCodeEditor {
         scopes.push({ label: labels[source], variables: names });
     }
     if (folderNames.size)
-      scopes.push({ label: "Folders", variables: [...folderNames].sort() });
+      scopes.push({
+        label: t("vars.folders"),
+        variables: [...folderNames].sort(),
+      });
     return scopes;
   }
 

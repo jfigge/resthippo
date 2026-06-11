@@ -3,6 +3,7 @@
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
+import { t } from "../i18n.js";
 
 /**
  * ExportModal — theme-styled modal for picking an interchange format when
@@ -16,26 +17,29 @@ import { escapeHtml } from "../utils/html.js";
  *   ExportModal.openWorkspace((format) => …);
  */
 
+// `label` carries the format/version name verbatim (a proper noun, not
+// translated); `descKey` is resolved through t() at render time — never at
+// module load, since the catalog isn't ready yet.
 const FORMATS = [
   {
     value: "postman",
     label: "Postman v2.1",
-    desc: "Postman collection. Re-imports into Postman and wurl.",
+    descKey: "export.format.postmanDesc",
   },
   {
     value: "insomnia",
     label: "Insomnia v4",
-    desc: "Insomnia export. Re-imports into Insomnia and wurl.",
+    descKey: "export.format.insomniaDesc",
   },
   {
     value: "openapi",
     label: "OpenAPI 3",
-    desc: "OpenAPI 3.0 description of the requests (best-effort, lossy).",
+    descKey: "export.format.openapiDesc",
   },
   {
     value: "har",
     label: "HAR 1.2",
-    desc: "Recorded exchanges from the most recent run of each request.",
+    descKey: "export.format.harDesc",
   },
 ];
 
@@ -77,10 +81,10 @@ export class ExportModal {
 
   #build() {
     const workspace = this.#variant === "workspace";
-    const title = workspace ? "Export All Collections" : "Export";
+    const title = workspace ? t("export.titleWorkspace") : t("export.title");
     const intro = workspace
-      ? "Export every collection to a single interchange file (not the encrypted backup). Secrets — passwords, tokens and keys — are redacted."
-      : "Export this collection to an interchange file. Secrets — passwords, tokens and keys — are redacted.";
+      ? t("export.introWorkspace")
+      : t("export.introCollection");
 
     const el = document.createElement("div");
     el.className = "popup export-modal";
@@ -90,18 +94,18 @@ export class ExportModal {
     el.innerHTML = `
       <div class="popup-header">
         <span class="popup-title">${escapeHtml(title)}</span>
-        <button class="popup-close" aria-label="Close" title="Close">${icon("close", { size: 13 })}</button>
+        <button class="popup-close" aria-label="${escapeHtml(t("common.close"))}" title="${escapeHtml(t("common.close"))}">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body backup-body">
         <p class="backup-intro">${escapeHtml(intro)}</p>
-        <div class="backup-mode-group" role="radiogroup" aria-label="Export format">
+        <div class="backup-mode-group" role="radiogroup" aria-label="${escapeHtml(t("export.formatAria"))}">
           ${FORMATS.map((f, i) => this.#formatOption(f, i === 0)).join("")}
         </div>
         <div class="backup-error" role="alert" aria-live="polite"></div>
       </div>
       <div class="popup-footer">
-        <button class="btn popup-btn btn--secondary js-cancel">Cancel</button>
-        <button class="btn popup-btn btn--primary js-submit">Export</button>
+        <button class="btn popup-btn btn--secondary js-cancel">${escapeHtml(t("common.cancel"))}</button>
+        <button class="btn popup-btn btn--primary js-submit">${escapeHtml(t("export.submit"))}</button>
       </div>
     `;
     return el;
@@ -114,7 +118,7 @@ export class ExportModal {
           <input type="radio" name="export-format" value="${f.value}"${checked ? " checked" : ""} />
           <span class="backup-mode-text">
             <span class="backup-mode-label">${escapeHtml(f.label)}</span>
-            <span class="backup-mode-desc">${escapeHtml(f.desc)}</span>
+            <span class="backup-mode-desc">${escapeHtml(t(f.descKey))}</span>
           </span>
         </span>
       </label>

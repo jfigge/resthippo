@@ -38,6 +38,7 @@
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
+import { t, formatDate } from "../i18n.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
 import { normalizeVariables } from "./variable-shape.js";
 import { upsertCookie, deleteCookie, clearCookies } from "../data-store.js";
@@ -253,73 +254,73 @@ export class CollectionsPopup {
     el.className = "popup coll-popup";
     el.setAttribute("role", "dialog");
     el.setAttribute("aria-modal", "true");
-    el.setAttribute("aria-label", "Collections");
+    el.setAttribute("aria-label", t("collections.title"));
 
     el.innerHTML = `
       <div class="popup-header">
-        <span class="popup-title">Collections</span>
-        <button class="popup-close" aria-label="Close collections" title="Close">${icon("close", { size: 13 })}</button>
+        <span class="popup-title">${t("collections.title")}</span>
+        <button class="popup-close" aria-label="${t("collections.closeAria")}" title="${t("common.close")}">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body coll-popup-body">
         <div class="coll-sidebar">
           <div class="coll-sidebar-toolbar">
-            <button class="icon-btn coll-new-btn" title="Add collection" aria-label="Add collection">${ICON_ADD}</button>
+            <button class="icon-btn coll-new-btn" title="${t("collections.addCollection")}" aria-label="${t("collections.addCollection")}">${ICON_ADD}</button>
           </div>
-          <ul class="coll-list" role="listbox" aria-label="Collections"></ul>
+          <ul class="coll-list" role="listbox" aria-label="${t("collections.title")}"></ul>
         </div>
         <div class="coll-main">
-          <div class="coll-tabs" role="tablist" aria-label="Collection editor">
+          <div class="coll-tabs" role="tablist" aria-label="${t("collections.editorAria")}">
             <button class="coll-tab coll-tab--active" role="tab" aria-selected="true"
-                    data-panel="vars" type="button">Variables</button>
+                    data-panel="vars" type="button">${t("common.variables")}</button>
             <button class="coll-tab" role="tab" aria-selected="false"
-                    data-panel="cookies" type="button">Cookies</button>
+                    data-panel="cookies" type="button">${t("collections.tabCookies")}</button>
           </div>
           <div class="coll-panels">
             <section class="coll-panel coll-panel--vars"
-                     data-panel="vars" role="tabpanel" aria-label="Variables">
+                     data-panel="vars" role="tabpanel" aria-label="${t("common.variables")}">
               <div class="coll-vars-toolbar">
                 <label class="params-toolbar-toggle-label coll-bulk-label"
-                       title="Toggle between bulk text editor and key/value row editor">
+                       title="${t("kv.bulkEditorTitle")}">
                   <input type="checkbox" class="params-toolbar-toggle coll-bulk-toggle" checked>
-                  Bulk editor
+                  ${t("kv.bulkEditor")}
                 </label>
-                <button class="icon-btn params-toolbar-btn coll-add-btn" title="Add variable" aria-label="Add variable" style="display:none"><span class="icon">${icon("add", { size: 15 })}</span></button>
-                <span class="coll-vars-hint">One  name=value  per line · prefix  $  for secure</span>
+                <button class="icon-btn params-toolbar-btn coll-add-btn" title="${t("vars.add")}" aria-label="${t("vars.add")}" style="display:none"><span class="icon">${icon("add", { size: 15 })}</span></button>
+                <span class="coll-vars-hint">${t("kv.varsHint")}</span>
               </div>
               <textarea
                 class="body-text-editor coll-textarea"
                 spellcheck="false"
                 autocomplete="off"
-                placeholder="name=value&#10;baseUrl=https://example.com&#10;apiKey=abc123"
-                aria-label="Variables editor"
+                placeholder="${t("vars.bulkPlaceholder")}"
+                aria-label="${t("vars.editorAria")}"
               ></textarea>
               <div class="coll-kv-wrap" style="display:none">
                 <div class="coll-kv-header params-header-row">
-                  <span>Name</span><span class="params-col-value">Value</span><span></span><span></span>
+                  <span>${t("kv.name")}</span><span class="params-col-value">${t("kv.value")}</span><span></span><span></span>
                 </div>
-                <div class="coll-kv-list params-list" aria-label="Variables"></div>
+                <div class="coll-kv-list params-list" aria-label="${t("common.variables")}"></div>
               </div>
             </section>
             <section class="coll-panel coll-panel--cookies"
-                     data-panel="cookies" role="tabpanel" aria-label="Cookies" hidden>
+                     data-panel="cookies" role="tabpanel" aria-label="${t("collections.tabCookies")}" hidden>
               <div class="coll-cookies-toolbar">
                 <label class="params-toolbar-toggle-label cookies-send-label"
-                       title="Attach this collection's cookies to every request it sends">
+                       title="${t("collections.cookie.attach")}">
                   <input type="checkbox" class="params-toolbar-toggle cookies-send-toggle">
-                  Send cookies
+                  ${t("collections.cookie.send")}
                 </label>
-                <button class="icon-btn cookies-add-btn" title="Add cookie" aria-label="Add cookie">${ICON_ADD}</button>
+                <button class="icon-btn cookies-add-btn" title="${t("collections.cookie.add")}" aria-label="${t("collections.cookie.add")}">${ICON_ADD}</button>
                 <button class="cookies-clear-btn"
-                        title="Clear all — remove every cookie in this collection's jar"
-                        aria-label="Clear all cookies" type="button">Delete All</button>
+                        title="${t("collections.cookie.clearTitle")}"
+                        aria-label="${t("collections.cookie.clearAria")}" type="button">${t("kv.deleteAll")}</button>
               </div>
-              <ul class="cookies-list" aria-label="Stored cookies"></ul>
+              <ul class="cookies-list" aria-label="${t("collections.cookie.stored")}"></ul>
             </section>
           </div>
         </div>
       </div>
       <div class="popup-footer coll-popup-footer">
-        <button class="btn popup-btn btn--primary js-close">Close</button>
+        <button class="btn popup-btn btn--primary js-close">${t("common.close")}</button>
       </div>
     `;
 
@@ -438,7 +439,7 @@ export class CollectionsPopup {
       if (state?.mode === "rename" && state.id === collection.id) {
         ul.appendChild(
           this.#buildEditingItem({
-            placeholder: "Collection name…",
+            placeholder: t("collections.namePlaceholder"),
             defaultValue: collection.name,
             active: collection.id === this.#activeId,
           }),
@@ -452,7 +453,7 @@ export class CollectionsPopup {
     // created collection will naturally land. Escape removes it.
     if (state?.mode === "add") {
       const item = this.#buildEditingItem({
-        placeholder: "New Collection name…",
+        placeholder: t("collections.renamePlaceholder"),
       });
       ul.appendChild(item);
       // Bring the freshly-added row into view when the list overflows.
@@ -487,7 +488,7 @@ export class CollectionsPopup {
 
     const renameBtn = document.createElement("button");
     renameBtn.className = "coll-action-btn";
-    renameBtn.title = "Rename collection";
+    renameBtn.title = t("collections.rename");
     renameBtn.innerHTML = ICON_RENAME;
     renameBtn.setAttribute("aria-label", `Rename ${collection.name}`);
     renameBtn.addEventListener("click", () => this.#startRename(collection));
@@ -529,7 +530,7 @@ export class CollectionsPopup {
     input.value = defaultValue;
     input.autocomplete = "off";
     input.spellcheck = false;
-    input.setAttribute("aria-label", "Collection name");
+    input.setAttribute("aria-label", t("collections.nameAria"));
 
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
@@ -582,7 +583,7 @@ export class CollectionsPopup {
 
   #flagNameError(input) {
     input.classList.add("coll-name-input--error");
-    input.title = "A collection with this name already exists.";
+    input.title = t("collections.nameExists");
     clearTimeout(this.#nameErrorTimer);
     this.#nameErrorTimer = setTimeout(() => {
       input.classList.remove("coll-name-input--error");
@@ -651,8 +652,8 @@ export class CollectionsPopup {
 
   #confirmDelete(coll) {
     PopupManager.confirmDelete({
-      title: "Delete Collection?",
-      message: `Delete the collection "${coll.name}" and all its requests?`,
+      title: t("collections.delete.title"),
+      message: t("collections.delete.message", { name: coll.name }),
       onConfirm: () => this.#deleteCollection(coll),
     });
   }
@@ -777,7 +778,7 @@ export class CollectionsPopup {
     if (this.#rows.length === 0) {
       const empty = document.createElement("div");
       empty.className = "params-empty";
-      empty.textContent = "No variables — click  +  to add one.";
+      empty.textContent = t("collections.variablesEmpty");
       kvList.appendChild(empty);
       return;
     }
@@ -792,9 +793,9 @@ export class CollectionsPopup {
     const nameIn = document.createElement("input");
     nameIn.type = "text";
     nameIn.className = "params-input params-name";
-    nameIn.placeholder = "Name";
+    nameIn.placeholder = t("kv.name");
     nameIn.value = row.name;
-    nameIn.setAttribute("aria-label", "Variable name");
+    nameIn.setAttribute("aria-label", t("vars.name"));
     nameIn.setAttribute("autocomplete", "off");
     nameIn.addEventListener("input", () => {
       row.name = nameIn.value;
@@ -813,9 +814,9 @@ export class CollectionsPopup {
     const valIn = document.createElement("input");
     valIn.type = "text";
     valIn.className = "params-input params-value";
-    valIn.placeholder = "Value";
+    valIn.placeholder = t("kv.value");
     valIn.value = row.value;
-    valIn.setAttribute("aria-label", "Variable value");
+    valIn.setAttribute("aria-label", t("vars.value"));
     valIn.addEventListener("input", () => {
       row.value = valIn.value;
       this.#saveFromRows();
@@ -887,8 +888,8 @@ export class CollectionsPopup {
 
     const del = document.createElement("button");
     del.className = "icon-btn params-delete-btn";
-    del.title = "Delete variable";
-    del.setAttribute("aria-label", "Delete variable");
+    del.title = t("vars.delete");
+    del.setAttribute("aria-label", t("vars.delete"));
     wireDeleteConfirm(del, () => {
       this.#rows = this.#rows.filter((r) => r.id !== row.id);
       this.#renderRows();
@@ -993,7 +994,7 @@ export class CollectionsPopup {
 
     const addBtn = this.#el.querySelector(".cookies-add-btn");
     if (!this.#selectedId) {
-      list.innerHTML = `<li class="cookies-empty">Select a collection to manage its cookies.</li>`;
+      list.innerHTML = `<li class="cookies-empty">${escapeHtml(t("cookies.selectCollection"))}</li>`;
       clearBtn.disabled = true;
       if (addBtn) addBtn.disabled = true;
       return;
@@ -1007,7 +1008,7 @@ export class CollectionsPopup {
     }
 
     if (this.#cookies.length === 0 && !this.#addingCookie) {
-      list.innerHTML = `<li class="cookies-empty">No cookies stored for this collection.</li>`;
+      list.innerHTML = `<li class="cookies-empty">${escapeHtml(t("cookies.empty"))}</li>`;
       return;
     }
 
@@ -1066,8 +1067,8 @@ export class CollectionsPopup {
 
     const editBtn = document.createElement("button");
     editBtn.className = "icon-btn cookies-edit";
-    editBtn.title = "Edit cookie";
-    editBtn.setAttribute("aria-label", "Edit cookie");
+    editBtn.title = t("collections.cookie.edit");
+    editBtn.setAttribute("aria-label", t("collections.cookie.edit"));
     editBtn.innerHTML = ICON_EDIT; // static developer markup (SVG)
     editBtn.addEventListener("click", () => {
       this.#editingCookieIdent = this.#identOf(cookie);
@@ -1076,8 +1077,8 @@ export class CollectionsPopup {
 
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "icon-btn params-delete-btn cookies-delete";
-    deleteBtn.title = "Delete cookie";
-    deleteBtn.setAttribute("aria-label", "Delete cookie");
+    deleteBtn.title = t("collections.cookie.delete");
+    deleteBtn.setAttribute("aria-label", t("collections.cookie.delete"));
     wireDeleteConfirm(deleteBtn, () => this.#deleteCookie(cookie));
 
     actions.append(editBtn, deleteBtn);
@@ -1130,27 +1131,27 @@ export class CollectionsPopup {
     li.innerHTML = `
       <div class="cookies-edit-grid">
         <label class="cookies-field">
-          <span>Name</span>
+          <span>${t("kv.name")}</span>
           <input type="text" class="cookies-in-name" autocomplete="off" spellcheck="false" value="${escapeHtml(cookie.name)}">
         </label>
         <label class="cookies-field">
-          <span>Value</span>
+          <span>${t("kv.value")}</span>
           <input type="text" class="cookies-in-value" autocomplete="off" spellcheck="false" value="${escapeHtml(cookie.value)}">
         </label>
         <label class="cookies-field">
-          <span>Domain</span>
+          <span>${t("collections.cookie.domain")}</span>
           <input type="text" class="cookies-in-domain" autocomplete="off" spellcheck="false" value="${escapeHtml(cookie.domain)}">
         </label>
         <label class="cookies-field">
-          <span>Path</span>
+          <span>${t("collections.cookie.path")}</span>
           <input type="text" class="cookies-in-path" autocomplete="off" spellcheck="false" value="${escapeHtml(cookie.path)}">
         </label>
         <label class="cookies-field">
-          <span>Expires</span>
+          <span>${t("collections.cookie.expires")}</span>
           <input type="datetime-local" class="cookies-in-expires" value="${escapeHtml(this.#toDatetimeLocal(cookie.expires))}">
         </label>
         <label class="cookies-field">
-          <span>SameSite</span>
+          <span>${t("collections.cookie.sameSite")}</span>
           <select class="cookies-in-samesite">${sameSiteOpts}</select>
         </label>
         <label class="cookies-checkbox">
@@ -1161,8 +1162,8 @@ export class CollectionsPopup {
         </label>
       </div>
       <div class="cookies-edit-actions">
-        <button class="btn popup-btn btn--secondary cookies-edit-cancel">Cancel</button>
-        <button class="btn popup-btn btn--primary cookies-edit-save">Save</button>
+        <button class="btn popup-btn btn--secondary cookies-edit-cancel">${t("common.cancel")}</button>
+        <button class="btn popup-btn btn--primary cookies-edit-save">${t("common.save")}</button>
       </div>
     `;
 
@@ -1239,9 +1240,9 @@ export class CollectionsPopup {
 
   #confirmClearCookies() {
     PopupManager.confirm({
-      title: "Clear All Cookies?",
-      message: `Remove every cookie stored for this collection? Subsequent requests will send no cookies until new ones are captured. This cannot be undone.`,
-      confirmLabel: "Clear All",
+      title: t("cookies.clearTitle"),
+      message: t("cookies.clearMessage"),
+      confirmLabel: t("cookies.clearConfirm"),
       confirmClass: "btn--danger",
       onConfirm: async () => {
         // Failure surfaces a toast inside clearCookies(); bail without reloading.
@@ -1268,10 +1269,10 @@ export class CollectionsPopup {
 
   /** Human-readable expiry, or "Session" for session cookies. */
   #formatExpiry(expires) {
-    if (expires == null) return "Session";
+    if (expires == null) return t("cookies.session");
     const d = new Date(expires);
-    if (Number.isNaN(d.getTime())) return "Session";
-    return d.toLocaleString();
+    if (Number.isNaN(d.getTime())) return t("cookies.session");
+    return formatDate(d);
   }
 
   /** Epoch ms → value for a <input type="datetime-local"> (local time). */

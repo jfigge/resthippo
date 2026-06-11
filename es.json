@@ -1,0 +1,162 @@
+{
+  "_meta": {
+    "locale": "es",
+    "name": "Español",
+    "note": "Sample / proof-of-concept locale. Intentionally partial: keys absent here (e.g. the Proxy and Retries settings panels) fall back to the English catalog, demonstrating the fallback path."
+  },
+
+  "common": {
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "ok": "Aceptar",
+    "close": "Cerrar",
+    "areYouSure": "¿Estás seguro?",
+    "info": "Información"
+  },
+
+  "header": {
+    "appHeaderAria": "Encabezado de la aplicación",
+    "subtitle": "Cliente de API REST",
+    "actionsAria": "Acciones de la aplicación",
+    "environmentTitle": "Entorno",
+    "environmentAria": "Seleccionar entorno",
+    "layoutAria": "Cambiar disposición",
+    "settingsTitle": "Ajustes",
+    "settingsAria": "Abrir ajustes",
+    "collections": "Colecciones",
+    "collectionsAria": "Abrir colecciones",
+    "mainAria": "Espacio de trabajo principal",
+    "requestPanelAria": "Editor de solicitudes",
+    "responsePanelAria": "Visor de respuestas",
+    "requestPanelTitle": "Solicitud",
+    "responsePanelTitle": "Respuesta",
+    "resizeTitle": "Arrastra para redimensionar"
+  },
+
+  "notifications": {
+    "dismiss": "Descartar notificación",
+    "storageErrorTitle": "Error de almacenamiento",
+    "actionFailed": "{label} falló.",
+    "actionFailedDetail": "{label} falló: {message}"
+  },
+
+  "dialog": {
+    "discard": {
+      "ariaLabel": "Confirmar descartar cambios",
+      "title": "¿Descartar cambios?",
+      "body": "Tienes cambios sin guardar. ¿Seguro que quieres descartarlos?",
+      "keep": "Seguir editando",
+      "discard": "Descartar"
+    },
+    "deleteNote": "Haz una copia de seguridad antes por si necesitas restaurarlo — de lo contrario, no se puede deshacer.",
+    "unresolvedVars": {
+      "ariaLabel": "Variables sin resolver",
+      "title": "Variables sin resolver",
+      "desc": "No se pudieron resolver uno o más marcadores de variable de esta solicitud. Revisa los valores antes de continuar.",
+      "proceed": "Enviar de todos modos"
+    }
+  },
+
+  "layout": {
+    "menuAria": "Opciones de disposición",
+    "option": {
+      "1": "Lado a lado",
+      "2": "Izquierda + apilado",
+      "3": "Arriba + inferior completo",
+      "4": "Todo apilado"
+    }
+  },
+
+  "env": {
+    "global": "Global"
+  },
+
+  "settings": {
+    "title": "Ajustes",
+    "close": "Cerrar",
+    "closeAria": "Cerrar ajustes",
+    "navAria": "Secciones de ajustes",
+    "nav": {
+      "appearance": "Apariencia",
+      "request": "Solicitud",
+      "proxy": "Proxy",
+      "retries": "Reintentos",
+      "history": "Historial"
+    },
+    "appearance": {
+      "theme": "Tema",
+      "themeDark": "Oscuro",
+      "themeLight": "Claro",
+      "themeCustom": "Personalizado",
+      "fontSize": "Tamaño de fuente del editor",
+      "fontFamily": "Fuente de la interfaz",
+      "fontFamilySystem": "Predeterminada del sistema",
+      "language": "Idioma",
+      "languageSystem": "Predeterminado del sistema",
+      "hideHeaders": "Ocultar encabezados",
+      "useMethodIcons": "Usar iconos de método",
+      "useMethodIconsTitle": "Mostrar un icono para cada método HTTP en lugar de su nombre",
+      "showRecents": "Mostrar pestaña de usados recientemente",
+      "showRecentsTitle": "Mostrar una pestaña de Recientes con las solicitudes usadas recientemente en la barra lateral",
+      "showUrlPreview": "Mostrar vista previa de URL",
+      "showUrlPreviewTitle": "Mostrar la barra de vista previa de la URL resuelta sobre el editor de parámetros",
+      "removeHeadersOnTitle": "Cuando se muestran los encabezados, el icono de ajustes se mueve a la esquina superior derecha",
+      "removeHeadersOffTitle": "Cuando se ocultan los encabezados, el icono de ajustes se mueve a la esquina inferior izquierda"
+    },
+    "history": {
+      "timelineEntries": "Entradas de la cronología"
+    }
+  },
+
+  "request": {
+    "tab": {
+      "params": "Parámetros",
+      "headers": "Encabezados",
+      "body": "Cuerpo",
+      "message": "Mensaje",
+      "auth": "Autenticación",
+      "captures": "Capturas",
+      "notes": "Notas"
+    }
+  },
+
+  "response": {
+    "tab": {
+      "body": "Cuerpo",
+      "bodyMenu": "Cuerpo…",
+      "bodyMenuTitle": "Clic secundario para ver opciones",
+      "preview": "Vista previa",
+      "headers": "Encabezados",
+      "cookies": "Cookies",
+      "console": "Consola",
+      "timeline": "Cronología"
+    }
+  },
+
+  "tree": {
+    "menu": {
+      "favorite": "Favorito",
+      "unfavorite": "Quitar de favoritos",
+      "addRequest": "Añadir solicitud",
+      "addWsRequest": "Añadir solicitud WebSocket",
+      "addFolder": "Añadir carpeta",
+      "rename": "Renombrar",
+      "duplicate": "Duplicar",
+      "export": "Exportar…",
+      "variables": "Variables",
+      "generateCurl": "Generar cURL",
+      "clearHistory": "Borrar historial de ejecución",
+      "delete": "Eliminar",
+      "confirm": "¿Confirmar?"
+    }
+  },
+
+  "cookies": {
+    "session": "Sesión",
+    "count": {
+      "one": "{count} cookie",
+      "other": "{count} cookies"
+    }
+  }
+}

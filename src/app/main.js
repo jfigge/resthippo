@@ -24,6 +24,7 @@ const { URL } = require("url");
 
 const { Stores } = require("./store/stores");
 const io = require("./store/io");
+const { loadCatalog, label: i18nLabel } = require("./i18n");
 const { isBinaryContentType, looksBinary } = require("./http-content-type");
 const aws4 = require("aws4");
 const {
@@ -155,6 +156,32 @@ function safeCallWrite(channel, fn) {
   }
 }
 
+/**
+ * Resolve the active catalog (persisted preference → OS locale → English) and
+ * return a label getter `m(key, fallback)` for the strings the main process
+ * renders itself — the native application menu and OS dialogs, which can't reach
+ * the renderer's t(). Re-read per call so a locale change without a main-process
+ * restart is reflected the next time a menu or dialog is built.
+ * @returns {(key: string, fallback: string) => string}
+ */
+function activeLabels() {
+  const cat = loadCatalog({
+    requested: safeCall(
+      "i18n:labels",
+      () => getStores().collectionStore().getManifest()?.settings?.locale,
+    ),
+    systemLocale: app.getLocale(),
+  });
+  return (key, fallback) => i18nLabel(cat, key, fallback);
+}
+
+/** Fill {name} placeholders in a resolved label (main-side label() has no interp). */
+function fmtLabel(str, params) {
+  return String(str).replace(/\{(\w+)\}/g, (m, k) =>
+    Object.prototype.hasOwnProperty.call(params, k) ? String(params[k]) : m,
+  );
+}
+
 // ── Choosing safeCall vs safeCallWrite ──────────────────────────────────────
 // Reads and best-effort writes use safeCall (quiet: log + look-alike fallback).
 // Authoritative writes — those persisting user-authored data the user expects to
@@ -183,6 +210,26 @@ function safeCallWrite(channel, fn) {
     safeCallWrite("store:manifest:save", () => {
       getStores().collectionStore().saveManifest(data);
     }),
+  );
+
+  // ── i18n catalog ────────────────────────────────────────────────────────────
+  // Resolve the active locale (persisted preference → OS locale → English) and
+  // return its bundled catalog plus the English fallback. The renderer awaits
+  // this once at startup, before any component renders. Lives here because it
+  // reads both the manifest settings and the on-disk catalogs — main-process
+  // concerns the sandboxed renderer cannot reach.
+  ipcMain.handle("i18n:load", () =>
+    safeCall(
+      "i18n:load",
+      () => {
+        const manifest = getStores().collectionStore().getManifest();
+        return loadCatalog({
+          requested: manifest?.settings?.locale,
+          systemLocale: app.getLocale(),
+        });
+      },
+      loadCatalog({ requested: "system", systemLocale: "en" }),
+    ),
   );
 
   // Remove a collection's backing directory (requests, history, responses,
@@ -1564,7 +1611,8 @@ function safeCallWrite(channel, fn) {
         const popup = new BrowserWindow({
           width: 860,
           height: 720,
-          title: title || "OAuth Authorization",
+          title:
+            title || activeLabels()("dialog.oauthTitle", "OAuth Authorization"),
           parent: _mainWin || undefined,
           modal: false,
           show: false,
@@ -1785,16 +1833,30 @@ function safeCallWrite(channel, fn) {
           }
         };
 
+        // Native clipboard labels follow the app's selected locale (not just the
+        // OS): resolve the active catalog (persisted preference → OS locale →
+        // English) and label the roles from it. Re-read per open so a locale
+        // change without a main-process restart is reflected. extraItems /
+        // leadingItems arrive already translated from the renderer.
+        const cat = loadCatalog({
+          requested: safeCall(
+            "ui:context-menu:edit:locale",
+            () => getStores().collectionStore().getManifest()?.settings?.locale,
+          ),
+          systemLocale: app.getLocale(),
+        });
+        const m = (key, fallback) => i18nLabel(cat, key, fallback);
+
         // opts.leadingItems (custom) come first, then the native edit roles, then
         // any extraItems (e.g. the code editor's view toggles).
         const template = [];
         pushCustom(opts?.leadingItems);
         template.push(
-          { label: "Cut", role: "cut" },
-          { label: "Copy", role: "copy" },
-          { label: "Paste", role: "paste" },
+          { label: m("menu.cut", "Cut"), role: "cut" },
+          { label: m("menu.copy", "Copy"), role: "copy" },
+          { label: m("menu.paste", "Paste"), role: "paste" },
           { type: "separator" },
-          { label: "Select All", role: "selectAll" },
+          { label: m("menu.selectAll", "Select All"), role: "selectAll" },
         );
         pushCustom(extraItems);
 
@@ -2436,6 +2498,12 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
     win.loadFile(path.join(__dirname, "..", "web", "index.html"));
   }
 
+  // Re-localize the native application menu on every load. The renderer reloads
+  // the window when the language setting changes (app.js → location.reload), so
+  // rebuilding here re-reads the persisted locale and keeps the menu in step
+  // with the renderer's language without a process restart.
+  win.webContents.on("did-finish-load", () => buildMenu());
+
   // Disable Chromium's built-in visual zoom (pinch / ctrl+wheel) so the app
   // can intercept those gestures and adjust the settings font-size instead.
   // Level limits (1,1) means the page is always at 100% visual zoom.
@@ -2508,9 +2576,15 @@ ipcMain.handle(
 );
 
 ipcMain.handle("import:file:open", async () => {
+  const m = activeLabels();
   const result = await dialog.showOpenDialog(_mainWin ?? undefined, {
-    title: "Import Collection",
-    filters: [{ name: "API Collections", extensions: ["json", "yaml", "yml"] }],
+    title: m("dialog.importCollectionTitle", "Import Collection"),
+    filters: [
+      {
+        name: m("dialog.apiCollectionsFilter", "API Collections"),
+        extensions: ["json", "yaml", "yml"],
+      },
+    ],
     properties: ["openFile"],
   });
   if (result.canceled || result.filePaths.length === 0) return null;
@@ -2538,12 +2612,18 @@ function _backupWin() {
 }
 
 /** Success-dialog detail line describing what was done with secrets. */
-function _exportDetail(mode) {
+function _exportDetail(m, mode) {
   if (mode === "password")
-    return "Secrets are included and encrypted with your password.";
+    return m(
+      "dialog.exportDetailPassword",
+      "Secrets are included and encrypted with your password.",
+    );
   if (mode === "machine")
-    return "Secrets are included and encrypted to this machine.";
-  return "Secrets were removed from this backup.";
+    return m(
+      "dialog.exportDetailMachine",
+      "Secrets are included and encrypted to this machine.",
+    );
+  return m("dialog.exportDetailNone", "Secrets were removed from this backup.");
 }
 
 /**
@@ -2555,11 +2635,17 @@ function _exportDetail(mode) {
  */
 ipcMain.handle("backup:export", async (_event, { mode, password } = {}) => {
   const win = _backupWin();
+  const m = activeLabels();
 
   const save = await dialog.showSaveDialog(win, {
-    title: "Create Backup",
+    title: m("dialog.createBackupTitle", "Create Backup"),
     defaultPath: `wurl-backup-${_backupDateStamp()}.json`,
-    filters: [{ name: "wurl Backup", extensions: ["json"] }],
+    filters: [
+      {
+        name: m("dialog.wurlBackupFilter", "wurl Backup"),
+        extensions: ["json"],
+      },
+    ],
   });
   if (save.canceled || !save.filePath) return { ok: false, canceled: true };
 
@@ -2573,10 +2659,10 @@ ipcMain.handle("backup:export", async (_event, { mode, password } = {}) => {
     await dialog.showMessageBox(win, {
       type: "info",
       icon: appIcon,
-      buttons: ["OK"],
-      title: "Backup Created",
-      message: "Backup created successfully.",
-      detail: _exportDetail(mode),
+      buttons: [m("common.ok", "OK")],
+      title: m("dialog.backupCreatedTitle", "Backup Created"),
+      message: m("dialog.backupCreatedMsg", "Backup created successfully."),
+      detail: _exportDetail(m, mode),
     });
     return { ok: true };
   } catch (err) {
@@ -2584,9 +2670,12 @@ ipcMain.handle("backup:export", async (_event, { mode, password } = {}) => {
     await dialog.showMessageBox(win, {
       type: "error",
       icon: appIcon,
-      buttons: ["OK"],
-      title: "Create Backup Failed",
-      message: "Could not create the backup.",
+      buttons: [m("common.ok", "OK")],
+      title: m("dialog.createBackupFailedTitle", "Create Backup Failed"),
+      message: m(
+        "dialog.createBackupFailedMsg",
+        "Could not create the backup.",
+      ),
       detail: err.message,
     });
     return { ok: false, error: err.message };
@@ -2603,10 +2692,16 @@ ipcMain.handle("backup:export", async (_event, { mode, password } = {}) => {
  */
 ipcMain.handle("backup:prepare", async () => {
   const win = _backupWin();
+  const m = activeLabels();
 
   const open = await dialog.showOpenDialog(win, {
-    title: "Restore Backup",
-    filters: [{ name: "wurl Backup", extensions: ["json"] }],
+    title: m("dialog.restoreBackupTitle", "Restore Backup"),
+    filters: [
+      {
+        name: m("dialog.wurlBackupFilter", "wurl Backup"),
+        extensions: ["json"],
+      },
+    ],
     properties: ["openFile"],
   });
   if (open.canceled || open.filePaths.length === 0)
@@ -2619,14 +2714,20 @@ ipcMain.handle("backup:prepare", async () => {
     if (!envelope || envelope.kind !== "wurl-backup") {
       return {
         ok: false,
-        error: "The selected file is not a valid wurl backup.",
+        error: m(
+          "dialog.invalidBackup",
+          "The selected file is not a valid wurl backup.",
+        ),
       };
     }
     const secretsMode =
       envelope.secretsMode ?? (envelope.secretsIncluded ? "machine" : "none");
     return { ok: true, filePath, secretsMode };
   } catch {
-    return { ok: false, error: "Could not read the backup file." };
+    return {
+      ok: false,
+      error: m("dialog.readBackupFailed", "Could not read the backup file."),
+    };
   }
 });
 
@@ -2643,13 +2744,17 @@ ipcMain.handle(
   "backup:import",
   async (_event, { filePath, mode, password } = {}) => {
     const win = _backupWin();
+    const m = activeLabels();
 
     let envelope;
     try {
       const raw = await fs.promises.readFile(filePath, "utf-8");
       envelope = JSON.parse(raw);
     } catch {
-      return { ok: false, error: "Could not read the backup file." };
+      return {
+        ok: false,
+        error: m("dialog.readBackupFailed", "Could not read the backup file."),
+      };
     }
 
     try {
@@ -2664,10 +2769,16 @@ ipcMain.handle(
       await dialog.showMessageBox(win, {
         type: "info",
         icon: appIcon,
-        buttons: ["OK"],
-        title: "Backup Restored",
-        message: "Backup restored successfully.",
-        detail: `Restored ${result.collections} collection(s) and ${result.requests} request(s).`,
+        buttons: [m("common.ok", "OK")],
+        title: m("dialog.backupRestoredTitle", "Backup Restored"),
+        message: m("dialog.backupRestoredMsg", "Backup restored successfully."),
+        detail: fmtLabel(
+          m(
+            "dialog.backupRestoredDetail",
+            "Restored {collections} collection(s) and {requests} request(s).",
+          ),
+          { collections: result.collections, requests: result.requests },
+        ),
       });
       return { ok: true };
     } catch (err) {
@@ -2680,14 +2791,20 @@ ipcMain.handle(
       console.error("[main] backup import error:", err.message);
       const detail =
         err.code === "INVALID_BACKUP"
-          ? "The selected file is not a valid wurl backup."
+          ? m(
+              "dialog.invalidBackup",
+              "The selected file is not a valid wurl backup.",
+            )
           : err.message;
       await dialog.showMessageBox(win, {
         type: "error",
         icon: appIcon,
-        buttons: ["OK"],
-        title: "Restore Backup Failed",
-        message: "Could not restore the backup.",
+        buttons: [m("common.ok", "OK")],
+        title: m("dialog.restoreBackupFailedTitle", "Restore Backup Failed"),
+        message: m(
+          "dialog.restoreBackupFailedMsg",
+          "Could not restore the backup.",
+        ),
         detail,
       });
       return { ok: false, error: detail };
@@ -2751,7 +2868,7 @@ function showAboutDialog() {
     maximizable: false,
     fullscreenable: false,
     autoHideMenuBar: true,
-    title: "About wurl",
+    title: activeLabels()("menu.about", "About wurl"),
     icon: appIcon,
     backgroundColor: "#1e1e2e",
     parent: _mainWin ?? undefined,
@@ -2789,7 +2906,7 @@ function showThemeEditor() {
     minHeight: 480,
     resizable: true,
     autoHideMenuBar: true,
-    title: "Theme Editor — wurl",
+    title: activeLabels()("themeEditor.windowTitle", "Theme Editor — wurl"),
     icon: appIcon,
     backgroundColor: "#1e1e2e",
     webPreferences: {
@@ -2831,7 +2948,7 @@ function showDocsWindow() {
     minHeight: 480,
     resizable: true,
     autoHideMenuBar: true,
-    title: "wurl User Guide",
+    title: activeLabels()("menu.userGuide", "wurl User Guide"),
     icon: appIcon,
     backgroundColor: "#1e1e2e",
     webPreferences: {
@@ -2881,13 +2998,19 @@ function showDocsWindow() {
   });
 
   ipcMain.handle("theme:export", async (_e, themeData) => {
+    const m = activeLabels();
     const safe = (themeData.name ?? "theme").replace(/[^a-z0-9_\- ]/gi, "_");
     const { canceled, filePath } = await dialog.showSaveDialog(
       _themeEditorWin ?? _mainWin ?? undefined,
       {
-        title: "Export Theme",
+        title: m("dialog.exportThemeTitle", "Export Theme"),
         defaultPath: `${safe}.wurl-theme.json`,
-        filters: [{ name: "wurl Theme", extensions: ["json"] }],
+        filters: [
+          {
+            name: m("dialog.wurlThemeFilter", "wurl Theme"),
+            extensions: ["json"],
+          },
+        ],
       },
     );
     if (canceled || !filePath) return false;
@@ -2899,11 +3022,17 @@ function showDocsWindow() {
   });
 
   ipcMain.handle("theme:import", async () => {
+    const m = activeLabels();
     const { canceled, filePaths } = await dialog.showOpenDialog(
       _themeEditorWin ?? _mainWin ?? undefined,
       {
-        title: "Import Theme",
-        filters: [{ name: "wurl Theme", extensions: ["json"] }],
+        title: m("dialog.importThemeTitle", "Import Theme"),
+        filters: [
+          {
+            name: m("dialog.wurlThemeFilter", "wurl Theme"),
+            extensions: ["json"],
+          },
+        ],
         properties: ["openFile"],
       },
     );
@@ -2918,13 +3047,17 @@ function showDocsWindow() {
 
 // ─── Application menu ─────────────────────────────────────────────────────────
 function buildMenu() {
+  const m = activeLabels();
   const template = [
     {
-      label: "wurl",
+      label: "wurl", // app name — proper noun, shown verbatim in every locale
       // keep wurl app menu first on macOS
       submenu: [
-        { label: "About wurl", click: showAboutDialog },
-        { label: "Theme Editor…", click: showThemeEditor },
+        { label: m("menu.about", "About wurl"), click: showAboutDialog },
+        {
+          label: m("menu.themeEditor", "Theme Editor…"),
+          click: showThemeEditor,
+        },
         { type: "separator" },
         { role: "services" },
         { type: "separator" },
@@ -2936,10 +3069,10 @@ function buildMenu() {
       ],
     },
     {
-      label: "File",
+      label: m("menu.file", "File"),
       submenu: [
         {
-          label: "Import Collection…",
+          label: m("menu.importCollection", "Import Collection…"),
           accelerator: "CmdOrCtrl+Shift+I",
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
@@ -2947,7 +3080,7 @@ function buildMenu() {
           },
         },
         {
-          label: "Export All Collections…",
+          label: m("menu.exportAll", "Export All Collections…"),
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
               _mainWin.webContents.send("menu:export-all");
@@ -2955,14 +3088,14 @@ function buildMenu() {
         },
         { type: "separator" },
         {
-          label: "Create Backup…",
+          label: m("menu.createBackup", "Create Backup…"),
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
               _mainWin.webContents.send("menu:backup-export");
           },
         },
         {
-          label: "Restore Backup…",
+          label: m("menu.restoreBackup", "Restore Backup…"),
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
               _mainWin.webContents.send("menu:backup-import");
@@ -2971,13 +3104,13 @@ function buildMenu() {
       ],
     },
     {
-      label: "Edit",
+      label: m("menu.edit", "Edit"),
       submenu: [
         // Routed to the renderer (not native roles) so the multi-line code
         // editor's own snapshot undo/redo can take over when it's focused; the
         // renderer falls back to document.execCommand for plain inputs.
         {
-          label: "Undo",
+          label: m("menu.undo", "Undo"),
           accelerator: "CmdOrCtrl+Z",
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
@@ -2985,7 +3118,7 @@ function buildMenu() {
           },
         },
         {
-          label: "Redo",
+          label: m("menu.redo", "Redo"),
           accelerator: "Shift+CmdOrCtrl+Z",
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
@@ -3000,7 +3133,7 @@ function buildMenu() {
       ],
     },
     {
-      label: "View",
+      label: m("menu.view", "View"),
       submenu: [
         { role: "reload" },
         { role: "forceReload" },
@@ -3010,21 +3143,21 @@ function buildMenu() {
         // the settings fontSize is adjusted (and persisted) instead of performing
         // a Chromium visual zoom that bypasses the app theming system.
         {
-          label: "Increase Font Size",
+          label: m("menu.fontIncrease", "Increase Font Size"),
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
               _mainWin.webContents.send("wurl:ui-font-change", "in");
           },
         },
         {
-          label: "Decrease Font Size",
+          label: m("menu.fontDecrease", "Decrease Font Size"),
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
               _mainWin.webContents.send("wurl:ui-font-change", "out");
           },
         },
         {
-          label: "Reset Font Size",
+          label: m("menu.fontReset", "Reset Font Size"),
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
               _mainWin.webContents.send("wurl:ui-font-change", "reset");
@@ -3035,16 +3168,16 @@ function buildMenu() {
       ],
     },
     {
-      label: "Window",
+      label: m("menu.window", "Window"),
       submenu: [{ role: "minimize" }, { role: "zoom" }, { role: "close" }],
     },
     {
-      label: "Help",
+      label: m("menu.help", "Help"),
       // role: "help" lets macOS group this as the standard Help menu.
       role: "help",
       submenu: [
         {
-          label: "wurl User Guide",
+          label: m("menu.userGuide", "wurl User Guide"),
           accelerator: "CmdOrCtrl+/",
           click: showDocsWindow,
         },

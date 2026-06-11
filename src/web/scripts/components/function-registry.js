@@ -1,19 +1,24 @@
 "use strict";
 
-/** @type {Record<string, { label: string, category: string, params: Array<{name: string, label: string, type: string, default: string, options?: string[], placeholder?: string}> }>} */
+// Display strings are stored as i18n keys (`labelKey`), never resolved here:
+// this is a module-level constant, and t()'s catalog isn't loaded at module-eval
+// time. Consumers (pill picker / editor) resolve `t(labelKey)` at render time.
+// `options`/`default` are stored *values* (matched at execution), not display
+// text, so they stay literal.
+/** @type {Record<string, { labelKey: string, category: string, params: Array<{name: string, labelKey: string, type: string, default: string, options?: string[], placeholder?: string}> }>} */
 export const registry = {
   uuid: {
-    label: "UUID v4",
+    labelKey: "func.uuid",
     category: "built-in",
     params: [],
   },
   now: {
-    label: "Current timestamp",
+    labelKey: "func.now",
     category: "built-in",
     params: [
       {
         name: "format",
-        label: "Format",
+        labelKey: "func.param.format",
         type: "enum",
         default: "ISO",
         options: ["ISO", "Unix", "UnixMs", "RFC2822"],
@@ -21,41 +26,74 @@ export const registry = {
     ],
   },
   base64encode: {
-    label: "Base64 encode",
-    category: "built-in",
-    params: [{ name: "value", label: "Value", type: "string", default: "" }],
-  },
-  base64decode: {
-    label: "Base64 decode",
-    category: "built-in",
-    params: [{ name: "value", label: "Value", type: "string", default: "" }],
-  },
-  urlEncode: {
-    label: "URL percent-encode",
-    category: "built-in",
-    params: [{ name: "value", label: "Value", type: "string", default: "" }],
-  },
-  urlDecode: {
-    label: "URL percent-decode",
-    category: "built-in",
-    params: [{ name: "value", label: "Value", type: "string", default: "" }],
-  },
-  randomInt: {
-    label: "Random integer",
+    labelKey: "func.base64encode",
     category: "built-in",
     params: [
-      { name: "min", label: "Min", type: "string", default: "0" },
-      { name: "max", label: "Max", type: "string", default: "100" },
+      {
+        name: "value",
+        labelKey: "func.param.value",
+        type: "string",
+        default: "",
+      },
+    ],
+  },
+  base64decode: {
+    labelKey: "func.base64decode",
+    category: "built-in",
+    params: [
+      {
+        name: "value",
+        labelKey: "func.param.value",
+        type: "string",
+        default: "",
+      },
+    ],
+  },
+  urlEncode: {
+    labelKey: "func.urlEncode",
+    category: "built-in",
+    params: [
+      {
+        name: "value",
+        labelKey: "func.param.value",
+        type: "string",
+        default: "",
+      },
+    ],
+  },
+  urlDecode: {
+    labelKey: "func.urlDecode",
+    category: "built-in",
+    params: [
+      {
+        name: "value",
+        labelKey: "func.param.value",
+        type: "string",
+        default: "",
+      },
+    ],
+  },
+  randomInt: {
+    labelKey: "func.randomInt",
+    category: "built-in",
+    params: [
+      { name: "min", labelKey: "func.param.min", type: "string", default: "0" },
+      {
+        name: "max",
+        labelKey: "func.param.max",
+        type: "string",
+        default: "100",
+      },
     ],
   },
 
   folderName: {
-    label: "Folder name",
+    labelKey: "func.folderName",
     category: "context",
     params: [
       {
         name: "depth",
-        label: "Depth",
+        labelKey: "func.param.depth",
         type: "string",
         default: "0",
         placeholder: "0 = immediate parent",
@@ -63,76 +101,93 @@ export const registry = {
     ],
   },
   collectionName: {
-    label: "Collection name",
+    labelKey: "func.collectionName",
     category: "context",
     params: [],
   },
   environmentVariable: {
-    label: "Environment variable",
+    labelKey: "func.environmentVariable",
     category: "backend",
-    params: [{ name: "name", label: "Variable", type: "string", default: "" }],
+    params: [
+      {
+        name: "name",
+        labelKey: "func.param.variable",
+        type: "string",
+        default: "",
+      },
+    ],
   },
 
   hmac: {
-    label: "HMAC",
+    labelKey: "func.hmac",
     category: "backend",
     params: [
       {
         name: "algo",
-        label: "Algorithm",
+        labelKey: "func.param.algorithm",
         type: "enum",
         default: "SHA256",
         options: ["SHA256", "SHA512"],
       },
-      { name: "key", label: "Key", type: "string", default: "" },
-      { name: "message", label: "Message", type: "string", default: "" },
+      { name: "key", labelKey: "func.param.key", type: "string", default: "" },
+      {
+        name: "message",
+        labelKey: "func.param.message",
+        type: "string",
+        default: "",
+      },
     ],
   },
   hash: {
-    label: "Hash",
+    labelKey: "func.hash",
     category: "backend",
     params: [
       {
         name: "algo",
-        label: "Algorithm",
+        labelKey: "func.param.algorithm",
         type: "enum",
         default: "SHA256",
         options: ["SHA256", "SHA512"],
       },
-      { name: "value", label: "Value", type: "string", default: "" },
+      {
+        name: "value",
+        labelKey: "func.param.value",
+        type: "string",
+        default: "",
+      },
     ],
   },
   requestName: {
-    label: "Request name",
+    labelKey: "func.requestName",
     category: "context",
     params: [],
   },
   environmentName: {
-    label: "Environment name",
+    labelKey: "func.environmentName",
     category: "context",
     params: [],
   },
 
   response: {
-    label: "Request response body",
+    labelKey: "func.response",
     category: "request-output",
     params: [
       {
         name: "requestName",
-        label: "Request",
+        labelKey: "func.param.request",
         type: "request-picker",
         default: "",
       },
       {
         name: "query",
-        label: "Query",
+        labelKey: "func.param.query",
         type: "string",
         default: ".",
         placeholder: ".data.token",
       },
       {
         name: "executionMode",
-        label: "Refresh mode",
+        labelKey: "func.param.refreshMode",
         type: "enum",
         options: ["Use last result", "Run immediately before"],
         default: "Use last result",
@@ -140,19 +195,24 @@ export const registry = {
     ],
   },
   responseHeader: {
-    label: "Response header",
+    labelKey: "func.responseHeader",
     category: "request-output",
     params: [
       {
         name: "requestName",
-        label: "Request",
+        labelKey: "func.param.request",
         type: "request-picker",
         default: "",
       },
-      { name: "headerName", label: "Header name", type: "string", default: "" },
+      {
+        name: "headerName",
+        labelKey: "func.param.headerName",
+        type: "string",
+        default: "",
+      },
       {
         name: "executionMode",
-        label: "Refresh mode",
+        labelKey: "func.param.refreshMode",
         type: "enum",
         options: ["Use last result", "Run immediately before"],
         default: "Use last result",
@@ -160,18 +220,18 @@ export const registry = {
     ],
   },
   responseStatus: {
-    label: "Response HTTP status",
+    labelKey: "func.responseStatus",
     category: "request-output",
     params: [
       {
         name: "requestName",
-        label: "Request",
+        labelKey: "func.param.request",
         type: "request-picker",
         default: "",
       },
       {
         name: "executionMode",
-        label: "Refresh mode",
+        labelKey: "func.param.refreshMode",
         type: "enum",
         options: ["Use last result", "Run immediately before"],
         default: "Use last result",

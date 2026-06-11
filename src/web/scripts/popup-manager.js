@@ -18,6 +18,7 @@
 "use strict";
 
 import { escapeHtml } from "./utils/html.js";
+import { t } from "./i18n.js";
 
 // ── Private state ─────────────────────────────────────────────────────────────
 
@@ -115,17 +116,17 @@ function _ensureConfirm() {
   _confirmEl.className = "popup popup-confirm";
   _confirmEl.setAttribute("role", "alertdialog");
   _confirmEl.setAttribute("aria-modal", "true");
-  _confirmEl.setAttribute("aria-label", "Confirm discard changes");
+  _confirmEl.setAttribute("aria-label", t("dialog.discard.ariaLabel"));
   _confirmEl.innerHTML = `
     <div class="popup-header">
-      <span class="popup-title">Discard changes?</span>
+      <span class="popup-title">${escapeHtml(t("dialog.discard.title"))}</span>
     </div>
     <div class="popup-body popup-confirm-body">
-      <p>You have unsaved changes. Are you sure you want to discard them?</p>
+      <p>${escapeHtml(t("dialog.discard.body"))}</p>
     </div>
     <div class="popup-footer">
-      <button class="btn popup-btn btn--secondary" id="pm-confirm-keep">Keep editing</button>
-      <button class="btn popup-btn btn--danger"    id="pm-confirm-discard">Discard</button>
+      <button class="btn popup-btn btn--secondary" id="pm-confirm-keep">${escapeHtml(t("dialog.discard.keep"))}</button>
+      <button class="btn popup-btn btn--danger"    id="pm-confirm-discard">${escapeHtml(t("dialog.discard.discard"))}</button>
     </div>
   `;
   document.body.appendChild(_confirmEl);
@@ -329,10 +330,10 @@ export const PopupManager = {
    * }} opts
    */
   confirm({
-    title = "Are you sure?",
+    title = t("common.areYouSure"),
     message,
     note,
-    confirmLabel = "Confirm",
+    confirmLabel = t("common.confirm"),
     confirmClass = "btn--danger",
     onConfirm,
     onCancel,
@@ -353,7 +354,7 @@ export const PopupManager = {
           ${noteHtml}
         </div>
         <div class="popup-footer">
-          <button class="btn popup-btn btn--secondary" data-action="cancel">Cancel</button>
+          <button class="btn popup-btn btn--secondary" data-action="cancel">${escapeHtml(t("common.cancel"))}</button>
           <button class="btn popup-btn ${confirmClass}"      data-action="confirm">${escapeHtml(confirmLabel)}</button>
         </div>
       `,
@@ -387,8 +388,8 @@ export const PopupManager = {
     this.confirm({
       title,
       message,
-      note: "Take a backup beforehand if you may need to restore it — this cannot be undone otherwise.",
-      confirmLabel: "Delete",
+      note: t("dialog.deleteNote"),
+      confirmLabel: t("common.delete"),
       confirmClass: "btn--danger",
       onConfirm,
     });
@@ -477,7 +478,7 @@ export const PopupManager = {
    */
   warnVariables({
     variables = [],
-    actionLabel = "Send Anyway",
+    actionLabel = t("dialog.unresolvedVars.proceed"),
     onAction,
   } = {}) {
     const itemsHtml = variables
@@ -497,17 +498,17 @@ export const PopupManager = {
     const { dlg, dismiss } = _showOneShotDialog({
       cssClass: "popup-var-warn",
       role: "alertdialog",
-      ariaLabel: "Unresolved variables",
+      ariaLabel: t("dialog.unresolvedVars.ariaLabel"),
       innerHTML: `
         <div class="popup-header">
-          <span class="popup-title">Unresolved Variables</span>
+          <span class="popup-title">${escapeHtml(t("dialog.unresolvedVars.title"))}</span>
         </div>
         <div class="popup-body var-warn-body">
-          <p class="var-warn-desc">One or more variable placeholders in this request could not be resolved. Review the values below before proceeding.</p>
+          <p class="var-warn-desc">${escapeHtml(t("dialog.unresolvedVars.desc"))}</p>
           <ul class="var-warn-list" role="list">${itemsHtml}</ul>
         </div>
         <div class="popup-footer">
-          <button class="btn popup-btn btn--secondary" data-action="cancel">Cancel</button>
+          <button class="btn popup-btn btn--secondary" data-action="cancel">${escapeHtml(t("common.cancel"))}</button>
           <button class="btn popup-btn btn--warning"   data-action="proceed">${escapeHtml(actionLabel)}</button>
         </div>
       `,
@@ -530,7 +531,7 @@ export const PopupManager = {
    *   title   — Dialog title (default: "Info")
    *   message — Message text shown in the dialog body
    */
-  notify({ title = "Info", message = "", autoCloseMs = 0 } = {}) {
+  notify({ title = t("common.info"), message = "", autoCloseMs = 0 } = {}) {
     const { dlg, dismiss } = _showOneShotDialog({
       cssClass: "popup-notify",
       role: "dialog",
@@ -543,7 +544,7 @@ export const PopupManager = {
           ${message ? `<p>${escapeHtml(message)}</p>` : ""}
         </div>
         <div class="popup-footer">
-          <button class="btn popup-btn btn--primary" data-action="ok">OK</button>
+          <button class="btn popup-btn btn--primary" data-action="ok">${escapeHtml(t("common.ok"))}</button>
         </div>
       `,
       focusSel: "[data-action='ok']",

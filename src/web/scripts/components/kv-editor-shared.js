@@ -18,6 +18,7 @@
 
 import { icon } from "../icons.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
+import { t } from "../i18n.js";
 
 // ── Autocomplete dropdown (shared mechanism) ──────────────────────────────────
 // One class drives all four combo dropdowns (header-name, header-value,
@@ -389,7 +390,7 @@ export function buildKvRow({
   handle.className = "params-drag-handle";
   handle.setAttribute("aria-hidden", "true");
   if (!noDrag) {
-    handle.title = "Drag to reorder";
+    handle.title = t("common.dragReorder");
     handle.innerHTML = icon("drag", { width: 10, height: 16 });
   }
 
@@ -451,12 +452,12 @@ export function wireDeleteAllConfirm(btn, getCount, onDelete) {
   let cleanupConfirm = null;
 
   const enterConfirm = () => {
-    btn.textContent = "Confirm?";
+    btn.textContent = t("kv.confirm");
     btn.classList.remove("params-toolbar-btn--danger");
     btn.classList.add("params-toolbar-btn--confirming");
 
     const restore = () => {
-      btn.textContent = "Delete All";
+      btn.textContent = t("kv.deleteAll");
       btn.classList.remove("params-toolbar-btn--confirming");
       btn.classList.add("params-toolbar-btn--danger");
       document.removeEventListener("keydown", onEsc, true);

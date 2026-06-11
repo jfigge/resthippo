@@ -50,6 +50,10 @@ const DEFAULT_SETTINGS = {
   theme: "mocha",
   fontSize: 13,
   fontFamily: "inter",
+  // UI language: "system" follows the OS locale; otherwise a shipped locale tag
+  // (e.g. "en", "es"). Resolved to a catalog at startup by the main process; see
+  // src/app/i18n.js and src/web/scripts/i18n.js.
+  locale: "system",
   layout: 2,
   timeout: 30000,
   followRedirects: true,

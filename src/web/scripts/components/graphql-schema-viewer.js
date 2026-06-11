@@ -3,6 +3,7 @@
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
+import { t } from "../i18n.js";
 import Prism from "../vendor/prism.js";
 
 /**
@@ -53,19 +54,19 @@ export class GraphQLSchemaViewer {
     el.className = "popup graphql-schema-viewer";
     el.setAttribute("role", "dialog");
     el.setAttribute("aria-modal", "true");
-    el.setAttribute("aria-label", "GraphQL schema");
+    el.setAttribute("aria-label", t("graphqlSchema.aria"));
     el.innerHTML = `
       <div class="popup-header">
-        <span class="popup-title">GraphQL Schema</span>
-        <button class="popup-close" aria-label="Close" title="Close">${icon("close", { size: 13 })}</button>
+        <span class="popup-title">${t("graphqlSchema.title")}</span>
+        <button class="popup-close" aria-label="${t("common.close")}" title="${t("common.close")}">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body graphql-schema-viewer-body">
         <pre class="graphql-schema-viewer-pre"><code class="language-graphql">${codeHtml}</code></pre>
       </div>
       <div class="popup-footer">
-        <button class="btn popup-btn btn--secondary js-copy">Copy</button>
-        <button class="btn popup-btn btn--secondary js-download">Download</button>
-        <button class="btn popup-btn btn--primary js-close">Close</button>
+        <button class="btn popup-btn btn--secondary js-copy">${t("common.copy")}</button>
+        <button class="btn popup-btn btn--secondary js-download">${t("common.download")}</button>
+        <button class="btn popup-btn btn--primary js-close">${t("common.close")}</button>
       </div>
     `;
     return el;
@@ -91,7 +92,7 @@ export class GraphQLSchemaViewer {
     try {
       await navigator.clipboard.writeText(this.#sdl);
       const prev = btn.textContent;
-      btn.textContent = "Copied";
+      btn.textContent = t("common.copied");
       setTimeout(() => {
         btn.textContent = prev;
       }, 1200);

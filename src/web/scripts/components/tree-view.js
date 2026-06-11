@@ -20,6 +20,7 @@
 import { PopupManager } from "../popup-manager.js";
 import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
+import { t } from "../i18n.js";
 import { escapeHtml } from "../utils/html.js";
 import { deepClone } from "../utils/clone.js";
 import {
@@ -334,16 +335,16 @@ export class TreeView {
     // New Collection button
     const btnNewCollection = document.createElement("button");
     btnNewCollection.className = "icon-btn";
-    btnNewCollection.title = "New Collection";
-    btnNewCollection.setAttribute("aria-label", "New Collection");
+    btnNewCollection.title = t("tree.newCollection");
+    btnNewCollection.setAttribute("aria-label", t("tree.newCollection"));
     btnNewCollection.innerHTML = `<span class="icon">${icon("folderClosed", { size: 16 })}</span>`;
     btnNewCollection.addEventListener("click", () => this.#addCollection());
 
     // New Request button — disabled until at least one collection exists
     this.#btnNewRequest = document.createElement("button");
     this.#btnNewRequest.className = "icon-btn";
-    this.#btnNewRequest.title = "New Request";
-    this.#btnNewRequest.setAttribute("aria-label", "New Request");
+    this.#btnNewRequest.title = t("tree.newRequest");
+    this.#btnNewRequest.setAttribute("aria-label", t("tree.newRequest"));
     this.#btnNewRequest.innerHTML = `<span class="icon">${icon("add", { size: 16 })}</span>`;
     this.#btnNewRequest.disabled = true;
     this.#btnNewRequest.addEventListener("click", () => this.#addRequest());
@@ -352,8 +353,8 @@ export class TreeView {
     const search = document.createElement("input");
     search.className = "tree-search";
     search.type = "search";
-    search.placeholder = "Filter…";
-    search.setAttribute("aria-label", "Filter requests");
+    search.placeholder = t("tree.filterPlaceholder");
+    search.setAttribute("aria-label", t("tree.filterAria"));
 
     search.addEventListener("input", () => {
       this.#filterText = search.value.trim().toLowerCase();
@@ -389,9 +390,9 @@ export class TreeView {
       return btn;
     };
 
-    this.#tabReqBtn = mkTab("requests", "Requests");
-    this.#tabFavBtn = mkTab("favorites", "Favorites");
-    this.#tabRecBtn = mkTab("recents", "Recents");
+    this.#tabReqBtn = mkTab("requests", t("tree.tabRequests"));
+    this.#tabFavBtn = mkTab("favorites", t("tree.tabFavorites"));
+    this.#tabRecBtn = mkTab("recents", t("tree.tabRecent"));
 
     this.#tabBarEl = bar;
     this.#el.appendChild(bar);
@@ -602,7 +603,7 @@ export class TreeView {
   /** Minimal context menu for a favorites row: unfavorite. */
   async #showQuickContextMenu(entry, x, y) {
     const clickedId = await window.wurl.ui.contextMenu.show({
-      items: [{ id: "unfavorite", label: "Unfavorite" }],
+      items: [{ id: "unfavorite", label: t("tree.menu.unfavorite") }],
       x,
       y,
     });
@@ -704,34 +705,36 @@ export class TreeView {
     const baseItems =
       node.type === "collection"
         ? [
-            { id: "add-request", label: "Add Request" },
-            { id: "add-ws-request", label: "Add WebSocket Request" },
-            { id: "add-folder", label: "Add Folder" },
+            { id: "add-request", label: t("tree.menu.addRequest") },
+            { id: "add-ws-request", label: t("tree.menu.addWsRequest") },
+            { id: "add-folder", label: t("tree.menu.addFolder") },
             { type: "separator" },
-            { id: "rename", label: "Rename" },
+            { id: "rename", label: t("tree.menu.rename") },
             { type: "separator" },
-            { id: "duplicate", label: "Duplicate" },
-            { id: "export-collection", label: "Export…" },
+            { id: "duplicate", label: t("tree.menu.duplicate") },
+            { id: "export-collection", label: t("tree.menu.export") },
             { type: "separator" },
-            { id: "variables", label: "Variables" },
+            { id: "variables", label: t("tree.menu.variables") },
             { type: "separator" },
-            { id: "delete", label: "Delete", danger: true },
+            { id: "delete", label: t("tree.menu.delete"), danger: true },
           ]
         : [
-            { id: "add-request", label: "Add Request" },
-            { id: "add-ws-request", label: "Add WebSocket Request" },
-            { id: "add-folder", label: "Add Folder" },
+            { id: "add-request", label: t("tree.menu.addRequest") },
+            { id: "add-ws-request", label: t("tree.menu.addWsRequest") },
+            { id: "add-folder", label: t("tree.menu.addFolder") },
             { type: "separator" },
-            { id: "rename", label: "Rename" },
+            { id: "rename", label: t("tree.menu.rename") },
             {
               id: "favorite",
-              label: this.#favoriteIds.has(node.id) ? "Unfavorite" : "Favorite",
+              label: this.#favoriteIds.has(node.id)
+                ? t("tree.menu.unfavorite")
+                : t("tree.menu.favorite"),
             },
             { type: "separator" },
-            { id: "duplicate", label: "Duplicate" },
+            { id: "duplicate", label: t("tree.menu.duplicate") },
             // cURL has no WebSocket equivalent, so omit it for ws requests.
             ...(node.protocol !== "websocket"
-              ? [{ id: "generate-curl", label: "Generate cURL" }]
+              ? [{ id: "generate-curl", label: t("tree.menu.generateCurl") }]
               : []),
             // Requests carry run history; offer to clear it. danger:true wires
             // the two-click "Confirm?" safety net automatically.
@@ -739,13 +742,13 @@ export class TreeView {
               ? [
                   {
                     id: "clear-history",
-                    label: "Clear Run History",
+                    label: t("tree.menu.clearHistory"),
                     danger: true,
                   },
                 ]
               : []),
             { type: "separator" },
-            { id: "delete", label: "Delete", danger: true },
+            { id: "delete", label: t("tree.menu.delete"), danger: true },
           ];
 
     // Loop so a danger click can re-open the menu with the entry relabeled to
@@ -755,7 +758,7 @@ export class TreeView {
     while (true) {
       const items = baseItems.map((it) =>
         it.id === confirmingId
-          ? { ...it, label: "Confirm?", danger: false }
+          ? { ...it, label: t("tree.menu.confirm"), danger: false }
           : it,
       );
 
@@ -798,7 +801,7 @@ export class TreeView {
    */
   #methodBadgeHtml(protocol, method) {
     if (protocol === "websocket") {
-      return `<span class="tree-node-method tree-node-method--ws" title="WebSocket">WS</span>`;
+      return `<span class="tree-node-method tree-node-method--ws" title="${t("request.ws.label")}">${t("request.ws.badge")}</span>`;
     }
     const m = method ?? "GET";
     const title = document.documentElement.classList.contains(
@@ -970,7 +973,7 @@ export class TreeView {
     input.type = "text";
     input.value = originalName;
     input.className = "tree-node-rename-input";
-    input.setAttribute("aria-label", "Rename");
+    input.setAttribute("aria-label", t("tree.menu.rename"));
     labelEl.replaceWith(input);
     input.select();
     input.focus();
@@ -1143,15 +1146,12 @@ export class TreeView {
     navigator.clipboard
       .writeText(curl)
       .then(() => {
-        Notifications.success(
-          "The cURL command has been copied to your clipboard.",
-        );
+        Notifications.success(t("tree.curlCopied"));
       })
       .catch(() => {
-        Notifications.error(
-          "Unable to write to the clipboard. Please try again.",
-          { title: "Copy failed" },
-        );
+        Notifications.error(t("tree.copyFailedBody"), {
+          title: t("tree.copyFailed"),
+        });
       });
   }
 
@@ -1646,7 +1646,7 @@ export class TreeView {
       empty.className = "tree-empty";
       empty.innerHTML =
         `<span class="placeholder-icon">${icon("folderOpen", { size: 24 })}</span>` +
-        "<span>No collections yet</span>";
+        `<span>${t("tree.empty")}</span>`;
       listEl.appendChild(empty);
     } else {
       items.forEach((item) => listEl.appendChild(this.#createNode(item, null)));
@@ -2163,7 +2163,7 @@ export class TreeView {
     const dot = document.createElement("span");
     dot.className = "tree-node-ws-dot";
     dot.setAttribute("aria-hidden", "true");
-    dot.title = "WebSocket connection open";
+    dot.title = t("tree.wsConnectionOpen");
     return dot;
   }
 
@@ -2175,8 +2175,8 @@ export class TreeView {
   #makeStopBtn(requestId) {
     const btn = document.createElement("button");
     btn.className = "tree-node-stop";
-    btn.setAttribute("aria-label", "Stop request");
-    btn.title = "Stop request";
+    btn.setAttribute("aria-label", t("request.stopAria"));
+    btn.title = t("request.stopAria");
     btn.addEventListener("click", (e) => {
       // Cancel only — do not select the row.
       e.stopPropagation();

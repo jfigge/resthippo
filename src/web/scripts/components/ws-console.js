@@ -10,14 +10,18 @@
 // every payload is written via textContent (never innerHTML) so a malicious
 // frame cannot inject markup into the renderer.
 
-/** Lifecycle states → header dot modifier + human label. */
-const STATE_LABELS = {
-  idle: "Not connected",
-  connecting: "Connecting…",
-  open: "Open",
-  closing: "Closing…",
-  closed: "Closed",
-  error: "Error",
+import { t } from "../i18n.js";
+
+// Lifecycle states → header dot modifier + i18n key for the human label. Keys
+// (not text) live at module scope; t() resolves them at render — the catalog
+// isn't loaded when this module is first evaluated.
+const STATE_LABEL_KEYS = {
+  idle: "wsConsole.state.idle",
+  connecting: "wsConsole.state.connecting",
+  open: "wsConsole.state.open",
+  closing: "wsConsole.state.closing",
+  closed: "wsConsole.state.closed",
+  error: "wsConsole.state.error",
 };
 
 /** Zero-pad a number to width 2 (or 3 for milliseconds). */
@@ -72,7 +76,7 @@ export class WsConsole {
 
     this.#headerLabel = document.createElement("span");
     this.#headerLabel.className = "ws-console-state";
-    this.#headerLabel.textContent = STATE_LABELS.idle;
+    this.#headerLabel.textContent = t("wsConsole.state.idle");
 
     this.#headerMeta = document.createElement("span");
     this.#headerMeta.className = "ws-console-meta";
@@ -82,8 +86,8 @@ export class WsConsole {
     const clearBtn = document.createElement("button");
     clearBtn.type = "button";
     clearBtn.className = "ws-console-clear";
-    clearBtn.textContent = "Clear";
-    clearBtn.setAttribute("aria-label", "Clear frame log");
+    clearBtn.textContent = t("wsConsole.clear");
+    clearBtn.setAttribute("aria-label", t("wsConsole.clearAria"));
     clearBtn.addEventListener("click", () => this.clear());
 
     header.append(status, clearBtn);
@@ -96,8 +100,7 @@ export class WsConsole {
 
     this.#emptyEl = document.createElement("div");
     this.#emptyEl.className = "ws-console-empty";
-    this.#emptyEl.textContent =
-      "No frames yet. Connect, then send a message to see it echoed here.";
+    this.#emptyEl.textContent = t("wsConsole.empty");
     this.#logEl.appendChild(this.#emptyEl);
 
     this.#el.append(header, this.#logEl);
@@ -127,8 +130,8 @@ export class WsConsole {
         this.addFrame({
           direction: "system",
           data: status.protocol
-            ? `Connected · subprotocol "${status.protocol}"`
-            : "Connected",
+            ? t("wsConsole.connectedProtocol", { protocol: status.protocol })
+            : t("wsConsole.connected"),
           ts: status.ts,
         });
         break;
@@ -136,14 +139,21 @@ export class WsConsole {
         this.#setHeader("closing");
         break;
       case "closed": {
-        const meta =
-          status.code != null
-            ? `code ${status.code}${status.reason ? ` · ${status.reason}` : ""}`
-            : "";
+        let meta = "";
+        if (status.code != null) {
+          meta = status.reason
+            ? t("wsConsole.closeCodeReason", {
+                code: status.code,
+                reason: status.reason,
+              })
+            : t("wsConsole.closeCode", { code: status.code });
+        }
         this.#setHeader("closed", meta);
         this.addFrame({
           direction: "system",
-          data: `Connection closed${meta ? ` (${meta})` : ""}`,
+          data: meta
+            ? t("wsConsole.connectionClosedMeta", { meta })
+            : t("wsConsole.connectionClosed"),
           ts: status.ts,
         });
         break;
@@ -152,7 +162,9 @@ export class WsConsole {
         this.#setHeader("error", status.code != null ? `${status.code}` : "");
         this.addFrame({
           direction: "system",
-          data: `Error: ${status.message ?? "connection failed"}`,
+          data: t("wsConsole.errorFrame", {
+            message: status.message ?? t("wsConsole.errorDefault"),
+          }),
           ts: status.ts,
           level: "error",
         });
@@ -199,17 +211,17 @@ export class WsConsole {
     label.className = "ws-frame-sr";
     label.textContent =
       direction === "sent"
-        ? "sent"
+        ? t("wsConsole.srSent")
         : direction === "received"
-          ? "received"
-          : "system";
+          ? t("wsConsole.srReceived")
+          : t("wsConsole.srSystem");
 
     const body = document.createElement("pre");
     body.className = "ws-frame-body";
     // Untrusted server payload → textContent, never innerHTML.
     body.textContent =
       binary && direction === "received"
-        ? `[binary frame — ${atobLen(data)} bytes]`
+        ? t("wsConsole.binaryFrame", { bytes: atobLen(data) })
         : direction === "system"
           ? String(data ?? "")
           : maybePrettyJson(String(data ?? ""));
@@ -241,7 +253,9 @@ export class WsConsole {
   // ── internals ────────────────────────────────────────────────────────────
   #setHeader(state, meta = "") {
     this.#headerDot.dataset.state = state;
-    this.#headerLabel.textContent = STATE_LABELS[state] ?? state;
+    this.#headerLabel.textContent = STATE_LABEL_KEYS[state]
+      ? t(STATE_LABEL_KEYS[state])
+      : state;
     this.#headerMeta.textContent = meta;
   }
 

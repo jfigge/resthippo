@@ -1,6 +1,7 @@
 "use strict";
 
 import { buildFunctionToken } from "./variable-resolver.js";
+import { t } from "../i18n.js";
 
 /**
  * PillPicker — lightweight inline dropdown that opens when the user types "{{".
@@ -87,7 +88,7 @@ export class PillPicker {
     const el = document.createElement("div");
     el.className = "pill-picker";
     el.setAttribute("role", "listbox");
-    el.setAttribute("aria-label", "Insert variable or function");
+    el.setAttribute("aria-label", t("pillPicker.insertAria"));
     el.addEventListener("mousedown", (e) => e.preventDefault()); // keep editor focus
     return el;
   }
@@ -142,21 +143,21 @@ export class PillPicker {
         continue;
       }
       const sig = funcDef.params?.length
-        ? `${name}(${funcDef.params.map((p) => p.label).join(", ")})`
+        ? `${name}(${funcDef.params.map((p) => t(p.labelKey)).join(", ")})`
         : `${name}()`;
       if (
         !sig.toLowerCase().includes(q) &&
-        !(funcDef.label ?? "").toLowerCase().includes(q)
+        !t(funcDef.labelKey).toLowerCase().includes(q)
       )
         continue;
       (byCategory[cat] = byCategory[cat] ?? []).push({ name, funcDef, sig });
     }
 
     const SECTION_LABELS = {
-      "built-in": "Functions",
-      context: "Context",
-      "request-output": "Request Outputs",
-      backend: "Backend",
+      "built-in": t("func.section.builtIn"),
+      context: t("func.section.context"),
+      "request-output": t("func.section.requestOutput"),
+      backend: t("func.section.backend"),
     };
 
     for (const cat of SECTION_ORDER) {
@@ -167,14 +168,14 @@ export class PillPicker {
         const rawToken = this.#buildToken(name, funcDef);
         const item = { type: "function", name, rawToken };
         this.#items.push(item);
-        this.#el.appendChild(this.#itemEl(item, sig, funcDef.label));
+        this.#el.appendChild(this.#itemEl(item, sig, t(funcDef.labelKey)));
       }
     }
 
     if (!this.#items.length) {
       const empty = document.createElement("div");
       empty.className = "pill-picker-empty";
-      empty.textContent = "No matches";
+      empty.textContent = t("pillPicker.noMatches");
       this.#el.appendChild(empty);
     }
 

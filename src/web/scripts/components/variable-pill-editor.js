@@ -38,6 +38,7 @@ import { PillEditorPopup } from "./pill-editor-popup.js";
 import { PillPicker } from "./pill-picker.js";
 import { registry } from "./function-registry.js";
 import { logicMap } from "./function-logic-map.js";
+import { t } from "../i18n.js";
 
 let _pickerDebounceMs = 200;
 
@@ -371,7 +372,7 @@ export class VariablePillEditor {
     span.contentEditable = "false";
     span.dataset.function = name;
     span.dataset.fnArgs = JSON.stringify(rawArgs);
-    span.textContent = funcDef?.label ?? name;
+    span.textContent = funcDef?.labelKey ? t(funcDef.labelKey) : name;
     span.title = rawToken;
     span.className = "variable-pill function-pill";
 
@@ -731,7 +732,10 @@ export class VariablePillEditor {
     // names rather than one subsection per folder (which would surface
     // superseded, unselectable duplicates).
     if (folderNames.size)
-      scopes.push({ label: "Folders", variables: [...folderNames].sort() });
+      scopes.push({
+        label: t("vars.folders"),
+        variables: [...folderNames].sort(),
+      });
 
     return scopes;
   }
@@ -1293,8 +1297,8 @@ export class VariablePillEditor {
   async #showPillContextMenu(x, y, onEdit, onDelete) {
     const clicked = await window.wurl.ui.contextMenu.show({
       items: [
-        { id: "edit", label: "Edit" },
-        { id: "delete", label: "Delete" },
+        { id: "edit", label: t("menu.edit") },
+        { id: "delete", label: t("menu.delete") },
       ],
       x,
       y,

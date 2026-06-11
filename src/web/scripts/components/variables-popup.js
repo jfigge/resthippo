@@ -25,6 +25,7 @@ import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
 import { normalizeVariables } from "./variable-shape.js";
+import { t } from "../i18n.js";
 
 export class VariablesPopup {
   /** @type {HTMLElement} */ #el;
@@ -143,40 +144,40 @@ export class VariablesPopup {
     el.className = "popup vars-popup";
     el.setAttribute("role", "dialog");
     el.setAttribute("aria-modal", "true");
-    el.setAttribute("aria-label", "Variable Editor");
+    el.setAttribute("aria-label", t("vars.title"));
 
     el.innerHTML = `
       <div class="popup-header">
-        <span class="popup-title vars-popup-title">Variables</span>
-        <button class="popup-close" aria-label="Close" title="Close">${icon("close", { size: 13 })}</button>
+        <span class="popup-title vars-popup-title">${t("common.variables")}</span>
+        <button class="popup-close" aria-label="${t("common.close")}" title="${t("common.close")}">${icon("close", { size: 13 })}</button>
       </div>
       <div class="popup-body vars-popup-body">
         <div class="vars-toolbar">
           <label class="params-toolbar-toggle-label vars-bulk-label"
-                 title="Toggle between bulk text editor and key/value row editor">
+                 title="${t("kv.bulkEditorTitle")}">
             <input type="checkbox" class="params-toolbar-toggle vars-bulk-toggle" checked>
-            Bulk editor
+            ${t("kv.bulkEditor")}
           </label>
-          <button class="icon-btn params-toolbar-btn vars-add-btn" title="Add variable" aria-label="Add variable" style="display:none"><span class="icon">${icon("add", { size: 15 })}</span></button>
-          <span class="vars-hint">One  name=value  per line · prefix  $  for secure</span>
+          <button class="icon-btn params-toolbar-btn vars-add-btn" title="${t("vars.add")}" aria-label="${t("vars.add")}" style="display:none"><span class="icon">${icon("add", { size: 15 })}</span></button>
+          <span class="vars-hint">${t("kv.varsHint")}</span>
         </div>
         <textarea
           class="body-text-editor vars-textarea"
           spellcheck="false"
           autocomplete="off"
-          placeholder="name=value&#10;apiKey=abc123&#10;baseUrl=https://example.com"
-          aria-label="Variables editor"
+          placeholder="${t("vars.bulkPlaceholder")}"
+          aria-label="${t("vars.editorAria")}"
         ></textarea>
         <div class="vars-kv-wrap" style="display:none">
           <div class="vars-kv-header params-header-row">
-            <span>Name</span><span class="params-col-value">Value</span><span></span><span></span>
+            <span>${t("kv.name")}</span><span class="params-col-value">${t("kv.value")}</span><span></span><span></span>
           </div>
-          <div class="vars-kv-list params-list" aria-label="Variables"></div>
+          <div class="vars-kv-list params-list" aria-label="${t("common.variables")}"></div>
         </div>
       </div>
       <div class="popup-footer vars-popup-footer">
         <button class="btn popup-btn btn--primary js-close"
-                title="Save and close">Close</button>
+                title="${t("vars.saveAndClose")}">${t("common.close")}</button>
       </div>
     `;
 
@@ -314,7 +315,7 @@ export class VariablesPopup {
     if (this.#rows.length === 0) {
       const empty = document.createElement("div");
       empty.className = "params-empty";
-      empty.textContent = "No variables — click  +  to add one.";
+      empty.textContent = t("collections.variablesEmpty");
       this.#kvListEl.appendChild(empty);
       return;
     }
@@ -331,9 +332,9 @@ export class VariablesPopup {
     const nameIn = document.createElement("input");
     nameIn.type = "text";
     nameIn.className = "params-input params-name";
-    nameIn.placeholder = "Name";
+    nameIn.placeholder = t("kv.name");
     nameIn.value = row.name;
-    nameIn.setAttribute("aria-label", "Variable name");
+    nameIn.setAttribute("aria-label", t("vars.name"));
     nameIn.setAttribute("autocomplete", "off");
     nameIn.addEventListener("input", () => {
       row.name = nameIn.value;
@@ -352,9 +353,9 @@ export class VariablesPopup {
     const valIn = document.createElement("input");
     valIn.type = "text";
     valIn.className = "params-input params-value";
-    valIn.placeholder = "Value";
+    valIn.placeholder = t("kv.value");
     valIn.value = row.value;
-    valIn.setAttribute("aria-label", "Variable value");
+    valIn.setAttribute("aria-label", t("vars.value"));
     valIn.addEventListener("input", () => {
       row.value = valIn.value;
       this.#saveFromRows();
@@ -426,8 +427,8 @@ export class VariablesPopup {
 
     const del = document.createElement("button");
     del.className = "icon-btn params-delete-btn";
-    del.title = "Delete variable";
-    del.setAttribute("aria-label", "Delete variable");
+    del.title = t("vars.delete");
+    del.setAttribute("aria-label", t("vars.delete"));
     wireDeleteConfirm(del, () => {
       this.#rows = this.#rows.filter((r) => r.id !== row.id);
       this.#renderRows();
