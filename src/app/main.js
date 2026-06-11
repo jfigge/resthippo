@@ -12,8 +12,10 @@ const {
   nativeImage,
   session,
   screen,
+  crashReporter,
 } = require("electron");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const http = require("http");
 const https = require("https");
@@ -24,6 +26,8 @@ const { URL } = require("url");
 
 const { Stores } = require("./store/stores");
 const io = require("./store/io");
+const { createLogger } = require("./logger");
+const { buildReport } = require("./diagnostics");
 const { loadCatalog, label: i18nLabel } = require("./i18n");
 const { isBinaryContentType, looksBinary } = require("./http-content-type");
 const aws4 = require("aws4");
@@ -69,6 +73,84 @@ let _htmlPreviewAdded = false; // whether the view is currently a child of conte
 let _pdfPreviewView = null; // WebContentsView for native PDF preview, created lazily
 let _pdfPreviewAdded = false; // whether the PDF view is currently a child of contentView
 let _pdfPreviewPath = null; // temp .pdf file currently loaded in the PDF view
+
+// ─── Single-instance lock ───────────────────────────────────────────────────────
+// The storage layer's safety model is "single-process, single-writer": atomic
+// temp-then-rename plus in-process write serialization. A second instance opening
+// the same userData dir defeats that serialization, so only the first instance is
+// allowed to run; a duplicate launch focuses the existing window and quits.
+//
+// Skipped under hot-reload (`--hot-reload`), whose self-relaunch (app.relaunch +
+// app.exit) would otherwise risk racing the lock and leaving the reloaded
+// instance with no window. The packaged app and normal launches are unaffected.
+const _isPrimaryInstance = isDebug ? true : app.requestSingleInstanceLock();
+
+// ─── Persistent logging ─────────────────────────────────────────────────────────
+// A rotating log under userData makes diagnostics survive past stdout: route every
+// main-process console.* line into it (install() tees while preserving the console)
+// and write explicit lifecycle/error events through logger.error/info. Resolve the
+// directory before app is ready (getPath('userData') is available pre-ready) so the
+// earliest startup logs are captured; fall back to a temp dir if that ever throws.
+const logger = createLogger({
+  dir: (() => {
+    try {
+      return path.join(app.getPath("userData"), "logs");
+    } catch {
+      return path.join(os.tmpdir(), "wurl-logs");
+    }
+  })(),
+});
+logger.install();
+
+// ─── Native crash dumps (local only) ────────────────────────────────────────────
+// Capture renderer/GPU process crashes as local minidumps under userData/Crashpad.
+// uploadToServer:false keeps everything on-disk — no telemetry, no remote upload.
+try {
+  crashReporter.start({ submitURL: "", uploadToServer: false, compress: true });
+} catch (err) {
+  // Non-fatal: native crash dumps just won't be collected on this platform.
+  console.error("[main] crashReporter init failed:", err && err.message);
+}
+
+// ─── Global crash handlers ──────────────────────────────────────────────────────
+// Without these, a throw or rejection outside a safeCall wrapper vanishes silently.
+// Log everything; for a fatal uncaught exception also show a native dialog (once
+// the app is ready, so the dialog APIs and localized labels are available) and
+// exit, since the process state is undefined. An unhandled rejection is usually
+// recoverable, so it is logged and reported but does not tear the app down.
+process.on("uncaughtException", (err) => {
+  try {
+    logger.error("uncaughtException", err);
+  } catch {
+    /* logging must never mask the original failure */
+  }
+  if (app.isReady()) showFatalErrorDialog(err);
+  app.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  try {
+    logger.error("unhandledRejection", err);
+  } catch {
+    /* best-effort */
+  }
+  if (app.isReady()) showRejectionDialog(err);
+});
+
+if (!_isPrimaryInstance) {
+  logger.info("startup", "another instance is already running — quitting");
+  app.quit();
+} else {
+  // A second launch hands control back here: surface the existing window.
+  app.on("second-instance", () => {
+    if (_mainWin && !_mainWin.isDestroyed()) {
+      if (_mainWin.isMinimized()) _mainWin.restore();
+      _mainWin.show();
+      _mainWin.focus();
+    }
+  });
+}
 
 // ─── Storage layer ─────────────────────────────────────────────────────────────
 // The Stores factory is created lazily on first IPC call (after app is ready)
@@ -3045,6 +3127,174 @@ function showDocsWindow() {
   });
 })();
 
+// ─── Diagnostics & logs ───────────────────────────────────────────────────────
+// Back the Help → Reveal Logs / Export Diagnostics menu items and the fatal /
+// unhandled-rejection dialogs raised by the global crash handlers above.
+
+/**
+ * Non-sensitive app / build / runtime metadata for the diagnostics header.
+ * Mirrors the About dialog's revision info plus engine + platform versions.
+ * @returns {Record<string, string>}
+ */
+function collectAppInfo() {
+  const rev = readRevisionInfo() || {};
+  return {
+    version: app.getVersion(),
+    build: rev.VERSION || "unknown",
+    branch: rev.BRANCH || "unknown",
+    commit: rev.COMMIT || "unknown",
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+    platform: `${process.platform} ${process.arch}`,
+    os: os.release(),
+    locale: app.getLocale(),
+  };
+}
+
+/** Open the log directory in the OS file manager (creating it if needed). */
+function revealLogs() {
+  const dir = logger.dir();
+  io.ensureDir(dir);
+  shell.openPath(dir).then((err) => {
+    if (err) console.error("[main] revealLogs openPath error:", err);
+  });
+}
+
+/**
+ * Bundle the app info + every (rotated) log file into a single .txt and save it
+ * via the native dialog, so a user can attach it to a bug report. The full
+ * report is assembled in the main process; nothing crosses to the renderer.
+ */
+async function exportDiagnostics() {
+  const win = _backupWin();
+  const m = activeLabels();
+  const save = await dialog.showSaveDialog(win, {
+    title: m("dialog.exportDiagnosticsTitle", "Export Diagnostics"),
+    defaultPath: `wurl-diagnostics-${_backupDateStamp()}.txt`,
+    filters: [
+      {
+        name: m("dialog.diagnosticsFilter", "Diagnostics"),
+        extensions: ["txt"],
+      },
+    ],
+  });
+  if (save.canceled || !save.filePath) return;
+
+  try {
+    const report = buildReport({
+      app: collectAppInfo(),
+      logs: logger.readFiles(),
+      generatedAt: new Date().toISOString(),
+    });
+    await fs.promises.writeFile(save.filePath, report, "utf-8");
+    await dialog.showMessageBox(win, {
+      type: "info",
+      icon: appIcon,
+      buttons: [m("common.ok", "OK")],
+      title: m("dialog.diagnosticsExportedTitle", "Diagnostics Exported"),
+      message: m(
+        "dialog.diagnosticsExportedMsg",
+        "Diagnostics were saved successfully.",
+      ),
+    });
+  } catch (err) {
+    logger.error("diagnostics", err);
+    await dialog.showMessageBox(win, {
+      type: "error",
+      icon: appIcon,
+      buttons: [m("common.ok", "OK")],
+      title: m(
+        "dialog.diagnosticsExportFailedTitle",
+        "Export Diagnostics Failed",
+      ),
+      message: m(
+        "dialog.diagnosticsExportFailedMsg",
+        "Could not export diagnostics.",
+      ),
+      detail: err.message,
+    });
+  }
+}
+
+/**
+ * Blocking error dialog shown by the uncaughtException handler before the app
+ * exits. Synchronous (showMessageBoxSync) so it paints before app.exit(). Wrapped
+ * so a failure here can never re-enter the crash path.
+ * @param {Error} err
+ */
+function showFatalErrorDialog(err) {
+  try {
+    const m = activeLabels();
+    const hint = fmtLabel(
+      m(
+        "dialog.fatalErrorLogHint",
+        "Details were written to the log in:\n{path}",
+      ),
+      { path: logger.dir() },
+    );
+    const detail = `${err && err.stack ? err.stack : String(err)}\n\n${hint}`;
+    dialog.showMessageBoxSync(
+      _mainWin && !_mainWin.isDestroyed() ? _mainWin : undefined,
+      {
+        type: "error",
+        icon: appIcon,
+        buttons: [m("common.ok", "OK")],
+        title: m("dialog.fatalErrorTitle", "wurl encountered a problem"),
+        message: m(
+          "dialog.fatalErrorMsg",
+          "An unexpected error occurred and wurl needs to close.",
+        ),
+        detail,
+      },
+    );
+  } catch {
+    /* dialog failed — there is nothing more we can do but exit */
+  }
+}
+
+/**
+ * Non-blocking notice for an unhandled promise rejection. The app keeps running,
+ * so this is informational rather than fatal.
+ * @param {Error} err
+ */
+function showRejectionDialog(err) {
+  try {
+    const m = activeLabels();
+    dialog.showMessageBox(
+      _mainWin && !_mainWin.isDestroyed() ? _mainWin : undefined,
+      {
+        type: "warning",
+        icon: appIcon,
+        buttons: [m("common.ok", "OK")],
+        title: m("dialog.unhandledRejectionTitle", "Unexpected error"),
+        message: m(
+          "dialog.unhandledRejectionMsg",
+          "An unexpected error occurred. wurl will keep running.",
+        ),
+        detail: err.message,
+      },
+    );
+  } catch {
+    /* best-effort notice */
+  }
+}
+
+// Mirror critical renderer errors (uncaught exceptions / promise rejections) into
+// the same persistent log as the main process, so a renderer-side failure is
+// recoverable from a bug report. Fire-and-forget from the renderer's perspective.
+(function initDiagnosticsIPC() {
+  ipcMain.handle("diagnostics:error:report", (_event, info = {}) => {
+    const where = info && info.source ? info.source : "renderer";
+    const parts = [info && info.message, info && info.stack].filter(Boolean);
+    logger.error(
+      "renderer",
+      `${where}: ${parts.join("\n") || "unknown renderer error"}`,
+    );
+    return null;
+  });
+})();
+
 // ─── Application menu ─────────────────────────────────────────────────────────
 function buildMenu() {
   const m = activeLabels();
@@ -3181,6 +3431,12 @@ function buildMenu() {
           accelerator: "CmdOrCtrl+/",
           click: showDocsWindow,
         },
+        { type: "separator" },
+        { label: m("menu.revealLogs", "Reveal Logs"), click: revealLogs },
+        {
+          label: m("menu.exportDiagnostics", "Export Diagnostics…"),
+          click: exportDiagnostics,
+        },
       ],
     },
   ];
@@ -3205,6 +3461,15 @@ app.on("will-quit", () => {
 });
 
 app.whenReady().then(async () => {
+  // A duplicate instance never sets up a window or the dev server — it has
+  // already requested focus of the primary via second-instance and is quitting.
+  if (!_isPrimaryInstance) return;
+
+  logger.info(
+    "startup",
+    `wurl ${app.getVersion()} ready (${process.platform})`,
+  );
+
   // In dev mode: resolve the port, spawning the Go server if needed.
   if (isDev) {
     if (process.env.SERVER_PORT) {

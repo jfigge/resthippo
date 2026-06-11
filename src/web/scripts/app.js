@@ -77,6 +77,37 @@ import { PopupManager } from "./popup-manager.js";
 import * as i18n from "./i18n.js";
 import { t } from "./i18n.js";
 
+// ─── Renderer crash mirroring ───────────────────────────────────────────────────
+// Forward uncaught renderer errors and unhandled promise rejections to the main
+// process so they land in the persistent log alongside main-process diagnostics
+// (see preload.js → wurl.diagnostics). Registered at module load so the earliest
+// failures are caught. Best-effort and silent: a reporting failure must never mask
+// the original error, and there is no UI side effect here.
+(function installRendererDiagnostics() {
+  const report = (info) => {
+    try {
+      window.wurl?.diagnostics?.reportError?.(info);
+    } catch {
+      /* logging is best-effort */
+    }
+  };
+  window.addEventListener("error", (e) => {
+    report({
+      source: "window.onerror",
+      message: e.message || String(e.error || "error"),
+      stack: e.error && e.error.stack ? e.error.stack : undefined,
+    });
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    const reason = e.reason;
+    report({
+      source: "unhandledrejection",
+      message: reason && reason.message ? reason.message : String(reason),
+      stack: reason && reason.stack ? reason.stack : undefined,
+    });
+  });
+})();
+
 // ─── History state ────────────────────────────────────────────────────────────
 // Per-request in-memory execution history. Keyed by request node ID.
 // Each entry: { id, requestNode, requestUrl, response, timestamp }

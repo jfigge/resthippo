@@ -496,4 +496,17 @@ contextBridge.exposeInMainWorld("wurl", {
 
     openThemeEditor: () => ipcRenderer.invoke("ui:open-theme-editor"),
   },
+
+  /**
+   * Diagnostics — mirror critical renderer errors (uncaught exceptions and
+   * unhandled promise rejections) to the main process so they land in the
+   * persistent log alongside main-process diagnostics. Fire-and-forget: the
+   * renderer never needs the result, and a logging failure must not surface.
+   *
+   * @param {{ source?: string, message?: string, stack?: string }} info
+   * @returns {Promise<null>}
+   */
+  diagnostics: {
+    reportError: (info) => ipcRenderer.invoke("diagnostics:error:report", info),
+  },
 });

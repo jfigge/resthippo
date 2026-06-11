@@ -65,6 +65,27 @@ default.
 > blocked by CORS. Requests can reach `localhost`, private networks, and any
 > scheme the OS allows.
 
+## Diagnostics & logs
+
+wurl keeps a rotating log of its own activity and errors in a `logs` folder
+inside your data directory. It records lifecycle and error events — never your
+secret values — and is your starting point if something goes wrong.
+
+From the **Help** menu:
+
+| Item                         | What it does                                                                                                             |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Reveal Logs**              | Opens the log folder in your file manager.                                                                              |
+| **Export Diagnostics…**      | Saves a single `.txt` file containing wurl's version and build info plus the recent logs — ideal to attach to a bug report. |
+
+If wurl ever hits an unexpected error it can't recover from, it writes the
+details to the log and shows a dialog before closing, so the failure is never
+silent.
+
+> **One window at a time.** wurl runs as a single instance to protect your data.
+> Launching a second copy simply brings the existing window to the front instead
+> of opening a duplicate.
+
 ## Where to go next
 
 - Organize your work into [collections and folders](collections.md).

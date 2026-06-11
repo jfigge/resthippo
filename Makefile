@@ -107,7 +107,7 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-cookies test-auth test-net test-content-type test-ipc test-oauth test-export test-components test-import test-data-store test-quick-access test-i18n test-renderer-components test-renderer-e2e
+test: test-js test-cookies test-auth test-net test-content-type test-ipc test-oauth test-export test-components test-import test-data-store test-quick-access test-i18n test-diagnostics test-renderer-components test-renderer-e2e
 
 test-js:
 	@echo "Running JavaScript store tests..."
@@ -172,6 +172,11 @@ test-quick-access:
 test-i18n:
 	@echo "Running i18n tests (locale resolver + t()/format + hardcoded-string guard)..."
 	@node --test $(APP_DIR)/tests/i18n.test.js $(APP_DIR)/tests/no-hardcoded-native-strings.test.js $(WEB_DIR)/scripts/tests/i18n.test.js $(WEB_DIR)/scripts/tests/no-hardcoded-strings.test.js
+	@echo "--------------------------------"
+
+test-diagnostics:
+	@echo "Running logger + diagnostics tests..."
+	@node --test $(APP_DIR)/tests/logger.test.js $(APP_DIR)/tests/diagnostics.test.js
 	@echo "--------------------------------"
 
 test-renderer-components:
@@ -673,7 +678,7 @@ mock-down:
         fmt fmt-check \
         lint \
         test test-js test-cookies test-auth test-content-type test-ipc test-oauth test-export test-components test-import \
-        test-data-store test-renderer-components test-renderer-e2e \
+        test-data-store test-diagnostics test-renderer-components test-renderer-e2e \
         debug \
         build build-mac build-linux build-win \
         build-setup build-install \

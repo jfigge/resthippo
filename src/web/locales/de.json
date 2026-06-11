@@ -149,7 +149,18 @@
     "oauthTitle": "OAuth-Autorisierung",
     "exportThemeTitle": "Theme exportieren",
     "wurlThemeFilter": "wurl-Theme",
-    "importThemeTitle": "Theme importieren"
+    "importThemeTitle": "Theme importieren",
+    "exportDiagnosticsTitle": "Diagnose exportieren",
+    "diagnosticsFilter": "Diagnose",
+    "diagnosticsExportedTitle": "Diagnose exportiert",
+    "diagnosticsExportedMsg": "Die Diagnose wurde erfolgreich gespeichert.",
+    "diagnosticsExportFailedTitle": "Diagnose-Export fehlgeschlagen",
+    "diagnosticsExportFailedMsg": "Die Diagnose konnte nicht exportiert werden.",
+    "fatalErrorTitle": "wurl ist auf ein Problem gestoßen",
+    "fatalErrorMsg": "Ein unerwarteter Fehler ist aufgetreten und wurl muss beendet werden.",
+    "fatalErrorLogHint": "Details wurden in das Protokoll geschrieben unter:\n{path}",
+    "unhandledRejectionTitle": "Unerwarteter Fehler",
+    "unhandledRejectionMsg": "Ein unerwarteter Fehler ist aufgetreten. wurl wird weiter ausgeführt."
   },
   "layout": {
     "menuAria": "Layout-Optionen",
@@ -207,7 +218,9 @@
     "fontReset": "Schriftgröße zurücksetzen",
     "window": "Fenster",
     "help": "Hilfe",
-    "userGuide": "wurl-Benutzerhandbuch"
+    "userGuide": "wurl-Benutzerhandbuch",
+    "revealLogs": "Protokolle anzeigen",
+    "exportDiagnostics": "Diagnose exportieren…"
   },
   "settings": {
     "title": "Einstellungen",

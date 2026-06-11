@@ -149,7 +149,18 @@
     "oauthTitle": "Autorizzazione OAuth",
     "exportThemeTitle": "Esporta tema",
     "wurlThemeFilter": "Tema wurl",
-    "importThemeTitle": "Importa tema"
+    "importThemeTitle": "Importa tema",
+    "exportDiagnosticsTitle": "Esporta diagnostica",
+    "diagnosticsFilter": "Diagnostica",
+    "diagnosticsExportedTitle": "Diagnostica esportata",
+    "diagnosticsExportedMsg": "La diagnostica è stata salvata correttamente.",
+    "diagnosticsExportFailedTitle": "Esportazione diagnostica non riuscita",
+    "diagnosticsExportFailedMsg": "Impossibile esportare la diagnostica.",
+    "fatalErrorTitle": "wurl ha riscontrato un problema",
+    "fatalErrorMsg": "Si è verificato un errore imprevisto e wurl deve chiudersi.",
+    "fatalErrorLogHint": "I dettagli sono stati scritti nel log in:\n{path}",
+    "unhandledRejectionTitle": "Errore imprevisto",
+    "unhandledRejectionMsg": "Si è verificato un errore imprevisto. wurl continuerà a funzionare."
   },
   "layout": {
     "menuAria": "Opzioni di disposizione",
@@ -207,7 +218,9 @@
     "fontReset": "Reimposta dimensione carattere",
     "window": "Finestra",
     "help": "Aiuto",
-    "userGuide": "Guida utente di wurl"
+    "userGuide": "Guida utente di wurl",
+    "revealLogs": "Mostra log",
+    "exportDiagnostics": "Esporta diagnostica…"
   },
   "settings": {
     "title": "Impostazioni",

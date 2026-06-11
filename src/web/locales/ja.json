@@ -149,7 +149,18 @@
     "oauthTitle": "OAuth 認可",
     "exportThemeTitle": "テーマをエクスポート",
     "wurlThemeFilter": "wurl テーマ",
-    "importThemeTitle": "テーマをインポート"
+    "importThemeTitle": "テーマをインポート",
+    "exportDiagnosticsTitle": "診断情報をエクスポート",
+    "diagnosticsFilter": "診断情報",
+    "diagnosticsExportedTitle": "診断情報をエクスポートしました",
+    "diagnosticsExportedMsg": "診断情報が正常に保存されました。",
+    "diagnosticsExportFailedTitle": "診断情報のエクスポートに失敗しました",
+    "diagnosticsExportFailedMsg": "診断情報をエクスポートできませんでした。",
+    "fatalErrorTitle": "wurl で問題が発生しました",
+    "fatalErrorMsg": "予期しないエラーが発生したため、wurl を終了する必要があります。",
+    "fatalErrorLogHint": "詳細は次のログに記録されました:\n{path}",
+    "unhandledRejectionTitle": "予期しないエラー",
+    "unhandledRejectionMsg": "予期しないエラーが発生しました。wurl は実行を続けます。"
   },
   "layout": {
     "menuAria": "レイアウトオプション",
@@ -207,7 +218,9 @@
     "fontReset": "フォントサイズをリセット",
     "window": "ウインドウ",
     "help": "ヘルプ",
-    "userGuide": "wurl ユーザーガイド"
+    "userGuide": "wurl ユーザーガイド",
+    "revealLogs": "ログを表示",
+    "exportDiagnostics": "診断情報をエクスポート…"
   },
   "settings": {
     "title": "設定",

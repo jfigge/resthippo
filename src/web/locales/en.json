@@ -149,7 +149,18 @@
     "oauthTitle": "OAuth Authorization",
     "exportThemeTitle": "Export Theme",
     "wurlThemeFilter": "wurl Theme",
-    "importThemeTitle": "Import Theme"
+    "importThemeTitle": "Import Theme",
+    "exportDiagnosticsTitle": "Export Diagnostics",
+    "diagnosticsFilter": "Diagnostics",
+    "diagnosticsExportedTitle": "Diagnostics Exported",
+    "diagnosticsExportedMsg": "Diagnostics were saved successfully.",
+    "diagnosticsExportFailedTitle": "Export Diagnostics Failed",
+    "diagnosticsExportFailedMsg": "Could not export diagnostics.",
+    "fatalErrorTitle": "wurl encountered a problem",
+    "fatalErrorMsg": "An unexpected error occurred and wurl needs to close.",
+    "fatalErrorLogHint": "Details were written to the log in:\n{path}",
+    "unhandledRejectionTitle": "Unexpected error",
+    "unhandledRejectionMsg": "An unexpected error occurred. wurl will keep running."
   },
   "layout": {
     "menuAria": "Layout options",
@@ -207,7 +218,9 @@
     "fontReset": "Reset Font Size",
     "window": "Window",
     "help": "Help",
-    "userGuide": "wurl User Guide"
+    "userGuide": "wurl User Guide",
+    "revealLogs": "Reveal Logs",
+    "exportDiagnostics": "Export Diagnostics…"
   },
   "settings": {
     "title": "Settings",

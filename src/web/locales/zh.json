@@ -149,7 +149,18 @@
     "oauthTitle": "OAuth 授权",
     "exportThemeTitle": "导出主题",
     "wurlThemeFilter": "wurl 主题",
-    "importThemeTitle": "导入主题"
+    "importThemeTitle": "导入主题",
+    "exportDiagnosticsTitle": "导出诊断信息",
+    "diagnosticsFilter": "诊断信息",
+    "diagnosticsExportedTitle": "诊断信息已导出",
+    "diagnosticsExportedMsg": "诊断信息已成功保存。",
+    "diagnosticsExportFailedTitle": "导出诊断信息失败",
+    "diagnosticsExportFailedMsg": "无法导出诊断信息。",
+    "fatalErrorTitle": "wurl 遇到问题",
+    "fatalErrorMsg": "发生了意外错误，wurl 需要关闭。",
+    "fatalErrorLogHint": "详细信息已写入日志：\n{path}",
+    "unhandledRejectionTitle": "意外错误",
+    "unhandledRejectionMsg": "发生了意外错误。wurl 将继续运行。"
   },
   "layout": {
     "menuAria": "布局选项",
@@ -207,7 +218,9 @@
     "fontReset": "重置字号",
     "window": "窗口",
     "help": "帮助",
-    "userGuide": "wurl 用户指南"
+    "userGuide": "wurl 用户指南",
+    "revealLogs": "显示日志",
+    "exportDiagnostics": "导出诊断信息…"
   },
   "settings": {
     "title": "设置",
