@@ -232,6 +232,101 @@ describe("encryptSettings / decryptSettings (no-op mode)", () => {
 });
 
 /**
+ * The mTLS client-certificate list (settings.clientCerts) carries a per-entry
+ * `passphrase` secret nested inside an array; only that field is sensitive (the
+ * cert/key/PFX/CA paths are not). These verify it rides the same
+ * encrypt/decrypt/redact/portable rails as the flat settings secrets.
+ */
+describe("settings clientCerts passphrase handling", () => {
+  const reversibleSafeStorage = {
+    isEncryptionAvailable: () => true,
+    encryptString: (s) => Buffer.from(s, "utf8"),
+    decryptString: (buf) => Buffer.from(buf).toString("utf8"),
+  };
+
+  afterEach(() => {
+    _setSafeStorage(null);
+  });
+
+  const sample = () => ({
+    theme: "dark",
+    clientCerts: [
+      {
+        id: "1",
+        host: "a.com",
+        format: "pem",
+        certPath: "/c",
+        keyPath: "/k",
+        passphrase: "pw1",
+      },
+      { id: "2", host: "b.com", format: "pfx", pfxPath: "/p", passphrase: "" },
+    ],
+  });
+
+  it("encryptSettings encrypts only the passphrase, leaving paths untouched", () => {
+    _setSafeStorage(reversibleSafeStorage);
+    const out = encryptSettings(sample());
+    assert.ok(isEncrypted(out.clientCerts[0].passphrase));
+    assert.equal(out.clientCerts[0].certPath, "/c");
+    assert.equal(out.clientCerts[0].keyPath, "/k");
+    assert.equal(out.clientCerts[0].host, "a.com");
+    // An empty passphrase stays empty (encryptString no-ops on falsy input).
+    assert.equal(out.clientCerts[1].passphrase, "");
+    assert.equal(out.clientCerts[1].pfxPath, "/p");
+  });
+
+  it("encryptSettings → decryptSettings round-trips the passphrase", () => {
+    _setSafeStorage(reversibleSafeStorage);
+    const out = decryptSettings(encryptSettings(sample()));
+    assert.equal(out.clientCerts[0].passphrase, "pw1");
+    assert.equal(out.clientCerts[1].passphrase, "");
+    assert.ok(!("_decryptErrors" in out));
+  });
+
+  it("decryptSettings blanks an undecryptable passphrase and records its path", () => {
+    // safeStorage absent → an enc:v1: value cannot be decrypted.
+    const out = decryptSettings({
+      clientCerts: [
+        { id: "1", host: "a.com", format: "pem", passphrase: "enc:v1:abc" },
+      ],
+    });
+    assert.equal(out.clientCerts[0].passphrase, "");
+    assert.deepEqual(out._decryptErrors, ["clientCerts[0].passphrase"]);
+  });
+
+  it("redactSettings blanks every cert passphrase but keeps paths + host", () => {
+    const out = redactSettings(sample());
+    assert.equal(out.clientCerts[0].passphrase, "");
+    assert.equal(out.clientCerts[0].certPath, "/c");
+    assert.equal(out.clientCerts[0].host, "a.com");
+  });
+
+  it("export → import round-trips the passphrase under a password (portable)", () => {
+    const PW = "correct horse";
+    const exported = exportSettingsSecrets(sample(), PW);
+    assert.ok(isPasswordEncrypted(exported.clientCerts[0].passphrase));
+    // Paths are not secret — they travel verbatim.
+    assert.equal(exported.clientCerts[0].certPath, "/c");
+    const imported = importSettingsSecrets(exported, PW);
+    assert.equal(imported.clientCerts[0].passphrase, "pw1");
+  });
+
+  it("importSettingsSecrets clears portable cert passphrases without a password", () => {
+    const exported = exportSettingsSecrets(sample(), "pw");
+    const imported = importSettingsSecrets(exported, "");
+    assert.equal(imported.clientCerts[0].passphrase, "");
+    // The entry's structure (host, paths) survives the clear.
+    assert.equal(imported.clientCerts[0].host, "a.com");
+  });
+
+  it("tolerates settings with no clientCerts array", () => {
+    assert.doesNotThrow(() => encryptSettings({ theme: "x" }));
+    assert.doesNotThrow(() => decryptSettings({ theme: "x" }));
+    assert.doesNotThrow(() => redactSettings({ theme: "x" }));
+  });
+});
+
+/**
  * Forces the decrypt-failure branch by injecting a mock safeStorage that
  * reports encryption as available but throws on decryptString() — simulating a
  * corrupted blob, a keystore/profile mismatch, or a rotated key. Verifies that

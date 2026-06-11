@@ -160,7 +160,13 @@
     "fatalErrorMsg": "Si è verificato un errore imprevisto e wurl deve chiudersi.",
     "fatalErrorLogHint": "I dettagli sono stati scritti nel log in:\n{path}",
     "unhandledRejectionTitle": "Errore imprevisto",
-    "unhandledRejectionMsg": "Si è verificato un errore imprevisto. wurl continuerà a funzionare."
+    "unhandledRejectionMsg": "Si è verificato un errore imprevisto. wurl continuerà a funzionare.",
+    "pickCertificateTitle": "Seleziona file",
+    "certPemFilter": "Certificati PEM",
+    "certKeyFilter": "Chiavi private",
+    "certPfxFilter": "PKCS#12 / PFX",
+    "certCaFilter": "Certificati CA",
+    "allFilesFilter": "Tutti i file"
   },
   "layout": {
     "menuAria": "Opzioni di disposizione",
@@ -232,7 +238,8 @@
       "request": "Richiesta",
       "proxy": "Proxy",
       "retries": "Nuovi tentativi",
-      "history": "Cronologia"
+      "history": "Cronologia",
+      "certificates": "Certificati"
     },
     "appearance": {
       "theme": "Tema",
@@ -286,6 +293,28 @@
     },
     "history": {
       "timelineEntries": "Voci della cronologia"
+    },
+    "certificates": {
+      "clientHeading": "Certificati client",
+      "clientHelp": "Presenta un certificato client agli host che richiedono il TLS reciproco (mTLS). Viene usata la prima voce il cui host corrisponde.",
+      "host": "Host",
+      "hostPlaceholder": "api.example.com o *.example.com",
+      "format": "Formato",
+      "formatPem": "PEM",
+      "formatPfx": "PFX / P12",
+      "certFile": "Certificato…",
+      "keyFile": "Chiave privata…",
+      "pfxFile": "File PFX / P12…",
+      "passphrase": "Passphrase",
+      "noFile": "Nessun file selezionato",
+      "addClient": "Aggiungi certificato",
+      "remove": "Rimuovi",
+      "caHeading": "Autorità di certificazione",
+      "caHelp": "Considera attendibili certificati CA aggiuntivi oltre alle radici di sistema, così gli host firmati privatamente vengono convalidati con la verifica ancora attiva.",
+      "addCa": "Aggiungi file CA",
+      "insecureHeading": "Salta la verifica per gli host",
+      "insecureHelp": "Host separati da virgole o a capo il cui certificato TLS non viene verificato. Usare solo per host autofirmati attendibili; è preferibile una CA personalizzata sopra.",
+      "insecurePlaceholder": "internal.example.com, *.test"
     }
   },
   "request": {

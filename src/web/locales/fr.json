@@ -160,7 +160,13 @@
     "fatalErrorMsg": "Une erreur inattendue s'est produite et wurl doit se fermer.",
     "fatalErrorLogHint": "Les détails ont été écrits dans le journal à :\n{path}",
     "unhandledRejectionTitle": "Erreur inattendue",
-    "unhandledRejectionMsg": "Une erreur inattendue s'est produite. wurl continue de fonctionner."
+    "unhandledRejectionMsg": "Une erreur inattendue s'est produite. wurl continue de fonctionner.",
+    "pickCertificateTitle": "Sélectionner un fichier",
+    "certPemFilter": "Certificats PEM",
+    "certKeyFilter": "Clés privées",
+    "certPfxFilter": "PKCS#12 / PFX",
+    "certCaFilter": "Certificats CA",
+    "allFilesFilter": "Tous les fichiers"
   },
   "layout": {
     "menuAria": "Options de disposition",
@@ -232,7 +238,8 @@
       "request": "Requête",
       "proxy": "Proxy",
       "retries": "Nouvelles tentatives",
-      "history": "Historique"
+      "history": "Historique",
+      "certificates": "Certificats"
     },
     "appearance": {
       "theme": "Thème",
@@ -286,6 +293,28 @@
     },
     "history": {
       "timelineEntries": "Entrées de la chronologie"
+    },
+    "certificates": {
+      "clientHeading": "Certificats client",
+      "clientHelp": "Présente un certificat client aux hôtes qui exigent le TLS mutuel (mTLS). La première entrée dont l’hôte correspond est utilisée.",
+      "host": "Hôte",
+      "hostPlaceholder": "api.example.com ou *.example.com",
+      "format": "Format",
+      "formatPem": "PEM",
+      "formatPfx": "PFX / P12",
+      "certFile": "Certificat…",
+      "keyFile": "Clé privée…",
+      "pfxFile": "Fichier PFX / P12…",
+      "passphrase": "Phrase secrète",
+      "noFile": "Aucun fichier sélectionné",
+      "addClient": "Ajouter un certificat",
+      "remove": "Supprimer",
+      "caHeading": "Autorités de certification",
+      "caHelp": "Fait confiance à des certificats CA supplémentaires en plus des racines du système, afin que les hôtes signés en privé soient validés avec la vérification activée.",
+      "addCa": "Ajouter un fichier CA",
+      "insecureHeading": "Ignorer la vérification pour certains hôtes",
+      "insecureHelp": "Hôtes séparés par des virgules ou des retours à la ligne dont le certificat TLS n’est pas vérifié. À utiliser uniquement pour des hôtes auto-signés de confiance ; préférez une CA personnalisée ci-dessus.",
+      "insecurePlaceholder": "internal.example.com, *.test"
     }
   },
   "request": {

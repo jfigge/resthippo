@@ -99,6 +99,7 @@ export class SettingsPopup {
           <button class="settings-nav-item settings-nav-item--active" type="button" role="tab" aria-selected="true" data-panel="appearance">${t("settings.nav.appearance")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="request">${t("settings.nav.request")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="proxy">${t("settings.nav.proxy")}</button>
+          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="certificates">${t("settings.nav.certificates")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="retries">${t("settings.nav.retries")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="history">${t("settings.nav.history")}</button>
         </nav>
@@ -303,6 +304,30 @@ export class SettingsPopup {
             <p class="settings-help">${t("settings.proxy.bypassHelp")}</p>
           </section>
 
+          <!-- Certificates ─────────────────────────────────────────────── -->
+          <section class="settings-panel" role="tabpanel" data-panel="certificates" hidden>
+            <h3 class="settings-subhead">${t("settings.certificates.clientHeading")}</h3>
+            <p class="settings-help">${t("settings.certificates.clientHelp")}</p>
+            <div class="cert-list" id="client-cert-list"></div>
+            <button class="btn cert-add" type="button" id="btn-add-client-cert">${t("settings.certificates.addClient")}</button>
+
+            <h3 class="settings-subhead settings-subhead--spaced">${t("settings.certificates.caHeading")}</h3>
+            <p class="settings-help">${t("settings.certificates.caHelp")}</p>
+            <div class="cert-list" id="ca-cert-list"></div>
+            <button class="btn cert-add" type="button" id="btn-add-ca-cert">${t("settings.certificates.addCa")}</button>
+
+            <h3 class="settings-subhead settings-subhead--spaced">${t("settings.certificates.insecureHeading")}</h3>
+            <div class="settings-row settings-row--stacked">
+              <textarea
+                class="settings-input settings-textarea"
+                id="setting-tls-insecure-hosts"
+                rows="3"
+                placeholder="${t("settings.certificates.insecurePlaceholder")}"
+              ></textarea>
+            </div>
+            <p class="settings-help">${t("settings.certificates.insecureHelp")}</p>
+          </section>
+
           <!-- Retries ──────────────────────────────────────────────────── -->
           <section class="settings-panel" role="tabpanel" data-panel="retries" hidden>
             <div class="settings-row settings-row--toggle">
@@ -467,6 +492,20 @@ export class SettingsPopup {
       .querySelector("#setting-proxy-auth-enabled")
       .addEventListener("change", () => this.#syncProxyAuthState());
 
+    // Certificates panel — add a blank client-cert row (filled in by the user),
+    // or pick a CA file and append a row for it. Row-level controls wire their
+    // own listeners as they are built (see #buildClientCertRow / #buildCaRow).
+    this.#el
+      .querySelector("#btn-add-client-cert")
+      .addEventListener("click", () => {
+        this.#el
+          .querySelector("#client-cert-list")
+          .appendChild(this.#buildClientCertRow({}));
+      });
+    this.#el
+      .querySelector("#btn-add-ca-cert")
+      .addEventListener("click", () => this.#pickCaFile());
+
     // Escape handling lives in #onKeyDown, attached on open() and detached
     // when PopupManager dispatches "wurl:popup-closed". See class fields above.
 
@@ -606,7 +645,211 @@ export class SettingsPopup {
       retryStatusCodes: this.#el
         .querySelector("#setting-retry-status")
         .value.trim(),
+      clientCerts: this.#serializeClientCerts(),
+      caCerts: this.#serializeCaCerts(),
+      tlsInsecureHosts: this.#el
+        .querySelector("#setting-tls-insecure-hosts")
+        .value.trim(),
     };
+  }
+
+  // ── Certificates panel ───────────────────────────────────────────────────
+
+  /**
+   * Build one client-certificate row. The host/passphrase are editable inputs;
+   * the cert/key/PFX files are chosen through the native picker and their paths
+   * stored on the picker buttons' `dataset.path` (only the basename is shown).
+   * Every control reports edits via #emitChange so the panel auto-saves like the
+   * rest of settings.
+   * @param {object} entry  a settings.clientCerts entry (or {} for a new row)
+   */
+  #buildClientCertRow(entry = {}) {
+    const row = document.createElement("div");
+    row.className = "cert-row";
+    row.dataset.id = entry.id || crypto.randomUUID();
+    const format = entry.format === "pfx" ? "pfx" : "pem";
+    row.innerHTML = `
+      <div class="cert-row-grid">
+        <div class="cert-field cert-field--host">
+          <label class="settings-label">${t("settings.certificates.host")}</label>
+          <input class="settings-input cert-host" type="text" autocomplete="off"
+            placeholder="${t("settings.certificates.hostPlaceholder")}" />
+        </div>
+        <div class="cert-field">
+          <label class="settings-label">${t("settings.certificates.format")}</label>
+          <select class="settings-select cert-format">
+            <option value="pem">${t("settings.certificates.formatPem")}</option>
+            <option value="pfx">${t("settings.certificates.formatPfx")}</option>
+          </select>
+        </div>
+      </div>
+      <div class="cert-files cert-files--pem">
+        ${this.#filePickerHtml("cert", "pem", t("settings.certificates.certFile"))}
+        ${this.#filePickerHtml("key", "key", t("settings.certificates.keyFile"))}
+      </div>
+      <div class="cert-files cert-files--pfx">
+        ${this.#filePickerHtml("pfx", "pfx", t("settings.certificates.pfxFile"))}
+      </div>
+      <div class="cert-row-foot">
+        <div class="cert-field cert-field--pass">
+          <label class="settings-label">${t("settings.certificates.passphrase")}</label>
+          <input class="settings-input cert-passphrase" type="text" autocomplete="off" />
+        </div>
+        <button class="btn cert-row-remove" type="button">${t("settings.certificates.remove")}</button>
+      </div>
+    `;
+
+    row.querySelector(".cert-host").value = entry.host || "";
+    row.querySelector(".cert-format").value = format;
+    row.querySelector(".cert-passphrase").value = entry.passphrase || "";
+    this.#setPickerPath(
+      row.querySelector('[data-target="cert"]'),
+      entry.certPath,
+    );
+    this.#setPickerPath(
+      row.querySelector('[data-target="key"]'),
+      entry.keyPath,
+    );
+    this.#setPickerPath(
+      row.querySelector('[data-target="pfx"]'),
+      entry.pfxPath,
+    );
+
+    // Mask/reveal the passphrase like other secret fields. wrapSecretField()
+    // moves the input into a new wrapper, so capture its field first, then drop
+    // the wrapper back into that field.
+    const pass = row.querySelector(".cert-passphrase");
+    const passField = pass.closest(".cert-field--pass");
+    passField.appendChild(wrapSecretField(pass));
+
+    // Wire edits.
+    row
+      .querySelector(".cert-host")
+      .addEventListener("input", () => this.#emitChange());
+    pass.addEventListener("input", () => this.#emitChange());
+    const formatSel = row.querySelector(".cert-format");
+    formatSel.addEventListener("change", () => {
+      this.#syncCertFormat(row);
+      this.#emitChange();
+    });
+    row.querySelectorAll(".cert-file-btn").forEach((btn) => {
+      btn.addEventListener("click", () => this.#pickCertFile(btn));
+    });
+    row.querySelector(".cert-row-remove").addEventListener("click", () => {
+      row.remove();
+      this.#emitChange();
+    });
+
+    this.#syncCertFormat(row);
+    return row;
+  }
+
+  /** Markup for one file-picker button (label + chosen-file name span). */
+  #filePickerHtml(target, kind, label) {
+    return `
+      <div class="cert-file">
+        <button class="btn cert-file-btn" type="button" data-target="${target}" data-kind="${kind}">${label}</button>
+        <span class="cert-file-name">${t("settings.certificates.noFile")}</span>
+      </div>`;
+  }
+
+  /** Reflect a stored path onto a picker button (path on dataset, basename shown). */
+  #setPickerPath(btn, path) {
+    if (!btn) return;
+    const nameEl = btn.parentNode.querySelector(".cert-file-name");
+    if (path) {
+      btn.dataset.path = path;
+      nameEl.textContent = path.split(/[\\/]/).pop();
+      nameEl.title = path;
+      nameEl.classList.add("cert-file-name--set");
+    } else {
+      delete btn.dataset.path;
+      nameEl.textContent = t("settings.certificates.noFile");
+      nameEl.removeAttribute("title");
+      nameEl.classList.remove("cert-file-name--set");
+    }
+  }
+
+  /** Open the native picker for a client-cert file button, then record its path. */
+  async #pickCertFile(btn) {
+    const path = await window.wurl?.dialog?.pickFile?.(btn.dataset.kind);
+    if (!path) return;
+    this.#setPickerPath(btn, path);
+    this.#emitChange();
+  }
+
+  /** Open the native picker for a CA file and append a row when one is chosen. */
+  async #pickCaFile() {
+    const path = await window.wurl?.dialog?.pickFile?.("ca");
+    if (!path) return;
+    this.#el.querySelector("#ca-cert-list").appendChild(this.#buildCaRow(path));
+    this.#emitChange();
+  }
+
+  /** Build one CA-file row (path display + remove). */
+  #buildCaRow(path) {
+    const row = document.createElement("div");
+    row.className = "ca-row";
+    row.dataset.path = path;
+    row.innerHTML = `
+      <span class="cert-file-name cert-file-name--set"></span>
+      <button class="btn cert-row-remove" type="button">${t("settings.certificates.remove")}</button>
+    `;
+    const nameEl = row.querySelector(".cert-file-name");
+    nameEl.textContent = path.split(/[\\/]/).pop();
+    nameEl.title = path;
+    row.querySelector(".cert-row-remove").addEventListener("click", () => {
+      row.remove();
+      this.#emitChange();
+    });
+    return row;
+  }
+
+  /** Show the PEM or PFX file inputs for a row based on its format select. */
+  #syncCertFormat(row) {
+    const pfx = row.querySelector(".cert-format").value === "pfx";
+    row.querySelector(".cert-files--pem").hidden = pfx;
+    row.querySelector(".cert-files--pfx").hidden = !pfx;
+  }
+
+  /** Serialize the client-cert rows, dropping rows the user left entirely blank. */
+  #serializeClientCerts() {
+    const list = this.#el.querySelector("#client-cert-list");
+    if (!list) return [];
+    return [...list.querySelectorAll(".cert-row")]
+      .map((row) => ({
+        id: row.dataset.id,
+        host: row.querySelector(".cert-host").value.trim(),
+        format: row.querySelector(".cert-format").value,
+        certPath: row.querySelector('[data-target="cert"]').dataset.path || "",
+        keyPath: row.querySelector('[data-target="key"]').dataset.path || "",
+        pfxPath: row.querySelector('[data-target="pfx"]').dataset.path || "",
+        passphrase: row.querySelector(".cert-passphrase").value,
+      }))
+      .filter((e) => e.host || e.certPath || e.pfxPath || e.passphrase);
+  }
+
+  /** Serialize the CA-file rows to a path list. */
+  #serializeCaCerts() {
+    const list = this.#el.querySelector("#ca-cert-list");
+    if (!list) return [];
+    return [...list.querySelectorAll(".ca-row")]
+      .map((row) => row.dataset.path || "")
+      .filter(Boolean);
+  }
+
+  /** Rebuild the client-cert + CA rows from a saved settings object. */
+  #renderCertLists(settings) {
+    const clientList = this.#el.querySelector("#client-cert-list");
+    clientList.replaceChildren();
+    for (const entry of settings.clientCerts || []) {
+      clientList.appendChild(this.#buildClientCertRow(entry));
+    }
+    const caList = this.#el.querySelector("#ca-cert-list");
+    caList.replaceChildren();
+    for (const path of settings.caCerts || []) {
+      caList.appendChild(this.#buildCaRow(path));
+    }
   }
 
   // ── PopupManager protocol ──────────────────────────────────────────────────
@@ -799,6 +1042,15 @@ export class SettingsPopup {
       this.#el.querySelector("#setting-history-count").value = String(
         settings.historyCount,
       );
+    }
+    if (settings.tlsInsecureHosts !== undefined) {
+      this.#el.querySelector("#setting-tls-insecure-hosts").value =
+        settings.tlsInsecureHosts;
+    }
+    // Rebuild the cert lists whenever either is supplied (imperative DOM can't be
+    // patched key-by-key, so a full rebuild keeps the rows in sync with storage).
+    if (settings.clientCerts !== undefined || settings.caCerts !== undefined) {
+      this.#renderCertLists(settings);
     }
     this.#syncProxyAuthState();
   }

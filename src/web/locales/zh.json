@@ -160,7 +160,13 @@
     "fatalErrorMsg": "发生了意外错误，wurl 需要关闭。",
     "fatalErrorLogHint": "详细信息已写入日志：\n{path}",
     "unhandledRejectionTitle": "意外错误",
-    "unhandledRejectionMsg": "发生了意外错误。wurl 将继续运行。"
+    "unhandledRejectionMsg": "发生了意外错误。wurl 将继续运行。",
+    "pickCertificateTitle": "选择文件",
+    "certPemFilter": "PEM 证书",
+    "certKeyFilter": "私钥",
+    "certPfxFilter": "PKCS#12 / PFX",
+    "certCaFilter": "CA 证书",
+    "allFilesFilter": "所有文件"
   },
   "layout": {
     "menuAria": "布局选项",
@@ -232,7 +238,8 @@
       "request": "请求",
       "proxy": "代理",
       "retries": "重试",
-      "history": "历史记录"
+      "history": "历史记录",
+      "certificates": "证书"
     },
     "appearance": {
       "theme": "主题",
@@ -286,6 +293,28 @@
     },
     "history": {
       "timelineEntries": "时间线条目"
+    },
+    "certificates": {
+      "clientHeading": "客户端证书",
+      "clientHelp": "向需要双向 TLS（mTLS）的主机出示客户端证书。使用主机匹配的第一个条目。",
+      "host": "主机",
+      "hostPlaceholder": "api.example.com 或 *.example.com",
+      "format": "格式",
+      "formatPem": "PEM",
+      "formatPfx": "PFX / P12",
+      "certFile": "证书…",
+      "keyFile": "私钥…",
+      "pfxFile": "PFX / P12 文件…",
+      "passphrase": "口令",
+      "noFile": "未选择文件",
+      "addClient": "添加证书",
+      "remove": "移除",
+      "caHeading": "证书颁发机构",
+      "caHelp": "在系统根证书之外信任额外的 CA 证书，使私有签名的主机在仍开启验证的情况下通过校验。",
+      "addCa": "添加 CA 文件",
+      "insecureHeading": "跳过主机的验证",
+      "insecureHelp": "以逗号或换行分隔、其 TLS 证书不被验证的主机。仅用于受信任的自签名主机；建议优先使用上方的自定义 CA。",
+      "insecurePlaceholder": "internal.example.com, *.test"
     }
   },
   "request": {

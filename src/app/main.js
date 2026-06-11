@@ -20,6 +20,7 @@ const path = require("path");
 const http = require("http");
 const https = require("https");
 const net = require("net");
+const tls = require("tls");
 const { Readable } = require("stream");
 const { spawn } = require("child_process");
 const { URL } = require("url");
@@ -36,6 +37,12 @@ const {
   hostBypassesProxy,
   makeProxyAgent,
 } = require("./net/proxy");
+const {
+  selectClientCert,
+  hostSkipsTlsVerify,
+  loadClientCertMaterial,
+  loadCaBundle,
+} = require("./net/tls");
 const { normalizeRetry, retryReason, backoffDelay } = require("./net/retry");
 const { computeTiming, formatTiming } = require("./net/timing");
 const { WebSocketHub } = require("./net/websocket");
@@ -620,6 +627,95 @@ function fmtLabel(str, params) {
   }
 
   /**
+   * Resolve the mTLS / custom-trust configuration for an outgoing request from
+   * the global settings (Certificates panel), reading and decrypting the
+   * manifest in the main process so passphrases never round-trip through the
+   * renderer for the send. Reading happens ONCE per http:execute (the result is
+   * threaded onto the descriptor as `_tls` and reused across redirect/auth legs),
+   * and the custom CA bundle is read here too so the files are loaded a single
+   * time per request rather than per leg. Returns null when nothing is
+   * configured, leaving Node's default TLS behaviour completely untouched.
+   *
+   * @param {string[]} consoleLog
+   * @returns {{ clientCerts: Array, insecureHosts: string, caBundle: Buffer[]|null }|null}
+   */
+  function loadTlsConfig(consoleLog) {
+    return safeCall(
+      "tls config",
+      () => {
+        const settings =
+          getStores().collectionStore().getManifest().settings || {};
+        const clientCerts = Array.isArray(settings.clientCerts)
+          ? settings.clientCerts
+          : [];
+        const caPaths = Array.isArray(settings.caCerts)
+          ? settings.caCerts.filter(Boolean)
+          : [];
+        const insecureHosts = settings.tlsInsecureHosts || "";
+        if (!clientCerts.length && !caPaths.length && !insecureHosts) {
+          return null;
+        }
+        const caBundle = loadCaBundle(
+          caPaths,
+          (p) => fs.readFileSync(p),
+          tls.rootCertificates,
+          (p, err) =>
+            consoleLog.push(`* Custom CA load error (${p}): ${err.message}`),
+        );
+        if (caBundle) {
+          consoleLog.push(
+            `* Trusting ${caPaths.length} custom CA file(s) in addition to the system roots`,
+          );
+        }
+        return { clientCerts, insecureHosts, caBundle };
+      },
+      null,
+    );
+  }
+
+  /**
+   * Apply the resolved TLS config to one request leg's options, by host:
+   *   • a matching client certificate is presented (mTLS);
+   *   • the custom CA bundle is trusted (global, with verification still on);
+   *   • a host on the insecure list has verification skipped for that host only.
+   * Mutates `options` in place. A configured-but-unreadable client cert is
+   * surfaced in the Console rather than silently sending with no identity.
+   *
+   * @param {object} options
+   * @param {string} host
+   * @param {number|string} port
+   * @param {{ clientCerts: Array, insecureHosts: string, caBundle: Buffer[]|null }} cfg
+   * @param {string[]} consoleLog
+   */
+  function applyTlsOptions(options, host, port, cfg, consoleLog) {
+    if (cfg.caBundle) options.ca = cfg.caBundle;
+
+    if (hostSkipsTlsVerify(host, port, cfg.insecureHosts)) {
+      options.rejectUnauthorized = false;
+      consoleLog.push(
+        `* TLS verification skipped for ${host} (matches insecure-hosts list)`,
+      );
+    }
+
+    const entry = selectClientCert(host, port, cfg.clientCerts);
+    if (entry) {
+      try {
+        Object.assign(
+          options,
+          loadClientCertMaterial(entry, (p) => fs.readFileSync(p)),
+        );
+        consoleLog.push(
+          `* Presenting client certificate for ${host} (${entry.format === "pfx" ? "PFX" : "PEM"})`,
+        );
+      } catch (err) {
+        consoleLog.push(
+          `* Client certificate error for ${host}: ${err.message}`,
+        );
+      }
+    }
+  }
+
+  /**
    * Perform one HTTP request leg (no redirect logic here — handled below).
    * Returns a Promise that always resolves (never rejects) with a result object.
    *
@@ -898,6 +994,14 @@ function fmtLabel(str, params) {
             ? { agent: proxyAgent }
             : {}),
       };
+
+      // ── Per-host TLS material (mTLS client cert, custom CA, verify override) ─
+      // Resolved once per request (desc._tls) and applied by host on every leg,
+      // so redirects to another host re-match and OAuth token fetches (which run
+      // through this same path) are covered automatically.
+      if (isHttps && desc._tls) {
+        applyTlsOptions(options, parsed.hostname, port, desc._tls, consoleLog);
+      }
 
       // Per-leg timing marks (absolute ms). The socket handler and the response
       // path below populate the rest; computeTiming turns them into the phase
@@ -1519,6 +1623,10 @@ function fmtLabel(str, params) {
         : `* Enable SSL validation`,
     );
     console.log("[http:execute] →", descriptor.method, descriptor.url);
+    // Resolve per-host TLS material once (mTLS client certs, custom CA, verify
+    // overrides). Threaded onto the descriptor so every redirect/auth leg reuses
+    // it; null when nothing is configured, leaving default behaviour unchanged.
+    descriptor._tls = loadTlsConfig(consoleLog);
     try {
       const result = await executeWithRetries(
         descriptor,
@@ -2672,6 +2780,45 @@ ipcMain.handle("import:file:open", async () => {
   if (result.canceled || result.filePaths.length === 0) return null;
   const content = await fs.promises.readFile(result.filePaths[0], "utf-8");
   return { filename: path.basename(result.filePaths[0]), content };
+});
+
+// ─── Certificate file picker (mTLS / custom CA settings) ──────────────────────
+// The Certificates settings panel stores cert/key/PFX/CA file PATHS (the bytes
+// are read by the main process at send time). This returns the chosen absolute
+// path — never the file content — so nothing sensitive crosses IPC here. `kind`
+// selects sensible default file-type filters; an "All Files" fallback is always
+// appended so unusual extensions are still selectable.
+ipcMain.handle("dialog:file:pick", async (_event, { kind } = {}) => {
+  const m = activeLabels();
+  const byKind = {
+    pem: {
+      name: m("dialog.certPemFilter", "PEM Certificates"),
+      extensions: ["pem", "crt", "cer"],
+    },
+    key: {
+      name: m("dialog.certKeyFilter", "Private Keys"),
+      extensions: ["pem", "key"],
+    },
+    pfx: {
+      name: m("dialog.certPfxFilter", "PKCS#12 / PFX"),
+      extensions: ["pfx", "p12"],
+    },
+    ca: {
+      name: m("dialog.certCaFilter", "CA Certificates"),
+      extensions: ["pem", "crt", "cer"],
+    },
+  };
+  const filters = [
+    ...(byKind[kind] ? [byKind[kind]] : []),
+    { name: m("dialog.allFilesFilter", "All Files"), extensions: ["*"] },
+  ];
+  const result = await dialog.showOpenDialog(_mainWin ?? undefined, {
+    title: m("dialog.pickCertificateTitle", "Select File"),
+    filters,
+    properties: ["openFile"],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
 });
 
 // ─── Backup (export-all / import-all) ─────────────────────────────────────────

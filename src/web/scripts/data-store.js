@@ -68,6 +68,19 @@ const DEFAULT_SETTINGS = {
   proxyUsername: "",
   proxyPassword: "",
   proxyBypass: "",
+  // mTLS / custom-trust (Certificates settings panel). Applied per-host in the
+  // main process at send time; the renderer only stores the configuration.
+  //   clientCerts — [{ id, host, format:"pem"|"pfx", certPath, keyPath,
+  //                     pfxPath, passphrase }]; passphrase encrypted at rest.
+  //   caCerts     — custom CA bundle file paths, trusted IN ADDITION to the
+  //                 system roots (so a privately-signed host validates with
+  //                 verification still on).
+  //   tlsInsecureHosts — NO_PROXY-style host list whose TLS verification is
+  //                 skipped, so one self-signed host can be trusted without
+  //                 flipping the global verifySsl setting.
+  clientCerts: [],
+  caCerts: [],
+  tlsInsecureHosts: "",
   // Request retry policy (applied in the main process around the whole
   // redirect/auth chain). Disabled by default so existing behaviour is unchanged.
   retryEnabled: false,

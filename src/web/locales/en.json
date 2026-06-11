@@ -160,7 +160,13 @@
     "fatalErrorMsg": "An unexpected error occurred and wurl needs to close.",
     "fatalErrorLogHint": "Details were written to the log in:\n{path}",
     "unhandledRejectionTitle": "Unexpected error",
-    "unhandledRejectionMsg": "An unexpected error occurred. wurl will keep running."
+    "unhandledRejectionMsg": "An unexpected error occurred. wurl will keep running.",
+    "pickCertificateTitle": "Select File",
+    "certPemFilter": "PEM Certificates",
+    "certKeyFilter": "Private Keys",
+    "certPfxFilter": "PKCS#12 / PFX",
+    "certCaFilter": "CA Certificates",
+    "allFilesFilter": "All Files"
   },
   "layout": {
     "menuAria": "Layout options",
@@ -232,7 +238,8 @@
       "request": "Request",
       "proxy": "Proxy",
       "retries": "Retries",
-      "history": "History"
+      "history": "History",
+      "certificates": "Certificates"
     },
     "appearance": {
       "theme": "Theme",
@@ -286,6 +293,28 @@
     },
     "history": {
       "timelineEntries": "Timeline entries"
+    },
+    "certificates": {
+      "clientHeading": "Client certificates",
+      "clientHelp": "Present a client certificate to hosts that require mutual TLS (mTLS). The first entry whose host matches is used.",
+      "host": "Host",
+      "hostPlaceholder": "api.example.com or *.example.com",
+      "format": "Format",
+      "formatPem": "PEM",
+      "formatPfx": "PFX / P12",
+      "certFile": "Certificate…",
+      "keyFile": "Private key…",
+      "pfxFile": "PFX / P12 file…",
+      "passphrase": "Passphrase",
+      "noFile": "No file selected",
+      "addClient": "Add certificate",
+      "remove": "Remove",
+      "caHeading": "Certificate authorities",
+      "caHelp": "Trust extra CA certificates alongside the system roots, so privately-signed hosts validate with verification still on.",
+      "addCa": "Add CA file",
+      "insecureHeading": "Skip verification for hosts",
+      "insecureHelp": "Comma- or newline-separated hosts whose TLS certificate is not verified. Use only for trusted self-signed hosts; prefer a custom CA above.",
+      "insecurePlaceholder": "internal.example.com, *.test"
     }
   },
   "request": {

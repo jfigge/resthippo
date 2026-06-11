@@ -242,12 +242,38 @@ function redactRequest(obj) {
  */
 const SETTINGS_SECRET_KEYS = ["proxyUrl", "proxyUsername", "proxyPassword"];
 
+/**
+ * The mTLS client-certificate list (`settings.clientCerts`) is an array of
+ * `{ host, format, certPath, keyPath, pfxPath, passphrase }` entries. Only the
+ * per-entry `passphrase` is sensitive — the file PATHS are not secrets (the
+ * bytes live on disk and are read by the main process at send time). One helper
+ * maps a transform over every entry's passphrase so encrypt/redact/portable all
+ * stay in lockstep; decrypt needs its own try/catch branch (below) to record
+ * failures, so it does not use this.
+ *
+ * @param {Array} list  settings.clientCerts
+ * @param {(v: string) => string} fn
+ * @returns {Array}
+ */
+function _mapClientCertPassphrases(list, fn) {
+  if (!Array.isArray(list)) return list;
+  return list.map((entry) => {
+    if (!entry || typeof entry !== "object" || entry.passphrase === undefined) {
+      return entry;
+    }
+    return { ...entry, passphrase: fn(entry.passphrase) };
+  });
+}
+
 /** Encrypt every secret settings field before writing to disk. */
 function encryptSettings(settings) {
   if (!settings || typeof settings !== "object") return settings;
   const out = { ...settings };
   for (const key of SETTINGS_SECRET_KEYS) {
     if (out[key] !== undefined) out[key] = encryptString(out[key]);
+  }
+  if (Array.isArray(out.clientCerts)) {
+    out.clientCerts = _mapClientCertPassphrases(out.clientCerts, encryptString);
   }
   // The `_decryptErrors` marker is a read-side artifact; never persist it.
   if ("_decryptErrors" in out) delete out._decryptErrors;
@@ -277,6 +303,25 @@ function decryptSettings(settings) {
       lastReason = err.reason;
     }
   }
+  if (Array.isArray(out.clientCerts)) {
+    out.clientCerts = out.clientCerts.map((entry, i) => {
+      if (
+        !entry ||
+        typeof entry !== "object" ||
+        entry.passphrase === undefined
+      ) {
+        return entry;
+      }
+      try {
+        return { ...entry, passphrase: decryptString(entry.passphrase) };
+      } catch (err) {
+        if (!(err instanceof DecryptError)) throw err;
+        errors.push(`clientCerts[${i}].passphrase`);
+        lastReason = err.reason;
+        return { ...entry, passphrase: "" };
+      }
+    });
+  }
   if (errors.length) {
     out._decryptErrors = errors;
     _logDecryptFailure("settings", null, errors, lastReason);
@@ -290,6 +335,9 @@ function redactSettings(settings) {
   const out = { ...settings };
   for (const key of SETTINGS_SECRET_KEYS) {
     if (out[key] !== undefined) out[key] = "";
+  }
+  if (Array.isArray(out.clientCerts)) {
+    out.clientCerts = _mapClientCertPassphrases(out.clientCerts, () => "");
   }
   return out;
 }
@@ -584,6 +632,11 @@ function exportSettingsSecrets(settings, password) {
   for (const key of SETTINGS_SECRET_KEYS) {
     if (out[key] !== undefined) out[key] = _toPortable(out[key], password);
   }
+  if (Array.isArray(out.clientCerts)) {
+    out.clientCerts = _mapClientCertPassphrases(out.clientCerts, (v) =>
+      _toPortable(v, password),
+    );
+  }
   return out;
 }
 
@@ -593,6 +646,11 @@ function importSettingsSecrets(settings, password) {
   const out = { ...settings };
   for (const key of SETTINGS_SECRET_KEYS) {
     if (out[key] !== undefined) out[key] = _fromPortable(out[key], password);
+  }
+  if (Array.isArray(out.clientCerts)) {
+    out.clientCerts = _mapClientCertPassphrases(out.clientCerts, (v) =>
+      _fromPortable(v, password),
+    );
   }
   return out;
 }

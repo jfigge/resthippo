@@ -160,7 +160,13 @@
     "fatalErrorMsg": "予期しないエラーが発生したため、wurl を終了する必要があります。",
     "fatalErrorLogHint": "詳細は次のログに記録されました:\n{path}",
     "unhandledRejectionTitle": "予期しないエラー",
-    "unhandledRejectionMsg": "予期しないエラーが発生しました。wurl は実行を続けます。"
+    "unhandledRejectionMsg": "予期しないエラーが発生しました。wurl は実行を続けます。",
+    "pickCertificateTitle": "ファイルを選択",
+    "certPemFilter": "PEM 証明書",
+    "certKeyFilter": "秘密鍵",
+    "certPfxFilter": "PKCS#12 / PFX",
+    "certCaFilter": "CA 証明書",
+    "allFilesFilter": "すべてのファイル"
   },
   "layout": {
     "menuAria": "レイアウトオプション",
@@ -232,7 +238,8 @@
       "request": "リクエスト",
       "proxy": "プロキシ",
       "retries": "再試行",
-      "history": "履歴"
+      "history": "履歴",
+      "certificates": "証明書"
     },
     "appearance": {
       "theme": "テーマ",
@@ -286,6 +293,28 @@
     },
     "history": {
       "timelineEntries": "タイムラインのエントリ"
+    },
+    "certificates": {
+      "clientHeading": "クライアント証明書",
+      "clientHelp": "相互TLS（mTLS）を必要とするホストにクライアント証明書を提示します。ホストが一致する最初のエントリが使用されます。",
+      "host": "ホスト",
+      "hostPlaceholder": "api.example.com または *.example.com",
+      "format": "形式",
+      "formatPem": "PEM",
+      "formatPfx": "PFX / P12",
+      "certFile": "証明書…",
+      "keyFile": "秘密鍵…",
+      "pfxFile": "PFX / P12 ファイル…",
+      "passphrase": "パスフレーズ",
+      "noFile": "ファイルが選択されていません",
+      "addClient": "証明書を追加",
+      "remove": "削除",
+      "caHeading": "認証局",
+      "caHelp": "システムのルート証明書に加えて追加の CA 証明書を信頼し、検証を有効にしたままプライベート署名されたホストを検証できるようにします。",
+      "addCa": "CA ファイルを追加",
+      "insecureHeading": "ホストの検証をスキップ",
+      "insecureHelp": "TLS 証明書を検証しないホストをカンマまたは改行で区切って指定します。信頼できる自己署名ホストにのみ使用し、できるだけ上のカスタム CA を使用してください。",
+      "insecurePlaceholder": "internal.example.com, *.test"
     }
   },
   "request": {

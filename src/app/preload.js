@@ -398,6 +398,20 @@ contextBridge.exposeInMainWorld("wurl", {
   },
 
   /**
+   * Native file picker for the Certificates settings panel (mTLS / custom CA).
+   * Returns the chosen absolute path, or null when cancelled. `kind` selects
+   * sensible default file-type filters: "pem" | "key" | "pfx" | "ca". Only the
+   * path is returned — the main process reads cert bytes at send time, so no
+   * file content crosses IPC here.
+   *
+   * @param {"pem"|"key"|"pfx"|"ca"} kind
+   * @returns {Promise<string|null>}
+   */
+  dialog: {
+    pickFile: (kind) => ipcRenderer.invoke("dialog:file:pick", { kind }),
+  },
+
+  /**
    * Collection import — opens a native file dialog and returns the file content.
    * Returns null when the user cancels without selecting a file.
    *

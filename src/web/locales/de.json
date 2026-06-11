@@ -160,7 +160,13 @@
     "fatalErrorMsg": "Ein unerwarteter Fehler ist aufgetreten und wurl muss beendet werden.",
     "fatalErrorLogHint": "Details wurden in das Protokoll geschrieben unter:\n{path}",
     "unhandledRejectionTitle": "Unerwarteter Fehler",
-    "unhandledRejectionMsg": "Ein unerwarteter Fehler ist aufgetreten. wurl wird weiter ausgeführt."
+    "unhandledRejectionMsg": "Ein unerwarteter Fehler ist aufgetreten. wurl wird weiter ausgeführt.",
+    "pickCertificateTitle": "Datei auswählen",
+    "certPemFilter": "PEM-Zertifikate",
+    "certKeyFilter": "Private Schlüssel",
+    "certPfxFilter": "PKCS#12 / PFX",
+    "certCaFilter": "CA-Zertifikate",
+    "allFilesFilter": "Alle Dateien"
   },
   "layout": {
     "menuAria": "Layout-Optionen",
@@ -232,7 +238,8 @@
       "request": "Anfrage",
       "proxy": "Proxy",
       "retries": "Wiederholungen",
-      "history": "Verlauf"
+      "history": "Verlauf",
+      "certificates": "Zertifikate"
     },
     "appearance": {
       "theme": "Design",
@@ -286,6 +293,28 @@
     },
     "history": {
       "timelineEntries": "Verlaufseinträge"
+    },
+    "certificates": {
+      "clientHeading": "Client-Zertifikate",
+      "clientHelp": "Präsentiert ein Client-Zertifikat für Hosts, die gegenseitiges TLS (mTLS) erfordern. Es wird der erste Eintrag verwendet, dessen Host übereinstimmt.",
+      "host": "Host",
+      "hostPlaceholder": "api.example.com oder *.example.com",
+      "format": "Format",
+      "formatPem": "PEM",
+      "formatPfx": "PFX / P12",
+      "certFile": "Zertifikat…",
+      "keyFile": "Privater Schlüssel…",
+      "pfxFile": "PFX-/P12-Datei…",
+      "passphrase": "Passphrase",
+      "noFile": "Keine Datei ausgewählt",
+      "addClient": "Zertifikat hinzufügen",
+      "remove": "Entfernen",
+      "caHeading": "Zertifizierungsstellen",
+      "caHelp": "Vertraut zusätzlichen CA-Zertifikaten neben den System-Stammzertifikaten, sodass privat signierte Hosts bei aktivierter Überprüfung validiert werden.",
+      "addCa": "CA-Datei hinzufügen",
+      "insecureHeading": "Überprüfung für Hosts überspringen",
+      "insecureHelp": "Durch Komma oder Zeilenumbruch getrennte Hosts, deren TLS-Zertifikat nicht überprüft wird. Nur für vertrauenswürdige selbstsignierte Hosts verwenden; bevorzugen Sie oben eine eigene CA.",
+      "insecurePlaceholder": "internal.example.com, *.test"
     }
   },
   "request": {

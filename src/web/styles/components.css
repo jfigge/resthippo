@@ -3774,6 +3774,158 @@ html.show-method-icons .req-method-menu-item-label::before {
   opacity: 0.5;
 }
 
+/* ── Certificates panel (mTLS / custom CA) ─────────────────────────────────── */
+
+/* Section sub-heading within a settings panel (Client certificates / CAs / …). */
+.settings-subhead {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.settings-subhead--spaced {
+  margin-top: var(--space-5);
+}
+
+/* Stack of cert/CA rows. */
+.cert-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+/* One client-certificate entry — a bordered card grouping host, format, files
+   and passphrase. */
+.cert-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface-0);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-md);
+}
+
+.cert-row-grid {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.cert-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cert-field--host {
+  flex: 1;
+}
+
+.cert-field .settings-input,
+.cert-field .secret-field {
+  width: 100%;
+  min-width: 0;
+}
+
+/* The PEM (cert + key) and PFX (single file) picker groups; only one shows at a
+   time depending on the row's format select. */
+.cert-files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* The format select toggles `hidden` on whichever group is inactive; the
+   explicit display above would otherwise win over the attribute. */
+.cert-files[hidden] {
+  display: none;
+}
+
+.cert-file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* Composes .btn; compact neutral-outline picker trigger. */
+.cert-file-btn,
+.cert-add {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  flex: none;
+}
+
+.cert-file-btn:hover,
+.cert-add:hover {
+  border-color: var(--color-accent);
+}
+
+.cert-file-name {
+  font-size: var(--font-size-xs);
+  color: var(--color-subtext);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cert-file-name--set {
+  color: var(--color-text);
+  font-family: var(--font-mono);
+}
+
+.cert-row-foot {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+}
+
+.cert-field--pass {
+  flex: 1;
+}
+
+/* Composes .btn; error-red outline on hover (matches the app's destructive
+   secondary buttons). */
+.cert-row-remove {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-subtext);
+  font-size: var(--font-size-xs);
+  flex: none;
+}
+
+.cert-row-remove:hover {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+/* CA row — a single path display plus its remove button. */
+.ca-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-0);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-md);
+}
+
+.ca-row .cert-file-name {
+  flex: 1;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    COLLECTION POPUP
    ═══════════════════════════════════════════════════════════════════════════ */

@@ -42,6 +42,34 @@ scheme — `http://`, `socks5://`, … — selects the proxy type), optionally e
 **proxy authentication** with a username and password, and list hosts to
 **bypass** (a `NO_PROXY`-style list supporting suffixes and `*` globs).
 
+## Certificates
+
+Configure mutual TLS (mTLS) and custom trust for hosts that need more than the
+system certificate store.
+
+- **Client certificates** — present a certificate to hosts that require mutual
+  TLS. Each entry has a **Host** pattern (exact, suffix, or `*` glob, with an
+  optional `:port`, matched like the proxy bypass list) and a **Format**: choose
+  **PEM** to point at a certificate file plus an optional private-key file, or
+  **PFX / P12** for a single bundle. A **passphrase** can be supplied for an
+  encrypted key or PFX. The first entry whose host matches a request wins, so
+  list a specific host above a broader wildcard. The certificate is also
+  presented automatically on redirects to a matching host and on OAuth token
+  requests to one.
+
+- **Certificate authorities** — add CA files to trust **in addition to** the
+  system roots. This lets a privately-signed host validate with verification
+  still on, instead of turning verification off globally.
+
+- **Skip verification for hosts** — a `NO_PROXY`-style list of hosts whose TLS
+  certificate is not checked. Use this only for trusted self-signed hosts when a
+  custom CA isn't practical; it overrides the global **Verify SSL** toggle for
+  those hosts only.
+
+Only file **paths** are stored — wurl reads the certificate bytes in the
+background process when a request is sent. Passphrases are encrypted at rest with
+the OS keystore (like other secrets) and are removed from secret-free exports.
+
 ## Retries
 
 Automatically retry failed requests with backoff. Configure the **max
