@@ -110,6 +110,20 @@ export class LayoutPicker {
       e.preventDefault();
       this.#menu ? this.#closeMenu() : this.#openMenu(btn);
     });
+    // Keyboard open: a <button> emits no mousedown for Enter/Space, so handle
+    // the open keys here. preventDefault stops the synthesized click and page
+    // scroll; opening with focus moves into the listbox onto the current layout.
+    btn.addEventListener("keydown", (e) => {
+      if (
+        e.key === "Enter" ||
+        e.key === " " ||
+        e.key === "ArrowDown" ||
+        e.key === "ArrowUp"
+      ) {
+        e.preventDefault();
+        if (!this.#menu) this.#openMenu(btn, { focus: true });
+      }
+    });
     this.#triggers.push(btn);
   }
 
@@ -141,7 +155,12 @@ export class LayoutPicker {
     });
   }
 
-  #openMenu(nearEl) {
+  /**
+   * @param {HTMLElement} nearEl        trigger to anchor the menu beneath
+   * @param {{ focus?: boolean }} [opts] when focus is true (keyboard open), move
+   *   focus into the listbox onto the currently-selected option
+   */
+  #openMenu(nearEl, { focus = false } = {}) {
     if (this.#menu) return;
 
     const menu = document.createElement("div");
@@ -149,12 +168,16 @@ export class LayoutPicker {
     menu.setAttribute("role", "listbox");
     menu.setAttribute("aria-label", "Layout options");
     menu.addEventListener("mousedown", (e) => e.preventDefault());
+    menu.addEventListener("keydown", (e) => this.#onMenuKeydown(e));
 
     for (let i = 1; i <= 4; i++) {
       const item = document.createElement("div");
       item.className = "layout-picker-item";
       item.setAttribute("role", "option");
       item.setAttribute("aria-selected", String(i === this.#layout));
+      // Roving tabindex: only the selected option is tabbable; arrow keys move
+      // the tab stop between options (see #focusItem).
+      item.setAttribute("tabindex", i === this.#layout ? "0" : "-1");
       item.dataset.layout = String(i);
       if (i === this.#layout)
         item.classList.add("layout-picker-item--selected");
@@ -167,11 +190,7 @@ export class LayoutPicker {
 
       item.addEventListener("mousedown", (e) => {
         e.preventDefault();
-        const selected = parseInt(item.dataset.layout, 10);
-        this.#layout = selected;
-        this.#triggers.forEach((t) => this.#syncTrigger(t));
-        this.#closeMenu();
-        this.#onSelect?.(selected);
+        this.#selectItem(item);
       });
 
       menu.appendChild(item);
@@ -187,6 +206,78 @@ export class LayoutPicker {
     window.addEventListener("wurl:popup-closed", this.#onPopupClosed, {
       once: true,
     });
+
+    // openMenu does not manage focus — when opened by keyboard, land on the
+    // selected option so arrow keys work immediately.
+    if (focus) {
+      const sel =
+        menu.querySelector(".layout-picker-item--selected") ??
+        menu.querySelector(".layout-picker-item");
+      sel?.focus();
+    }
+  }
+
+  /** Make `item` the sole tabbable option and move focus to it. */
+  #focusItem(item) {
+    if (!item) return;
+    this.#menu?.querySelectorAll(".layout-picker-item").forEach((it) => {
+      it.setAttribute("tabindex", it === item ? "0" : "-1");
+    });
+    item.focus();
+  }
+
+  /** Commit the chosen layout, close the menu, and return focus to the trigger. */
+  #selectItem(item) {
+    const selected = parseInt(item.dataset.layout, 10);
+    this.#layout = selected;
+    this.#triggers.forEach((t) => this.#syncTrigger(t));
+    this.#closeMenu();
+    this.#triggers[0]?.focus();
+    this.#onSelect?.(selected);
+  }
+
+  /** Keyboard model for the open listbox: arrows/Home/End move, Enter/Space
+   *  select, Escape/Tab close (returning focus to the trigger). */
+  #onMenuKeydown(e) {
+    if (!this.#menu) return;
+    const items = [...this.#menu.querySelectorAll(".layout-picker-item")];
+    const current = e.target.closest(".layout-picker-item");
+    const i = items.indexOf(current);
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        this.#focusItem(items[Math.min(items.length - 1, i + 1)]);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        this.#focusItem(items[Math.max(0, i - 1)]);
+        break;
+      case "Home":
+        e.preventDefault();
+        this.#focusItem(items[0]);
+        break;
+      case "End":
+        e.preventDefault();
+        this.#focusItem(items[items.length - 1]);
+        break;
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        if (current) this.#selectItem(current);
+        break;
+      case "Escape":
+        e.preventDefault();
+        this.#closeMenu();
+        this.#triggers[0]?.focus();
+        break;
+      case "Tab":
+        // Return focus to the trigger first, then let Tab advance from there so
+        // focus is never stranded on the about-to-be-removed menu.
+        this.#closeMenu();
+        this.#triggers[0]?.focus();
+        break;
+    }
   }
 
   #closeMenu() {

@@ -5044,6 +5044,13 @@ input[type="checkbox"]:disabled {
   background-color: var(--color-surface-2);
 }
 
+/* Keyboard focus inside the menu: highlight like hover, and pull the global
+   focus ring inward so it is not clipped by the menu's rounded edge. */
+.layout-picker-item:focus-visible {
+  background-color: var(--color-surface-2);
+  outline-offset: -2px;
+}
+
 .layout-picker-item--selected {
   color: var(--color-accent);
 }

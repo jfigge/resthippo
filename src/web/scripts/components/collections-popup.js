@@ -363,6 +363,12 @@ export class CollectionsPopup {
       this.#handleSendCookiesToggle(e.target.checked),
     );
 
+    // Arrow-key navigation between the option buttons in the role="listbox"
+    // collection list. Additive on top of native Tab; see #handleListNav.
+    el.querySelector(".coll-list")?.addEventListener("keydown", (e) =>
+      this.#handleListNav(e, [...el.querySelectorAll(".coll-list-item-name")]),
+    );
+
     el.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
@@ -371,6 +377,37 @@ export class CollectionsPopup {
     });
 
     return el;
+  }
+
+  /**
+   * Move focus between listbox option buttons with Up/Down/Home/End. No-ops
+   * unless focus is on an option button, so arrow keys inside an inline rename/
+   * add input keep their native text-cursor behaviour.
+   * @param {KeyboardEvent}       e
+   * @param {HTMLButtonElement[]} items  the option buttons, in display order
+   */
+  #handleListNav(e, items) {
+    const i = items.indexOf(e.target);
+    if (i === -1) return;
+    let next;
+    switch (e.key) {
+      case "ArrowDown":
+        next = items[i + 1] ?? items[i];
+        break;
+      case "ArrowUp":
+        next = items[i - 1] ?? items[i];
+        break;
+      case "Home":
+        next = items[0];
+        break;
+      case "End":
+        next = items[items.length - 1];
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    next?.focus();
   }
 
   // ── Tab switching ──────────────────────────────────────────────────────────

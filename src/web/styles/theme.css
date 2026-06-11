@@ -330,3 +330,96 @@ body {
 .btn--warning:hover {
   opacity: 0.85;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCESSIBILITY
+   Cross-cutting a11y primitives + OS-preference media queries. Lives in
+   theme.css (loaded by every window) so the utility and the preference
+   handling apply app-wide, not per-component.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Visually-hidden text that stays in the accessibility tree — for icon-only
+   control names, status text, and live-region announcements. Not display:none
+   (that would drop it from the a11y tree) and not clipped off-screen with a
+   fixed position (that can be read by some ATs as off-canvas); this is the
+   standard 1px-clip recipe. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────
+   Honour the OS "reduce motion" preference: collapse entrance animations and
+   transitions to near-instant so nothing slides, scales, or pulses. The
+   near-zero (not 0) duration is deliberate — transitionend still fires, so the
+   JS that waits on it (toasts, popups) keeps working. Looping status spinners
+   are exempt below: they report that work is in flight, so they keep turning. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-delay: 0ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Loading spinners stay animated — the spin *is* the "in flight" signal. */
+  .res-spinner {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
+  .tree-node-stop::before {
+    animation-duration: 0.8s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+/* ── Increased contrast ───────────────────────────────────────────────────
+   For users who request more contrast, lift the muted greys toward the primary
+   text colour (so secondary text / placeholders stop falling below contrast)
+   and thicken the focus ring. Re-declared on [data-theme] as well as :root so
+   it also overrides each theme's own muted tokens (equal specificity, later
+   source order wins). */
+@media (prefers-contrast: more) {
+  :root,
+  [data-theme] {
+    --color-subtext: var(--color-text);
+    --color-overlay-0: var(--color-subtext);
+    --color-overlay-1: var(--color-text);
+  }
+
+  :focus-visible {
+    outline-width: 3px;
+  }
+}
+
+/* ── Forced colors (Windows High Contrast) ────────────────────────────────
+   In forced-colors the OS flattens our palette to its own system colours, so
+   selection conveyed only by a background fill disappears. Keep focus and the
+   current selection visible by drawing system-coloured outlines (the active
+   item's check glyph already survives as it is real content). */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .tree-node--active > .tree-node-row,
+  .env-list-item--selected,
+  .coll-list-item--selected,
+  .layout-picker-item--selected,
+  .theme-item--selected {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}

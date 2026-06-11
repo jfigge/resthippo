@@ -132,6 +132,15 @@ export class TreeView {
   /** @type {Set<string>} — ids of requests with a live background WebSocket connection */
   #wsLiveIds = new Set();
 
+  /** @type {HTMLElement|null} — the one row carrying tabindex="0" (the tab stop) */
+  #rovingRow = null;
+
+  /** @type {string} — accumulated type-ahead buffer, reset after a short pause */
+  #typeaheadStr = "";
+
+  /** @type {ReturnType<typeof setTimeout>|null} — clears the type-ahead buffer */
+  #typeaheadTimer = null;
+
   /**
    * @param {object}   [opts]
    * @param {object[]} [opts.items]  - Initial tree data
@@ -184,6 +193,23 @@ export class TreeView {
       } else {
         this.#cancelDrag();
       }
+    });
+
+    // ── Keyboard navigation (roving tabindex composite) ─────────────────────
+    // The tree is a single tab stop: exactly one row carries tabindex="0" (see
+    // #initRovingTabindex); from there Arrow/Home/End/type-ahead move focus
+    // between rows. Per-row Enter/Space handlers still own activation, so this
+    // delegated handler deliberately ignores those keys. The rename input stops
+    // propagation, so this never fires while editing a label.
+    this.#el.addEventListener("keydown", (e) => {
+      const row = e.target.closest?.(".tree-node-row");
+      if (row) this.#handleTreeKeydown(e, row);
+    });
+    // Whatever gains focus inside the tree becomes the tab stop, so a Tab
+    // out-and-back returns to where the user was (click, arrow, or programmatic).
+    this.#el.addEventListener("focusin", (e) => {
+      const row = e.target.closest?.(".tree-node-row");
+      if (row && this.#isRowVisible(row)) this.#setRovingTabindex(row);
     });
   }
 
@@ -461,6 +487,18 @@ export class TreeView {
     return hot;
   }
 
+  /**
+   * A visually-hidden span that adds `text` to a row's screen-reader name —
+   * the favorite star is otherwise a purely visual (aria-hidden) indicator, so
+   * this is how the "favorited" state reaches assistive tech.
+   */
+  #makeSrText(text) {
+    const span = document.createElement("span");
+    span.className = "sr-only";
+    span.textContent = text;
+    return span;
+  }
+
   /** Reflect favorite state in a hotspot: show the star glyph and its tooltip. */
   #updateHotspot(hot, favorited) {
     hot.textContent = favorited ? "★" : "";
@@ -519,15 +557,17 @@ export class TreeView {
     if (isFav) li.classList.add("tree-node--favorite");
 
     li.innerHTML = `
-      <div class="tree-node-row" tabindex="0">
+      <div class="tree-node-row" tabindex="-1">
         ${this.#methodBadgeHtml(entry.protocol, entry.method)}
         <span class="tree-node-label">${escapeHtml(entry.name || "(unnamed)")}</span>
       </div>
     `;
 
     const row = li.querySelector(".tree-node-row");
-    if (isFav)
+    if (isFav) {
       row.insertBefore(this.#makeFavHotspot(entry.requestId), row.firstChild);
+      row.appendChild(this.#makeSrText("Favorited"));
+    }
     const open = () =>
       window.dispatchEvent(
         new CustomEvent("wurl:request-open", {
@@ -1592,6 +1632,8 @@ export class TreeView {
       this.#renderQuickList(this.#activeTab);
     }
     if (this.#filterText) this.#applyFilter();
+    // The DOM was just rebuilt — re-establish the single keyboard tab stop.
+    this.#initRovingTabindex();
   }
 
   #renderTree(items) {
@@ -1629,8 +1671,8 @@ export class TreeView {
       li.classList.add("tree-node--collection");
       li.setAttribute("aria-expanded", String(isExpanded));
       li.innerHTML = `
-        <div class="tree-node-row" tabindex="0">
-          <span class="tree-node-icon">${isExpanded ? ICON_FOLDER_OPEN : ICON_FOLDER_CLOSED}</span>
+        <div class="tree-node-row" tabindex="-1">
+          <span class="tree-node-icon" aria-hidden="true">${isExpanded ? ICON_FOLDER_OPEN : ICON_FOLDER_CLOSED}</span>
           <span class="tree-node-label">${escapeHtml(node.name)}</span>
         </div>
       `;
@@ -1642,15 +1684,7 @@ export class TreeView {
       /** Toggle this folder's expanded / collapsed state. */
       const toggleExpand = () => {
         const expanded = li.getAttribute("aria-expanded") === "true";
-        li.setAttribute("aria-expanded", String(!expanded));
-        iconEl.innerHTML = expanded ? ICON_FOLDER_CLOSED : ICON_FOLDER_OPEN;
-        childList.style.display = expanded ? "none" : "";
-        if (expanded) {
-          this.#collapsedIds.add(node.id);
-        } else {
-          this.#collapsedIds.delete(node.id);
-        }
-        this.#saveCollapsedState();
+        this.#setNodeExpanded(li, !expanded);
       };
 
       // Single click anywhere on the row → select / highlight the row only (no toggle).
@@ -1720,7 +1754,7 @@ export class TreeView {
       if (this.#loadingIds.has(node.id)) li.classList.add("tree-node--loading");
       if (this.#wsLiveIds.has(node.id)) li.classList.add("tree-node--ws-live");
       li.innerHTML = `
-        <div class="tree-node-row" tabindex="0">
+        <div class="tree-node-row" tabindex="-1">
           ${this.#methodBadgeHtml(node.protocol, node.method)}
           <span class="tree-node-label">${escapeHtml(node.name)}</span>
         </div>
@@ -1728,6 +1762,8 @@ export class TreeView {
 
       const row = li.querySelector(".tree-node-row");
       row.insertBefore(this.#makeFavHotspot(node.id), row.firstChild);
+      // The star is aria-hidden; surface the favorite state to screen readers.
+      if (isFav) row.appendChild(this.#makeSrText("Favorited"));
       // Restore the stop/spinner control when re-rendering mid-flight (the
       // class alone was re-applied above; the control is a real element).
       if (this.#loadingIds.has(node.id)) {
@@ -1857,6 +1893,222 @@ export class TreeView {
       el.classList.remove("tree-node--active");
     });
     li.classList.add("tree-node--active");
+  }
+
+  /**
+   * Expand or collapse a collection node in place (no full re-render), keeping
+   * aria-expanded, the folder icon, the nested list's visibility, and the
+   * persisted collapsed-state set in sync. Shared by the click/double-click
+   * toggles and the ArrowLeft/ArrowRight keyboard handlers.
+   * @param {HTMLElement} li        the .tree-node--collection element
+   * @param {boolean}     expanded  desired state
+   */
+  #setNodeExpanded(li, expanded) {
+    if (!li?.classList.contains("tree-node--collection")) return;
+    const id = li.dataset.id;
+    li.setAttribute("aria-expanded", String(expanded));
+    const iconEl = li.querySelector(
+      ":scope > .tree-node-row > .tree-node-icon",
+    );
+    if (iconEl) {
+      iconEl.innerHTML = expanded ? ICON_FOLDER_OPEN : ICON_FOLDER_CLOSED;
+    }
+    const childList = li.querySelector(":scope > .tree-list--nested");
+    if (childList) childList.style.display = expanded ? "" : "none";
+    if (expanded) this.#collapsedIds.delete(id);
+    else this.#collapsedIds.add(id);
+    this.#saveCollapsedState();
+  }
+
+  // ── Keyboard navigation (roving tabindex) ─────────────────────────────────
+
+  /**
+   * Re-establish the single tab stop after a (re-)render. Exactly one row gets
+   * tabindex="0"; every other row gets -1. Prefer the selected request's row
+   * (so Tab re-enters where the user was), falling back to the first visible
+   * row. Called at the end of #rerender, once the DOM has been rebuilt and the
+   * previous #rovingRow is detached.
+   */
+  #initRovingTabindex() {
+    const rows = [...this.#el.querySelectorAll(".tree-node-row")];
+    rows.forEach((r) => r.setAttribute("tabindex", "-1"));
+    this.#rovingRow = null;
+    if (rows.length === 0) return;
+
+    let target = null;
+    if (this.#selectedId != null) {
+      const li = this.#el.querySelector(
+        `[data-id="${CSS.escape(this.#selectedId)}"]`,
+      );
+      const r = li?.querySelector(":scope > .tree-node-row");
+      if (r && this.#isRowVisible(r)) target = r;
+    }
+    if (!target) target = rows.find((r) => this.#isRowVisible(r)) ?? rows[0];
+
+    target.setAttribute("tabindex", "0");
+    this.#rovingRow = target;
+  }
+
+  /**
+   * Move the tab stop to `row` (the only one left tabbable). Pure tabindex
+   * bookkeeping — does not move focus; #focusRow does that.
+   */
+  #setRovingTabindex(row) {
+    if (this.#rovingRow === row) return;
+    if (this.#rovingRow?.isConnected) {
+      this.#rovingRow.setAttribute("tabindex", "-1");
+    }
+    this.#rovingRow = row;
+    row?.setAttribute("tabindex", "0");
+  }
+
+  /** Move focus (and the tab stop) to `row`, scrolling it into view. */
+  #focusRow(row) {
+    if (!row) return;
+    this.#setRovingTabindex(row);
+    row.focus();
+    row.scrollIntoView?.({ block: "nearest" });
+  }
+
+  /**
+   * Is `row` currently visible? A row is hidden when any ancestor up to the
+   * tree root carries inline display:none — exactly how collapsed folders
+   * (childList.style.display) and filtered-out nodes (li.style.display) hide
+   * themselves. Reads inline styles only, so it needs no layout (works headless).
+   */
+  #isRowVisible(row) {
+    let el = row;
+    while (el && el !== this.#el) {
+      if (el.style?.display === "none") return false;
+      el = el.parentElement;
+    }
+    return true;
+  }
+
+  /** All focusable rows in visual (DOM) order, skipping hidden ones. */
+  #visibleRows() {
+    return [...this.#el.querySelectorAll(".tree-node-row")].filter((r) =>
+      this.#isRowVisible(r),
+    );
+  }
+
+  /**
+   * Route a keydown on a focused tree row to the matching navigation action.
+   * Enter/Space are intentionally left to the per-row activation handlers.
+   * @param {KeyboardEvent} e
+   * @param {HTMLElement}   row  the focused .tree-node-row
+   */
+  #handleTreeKeydown(e, row) {
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        this.#focusSibling(row, 1);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        this.#focusSibling(row, -1);
+        break;
+      case "Home": {
+        e.preventDefault();
+        const rows = this.#visibleRows();
+        this.#focusRow(rows[0]);
+        break;
+      }
+      case "End": {
+        e.preventDefault();
+        const rows = this.#visibleRows();
+        this.#focusRow(rows[rows.length - 1]);
+        break;
+      }
+      case "ArrowRight":
+        e.preventDefault();
+        this.#expandOrEnter(row);
+        break;
+      case "ArrowLeft":
+        e.preventDefault();
+        this.#collapseOrLeave(row);
+        break;
+      default:
+        // A single printable character (no modifier) drives type-ahead.
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          this.#typeahead(e.key, row);
+        }
+    }
+  }
+
+  /** Move focus to the visible row `dir` steps away (clamped at the ends). */
+  #focusSibling(row, dir) {
+    const rows = this.#visibleRows();
+    const i = rows.indexOf(row);
+    if (i === -1) return;
+    this.#focusRow(rows[i + dir]);
+  }
+
+  /**
+   * ArrowRight: on a collapsed collection, expand it; on an expanded one, dive
+   * to its first visible child; on a request (leaf) do nothing.
+   */
+  #expandOrEnter(row) {
+    const li = row.closest(".tree-node");
+    if (!li?.classList.contains("tree-node--collection")) return;
+    if (li.getAttribute("aria-expanded") !== "true") {
+      this.#setNodeExpanded(li, true);
+      return;
+    }
+    const childRow = li.querySelector(
+      ":scope > .tree-list--nested > .tree-node > .tree-node-row",
+    );
+    if (childRow && this.#isRowVisible(childRow)) this.#focusRow(childRow);
+  }
+
+  /**
+   * ArrowLeft: on an expanded collection, collapse it; otherwise (a request, or
+   * an already-collapsed collection) move focus up to the parent collection row.
+   */
+  #collapseOrLeave(row) {
+    const li = row.closest(".tree-node");
+    if (
+      li?.classList.contains("tree-node--collection") &&
+      li.getAttribute("aria-expanded") === "true"
+    ) {
+      this.#setNodeExpanded(li, false);
+      return;
+    }
+    const parentLi = li?.parentElement?.closest(".tree-node--collection");
+    const parentRow = parentLi?.querySelector(":scope > .tree-node-row");
+    if (parentRow) this.#focusRow(parentRow);
+  }
+
+  /**
+   * Type-ahead: focus the next visible row whose label starts with the keys
+   * typed in quick succession. A lone repeated key cycles through matches;
+   * extending the buffer refines from the current row. The buffer clears after
+   * a short idle pause.
+   */
+  #typeahead(char, fromRow) {
+    clearTimeout(this.#typeaheadTimer);
+    this.#typeaheadTimer = setTimeout(() => {
+      this.#typeaheadStr = "";
+    }, 600);
+    this.#typeaheadStr += char.toLowerCase();
+
+    const rows = this.#visibleRows();
+    if (rows.length === 0) return;
+    const str = this.#typeaheadStr;
+    const start = Math.max(0, rows.indexOf(fromRow));
+    // A single char advances past the current row (so repeats cycle); a longer
+    // buffer re-checks the current row first (so refining keeps the match).
+    const offset = str.length === 1 ? 1 : 0;
+    for (let k = 0; k < rows.length; k++) {
+      const r = rows[(start + offset + k) % rows.length];
+      const label = (
+        r.querySelector(".tree-node-label")?.textContent ?? ""
+      ).toLowerCase();
+      if (label.startsWith(str)) {
+        this.#focusRow(r);
+        return;
+      }
+    }
   }
 
   /**

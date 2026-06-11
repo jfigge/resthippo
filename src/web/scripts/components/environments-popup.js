@@ -276,6 +276,14 @@ export class EnvironmentsPopup {
     });
 
     const envList = el.querySelector(".env-list");
+    // Arrow-key navigation between the option buttons (the list is a
+    // role="listbox"). Additive: native Tab still steps through controls; this
+    // only adds Up/Down/Home/End when an option button itself holds focus.
+    envList.addEventListener("keydown", (e) =>
+      this.#handleListNav(e, [
+        ...envList.querySelectorAll(".env-list-item-name"),
+      ]),
+    );
     envList.addEventListener("dragover", (e) => {
       if (!this.#envDragId) return;
       e.preventDefault();
@@ -367,6 +375,37 @@ export class EnvironmentsPopup {
   }
 
   // ── Environment list ───────────────────────────────────────────────────────
+
+  /**
+   * Move focus between listbox option buttons with Up/Down/Home/End. No-ops
+   * unless focus is on an option button, so arrow keys inside an inline rename/
+   * add input keep their native text-cursor behaviour.
+   * @param {KeyboardEvent}      e
+   * @param {HTMLButtonElement[]} items  the option buttons, in display order
+   */
+  #handleListNav(e, items) {
+    const i = items.indexOf(e.target);
+    if (i === -1) return;
+    let next;
+    switch (e.key) {
+      case "ArrowDown":
+        next = items[i + 1] ?? items[i];
+        break;
+      case "ArrowUp":
+        next = items[i - 1] ?? items[i];
+        break;
+      case "Home":
+        next = items[0];
+        break;
+      case "End":
+        next = items[items.length - 1];
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    next?.focus();
+  }
 
   #renderList() {
     const ul = this.#el.querySelector(".env-list");
