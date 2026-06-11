@@ -42,7 +42,9 @@ export const INTROSPECTION_QUERY = `query IntrospectionQuery {
         type { ...TypeRef }
       }
       inputFields { name type { ...TypeRef } }
+      interfaces { ...TypeRef }
       enumValues(includeDeprecated: true) { name }
+      possibleTypes { ...TypeRef }
     }
   }
 }

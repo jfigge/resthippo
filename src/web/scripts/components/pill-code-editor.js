@@ -143,6 +143,8 @@ export class PillCodeEditor {
   #readonly;
   #markers; // overlay layer for error squiggles
   #errors = []; // last parsed errors: { line, col, length, message }
+  #errorRegions = []; // inner-relative hover bands per error: { top, bottom, left, right, title }
+  #hoverTitle = ""; // current error title on #inner (re-assigning resets the OS tooltip)
   #getContext;
   #getItems;
   #onInput;
@@ -230,6 +232,13 @@ export class PillCodeEditor {
     this.#doc.addEventListener("cut", (e) => this.#onCut(e));
     this.#doc.addEventListener("paste", (e) => this.#onPaste(e));
     this.#doc.addEventListener("contextmenu", (e) => this.#showContextMenu(e));
+    // Error tooltips: the squiggle strip is too thin to hover reliably, so the
+    // message is surfaced via a title on #inner whenever the pointer is over an
+    // error's full-height band (see #renderErrorMarkers / #updateErrorHover).
+    this.#inner.addEventListener("pointermove", (e) =>
+      this.#updateErrorHover(e),
+    );
+    this.#inner.addEventListener("pointerleave", () => this.#setHoverTitle(""));
     this.#onSelectionChange = () => {
       this.#syncPillSelection();
       if (this.#doc.contains(document.getSelection()?.anchorNode)) {
@@ -1651,14 +1660,20 @@ export class PillCodeEditor {
 
   /**
    * Draw a wavy underline for each error in the overlay, positioned via a DOM
-   * Range at the error's column. The overlay never blocks editing (its only
-   * interactive parts are the thin squiggle strips, which carry the message as a
-   * native tooltip). Re-run on every gutter sync so it tracks layout changes.
+   * Range at the error's column, and record a full-height hover band per error
+   * so #updateErrorHover can surface the message. The overlay itself never
+   * blocks editing (pointer-events:none); the tooltip rides on #inner instead of
+   * the 3px strip, which is too thin to hover and is destroyed on every re-run.
+   * Re-run on every gutter sync so it tracks layout changes.
    */
   #renderErrorMarkers() {
     if (!this.#markers) return;
     this.#markers.replaceChildren();
-    if (!this.#richErrors || !this.#errors.length) return;
+    this.#errorRegions = [];
+    if (!this.#richErrors || !this.#errors.length) {
+      this.#setHoverTitle("");
+      return;
+    }
     const innerRect = this.#inner.getBoundingClientRect();
     const lines = this.#lines();
     for (const err of this.#errors) {
@@ -1677,17 +1692,57 @@ export class PillCodeEditor {
         rects = [];
       }
       if (!rects.length) rects = [line.getBoundingClientRect()];
+      const title = `${err.line}:${err.col}  ${err.message}`;
       for (const rect of rects) {
         if (rect.width === 0 && rect.height === 0) continue;
+        const left = rect.left - innerRect.left;
+        const width = Math.max(6, rect.width);
         const seg = document.createElement("div");
         seg.className = "pce-error-squiggle";
-        seg.style.left = `${rect.left - innerRect.left}px`;
+        seg.style.left = `${left}px`;
         seg.style.top = `${rect.bottom - innerRect.top - 3}px`;
-        seg.style.width = `${Math.max(6, rect.width)}px`;
-        seg.title = `${err.line}:${err.col}  ${err.message}`;
+        seg.style.width = `${width}px`;
         this.#markers.appendChild(seg);
+        // Hover band covers the underlined text (full glyph height), not just
+        // the strip, so the message shows when hovering the error itself.
+        this.#errorRegions.push({
+          left,
+          right: left + width,
+          top: rect.top - innerRect.top,
+          bottom: rect.bottom - innerRect.top,
+          title,
+        });
       }
     }
+  }
+
+  /**
+   * Toggle the error tooltip as the pointer moves over the document. The title
+   * rides on #inner (not the squiggle strip): native `title` resolution walks up
+   * from the hovered node to the nearest ancestor carrying one, so plain error
+   * text shows the message while pills keep their own tooltips.
+   */
+  #updateErrorHover(e) {
+    if (!this.#richErrors || !this.#errorRegions.length) {
+      this.#setHoverTitle("");
+      return;
+    }
+    const innerRect = this.#inner.getBoundingClientRect();
+    const x = e.clientX - innerRect.left;
+    const y = e.clientY - innerRect.top;
+    const hit = this.#errorRegions.find(
+      (r) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom,
+    );
+    this.#setHoverTitle(hit ? hit.title : "");
+  }
+
+  /** Set/clear #inner's title only on change — re-assigning resets the OS
+   *  tooltip's hover-dwell timer, so an unchanged value must be left alone. */
+  #setHoverTitle(title) {
+    if (title === this.#hoverTitle) return;
+    this.#hoverTitle = title;
+    if (title) this.#inner.title = title;
+    else this.#inner.removeAttribute("title");
   }
 
   /**

@@ -1156,9 +1156,10 @@ html.show-method-icons .req-method-menu-item-label::before {
   cursor: default;
 }
 
-/* Rich error overlay: wavy underlines positioned over the document. The layer
-   itself never blocks editing (pointer-events:none); only the squiggle strips
-   opt back in so the error message shows as a native tooltip on hover. */
+/* Rich error overlay: wavy underlines positioned over the document. The whole
+   layer is inert (pointer-events:none) so it never blocks editing — the error
+   message is surfaced by the editor via a title on .pce-inner whenever the
+   pointer is over an error's hover band (see pill-code-editor.js). */
 .pce-markers {
   position: absolute;
   inset: 0;
@@ -1168,8 +1169,7 @@ html.show-method-icons .req-method-menu-item-label::before {
 .pce-error-squiggle {
   position: absolute;
   height: 4px;
-  pointer-events: auto;
-  cursor: help;
+  pointer-events: none;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='4'%3E%3Cpath d='M0 3 Q1.5 0 3 3 T6 3' fill='none' stroke='%23f38ba8' stroke-width='1'/%3E%3C/svg%3E")
     repeat-x left center;
 }
