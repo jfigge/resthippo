@@ -2703,10 +2703,12 @@ html.show-method-icons .req-method-menu-item-label::before {
   max-width: 100%;
 }
 
-/* ── Foldable body (Styled JSON / XML) ─────────────────────────────────────
- * The body is rendered as one row per source line; structural lines carry a
- * fold toggle in a left gutter, and collapsed rows are hidden (not removed) so
- * search / select-all / copy still see the full text. */
+/* ── Foldable body (Styled JSON / XML / YAML / HTML / CSS / JS) ─────────────
+ * The body is rendered as one row per source line (--foldable). When folding is
+ * enabled (--folding), structural lines carry a fold toggle in a left gutter and
+ * collapsed rows are hidden (not removed) so search / select-all / copy still
+ * see the full text. With folding off there is no gutter, so the row keeps the
+ * default left inset; only --folding zeroes it (the gutter supplies the inset). */
 .res-body-pre--folding {
   padding-left: 0;
 }
@@ -2718,6 +2720,24 @@ html.show-method-icons .req-method-menu-item-label::before {
 
 .res-fold-line[hidden] {
   display: none;
+}
+
+/* Line-number column (Styled foldable mode). The column only exists when the
+ * body carries --line-numbers; its shared width is --res-num-ch (widest line
+ * number) so the code column never shifts at a digit boundary. user-select:none
+ * keeps the digits out of select-all / copy; find-in-response skips them in JS. */
+.res-fold-num {
+  display: none;
+  flex: 0 0 auto;
+  min-width: var(--res-num-ch, 2ch);
+  padding: 0 var(--space-2);
+  text-align: right;
+  color: var(--color-overlay-0);
+  user-select: none;
+}
+
+.res-body-pre--line-numbers .res-fold-num {
+  display: inline-block;
 }
 
 .res-fold-gutter {

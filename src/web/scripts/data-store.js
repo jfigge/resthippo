@@ -92,6 +92,13 @@ const DEFAULT_SETTINGS = {
   responseBodyRenderMode: "styled",
   methodIcons: false,
   wrapResponseText: true,
+  // Line-number gutter in the Styled response body (foldable JSON/XML/YAML/
+  // HTML/CSS/JS). On by default to mirror the request body; toggled from the
+  // body context menu.
+  responseBodyLineNumbers: true,
+  // Fold gutter + carets in the Styled response body (same MIME types). On by
+  // default; toggled from the body context menu.
+  responseBodyCodeFolding: true,
   oauth2Advanced: false,
   historyCount: 5,
   customThemes: [],

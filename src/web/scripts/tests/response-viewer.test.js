@@ -201,6 +201,131 @@ test("applySettings raw mode still renders the body content", async () => {
   );
 });
 
+// ── Line numbers & code folding (Styled foldable mode) ────────────────────────
+
+test("Styled foldable JSON shows a 1-based line-number gutter + fold carets by default", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/json" },
+      body: '{"a":1,"b":2}',
+    }),
+  );
+
+  const pre = viewer.element.querySelector(".res-body-pre--foldable");
+  assert.ok(pre, "foldable body is rendered");
+  assert.ok(
+    pre.classList.contains("res-body-pre--line-numbers"),
+    "line numbers are on by default",
+  );
+  assert.ok(
+    pre.classList.contains("res-body-pre--folding"),
+    "folding is on by default",
+  );
+  assert.ok(
+    pre.querySelector(".res-fold-toggle"),
+    "the opening brace line carries a fold caret",
+  );
+  const nums = [...pre.querySelectorAll(".res-fold-num")].map(
+    (n) => n.textContent,
+  );
+  assert.ok(nums.length > 1, "one number per source line");
+  assert.deepEqual(
+    nums,
+    nums.map((_, i) => String(i + 1)),
+    "numbers run consecutively from 1 in source order",
+  );
+});
+
+test("the Line-numbers setting drops the gutter column when disabled", async () => {
+  const { window, viewer } = mountViewer();
+  viewer.applySettings({ responseBodyLineNumbers: false });
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/json" },
+      body: '{"a":1}',
+    }),
+  );
+
+  const pre = viewer.element.querySelector(".res-body-pre--foldable");
+  assert.ok(pre, "foldable body still renders");
+  assert.ok(
+    !pre.classList.contains("res-body-pre--line-numbers"),
+    "no line-number column when disabled",
+  );
+});
+
+test("disabling Code folding drops the fold gutter but keeps line numbers", async () => {
+  const { window, viewer } = mountViewer();
+  viewer.applySettings({ responseBodyCodeFolding: false });
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/json" },
+      body: '{"a":{"b":1}}',
+    }),
+  );
+
+  const pre = viewer.element.querySelector(".res-body-pre--foldable");
+  assert.ok(pre, "the per-line styled render is still used");
+  assert.ok(
+    !pre.classList.contains("res-body-pre--folding"),
+    "no --folding class when folding is off",
+  );
+  assert.equal(
+    pre.querySelector(".res-fold-gutter"),
+    null,
+    "no fold gutter is rendered",
+  );
+  assert.equal(
+    pre.querySelector(".res-fold-toggle"),
+    null,
+    "no fold carets are rendered",
+  );
+  // Line numbers (default on) survive independently of folding.
+  assert.ok(
+    pre.classList.contains("res-body-pre--line-numbers"),
+    "line numbers still render with folding off",
+  );
+  assert.ok(
+    pre.querySelectorAll(".res-fold-num").length > 1,
+    "numbers present",
+  );
+});
+
+test("find-in-response skips the line-number gutter", async () => {
+  const { window, viewer } = mountViewer();
+  // Pretty-prints to 3 lines, so "1" appears once as a line number (line 1) and
+  // once as the body value. Searching "1" must match only the body occurrence.
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/json" },
+      body: '{"a":1}',
+    }),
+  );
+
+  const input = viewer.element.querySelector(".res-search-input");
+  input.value = "1";
+  input.dispatchEvent(
+    new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+  );
+
+  const marks = viewer.element.querySelectorAll(
+    ".res-body-pre mark.res-search-highlight",
+  );
+  assert.equal(marks.length, 1, "only the body value matches, not the gutter");
+  for (const m of marks) {
+    assert.equal(
+      m.closest(".res-fold-num"),
+      null,
+      "no highlight lands inside a line number",
+    );
+  }
+});
+
 // ── Binary responses (images / PDF / hex) ─────────────────────────────────────
 
 // "Hello" → base64; reused across the binary cases.

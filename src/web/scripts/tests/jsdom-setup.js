@@ -94,6 +94,12 @@ export function resetDom() {
     globalThis.URL.revokeObjectURL = () => {};
   }
 
+  // jsdom has no layout engine, so scrollIntoView is missing — the find-in-
+  // response navigator calls it on each match. A no-op keeps search tests quiet.
+  if (window.Element && !window.Element.prototype.scrollIntoView) {
+    window.Element.prototype.scrollIntoView = () => {};
+  }
+
   return window;
 }
 

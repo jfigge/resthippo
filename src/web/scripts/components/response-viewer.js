@@ -301,6 +301,8 @@ export class ResponseViewer {
   #activeTab = "body";
   #renderMode = "styled"; // "styled" | "raw" | "hex"
   #wrapResponseText = true; // wrap long lines in Styled mode (settings-controlled)
+  #showLineNumbers = true; // line-number gutter in Styled foldable mode (settings-controlled)
+  #showCodeFolding = true; // fold gutter + carets in Styled foldable mode (settings-controlled)
   #lastResponse = null; // cached so mode changes can re-render
 
   // Cached pane references (set once in #renderTabContent)
@@ -543,7 +545,9 @@ export class ResponseViewer {
 
   /**
    * Apply persisted settings to the viewer.
-   * @param {{ responseBodyRenderMode?: string }} settings
+   * @param {{ responseBodyRenderMode?: string, wrapResponseText?: boolean,
+   *           responseBodyLineNumbers?: boolean,
+   *           responseBodyCodeFolding?: boolean }} settings
    */
   applySettings(settings) {
     if (settings.responseBodyRenderMode) {
@@ -562,6 +566,23 @@ export class ResponseViewer {
       if (changed && this.#lastResponse) {
         this.#renderBodyPane(this.#lastResponse);
         this.#renderCookiesPane(this.#lastResponse.cookies);
+      }
+    }
+    if (settings.responseBodyLineNumbers !== undefined) {
+      const changed =
+        this.#showLineNumbers !== settings.responseBodyLineNumbers;
+      this.#showLineNumbers = settings.responseBodyLineNumbers;
+      // Only the foldable Styled body carries the gutter; re-render to add/drop it.
+      if (changed && this.#lastResponse) {
+        this.#renderBodyPane(this.#lastResponse);
+      }
+    }
+    if (settings.responseBodyCodeFolding !== undefined) {
+      const changed =
+        this.#showCodeFolding !== settings.responseBodyCodeFolding;
+      this.#showCodeFolding = settings.responseBodyCodeFolding;
+      if (changed && this.#lastResponse) {
+        this.#renderBodyPane(this.#lastResponse);
       }
     }
   }
@@ -972,11 +993,13 @@ export class ResponseViewer {
    */
   #highlightMatches(element, regex) {
     const marks = [];
-    const walker = document.createTreeWalker(
-      element,
-      NodeFilter.SHOW_TEXT,
-      null,
-    );
+    // Skip the line-number gutter — its digits are presentational, not body text.
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) =>
+        n.parentElement?.closest(".res-fold-num")
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT,
+    });
     const textNodes = [];
     let node;
     while ((node = walker.nextNode())) textNodes.push(node);
@@ -1157,6 +1180,24 @@ export class ResponseViewer {
           checked: this.#wrapResponseText,
         },
       );
+      // Line numbers + code folding apply only to the per-line foldable render
+      // (the styled, supported MIME types); omit them for plain/markdown bodies.
+      if (this.#bodyPane?.querySelector(".res-body-pre--foldable")) {
+        items.push(
+          {
+            id: "lineNumbers",
+            label: "Line numbers",
+            type: "checkbox",
+            checked: this.#showLineNumbers,
+          },
+          {
+            id: "codeFolding",
+            label: "Code folding",
+            type: "checkbox",
+            checked: this.#showCodeFolding,
+          },
+        );
+      }
     }
     const clickedId = await window.wurl.ui.contextMenu.show({ items, x, y });
     if (clickedId === "copy") {
@@ -1171,6 +1212,25 @@ export class ResponseViewer {
           detail: { wrapResponseText: !this.#wrapResponseText },
         }),
       );
+    } else if (clickedId === "lineNumbers") {
+      // Component-owned view pref: persist via the editor-setting channel and
+      // re-render directly (no applySettings round-trip — only the body changes).
+      this.#showLineNumbers = !this.#showLineNumbers;
+      window.dispatchEvent(
+        new CustomEvent("wurl:editor-setting-changed", {
+          detail: { responseBodyLineNumbers: this.#showLineNumbers },
+        }),
+      );
+      if (this.#lastResponse) this.#renderBodyPane(this.#lastResponse);
+    } else if (clickedId === "codeFolding") {
+      // Same component-owned pattern as line numbers (see above).
+      this.#showCodeFolding = !this.#showCodeFolding;
+      window.dispatchEvent(
+        new CustomEvent("wurl:editor-setting-changed", {
+          detail: { responseBodyCodeFolding: this.#showCodeFolding },
+        }),
+      );
+      if (this.#lastResponse) this.#renderBodyPane(this.#lastResponse);
     }
   }
 
@@ -1798,7 +1858,18 @@ export class ResponseViewer {
       return;
     }
 
-    pre.classList.add("res-body-pre--folding");
+    // --foldable marks the per-line styled render (drives the body menu's Line
+    // numbers / Code folding toggles); --folding additionally turns on the fold
+    // gutter + carets. Folding off → no gutter, so the default left inset returns.
+    const folding = this.#showCodeFolding;
+    pre.classList.add("res-body-pre--foldable");
+    if (folding) pre.classList.add("res-body-pre--folding");
+    if (this.#showLineNumbers) {
+      pre.classList.add("res-body-pre--line-numbers");
+      // Reserve one shared column width = widest line number, so every row's
+      // numbers right-align without the code column shifting at digit boundaries.
+      pre.style.setProperty("--res-num-ch", `${String(lines.length).length}ch`);
+    }
 
     // Leading-space depth per line; blank lines are continuations (null).
     const indent = lines.map((line) => {
@@ -1806,23 +1877,26 @@ export class ResponseViewer {
       return line.length - line.trimStart().length;
     });
 
-    // foldEnd[i] = inclusive index of the last child line of opener i.
+    // foldEnd[i] = inclusive index of the last child line of opener i. Skipped
+    // entirely when folding is off, so no openers and no fold carets are drawn.
     const foldEnd = new Map();
-    for (let i = 0; i < lines.length; i++) {
-      const depth = indent[i];
-      if (depth === null) continue;
-      let next = i + 1;
-      while (next < lines.length && indent[next] === null) next++;
-      if (next < lines.length && indent[next] > depth) {
-        let end = i;
-        for (
-          let k = i + 1;
-          k < lines.length && (indent[k] === null || indent[k] > depth);
-          k++
-        ) {
-          if (indent[k] !== null) end = k;
+    if (folding) {
+      for (let i = 0; i < lines.length; i++) {
+        const depth = indent[i];
+        if (depth === null) continue;
+        let next = i + 1;
+        while (next < lines.length && indent[next] === null) next++;
+        if (next < lines.length && indent[next] > depth) {
+          let end = i;
+          for (
+            let k = i + 1;
+            k < lines.length && (indent[k] === null || indent[k] > depth);
+            k++
+          ) {
+            if (indent[k] !== null) end = k;
+          }
+          foldEnd.set(i, end);
         }
-        foldEnd.set(i, end);
       }
     }
 
@@ -1852,38 +1926,56 @@ export class ResponseViewer {
       lineEl.className = "res-fold-line";
       lineEl.dataset.line = String(i);
 
-      const gutter = document.createElement("span");
-      gutter.className = "res-fold-gutter";
+      // Line number (source index, 1-based). Hidden via CSS unless the pre
+      // carries --line-numbers; aria-hidden + user-select:none keep it out of
+      // copy / select-all / find. A folded row's number still reflects its true
+      // source line, so collapsed ranges leave the expected gaps.
+      const num = document.createElement("span");
+      num.className = "res-fold-num";
+      num.textContent = String(i + 1);
+      num.setAttribute("aria-hidden", "true");
+      lineEl.appendChild(num);
 
-      if (foldEnd.has(i)) {
-        const toggle = document.createElement("button");
-        toggle.type = "button";
-        toggle.className = "res-fold-toggle";
-        toggle.setAttribute("aria-label", "Toggle fold");
-        toggle.setAttribute("aria-expanded", "true");
-        toggle.innerHTML = icon("caret", { size: null });
-        toggle.addEventListener("click", () => {
-          const nowCollapsed = !collapsed.has(i);
-          if (nowCollapsed) collapsed.add(i);
-          else collapsed.delete(i);
-          lineEl.classList.toggle("res-fold-line--collapsed", nowCollapsed);
-          toggle.setAttribute("aria-expanded", String(!nowCollapsed));
-          applyFolds();
-        });
-        gutter.appendChild(toggle);
+      // The fold gutter (caret column) exists only while folding is on; off, the
+      // row is just [number][code] and the caret column reclaims its space.
+      if (folding) {
+        const gutter = document.createElement("span");
+        gutter.className = "res-fold-gutter";
+
+        if (foldEnd.has(i)) {
+          const toggle = document.createElement("button");
+          toggle.type = "button";
+          toggle.className = "res-fold-toggle";
+          toggle.setAttribute("aria-label", "Toggle fold");
+          toggle.setAttribute("aria-expanded", "true");
+          toggle.innerHTML = icon("caret", { size: null });
+          toggle.addEventListener("click", () => {
+            const nowCollapsed = !collapsed.has(i);
+            if (nowCollapsed) collapsed.add(i);
+            else collapsed.delete(i);
+            lineEl.classList.toggle("res-fold-line--collapsed", nowCollapsed);
+            toggle.setAttribute("aria-expanded", String(!nowCollapsed));
+            applyFolds();
+          });
+          gutter.appendChild(toggle);
+        }
+        lineEl.appendChild(gutter);
       }
 
       const code = document.createElement("span");
       code.className = `res-fold-code language-${prismLang}`;
       this.#fillHighlighted(code, lines[i], prismLang, grammar);
 
-      lineEl.append(gutter, code);
+      lineEl.appendChild(code);
       frag.appendChild(lineEl);
       lineEls.push(lineEl);
     }
     pre.appendChild(frag);
 
-    // Let the search navigator open every collapsed fold enclosing a match line.
+    // Search navigator hook: open every collapsed fold enclosing a match line.
+    // Only meaningful with folding on; otherwise #foldReveal stays null and the
+    // navigator just scrolls to the match.
+    if (!folding) return;
     this.#foldReveal = (lineEl) => {
       const idx = Number(lineEl?.dataset?.line);
       if (Number.isNaN(idx)) return;
