@@ -58,6 +58,10 @@ const DEFAULT_SETTINGS = {
   timeout: 30000,
   followRedirects: true,
   verifySsl: true,
+  // When an application/x-ndjson response is received, consume it live (line by
+  // line) instead of buffering the whole body (Feature 33). Off by default so a
+  // finite NDJSON document keeps the rich buffered viewer; live feeds opt in.
+  streamNdjson: false,
   proxyEnabled: false,
   proxyUrl: "",
   // Separate proxy credentials (encrypted at rest) and a NO_PROXY-style bypass

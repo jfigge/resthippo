@@ -38,6 +38,22 @@ async function showResponse(window, detail) {
   await new Promise((r) => setTimeout(r, 10));
 }
 
+/** Enter the in-flight (loading) state, arming `streamId` for the viewer. */
+async function startLoading(window, streamId) {
+  window.dispatchEvent(
+    new window.CustomEvent("wurl:request-loading", { detail: { streamId } }),
+  );
+  await new Promise((r) => setTimeout(r, 0));
+}
+
+/** Push a headers-time buffered-NDJSON hint for `streamId`. */
+async function streamHint(window, streamId) {
+  window.dispatchEvent(
+    new window.CustomEvent("wurl:stream-hint", { detail: { streamId } }),
+  );
+  await new Promise((r) => setTimeout(r, 0));
+}
+
 const baseResponse = (overrides) => ({
   request: { method: "GET", url: "http://x" },
   status: 200,
@@ -672,4 +688,165 @@ test("shows the timing breakdown lines in the Console pane", async () => {
   assert.match(console, /Request timing:/);
   assert.match(console, /DNS lookup\s+10 ms/);
   assert.match(console, /Total\s+219 ms/);
+});
+
+// ── Streaming-run Timeline record (Feature 33) ──────────────────────────────
+// A recorded stream has no buffered body — the Body pane shows the captured
+// summary (sent time, duration, event/byte counts, last events) instead. This
+// is the same response-received path _viewTimelineResponse() uses on replay.
+
+test("renders a recorded streaming run as a summary, not a body", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "text/event-stream" },
+      body: "",
+      elapsed: 2500,
+      size: 1536,
+      streamSummary: {
+        sentAt: 1700000000000,
+        elapsed: 2500,
+        eventCount: 42,
+        bytes: 1536,
+        aborted: false,
+        errored: false,
+        errorMessage: "",
+        sse: true,
+        events: [
+          {
+            kind: "event",
+            ts: 1700000000000,
+            event: { event: "message", data: "hello" },
+          },
+          {
+            kind: "event",
+            ts: 1700000001000,
+            event: { event: "tick", data: "world" },
+          },
+        ],
+      },
+    }),
+  );
+
+  const summary = viewer.element.querySelector("#res-tab-body .stream-summary");
+  assert.ok(summary, "renders the stream-summary view in the Body pane");
+  // Captured payloads (untrusted server text via textContent) are shown.
+  assert.ok(summary.textContent.includes("hello"));
+  assert.ok(summary.textContent.includes("world"));
+  // One row per captured event; the named event gets a type chip, the default
+  // "message" type does not.
+  assert.equal(
+    summary.querySelectorAll(".stream-summary-event").length,
+    2,
+    "one row per captured event",
+  );
+  assert.deepEqual(
+    [...summary.querySelectorAll(".stream-summary-event-tag")].map(
+      (c) => c.textContent,
+    ),
+    ["tick"],
+  );
+  // Duration renders compactly (2500 ms → "2.5 s"), not as raw milliseconds.
+  assert.match(summary.textContent, /2\.5 s/);
+});
+
+test("a recorded stream that errored shows its state and message", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "text/event-stream" },
+      body: "",
+      streamSummary: {
+        sentAt: 1700000000000,
+        elapsed: 1000,
+        eventCount: 3,
+        bytes: 64,
+        aborted: false,
+        errored: true,
+        errorMessage: "socket hang up",
+        sse: true,
+        events: [],
+      },
+    }),
+  );
+
+  const summary = viewer.element.querySelector("#res-tab-body .stream-summary");
+  assert.ok(summary, "renders the stream-summary view");
+  assert.match(summary.textContent, /socket hang up/);
+  assert.equal(
+    summary.querySelector(".stream-summary-dot").dataset.state,
+    "error",
+  );
+  // No events captured → the empty note, no event rows.
+  assert.equal(summary.querySelectorAll(".stream-summary-event").length, 0);
+  assert.ok(summary.querySelector(".stream-summary-empty"));
+});
+
+test("shows the buffered-NDJSON hint while the request is running", async () => {
+  const { window, viewer } = mountViewer();
+  await startLoading(window, "s1");
+  await streamHint(window, "s1");
+
+  assert.ok(
+    viewer.element.querySelector("#res-tab-body .res-stream-hint-banner"),
+    "the hint banner shows atop the in-flight loading view",
+  );
+});
+
+test("clears the buffered-NDJSON hint once the response completes", async () => {
+  const { window, viewer } = mountViewer();
+  await startLoading(window, "s1");
+  await streamHint(window, "s1");
+  // Completion wipes the loading view — and with it the hint.
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/x-ndjson" },
+      body: '{"a":1}\n',
+    }),
+  );
+
+  assert.equal(
+    viewer.element.querySelector(".res-stream-hint-banner"),
+    null,
+    "no hint once the buffered response lands",
+  );
+});
+
+test("ignores a stream-hint that doesn't match the in-flight request", async () => {
+  const { window, viewer } = mountViewer();
+  await startLoading(window, "s1");
+  await streamHint(window, "other-stream");
+
+  assert.equal(
+    viewer.element.querySelector(".res-stream-hint-banner"),
+    null,
+    "a mismatched hint is dropped",
+  );
+});
+
+test("the live stream toolbar shows state + counts but no Stop/Save buttons", async () => {
+  const { window, viewer } = mountViewer();
+  await startLoading(window, "s1");
+  // The streaming marker switches the viewer into live-append mode.
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "text/event-stream" },
+      streaming: true,
+      streamId: "s1",
+      sse: true,
+    }),
+  );
+
+  const toolbar = viewer.element.querySelector(".res-stream-toolbar");
+  assert.ok(toolbar, "the stream toolbar renders");
+  assert.ok(toolbar.querySelector(".res-stream-counts"), "counts are shown");
+  assert.equal(
+    toolbar.querySelector(".res-stream-btn"),
+    null,
+    "no Stop/Save buttons in the toolbar — they moved to Send→Stop and Download",
+  );
 });

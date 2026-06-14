@@ -117,6 +117,13 @@ const _historyLoaded = new Set();
 let _maxHistory = 5; // updated from settings at startup and on change
 let _skipNextHistory = false; // set true when replaying a history entry
 
+// Live streaming runs (Feature 33) don't surface a whole response body, so they
+// are recorded only once the stream ends. The streaming marker carries the
+// request/status/headers; the stream-end push carries duration, counts, and the
+// last events. We bridge the two here, keyed by streamId.
+// streamId → { node, requestUrl, status, statusText, headers, cookies, consoleLog, sse }
+const _pendingStreams = new Map();
+
 /**
  * Serialize a request node into the history snapshot format.
  * Params/headers/body-form rows are stored as bulk-edit strings so the data
@@ -254,6 +261,9 @@ async function _loadRequestHistory(requestId) {
             // "full response is no longer cached" note rather than fetch buttons.
             truncated: payload?.truncated ?? false,
             fullSize: payload?.fullSize ?? meta.size ?? 0,
+            // Streaming-run record (Feature 33): a compact summary stands in for
+            // the (never-buffered) body. Present only on streamed runs.
+            streamSummary: payload?.streamSummary ?? null,
           },
           timestamp: meta.timestamp ?? Date.now(),
         };
@@ -480,6 +490,26 @@ function initComponents() {
   if (window.wurl?.ws) {
     window.wurl.ws.onStatus(_onWsStatus);
     window.wurl.ws.onMessage(_onWsMessage);
+  }
+
+  // Bridge live HTTP streaming pushes (Feature 33) to global wurl:stream-*
+  // events so the ResponseViewer (and any future listener) can consume them
+  // the same way as the rest of the request lifecycle. The bridge listens for
+  // the app's whole lifetime, so no stream frame is missed before the viewer
+  // has switched into live mode.
+  if (window.wurl?.http?.stream) {
+    window.wurl.http.stream.onData((p) =>
+      window.dispatchEvent(new CustomEvent("wurl:stream-data", { detail: p })),
+    );
+    window.wurl.http.stream.onEnd((p) =>
+      window.dispatchEvent(new CustomEvent("wurl:stream-end", { detail: p })),
+    );
+    window.wurl.http.stream.onError((p) =>
+      window.dispatchEvent(new CustomEvent("wurl:stream-error", { detail: p })),
+    );
+    window.wurl.http.stream.onHint((p) =>
+      window.dispatchEvent(new CustomEvent("wurl:stream-hint", { detail: p })),
+    );
   }
 
   requestEditor.setGetItems(() => getAllRequests(treeView?.getItems() ?? []));
@@ -1064,11 +1094,18 @@ function initEventBus() {
   //
   // Request lifecycle           (RequestEditor / app.js ↔ panels)
   //   send-request          { requestId, method, url, headers, … }
-  //   cancel-request        { requestId }                 stop that request's run
-  //   request-loading       { requestId }                 in-flight; show spinner
+  //   cancel-request        { requestId, streamId? }      stop that request's run (streamId → abort a live stream)
+  //   request-loading       { requestId, streamId }        in-flight; show spinner
   //   request-updated       { id, …partial }              editor mutated a field
   //   request-error         { requestId, requestNode, request, name, message, hint, elapsed, consoleLog }
-  //   response-received     { …response, requestId, requestNode, request }
+  //   response-received     { …response, requestId, requestNode, request, streaming?, streamId?, sse?, contentType? }
+  //
+  // Live HTTP streaming (Feature 33)  (preload http:stream:* → app.js → ResponseViewer)
+  //   stream-data           { streamId, kind, index, ts, event?|data?, totalBytes, count }
+  //   stream-end            { streamId, ts, totalBytes, eventCount, elapsed, status, bodyRef, aborted, lastEvents }
+  //   stream-error          { streamId, ts, totalBytes, eventCount, elapsed, status, bodyRef, name, message, lastEvents }
+  //   stream-hint           { streamId }   headers-time: buffered NDJSON, streaming off — show the in-flight hint
+  //   stream-end/-error also drive the one Timeline record written per stream run.
   //   Requests run concurrently: requestId routes each lifecycle event to its
   //   originating request (null on history replays, which always target the
   //   selected request); requestNode is the tree-node snapshot taken at send
@@ -1331,6 +1368,28 @@ function initEventBus() {
     const name = node?.name;
     if (!name) return;
 
+    // Live streaming responses (Feature 33): the body never lands whole in the
+    // renderer, so there is no static response to persist here. Instead we stash
+    // the marker's request/status/headers keyed by streamId and write a single
+    // Timeline record when the stream ends (see wurl:stream-end/-error below).
+    if (e.detail.streaming === true) {
+      const sid = e.detail.streamId;
+      if (sid && !skipHistory && _maxHistory > 0 && node?.id) {
+        _pendingStreams.set(sid, {
+          node,
+          requestUrl: e.detail.request?.url ?? "",
+          method: e.detail.request?.method ?? "",
+          status: e.detail.status ?? 0,
+          statusText: e.detail.statusText ?? "",
+          headers: e.detail.headers ?? {},
+          cookies: e.detail.cookies ?? [],
+          consoleLog: e.detail.consoleLog ?? [],
+          sse: e.detail.sse === true,
+        });
+      }
+      return;
+    }
+
     // Record in per-request history only for real (non-replay) executions.
     // When replaying a historical entry, do NOT push to history and do NOT
     // re-render the timeline (which would clear the user's current selection).
@@ -1519,6 +1578,107 @@ function initEventBus() {
     }
     if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
   });
+
+  // Live streaming runs (Feature 33): write exactly one Timeline record when a
+  // stream ends — cleanly, stopped, or errored. The streaming marker stashed the
+  // request / status / headers under _pendingStreams (keyed by streamId); the
+  // end/error push adds the duration, counts, and last events. Unlike a buffered
+  // response there is no body to persist, so a compact summary stands in for it.
+  async function _recordStreamRun(d, { errored = false } = {}) {
+    const sid = d?.streamId;
+    if (!sid) return;
+    const pending = _pendingStreams.get(sid);
+    if (!pending) return; // not ours (history was off when the stream started)
+    _pendingStreams.delete(sid);
+
+    const node = pending.node;
+    if (!node?.id || _maxHistory <= 0) return;
+
+    const elapsed = d.elapsed ?? 0;
+    const bytes = d.totalBytes ?? 0;
+    // "Time sent" = the request start, derived from the end stamp minus the
+    // measured duration so it stays consistent with `elapsed`.
+    const sentAt =
+      typeof d.ts === "number" ? d.ts - elapsed : Date.now() - elapsed;
+
+    const summary = {
+      sentAt,
+      elapsed,
+      eventCount: d.eventCount ?? 0,
+      bytes,
+      aborted: d.aborted === true,
+      errored,
+      errorMessage: errored ? (d.message ?? d.name ?? "") : "",
+      sse: pending.sse === true,
+      events: Array.isArray(d.lastEvents) ? d.lastEvents : [],
+    };
+
+    const histId = crypto.randomUUID();
+    const reqNode = _buildSnapshot(node);
+    const resp = {
+      request: { url: pending.requestUrl, method: pending.method ?? "" },
+      status: pending.status ?? 0,
+      statusText: pending.statusText ?? "",
+      headers: pending.headers ?? {},
+      cookies: pending.cookies ?? [],
+      body: "",
+      elapsed,
+      size: bytes,
+      consoleLog: pending.consoleLog ?? [],
+      encoding: "utf8",
+      streamSummary: summary,
+    };
+
+    if (!_historyLoaded.has(node.id)) {
+      await _loadRequestHistory(node.id);
+      _historyLoaded.add(node.id);
+    }
+    const entries = _requestHistory.get(node.id) ?? [];
+    entries.unshift({
+      id: histId,
+      requestNode: reqNode,
+      requestUrl: pending.requestUrl,
+      response: resp,
+      timestamp: sentAt,
+    });
+
+    addHistory(
+      node.id,
+      {
+        id: histId,
+        timestamp: sentAt,
+        status: resp.status,
+        statusText: resp.statusText,
+        elapsed,
+        size: bytes,
+        requestUrl: pending.requestUrl,
+        requestNode: reqNode,
+      },
+      {
+        headers: resp.headers,
+        cookies: resp.cookies,
+        body: "",
+        consoleLog: resp.consoleLog,
+        streamSummary: summary,
+      },
+    );
+
+    while (entries.length > _maxHistory) {
+      const old = entries.pop();
+      if (old?.id) deleteHistory(node.id, old.id);
+    }
+    _requestHistory.set(node.id, entries);
+    // Repaint the timeline only when it is showing this request (a background
+    // stream must not steal the pane from whatever the user is now viewing).
+    if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
+  }
+
+  window.addEventListener("wurl:stream-end", (e) =>
+    _recordStreamRun(e.detail, { errored: false }),
+  );
+  window.addEventListener("wurl:stream-error", (e) =>
+    _recordStreamRun(e.detail, { errored: true }),
+  );
 
   // Auto-save whenever the tree is mutated (add / remove collection or request)
   window.addEventListener("wurl:collections-changed", (e) => {
@@ -2306,6 +2466,14 @@ function initEventBus() {
 
   window.addEventListener("wurl:cancel-request", (e) => {
     const requestId = e.detail?.requestId ?? null;
+    // A live stream (Feature 33) is aborted in the main process; its stream-end
+    // (aborted:true) push updates the viewer and settles the editor's Send/Stop
+    // button, so we do NOT fall through to the abortController + request-error
+    // path below (the execute() promise already resolved with the marker).
+    if (e.detail?.streamId) {
+      window.wurl?.http?.stream?.abort?.(e.detail.streamId)?.catch?.(() => {});
+      return;
+    }
     // Cancel the execution(s) belonging to this request; with no requestId
     // (legacy callers) cancel everything in flight.
     let snapshot = null;
@@ -2429,8 +2597,16 @@ function initEventBus() {
     };
     _inFlightExecs.add(exec);
 
+    // Streaming (Feature 33): mint a stream id now and carry it on the loading
+    // event so the ResponseViewer can pre-arm and never miss an early frame.
+    // Only interactive sends are streamCapable; text/event-stream always
+    // auto-streams, and application/x-ndjson auto-streams when the global
+    // streamNdjson setting is on (Settings → Request).
+    const streamId = crypto.randomUUID();
     window.dispatchEvent(
-      new CustomEvent("wurl:request-loading", { detail: { requestId } }),
+      new CustomEvent("wurl:request-loading", {
+        detail: { requestId, streamId },
+      }),
     );
 
     // ── Build the descriptor for the native layer ────────────────────────────
@@ -2454,6 +2630,12 @@ function initEventBus() {
       // per-collection by the "Send cookies" checkbox in the Collections editor.
       collectionId: currentColls.activeCollectionId ?? null,
       useCookieJar: _collSendCookies(currentColls.activeCollectionId),
+      // Live streaming opt-in (only on this interactive path). text/event-stream
+      // always streams; application/x-ndjson streams when the user enabled the
+      // global "Stream NDJSON responses live" setting (Settings → Request).
+      streamCapable: true,
+      streamId,
+      streamNdjson: currentSettings.streamNdjson === true,
     };
 
     // ── Choose execution path ────────────────────────────────────────────────
@@ -2542,6 +2724,13 @@ function initEventBus() {
               truncated: result.truncated ?? false,
               bodyRef: result.bodyRef ?? null,
               fullSize: result.fullSize ?? result.size ?? 0,
+              // Live streaming (Feature 33): the body is empty and flows over
+              // the wurl:stream-* events keyed by streamId; the viewer switches
+              // to its live-append mode instead of rendering a static body.
+              streaming: result.streaming === true,
+              streamId: result.streamId ?? null,
+              sse: result.sse ?? false,
+              contentType: result.contentType ?? "",
             },
           }),
         );

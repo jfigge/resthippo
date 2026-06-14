@@ -266,7 +266,9 @@
       "pickerDebounce": "Antirrebote del selector (ms)",
       "followRedirects": "Seguir redirecciones",
       "dblclickExecute": "Doble clic en las solicitudes para ejecutarlas",
-      "verifySsl": "Verificar certificados SSL"
+      "verifySsl": "Verificar certificados SSL",
+      "streamNdjson": "Transmitir respuestas NDJSON en vivo",
+      "streamNdjsonTitle": "Cuando se recibe una respuesta application/x-ndjson, consumirla en vivo (línea por línea) en lugar de almacenar todo el cuerpo en búfer"
     },
     "proxy": {
       "enable": "Activar proxy",
@@ -538,6 +540,37 @@
       "consoleEmpty": "La salida detallada de cada solicitud aparecerá aquí",
       "historyEmpty": "Aún no hay historial — envía una solicitud para registrar una entrada",
       "pdfDesktop": "La vista previa de PDF está disponible en la app de escritorio — usa «Guardar en archivo»."
+    },
+    "stream": {
+      "streaming": "Transmitiendo…",
+      "ended": "Finalizado",
+      "stopped": "Detenido",
+      "errored": "Error",
+      "counts": "{count} eventos · {size}",
+      "started": "Transmitiendo la respuesta…",
+      "startedSse": "Transmitiendo Server-Sent Events…",
+      "endedSummary": "Transmisión finalizada — {count} eventos, {size}",
+      "errorFrame": "Error de transmisión: {message}"
+    },
+    "streamHint": {
+      "ndjson": "La transmisión en vivo está desactivada para esta respuesta NDJSON. Actívala en Ajustes → Solicitud → «Transmitir respuestas NDJSON en vivo»."
+    },
+    "streamRecord": {
+      "stateEnded": "Finalizado",
+      "stateStopped": "Detenido",
+      "stateError": "Error",
+      "sse": "Server-Sent Events",
+      "chunked": "Respuesta transmitida",
+      "sent": "Hora de envío",
+      "duration": "Duración",
+      "events": "Eventos recibidos",
+      "bytes": "Bytes recibidos",
+      "errorMessage": "Error: {message}",
+      "lastEvents": {
+        "one": "Último evento",
+        "other": "Últimos {count} eventos"
+      },
+      "noEvents": "No se recibió ningún evento."
     }
   },
   "pillEditor": {

@@ -266,7 +266,9 @@
       "pickerDebounce": "Picker debounce (ms)",
       "followRedirects": "Follow redirects",
       "dblclickExecute": "Double-click requests to execute",
-      "verifySsl": "Verify SSL certificates"
+      "verifySsl": "Verify SSL certificates",
+      "streamNdjson": "Stream NDJSON responses live",
+      "streamNdjsonTitle": "When an application/x-ndjson response is received, consume it live (line by line) instead of buffering the whole body"
     },
     "proxy": {
       "enable": "Enable proxy",
@@ -538,6 +540,37 @@
       "consoleEmpty": "Verbose output from each request will appear here",
       "historyEmpty": "No history yet — send a request to record an entry",
       "pdfDesktop": "PDF preview is available in the desktop app — use Save to file."
+    },
+    "stream": {
+      "streaming": "Streaming…",
+      "ended": "Ended",
+      "stopped": "Stopped",
+      "errored": "Error",
+      "counts": "{count} events · {size}",
+      "started": "Streaming response…",
+      "startedSse": "Streaming Server-Sent Events…",
+      "endedSummary": "Stream ended — {count} events, {size}",
+      "errorFrame": "Stream error: {message}"
+    },
+    "streamHint": {
+      "ndjson": "Live streaming is off for this NDJSON response. Enable it under Settings → Request → “Stream NDJSON responses live”."
+    },
+    "streamRecord": {
+      "stateEnded": "Ended",
+      "stateStopped": "Stopped",
+      "stateError": "Error",
+      "sse": "Server-Sent Events",
+      "chunked": "Streamed response",
+      "sent": "Time sent",
+      "duration": "Duration",
+      "events": "Events received",
+      "bytes": "Bytes received",
+      "errorMessage": "Error: {message}",
+      "lastEvents": {
+        "one": "Last event",
+        "other": "Last {count} events"
+      },
+      "noEvents": "No events were received."
     }
   },
   "pillEditor": {

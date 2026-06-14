@@ -266,7 +266,9 @@
       "pickerDebounce": "ピッカーのデバウンス（ミリ秒）",
       "followRedirects": "リダイレクトに従う",
       "dblclickExecute": "ダブルクリックでリクエストを実行",
-      "verifySsl": "SSL 証明書を検証"
+      "verifySsl": "SSL 証明書を検証",
+      "streamNdjson": "NDJSON レスポンスをライブストリーミング",
+      "streamNdjsonTitle": "application/x-ndjson レスポンスを受信したときに、本文全体をバッファリングせず、ライブで（1 行ずつ）処理します"
     },
     "proxy": {
       "enable": "プロキシを有効にする",
@@ -538,6 +540,37 @@
       "consoleEmpty": "各リクエストの詳細な出力がここに表示されます",
       "historyEmpty": "履歴はまだありません — リクエストを送信するとエントリが記録されます",
       "pdfDesktop": "PDF プレビューはデスクトップアプリで利用できます — 「ファイルに保存」を使用してください。"
+    },
+    "stream": {
+      "streaming": "ストリーミング中…",
+      "ended": "終了",
+      "stopped": "停止しました",
+      "errored": "エラー",
+      "counts": "{count} イベント · {size}",
+      "started": "レスポンスをストリーミング中…",
+      "startedSse": "Server-Sent Events をストリーミング中…",
+      "endedSummary": "ストリーム終了 — {count} イベント、{size}",
+      "errorFrame": "ストリームエラー: {message}"
+    },
+    "streamHint": {
+      "ndjson": "この NDJSON レスポンスのライブストリーミングはオフです。設定 → リクエスト →「NDJSON レスポンスをライブストリーミング」で有効にしてください。"
+    },
+    "streamRecord": {
+      "stateEnded": "終了",
+      "stateStopped": "停止",
+      "stateError": "エラー",
+      "sse": "Server-Sent Events",
+      "chunked": "ストリーミングレスポンス",
+      "sent": "送信時刻",
+      "duration": "実行時間",
+      "events": "受信イベント数",
+      "bytes": "受信バイト数",
+      "errorMessage": "エラー: {message}",
+      "lastEvents": {
+        "one": "直近のイベント",
+        "other": "直近の {count} 件のイベント"
+      },
+      "noEvents": "イベントは受信されませんでした。"
     }
   },
   "pillEditor": {

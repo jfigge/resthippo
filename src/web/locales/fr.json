@@ -266,7 +266,9 @@
       "pickerDebounce": "Anti-rebond du sélecteur (ms)",
       "followRedirects": "Suivre les redirections",
       "dblclickExecute": "Double-cliquer sur les requêtes pour les exécuter",
-      "verifySsl": "Vérifier les certificats SSL"
+      "verifySsl": "Vérifier les certificats SSL",
+      "streamNdjson": "Diffuser les réponses NDJSON en direct",
+      "streamNdjsonTitle": "Lorsqu'une réponse application/x-ndjson est reçue, la consommer en direct (ligne par ligne) au lieu de mettre tout le corps en mémoire tampon"
     },
     "proxy": {
       "enable": "Activer le proxy",
@@ -538,6 +540,37 @@
       "consoleEmpty": "La sortie détaillée de chaque requête apparaîtra ici",
       "historyEmpty": "Pas encore d'historique — envoyez une requête pour enregistrer une entrée",
       "pdfDesktop": "L'aperçu PDF est disponible dans l'application de bureau — utilisez « Enregistrer dans un fichier »."
+    },
+    "stream": {
+      "streaming": "Diffusion…",
+      "ended": "Terminé",
+      "stopped": "Arrêté",
+      "errored": "Erreur",
+      "counts": "{count} événements · {size}",
+      "started": "Diffusion de la réponse…",
+      "startedSse": "Diffusion des Server-Sent Events…",
+      "endedSummary": "Diffusion terminée — {count} événements, {size}",
+      "errorFrame": "Erreur de diffusion : {message}"
+    },
+    "streamHint": {
+      "ndjson": "La diffusion en direct est désactivée pour cette réponse NDJSON. Activez-la dans Paramètres → Requête → « Diffuser les réponses NDJSON en direct »."
+    },
+    "streamRecord": {
+      "stateEnded": "Terminé",
+      "stateStopped": "Arrêté",
+      "stateError": "Erreur",
+      "sse": "Server-Sent Events",
+      "chunked": "Réponse diffusée",
+      "sent": "Heure d’envoi",
+      "duration": "Durée",
+      "events": "Événements reçus",
+      "bytes": "Octets reçus",
+      "errorMessage": "Erreur : {message}",
+      "lastEvents": {
+        "one": "Dernier événement",
+        "other": "{count} derniers événements"
+      },
+      "noEvents": "Aucun événement reçu."
     }
   },
   "pillEditor": {

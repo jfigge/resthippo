@@ -246,6 +246,15 @@ export class SettingsPopup {
                 type="checkbox"
               />
             </div>
+
+            <div class="settings-row settings-row--toggle" title="${t("settings.request.streamNdjsonTitle")}">
+              <label class="settings-label" for="setting-stream-ndjson">${t("settings.request.streamNdjson")}</label>
+              <input
+                class="settings-toggle"
+                id="setting-stream-ndjson"
+                type="checkbox"
+              />
+            </div>
           </section>
 
           <!-- Proxy ────────────────────────────────────────────────────── -->
@@ -612,6 +621,7 @@ export class SettingsPopup {
       doubleClickExecute: this.#el.querySelector("#setting-dblclick-execute")
         .checked,
       verifySsl: this.#el.querySelector("#setting-verify-ssl").checked,
+      streamNdjson: this.#el.querySelector("#setting-stream-ndjson").checked,
       pickerDebounceMs:
         parseInt(
           this.#el.querySelector("#setting-picker-debounce").value,
@@ -973,6 +983,10 @@ export class SettingsPopup {
     if (settings.verifySsl !== undefined) {
       this.#el.querySelector("#setting-verify-ssl").checked =
         settings.verifySsl;
+    }
+    if (settings.streamNdjson !== undefined) {
+      this.#el.querySelector("#setting-stream-ndjson").checked =
+        settings.streamNdjson;
     }
     if (settings.pickerDebounceMs !== undefined) {
       this.#el.querySelector("#setting-picker-debounce").value = String(

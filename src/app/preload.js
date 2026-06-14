@@ -294,6 +294,67 @@ contextBridge.exposeInMainWorld("wurl", {
       save: (ref, filename) =>
         ipcRenderer.invoke("http:body:save", { ref, filename }),
     },
+
+    /**
+     * Live streaming responses (Feature 33). A request executed with
+     * `streamCapable: true` whose final 2xx is `text/event-stream` — or is
+     * `application/x-ndjson` when it carries `streamNdjson: true` (the global
+     * "Stream NDJSON responses live" setting) — resolves http.execute() early
+     * with `{ streaming: true, streamId, sse, ... }` and then forwards its body
+     * over these push channels keyed by `streamId`:
+     *   http:stream:data  → { streamId, kind: "event"|"line", index, ts,
+     *                          event?|data?, totalBytes, count }
+     *   http:stream:end   → { streamId, ts, totalBytes, eventCount, elapsed,
+     *                          status, bodyRef, aborted, lastEvents }
+     *   http:stream:error → { streamId, ts, totalBytes, eventCount, elapsed,
+     *                          status, bodyRef, name, message, lastEvents }
+     *
+     * lastEvents is the final handful of events (data capped) the renderer keeps
+     * in the Timeline record it writes when the stream ends.
+     *
+     * abort() stops a running stream (its end push reports aborted:true);
+     * save() writes the bytes received so far on a running stream to a file
+     * (after it ends, redeem the end push's bodyRef via http.body.save).
+     * onData/onEnd/onError/onHint register a push listener and RETURN an
+     * unsubscribe function — call it to detach the listener (no leaks across
+     * reloads).
+     */
+    stream: {
+      abort: (streamId) =>
+        ipcRenderer.invoke("http:stream:abort", { streamId }),
+      save: (streamId, filename) =>
+        ipcRenderer.invoke("http:stream:save", { streamId, filename }),
+      /** @param {(payload: object) => void} cb @returns {() => void} unsubscribe */
+      onData: (cb) => {
+        const listener = (_event, payload) => cb(payload);
+        ipcRenderer.on("http:stream:data", listener);
+        return () => ipcRenderer.removeListener("http:stream:data", listener);
+      },
+      /** @param {(payload: object) => void} cb @returns {() => void} unsubscribe */
+      onEnd: (cb) => {
+        const listener = (_event, payload) => cb(payload);
+        ipcRenderer.on("http:stream:end", listener);
+        return () => ipcRenderer.removeListener("http:stream:end", listener);
+      },
+      /** @param {(payload: object) => void} cb @returns {() => void} unsubscribe */
+      onError: (cb) => {
+        const listener = (_event, payload) => cb(payload);
+        ipcRenderer.on("http:stream:error", listener);
+        return () => ipcRenderer.removeListener("http:stream:error", listener);
+      },
+      /**
+       * Headers-time heads-up for a buffered application/x-ndjson response whose
+       * live streaming is off: `{ streamId }`. Fires while the request is still
+       * running (before its buffered body lands) so the renderer can show a
+       * "streaming is off" hint; no end/error follows — the normal response does.
+       * @param {(payload: object) => void} cb @returns {() => void} unsubscribe
+       */
+      onHint: (cb) => {
+        const listener = (_event, payload) => cb(payload);
+        ipcRenderer.on("http:stream:hint", listener);
+        return () => ipcRenderer.removeListener("http:stream:hint", listener);
+      },
+    },
   },
 
   /**

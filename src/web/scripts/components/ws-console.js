@@ -57,8 +57,16 @@ export class WsConsole {
   #logEl;
   #emptyEl;
   #frameCount = 0;
+  #maxFrames;
 
-  constructor() {
+  /**
+   * @param {{ maxFrames?: number }} [opts]
+   *   maxFrames caps the number of rows retained in the DOM (oldest are trimmed
+   *   as new ones arrive) so an unbounded stream stays memory-bounded. Defaults
+   *   to Infinity — the WebSocket console keeps every frame, as before.
+   */
+  constructor({ maxFrames = Infinity } = {}) {
+    this.#maxFrames = maxFrames;
     this.#el = document.createElement("div");
     this.#el.className = "ws-console";
 
@@ -186,9 +194,11 @@ export class WsConsole {
   /**
    * Append a frame row.
    * @param {{ direction: "sent"|"received"|"system", data: string,
-   *           ts?: number, binary?: boolean, level?: "error" }} frame
+   *           ts?: number, binary?: boolean, level?: "error", tag?: string }} frame
+   *   tag renders a small chip above the body (e.g. the SSE event type); it is
+   *   untrusted server text, so it is written via textContent.
    */
-  addFrame({ direction, data, ts, binary = false, level } = {}) {
+  addFrame({ direction, data, ts, binary = false, level, tag = "" } = {}) {
     if (this.#emptyEl.parentNode) this.#emptyEl.remove();
 
     const stick = this.#isScrolledToBottom();
@@ -226,9 +236,28 @@ export class WsConsole {
           ? String(data ?? "")
           : maybePrettyJson(String(data ?? ""));
 
-    row.append(time, glyph, label, body);
+    // A tagged frame (e.g. a named SSE event) wraps the tag chip + body in the
+    // body column so the surrounding grid stays a clean three columns.
+    if (tag) {
+      const main = document.createElement("div");
+      main.className = "ws-frame-main";
+      const chip = document.createElement("span");
+      chip.className = "ws-frame-tag";
+      chip.textContent = tag; // untrusted server token → textContent
+      main.append(chip, body);
+      row.append(time, glyph, label, main);
+    } else {
+      row.append(time, glyph, label, body);
+    }
     this.#logEl.appendChild(row);
     this.#frameCount++;
+
+    // Trim the oldest rows once the cap is exceeded so a long-running stream
+    // stays memory-bounded (the full stream still lives in the spill file).
+    while (this.#frameCount > this.#maxFrames && this.#logEl.firstChild) {
+      this.#logEl.removeChild(this.#logEl.firstChild);
+      this.#frameCount--;
+    }
 
     if (stick) this.#scrollToBottom();
   }

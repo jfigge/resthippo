@@ -293,3 +293,84 @@ test("switching WebSocket → HTTP restores the method selector + Body tab", () 
     "Message tab removed",
   );
 });
+
+// ── Send → Stop during a live stream (Feature 33) ───────────────────────────
+
+test("Send stays Stop while a stream runs and a click cancels with its streamId", async () => {
+  const { window, editor } = mountEditor({
+    id: "r1",
+    method: "GET",
+    url: "https://x/sse",
+  });
+  const sendBtn = editor.element.querySelector(".req-send-btn");
+
+  // In flight → Stop.
+  window.dispatchEvent(
+    new CustomEvent("wurl:request-loading", {
+      detail: { requestId: "r1", streamId: "s1" },
+    }),
+  );
+  assert.ok(
+    sendBtn.classList.contains("req-send-btn--cancel"),
+    "shows Stop while in flight",
+  );
+
+  // The streaming marker resolves execute() but the stream lives on — the button
+  // must NOT revert to Send.
+  window.dispatchEvent(
+    new CustomEvent("wurl:response-received", {
+      detail: { requestId: "r1", streaming: true, streamId: "s1" },
+    }),
+  );
+  assert.ok(
+    sendBtn.classList.contains("req-send-btn--cancel"),
+    "stays Stop while the stream runs",
+  );
+
+  // Clicking Stop cancels with the streamId so app.js aborts the stream.
+  const cancel = new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("no cancel-request")), 1000);
+    window.addEventListener("wurl:cancel-request", (e) => {
+      clearTimeout(t);
+      resolve(e.detail);
+    });
+  });
+  sendBtn.click();
+  const detail = await cancel;
+  assert.equal(detail.requestId, "r1");
+  assert.equal(detail.streamId, "s1");
+});
+
+test("the Send button reverts to Send when the stream ends", () => {
+  const { window, editor } = mountEditor({
+    id: "r1",
+    method: "GET",
+    url: "https://x/sse",
+  });
+  const sendBtn = editor.element.querySelector(".req-send-btn");
+  window.dispatchEvent(
+    new CustomEvent("wurl:request-loading", {
+      detail: { requestId: "r1", streamId: "s1" },
+    }),
+  );
+  window.dispatchEvent(
+    new CustomEvent("wurl:response-received", {
+      detail: { requestId: "r1", streaming: true, streamId: "s1" },
+    }),
+  );
+  assert.ok(
+    sendBtn.classList.contains("req-send-btn--cancel"),
+    "Stop mid-stream",
+  );
+
+  window.dispatchEvent(
+    new CustomEvent("wurl:stream-end", {
+      detail: { streamId: "s1", aborted: false },
+    }),
+  );
+  assert.equal(
+    sendBtn.classList.contains("req-send-btn--cancel"),
+    false,
+    "reverts to Send once the stream ends",
+  );
+});

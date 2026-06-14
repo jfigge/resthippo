@@ -266,7 +266,9 @@
       "pickerDebounce": "选择器防抖（毫秒）",
       "followRedirects": "跟随重定向",
       "dblclickExecute": "双击请求以执行",
-      "verifySsl": "验证 SSL 证书"
+      "verifySsl": "验证 SSL 证书",
+      "streamNdjson": "实时流式传输 NDJSON 响应",
+      "streamNdjsonTitle": "当收到 application/x-ndjson 响应时，逐行实时处理，而不是缓冲整个响应正文"
     },
     "proxy": {
       "enable": "启用代理",
@@ -538,6 +540,37 @@
       "consoleEmpty": "每个请求的详细输出将显示在此处",
       "historyEmpty": "暂无历史记录——发送请求以记录一个条目",
       "pdfDesktop": "PDF 预览在桌面应用中可用——请使用“保存到文件”。"
+    },
+    "stream": {
+      "streaming": "正在流式接收…",
+      "ended": "已结束",
+      "stopped": "已停止",
+      "errored": "错误",
+      "counts": "{count} 个事件 · {size}",
+      "started": "正在流式接收响应…",
+      "startedSse": "正在流式接收 Server-Sent Events…",
+      "endedSummary": "流已结束 — {count} 个事件，{size}",
+      "errorFrame": "流错误：{message}"
+    },
+    "streamHint": {
+      "ndjson": "此 NDJSON 响应的实时流式传输已关闭。请在设置 → 请求 →“实时流式传输 NDJSON 响应”中启用。"
+    },
+    "streamRecord": {
+      "stateEnded": "已结束",
+      "stateStopped": "已停止",
+      "stateError": "错误",
+      "sse": "Server-Sent Events",
+      "chunked": "流式响应",
+      "sent": "发送时间",
+      "duration": "持续时间",
+      "events": "已接收事件数",
+      "bytes": "已接收字节数",
+      "errorMessage": "错误：{message}",
+      "lastEvents": {
+        "one": "最近事件",
+        "other": "最近 {count} 个事件"
+      },
+      "noEvents": "未接收到任何事件。"
     }
   },
   "pillEditor": {

@@ -34,6 +34,8 @@ const PATCHABLE_FIELDS = [
   "wsMessage",
   "wsMessageFormat",
   "wsSubprotocols",
+  // Live streaming responses (Feature 33): consume SSE / chunked bodies live.
+  "streaming",
   "bodyType",
   "bodyText",
   "bodyFilePath",

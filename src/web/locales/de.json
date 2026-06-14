@@ -266,7 +266,9 @@
       "pickerDebounce": "Auswahl-Entprellung (ms)",
       "followRedirects": "Weiterleitungen folgen",
       "dblclickExecute": "Anfragen per Doppelklick ausführen",
-      "verifySsl": "SSL-Zertifikate überprüfen"
+      "verifySsl": "SSL-Zertifikate überprüfen",
+      "streamNdjson": "NDJSON-Antworten live streamen",
+      "streamNdjsonTitle": "Wenn eine application/x-ndjson-Antwort empfangen wird, diese live (Zeile für Zeile) verarbeiten, statt den gesamten Inhalt zu puffern"
     },
     "proxy": {
       "enable": "Proxy aktivieren",
@@ -538,6 +540,37 @@
       "consoleEmpty": "Ausführliche Ausgabe jeder Anfrage wird hier angezeigt",
       "historyEmpty": "Noch kein Verlauf — senden Sie eine Anfrage, um einen Eintrag aufzuzeichnen",
       "pdfDesktop": "Die PDF-Vorschau ist in der Desktop-App verfügbar — verwenden Sie „In Datei speichern“."
+    },
+    "stream": {
+      "streaming": "Streamen…",
+      "ended": "Beendet",
+      "stopped": "Gestoppt",
+      "errored": "Fehler",
+      "counts": "{count} Ereignisse · {size}",
+      "started": "Antwort wird gestreamt…",
+      "startedSse": "Server-Sent Events werden gestreamt…",
+      "endedSummary": "Stream beendet — {count} Ereignisse, {size}",
+      "errorFrame": "Stream-Fehler: {message}"
+    },
+    "streamHint": {
+      "ndjson": "Live-Streaming ist für diese NDJSON-Antwort deaktiviert. Aktivieren Sie es unter Einstellungen → Anfrage → „NDJSON-Antworten live streamen“."
+    },
+    "streamRecord": {
+      "stateEnded": "Beendet",
+      "stateStopped": "Gestoppt",
+      "stateError": "Fehler",
+      "sse": "Server-Sent Events",
+      "chunked": "Gestreamte Antwort",
+      "sent": "Gesendet am",
+      "duration": "Dauer",
+      "events": "Empfangene Ereignisse",
+      "bytes": "Empfangene Bytes",
+      "errorMessage": "Fehler: {message}",
+      "lastEvents": {
+        "one": "Letztes Ereignis",
+        "other": "Letzte {count} Ereignisse"
+      },
+      "noEvents": "Es wurden keine Ereignisse empfangen."
     }
   },
   "pillEditor": {

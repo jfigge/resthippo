@@ -22,6 +22,7 @@ const https = require("https");
 const net = require("net");
 const tls = require("tls");
 const { Readable } = require("stream");
+const { StringDecoder } = require("string_decoder");
 const { spawn } = require("child_process");
 const { URL } = require("url");
 
@@ -46,6 +47,7 @@ const {
 const { normalizeRetry, retryReason, backoffDelay } = require("./net/retry");
 const { computeTiming, formatTiming } = require("./net/timing");
 const { WebSocketHub } = require("./net/websocket");
+const { SseParser, LineBuffer, isEventStream, isNdjson } = require("./net/sse");
 const {
   parseChallenge,
   selectDigestChallenge,
@@ -538,6 +540,32 @@ function fmtLabel(str, params) {
       io.remove(old.path);
     }
     return ref;
+  }
+
+  // ── Live streaming responses (Feature 33) ──────────────────────────────────
+  //
+  // A `text/event-stream` response (or any response on a request the user marked
+  // as streaming) is not buffered: its body is forwarded to the renderer as it
+  // arrives over the push channels http:stream:data / -end / -error, while a copy
+  // is spilled to disk so the full stream can still be saved. The descriptor's
+  // `_stream` context (set in the http:execute handler) carries the stream id and
+  // the sender; the in-flight request is tracked here so it can be aborted (Stop)
+  // and torn down when its renderer goes away.
+
+  /** streamId → { req, senderId, spillPath, spillStream, bytes, events, recent, ended, contentType, aborted } */
+  const activeStreams = new Map();
+
+  // The renderer writes one Timeline record per streaming run (Feature 33). We
+  // keep the last few events here (each event's data capped) and hand them off
+  // in the stream end/error payload so that record is bounded in size.
+  const STREAM_RECORD_EVENTS = 5;
+  const STREAM_RECORD_EVENT_MAX = 2048;
+
+  /** Push to a renderer only while its webContents is still alive. */
+  function sendTo(sender, channel, payload) {
+    if (sender && !sender.isDestroyed()) {
+      sender.send(channel, payload);
+    }
   }
 
   /**
@@ -1222,6 +1250,233 @@ function fmtLabel(str, params) {
           // No usable Type 2 challenge — fall through and surface the 401.
         }
 
+        // ── Streaming response (Feature 33) ──────────────────────────────────
+        // When the caller opted in (interactive send) and this final 2xx is a
+        // text/event-stream — or an application/x-ndjson and the global
+        // streamNdjson setting is on — forward the body live over the
+        // http:stream:* push channels instead of buffering it. Non-2xx responses
+        // always buffer so error pages and the retry layer are unaffected.
+        const streamCtx = desc._stream;
+        const streamContentType = res.headers["content-type"] || "";
+        if (
+          streamCtx &&
+          code >= 200 &&
+          code < 300 &&
+          (isEventStream(streamContentType) ||
+            (streamCtx.streamNdjson && isNdjson(streamContentType)))
+        ) {
+          const { id: streamId, sender } = streamCtx;
+          const sse = isEventStream(streamContentType);
+          const decoder = new StringDecoder("utf8");
+          const parser = sse ? new SseParser() : new LineBuffer();
+
+          // Disable the idle socket timeout — a long-lived or sparsely-emitting
+          // stream (SSE keep-alives, an idle LLM) must not be killed mid-stream.
+          // The user's Stop (req.destroy) and renderer teardown end it instead.
+          req.setTimeout(0);
+
+          consoleLog.push(`< ${httpVersion} ${code} ${phrase}`);
+          Object.entries(res.headers).forEach(([k, v]) => {
+            const vals = Array.isArray(v) ? v : [v];
+            vals.forEach((vi) => consoleLog.push(`< ${k}: ${vi}`));
+          });
+          consoleLog.push("<");
+          consoleLog.push("");
+          consoleLog.push(
+            sse
+              ? "* text/event-stream — forwarding Server-Sent Events live"
+              : "* Streaming response body live (chunked)",
+          );
+
+          // Login flows can set a session cookie on the streaming response too.
+          captureCookies(useCookieJar, collectionId, rawUrl, res.headers);
+
+          // Mirror the raw bytes to a temp file so the full stream can be saved
+          // on demand, even while it is still running (http:stream:save) or after
+          // it ends (the bodyRef redeemed via http:body:save).
+          let spillStream = null;
+          let spillPath = null;
+          let spillError = null;
+          try {
+            const cacheDir = getStores().paths().responseCacheDir();
+            io.ensureDir(cacheDir);
+            spillPath = io.newTempPath(cacheDir, "stream");
+            spillStream = fs.createWriteStream(spillPath);
+            spillStream.on("error", (err) => {
+              spillError = err;
+            });
+          } catch (err) {
+            spillError = err;
+          }
+
+          const entry = {
+            req,
+            senderId: sender.id,
+            spillPath,
+            spillStream,
+            bytes: 0,
+            events: 0,
+            recent: [], // last STREAM_RECORD_EVENTS items, for the Timeline record
+            ended: false,
+            aborted: false,
+            contentType: streamContentType,
+          };
+          activeStreams.set(streamId, entry);
+
+          // Cap a stored event's data so the (persisted) Timeline record can't be
+          // bloated by one huge frame; the full stream still lives in the spill.
+          const capData = (s) => {
+            const str = String(s ?? "");
+            return str.length > STREAM_RECORD_EVENT_MAX
+              ? str.slice(0, STREAM_RECORD_EVENT_MAX)
+              : str;
+          };
+
+          let index = 0;
+          const emitItem = (item) => {
+            entry.events += 1;
+            const ts = Date.now();
+            sendTo(sender, "http:stream:data", {
+              streamId,
+              kind: sse ? "event" : "line",
+              index: index++,
+              ts,
+              ...(sse ? { event: item } : { data: item }),
+              totalBytes: entry.bytes,
+              count: entry.events,
+            });
+            // Retain the last few events (data capped) for the Timeline record.
+            entry.recent.push(
+              sse
+                ? {
+                    kind: "event",
+                    ts,
+                    event: {
+                      event: item.event,
+                      data: capData(item.data),
+                      id: item.id,
+                    },
+                  }
+                : { kind: "line", ts, data: capData(item) },
+            );
+            if (entry.recent.length > STREAM_RECORD_EVENTS)
+              entry.recent.shift();
+          };
+          const pump = (text) => {
+            for (const item of parser.feed(text)) emitItem(item);
+          };
+
+          res.on("data", (chunk) => {
+            entry.bytes += chunk.length;
+            if (spillStream && !spillError) {
+              // Pause the socket when the write buffer fills, resume on drain —
+              // keeps disk-spill memory bounded for a fast producer.
+              if (!spillStream.write(chunk)) {
+                res.pause();
+                spillStream.once("drain", () => res.resume());
+              }
+            }
+            const text = decoder.write(chunk);
+            if (text) pump(text);
+          });
+
+          const finalize = ({ aborted = false, error = null } = {}) => {
+            if (entry.ended) return;
+            entry.ended = true;
+            // On a clean end, flush any buffered tail bytes / partial final line.
+            if (!aborted && !error) {
+              try {
+                const tail = decoder.end();
+                if (tail) pump(tail);
+                for (const item of parser.flush()) emitItem(item);
+              } catch {
+                // best-effort — a decode/parse error at EOF is non-fatal
+              }
+            }
+            const done = () => {
+              let bodyRef = null;
+              if (!spillError && entry.bytes > 0 && spillPath) {
+                bodyRef = registerSpilledBody({
+                  path: spillPath,
+                  size: entry.bytes,
+                  contentType: streamContentType,
+                  isBinary: false,
+                });
+              } else if (spillPath) {
+                io.remove(spillPath);
+              }
+              activeStreams.delete(streamId);
+              const base = {
+                streamId,
+                ts: Date.now(),
+                totalBytes: entry.bytes,
+                eventCount: entry.events,
+                elapsed: Date.now() - startTime,
+                status: code,
+                bodyRef,
+                // Last few events, for the renderer's Timeline record (Feature 33).
+                lastEvents: entry.recent,
+              };
+              if (error && !aborted) {
+                sendTo(sender, "http:stream:error", {
+                  ...base,
+                  name: error.name || "StreamError",
+                  message: error.message || String(error),
+                });
+              } else {
+                sendTo(sender, "http:stream:end", { ...base, aborted });
+              }
+            };
+            if (spillStream) spillStream.end(done);
+            else done();
+          };
+
+          res.on("end", () => finalize({}));
+          res.on("error", (err) =>
+            finalize({ aborted: entry.aborted, error: err }),
+          );
+          // Safety net: an abort (req.destroy) or socket teardown closes the
+          // response without an "end"; finalize is idempotent so a "close" after
+          // a normal "end" is a no-op.
+          res.on("close", () => finalize({ aborted: true }));
+
+          // Resolve the http:execute promise NOW with a streaming marker so the
+          // renderer switches to live mode; the body keeps flowing over the push
+          // channels above.
+          resolve({
+            status: code,
+            statusText: phrase,
+            headers: flatHeaders(res.headers),
+            cookies: extractCookies(res.headers),
+            body: "",
+            elapsed: Date.now() - startTime,
+            size: 0,
+            consoleLog,
+            encoding: "utf8",
+            streaming: true,
+            streamId,
+            sse,
+            contentType: streamContentType,
+          });
+          return;
+        }
+
+        // ── Buffered-NDJSON hint (Feature 33) ────────────────────────────────
+        // We chose not to stream (the global streamNdjson setting is off) but the
+        // body is application/x-ndjson, so it buffers — a never-ending feed would
+        // just spin. Signal the renderer now, at headers-time, so it can show a
+        // "streaming is off" hint while the request runs; that hint is dropped the
+        // moment the buffered response (or an error) lands.
+        if (
+          streamCtx &&
+          !streamCtx.streamNdjson &&
+          isNdjson(streamContentType)
+        ) {
+          sendTo(streamCtx.sender, "http:stream:hint", {
+            streamId: streamCtx.id,
+          });
+        }
+
         // ── Normal response ──────────────────────────────────────────────────
         // Buffer in memory until the body crosses RESPONSE_SPILL_THRESHOLD; from
         // there it streams to a temp file so a multi-hundred-MB payload never
@@ -1608,7 +1863,7 @@ function fmtLabel(str, params) {
   }
 
   // ── IPC handler ─────────────────────────────────────────────────────────────
-  ipcMain.handle("http:execute", async (_event, descriptor) => {
+  ipcMain.handle("http:execute", async (event, descriptor) => {
     const consoleLog = [];
     const startTime = Date.now();
     const _timeout = descriptor.timeout || 30000;
@@ -1627,6 +1882,17 @@ function fmtLabel(str, params) {
     // overrides). Threaded onto the descriptor so every redirect/auth leg reuses
     // it; null when nothing is configured, leaving default behaviour unchanged.
     descriptor._tls = loadTlsConfig(consoleLog);
+    // Streaming context (Feature 33): only interactive sends set streamCapable,
+    // so folder runs and dependency prefetches never switch to live streaming.
+    // text/event-stream always auto-streams; application/x-ndjson streams only
+    // when streamNdjson (the global "Stream NDJSON responses live" setting) is on.
+    if (descriptor.streamCapable === true) {
+      descriptor._stream = {
+        id: descriptor.streamId || io.newUUID(),
+        streamNdjson: descriptor.streamNdjson === true,
+        sender: event.sender,
+      };
+    }
     try {
       const result = await executeWithRetries(
         descriptor,
@@ -1698,6 +1964,66 @@ function fmtLabel(str, params) {
     } catch (err) {
       return { ok: false, reason: "error", message: err.message };
     }
+  });
+
+  // ── Live-stream control (Feature 33) ───────────────────────────────────────
+
+  // Stop a live stream — destroys the underlying request, which finalizes the
+  // stream (an http:stream:end with aborted:true is pushed to the renderer).
+  ipcMain.handle("http:stream:abort", (_event, { streamId } = {}) => {
+    const entry = activeStreams.get(streamId);
+    if (!entry) return { ok: false, reason: "not-found" };
+    entry.aborted = true;
+    try {
+      entry.req.destroy();
+    } catch {
+      // already torn down — finalize will still run via the close/error handler
+    }
+    return { ok: true };
+  });
+
+  // Save the bytes received so far on a STILL-RUNNING stream. Once a stream
+  // ends it registers a spill bodyRef, after which the renderer saves via the
+  // existing http:body:save instead.
+  ipcMain.handle(
+    "http:stream:save",
+    async (_event, { streamId, filename } = {}) => {
+      const entry = activeStreams.get(streamId);
+      if (!entry || !entry.spillPath) return { ok: false, reason: "not-found" };
+      const result = await dialog.showSaveDialog(_mainWin ?? undefined, {
+        defaultPath: filename || "stream.txt",
+      });
+      if (result.canceled || !result.filePath) {
+        return { ok: false, reason: "canceled" };
+      }
+      try {
+        await fs.promises.copyFile(entry.spillPath, result.filePath);
+        return { ok: true, path: result.filePath };
+      } catch (err) {
+        return { ok: false, reason: "error", message: err.message };
+      }
+    },
+  );
+
+  // ── Lifecycle cleanup — never leak a live stream past its renderer ─────────
+  // A reload (did-navigate) or a destroyed/crashed webContents aborts every
+  // stream that renderer owned; finalize unlinks the spill file.
+  app.on("web-contents-created", (_e, contents) => {
+    const drop = () => {
+      for (const entry of activeStreams.values()) {
+        if (entry.senderId === contents.id) {
+          entry.aborted = true;
+          try {
+            entry.req.destroy();
+          } catch {
+            // best-effort
+          }
+        }
+      }
+    };
+    contents.on("did-navigate", drop);
+    contents.on("render-process-gone", drop);
+    contents.on("destroyed", drop);
   });
 })();
 

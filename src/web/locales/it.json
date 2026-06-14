@@ -266,7 +266,9 @@
       "pickerDebounce": "Debounce del selettore (ms)",
       "followRedirects": "Segui i reindirizzamenti",
       "dblclickExecute": "Doppio clic sulle richieste per eseguirle",
-      "verifySsl": "Verifica i certificati SSL"
+      "verifySsl": "Verifica i certificati SSL",
+      "streamNdjson": "Trasmetti le risposte NDJSON in tempo reale",
+      "streamNdjsonTitle": "Quando viene ricevuta una risposta application/x-ndjson, consumarla in tempo reale (riga per riga) invece di bufferizzare l'intero corpo"
     },
     "proxy": {
       "enable": "Abilita proxy",
@@ -538,6 +540,37 @@
       "consoleEmpty": "L'output dettagliato di ogni richiesta apparirà qui",
       "historyEmpty": "Nessuna cronologia ancora — invia una richiesta per registrare una voce",
       "pdfDesktop": "L'anteprima PDF è disponibile nell'app desktop — usa «Salva su file»."
+    },
+    "stream": {
+      "streaming": "Trasmissione…",
+      "ended": "Terminato",
+      "stopped": "Interrotto",
+      "errored": "Errore",
+      "counts": "{count} eventi · {size}",
+      "started": "Trasmissione della risposta…",
+      "startedSse": "Trasmissione di Server-Sent Events…",
+      "endedSummary": "Stream terminato — {count} eventi, {size}",
+      "errorFrame": "Errore di stream: {message}"
+    },
+    "streamHint": {
+      "ndjson": "Lo streaming in tempo reale è disattivato per questa risposta NDJSON. Attivalo in Impostazioni → Richiesta → «Trasmetti le risposte NDJSON in tempo reale»."
+    },
+    "streamRecord": {
+      "stateEnded": "Terminato",
+      "stateStopped": "Interrotto",
+      "stateError": "Errore",
+      "sse": "Server-Sent Events",
+      "chunked": "Risposta in streaming",
+      "sent": "Ora di invio",
+      "duration": "Durata",
+      "events": "Eventi ricevuti",
+      "bytes": "Byte ricevuti",
+      "errorMessage": "Errore: {message}",
+      "lastEvents": {
+        "one": "Ultimo evento",
+        "other": "Ultimi {count} eventi"
+      },
+      "noEvents": "Nessun evento ricevuto."
     }
   },
   "pillEditor": {

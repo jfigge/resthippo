@@ -568,6 +568,11 @@ export class RequestEditor {
   // Send/Stop button reflects only the request loaded in the editor.
   #inFlightIds = new Set();
 
+  // requestId → streamId for in-flight live streams (Feature 33). A streaming
+  // response keeps its request "in flight" (the Send button stays Stop) until the
+  // stream ends; the streamId lets a Stop click abort that stream.
+  #streamingReqs = new Map();
+
   // ── Variable pill editor support ───────────────────────────────────────────
   /** Current variable resolution context: { envVariables, folderChain, … } */
   #variableContext = null;
@@ -620,11 +625,37 @@ export class RequestEditor {
       this.#applySendButtonState();
     });
     const settleSendBtn = (e) => {
-      this.#inFlightIds.delete(e.detail?.requestId ?? this.#currentNodeId);
+      const rid = e.detail?.requestId ?? this.#currentNodeId;
+      this.#inFlightIds.delete(rid);
+      this.#streamingReqs.delete(rid);
       this.#applySendButtonState();
     };
-    window.addEventListener("wurl:response-received", settleSendBtn);
+    // A live streaming response (Feature 33) keeps its request in flight: the body
+    // arrives over wurl:stream-* and the Send button stays "Stop" until the stream
+    // actually ends. Record the streamId so a Stop click can abort that stream;
+    // settle on wurl:stream-end/-error instead of on the streaming marker.
+    window.addEventListener("wurl:response-received", (e) => {
+      if (e.detail?.streaming === true) {
+        const rid = e.detail?.requestId ?? this.#currentNodeId;
+        if (e.detail?.streamId) this.#streamingReqs.set(rid, e.detail.streamId);
+        this.#applySendButtonState();
+      } else {
+        settleSendBtn(e);
+      }
+    });
     window.addEventListener("wurl:request-error", settleSendBtn);
+    const settleStream = (e) => {
+      const sid = e.detail?.streamId;
+      if (sid == null) return;
+      for (const [rid, s] of this.#streamingReqs) {
+        if (s !== sid) continue;
+        this.#streamingReqs.delete(rid);
+        this.#inFlightIds.delete(rid);
+      }
+      this.#applySendButtonState();
+    };
+    window.addEventListener("wurl:stream-end", settleStream);
+    window.addEventListener("wurl:stream-error", settleStream);
 
     // The GraphQL Query/Variables split orientation tracks the app layout: the
     // side-by-side layout stacks the panes, wider layouts place them side by
@@ -850,7 +881,12 @@ export class RequestEditor {
       if (this.#currentRequestInFlight()) {
         window.dispatchEvent(
           new CustomEvent("wurl:cancel-request", {
-            detail: { requestId: this.#currentNodeId },
+            detail: {
+              requestId: this.#currentNodeId,
+              // For a live stream, carry its id so the cancel aborts the stream
+              // (Feature 33) rather than the already-resolved execution.
+              streamId: this.#streamingReqs.get(this.#currentNodeId) ?? null,
+            },
           }),
         );
       } else {
