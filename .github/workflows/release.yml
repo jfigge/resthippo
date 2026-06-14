@@ -90,6 +90,12 @@ jobs:
             build/src/dist/*.deb
             build/src/dist/*.exe
           if-no-files-found: error
+          # These artifacts are only a hand-off to the `release` job within the
+          # same run (which attaches them to the GitHub Release — Release assets
+          # don't count against Actions storage). Expire them fast so manual
+          # workflow_dispatch smoke-test builds don't accumulate. The minimum is
+          # 1 day; same-run downloads work regardless of retention.
+          retention-days: 1
 
   # ── Publish a GitHub Release with all platforms' installers attached ────────
   # Only runs for tag pushes; manual dispatch stops after the build job above.
