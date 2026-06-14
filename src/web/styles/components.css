@@ -835,6 +835,11 @@ html.show-method-icons .req-method-menu-item-label::before {
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   flex-shrink: 0;
+  /* Self-contained horizontal scroll: when the tabs don't fit, the strip
+     shows its own (global 6px) scrollbar and scrolls independently rather
+     than forcing a horizontal scrollbar on the whole request panel. */
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 /* Tab buttons for the request and response panes share one design. The
@@ -2332,6 +2337,10 @@ html.show-method-icons .req-method-menu-item-label::before {
   font-size: var(--font-size-sm);
   flex-shrink: 0;
   min-height: 40px;
+  /* When the panel is too narrow for the full bar, let the trailing items
+     (meta time/size, injected controls) scroll off-screen rather than spill
+     out and force a horizontal scrollbar on the whole response panel. */
+  overflow: hidden;
 }
 
 .res-status-badge {
@@ -2392,11 +2401,11 @@ html.show-method-icons .req-method-menu-item-label::before {
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
   flex-shrink: 0;
+  /* Self-contained horizontal scroll: when the tabs don't fit, the strip
+     shows its own (global 6px) scrollbar and scrolls independently of the
+     status bar and content below it. */
   overflow-x: auto;
-  scrollbar-width: none;
-}
-.res-tab-strip::-webkit-scrollbar {
-  display: none;
+  overflow-y: hidden;
 }
 
 /* Body tab — render mode indicators */
