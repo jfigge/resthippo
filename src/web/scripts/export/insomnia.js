@@ -152,6 +152,18 @@ function exportAuth(node) {
       service: auth.service,
     };
   }
+  if (auth.type === "oauth1") {
+    return {
+      type: "oauth1",
+      disabled: false,
+      consumerKey: auth.consumerKey,
+      consumerSecret: "",
+      tokenKey: "",
+      tokenSecret: "",
+      signatureMethod: auth.signatureMethod,
+      realm: auth.realm,
+    };
+  }
   if (auth.type === "oauth2") {
     return {
       type: "oauth2",

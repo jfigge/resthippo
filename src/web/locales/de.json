@@ -741,7 +741,8 @@
       "ntlm": "NTLM",
       "oauth2": "OAuth 2.0",
       "awsIam": "AWS IAM",
-      "none": "Keine"
+      "none": "Keine",
+      "oauth1": "OAuth 1.0"
     },
     "discover": "Erkennen",
     "discoverTitle": "OAuth-2.0-Endpunkte über eine OpenID-Connect-Issuer-URL erkennen",
@@ -786,7 +787,9 @@
         "authorizationCode": "Authorization Code",
         "clientCredentials": "Client Credentials",
         "password": "Resource Owner Password",
-        "implicit": "Implicit"
+        "implicit": "Implicit",
+        "deviceCode": "Geräteautorisierung",
+        "tokenExchange": "Token-Austausch"
       },
       "clientType": "Client-Typ",
       "clientTypeAria": "Client-Typ",
@@ -839,7 +842,35 @@
       "getTokenTitle": "Mit den konfigurierten Einstellungen ein OAuth-2.0-Access-Token abrufen",
       "fetching": "Wird abgerufen…",
       "tokenAcquired": "✓ Token abgerufen",
-      "unknownError": "Unbekannter Fehler"
+      "unknownError": "Unbekannter Fehler",
+      "deviceAuthorizationUrl": "Geräteautorisierungs-URL",
+      "deviceAuthorizationUrlPlaceholder": "https://example.com/oauth/device/code",
+      "deviceAuthorizationUrlHint": "Endpunkt, der den Geräte- und Benutzercode ausgibt (RFC 8628).",
+      "device": {
+        "title": "Geräteautorisierung",
+        "desc": "Öffnen Sie zum Anmelden diese URL auf einem beliebigen Gerät und geben Sie den Code ein:",
+        "codeLabel": "Ihr Code",
+        "waiting": "Warten auf Autorisierung…",
+        "expires": "Der Code läuft in etwa {minutes} Min. ab.",
+        "cancel": "Abbrechen"
+      },
+      "tokenExchange": {
+        "subjectToken": "Subject-Token",
+        "subjectTokenPlaceholder": "Auszutauschendes Token…",
+        "subjectTokenType": "Subject-Token-Typ",
+        "actorToken": "Actor-Token",
+        "actorTokenPlaceholder": "Token der handelnden Partei (optional)…",
+        "actorTokenHint": "Optionales Token der handelnden Partei für Delegation (RFC 8693).",
+        "actorTokenType": "Actor-Token-Typ",
+        "requestedTokenType": "Angeforderter Token-Typ",
+        "requestedTokenTypeNone": "Nicht angegeben",
+        "typeAccessToken": "Zugriffstoken",
+        "typeRefreshToken": "Refresh-Token",
+        "typeIdToken": "ID-Token",
+        "typeJwt": "JWT",
+        "typeSaml2": "SAML 2.0",
+        "typeSaml1": "SAML 1.1"
+      }
     },
     "aws": {
       "accessKeyId": "Access Key ID",
@@ -863,6 +894,23 @@
       "fetching": "Wird abgerufen…",
       "enterUrl": "Bitte geben Sie eine Issuer-URL ein.",
       "fetchFailed": "Abruf fehlgeschlagen <code>{url}</code><br>{message}"
+    },
+    "oauth1": {
+      "consumerKey": "Consumer-Schlüssel",
+      "consumerKeyPlaceholder": "Ihr OAuth-Consumer-Schlüssel…",
+      "consumerSecret": "Consumer-Geheimnis",
+      "consumerSecretPlaceholder": "Ihr OAuth-Consumer-Geheimnis…",
+      "token": "Zugriffstoken",
+      "tokenPlaceholder": "OAuth-Token (optional)…",
+      "tokenSecret": "Token-Geheimnis",
+      "tokenSecretPlaceholder": "OAuth-Token-Geheimnis (optional)…",
+      "signatureMethod": "Signaturmethode",
+      "sigHmacSha1": "HMAC-SHA1",
+      "sigHmacSha256": "HMAC-SHA256",
+      "sigPlaintext": "PLAINTEXT",
+      "realm": "Realm",
+      "realmPlaceholder": "Realm (optional)",
+      "hint": "Wird beim Senden der Anfrage signiert; Nonce und Zeitstempel werden automatisch erzeugt."
     }
   },
   "wsConsole": {

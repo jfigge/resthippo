@@ -139,6 +139,10 @@ class TokenStore {
       config.username ?? "",
       config.audience ?? "",
       config.resource ?? "",
+      // Token-exchange swaps a different token per subject; fingerprint it so
+      // distinct subject tokens never share a cached result. The raw value is
+      // never embedded in the key (it may be surfaced by keys() for diagnostics).
+      fingerprint(config.subjectToken ?? ""),
     ];
     return parts.join("|");
   }

@@ -156,9 +156,14 @@ const REQUEST_SECRET_PATHS = [
   ["authOAuth2", "refreshToken"],
   ["authOAuth2", "username"],
   ["authOAuth2", "password"],
+  ["authOAuth2", "subjectToken"],
+  ["authOAuth2", "actorToken"],
   ["authAwsIam", "accessKeyId"],
   ["authAwsIam", "secretAccessKey"],
   ["authAwsIam", "sessionToken"],
+  ["authOAuth1", "consumerSecret"],
+  ["authOAuth1", "token"],
+  ["authOAuth1", "tokenSecret"],
 ];
 
 function _applyToRequest(obj, fn) {

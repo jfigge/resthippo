@@ -44,7 +44,40 @@ const OAUTH2_ADVANCED_KEYS = new Set([
   "resource",
   "origin",
   "headerPrefix",
+  "actorToken",
+  "actorTokenType",
+  "requestedTokenType",
 ]);
+
+// RFC 8693 §3 standard token-type identifiers, for the Token Exchange grant's
+// subject/actor/requested token-type selects. Values are the literal URNs; the
+// labels are resolved through t() at render time (never at module top-level).
+const TOKEN_EXCHANGE_TOKEN_TYPES = [
+  {
+    value: "urn:ietf:params:oauth:token-type:access_token",
+    labelKey: "auth.oauth2.tokenExchange.typeAccessToken",
+  },
+  {
+    value: "urn:ietf:params:oauth:token-type:refresh_token",
+    labelKey: "auth.oauth2.tokenExchange.typeRefreshToken",
+  },
+  {
+    value: "urn:ietf:params:oauth:token-type:id_token",
+    labelKey: "auth.oauth2.tokenExchange.typeIdToken",
+  },
+  {
+    value: "urn:ietf:params:oauth:token-type:jwt",
+    labelKey: "auth.oauth2.tokenExchange.typeJwt",
+  },
+  {
+    value: "urn:ietf:params:oauth:token-type:saml2",
+    labelKey: "auth.oauth2.tokenExchange.typeSaml2",
+  },
+  {
+    value: "urn:ietf:params:oauth:token-type:saml1",
+    labelKey: "auth.oauth2.tokenExchange.typeSaml1",
+  },
+];
 
 // Two dropdown instances — one for the OAuth 2.0 scope combo input and one for
 // the API-key name combo input.
@@ -268,6 +301,15 @@ export class RequestAuthEditor {
     service: "",
     sessionToken: "",
   };
+  // OAuth 1.0a (RFC 5849) — signed in the main process at send time.
+  #authOAuth1 = {
+    consumerKey: "",
+    consumerSecret: "",
+    token: "",
+    tokenSecret: "",
+    signatureMethod: "HMAC-SHA1",
+    realm: "",
+  };
   #authApiKey = {
     name: "", // header name or query-param key (e.g. "X-API-Key")
     value: "", // the secret key value (encrypted at rest)
@@ -348,6 +390,7 @@ export class RequestAuthEditor {
         <option value="digest">${t("auth.type.digest")}</option>
         <option value="ntlm">${t("auth.type.ntlm")}</option>
         <option value="oauth2">${t("auth.type.oauth2")}</option>
+        <option value="oauth1">${t("auth.type.oauth1")}</option>
         <option value="aws-iam">${t("auth.type.awsIam")}</option>
       </optgroup>
       <optgroup label="${t("auth.typeGroupOther")}">
@@ -475,6 +518,8 @@ export class RequestAuthEditor {
         return this.#renderAuthNtlm(el);
       case "oauth2":
         return this.#renderAuthOAuth2(el);
+      case "oauth1":
+        return this.#renderAuthOAuth1(el);
       case "aws-iam":
         return this.#renderAuthAwsIam(el);
     }
@@ -528,6 +573,16 @@ export class RequestAuthEditor {
           { key: "sessionToken", value: this.#authAwsIam.sessionToken },
         ];
 
+      case "oauth1":
+        return [
+          { key: "consumerKey", value: this.#authOAuth1.consumerKey },
+          { key: "consumerSecret", value: this.#authOAuth1.consumerSecret },
+          { key: "token", value: this.#authOAuth1.token },
+          { key: "tokenSecret", value: this.#authOAuth1.tokenSecret },
+          { key: "signatureMethod", value: this.#authOAuth1.signatureMethod },
+          { key: "realm", value: this.#authOAuth1.realm },
+        ];
+
       case "oauth2": {
         const g = this.#authOAuth2.grantType ?? "client_credentials";
         const isPublic =
@@ -552,6 +607,24 @@ export class RequestAuthEditor {
           fields.push({
             key: "accessTokenUrl",
             value: this.#authOAuth2.accessTokenUrl,
+          });
+        }
+        if (g === "device_code") {
+          fields.push({
+            key: "deviceAuthorizationUrl",
+            value: this.#authOAuth2.deviceAuthorizationUrl ?? "",
+          });
+        }
+        if (g === "token_exchange") {
+          fields.push({
+            key: "subjectToken",
+            value: this.#authOAuth2.subjectToken ?? "",
+          });
+          fields.push({
+            key: "subjectTokenType",
+            value:
+              this.#authOAuth2.subjectTokenType ??
+              TOKEN_EXCHANGE_TOKEN_TYPES[0].value,
           });
         }
         if (["authorization_code", "implicit"].includes(g)) {
@@ -597,10 +670,32 @@ export class RequestAuthEditor {
             key: "audience",
             value: this.#authOAuth2.audience ?? "",
           });
-          if (["authorization_code", "client_credentials"].includes(g)) {
+          if (
+            [
+              "authorization_code",
+              "client_credentials",
+              "token_exchange",
+            ].includes(g)
+          ) {
             fields.push({
               key: "resource",
               value: this.#authOAuth2.resource ?? "",
+            });
+          }
+          if (g === "token_exchange") {
+            fields.push({
+              key: "actorToken",
+              value: this.#authOAuth2.actorToken ?? "",
+            });
+            fields.push({
+              key: "actorTokenType",
+              value:
+                this.#authOAuth2.actorTokenType ??
+                TOKEN_EXCHANGE_TOKEN_TYPES[0].value,
+            });
+            fields.push({
+              key: "requestedTokenType",
+              value: this.#authOAuth2.requestedTokenType ?? "",
             });
           }
           if (g === "authorization_code") {
@@ -688,6 +783,15 @@ export class RequestAuthEditor {
           break;
         case "aws-iam":
           if (key in this.#authAwsIam) this.#authAwsIam[key] = v;
+          break;
+        case "oauth1":
+          if (key === "signatureMethod") {
+            // Constrain to the supported methods so the select can't desync.
+            if (["HMAC-SHA1", "HMAC-SHA256", "PLAINTEXT"].includes(v))
+              this.#authOAuth1.signatureMethod = v;
+          } else if (key in this.#authOAuth1) {
+            this.#authOAuth1[key] = v;
+          }
           break;
         case "oauth2":
           this.#authOAuth2[key] = v;
@@ -905,6 +1009,8 @@ export class RequestAuthEditor {
       },
       { value: "password", label: t("auth.oauth2.grant.password") },
       { value: "implicit", label: t("auth.oauth2.grant.implicit") },
+      { value: "device_code", label: t("auth.oauth2.grant.deviceCode") },
+      { value: "token_exchange", label: t("auth.oauth2.grant.tokenExchange") },
     ];
     form.appendChild(
       this.#buildAuthFieldSelect(t("auth.oauth2.grantType"), {
@@ -984,6 +1090,55 @@ export class RequestAuthEditor {
             this.#dispatchAuthUpdated();
           },
         }),
+      );
+    }
+
+    // ── Device Authorization URL (device_code only) ────────────────────────
+    if (this.#authOAuth2.grantType === "device_code") {
+      form.appendChild(
+        this.#buildAuthPillField(t("auth.oauth2.deviceAuthorizationUrl"), {
+          placeholder: t("auth.oauth2.deviceAuthorizationUrlPlaceholder"),
+          value: this.#authOAuth2.deviceAuthorizationUrl ?? "",
+          onInput: (v) => {
+            this.#authOAuth2.deviceAuthorizationUrl = v;
+            this.#dispatchAuthUpdated();
+          },
+          hint: t("auth.oauth2.deviceAuthorizationUrlHint"),
+        }),
+      );
+    }
+
+    // ── Subject Token / Type (token_exchange only) ─────────────────────────
+    if (this.#authOAuth2.grantType === "token_exchange") {
+      form.appendChild(
+        this.#buildAuthPillField(t("auth.oauth2.tokenExchange.subjectToken"), {
+          placeholder: t("auth.oauth2.tokenExchange.subjectTokenPlaceholder"),
+          value: this.#authOAuth2.subjectToken ?? "",
+          decryptPath: "authOAuth2.subjectToken",
+          onInput: (v) => {
+            this.#authOAuth2.subjectToken = v;
+            this.#dispatchAuthUpdated();
+          },
+        }),
+      );
+      form.appendChild(
+        this.#buildAuthFieldSelect(
+          t("auth.oauth2.tokenExchange.subjectTokenType"),
+          {
+            options: TOKEN_EXCHANGE_TOKEN_TYPES.map((o) => ({
+              value: o.value,
+              label: t(o.labelKey),
+            })),
+            value:
+              this.#authOAuth2.subjectTokenType ??
+              TOKEN_EXCHANGE_TOKEN_TYPES[0].value,
+            ariaLabel: t("auth.oauth2.tokenExchange.subjectTokenType"),
+            onInput: (v) => {
+              this.#authOAuth2.subjectTokenType = v;
+              this.#dispatchAuthUpdated();
+            },
+          },
+        ),
       );
     }
 
@@ -1152,8 +1307,12 @@ export class RequestAuthEditor {
         }),
       );
 
-      // Resource — authorization_code, client_credentials
-      if (["authorization_code", "client_credentials"].includes(grant)) {
+      // Resource — authorization_code, client_credentials, token_exchange
+      if (
+        ["authorization_code", "client_credentials", "token_exchange"].includes(
+          grant,
+        )
+      ) {
         form.appendChild(
           this.#buildAuthPillField(t("auth.oauth2.resource"), {
             placeholder: t("auth.oauth2.resourcePlaceholder"),
@@ -1163,6 +1322,64 @@ export class RequestAuthEditor {
               this.#dispatchAuthUpdated();
             },
           }),
+        );
+      }
+
+      // Actor token / Requested token type — token_exchange only (RFC 8693)
+      if (grant === "token_exchange") {
+        form.appendChild(
+          this.#buildAuthPillField(t("auth.oauth2.tokenExchange.actorToken"), {
+            placeholder: t("auth.oauth2.tokenExchange.actorTokenPlaceholder"),
+            value: this.#authOAuth2.actorToken ?? "",
+            decryptPath: "authOAuth2.actorToken",
+            onInput: (v) => {
+              this.#authOAuth2.actorToken = v;
+              this.#dispatchAuthUpdated();
+            },
+            hint: t("auth.oauth2.tokenExchange.actorTokenHint"),
+          }),
+        );
+        form.appendChild(
+          this.#buildAuthFieldSelect(
+            t("auth.oauth2.tokenExchange.actorTokenType"),
+            {
+              options: TOKEN_EXCHANGE_TOKEN_TYPES.map((o) => ({
+                value: o.value,
+                label: t(o.labelKey),
+              })),
+              value:
+                this.#authOAuth2.actorTokenType ??
+                TOKEN_EXCHANGE_TOKEN_TYPES[0].value,
+              ariaLabel: t("auth.oauth2.tokenExchange.actorTokenType"),
+              onInput: (v) => {
+                this.#authOAuth2.actorTokenType = v;
+                this.#dispatchAuthUpdated();
+              },
+            },
+          ),
+        );
+        form.appendChild(
+          this.#buildAuthFieldSelect(
+            t("auth.oauth2.tokenExchange.requestedTokenType"),
+            {
+              options: [
+                {
+                  value: "",
+                  label: t("auth.oauth2.tokenExchange.requestedTokenTypeNone"),
+                },
+                ...TOKEN_EXCHANGE_TOKEN_TYPES.map((o) => ({
+                  value: o.value,
+                  label: t(o.labelKey),
+                })),
+              ],
+              value: this.#authOAuth2.requestedTokenType ?? "",
+              ariaLabel: t("auth.oauth2.tokenExchange.requestedTokenType"),
+              onInput: (v) => {
+                this.#authOAuth2.requestedTokenType = v;
+                this.#dispatchAuthUpdated();
+              },
+            },
+          ),
         );
       }
 
@@ -1341,6 +1558,89 @@ export class RequestAuthEditor {
     getTokenRow.appendChild(getTokenBtn);
     getTokenRow.appendChild(tokenStatusEl);
     form.appendChild(getTokenRow);
+
+    el.appendChild(form);
+  }
+
+  // ── OAuth 1.0a ──────────────────────────────────────────────────────────────
+  #renderAuthOAuth1(el) {
+    const form = document.createElement("div");
+    form.className = "auth-form";
+
+    form.appendChild(
+      this.#buildAuthPillField(t("auth.oauth1.consumerKey"), {
+        placeholder: t("auth.oauth1.consumerKeyPlaceholder"),
+        value: this.#authOAuth1.consumerKey,
+        onInput: (v) => {
+          this.#authOAuth1.consumerKey = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
+
+    form.appendChild(
+      this.#buildAuthPillField(t("auth.oauth1.consumerSecret"), {
+        placeholder: t("auth.oauth1.consumerSecretPlaceholder"),
+        value: this.#authOAuth1.consumerSecret,
+        decryptPath: "authOAuth1.consumerSecret",
+        onInput: (v) => {
+          this.#authOAuth1.consumerSecret = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
+
+    form.appendChild(
+      this.#buildAuthPillField(t("auth.oauth1.token"), {
+        placeholder: t("auth.oauth1.tokenPlaceholder"),
+        value: this.#authOAuth1.token,
+        decryptPath: "authOAuth1.token",
+        onInput: (v) => {
+          this.#authOAuth1.token = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
+
+    form.appendChild(
+      this.#buildAuthPillField(t("auth.oauth1.tokenSecret"), {
+        placeholder: t("auth.oauth1.tokenSecretPlaceholder"),
+        value: this.#authOAuth1.tokenSecret,
+        decryptPath: "authOAuth1.tokenSecret",
+        onInput: (v) => {
+          this.#authOAuth1.tokenSecret = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
+
+    form.appendChild(
+      this.#buildAuthFieldSelect(t("auth.oauth1.signatureMethod"), {
+        options: [
+          { value: "HMAC-SHA1", label: t("auth.oauth1.sigHmacSha1") },
+          { value: "HMAC-SHA256", label: t("auth.oauth1.sigHmacSha256") },
+          { value: "PLAINTEXT", label: t("auth.oauth1.sigPlaintext") },
+        ],
+        value: this.#authOAuth1.signatureMethod ?? "HMAC-SHA1",
+        ariaLabel: t("auth.oauth1.signatureMethod"),
+        onInput: (v) => {
+          this.#authOAuth1.signatureMethod = v;
+          this.#dispatchAuthUpdated();
+        },
+      }),
+    );
+
+    form.appendChild(
+      this.#buildAuthPillField(t("auth.oauth1.realm"), {
+        placeholder: t("auth.oauth1.realmPlaceholder"),
+        value: this.#authOAuth1.realm,
+        onInput: (v) => {
+          this.#authOAuth1.realm = v;
+          this.#dispatchAuthUpdated();
+        },
+        hint: t("auth.oauth1.hint"),
+      }),
+    );
 
     el.appendChild(form);
   }
@@ -1678,6 +1978,7 @@ export class RequestAuthEditor {
           authNtlm: { ...this.#authNtlm },
           authOAuth2: oauth2Persisted,
           authAwsIam: { ...this.#authAwsIam },
+          authOAuth1: { ...this.#authOAuth1 },
         },
         bubbles: true,
       }),
@@ -1827,8 +2128,9 @@ export class RequestAuthEditor {
   /**
    * Apply a pre-fetched OpenID Connect discovery document directly to the
    * auth form fields.  Nothing is persisted beyond the normal field values
-   * (authUrl, accessTokenUrl, grantType, clientType) that are already saved
-   * as part of the request.
+   * (authUrl, accessTokenUrl, deviceAuthorizationUrl, clientType) that are
+   * already saved as part of the request. The user's chosen grant type is
+   * never altered by discovery.
    *
    * The `targetNodeId` guard ensures results are only applied if the user
    * hasn't switched to a different request while the fetch was in flight.
@@ -1859,24 +2161,20 @@ export class RequestAuthEditor {
     if (config.token_endpoint) {
       this.#authOAuth2.accessTokenUrl = config.token_endpoint;
     }
-
-    // ── Grant type — switch away from unsupported types ────────────────────
-    const ALL_GRANT_VALUES = [
-      "authorization_code",
-      "client_credentials",
-      "password",
-      "implicit",
-    ];
-    if (
-      Array.isArray(config.grant_types_supported) &&
-      config.grant_types_supported.length > 0
-    ) {
-      const serverSupported = new Set(config.grant_types_supported);
-      if (!serverSupported.has(this.#authOAuth2.grantType)) {
-        const first = ALL_GRANT_VALUES.find((g) => serverSupported.has(g));
-        if (first) this.#authOAuth2.grantType = first;
-      }
+    // Device Authorization grant (RFC 8628): the device-code flow obtains the
+    // user/device codes from this dedicated endpoint before polling the token
+    // endpoint, so populate it from discovery when the grant is selected.
+    if (config.device_authorization_endpoint) {
+      this.#authOAuth2.deviceAuthorizationUrl =
+        config.device_authorization_endpoint;
     }
+
+    // Grant type is deliberately left untouched — discovery only fills in
+    // endpoints and scopes, never the user's chosen grant. (Providers advertise
+    // the device-code and token-exchange grants as URNs in
+    // `grant_types_supported`, which don't match our short grant ids, so
+    // auto-switching would wrongly rewrite a valid device_code / token_exchange
+    // selection back to authorization_code.)
 
     // ── PKCE — revert to confidential if server doesn't support it ─────────
     const pkceOk =
@@ -1958,6 +2256,14 @@ export class RequestAuthEditor {
         responseType: "access_token",
         username: "",
         password: "",
+        // Device Authorization grant (RFC 8628)
+        deviceAuthorizationUrl: "",
+        // Token Exchange grant (RFC 8693)
+        subjectToken: "",
+        subjectTokenType: TOKEN_EXCHANGE_TOKEN_TYPES[0].value,
+        actorToken: "",
+        actorTokenType: TOKEN_EXCHANGE_TOKEN_TYPES[0].value,
+        requestedTokenType: "",
         discoveredIssuer: "",
         discoveredScopes: null,
         ...savedOAuth2,
@@ -1970,6 +2276,15 @@ export class RequestAuthEditor {
       service: "",
       sessionToken: "",
       ...(node.authAwsIam ?? {}),
+    };
+    this.#authOAuth1 = {
+      consumerKey: "",
+      consumerSecret: "",
+      token: "",
+      tokenSecret: "",
+      signatureMethod: "HMAC-SHA1",
+      realm: "",
+      ...(node.authOAuth1 ?? {}),
     };
     const authSel = this.#el.querySelector("#auth-type-select");
     if (authSel) authSel.value = this.#authType;
@@ -2010,6 +2325,7 @@ export class RequestAuthEditor {
       authNtlm: this.#authNtlm,
       authOAuth2: this.#authOAuth2,
       authAwsIam: this.#authAwsIam,
+      authOAuth1: this.#authOAuth1,
     };
   }
 
@@ -2031,6 +2347,11 @@ export class RequestAuthEditor {
       this.#authNtlm?.domain ?? "",
       this.#authNtlm?.workstation ?? "",
       this.#authOAuth2?.token ?? "",
+      this.#authOAuth1?.consumerKey ?? "",
+      this.#authOAuth1?.consumerSecret ?? "",
+      this.#authOAuth1?.token ?? "",
+      this.#authOAuth1?.tokenSecret ?? "",
+      this.#authOAuth1?.realm ?? "",
     ];
   }
 

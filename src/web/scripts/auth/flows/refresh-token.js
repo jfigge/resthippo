@@ -10,7 +10,7 @@
 
 "use strict";
 
-import { applyClientAuth, requestToken } from "./token-exchange.js";
+import { applyClientAuth, requestToken } from "./token-request.js";
 import { oauthResultFromError } from "../types/oauth-types.js";
 import { configurationError } from "../types/oauth-errors.js";
 

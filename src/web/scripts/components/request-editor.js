@@ -4110,6 +4110,7 @@ export class RequestEditor {
       awsIam,
       authDigest,
       authNtlm,
+      oauth1,
     } = await buildRequestPayload(
       {
         method: this.#method,
@@ -4130,6 +4131,7 @@ export class RequestEditor {
         authDigest: authModel.authDigest,
         authNtlm: authModel.authNtlm,
         authAwsIam: authModel.authAwsIam,
+        authOAuth1: authModel.authOAuth1,
         bodyType: this.#bodyType,
         bodyText: this.#bodyText,
         bodyFormRows: this.#bodyFormRows,
@@ -4243,6 +4245,7 @@ export class RequestEditor {
           awsIam,
           authDigest,
           authNtlm,
+          oauth1,
         },
         bubbles: true,
       }),

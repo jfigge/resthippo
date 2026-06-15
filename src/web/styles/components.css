@@ -2135,8 +2135,8 @@ html.show-method-icons .req-method-menu-item-label::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--control-h-md);
-  height: var(--control-h-md);
+  width: var(--control-h-xs);
+  height: var(--control-h-xs);
   padding: 0;
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
@@ -2365,6 +2365,75 @@ html.show-method-icons .req-method-menu-item-label::before {
 .discover-dialog-error code {
   font-family: var(--font-mono);
   word-break: break-all;
+}
+
+/* ── Device Authorization prompt (OAuth 2.0 device_code) ────────────────────── */
+
+.device-code-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: center;
+  text-align: center;
+}
+
+.device-code-desc {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+  line-height: 1.55;
+}
+
+.device-code-uri {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-sm);
+  /* --color-accent is the theme's "links, highlights" blue. */
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+  word-break: break-all;
+}
+
+.device-code-uri:hover {
+  color: var(--color-accent-dim);
+}
+
+.device-code-label {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-subtext);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.device-code-value {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-xl, 1.5rem);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.18em;
+  color: var(--color-text);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
+  user-select: all;
+}
+
+.device-code-expires {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-subtext);
+}
+
+.device-code-status {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+}
+
+.device-code-status--error {
+  color: var(--color-error);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

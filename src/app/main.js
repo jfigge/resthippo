@@ -59,6 +59,9 @@ const {
   decodeType2Message,
   createType3Message,
 } = require("./auth/ntlm");
+const {
+  buildAuthorizationHeader: buildOAuth1Header,
+} = require("./auth/oauth1");
 
 const isDev = process.argv.includes("--dev");
 const isDebug = process.argv.includes("--hot-reload");
@@ -767,6 +770,7 @@ function fmtLabel(str, params) {
       awsIam = null,
       authDigest = null,
       authNtlm = null,
+      oauth1 = null,
       proxy = null,
       proxyUsername = "",
       proxyPassword = "",
@@ -944,6 +948,40 @@ function fmtLabel(str, params) {
         if (awsIam.sessionToken) creds.sessionToken = awsIam.sessionToken;
         aws4.sign(signOpts, creds);
         Object.assign(reqHeaders, signOpts.headers);
+      }
+
+      // ── OAuth 1.0a signing (RFC 5849) ─────────────────────────────────────
+      // Like SigV4, OAuth 1.0a is a one-shot signature over the request line +
+      // params, computed here where the final method/URL/body are known. For an
+      // x-www-form-urlencoded body the body params are part of the signature
+      // base string (RFC 5849 §3.4.1.3), so they are parsed back out and passed.
+      if (oauth1?.consumerKey) {
+        let bodyParams = [];
+        const ctKey = Object.keys(reqHeaders).find(
+          (k) => k.toLowerCase() === "content-type",
+        );
+        const ct = ctKey ? String(reqHeaders[ctKey]).toLowerCase() : "";
+        if (
+          ct.includes("application/x-www-form-urlencoded") &&
+          bodyBuffer &&
+          bodyBuffer.length
+        ) {
+          bodyParams = [
+            ...new URLSearchParams(bodyBuffer.toString("utf8")).entries(),
+          ];
+        }
+        const oauthHeader = buildOAuth1Header({
+          method: effectiveMethod,
+          url: parsed.href,
+          consumerKey: oauth1.consumerKey,
+          consumerSecret: oauth1.consumerSecret || "",
+          token: oauth1.token || "",
+          tokenSecret: oauth1.tokenSecret || "",
+          signatureMethod: oauth1.signatureMethod || "HMAC-SHA1",
+          realm: oauth1.realm || undefined,
+          bodyParams,
+        });
+        if (oauthHeader) reqHeaders["Authorization"] = oauthHeader;
       }
 
       // ── Outgoing request log ──────────────────────────────────────────────

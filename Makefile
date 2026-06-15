@@ -121,7 +121,7 @@ test-cookies:
 
 test-auth:
 	@echo "Running main-process auth tests..."
-	@node --test $(APP_DIR)/auth/tests/digest.test.js $(APP_DIR)/auth/tests/ntlm.test.js
+	@node --test $(APP_DIR)/auth/tests/digest.test.js $(APP_DIR)/auth/tests/ntlm.test.js $(APP_DIR)/auth/tests/oauth1.test.js
 	@echo "--------------------------------"
 
 test-net:
@@ -403,19 +403,19 @@ help:
 	@echo "    mock-build    Build mock server binary"
 	@echo ""
 	@echo "Available targets for keycloak"
-	@echo "    start         Start Keycloak in dev mode"
-	@echo "    wait          Wait until Keycloak is healthy"
-	@echo "    bootstrap     Configure realm, users, and clients"
-	@echo "    creds         Print OAuth/OpenID configuration details"
-	@echo "    stop          Stop and remove Keycloak container"
-	@echo "    reset         Stop container and delete volumes"
+	@echo "    kc_start      Start Keycloak in dev mode"
+	@echo "    kc_wait       Wait until Keycloak is healthy"
+	@echo "    kc_bootstrap  Configure realm, users, and clients"
+	@echo "    kc_creds      Print OAuth/OpenID configuration details"
+	@echo "    kc_stop       Stop and remove Keycloak container"
+	@echo "    kc_reset      Stop container and delete volumes"
 	@echo "    kc_all        Start + configure + creds"
 
 # -----------------------------------------------------------------------------
 # Start Keycloak
 # -----------------------------------------------------------------------------
-.PHONY: start
-start:
+.PHONY: kc_start
+kc_start:
 	@echo "Starting Keycloak developer container..."
 	@docker run -d \
 		--name $(CONTAINER_NAME) \
@@ -429,8 +429,8 @@ start:
 # -----------------------------------------------------------------------------
 # Wait for readiness
 # -----------------------------------------------------------------------------
-.PHONY: wait
-wait:
+.PHONY: kc_wait
+kc_wait:
 	@echo "Waiting for Keycloak to become ready..."
 	@until curl -s http://localhost:$(KEYCLOAK_PORT)/realms/master >/dev/null 2>&1; do \
 		sleep 3; \
@@ -441,8 +441,8 @@ wait:
 # -----------------------------------------------------------------------------
 # Bootstrap realm, users, and OAuth clients
 # -----------------------------------------------------------------------------
-.PHONY: bootstrap
-bootstrap: wait
+.PHONY: kc_bootstrap
+kc_bootstrap: kc_wait
 	@echo "Authenticating kcadm..."
 	@$(KC) config credentials \
 		--server $(KC_SERVER) \
@@ -530,13 +530,53 @@ bootstrap: wait
 		-s serviceAccountsEnabled=false \
 		-s implicitFlowEnabled=false >/dev/null || true
 
+	@echo "Creating Device Authorization Grant client..."
+	@$(KC) create clients -r $(KEYCLOAK_REALM) \
+		-s clientId=device-code-client \
+		-s enabled=true \
+		-s publicClient=true \
+		-s standardFlowEnabled=false \
+		-s directAccessGrantsEnabled=false \
+		-s serviceAccountsEnabled=false \
+		-s implicitFlowEnabled=false \
+		-s 'attributes."oauth2.device.authorization.grant.enabled"=true' >/dev/null || true
+
+	@echo "Creating Token Exchange client (RFC 8693, standard token exchange)..."
+	@$(KC) create clients -r $(KEYCLOAK_REALM) \
+		-s clientId=token-exchange-client \
+		-s enabled=true \
+		-s publicClient=false \
+		-s secret=$(CLIENT_SECRET) \
+		-s standardFlowEnabled=false \
+		-s directAccessGrantsEnabled=true \
+		-s serviceAccountsEnabled=true \
+		-s implicitFlowEnabled=false \
+		-s 'attributes."standard.token.exchange.enabled"=true' >/dev/null || true
+
+	@echo "Adding token-exchange audience mapper to client-credentials-client..."
+	@# Standard token exchange (v2) only lets a client exchange a token it is
+	@# within the audience of. This mapper puts token-exchange-client into the
+	@# aud of tokens issued by client-credentials-client, so a token minted by
+	@# the Client Credentials request can be exchanged by the Token Exchange one.
+	@CID=$$($(KC) get clients -r $(KEYCLOAK_REALM) -q clientId=client-credentials-client \
+		--fields id --format csv --noquotes 2>/dev/null | head -1); \
+	if [ -n "$$CID" ]; then \
+		$(KC) create clients/$$CID/protocol-mappers/models -r $(KEYCLOAK_REALM) \
+			-s name=token-exchange-audience \
+			-s protocol=openid-connect \
+			-s protocolMapper=oidc-audience-mapper \
+			-s 'config."included.client.audience"=token-exchange-client' \
+			-s 'config."access.token.claim"=true' \
+			-s 'config."id.token.claim"=false' >/dev/null 2>&1 || true; \
+	fi
+
 	@echo "Bootstrap complete"
 
 # -----------------------------------------------------------------------------
 # Print configuration and curl examples
 # -----------------------------------------------------------------------------
-.PHONY: creds
-creds:
+.PHONY: kc_creds
+kc_creds:
 	@echo ""
 	@echo "============================================================"
 	@echo "Keycloak Developer Environment"
@@ -560,6 +600,9 @@ creds:
 	@echo ""
 	@echo "  Token Endpoint:"
 	@echo "    http://localhost:$(KEYCLOAK_PORT)/realms/$(KEYCLOAK_REALM)/protocol/openid-connect/token"
+	@echo ""
+	@echo "  Device Authorization Endpoint:"
+	@echo "    http://localhost:$(KEYCLOAK_PORT)/realms/$(KEYCLOAK_REALM)/protocol/openid-connect/auth/device"
 	@echo ""
 	@echo "  JWKS Endpoint:"
 	@echo "    http://localhost:$(KEYCLOAK_PORT)/realms/$(KEYCLOAK_REALM)/protocol/openid-connect/certs"
@@ -586,6 +629,14 @@ creds:
 	@echo "  Client ID: password-grant-client"
 	@echo "  Client Secret: $(CLIENT_SECRET)"
 	@echo ""
+	@echo "Device Authorization Grant Client"
+	@echo "  Client ID: device-code-client"
+	@echo "  Public client (no secret)"
+	@echo ""
+	@echo "Token Exchange Client (RFC 8693)"
+	@echo "  Client ID: token-exchange-client"
+	@echo "  Client Secret: $(CLIENT_SECRET)"
+	@echo ""
 	@echo "Sample Client Credentials Request:"
 	@echo "curl -X POST \
   http://localhost:$(KEYCLOAK_PORT)/realms/$(KEYCLOAK_REALM)/protocol/openid-connect/token \
@@ -604,19 +655,53 @@ creds:
   -d 'username=$(USER1)' \
   -d 'password=$(USER1_PASSWORD)'"
 	@echo ""
+	@echo "Sample Device Authorization Request (step 1 — get the user code):"
+	@echo "curl -X POST \
+  http://localhost:$(KEYCLOAK_PORT)/realms/$(KEYCLOAK_REALM)/protocol/openid-connect/auth/device \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'client_id=device-code-client' \
+  -d 'scope=openid'"
+	@echo ""
+	@echo "  then poll the token endpoint (step 2) with the returned device_code:"
+	@echo "curl -X POST \
+  http://localhost:$(KEYCLOAK_PORT)/realms/$(KEYCLOAK_REALM)/protocol/openid-connect/token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'grant_type=urn:ietf:params:oauth:grant-type:device_code' \
+  -d 'client_id=device-code-client' \
+  -d 'device_code=<DEVICE_CODE>'"
+	@echo ""
+	@echo "Sample Token Exchange Request (RFC 8693) — two steps:"
+	@echo "  Step 1 — mint a subject token (client-credentials-client's token"
+	@echo "  carries token-exchange-client in its audience, via the bootstrap mapper):"
+	@echo "SUBJECT=\$$(curl -s -X POST \
+  http://localhost:$(KEYCLOAK_PORT)/realms/$(KEYCLOAK_REALM)/protocol/openid-connect/token \
+  -d 'grant_type=client_credentials' \
+  -d 'client_id=client-credentials-client' \
+  -d 'client_secret=$(CLIENT_SECRET)' | jq -r .access_token)"
+	@echo ""
+	@echo "  Step 2 — exchange it via token-exchange-client:"
+	@echo "curl -X POST \
+  http://localhost:$(KEYCLOAK_PORT)/realms/$(KEYCLOAK_REALM)/protocol/openid-connect/token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  -d 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange' \
+  -d 'client_id=token-exchange-client' \
+  -d 'client_secret=$(CLIENT_SECRET)' \
+  -d \"subject_token=\$$SUBJECT\" \
+  -d 'subject_token_type=urn:ietf:params:oauth:token-type:access_token'"
+	@echo ""
 	@echo "============================================================"
 
 # -----------------------------------------------------------------------------
 # Composite target
 # -----------------------------------------------------------------------------
 .PHONY: kc
-kc: start bootstrap creds
+kc: kc_start kc_bootstrap kc_creds
 
 # -----------------------------------------------------------------------------
 # Stop and remove container
 # -----------------------------------------------------------------------------
-.PHONY: stop
-stop:
+.PHONY: kc_stop
+kc_stop:
 	@echo "Stopping and removing container..."
 	@docker rm -f $(CONTAINER_NAME) >/dev/null 2>&1 || true
 	@echo "Container removed"
@@ -624,8 +709,8 @@ stop:
 # -----------------------------------------------------------------------------
 # Full cleanup
 # -----------------------------------------------------------------------------
-.PHONY: reset
-reset: stop
+.PHONY: kc_reset
+kc_reset: kc_stop
 	@echo "Removing Keycloak data volume (if present)..."
 	@docker volume rm $(CONTAINER_NAME)-data >/dev/null 2>&1 || true
 	@echo "Cleanup complete"
@@ -689,4 +774,4 @@ mock-down:
         vendor-yaml vendor-prism vendor-markdown vendor-graphql \
         clean help launch
 		mock-up mock-down mock-build \
-		start wait bootstrap creds stop reset kc
+		kc_start kc_wait kc_bootstrap kc_creds kc_stop kc_reset kc

@@ -9,7 +9,7 @@
 
 "use strict";
 
-import { applyClientAuth, requestToken } from "./token-exchange.js";
+import { applyClientAuth, requestToken } from "./token-request.js";
 import { mergeExtraParams } from "../utils/params.js";
 
 /**

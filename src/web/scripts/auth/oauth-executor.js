@@ -28,6 +28,8 @@ import { clientCredentialsFlow } from "./flows/client-credentials.js";
 import { authorizationCodeFlow } from "./flows/authorization-code.js";
 import { passwordFlow } from "./flows/password.js";
 import { implicitFlow } from "./flows/implicit.js";
+import { deviceCodeFlow } from "./flows/device-code.js";
+import { tokenExchangeFlow } from "./flows/token-exchange.js";
 import {
   oauthResultFromError,
   createOAuthResult,
@@ -157,6 +159,12 @@ class OAuthExecutor {
 
       case GrantType.IMPLICIT:
         return implicitFlow(config);
+
+      case GrantType.DEVICE_CODE:
+        return deviceCodeFlow(config);
+
+      case GrantType.TOKEN_EXCHANGE:
+        return tokenExchangeFlow(config);
 
       default:
         return oauthResultFromError(

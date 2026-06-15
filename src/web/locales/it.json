@@ -741,7 +741,8 @@
       "ntlm": "NTLM",
       "oauth2": "OAuth 2.0",
       "awsIam": "AWS IAM",
-      "none": "Nessuna"
+      "none": "Nessuna",
+      "oauth1": "OAuth 1.0"
     },
     "discover": "Rileva",
     "discoverTitle": "Rileva gli endpoint OAuth 2.0 da un URL dell'issuer OpenID Connect",
@@ -786,7 +787,9 @@
         "authorizationCode": "Authorization Code",
         "clientCredentials": "Client Credentials",
         "password": "Resource Owner Password",
-        "implicit": "Implicit"
+        "implicit": "Implicit",
+        "deviceCode": "Autorizzazione dispositivo",
+        "tokenExchange": "Scambio di token"
       },
       "clientType": "Tipo di client",
       "clientTypeAria": "Tipo di client",
@@ -839,7 +842,35 @@
       "getTokenTitle": "Acquisisci un token di accesso OAuth 2.0 con le impostazioni configurate",
       "fetching": "Recupero…",
       "tokenAcquired": "✓ Token acquisito",
-      "unknownError": "Errore sconosciuto"
+      "unknownError": "Errore sconosciuto",
+      "deviceAuthorizationUrl": "URL di autorizzazione dispositivo",
+      "deviceAuthorizationUrlPlaceholder": "https://example.com/oauth/device/code",
+      "deviceAuthorizationUrlHint": "Endpoint che emette i codici dispositivo e utente (RFC 8628).",
+      "device": {
+        "title": "Autorizzazione dispositivo",
+        "desc": "Per accedere, apri questo URL su qualsiasi dispositivo e inserisci il codice:",
+        "codeLabel": "Il tuo codice",
+        "waiting": "In attesa di autorizzazione…",
+        "expires": "Il codice scade tra circa {minutes} min.",
+        "cancel": "Annulla"
+      },
+      "tokenExchange": {
+        "subjectToken": "Token soggetto",
+        "subjectTokenPlaceholder": "Token da scambiare…",
+        "subjectTokenType": "Tipo di token soggetto",
+        "actorToken": "Token attore",
+        "actorTokenPlaceholder": "Token della parte agente (facoltativo)…",
+        "actorTokenHint": "Token facoltativo della parte agente per la delega (RFC 8693).",
+        "actorTokenType": "Tipo di token attore",
+        "requestedTokenType": "Tipo di token richiesto",
+        "requestedTokenTypeNone": "Non specificato",
+        "typeAccessToken": "Token di accesso",
+        "typeRefreshToken": "Token di aggiornamento",
+        "typeIdToken": "Token ID",
+        "typeJwt": "JWT",
+        "typeSaml2": "SAML 2.0",
+        "typeSaml1": "SAML 1.1"
+      }
     },
     "aws": {
       "accessKeyId": "Access Key ID",
@@ -863,6 +894,23 @@
       "fetching": "Recupero…",
       "enterUrl": "Inserisci un URL dell'issuer.",
       "fetchFailed": "Impossibile recuperare <code>{url}</code><br>{message}"
+    },
+    "oauth1": {
+      "consumerKey": "Chiave consumer",
+      "consumerKeyPlaceholder": "La tua chiave consumer OAuth…",
+      "consumerSecret": "Segreto consumer",
+      "consumerSecretPlaceholder": "Il tuo segreto consumer OAuth…",
+      "token": "Token di accesso",
+      "tokenPlaceholder": "Token OAuth (facoltativo)…",
+      "tokenSecret": "Segreto del token",
+      "tokenSecretPlaceholder": "Segreto del token OAuth (facoltativo)…",
+      "signatureMethod": "Metodo di firma",
+      "sigHmacSha1": "HMAC-SHA1",
+      "sigHmacSha256": "HMAC-SHA256",
+      "sigPlaintext": "PLAINTEXT",
+      "realm": "Realm",
+      "realmPlaceholder": "Realm (facoltativo)",
+      "hint": "Firmato all’invio della richiesta; nonce e timestamp vengono generati automaticamente."
     }
   },
   "wsConsole": {

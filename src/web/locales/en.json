@@ -741,7 +741,8 @@
       "ntlm": "NTLM",
       "oauth2": "OAuth 2.0",
       "awsIam": "AWS IAM",
-      "none": "None"
+      "none": "None",
+      "oauth1": "OAuth 1.0"
     },
     "discover": "Discover",
     "discoverTitle": "Discover OAuth 2.0 endpoints from an OpenID Connect issuer URL",
@@ -786,7 +787,9 @@
         "authorizationCode": "Authorization Code",
         "clientCredentials": "Client Credentials",
         "password": "Resource Owner Password",
-        "implicit": "Implicit"
+        "implicit": "Implicit",
+        "deviceCode": "Device Authorization",
+        "tokenExchange": "Token Exchange"
       },
       "clientType": "Client Type",
       "clientTypeAria": "Client type",
@@ -839,7 +842,35 @@
       "getTokenTitle": "Acquire an OAuth 2.0 access token using the configured settings",
       "fetching": "Fetching…",
       "tokenAcquired": "✓ Token acquired",
-      "unknownError": "Unknown error"
+      "unknownError": "Unknown error",
+      "deviceAuthorizationUrl": "Device Authorization URL",
+      "deviceAuthorizationUrlPlaceholder": "https://example.com/oauth/device/code",
+      "deviceAuthorizationUrlHint": "Endpoint that issues the device and user codes (RFC 8628).",
+      "device": {
+        "title": "Device Authorization",
+        "desc": "To sign in, open this URL on any device and enter the code:",
+        "codeLabel": "Your code",
+        "waiting": "Waiting for authorization…",
+        "expires": "The code expires in about {minutes} min.",
+        "cancel": "Cancel"
+      },
+      "tokenExchange": {
+        "subjectToken": "Subject Token",
+        "subjectTokenPlaceholder": "Token to exchange…",
+        "subjectTokenType": "Subject Token Type",
+        "actorToken": "Actor Token",
+        "actorTokenPlaceholder": "Acting-party token (optional)…",
+        "actorTokenHint": "Optional acting-party token for delegation (RFC 8693).",
+        "actorTokenType": "Actor Token Type",
+        "requestedTokenType": "Requested Token Type",
+        "requestedTokenTypeNone": "Unspecified",
+        "typeAccessToken": "Access token",
+        "typeRefreshToken": "Refresh token",
+        "typeIdToken": "ID token",
+        "typeJwt": "JWT",
+        "typeSaml2": "SAML 2.0",
+        "typeSaml1": "SAML 1.1"
+      }
     },
     "aws": {
       "accessKeyId": "Access Key ID",
@@ -863,6 +894,23 @@
       "fetching": "Fetching…",
       "enterUrl": "Please enter an issuer URL.",
       "fetchFailed": "Could not fetch <code>{url}</code><br>{message}"
+    },
+    "oauth1": {
+      "consumerKey": "Consumer Key",
+      "consumerKeyPlaceholder": "Your OAuth consumer key…",
+      "consumerSecret": "Consumer Secret",
+      "consumerSecretPlaceholder": "Your OAuth consumer secret…",
+      "token": "Access Token",
+      "tokenPlaceholder": "OAuth token (optional)…",
+      "tokenSecret": "Token Secret",
+      "tokenSecretPlaceholder": "OAuth token secret (optional)…",
+      "signatureMethod": "Signature Method",
+      "sigHmacSha1": "HMAC-SHA1",
+      "sigHmacSha256": "HMAC-SHA256",
+      "sigPlaintext": "PLAINTEXT",
+      "realm": "Realm",
+      "realmPlaceholder": "Realm (optional)",
+      "hint": "Signed when the request is sent; the nonce and timestamp are generated automatically."
     }
   },
   "wsConsole": {

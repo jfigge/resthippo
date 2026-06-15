@@ -1,13 +1,18 @@
 package main
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"sort"
 	"strings"
 	"unicode/utf16"
 )
@@ -33,6 +38,7 @@ var authTypes = []struct{ Type, Desc string }{
 	{"digest", "HTTP Digest — challenge/response, Authorization: Digest <fields>"},
 	{"aws", "AWS Signature v4 — Authorization: AWS4-HMAC-SHA256 Credential=..., SignedHeaders=..., Signature=..."},
 	{"ntlm", "NTLM — challenge/response, Authorization: NTLM base64(NTLMSSP message)"},
+	{"oauth1", "OAuth 1.0a — Authorization: OAuth oauth_consumer_key=..., oauth_signature=..., ... (signature verified)"},
 }
 
 // registerAuthRoutes wires the /auth endpoints onto the default mux. Called
@@ -69,6 +75,8 @@ func registerAuthRoutes() {
 			authAWS(w, r)
 		case "ntlm":
 			authNTLM(w, r)
+		case "oauth1", "oauth-1.0a", "oauth1.0a", "oauth1.0":
+			authOAuth1(w, r)
 		default:
 			writeError(w, http.StatusNotFound, fmt.Sprintf("unknown auth type %q", typ))
 		}
@@ -159,7 +167,7 @@ func authBearer(w http.ResponseWriter, r *http.Request) {
 func authAPIKey(w http.ResponseWriter, r *http.Request) {
 	// wurl lets the user choose the carrier (header name or query param), so we
 	// accept the conventional spellings and report where the key arrived.
-	headerNames := []string{"X-API-Key", "Api-Key", "X-Api-Key", "Apikey","X-Auth-Token"}
+	headerNames := []string{"X-API-Key", "Api-Key", "X-Api-Key", "Apikey", "X-Auth-Token"}
 	for _, name := range headerNames {
 		if v := r.Header.Get(name); v != "" {
 			authOK(w, "apikey", "", map[string]any{
@@ -398,6 +406,152 @@ func ntlmField(raw []byte, off int) string {
 		return string(utf16.Decode(u16))
 	}
 	return string(data)
+}
+
+// ── OAuth 1.0a (RFC 5849) ───────────────────────────────────────────────────────
+//
+// Unlike the other validators (which only check well-formedness), this one
+// actually verifies the signature — that is the whole point of OAuth 1.0a, and
+// the demo secrets are fixed, so it can recompute the HMAC and confirm wurl's
+// live signing (nonce/timestamp/base-string) is correct. Supports HMAC-SHA1,
+// HMAC-SHA256 and PLAINTEXT. The known demo credentials match the "OAuth 1.0"
+// request shipped in the sample collection.
+
+var oauth1ConsumerSecrets = map[string]string{"demo-consumer-key": "demo-consumer-secret"}
+var oauth1TokenSecrets = map[string]string{"demo-access-token": "demo-token-secret"}
+
+func authOAuth1(w http.ResponseWriter, r *http.Request) {
+	h := r.Header.Get("Authorization")
+	rest, ok := schemeValue(h, "OAuth")
+	if h == "" || !ok {
+		w.Header().Set("WWW-Authenticate", `OAuth realm="wurl-mock"`)
+		writeError(w, http.StatusUnauthorized,
+			`expected 'Authorization: OAuth oauth_consumer_key="...", oauth_signature="...", ...'`)
+		return
+	}
+	p := parseOAuthHeader(rest)
+	required := []string{"oauth_consumer_key", "oauth_signature_method", "oauth_signature", "oauth_timestamp", "oauth_nonce"}
+	var missing []string
+	for _, k := range required {
+		if p[k] == "" {
+			missing = append(missing, k)
+		}
+	}
+	if len(missing) > 0 {
+		writeError(w, http.StatusBadRequest, "malformed OAuth credentials — missing: "+strings.Join(missing, ", "))
+		return
+	}
+
+	consumerSecret, known := oauth1ConsumerSecrets[p["oauth_consumer_key"]]
+	if !known {
+		writeError(w, http.StatusUnauthorized, "unknown oauth_consumer_key "+p["oauth_consumer_key"])
+		return
+	}
+	tokenSecret := oauth1TokenSecrets[p["oauth_token"]] // "" when no token is sent
+
+	// ── Collect signed parameters: query + form body + oauth_* (minus realm
+	//    and oauth_signature itself) — RFC 5849 §3.4.1.3 ──
+	var pairs [][2]string
+	for k, vs := range r.URL.Query() {
+		for _, v := range vs {
+			pairs = append(pairs, [2]string{k, v})
+		}
+	}
+	if strings.Contains(strings.ToLower(r.Header.Get("Content-Type")), "application/x-www-form-urlencoded") {
+		_ = r.ParseForm()
+		for k, vs := range r.PostForm {
+			for _, v := range vs {
+				pairs = append(pairs, [2]string{k, v})
+			}
+		}
+	}
+	for k, v := range p {
+		if k == "realm" || k == "oauth_signature" {
+			continue
+		}
+		pairs = append(pairs, [2]string{k, v})
+	}
+	enc := make([]string, len(pairs))
+	for i, kv := range pairs {
+		enc[i] = oauthPctEncode(kv[0]) + "=" + oauthPctEncode(kv[1])
+	}
+	sort.Strings(enc)
+	normalized := strings.Join(enc, "&")
+
+	// Base URI: scheme://host/path (the mock is plain HTTP; host carries :8888).
+	baseURI := "http://" + r.Host + r.URL.Path
+	baseString := strings.ToUpper(r.Method) + "&" + oauthPctEncode(baseURI) + "&" + oauthPctEncode(normalized)
+	signingKey := oauthPctEncode(consumerSecret) + "&" + oauthPctEncode(tokenSecret)
+
+	var computed string
+	switch strings.ToUpper(p["oauth_signature_method"]) {
+	case "PLAINTEXT":
+		computed = signingKey
+	case "HMAC-SHA256":
+		mac := hmac.New(sha256.New, []byte(signingKey))
+		mac.Write([]byte(baseString))
+		computed = base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	case "HMAC-SHA1":
+		mac := hmac.New(sha1.New, []byte(signingKey))
+		mac.Write([]byte(baseString))
+		computed = base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	default:
+		writeError(w, http.StatusBadRequest, "unsupported oauth_signature_method "+p["oauth_signature_method"])
+		return
+	}
+
+	if !hmac.Equal([]byte(computed), []byte(p["oauth_signature"])) {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{
+			"type":                "oauth1",
+			"scheme":              "OAuth",
+			"authenticated":       false,
+			"error":               "signature mismatch",
+			"expectedSignature":   computed,
+			"receivedSignature":   p["oauth_signature"],
+			"signatureBaseString": baseString,
+		})
+		return
+	}
+
+	creds := make(map[string]any, len(p)+1)
+	for k, v := range p {
+		creds[k] = v
+	}
+	creds["signatureValid"] = true
+	authOK(w, "oauth1", "OAuth", creds, h)
+}
+
+// parseOAuthHeader splits an `OAuth k="v", k2="v2"` credential list into a map,
+// percent-decoding each value (RFC 5849 §3.5.1).
+func parseOAuthHeader(s string) map[string]string {
+	out := map[string]string{}
+	for _, part := range strings.Split(s, ",") {
+		k, v, ok := strings.Cut(strings.TrimSpace(part), "=")
+		if !ok {
+			continue
+		}
+		v = strings.Trim(strings.TrimSpace(v), `"`)
+		if dec, err := url.PathUnescape(v); err == nil {
+			v = dec
+		}
+		out[strings.ToLower(strings.TrimSpace(k))] = v
+	}
+	return out
+}
+
+// oauthPctEncode percent-encodes per RFC 5849 §3.6 (unreserved set only).
+func oauthPctEncode(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+			c == '-' || c == '.' || c == '_' || c == '~' {
+			b.WriteByte(c)
+		} else {
+			fmt.Fprintf(&b, "%%%02X", c)
+		}
+	}
+	return b.String()
 }
 
 // ── shared scheme parsing ──────────────────────────────────────────────────────

@@ -9,14 +9,31 @@
 
 // ── Grant type constants ─────────────────────────────────────────────────────
 
-/** RFC 6749 grant type string constants. */
+/**
+ * Grant type identifiers used internally by wurl (UI dropdown value, config key,
+ * cache key). For most grants this is the literal RFC 6749 `grant_type` string;
+ * the two extension grants use a short internal id and emit the proper RFC URN
+ * as the wire `grant_type` inside their flow:
+ *   • DEVICE_CODE → `urn:ietf:params:oauth:grant-type:device_code` (RFC 8628)
+ *   • TOKEN_EXCHANGE → `urn:ietf:params:oauth:grant-type:token-exchange` (RFC 8693)
+ */
 export const GrantType = Object.freeze({
   CLIENT_CREDENTIALS: "client_credentials",
   AUTHORIZATION_CODE: "authorization_code",
   PASSWORD: "password",
   IMPLICIT: "implicit",
   REFRESH_TOKEN: "refresh_token",
+  DEVICE_CODE: "device_code",
+  TOKEN_EXCHANGE: "token_exchange",
 });
+
+/** RFC 8628 §3.4 — device-authorization grant `grant_type` wire value. */
+export const DEVICE_CODE_GRANT_TYPE =
+  "urn:ietf:params:oauth:grant-type:device_code";
+
+/** RFC 8693 §2.1 — token-exchange grant `grant_type` wire value. */
+export const TOKEN_EXCHANGE_GRANT_TYPE =
+  "urn:ietf:params:oauth:grant-type:token-exchange";
 
 // ── OAuthResult factory ──────────────────────────────────────────────────────
 
@@ -152,6 +169,20 @@ export function validateOAuthConfig(config) {
       if (!isValidUrl(config.authUrl.trim()))
         return "Auth URL is not a valid URL.";
       if (!config.clientId?.trim()) return "Client ID is required.";
+      break;
+
+    case GrantType.DEVICE_CODE:
+      if (!config.clientId?.trim()) return "Client ID is required.";
+      if (!config.deviceAuthorizationUrl?.trim())
+        return "Device Authorization URL is required.";
+      if (!isValidUrl(config.deviceAuthorizationUrl.trim()))
+        return "Device Authorization URL is not a valid URL.";
+      break;
+
+    case GrantType.TOKEN_EXCHANGE:
+      if (!config.subjectToken?.trim()) return "Subject Token is required.";
+      if (!config.subjectTokenType?.trim())
+        return "Subject Token Type is required.";
       break;
 
     default:

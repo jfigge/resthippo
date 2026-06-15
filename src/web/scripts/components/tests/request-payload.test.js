@@ -229,6 +229,50 @@ test("aws-iam: builds the credential bag with every field resolved", async () =>
   });
 });
 
+test("oauth1: builds the credential bag for main-process signing", async () => {
+  const { oauth1 } = await buildRequestPayload(
+    {
+      method: "POST",
+      urlBase: "https://x",
+      authEnabled: true,
+      authType: "oauth1",
+      authOAuth1: {
+        consumerKey: "ck",
+        consumerSecret: "cs",
+        token: "tok",
+        tokenSecret: "ts",
+        signatureMethod: "HMAC-SHA1",
+        realm: "Example",
+      },
+    },
+    identity,
+  );
+  assert.deepEqual(oauth1, {
+    consumerKey: "ck",
+    consumerSecret: "cs",
+    token: "tok",
+    tokenSecret: "ts",
+    signatureMethod: "HMAC-SHA1",
+    realm: "Example",
+  });
+});
+
+test("oauth1: omitted entirely when the consumer key is blank", async () => {
+  const { oauth1, headers } = await buildRequestPayload(
+    {
+      method: "GET",
+      urlBase: "https://x",
+      authEnabled: true,
+      authType: "oauth1",
+      authOAuth1: { consumerKey: "", consumerSecret: "cs" },
+    },
+    identity,
+  );
+  assert.equal(oauth1, null);
+  // OAuth 1.0a sets no header in the renderer — signing happens in main.
+  assert.equal(headers["Authorization"], undefined);
+});
+
 test("auth is skipped entirely when authEnabled is false", async () => {
   const { headers } = await buildRequestPayload(
     {

@@ -60,6 +60,7 @@ export function redactVariables(list) {
  *   | { type: "digest", username: string }
  *   | { type: "ntlm", username: string, domain: string, workstation: string }
  *   | { type: "aws-iam", accessKeyId: string, region: string, service: string }
+ *   | { type: "oauth1", consumerKey: string, signatureMethod: string, realm: string }
  *   | { type: "oauth2", grantType: string, clientId: string,
  *       accessTokenUrl: string, authUrl: string, scope: string }}
  */
@@ -101,6 +102,17 @@ export function redactedAuth(node) {
       accessKeyId: a.accessKeyId ?? "",
       region: a.region ?? "",
       service: a.service ?? "",
+    };
+  }
+  if (type === "oauth1") {
+    // consumerKey is the identifier (kept); consumerSecret, token and
+    // tokenSecret are the secrets (omitted). signatureMethod/realm are config.
+    const o = node.authOAuth1 ?? {};
+    return {
+      type: "oauth1",
+      consumerKey: o.consumerKey ?? "",
+      signatureMethod: o.signatureMethod ?? "HMAC-SHA1",
+      realm: o.realm ?? "",
     };
   }
   if (type === "oauth2") {

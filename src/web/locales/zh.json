@@ -740,7 +740,8 @@
       "ntlm": "NTLM",
       "oauth2": "OAuth 2.0",
       "awsIam": "AWS IAM",
-      "none": "无"
+      "none": "无",
+      "oauth1": "OAuth 1.0"
     },
     "discover": "发现",
     "discoverTitle": "从 OpenID Connect 颁发者 URL 发现 OAuth 2.0 端点",
@@ -785,7 +786,9 @@
         "authorizationCode": "Authorization Code",
         "clientCredentials": "Client Credentials",
         "password": "Resource Owner Password",
-        "implicit": "Implicit"
+        "implicit": "Implicit",
+        "deviceCode": "设备授权",
+        "tokenExchange": "令牌交换"
       },
       "clientType": "客户端类型",
       "clientTypeAria": "客户端类型",
@@ -838,7 +841,35 @@
       "getTokenTitle": "使用已配置的设置获取 OAuth 2.0 访问令牌",
       "fetching": "正在获取…",
       "tokenAcquired": "✓ 已获取令牌",
-      "unknownError": "未知错误"
+      "unknownError": "未知错误",
+      "deviceAuthorizationUrl": "设备授权 URL",
+      "deviceAuthorizationUrlPlaceholder": "https://example.com/oauth/device/code",
+      "deviceAuthorizationUrlHint": "签发设备码和用户码的端点（RFC 8628）。",
+      "device": {
+        "title": "设备授权",
+        "desc": "要登录，请在任意设备上打开以下 URL 并输入此代码：",
+        "codeLabel": "你的代码",
+        "waiting": "正在等待授权…",
+        "expires": "代码将在约 {minutes} 分钟后过期。",
+        "cancel": "取消"
+      },
+      "tokenExchange": {
+        "subjectToken": "主体令牌",
+        "subjectTokenPlaceholder": "要交换的令牌…",
+        "subjectTokenType": "主体令牌类型",
+        "actorToken": "执行者令牌",
+        "actorTokenPlaceholder": "执行方令牌（可选）…",
+        "actorTokenHint": "用于委托的可选执行方令牌（RFC 8693）。",
+        "actorTokenType": "执行者令牌类型",
+        "requestedTokenType": "请求的令牌类型",
+        "requestedTokenTypeNone": "未指定",
+        "typeAccessToken": "访问令牌",
+        "typeRefreshToken": "刷新令牌",
+        "typeIdToken": "ID 令牌",
+        "typeJwt": "JWT",
+        "typeSaml2": "SAML 2.0",
+        "typeSaml1": "SAML 1.1"
+      }
     },
     "aws": {
       "accessKeyId": "Access Key ID",
@@ -862,6 +893,23 @@
       "fetching": "正在获取…",
       "enterUrl": "请输入颁发者 URL。",
       "fetchFailed": "无法获取 <code>{url}</code><br>{message}"
+    },
+    "oauth1": {
+      "consumerKey": "消费者密钥",
+      "consumerKeyPlaceholder": "你的 OAuth 消费者密钥…",
+      "consumerSecret": "消费者机密",
+      "consumerSecretPlaceholder": "你的 OAuth 消费者机密…",
+      "token": "访问令牌",
+      "tokenPlaceholder": "OAuth 令牌（可选）…",
+      "tokenSecret": "令牌机密",
+      "tokenSecretPlaceholder": "OAuth 令牌机密（可选）…",
+      "signatureMethod": "签名方法",
+      "sigHmacSha1": "HMAC-SHA1",
+      "sigHmacSha256": "HMAC-SHA256",
+      "sigPlaintext": "PLAINTEXT",
+      "realm": "Realm",
+      "realmPlaceholder": "Realm（可选）",
+      "hint": "在发送请求时签名；nonce 和时间戳会自动生成。"
     }
   },
   "wsConsole": {

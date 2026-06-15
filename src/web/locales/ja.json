@@ -740,7 +740,8 @@
       "ntlm": "NTLM",
       "oauth2": "OAuth 2.0",
       "awsIam": "AWS IAM",
-      "none": "なし"
+      "none": "なし",
+      "oauth1": "OAuth 1.0"
     },
     "discover": "検出",
     "discoverTitle": "OpenID Connect の issuer URL から OAuth 2.0 エンドポイントを検出",
@@ -785,7 +786,9 @@
         "authorizationCode": "Authorization Code",
         "clientCredentials": "Client Credentials",
         "password": "Resource Owner Password",
-        "implicit": "Implicit"
+        "implicit": "Implicit",
+        "deviceCode": "デバイス認証",
+        "tokenExchange": "トークン交換"
       },
       "clientType": "クライアントタイプ",
       "clientTypeAria": "クライアントタイプ",
@@ -838,7 +841,35 @@
       "getTokenTitle": "設定された内容で OAuth 2.0 アクセストークンを取得します",
       "fetching": "取得中…",
       "tokenAcquired": "✓ トークンを取得しました",
-      "unknownError": "不明なエラー"
+      "unknownError": "不明なエラー",
+      "deviceAuthorizationUrl": "デバイス認証 URL",
+      "deviceAuthorizationUrlPlaceholder": "https://example.com/oauth/device/code",
+      "deviceAuthorizationUrlHint": "デバイスコードとユーザーコードを発行するエンドポイント（RFC 8628）。",
+      "device": {
+        "title": "デバイス認証",
+        "desc": "サインインするには、任意のデバイスでこの URL を開き、コードを入力してください：",
+        "codeLabel": "コード",
+        "waiting": "認証を待機しています…",
+        "expires": "コードは約 {minutes} 分で期限切れになります。",
+        "cancel": "キャンセル"
+      },
+      "tokenExchange": {
+        "subjectToken": "サブジェクトトークン",
+        "subjectTokenPlaceholder": "交換するトークン…",
+        "subjectTokenType": "サブジェクトトークンの種類",
+        "actorToken": "アクタートークン",
+        "actorTokenPlaceholder": "実行主体のトークン（任意）…",
+        "actorTokenHint": "委任のための実行主体トークン（任意、RFC 8693）。",
+        "actorTokenType": "アクタートークンの種類",
+        "requestedTokenType": "要求するトークンの種類",
+        "requestedTokenTypeNone": "指定なし",
+        "typeAccessToken": "アクセストークン",
+        "typeRefreshToken": "リフレッシュトークン",
+        "typeIdToken": "ID トークン",
+        "typeJwt": "JWT",
+        "typeSaml2": "SAML 2.0",
+        "typeSaml1": "SAML 1.1"
+      }
     },
     "aws": {
       "accessKeyId": "Access Key ID",
@@ -862,6 +893,23 @@
       "fetching": "取得中…",
       "enterUrl": "issuer URL を入力してください。",
       "fetchFailed": "取得できませんでした <code>{url}</code><br>{message}"
+    },
+    "oauth1": {
+      "consumerKey": "コンシューマーキー",
+      "consumerKeyPlaceholder": "OAuth コンシューマーキー…",
+      "consumerSecret": "コンシューマーシークレット",
+      "consumerSecretPlaceholder": "OAuth コンシューマーシークレット…",
+      "token": "アクセストークン",
+      "tokenPlaceholder": "OAuth トークン（任意）…",
+      "tokenSecret": "トークンシークレット",
+      "tokenSecretPlaceholder": "OAuth トークンシークレット（任意）…",
+      "signatureMethod": "署名方式",
+      "sigHmacSha1": "HMAC-SHA1",
+      "sigHmacSha256": "HMAC-SHA256",
+      "sigPlaintext": "PLAINTEXT",
+      "realm": "レルム",
+      "realmPlaceholder": "レルム（任意）",
+      "hint": "リクエスト送信時に署名されます。nonce とタイムスタンプは自動的に生成されます。"
     }
   },
   "wsConsole": {

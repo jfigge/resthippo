@@ -123,13 +123,14 @@ export async function resolvePathParamValues(pathParams, rv) {
  *   @param {Array}   spec.params        [{ enabled, name, value }] query params
  *   @param {Array}   spec.headers       [{ enabled, name, value }] header rows
  *   @param {boolean} spec.authEnabled   truthy = apply auth (caller normalises its own default)
- *   @param {string}  spec.authType      "none"|"basic"|"bearer"|"apikey"|"digest"|"ntlm"|"aws-iam"|"oauth2"
+ *   @param {string}  spec.authType      "none"|"basic"|"bearer"|"apikey"|"digest"|"ntlm"|"aws-iam"|"oauth1"|"oauth2"
  *   @param {object}  spec.authBasic     { username, password }
  *   @param {object}  spec.authBearer    { token }
  *   @param {object}  spec.authApiKey    { name, value, addTo }
  *   @param {object}  spec.authDigest    { username, password }
  *   @param {object}  spec.authNtlm      { username, password, domain, workstation }
  *   @param {object}  spec.authAwsIam    { accessKeyId, secretAccessKey, region, service, sessionToken }
+ *   @param {object}  spec.authOAuth1    { consumerKey, consumerSecret, token, tokenSecret, signatureMethod, realm }
  *   @param {string}  spec.bodyType      "json"|"yaml"|"xml"|"text"|"graphql"|"form-urlencoded"|"form-data"|"file"|"no-body"
  *   @param {string}  spec.bodyText      raw text for text-ish body types
  *   @param {object}  spec.bodyGraphql   { query, variables } for the "graphql" body type;
@@ -138,7 +139,7 @@ export async function resolvePathParamValues(pathParams, rv) {
  *                                       form fields; a `kind:"file"` row carries a file path instead of value
  *   @param {object}  spec.bodyFile      { path, type } for the "file" body type, or null
  * @param {(s: string) => Promise<string>} rv  async variable resolver
- * @returns {Promise<{finalUrl, headers, body, bodyFilePath, multipart, awsIam, authDigest, authNtlm}>}
+ * @returns {Promise<{finalUrl, headers, body, bodyFilePath, multipart, awsIam, authDigest, authNtlm, oauth1}>}
  *   `multipart` (or null) is a { boundary, parts[] } spec the main process streams when a form-data body
  *   contains file fields; the file bytes are read in main (only paths cross IPC).
  */
@@ -178,6 +179,7 @@ export async function buildRequestPayload(spec, rv) {
   let awsIam = null;
   let authDigest = null;
   let authNtlm = null;
+  let oauth1 = null;
   if (spec.authEnabled && spec.authType && spec.authType !== "none") {
     switch (spec.authType) {
       case "basic": {
@@ -236,6 +238,25 @@ export async function buildRequestPayload(spec, rv) {
           service: await rv(spec.authAwsIam?.service ?? ""),
           sessionToken: await rv(spec.authAwsIam?.sessionToken ?? ""),
         };
+        break;
+      }
+      case "oauth1": {
+        // OAuth 1.0a signs the request line + params, so — like aws-iam — the
+        // credentials are resolved here and handed to the main process, which
+        // computes the Authorization: OAuth … signature at send time.
+        const consumerKey = (
+          await rv(spec.authOAuth1?.consumerKey ?? "")
+        ).trim();
+        if (consumerKey) {
+          oauth1 = {
+            consumerKey,
+            consumerSecret: await rv(spec.authOAuth1?.consumerSecret ?? ""),
+            token: await rv(spec.authOAuth1?.token ?? ""),
+            tokenSecret: await rv(spec.authOAuth1?.tokenSecret ?? ""),
+            signatureMethod: spec.authOAuth1?.signatureMethod || "HMAC-SHA1",
+            realm: (await rv(spec.authOAuth1?.realm ?? "")).trim(),
+          };
+        }
         break;
       }
       // oauth2: handled by the caller (interactive token acquisition).
@@ -370,5 +391,6 @@ export async function buildRequestPayload(spec, rv) {
     awsIam,
     authDigest,
     authNtlm,
+    oauth1,
   };
 }

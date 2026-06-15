@@ -741,7 +741,8 @@
       "ntlm": "NTLM",
       "oauth2": "OAuth 2.0",
       "awsIam": "AWS IAM",
-      "none": "Aucune"
+      "none": "Aucune",
+      "oauth1": "OAuth 1.0"
     },
     "discover": "Découvrir",
     "discoverTitle": "Découvrir les points de terminaison OAuth 2.0 à partir d'une URL d'émetteur OpenID Connect",
@@ -786,7 +787,9 @@
         "authorizationCode": "Authorization Code",
         "clientCredentials": "Client Credentials",
         "password": "Resource Owner Password",
-        "implicit": "Implicit"
+        "implicit": "Implicit",
+        "deviceCode": "Autorisation d’appareil",
+        "tokenExchange": "Échange de jetons"
       },
       "clientType": "Type de client",
       "clientTypeAria": "Type de client",
@@ -839,7 +842,35 @@
       "getTokenTitle": "Acquérir un token d'accès OAuth 2.0 avec les paramètres configurés",
       "fetching": "Récupération…",
       "tokenAcquired": "✓ Token acquis",
-      "unknownError": "Erreur inconnue"
+      "unknownError": "Erreur inconnue",
+      "deviceAuthorizationUrl": "URL d’autorisation d’appareil",
+      "deviceAuthorizationUrlPlaceholder": "https://example.com/oauth/device/code",
+      "deviceAuthorizationUrlHint": "Point de terminaison qui émet les codes d’appareil et d’utilisateur (RFC 8628).",
+      "device": {
+        "title": "Autorisation d’appareil",
+        "desc": "Pour vous connecter, ouvrez cette URL sur n’importe quel appareil et saisissez le code :",
+        "codeLabel": "Votre code",
+        "waiting": "En attente de l’autorisation…",
+        "expires": "Le code expire dans environ {minutes} min.",
+        "cancel": "Annuler"
+      },
+      "tokenExchange": {
+        "subjectToken": "Jeton de sujet",
+        "subjectTokenPlaceholder": "Jeton à échanger…",
+        "subjectTokenType": "Type de jeton de sujet",
+        "actorToken": "Jeton d’acteur",
+        "actorTokenPlaceholder": "Jeton de la partie agissante (facultatif)…",
+        "actorTokenHint": "Jeton facultatif de la partie agissante pour la délégation (RFC 8693).",
+        "actorTokenType": "Type de jeton d’acteur",
+        "requestedTokenType": "Type de jeton demandé",
+        "requestedTokenTypeNone": "Non spécifié",
+        "typeAccessToken": "Jeton d’accès",
+        "typeRefreshToken": "Jeton d’actualisation",
+        "typeIdToken": "Jeton d’ID",
+        "typeJwt": "JWT",
+        "typeSaml2": "SAML 2.0",
+        "typeSaml1": "SAML 1.1"
+      }
     },
     "aws": {
       "accessKeyId": "Access Key ID",
@@ -863,6 +894,23 @@
       "fetching": "Récupération…",
       "enterUrl": "Veuillez saisir une URL d'émetteur.",
       "fetchFailed": "Impossible de récupérer <code>{url}</code><br>{message}"
+    },
+    "oauth1": {
+      "consumerKey": "Clé de consommateur",
+      "consumerKeyPlaceholder": "Votre clé de consommateur OAuth…",
+      "consumerSecret": "Secret de consommateur",
+      "consumerSecretPlaceholder": "Votre secret de consommateur OAuth…",
+      "token": "Jeton d’accès",
+      "tokenPlaceholder": "Jeton OAuth (facultatif)…",
+      "tokenSecret": "Secret du jeton",
+      "tokenSecretPlaceholder": "Secret du jeton OAuth (facultatif)…",
+      "signatureMethod": "Méthode de signature",
+      "sigHmacSha1": "HMAC-SHA1",
+      "sigHmacSha256": "HMAC-SHA256",
+      "sigPlaintext": "PLAINTEXT",
+      "realm": "Realm",
+      "realmPlaceholder": "Realm (facultatif)",
+      "hint": "Signé lors de l’envoi de la requête ; le nonce et l’horodatage sont générés automatiquement."
     }
   },
   "wsConsole": {

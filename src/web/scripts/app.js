@@ -188,6 +188,16 @@ function _buildSnapshot(node) {
     if (a.service) lines.push(`service: ${a.service}`);
     if (a.sessionToken) lines.push(`sessionToken: ${a.sessionToken}`);
     authBulk = lines.join("\n");
+  } else if (authType === "oauth1") {
+    const o = node.authOAuth1 ?? {};
+    const lines = [];
+    if (o.consumerKey) lines.push(`consumerKey: ${o.consumerKey}`);
+    if (o.consumerSecret) lines.push(`consumerSecret: ${o.consumerSecret}`);
+    if (o.token) lines.push(`token: ${o.token}`);
+    if (o.tokenSecret) lines.push(`tokenSecret: ${o.tokenSecret}`);
+    if (o.signatureMethod) lines.push(`signatureMethod: ${o.signatureMethod}`);
+    if (o.realm) lines.push(`realm: ${o.realm}`);
+    authBulk = lines.join("\n");
   }
 
   const bodyType = node.bodyType ?? "no-body";
@@ -2717,6 +2727,7 @@ function initEventBus() {
       awsIam: descriptor.awsIam ?? null,
       authDigest: descriptor.authDigest ?? null,
       authNtlm: descriptor.authNtlm ?? null,
+      oauth1: descriptor.oauth1 ?? null,
       ..._proxyDescriptorFields(currentSettings),
       retry: _retryDescriptor(currentSettings),
       // Cookie jar (Feature 09): the main process captures Set-Cookie into the
@@ -3436,6 +3447,7 @@ async function _executeRequestNode(node, ctx) {
     awsIam,
     authDigest,
     authNtlm,
+    oauth1,
   } = await buildRequestPayload(
     {
       method,
@@ -3454,6 +3466,7 @@ async function _executeRequestNode(node, ctx) {
       authDigest: node.authDigest,
       authNtlm: node.authNtlm,
       authAwsIam: node.authAwsIam,
+      authOAuth1: node.authOAuth1,
       bodyType: node.bodyType,
       bodyText: node.bodyText,
       bodyFormRows: node.bodyFormRows,
@@ -3475,6 +3488,7 @@ async function _executeRequestNode(node, ctx) {
     awsIam,
     authDigest,
     authNtlm,
+    oauth1,
     collectionId: currentColls.activeCollectionId ?? null,
     useCookieJar: _collSendCookies(currentColls.activeCollectionId),
     ..._proxyDescriptorFields(currentSettings),

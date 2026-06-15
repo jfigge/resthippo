@@ -68,6 +68,20 @@ function exportAuth(node) {
       ],
     };
   }
+  if (auth.type === "oauth1") {
+    return {
+      type: "oauth1",
+      oauth1: [
+        { key: "consumerKey", value: auth.consumerKey, type: "string" },
+        { key: "consumerSecret", value: "", type: "string" },
+        { key: "token", value: "", type: "string" },
+        { key: "tokenSecret", value: "", type: "string" },
+        { key: "signatureMethod", value: auth.signatureMethod, type: "string" },
+        { key: "realm", value: auth.realm, type: "string" },
+        { key: "addParamsToHeader", value: true, type: "boolean" },
+      ],
+    };
+  }
   if (auth.type === "oauth2") {
     return {
       type: "oauth2",

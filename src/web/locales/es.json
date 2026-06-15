@@ -741,7 +741,8 @@
       "ntlm": "NTLM",
       "oauth2": "OAuth 2.0",
       "awsIam": "AWS IAM",
-      "none": "Ninguna"
+      "none": "Ninguna",
+      "oauth1": "OAuth 1.0"
     },
     "discover": "Descubrir",
     "discoverTitle": "Descubrir los endpoints de OAuth 2.0 a partir de una URL de emisor de OpenID Connect",
@@ -786,7 +787,9 @@
         "authorizationCode": "Authorization Code",
         "clientCredentials": "Client Credentials",
         "password": "Resource Owner Password",
-        "implicit": "Implicit"
+        "implicit": "Implicit",
+        "deviceCode": "Autorización de dispositivo",
+        "tokenExchange": "Intercambio de tokens"
       },
       "clientType": "Tipo de cliente",
       "clientTypeAria": "Tipo de cliente",
@@ -839,7 +842,35 @@
       "getTokenTitle": "Adquirir un token de acceso de OAuth 2.0 con la configuración establecida",
       "fetching": "Obteniendo…",
       "tokenAcquired": "✓ Token adquirido",
-      "unknownError": "Error desconocido"
+      "unknownError": "Error desconocido",
+      "deviceAuthorizationUrl": "URL de autorización de dispositivo",
+      "deviceAuthorizationUrlPlaceholder": "https://example.com/oauth/device/code",
+      "deviceAuthorizationUrlHint": "Endpoint que emite los códigos de dispositivo y de usuario (RFC 8628).",
+      "device": {
+        "title": "Autorización de dispositivo",
+        "desc": "Para iniciar sesión, abre esta URL en cualquier dispositivo e introduce el código:",
+        "codeLabel": "Tu código",
+        "waiting": "Esperando la autorización…",
+        "expires": "El código caduca en unos {minutes} min.",
+        "cancel": "Cancelar"
+      },
+      "tokenExchange": {
+        "subjectToken": "Token de sujeto",
+        "subjectTokenPlaceholder": "Token para intercambiar…",
+        "subjectTokenType": "Tipo de token de sujeto",
+        "actorToken": "Token de actor",
+        "actorTokenPlaceholder": "Token de la parte actuante (opcional)…",
+        "actorTokenHint": "Token opcional de la parte actuante para delegación (RFC 8693).",
+        "actorTokenType": "Tipo de token de actor",
+        "requestedTokenType": "Tipo de token solicitado",
+        "requestedTokenTypeNone": "Sin especificar",
+        "typeAccessToken": "Token de acceso",
+        "typeRefreshToken": "Token de actualización",
+        "typeIdToken": "Token de ID",
+        "typeJwt": "JWT",
+        "typeSaml2": "SAML 2.0",
+        "typeSaml1": "SAML 1.1"
+      }
     },
     "aws": {
       "accessKeyId": "Access Key ID",
@@ -863,6 +894,23 @@
       "fetching": "Obteniendo…",
       "enterUrl": "Introduce una URL de emisor.",
       "fetchFailed": "No se pudo obtener <code>{url}</code><br>{message}"
+    },
+    "oauth1": {
+      "consumerKey": "Clave de consumidor",
+      "consumerKeyPlaceholder": "Tu clave de consumidor de OAuth…",
+      "consumerSecret": "Secreto de consumidor",
+      "consumerSecretPlaceholder": "Tu secreto de consumidor de OAuth…",
+      "token": "Token de acceso",
+      "tokenPlaceholder": "Token de OAuth (opcional)…",
+      "tokenSecret": "Secreto del token",
+      "tokenSecretPlaceholder": "Secreto del token de OAuth (opcional)…",
+      "signatureMethod": "Método de firma",
+      "sigHmacSha1": "HMAC-SHA1",
+      "sigHmacSha256": "HMAC-SHA256",
+      "sigPlaintext": "PLAINTEXT",
+      "realm": "Realm",
+      "realmPlaceholder": "Realm (opcional)",
+      "hint": "Se firma al enviar la solicitud; el nonce y la marca de tiempo se generan automáticamente."
     }
   },
   "wsConsole": {

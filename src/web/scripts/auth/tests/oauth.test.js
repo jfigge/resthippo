@@ -492,7 +492,7 @@ await test("mergeExtraParams ignores non-object sources", async () => {
 
 group("applyClientAuth");
 
-import { applyClientAuth } from "../flows/token-exchange.js";
+import { applyClientAuth } from "../flows/token-request.js";
 
 await test("header mode (default): client_id in body, Basic header only when a secret exists", async () => {
   const withSecret = { params: {}, headers: {} };
@@ -782,6 +782,184 @@ await test("injectBearerToken returns original descriptor when token is empty", 
   const desc = { method: "GET", url: "https://api.example.com", headers: {} };
   const result = oauthExecutor.injectBearerToken(desc, "");
   assert.equal(result, desc);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Device Authorization grant — validation + polling (RFC 8628)
+// ─────────────────────────────────────────────────────────────────────────────
+
+group("Device Authorization grant (validation + mocked polling)");
+
+import { deviceCodeFlow } from "../flows/device-code.js";
+
+// No-op sleep so the poll loop runs instantly under test.
+const noSleep = () => Promise.resolve();
+
+await test("validateOAuthConfig: device_code requires a device authorization URL", async () => {
+  assert.equal(
+    validateOAuthConfig({
+      grantType: "device_code",
+      clientId: "cid",
+      accessTokenUrl: "https://token.example.com",
+    }),
+    "Device Authorization URL is required.",
+  );
+  assert.equal(
+    validateOAuthConfig({
+      grantType: "device_code",
+      clientId: "cid",
+      accessTokenUrl: "https://token.example.com",
+      deviceAuthorizationUrl: "https://device.example.com/code",
+    }),
+    null,
+  );
+});
+
+const DEVICE_CFG = {
+  grantType: "device_code",
+  clientId: "cid",
+  accessTokenUrl: "https://token.example.com",
+  deviceAuthorizationUrl: "https://device.example.com/code",
+};
+
+function deviceMock(pollResponses) {
+  let i = 0;
+  return (desc) => {
+    if (desc.url === DEVICE_CFG.deviceAuthorizationUrl) {
+      return {
+        status: 200,
+        body: JSON.stringify({
+          device_code: "DEV-CODE",
+          user_code: "WDJB-MJHT",
+          verification_uri: "https://example.com/device",
+          interval: 1,
+          expires_in: 300,
+        }),
+      };
+    }
+    // Token endpoint poll — serve the scripted responses in order.
+    const r = pollResponses[Math.min(i, pollResponses.length - 1)];
+    i += 1;
+    return r;
+  };
+}
+
+await test("device flow: succeeds after authorization_pending", async () => {
+  _mockResponse = deviceMock([
+    { status: 400, body: JSON.stringify({ error: "authorization_pending" }) },
+    { status: 400, body: JSON.stringify({ error: "authorization_pending" }) },
+    {
+      status: 200,
+      body: JSON.stringify({
+        access_token: "dev-access",
+        token_type: "Bearer",
+        expires_in: 3600,
+      }),
+    },
+  ]);
+  const result = await deviceCodeFlow(DEVICE_CFG, { sleep: noSleep });
+  assert.equal(result.success, true);
+  assert.equal(result.accessToken, "dev-access");
+});
+
+await test("device flow: backs off on slow_down then succeeds", async () => {
+  _mockResponse = deviceMock([
+    { status: 400, body: JSON.stringify({ error: "slow_down" }) },
+    {
+      status: 200,
+      body: JSON.stringify({ access_token: "ok", token_type: "Bearer" }),
+    },
+  ]);
+  const result = await deviceCodeFlow(DEVICE_CFG, { sleep: noSleep });
+  assert.equal(result.success, true);
+  assert.equal(result.accessToken, "ok");
+});
+
+await test("device flow: access_denied is a terminal error", async () => {
+  _mockResponse = deviceMock([
+    { status: 400, body: JSON.stringify({ error: "access_denied" }) },
+  ]);
+  const result = await deviceCodeFlow(DEVICE_CFG, { sleep: noSleep });
+  assert.equal(result.success, false);
+  assert.equal(result.error?.code, OAuthErrorCode.ACCESS_DENIED);
+});
+
+await test("device flow: device-authorization endpoint error fails fast", async () => {
+  _mockResponse = (desc) => {
+    if (desc.url === DEVICE_CFG.deviceAuthorizationUrl) {
+      return {
+        status: 400,
+        body: JSON.stringify({ error: "invalid_client" }),
+      };
+    }
+    throw new Error("should not poll the token endpoint");
+  };
+  const result = await deviceCodeFlow(DEVICE_CFG, { sleep: noSleep });
+  assert.equal(result.success, false);
+  assert.equal(result.error?.code, "invalid_client");
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Token Exchange grant — validation + exchange (RFC 8693)
+// ─────────────────────────────────────────────────────────────────────────────
+
+group("Token Exchange grant (validation + mocked)");
+
+import { tokenExchangeFlow } from "../flows/token-exchange.js";
+
+await test("validateOAuthConfig: token_exchange requires subject token + type", async () => {
+  assert.equal(
+    validateOAuthConfig({
+      grantType: "token_exchange",
+      accessTokenUrl: "https://token.example.com",
+    }),
+    "Subject Token is required.",
+  );
+  assert.equal(
+    validateOAuthConfig({
+      grantType: "token_exchange",
+      accessTokenUrl: "https://token.example.com",
+      subjectToken: "abc",
+      subjectTokenType: "urn:ietf:params:oauth:token-type:access_token",
+    }),
+    null,
+  );
+});
+
+await test("token exchange flow: sends RFC 8693 params and returns the new token", async () => {
+  let captured = null;
+  _mockResponse = (desc) => {
+    captured = desc.body;
+    return {
+      status: 200,
+      body: JSON.stringify({
+        access_token: "exchanged",
+        issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
+        token_type: "Bearer",
+        expires_in: 3600,
+      }),
+    };
+  };
+  const result = await tokenExchangeFlow({
+    grantType: "token_exchange",
+    accessTokenUrl: "https://token.example.com",
+    subjectToken: "SUBJECT",
+    subjectTokenType: "urn:ietf:params:oauth:token-type:access_token",
+    actorToken: "ACTOR",
+    actorTokenType: "urn:ietf:params:oauth:token-type:access_token",
+    audience: "https://api.example.com",
+  });
+  assert.equal(result.success, true);
+  assert.equal(result.accessToken, "exchanged");
+  assert.ok(
+    captured.includes(
+      "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Atoken-exchange",
+    ),
+    "body should carry the token-exchange grant_type URN",
+  );
+  assert.ok(captured.includes("subject_token=SUBJECT"));
+  assert.ok(captured.includes("actor_token=ACTOR"));
+  assert.ok(captured.includes("audience=https%3A%2F%2Fapi.example.com"));
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

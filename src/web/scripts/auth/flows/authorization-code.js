@@ -30,7 +30,7 @@ import {
   OAuthError,
   OAuthErrorCode,
 } from "../types/oauth-errors.js";
-import { applyClientAuth, requestToken } from "./token-exchange.js";
+import { applyClientAuth, requestToken } from "./token-request.js";
 
 /**
  * Execute the Authorization Code grant (confidential or public/PKCE client).

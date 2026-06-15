@@ -25,6 +25,7 @@ so you can keep secrets in a secure environment variable and reference them here
 | **Digest**       | RFC 2617/7616 challenge-response (handles the 401 round-trip)      |
 | **NTLM**         | Microsoft NTLM handshake (username, password, domain, workstation) |
 | **AWS IAM**      | AWS Signature V4 signing (access key, secret, region, service)     |
+| **OAuth 1.0**    | OAuth 1.0a request signing (`Authorization: OAuth …`)              |
 | **OAuth 2.0**    | A full OAuth 2.0 / OIDC flow (see below)                           |
 
 ### API Key
@@ -56,14 +57,24 @@ Sign requests with **Signature Version 4**: enter your **Access Key ID**,
 from the host), plus an optional **Session Token**. The signature, date, and
 signed-headers are computed at send time.
 
+### OAuth 1.0a
+
+For legacy APIs that still use **OAuth 1.0a**, enter your **Consumer Key** and
+**Consumer Secret**, and (for an access token) the **Token** and **Token
+Secret**. Choose a **Signature Method** — **HMAC-SHA1** (the most common),
+**HMAC-SHA256**, or **PLAINTEXT** — and optionally a **Realm**. wurl signs the
+request at send time, computing the signature over the method, URL, and
+parameters and adding the `Authorization: OAuth …` header; the `oauth_nonce` and
+`oauth_timestamp` are generated automatically for each request.
+
 ## OAuth 2.0
 
 The OAuth 2.0 type supports the full set of grant types and OIDC discovery:
 
 ![OAuth 2.0 configuration](images/auth-oauth2.png)
 
-1. **Grant Type** — choose Authorization Code, Implicit, Client Credentials, or
-   Resource Owner Password.
+1. **Grant Type** — choose Authorization Code, Implicit, Client Credentials,
+   Resource Owner Password, **Device Authorization**, or **Token Exchange**.
 2. Fill in **Client ID**, **Client Secret** (for confidential clients), the
    **Authorization URL** and **Access Token URL**, and the **Scope** (with
    autocomplete for common scopes like `openid`, `profile`, `email`).
@@ -71,6 +82,18 @@ The OAuth 2.0 type supports the full set of grant types and OIDC discovery:
    wurl opens a popup window for you to log in, intercepts the redirect, and
    exchanges the code for an access token. The token is then attached to your
    request.
+
+**Device Authorization** (RFC 8628) — for input-constrained or headless
+clients. Provide the **Device Authorization URL**, **Access Token URL**, and
+**Client ID**, then click **Get Token**: wurl shows a **user code** and a
+**verification URL** to open on another device, and polls in the background until
+you approve (handling the standard `authorization_pending` / `slow_down`
+back-off) or the code expires.
+
+**Token Exchange** (RFC 8693) — swap one token for another. Provide the
+**Subject Token** and its **Subject Token Type**, and optionally an **Actor
+Token** (for delegation), **Requested Token Type**, **Audience**, and
+**Resource**. The exchanged token is cached like any other grant.
 
 **OIDC Discovery** — click **Discover** to fetch a provider's
 `.well-known/openid-configuration` and auto-populate the authorization and token
