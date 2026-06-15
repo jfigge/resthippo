@@ -348,6 +348,14 @@ export class TreeView {
     this.#btnNewRequest.innerHTML = `<span class="icon">${icon("add", { size: 16 })}</span>`;
     this.#btnNewRequest.disabled = true;
     this.#btnNewRequest.addEventListener("click", () => this.#addRequest());
+    // Secondary (right) click offers a choice of request protocol so a
+    // WebSocket request can be created from the toolbar, not just a folder's
+    // context menu. The chosen request still lands where a left-click would.
+    this.#btnNewRequest.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      if (this.#btnNewRequest.disabled) return;
+      this.#showNewRequestMenu(e.clientX, e.clientY);
+    });
 
     // Search / filter input
     const search = document.createElement("input");
@@ -858,8 +866,10 @@ export class TreeView {
   /**
    * Add a new request under the active collection (or the first collection).
    * If no collection exists the button is disabled, so this is a no-op guard.
+   * Pass `{ protocol: "websocket" }` to create a WebSocket request instead of
+   * HTTP — the target location is identical either way.
    */
-  #addRequest() {
+  #addRequest({ protocol } = {}) {
     // Prefer the parent folder of the currently selected request so the new
     // request lands as a sibling. Fall back to the last-active collection.
     const targetId =
@@ -869,7 +879,26 @@ export class TreeView {
       this.#activeCollectionId ??
       this.#items.find((n) => n.type === "collection")?.id;
     if (!targetId) return;
-    this.#addRequestTo(targetId);
+    this.#addRequestTo(targetId, { protocol });
+  }
+
+  /**
+   * Native context menu for the toolbar [+] button (opened on secondary click).
+   * Lets the user pick the protocol; the chosen request is then created in the
+   * same place a plain [+] click would have created one.
+   */
+  async #showNewRequestMenu(x, y) {
+    const clickedId = await window.wurl.ui.contextMenu.show({
+      items: [
+        { id: "add-request", label: t("tree.menu.addRequest") },
+        { id: "add-ws-request", label: t("tree.menu.addWsRequest") },
+      ],
+      x,
+      y,
+    });
+    if (clickedId === "add-request") this.#addRequest();
+    else if (clickedId === "add-ws-request")
+      this.#addRequest({ protocol: "websocket" });
   }
 
   // ── Mutations — context menu actions ────────────────────────────────────

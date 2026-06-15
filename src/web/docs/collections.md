@@ -34,8 +34,9 @@ Inside a collection you build a tree of folders and requests:
 - **New Request** — the **+** button above the tree, or right-click a folder →
   **Add Request**.
 - **New Folder** — right-click a collection or folder → **Add Folder**.
-- **New WebSocket Request** — right-click → **Add WebSocket Request** (see
-  [WebSockets](websocket.md)).
+- **New WebSocket Request** — right-click a folder → **Add WebSocket Request**,
+  or right-click the **+** button above the tree and choose
+  **Add WebSocket Request** (see [WebSockets](websocket.md)).
 - **Reorder / re-nest** — drag a request or folder to move it; a placeholder
   shows where it will land.
 - **Rename** — double-click the name (or right-click → **Rename**).
