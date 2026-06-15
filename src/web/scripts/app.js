@@ -66,13 +66,19 @@ import {
   removeCollection,
   reconcile,
 } from "./quick-access.js";
-import { parseImport } from "./import/index.js";
+import {
+  parseImport,
+  parseCurl,
+  collectFormFilePaths,
+  warnMissingFormFiles,
+} from "./import/index.js";
 import { exportToPostman } from "./export/postman.js";
 import { exportToInsomnia } from "./export/insomnia.js";
 import { exportToOpenApi } from "./export/openapi.js";
 import { exportToHar } from "./export/har.js";
 import { BackupModal } from "./components/backup-modal.js";
 import { ExportModal } from "./components/export-modal.js";
+import { CurlImportModal } from "./components/curl-import-modal.js";
 import { PopupManager } from "./popup-manager.js";
 import * as i18n from "./i18n.js";
 import { t } from "./i18n.js";
@@ -1097,6 +1103,7 @@ function initEventBus() {
   //   cancel-request        { requestId, streamId? }      stop that request's run (streamId → abort a live stream)
   //   request-loading       { requestId, streamId }        in-flight; show spinner
   //   request-updated       { id, …partial }              editor mutated a field
+  //   curl-pasted           { id, text }                  cURL pasted into the URL bar → rewrite the request
   //   request-error         { requestId, requestNode, request, name, message, hint, elapsed, consoleLog }
   //   response-received     { …response, requestId, requestNode, request, streaming?, streamId?, sse?, contentType? }
   //
@@ -1135,8 +1142,9 @@ function initEventBus() {
   //   ui-font-change        fontStack                     (from preload/main)
   //
   // Menu / backup               (preload → app.js)
-  //   import-requested  ·  export-all-requested  ·  backup-export-requested  ·
-  //   backup-import-requested        — all payload-less menu triggers
+  //   import-requested  ·  import-curl-requested  ·  export-all-requested  ·
+  //   backup-export-requested  ·  backup-import-requested
+  //                                  — all payload-less menu triggers
   //
   // UI coordination             (broadcast; PopupManager / pickers)
   //   popup-opened          —
@@ -1688,9 +1696,15 @@ function initEventBus() {
     reconcileQuickAccess(e.detail);
   });
 
-  // Import a collection from an external file (Postman / Insomnia / OpenAPI).
+  // Import a collection from an external file (Postman / Insomnia / OpenAPI / HAR).
   // Triggered by the toolbar button in tree-view or the File > Import menu item.
   window.addEventListener("wurl:import-requested", () => handleImport());
+
+  // Import a single request from a pasted cURL command. Triggered by the
+  // File > "Import from cURL" menu item; opens a paste-box modal.
+  window.addEventListener("wurl:import-curl-requested", () =>
+    CurlImportModal.open(handleCurlImport),
+  );
 
   // Whole-workspace backup create/restore. Triggered by the File menu items,
   // which signal the renderer so the theme-styled BackupModal can collect the
@@ -2420,6 +2434,86 @@ function initEventBus() {
       }
     }
   });
+
+  // A cURL command pasted into the URL bar rewrites the selected request to
+  // match it (see RequestEditor#maybeHandleCurlPaste).
+  window.addEventListener("wurl:curl-pasted", (e) =>
+    handleCurlPaste(e.detail?.id, e.detail?.text),
+  );
+
+  // Rewrite the request loaded in the editor to match a pasted cURL command —
+  // the in-place equivalent of a cURL import. A blank/new request is rewritten
+  // straight away; any other request prompts for confirmation first, since the
+  // paste overwrites its method, URL, params, headers, body and auth.
+  async function handleCurlPaste(id, text) {
+    if (!id || !treeView || !requestEditor) return;
+    let parsed;
+    try {
+      parsed = parseCurl(text);
+    } catch (err) {
+      Notifications.error(
+        t("request.curlPaste.failed", { message: String(err.message ?? err) }),
+        { title: t("request.curlPaste.title") },
+      );
+      return;
+    }
+    const req = parsed.collection.children?.[0];
+    const node = _findNodeById(treeView.getItems(), id);
+    if (!req || !node || node.type !== "request") return;
+
+    if (_isBlankRequestNode(node)) {
+      await applyCurlToRequest(node, req, parsed);
+    } else {
+      PopupManager.confirm({
+        title: t("request.curlPaste.title"),
+        message: t("request.curlPaste.confirm"),
+        confirmLabel: t("request.curlPaste.replace"),
+        confirmClass: "btn--danger",
+        onConfirm: () => {
+          void applyCurlToRequest(node, req, parsed);
+        },
+      });
+    }
+  }
+
+  // Apply a parsed cURL request onto an existing request node: refresh the editor
+  // UI, persist the replaced fields, and surface any warnings (missing -F files,
+  // unsupported flags). Keeps the node's identity and non-HTTP bits (name, notes,
+  // captures); everything the cURL defines is overwritten.
+  async function applyCurlToRequest(node, req, parsed) {
+    const fields = _curlRequestFields(req);
+    requestEditor.load({ ...node, ...fields });
+    // updateNode merges the delta, so the stored node becomes the overlaid node
+    // (old method/url/params/headers/body/auth replaced).
+    treeView.updateNode(node.id, fields, { silent: true });
+    if (_selectedNode?.id === node.id) {
+      _selectedNode = { ..._selectedNode, ...fields };
+    }
+    _scheduleRequestSave();
+
+    // -F file fields reference local paths; warn only about ones not on disk.
+    const filePaths = collectFormFilePaths(parsed.collection);
+    if (filePaths.length) {
+      let missing = filePaths;
+      try {
+        missing =
+          (await window.wurl?.import?.file?.checkMissing?.(filePaths)) ??
+          filePaths;
+      } catch {
+        missing = filePaths;
+      }
+      warnMissingFormFiles(parsed, missing);
+    }
+
+    if (parsed.warnings?.length) {
+      Notifications.warning(
+        `${t("request.curlPaste.applied")} ${parsed.warnings.join(" ")}`,
+        { title: t("request.curlPaste.title"), duration: 0 },
+      );
+    } else {
+      Notifications.success(t("request.curlPaste.applied"));
+    }
+  }
 
   // In-flight executions, one record per running request. Requests run
   // concurrently, so each execution carries its own cancel flag, request
@@ -3265,6 +3359,59 @@ function _findNodeById(items, id) {
 }
 
 /**
+ * Is a request node "blank/new" — i.e. has no HTTP definition a user would mind
+ * losing? Used to decide whether pasting a cURL command into the URL bar can
+ * rewrite the request silently or must confirm first. Method is ignored (a fresh
+ * request defaults to GET); name/notes/captures are preserved by the rewrite so
+ * they don't count.
+ */
+function _isBlankRequestNode(node) {
+  if (!node) return true;
+  const has = (s) => String(s ?? "").trim() !== "";
+  if (has(node.url)) return false;
+  if ((node.params ?? []).some((p) => has(p.name) || has(p.value)))
+    return false;
+  if ((node.headers ?? []).some((h) => has(h.name) || has(h.value)))
+    return false;
+  if (node.bodyType && node.bodyType !== "no-body") {
+    if (has(node.bodyText)) return false;
+    if ((node.bodyFormRows ?? []).length > 0) return false;
+    if (has(node.bodyFilePath)) return false;
+    if (has(node.bodyGraphql?.query)) return false;
+  }
+  if (node.authEnabled && node.authType && node.authType !== "none")
+    return false;
+  return true;
+}
+
+/**
+ * Build the field set that replaces a request's HTTP definition from a parsed
+ * cURL request node. Sets the active fields and clears the inactive body/auth
+ * ones so no stale configuration lingers ("delete existing first"). Identity and
+ * non-HTTP fields (name, notes, captures) are not touched here — the caller keeps
+ * them by overlaying this onto the existing node.
+ */
+function _curlRequestFields(req) {
+  return {
+    protocol: "http",
+    method: req.method ?? "GET",
+    url: req.url ?? "",
+    params: req.params ?? [],
+    pathParams: [],
+    headers: req.headers ?? [],
+    bodyType: req.bodyType ?? "no-body",
+    bodyText: req.bodyText ?? "",
+    bodyFormRows: req.bodyFormRows ?? [],
+    bodyFilePath: req.bodyFilePath ?? "",
+    bodyGraphql: req.bodyGraphql ?? { query: "", variables: "" },
+    authEnabled: req.authEnabled ?? false,
+    authType: req.authType ?? "none",
+    authBasic: req.authBasic ?? { username: "", password: "" },
+    authBearer: req.authBearer ?? { token: "" },
+  };
+}
+
+/**
  * Resolve and execute a request tree node using the given variable context.
  * Used by the "Run immediately before" refresh mode on request-output functions.
  * Returns { body, headers, status }. On failure returns empty values rather than throwing.
@@ -3669,6 +3816,51 @@ async function handleImport() {
     return;
   }
 
+  await applyImportedCollection(parsed);
+}
+
+// Import a single request from a pasted cURL command. Parses the text and, on
+// success, appends it as a new collection via the same persistence path as a
+// file import. Returns true when the import was saved (so CurlImportModal
+// closes) and false when it failed (the modal stays open). Malformed input is
+// reported via a notification rather than being silently dropped.
+async function handleCurlImport(text) {
+  let parsed;
+  try {
+    parsed = parseCurl(text);
+  } catch (err) {
+    Notifications.error(
+      t("app.importFailed", { message: String(err.message ?? err) }),
+      { title: t("app.importTitle") },
+    );
+    return false;
+  }
+
+  // A cURL `-F` field references a local file path. Warn only about paths that
+  // aren't on disk — an existing file is read at send time, so there's nothing
+  // to re-attach. The existence check lives in the main process (the renderer is
+  // sandboxed), so it happens here rather than in the synchronous parser.
+  const filePaths = collectFormFilePaths(parsed.collection);
+  if (filePaths.length) {
+    let missing = filePaths;
+    try {
+      missing =
+        (await window.wurl?.import?.file?.checkMissing?.(filePaths)) ??
+        filePaths;
+    } catch {
+      missing = filePaths; // can't verify → warn about all, as before
+    }
+    warnMissingFormFiles(parsed, missing);
+  }
+
+  return applyImportedCollection(parsed);
+}
+
+// Append a parsed import — `{ collection, variables, warnings }` from any
+// importer — to the active workspace and persist it. Shared by file import
+// (`handleImport`) and cURL paste (`handleCurlImport`). Returns true when the
+// write succeeded, false otherwise.
+async function applyImportedCollection(parsed) {
   const { collection, variables } = parsed;
   const activeId = currentColls.activeCollectionId;
   const newItems = [...(treeView?.getItems() ?? []), collection];
@@ -3699,7 +3891,7 @@ async function handleImport() {
     saved = await saveCollectionData(activeId, newItems);
   }
   // The write-error sink already surfaced the failure; don't report success.
-  if (!saved) return;
+  if (!saved) return false;
 
   const count = _countRequests(collection);
   const base = `"${collection.name}" imported with ${count} request${count !== 1 ? "s" : ""}.`;
@@ -3714,4 +3906,5 @@ async function handleImport() {
   } else {
     Notifications.success(base);
   }
+  return true;
 }

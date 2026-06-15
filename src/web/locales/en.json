@@ -215,6 +215,7 @@
     "themeEditor": "Theme Editor…",
     "file": "File",
     "importCollection": "Import Collection…",
+    "importCollectionTooltip": "Import a collection from a file — Postman & Insomnia (.json/.yaml), OpenAPI 3 / Swagger 2.0 (.json/.yaml), or HAR 1.2 (.har)",
     "exportAll": "Export All Collections…",
     "createBackup": "Create Backup…",
     "restoreBackup": "Restore Backup…",
@@ -226,7 +227,8 @@
     "help": "Help",
     "userGuide": "wurl User Guide",
     "revealLogs": "Reveal Logs",
-    "exportDiagnostics": "Export Diagnostics…"
+    "exportDiagnostics": "Export Diagnostics…",
+    "importCurl": "Import from cURL…"
   },
   "settings": {
     "title": "Settings",
@@ -468,6 +470,13 @@
       "secretOn": "Secret (encrypted at rest)",
       "secretOff": "Mark captured variable secret",
       "hint": "After a successful (2xx) response, extract a value and write it into a variable scope so later requests can use it as {{name}}."
+    },
+    "curlPaste": {
+      "title": "Replace request from cURL",
+      "confirm": "Replace this request with the pasted cURL command? Its method, URL, parameters, headers, body and authentication will be overwritten.",
+      "replace": "Replace",
+      "applied": "Request updated from the cURL command.",
+      "failed": "Couldn't read the cURL command: {message}"
     }
   },
   "response": {
@@ -921,5 +930,13 @@
       "error": "Error",
       "info": "Info"
     }
+  },
+  "curlImport": {
+    "title": "Import from cURL",
+    "intro": "Paste a cURL command — for example a browser's “Copy as cURL” or a snippet from API docs — and wurl turns it into a request.",
+    "aria": "cURL command",
+    "placeholder": "curl https://api.example.com/users \\\n  -H 'Authorization: Bearer ...' \\\n  -d '{\"name\":\"Ada\"}'",
+    "submit": "Import",
+    "empty": "Paste a cURL command to import."
   }
 }

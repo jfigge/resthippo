@@ -215,6 +215,7 @@
     "themeEditor": "テーマエディタ…",
     "file": "ファイル",
     "importCollection": "コレクションをインポート…",
+    "importCollectionTooltip": "ファイルからコレクションをインポート — Postman・Insomnia（.json/.yaml）、OpenAPI 3 / Swagger 2.0（.json/.yaml）、HAR 1.2（.har）",
     "exportAll": "すべてのコレクションをエクスポート…",
     "createBackup": "バックアップを作成…",
     "restoreBackup": "バックアップを復元…",
@@ -226,7 +227,8 @@
     "help": "ヘルプ",
     "userGuide": "wurl ユーザーガイド",
     "revealLogs": "ログを表示",
-    "exportDiagnostics": "診断情報をエクスポート…"
+    "exportDiagnostics": "診断情報をエクスポート…",
+    "importCurl": "cURL からインポート…"
   },
   "settings": {
     "title": "設定",
@@ -468,6 +470,13 @@
       "secretOn": "シークレット（保存時に暗号化）",
       "secretOff": "キャプチャした変数をシークレットに設定",
       "hint": "成功した (2xx) レスポンスの後に値を抽出して変数スコープに書き込むと、以降のリクエストで {{name}} として使用できます。"
+    },
+    "curlPaste": {
+      "title": "cURL でリクエストを置き換え",
+      "confirm": "貼り付けた cURL コマンドでこのリクエストを置き換えますか？メソッド、URL、パラメータ、ヘッダー、ボディ、認証が上書きされます。",
+      "replace": "置き換え",
+      "applied": "cURL コマンドからリクエストを更新しました。",
+      "failed": "cURL コマンドを読み取れませんでした: {message}"
     }
   },
   "response": {
@@ -920,5 +929,13 @@
       "error": "エラー",
       "info": "情報"
     }
+  },
+  "curlImport": {
+    "title": "cURL からインポート",
+    "intro": "cURL コマンドを貼り付けてください。たとえばブラウザの「cURL としてコピー」や API ドキュメントのスニペットなどです。wurl がそれをリクエストに変換します。",
+    "aria": "cURL コマンド",
+    "placeholder": "curl https://api.example.com/users \\\n  -H 'Authorization: Bearer ...' \\\n  -d '{\"name\":\"Ada\"}'",
+    "submit": "インポート",
+    "empty": "インポートする cURL コマンドを貼り付けてください。"
   }
 }

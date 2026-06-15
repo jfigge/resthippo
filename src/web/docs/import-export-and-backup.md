@@ -31,16 +31,48 @@ so exports are safe to share. wurl then opens a native save dialog.
 
 ## Importing
 
-To import, open the import dialog and pick a file. wurl recognizes:
+Open **File → Import Collection…** and pick a file. wurl recognizes the format
+automatically:
 
-- **Postman** collections
-- **Insomnia** exports
-- **OpenAPI 3** specifications
-- **cURL** commands
-- **HAR 1.2** files
+- **Postman** collections (`.json`)
+- **Insomnia** exports (`.json` / `.yaml`)
+- **OpenAPI 3** / Swagger 2.0 specifications (`.json` / `.yaml`)
+- **HAR 1.2** captures (`.har`)
 
-It reconstructs the folder structure, requests, headers, auth, and variables,
-and adds them to your workspace.
+The file picker filters to these formats — `.json`, `.yaml` / `.yml`, and
+`.har`. On macOS, hovering the **Import Collection…** menu item also shows this
+list as a tooltip (native menu tooltips are a macOS-only feature, so on Windows
+and Linux this page is the reference).
+
+It reconstructs the folder structure, requests, headers, query, auth, and
+variables, and adds them to your workspace as a new collection. A **HAR**
+capture (a browser's "Save all as HAR", or a proxy export) is imported request
+by request — grouped into a folder per host — so you can replay real traffic;
+only the requests are imported, not the recorded responses.
+
+### Import from cURL
+
+To pull in a single request from a terminal, API docs, or a browser's **Copy as
+cURL**, choose **File → Import from cURL…** and paste the command:
+
+```
+curl https://api.example.com/users \
+  -H 'Authorization: Bearer ...' \
+  -d '{"name":"Ada"}'
+```
+
+wurl parses the method, URL and query, headers, body (`-d` / `--data*`,
+`--data-urlencode`, and `-F` form fields), and authentication — a `-u user:pass`
+or an `Authorization: Bearer`/`Basic` header is lifted into the request's **Auth**
+tab rather than left as a raw header. The result is added as a new collection,
+ready to send.
+
+> **Tip — paste a cURL straight onto a request.** You can also paste a `curl …`
+> command directly into a request's **URL bar**. wurl recognizes it and rewrites
+> that request to match the command (method, URL, params, headers, body, auth),
+> instead of dropping the raw text into the field. A brand-new, empty request is
+> updated in place; if the request already has content, wurl asks you to confirm
+> before overwriting it.
 
 ## Backup & restore
 

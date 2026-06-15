@@ -3098,7 +3098,7 @@ ipcMain.handle("import:file:open", async () => {
     filters: [
       {
         name: m("dialog.apiCollectionsFilter", "API Collections"),
-        extensions: ["json", "yaml", "yml"],
+        extensions: ["json", "yaml", "yml", "har"],
       },
     ],
     properties: ["openFile"],
@@ -3106,6 +3106,29 @@ ipcMain.handle("import:file:open", async () => {
   if (result.canceled || result.filePaths.length === 0) return null;
   const content = await fs.promises.readFile(result.filePaths[0], "utf-8");
   return { filename: path.basename(result.filePaths[0]), content };
+});
+
+// Report which of the given paths are NOT readable files on disk. The cURL
+// importer (`-F name=@file`) references local file paths the renderer cannot
+// stat from its sandbox; it uses this to warn only about files that are actually
+// missing — an existing file is read at send time, so there's nothing to
+// re-attach. Returns the subset of `paths` that don't resolve to a file.
+ipcMain.handle("import:files:check", async (_event, paths) => {
+  if (!Array.isArray(paths)) return [];
+  const missing = [];
+  for (const p of paths) {
+    if (typeof p !== "string" || !p) {
+      missing.push(p);
+      continue;
+    }
+    try {
+      const st = await fs.promises.stat(p);
+      if (!st.isFile()) missing.push(p);
+    } catch {
+      missing.push(p); // not found / unreadable
+    }
+  }
+  return missing;
 });
 
 // ─── Certificate file picker (mTLS / custom CA settings) ──────────────────────
@@ -3796,10 +3819,23 @@ function buildMenu() {
       submenu: [
         {
           label: m("menu.importCollection", "Import Collection…"),
+          // toolTip is macOS-only (silently ignored on Windows/Linux); the
+          // same format list is documented in the user guide for those users.
+          toolTip: m(
+            "menu.importCollectionTooltip",
+            "Import a collection from a file — Postman & Insomnia (.json/.yaml), OpenAPI 3 / Swagger 2.0 (.json/.yaml), or HAR 1.2 (.har)",
+          ),
           accelerator: "CmdOrCtrl+Shift+I",
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
               _mainWin.webContents.send("menu:import");
+          },
+        },
+        {
+          label: m("menu.importCurl", "Import from cURL…"),
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:import-curl");
           },
         },
         {

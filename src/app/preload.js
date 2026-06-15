@@ -22,6 +22,10 @@ ipcRenderer.on("menu:import", () => {
   window.dispatchEvent(new CustomEvent("wurl:import-requested"));
 });
 
+ipcRenderer.on("menu:import-curl", () => {
+  window.dispatchEvent(new CustomEvent("wurl:import-curl-requested"));
+});
+
 // Edit-menu Undo/Redo (and their ⌘Z/⌘⇧Z accelerators) are routed here instead
 // of using native roles, so the focused multi-line code editor can run its own
 // snapshot undo/redo; app.js falls back to document.execCommand for plain inputs.
@@ -481,6 +485,14 @@ contextBridge.exposeInMainWorld("wurl", {
   import: {
     file: {
       open: () => ipcRenderer.invoke("import:file:open"),
+      /**
+       * Given a list of local file paths, return the subset that are not
+       * readable files on disk. Used by the cURL importer to warn only about
+       * `-F` file fields whose path is actually missing.
+       * @param {string[]} paths
+       * @returns {Promise<string[]>}
+       */
+      checkMissing: (paths) => ipcRenderer.invoke("import:files:check", paths),
     },
   },
 

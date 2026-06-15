@@ -71,6 +71,77 @@ export function buildAuth(d) {
   return { authEnabled: false, authType: "none" };
 }
 
+/**
+ * Map an `Authorization` header value onto a neutral auth descriptor for
+ * `buildAuth`, or null if the scheme isn't one wurl surfaces in its Auth tab.
+ * Shared by the cURL and HAR importers so a captured `Authorization: Bearer …`
+ * / `Basic …` becomes editable auth rather than an opaque header. Anything else
+ * (Digest, Negotiate, AWS sigv4, …) returns null so the caller keeps it as a
+ * plain header.
+ *
+ * @param {string} value  Raw header value (e.g. "Bearer abc123")
+ * @returns {object|null}  Neutral descriptor for `buildAuth`, or null
+ */
+export function authFromHeaderValue(value) {
+  if (typeof value !== "string") return null;
+  const m = value.match(/^\s*(\S+)\s+([\s\S]+)$/);
+  if (!m) return null;
+  const scheme = m[1].toLowerCase();
+  const rest = m[2].trim();
+  if (scheme === "bearer") return { type: "bearer", token: rest };
+  if (scheme === "basic") {
+    let decoded;
+    try {
+      decoded = atob(rest);
+    } catch {
+      return null; // not valid base64 — leave it as a header
+    }
+    const idx = decoded.indexOf(":");
+    return {
+      type: "basic",
+      username: idx >= 0 ? decoded.slice(0, idx) : decoded,
+      password: idx >= 0 ? decoded.slice(idx + 1) : "",
+    };
+  }
+  return null;
+}
+
+/**
+ * Split a URL into its base (everything before `?`) and the canonical query-param
+ * rows parsed from the query string. wurl stores the base URL and the query rows
+ * separately, then re-assembles them at send time (`buildRequestPayload`); a URL
+ * that kept its `?query` *and* repeated it in `params` would be sent twice, so
+ * importers strip the query here. The fragment (`#…`, never sent) is dropped.
+ *
+ * @param {string} rawUrl
+ * @returns {{ base: string, params: { enabled: boolean, name: string, value: string }[] }}
+ */
+export function splitUrlQuery(rawUrl) {
+  const url = rawUrl ?? "";
+  const qIdx = url.indexOf("?");
+  if (qIdx < 0) return { base: url, params: [] };
+  const base = url.slice(0, qIdx);
+  let query = url.slice(qIdx + 1);
+  const hashIdx = query.indexOf("#");
+  if (hashIdx >= 0) query = query.slice(0, hashIdx);
+  return { base, params: parseUrlencodedRows(query) };
+}
+
+/**
+ * Parse an `application/x-www-form-urlencoded` string (a query string or a form
+ * body) into canonical `{ enabled, name, value }` rows. `URLSearchParams` owns
+ * the percent / `+` decoding so values round-trip through `buildRequestPayload`'s
+ * re-encoding. Shared by the cURL and HAR importers.
+ *
+ * @param {string} text
+ * @returns {{ enabled: boolean, name: string, value: string }[]}
+ */
+export function parseUrlencodedRows(text) {
+  return [...new URLSearchParams(text ?? "").entries()].map(
+    ([name, value]) => ({ enabled: true, name, value }),
+  );
+}
+
 /** The canonical "no body" shape. */
 export function noBody() {
   return { bodyType: "no-body" };

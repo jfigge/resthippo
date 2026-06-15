@@ -77,6 +77,7 @@ export class VariablePillEditor {
   #placeholder;
   #onInput;
   #onEnter;
+  #onPasteHook;
   #getContext;
   #getItems;
   #ensureResponseCaches;
@@ -112,10 +113,15 @@ export class VariablePillEditor {
     ensureResponseCaches = null,
     onInput,
     onEnter,
+    onPaste,
   } = {}) {
     this.#placeholder = placeholder;
     this.#onInput = onInput ?? null;
     this.#onEnter = onEnter ?? null;
+    // Optional interceptor: given the pasted plain text, return true to signal
+    // the paste was fully handled (so the editor skips its own insertion). Used
+    // by the URL bar to catch a pasted cURL command (request-editor.js).
+    this.#onPasteHook = onPaste ?? null;
     this.#getContext = getContext;
     this.#getItems = getItems;
     this.#ensureResponseCaches = ensureResponseCaches;
@@ -1015,6 +1021,9 @@ export class VariablePillEditor {
     e.preventDefault();
     const text = e.clipboardData?.getData("text/plain") ?? "";
     if (!text) return;
+    // Give an interceptor first refusal (e.g. the URL bar catching a pasted
+    // cURL command). When it claims the paste, don't also insert the raw text.
+    if (this.#onPasteHook?.(text)) return;
     this.#insertTextAtCaret(text);
   }
 

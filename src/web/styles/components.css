@@ -3706,6 +3706,37 @@ html.show-method-icons .req-method-menu-item-label::before {
   max-width: 480px;
 }
 
+.curl-import-modal {
+  min-width: 520px;
+  max-width: 640px;
+}
+
+.curl-import-textarea {
+  width: 100%;
+  min-height: 160px;
+  resize: vertical;
+  padding: var(--space-3);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-1);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  white-space: pre;
+  overflow: auto;
+}
+
+.curl-import-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.curl-import-textarea::placeholder {
+  color: var(--color-subtext);
+  opacity: 0.7;
+}
+
 .backup-body {
   display: flex;
   flex-direction: column;

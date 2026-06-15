@@ -215,6 +215,7 @@
     "themeEditor": "主题编辑器…",
     "file": "文件",
     "importCollection": "导入集合…",
+    "importCollectionTooltip": "从文件导入集合 — Postman 和 Insomnia（.json/.yaml）、OpenAPI 3 / Swagger 2.0（.json/.yaml）或 HAR 1.2（.har）",
     "exportAll": "导出所有集合…",
     "createBackup": "创建备份…",
     "restoreBackup": "恢复备份…",
@@ -226,7 +227,8 @@
     "help": "帮助",
     "userGuide": "wurl 用户指南",
     "revealLogs": "显示日志",
-    "exportDiagnostics": "导出诊断信息…"
+    "exportDiagnostics": "导出诊断信息…",
+    "importCurl": "从 cURL 导入…"
   },
   "settings": {
     "title": "设置",
@@ -468,6 +470,13 @@
       "secretOn": "机密（静态加密）",
       "secretOff": "将捕获的变量标记为机密",
       "hint": "在收到成功（2xx）响应后，提取一个值并写入变量作用域，以便后续请求可将其用作 {{name}}。"
+    },
+    "curlPaste": {
+      "title": "用 cURL 替换请求",
+      "confirm": "用粘贴的 cURL 命令替换此请求？其方法、URL、参数、请求头、请求体和认证都将被覆盖。",
+      "replace": "替换",
+      "applied": "已根据 cURL 命令更新请求。",
+      "failed": "无法读取 cURL 命令：{message}"
     }
   },
   "response": {
@@ -920,5 +929,13 @@
       "error": "错误",
       "info": "信息"
     }
+  },
+  "curlImport": {
+    "title": "从 cURL 导入",
+    "intro": "粘贴一条 cURL 命令——例如浏览器的“以 cURL 复制”或 API 文档中的片段——wurl 会将其转换为一个请求。",
+    "aria": "cURL 命令",
+    "placeholder": "curl https://api.example.com/users \\\n  -H 'Authorization: Bearer ...' \\\n  -d '{\"name\":\"Ada\"}'",
+    "submit": "导入",
+    "empty": "粘贴要导入的 cURL 命令。"
   }
 }

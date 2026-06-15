@@ -215,6 +215,7 @@
     "themeEditor": "Editor de temas…",
     "file": "Archivo",
     "importCollection": "Importar colección…",
+    "importCollectionTooltip": "Importar una colección desde un archivo: Postman e Insomnia (.json/.yaml), OpenAPI 3 / Swagger 2.0 (.json/.yaml) o HAR 1.2 (.har)",
     "exportAll": "Exportar todas las colecciones…",
     "createBackup": "Crear copia de seguridad…",
     "restoreBackup": "Restaurar copia de seguridad…",
@@ -226,7 +227,8 @@
     "help": "Ayuda",
     "userGuide": "Guía de usuario de wurl",
     "revealLogs": "Mostrar registros",
-    "exportDiagnostics": "Exportar diagnóstico…"
+    "exportDiagnostics": "Exportar diagnóstico…",
+    "importCurl": "Importar desde cURL…"
   },
   "settings": {
     "title": "Ajustes",
@@ -468,6 +470,13 @@
       "secretOn": "Secreto (cifrado en reposo)",
       "secretOff": "Marcar la variable capturada como secreta",
       "hint": "Tras una respuesta correcta (2xx), extrae un valor y escríbelo en un ámbito de variables para que las solicitudes posteriores puedan usarlo como {{name}}."
+    },
+    "curlPaste": {
+      "title": "Reemplazar la petición desde cURL",
+      "confirm": "¿Reemplazar esta petición con el comando cURL pegado? Se sobrescribirán su método, URL, parámetros, cabeceras, cuerpo y autenticación.",
+      "replace": "Reemplazar",
+      "applied": "Petición actualizada a partir del comando cURL.",
+      "failed": "No se pudo leer el comando cURL: {message}"
     }
   },
   "response": {
@@ -921,5 +930,13 @@
       "error": "Error",
       "info": "Información"
     }
+  },
+  "curlImport": {
+    "title": "Importar desde cURL",
+    "intro": "Pega un comando cURL —por ejemplo, «Copiar como cURL» de un navegador o un fragmento de la documentación de una API— y wurl lo convierte en una petición.",
+    "aria": "Comando cURL",
+    "placeholder": "curl https://api.example.com/users \\\n  -H 'Authorization: Bearer ...' \\\n  -d '{\"name\":\"Ada\"}'",
+    "submit": "Importar",
+    "empty": "Pega un comando cURL para importar."
   }
 }

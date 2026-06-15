@@ -863,6 +863,7 @@ export class RequestEditor {
         this.#updateUrlPreview();
       },
       onEnter: () => this.#sendRequest(),
+      onPaste: (text) => this.#maybeHandleCurlPaste(text),
     });
     this.#urlPillEditor = urlEditor;
 
@@ -3939,6 +3940,29 @@ export class RequestEditor {
     this.#tabContent.querySelectorAll(".req-tab-pane").forEach((pane) => {
       pane.hidden = pane.id !== `req-tab-${tabId}`;
     });
+  }
+
+  /**
+   * Paste interceptor for the URL bar: when the pasted text is a cURL command,
+   * hand it to app.js (which parses it and rewrites the selected request, with a
+   * confirm if the request isn't blank) instead of dropping the raw command into
+   * the URL field. Returns true when claimed so the editor skips its own insert.
+   *
+   * Only the start-of-string `curl` token is checked here — a real URL never
+   * begins with it — keeping the decision synchronous; the actual parse +
+   * confirm + apply happens asynchronously in app.js.
+   */
+  #maybeHandleCurlPaste(text) {
+    if (!this.#currentNodeId) return false; // nothing selected to rewrite
+    if (this.#protocol !== "http") return false; // WebSocket bar: leave as-is
+    if (!/^\s*\$?\s*curl[\s\\]/i.test(text)) return false;
+    window.dispatchEvent(
+      new CustomEvent("wurl:curl-pasted", {
+        detail: { id: this.#currentNodeId, text },
+        bubbles: true,
+      }),
+    );
+    return true;
   }
 
   // ── Event dispatch ────────────────────────────────────────────────────────

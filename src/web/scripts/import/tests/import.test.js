@@ -17,15 +17,24 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { parseImport } from "../index.js";
+import {
+  parseImport,
+  parseCurl,
+  collectFormFilePaths,
+  warnMissingFormFiles,
+} from "../index.js";
 import { parsePostman } from "../postman.js";
 import { parseInsomnia, parseInsomniaV5 } from "../insomnia.js";
 import { parseOpenApi } from "../openapi.js";
+import { parseHar } from "../har.js";
+import { tokenizeCurl } from "../curl.js";
 import {
   buildAuth,
   graphqlBody,
   normalizeGraphqlVariables,
   formBody,
+  authFromHeaderValue,
+  splitUrlQuery,
 } from "../shape.js";
 import { exportToPostman } from "../../export/postman.js";
 import { exportToInsomnia } from "../../export/insomnia.js";
@@ -1023,4 +1032,351 @@ test("parseImport surfaces sub-parser warnings on the uniform return", () => {
   const { warnings } = parseImport(JSON.stringify(data));
   assert.equal(warnings.length, 1);
   assert.match(warnings[0], /Skipped 1 additional Insomnia environment;/);
+});
+
+// ── Shared import helpers (shape.js) ─────────────────────────────────────────
+
+test("shape.authFromHeaderValue: maps Bearer/Basic, ignores other schemes", () => {
+  assert.deepEqual(authFromHeaderValue("Bearer tok-123"), {
+    type: "bearer",
+    token: "tok-123",
+  });
+  // Basic is base64(user:pass) → decoded username/password.
+  const basic = `Basic ${btoa("alice:hunter2")}`;
+  assert.deepEqual(authFromHeaderValue(basic), {
+    type: "basic",
+    username: "alice",
+    password: "hunter2",
+  });
+  // A password may itself contain ":"; only the first colon splits.
+  assert.deepEqual(authFromHeaderValue(`Basic ${btoa("u:a:b")}`), {
+    type: "basic",
+    username: "u",
+    password: "a:b",
+  });
+  assert.equal(authFromHeaderValue("Digest realm=x"), null);
+  assert.equal(authFromHeaderValue("Basic !!!not-base64"), null);
+  assert.equal(authFromHeaderValue(""), null);
+  assert.equal(authFromHeaderValue(undefined), null);
+});
+
+test("shape.splitUrlQuery: strips query into rows, drops fragment", () => {
+  assert.deepEqual(splitUrlQuery("https://x.test/p?a=1&b=2#frag"), {
+    base: "https://x.test/p",
+    params: [
+      { enabled: true, name: "a", value: "1" },
+      { enabled: true, name: "b", value: "2" },
+    ],
+  });
+  assert.deepEqual(splitUrlQuery("https://x.test/p"), {
+    base: "https://x.test/p",
+    params: [],
+  });
+});
+
+// ── cURL import ──────────────────────────────────────────────────────────────
+
+test("curl.tokenizeCurl: honours quotes and \\-newline continuations", () => {
+  const cmd = "curl 'https://a.test' \\\n  -H \"X-A: 1\" \\\n  -d 'a b'";
+  assert.deepEqual(tokenizeCurl(cmd), [
+    "curl",
+    "https://a.test",
+    "-H",
+    "X-A: 1",
+    "-d",
+    "a b",
+  ]);
+});
+
+test("curl: representative command (method + headers + JSON -d) maps correctly", () => {
+  const { collection, warnings } = parseCurl(
+    `curl -X POST 'https://api.example.com/v1/users?team=eng' \\
+       -H 'Content-Type: application/json' \\
+       -H 'Accept: application/json' \\
+       -d '{"name":"Ada"}'`,
+  );
+  assert.equal(collection.name, "Imported from cURL");
+  assert.equal(collection.children.length, 1);
+  const req = collection.children[0];
+
+  assert.equal(req.type, "request");
+  assert.equal(req.method, "POST");
+  // Query is stripped off the URL and lives in params (no double-send).
+  assert.equal(req.url, "https://api.example.com/v1/users");
+  assert.deepEqual(req.params, [{ enabled: true, name: "team", value: "eng" }]);
+  assert.deepEqual(req.headers, [
+    { enabled: true, name: "Content-Type", value: "application/json" },
+    { enabled: true, name: "Accept", value: "application/json" },
+  ]);
+  assert.equal(req.bodyType, "json");
+  assert.equal(req.bodyText, '{"name":"Ada"}');
+  assert.equal(warnings.length, 0);
+});
+
+test("curl: -u maps to basic auth; method defaults to GET", () => {
+  const req = parseCurl("curl -u alice:s3cr3t https://api.test/me").collection
+    .children[0];
+  assert.equal(req.method, "GET");
+  assert.equal(req.authType, "basic");
+  assert.deepEqual(req.authBasic, { username: "alice", password: "s3cr3t" });
+});
+
+test("curl: an Authorization: Bearer header becomes bearer auth, not a header", () => {
+  const req = parseCurl(
+    "curl https://api.test/me -H 'Authorization: Bearer abc.def'",
+  ).collection.children[0];
+  assert.equal(req.authType, "bearer");
+  assert.deepEqual(req.authBearer, { token: "abc.def" });
+  assert.deepEqual(req.headers, []); // lifted out of the header list
+});
+
+test("curl: -F builds a form-data body with file rows (no warning from the parser)", () => {
+  // The parser only builds the rows; the "re-attach" warning is decided later by
+  // warnMissingFormFiles once the main process has checked the path on disk.
+  const { collection, warnings } = parseCurl(
+    "curl https://up.test/f -F field=value -F doc=@/tmp/report.pdf",
+  );
+  const req = collection.children[0];
+  assert.equal(req.method, "POST"); // a body implies POST
+  assert.equal(req.bodyType, "form-data");
+  assert.deepEqual(req.bodyFormRows[0], {
+    enabled: true,
+    name: "field",
+    value: "value",
+  });
+  assert.equal(req.bodyFormRows[1].kind, "file");
+  assert.equal(req.bodyFormRows[1].filePath, "/tmp/report.pdf");
+  assert.equal(req.bodyFormRows[1].fileName, "report.pdf");
+  assert.equal(warnings.length, 0);
+});
+
+test("curl: a -F file field without @ but with ;filename= is a file row", () => {
+  // wurl's own cURL export emits file fields as `name=path;type=…;filename=…`
+  // (no leading `@`); the `;filename=` attribute marks it as a file part.
+  const { collection, warnings } = parseCurl(
+    `curl --request POST --url 'http://127.0.0.1:8888/echo' \\
+       --form 'Text1=Example1' \\
+       --form 'Text2=' \\
+       --form 'File1=/Users/jason/Downloads/graphql.json;type=application/json;filename=graphql.json'`,
+  );
+  const req = collection.children[0];
+  assert.equal(req.bodyType, "form-data");
+  assert.deepEqual(req.bodyFormRows[0], {
+    enabled: true,
+    name: "Text1",
+    value: "Example1",
+  });
+  // An empty value stays a text field, not a file.
+  assert.deepEqual(req.bodyFormRows[1], {
+    enabled: true,
+    name: "Text2",
+    value: "",
+  });
+  const file = req.bodyFormRows[2];
+  assert.equal(file.kind, "file");
+  assert.equal(file.filePath, "/Users/jason/Downloads/graphql.json");
+  assert.equal(file.fileName, "graphql.json");
+  assert.equal(file.contentType, "application/json");
+  assert.equal(warnings.length, 0); // existence-checked later, not in the parser
+});
+
+test("import.collectFormFilePaths: gathers file-row paths from a parsed import", () => {
+  const parsed = parseCurl(
+    "curl https://up.test/f -F a=@/p/one.png -F b=text -F c=@/p/two.bin",
+  );
+  assert.deepEqual(collectFormFilePaths(parsed.collection), [
+    "/p/one.png",
+    "/p/two.bin",
+  ]);
+});
+
+test("import.warnMissingFormFiles: warns only for the file paths reported missing", () => {
+  const parsed = parseCurl(
+    "curl https://up.test/f -F here=@/exists/a.png -F gone=@/missing/b.png",
+  );
+  assert.equal(parsed.warnings.length, 0); // the parser itself never warns
+  warnMissingFormFiles(parsed, ["/missing/b.png"]);
+  assert.equal(parsed.warnings.length, 1);
+  assert.match(parsed.warnings[0], /\/missing\/b\.png/);
+  // The file that exists on disk produces no warning.
+  assert.ok(!parsed.warnings.some((w) => /\/exists\//.test(w)));
+});
+
+test("import.warnMissingFormFiles: empty missing set adds nothing", () => {
+  const parsed = parseCurl("curl https://up.test/f -F doc=@/p/x.pdf");
+  warnMissingFormFiles(parsed, []);
+  assert.equal(parsed.warnings.length, 0);
+});
+
+test("curl: -G sends -d data as query params, leaving no body", () => {
+  const req = parseCurl(
+    "curl -G https://search.test/q --data-urlencode 'q=hello world' -d limit=10",
+  ).collection.children[0];
+  assert.equal(req.method, "GET");
+  assert.equal(req.bodyType, "no-body");
+  assert.deepEqual(req.params, [
+    { enabled: true, name: "q", value: "hello world" },
+    { enabled: true, name: "limit", value: "10" },
+  ]);
+});
+
+test("curl: no Content-Type with key=value data → form-urlencoded; -X overrides default", () => {
+  const req = parseCurl("curl -X PUT https://api.test/x -d a=1 -d b=2")
+    .collection.children[0];
+  assert.equal(req.method, "PUT");
+  assert.equal(req.bodyType, "form-urlencoded");
+  assert.deepEqual(req.bodyFormRows, [
+    { enabled: true, name: "a", value: "1" },
+    { enabled: true, name: "b", value: "2" },
+  ]);
+});
+
+test("curl: bundled/attached short flags parse (-sS, -XPOST, -H attached)", () => {
+  const req = parseCurl("curl -sSL -XPOST -H'X-Test: y' https://api.test/x")
+    .collection.children[0];
+  assert.equal(req.method, "POST");
+  assert.deepEqual(req.headers, [
+    { enabled: true, name: "X-Test", value: "y" },
+  ]);
+});
+
+test("curl: -I implies a HEAD request", () => {
+  const req = parseCurl("curl -I https://api.test/ping").collection.children[0];
+  assert.equal(req.method, "HEAD");
+});
+
+test("curl: an unsupported value-bearing option is reported via warnings", () => {
+  const { warnings } = parseCurl("curl https://api.test/x --max-time 30");
+  assert.ok(warnings.some((w) => /max-time/.test(w)));
+});
+
+test("curl: a command with no URL throws", () => {
+  assert.throws(() => parseCurl("curl -X POST -H 'A: b'"), /No URL/);
+});
+
+// ── HAR import ───────────────────────────────────────────────────────────────
+
+const HAR_FIXTURE = {
+  log: {
+    version: "1.2",
+    creator: { name: "Firefox", version: "1" },
+    entries: [
+      {
+        request: {
+          method: "GET",
+          url: "https://api.example.com/users?page=2",
+          headers: [
+            { name: ":authority", value: "api.example.com" },
+            { name: "Accept", value: "application/json" },
+            { name: "Authorization", value: "Bearer har-tok" },
+          ],
+          queryString: [{ name: "page", value: "2" }],
+        },
+        response: { status: 200, content: { text: "ignored" } },
+      },
+      {
+        request: {
+          method: "POST",
+          url: "https://api.example.com/login",
+          headers: [{ name: "Content-Type", value: "application/json" }],
+          postData: { mimeType: "application/json", text: '{"u":"a"}' },
+        },
+        response: { status: 201 },
+      },
+    ],
+  },
+};
+
+test("har: detected via parseImport and entries become requests", () => {
+  const { collection } = parseImport(JSON.stringify(HAR_FIXTURE));
+  assert.equal(collection.name, "Imported from HAR");
+  // Single host → no wrapping folder; requests sit directly under the collection.
+  assert.equal(collection.children.length, 2);
+
+  const get = findRequest(collection, "GET /users");
+  assert.equal(get.method, "GET");
+  assert.equal(get.url, "https://api.example.com/users"); // query stripped
+  assert.deepEqual(get.params, [{ enabled: true, name: "page", value: "2" }]);
+  // Pseudo-header dropped; Authorization lifted to auth.
+  assert.deepEqual(get.headers, [
+    { enabled: true, name: "Accept", value: "application/json" },
+  ]);
+  assert.equal(get.authType, "bearer");
+  assert.deepEqual(get.authBearer, { token: "har-tok" });
+
+  const post = findRequest(collection, "POST /login");
+  assert.equal(post.bodyType, "json");
+  assert.equal(post.bodyText, '{"u":"a"}');
+});
+
+test("har: multiple hosts are grouped into a folder each", () => {
+  const data = {
+    log: {
+      entries: [
+        { request: { method: "GET", url: "https://a.test/x" } },
+        { request: { method: "GET", url: "https://b.test/y" } },
+        { request: { method: "GET", url: "https://a.test/z" } },
+      ],
+    },
+  };
+  const { collection } = parseHar(data);
+  assert.deepEqual(
+    collection.children.map((c) => ({ type: c.type, name: c.name })),
+    [
+      { type: "collection", name: "a.test" },
+      { type: "collection", name: "b.test" },
+    ],
+  );
+  assert.equal(collection.children[0].children.length, 2); // a.test has 2
+  assert.equal(collection.children[1].children.length, 1); // b.test has 1
+});
+
+test("har: form-urlencoded postData params become a form body", () => {
+  const data = {
+    log: {
+      entries: [
+        {
+          request: {
+            method: "POST",
+            url: "https://api.test/form",
+            headers: [],
+            postData: {
+              mimeType: "application/x-www-form-urlencoded",
+              params: [
+                { name: "grant_type", value: "password" },
+                { name: "user", value: "ada" },
+              ],
+            },
+          },
+        },
+      ],
+    },
+  };
+  const req = parseHar(data).collection.children[0];
+  assert.equal(req.bodyType, "form-urlencoded");
+  assert.deepEqual(req.bodyFormRows, [
+    { enabled: true, name: "grant_type", value: "password" },
+    { enabled: true, name: "user", value: "ada" },
+  ]);
+});
+
+test("har: entries with no request URL are skipped and reported", () => {
+  const data = {
+    log: {
+      entries: [
+        { request: { method: "GET", url: "https://a.test/x" } },
+        { request: { method: "GET" } }, // no url
+        {}, // no request
+      ],
+    },
+  };
+  const { collection, warnings } = parseHar(data);
+  assert.equal(collection.children.length, 1);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /Skipped 2 HAR entries/);
+});
+
+test("har: all importers (incl. har/curl) return a warnings array", () => {
+  assert.ok(Array.isArray(parseHar({ log: { entries: [] } }).warnings));
+  assert.ok(Array.isArray(parseCurl("curl https://a.test").warnings));
 });

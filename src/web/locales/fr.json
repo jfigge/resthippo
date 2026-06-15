@@ -215,6 +215,7 @@
     "themeEditor": "Éditeur de thèmes…",
     "file": "Fichier",
     "importCollection": "Importer une collection…",
+    "importCollectionTooltip": "Importer une collection depuis un fichier — Postman et Insomnia (.json/.yaml), OpenAPI 3 / Swagger 2.0 (.json/.yaml) ou HAR 1.2 (.har)",
     "exportAll": "Exporter toutes les collections…",
     "createBackup": "Créer une sauvegarde…",
     "restoreBackup": "Restaurer une sauvegarde…",
@@ -226,7 +227,8 @@
     "help": "Aide",
     "userGuide": "Guide de l'utilisateur wurl",
     "revealLogs": "Afficher les journaux",
-    "exportDiagnostics": "Exporter le diagnostic…"
+    "exportDiagnostics": "Exporter le diagnostic…",
+    "importCurl": "Importer depuis cURL…"
   },
   "settings": {
     "title": "Paramètres",
@@ -468,6 +470,13 @@
       "secretOn": "Secret (chiffré au repos)",
       "secretOff": "Marquer la variable capturée comme secrète",
       "hint": "Après une réponse réussie (2xx), extrayez une valeur et écrivez-la dans une portée de variables pour que les requêtes suivantes puissent l'utiliser comme {{name}}."
+    },
+    "curlPaste": {
+      "title": "Remplacer la requête par cURL",
+      "confirm": "Remplacer cette requête par la commande cURL collée ? Sa méthode, son URL, ses paramètres, ses en-têtes, son corps et son authentification seront écrasés.",
+      "replace": "Remplacer",
+      "applied": "Requête mise à jour à partir de la commande cURL.",
+      "failed": "Impossible de lire la commande cURL : {message}"
     }
   },
   "response": {
@@ -921,5 +930,13 @@
       "error": "Erreur",
       "info": "Info"
     }
+  },
+  "curlImport": {
+    "title": "Importer depuis cURL",
+    "intro": "Collez une commande cURL — par exemple « Copier comme cURL » d'un navigateur ou un extrait de documentation d'API — et wurl la transforme en requête.",
+    "aria": "Commande cURL",
+    "placeholder": "curl https://api.example.com/users \\\n  -H 'Authorization: Bearer ...' \\\n  -d '{\"name\":\"Ada\"}'",
+    "submit": "Importer",
+    "empty": "Collez une commande cURL à importer."
   }
 }

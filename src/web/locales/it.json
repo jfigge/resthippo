@@ -215,6 +215,7 @@
     "themeEditor": "Editor di temi…",
     "file": "File",
     "importCollection": "Importa raccolta…",
+    "importCollectionTooltip": "Importa una raccolta da un file — Postman e Insomnia (.json/.yaml), OpenAPI 3 / Swagger 2.0 (.json/.yaml) o HAR 1.2 (.har)",
     "exportAll": "Esporta tutte le raccolte…",
     "createBackup": "Crea backup…",
     "restoreBackup": "Ripristina backup…",
@@ -226,7 +227,8 @@
     "help": "Aiuto",
     "userGuide": "Guida utente di wurl",
     "revealLogs": "Mostra log",
-    "exportDiagnostics": "Esporta diagnostica…"
+    "exportDiagnostics": "Esporta diagnostica…",
+    "importCurl": "Importa da cURL…"
   },
   "settings": {
     "title": "Impostazioni",
@@ -468,6 +470,13 @@
       "secretOn": "Segreto (cifrato a riposo)",
       "secretOff": "Contrassegna la variabile acquisita come segreta",
       "hint": "Dopo una risposta riuscita (2xx), estrai un valore e scrivilo in un ambito di variabili così che le richieste successive possano usarlo come {{name}}."
+    },
+    "curlPaste": {
+      "title": "Sostituisci la richiesta da cURL",
+      "confirm": "Sostituire questa richiesta con il comando cURL incollato? Metodo, URL, parametri, intestazioni, corpo e autenticazione verranno sovrascritti.",
+      "replace": "Sostituisci",
+      "applied": "Richiesta aggiornata dal comando cURL.",
+      "failed": "Impossibile leggere il comando cURL: {message}"
     }
   },
   "response": {
@@ -921,5 +930,13 @@
       "error": "Errore",
       "info": "Info"
     }
+  },
+  "curlImport": {
+    "title": "Importa da cURL",
+    "intro": "Incolla un comando cURL — ad esempio «Copia come cURL» da un browser o uno snippet dalla documentazione di un'API — e wurl lo trasforma in una richiesta.",
+    "aria": "Comando cURL",
+    "placeholder": "curl https://api.example.com/users \\\n  -H 'Authorization: Bearer ...' \\\n  -d '{\"name\":\"Ada\"}'",
+    "submit": "Importa",
+    "empty": "Incolla un comando cURL da importare."
   }
 }
