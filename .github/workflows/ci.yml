@@ -58,13 +58,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # TEMPORARY (2026-06): macOS (10× minute multiplier) and Windows (2×)
+        # runners are commented out to conserve GitHub Actions minutes; only the
+        # 1× Linux packaging smoke-test runs. To RESTORE full cross-platform CI,
+        # uncomment the macos-latest and windows-latest entries below — and
+        # re-enable the Release workflow with `gh workflow enable Release`.
         include:
-          - os: macos-latest
-            target: build-mac
+          # - os: macos-latest
+          #   target: build-mac
           - os: ubuntu-latest
             target: build-linux
-          - os: windows-latest
-            target: build-win
+          # - os: windows-latest
+          #   target: build-win
     defaults:
       run:
         shell: bash
