@@ -24,18 +24,13 @@ import { t } from "../i18n.js";
 import { escapeHtml } from "../utils/html.js";
 import { deepClone } from "../utils/clone.js";
 import {
-  resolveString,
   buildFolderChain,
   collectTemplateVariables,
 } from "./variable-resolver.js";
 import { varsArrayToMap } from "./variable-shape.js";
-import {
-  BODY_CONTENT_TYPES,
-  NO_BODY_METHODS,
-  encodeBaseUrl,
-  applyPathParams,
-} from "./request-payload.js";
-import { extractOperationName } from "./graphql-schema.js";
+import { NO_BODY_METHODS } from "./request-payload.js";
+import { buildRequestModel, generateCode } from "./code-gen/index.js";
+import { CodeGenModal } from "./code-gen-modal.js";
 
 // SVG folder icons (Feather-style, stroke-based)
 const ICON_FOLDER_CLOSED = icon("folderClosed", {
@@ -700,7 +695,8 @@ export class TreeView {
               );
             },
             duplicate: () => this.#duplicateNode(node.id),
-            "generate-curl": () => this.#generateCurl(node),
+            "generate-code": () => this.#generateCode(node),
+            "copy-as-curl": () => this.#copyAsCurl(node),
             "clear-history": () =>
               window.dispatchEvent(
                 new CustomEvent("wurl:timeline-clear", {
@@ -740,9 +736,12 @@ export class TreeView {
             },
             { type: "separator" },
             { id: "duplicate", label: t("tree.menu.duplicate") },
-            // cURL has no WebSocket equivalent, so omit it for ws requests.
+            // Code generation has no WebSocket equivalent, so omit it for ws.
             ...(node.protocol !== "websocket"
-              ? [{ id: "generate-curl", label: t("tree.menu.generateCurl") }]
+              ? [
+                  { id: "generate-code", label: t("tree.menu.generateCode") },
+                  { id: "copy-as-curl", label: t("tree.menu.copyAsCurl") },
+                ]
               : []),
             // Requests carry run history; offer to clear it. danger:true wires
             // the two-click "Confirm?" safety net automatically.
@@ -1133,47 +1132,89 @@ export class TreeView {
   }
 
   /**
-   * Build a cURL command for a request, or for every request in a collection,
-   * write it to the clipboard, then show a confirmation dialog.
+   * Resolve the live node + variable-resolver context for code generation, or
+   * null when the node is not a request. The closure-captured `node` may be
+   * stale: updateNode() replaces the node object in #items immutably, so any
+   * field changes (bodyType, bodyFormRows, headers, params, …) made after the
+   * DOM row was rendered are invisible through the old reference — always look
+   * up the live version first.
    * @param {object} node
-   * @param {boolean} [force=false]  skip variable pre-flight check
+   * @returns {{ liveNode: object, context: object } | null}
    */
-  #generateCurl(node, force = false) {
-    // The closure-captured `node` may be stale: updateNode() replaces the node
-    // object in #items immutably, so any field changes (bodyType, bodyFormRows,
-    // headers, params, etc.) made after the DOM row was rendered are invisible
-    // through the old reference.  Always look up the live version first.
+  #codeGenInputs(node) {
     const liveNode = this.#findNode(this.#items, node.id) ?? node;
-
-    // ── Variable pre-flight check (single requests only) ─────────────────
-    // For collection nodes the variables vary per-child request, so the check
-    // is skipped to avoid an overwhelming list.
-    let prebuiltContext = null;
-    if (!force && liveNode.type === "request") {
-      prebuiltContext = {
+    if (liveNode.type !== "request") return null;
+    return {
+      liveNode,
+      context: {
         envVariables: this.#envVariables,
         folderChain: this.#resolverFolderChain(liveNode.id),
-      };
-      const allVars = collectTemplateVariables(
-        this.#gatherNodeTemplates(liveNode),
-        prebuiltContext,
-      );
-      const badCount = allVars.filter((v) => !v.found).length;
-      if (badCount > 0) {
-        PopupManager.warnVariables({
-          variables: allVars,
-          actionLabel: "Copy Anyway",
-          onAction: () => this.#generateCurl(node, true),
-        });
-        return;
-      }
+      },
+    };
+  }
+
+  /**
+   * Run the unresolved-variable pre-flight for a code-gen request. Returns true
+   * when it warned — the caller should bail and let the dialog's action button
+   * re-invoke with force=true.
+   * @param {object} liveNode
+   * @param {object} context
+   * @param {() => void} onAction  re-run the generation, skipping the check
+   * @returns {boolean}
+   */
+  #warnIfUnresolved(liveNode, context, onAction) {
+    const allVars = collectTemplateVariables(
+      this.#gatherNodeTemplates(liveNode),
+      context,
+    );
+    if (allVars.some((v) => !v.found)) {
+      PopupManager.warnVariables({ variables: allVars, onAction });
+      return true;
     }
+    return false;
+  }
 
-    const curl = this.#buildCurl(liveNode, prebuiltContext);
-    if (!curl) return;
+  /**
+   * Context-menu "Generate code…" — open the multi-target preview dialog for a
+   * request, after the unresolved-variable pre-flight.
+   * @param {object} node
+   * @param {boolean} [force=false]  skip the variable pre-flight check
+   */
+  #generateCode(node, force = false) {
+    const inputs = this.#codeGenInputs(node);
+    if (!inputs) return;
+    const { liveNode, context } = inputs;
+    if (
+      !force &&
+      this.#warnIfUnresolved(liveNode, context, () =>
+        this.#generateCode(node, true),
+      )
+    )
+      return;
+    CodeGenModal.open(buildRequestModel(liveNode, context));
+  }
 
+  /**
+   * Context-menu "Copy as cURL" — build the cURL snippet and write it straight
+   * to the clipboard (the fast path that skips the preview dialog).
+   * @param {object} node
+   * @param {boolean} [force=false]  skip the variable pre-flight check
+   */
+  #copyAsCurl(node, force = false) {
+    const inputs = this.#codeGenInputs(node);
+    if (!inputs) return;
+    const { liveNode, context } = inputs;
+    if (
+      !force &&
+      this.#warnIfUnresolved(liveNode, context, () =>
+        this.#copyAsCurl(node, true),
+      )
+    )
+      return;
+
+    const code = generateCode("curl", buildRequestModel(liveNode, context));
     navigator.clipboard
-      .writeText(curl)
+      .writeText(code)
       .then(() => {
         Notifications.success(t("tree.curlCopied"));
       })
@@ -1377,237 +1418,6 @@ export class TreeView {
   }
 
   /**
-   * Build a cURL command string for a request node, respecting all editor
-   * settings: enabled/disabled params, headers, body type, and auth.
-   * For a collection, concatenates the cURL of every contained request.
-   *
-   * Mirrors the assembly logic in RequestEditor.#sendRequest() so the
-   * generated command matches what the Send button actually transmits.
-   */
-  #buildCurl(node, prebuiltContext = null) {
-    if (node.type === "request") {
-      const method = node.method ?? "GET";
-
-      // ── Variable resolver for this node ─────────────────────────────────
-      // Reuse a pre-built context from #generateCurl when available so the
-      // folder-chain tree traversal is not repeated for the same node.
-      const nodeContext = prebuiltContext ?? {
-        envVariables: this.#envVariables,
-        folderChain: this.#resolverFolderChain(node.id),
-      };
-      const rv = (s) => resolveString(s ?? "", nodeContext);
-
-      // Substitute path params (resolved + encoded) before percent-encoding the
-      // base, mirroring the send path so the cURL URL matches what's sent.
-      const pathMap = new Map();
-      for (const pp of node.pathParams ?? []) {
-        const name = (pp.name ?? "").trim();
-        if (name) pathMap.set(name, encodeURIComponent(rv(pp.value ?? "")));
-      }
-      const baseUrl = encodeBaseUrl(
-        applyPathParams(rv(node.url || "<url>"), pathMap),
-      );
-
-      // ── 1. URL — append enabled, non-blank query parameters ──────────────
-      const params = Array.isArray(node.params) ? node.params : [];
-      const enabledParams = params.filter((p) => p.enabled && p.name.trim());
-      let finalUrl = baseUrl;
-      if (enabledParams.length) {
-        const qs = enabledParams
-          .map(
-            (p) =>
-              `${encodeURIComponent(rv(p.name))}=${encodeURIComponent(rv(p.value))}`,
-          )
-          .join("&");
-        finalUrl += (baseUrl.includes("?") ? "&" : "?") + qs;
-      }
-
-      // ── 2. Headers — enabled array rows (new format) or legacy object ─────
-      const headers = {};
-      if (Array.isArray(node.headers)) {
-        node.headers
-          .filter((h) => h.enabled && h.name.trim())
-          .forEach((h) => {
-            headers[rv(h.name).trim()] = rv(h.value);
-          });
-      } else if (node.headers && typeof node.headers === "object") {
-        // Legacy: plain key→value object (no enabled flag) — resolve each value
-        Object.entries(node.headers).forEach(([k, v]) => {
-          headers[rv(k)] = rv(v);
-        });
-      }
-
-      // ── 3. Auth — inject Authorization header when enabled ────────────────
-      const authEnabled = node.authEnabled ?? true;
-      const authType = node.authType ?? "none";
-      if (authEnabled && authType !== "none") {
-        switch (authType) {
-          case "basic": {
-            const username = rv(node.authBasic?.username ?? "");
-            const password = rv(node.authBasic?.password ?? "");
-            if (username || password) {
-              headers["Authorization"] =
-                `Basic ${btoa(`${username}:${password}`)}`;
-            }
-            break;
-          }
-          case "bearer":
-            if (node.authBearer?.token)
-              headers["Authorization"] = `Bearer ${rv(node.authBearer.token)}`;
-            break;
-          case "oauth2":
-            if (node.authOAuth2?.token)
-              headers["Authorization"] = `Bearer ${rv(node.authOAuth2.token)}`;
-            break;
-          // aws-iam: Signature v4 requires request-time signing — not representable as static curl
-        }
-      }
-
-      // ── 4. Body — match RequestEditor body assembly by type ───────────────
-      const bodyType = node.bodyType ?? "no-body";
-      let body = null; // string payload for --data (text bodies)
-      let bodyFilePath = null; // file path for --data-binary @path
-      // For form fields: array of already-encoded "name=value" strings (urlencoded)
-      // or {name, value} objects (multipart).  formStyle tells the assembler which.
-      let formPairs = null; // string[] — urlencoded, already percent-encoded
-      let formEntries = null; // {name,value}[] — multipart/form-data
-
-      if (!NO_BODY_METHODS.has(method)) {
-        switch (bodyType) {
-          case "form-data": {
-            // Use --form flags (curl sets Content-Type + boundary automatically).
-            // A file field becomes `name=path` (the leading `@` is intentionally
-            // omitted; curl's file-read marker is not emitted here).
-            const rows = (node.bodyFormRows ?? []).filter(
-              (r) => r.enabled && r.name.trim(),
-            );
-            if (rows.length > 0)
-              formEntries = rows.map((r) =>
-                r.kind === "file"
-                  ? {
-                      kind: "file",
-                      name: rv(r.name),
-                      file: r.filePath ?? "",
-                      contentType: r.contentType || "",
-                      filename: r.fileName || "",
-                    }
-                  : { kind: "text", name: rv(r.name), value: rv(r.value) },
-              );
-            break;
-          }
-          case "form-urlencoded": {
-            // Use one --data flag per field; URLSearchParams gives correct encoding.
-            const rows = (node.bodyFormRows ?? []).filter(
-              (r) => r.enabled && r.name.trim(),
-            );
-            if (rows.length > 0) {
-              const sp = new URLSearchParams();
-              rows.forEach((r) => sp.append(rv(r.name), rv(r.value)));
-              // Split "a=1&b=2" → ["a=1", "b=2"] — each token is already percent-encoded
-              formPairs = sp.toString().split("&").filter(Boolean);
-              if (!headers["Content-Type"])
-                headers["Content-Type"] = "application/x-www-form-urlencoded";
-            }
-            break;
-          }
-          case "json":
-          case "yaml":
-          case "xml":
-          case "text":
-            if (node.bodyText?.trim()) {
-              body = rv(node.bodyText);
-              if (!headers["Content-Type"])
-                headers["Content-Type"] = BODY_CONTENT_TYPES[bodyType];
-            }
-            break;
-          case "graphql": {
-            // Mirror the send path (request-payload.js): a standard GraphQL POST
-            // with a JSON { query, variables, operationName } body. {{var}} tokens
-            // resolve in both the query and the variables JSON before assembly.
-            const query = rv(node.bodyGraphql?.query ?? "");
-            const varsText = rv(node.bodyGraphql?.variables ?? "").trim();
-            if (query.trim() || varsText) {
-              const payload = { query };
-              if (varsText) {
-                try {
-                  payload.variables = JSON.parse(varsText);
-                } catch {
-                  // Invalid variables JSON — omit rather than emit a malformed
-                  // `variables` field; the editor flags it inline.
-                }
-              }
-              const operationName = extractOperationName(query);
-              if (operationName) payload.operationName = operationName;
-              body = JSON.stringify(payload);
-              if (!headers["Content-Type"])
-                headers["Content-Type"] = "application/json";
-            }
-            break;
-          }
-          case "file":
-            if (node.bodyFilePath) bodyFilePath = node.bodyFilePath;
-            break;
-          default:
-            break; // "no-body" — leave everything null
-        }
-      }
-
-      // ── 5. Assemble the curl command ──────────────────────────────────────
-      // Use long-form flags (--request, --url, --header, --data / --form) so
-      // the output matches common style guides and is easy to read and paste.
-      // Helper: single-quote a shell token, escaping embedded single quotes.
-      const sq = (s) => `'${String(s).replace(/'/g, "'\\''")}'`;
-
-      let cmd = `curl --request ${method}`;
-
-      // URL — single-quoted; placed right after the method
-      cmd += ` \\\n  --url ${sq(finalUrl)}`;
-
-      // Headers — one --header flag per entry
-      Object.entries(headers).forEach(([k, v]) => {
-        cmd += ` \\\n  --header ${sq(`${k}: ${v}`)}`;
-      });
-
-      // Body
-      if (formEntries !== null) {
-        // multipart/form-data: one --form flag per field; curl sets Content-Type.
-        formEntries.forEach((e) => {
-          if (e.kind === "file") {
-            let spec = `${e.name}=${e.file}`;
-            if (e.contentType) spec += `;type=${e.contentType}`;
-            if (e.filename) spec += `;filename=${e.filename}`;
-            cmd += ` \\\n  --form ${sq(spec)}`;
-          } else {
-            cmd += ` \\\n  --form ${sq(`${e.name}=${e.value}`)}`;
-          }
-        });
-      } else if (formPairs !== null) {
-        // application/x-www-form-urlencoded: one --data flag per encoded pair.
-        // The pairs from URLSearchParams are already percent-encoded and shell-safe
-        // (no spaces, single quotes, or glob chars), so no extra quoting needed.
-        formPairs.forEach((pair) => {
-          cmd += ` \\\n  --data ${pair}`;
-        });
-      } else if (bodyFilePath !== null) {
-        cmd += ` \\\n  --data-binary '@${bodyFilePath.replace(/'/g, "'\\''")}'`;
-      } else if (body !== null) {
-        cmd += ` \\\n  --data ${sq(body)}`;
-      }
-
-      return cmd;
-    }
-
-    if (node.type === "collection") {
-      const requests = this.#collectRequests(node.children ?? []);
-      return requests
-        .map((r) => this.#buildCurl(r))
-        .filter(Boolean)
-        .join("\n\n");
-    }
-    return "";
-  }
-
-  /**
    * Build the folder chain for variable resolution, converting each node's
    * canonical array `.variables` into the { name: value } map the resolver
    * consumes. The resolver context is the boundary where arrays flatten to maps.
@@ -1619,19 +1429,6 @@ export class TreeView {
       ...folder,
       variables: varsArrayToMap(folder.variables),
     }));
-  }
-
-  /** Recursively collect all request nodes within a subtree. */
-  #collectRequests(nodes) {
-    const requests = [];
-    for (const node of nodes) {
-      if (node.type === "request") {
-        requests.push(node);
-      } else if (Array.isArray(node.children)) {
-        requests.push(...this.#collectRequests(node.children));
-      }
-    }
-    return requests;
   }
 
   /** Return all request nodes in depth-first (visual) order across the whole tree. */

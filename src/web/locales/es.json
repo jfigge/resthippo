@@ -614,12 +614,18 @@
       "duplicate": "Duplicar",
       "export": "Exportar…",
       "variables": "Variables",
-      "generateCurl": "Generar cURL",
+      "generateCode": "Generar código…",
+      "copyAsCurl": "Copiar como cURL",
       "clearHistory": "Borrar historial de ejecución",
       "delete": "Eliminar",
       "confirm": "¿Confirmar?"
     },
-    "curlCopied": "El comando cURL se ha copiado al portapapeles."
+    "curlCopied": "El comando cURL se ha copiado al portapapeles.",
+    "code": {
+      "title": "Generar código",
+      "target": "Destino",
+      "aria": "Código generado"
+    }
   },
   "collections": {
     "title": "Colecciones",

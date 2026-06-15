@@ -108,8 +108,10 @@ const RULES = [
 ];
 
 // Proper nouns shown verbatim in every locale — interchange-format names, font
-// names, theme names. Not translatable prose, so they are excluded rather than
-// left to sit in the debt baseline (and not given pointless verbatim t() keys).
+// names, theme names, and code-generation target names (language / library /
+// CLI names like "Python — requests"). Not translatable prose, so they are
+// excluded rather than left to sit in the debt baseline (and not given pointless
+// verbatim t() keys).
 const INTENTIONAL = new Set([
   "Postman v2.1",
   "Insomnia v4",
@@ -123,6 +125,11 @@ const INTENTIONAL = new Set([
   "Grey",
   "Latte",
   "Mocha",
+  // code-gen target labels (src/web/scripts/components/code-gen/*.js)
+  "JavaScript — fetch",
+  "Python — requests",
+  "Go — net/http",
+  "HTTPie",
 ]);
 
 // tests/vendor are not product code; export/import are data transformers whose

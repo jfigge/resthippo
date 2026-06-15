@@ -1213,6 +1213,57 @@ html.show-method-icons .req-method-menu-item-label::before {
   user-select: text;
 }
 
+/* "Generate code" preview dialog (request context menu). A target picker over a
+   read-only, syntax-highlighted snippet; mirrors the schema viewer's code pane. */
+.code-gen-modal {
+  width: min(820px, 92vw);
+  height: 78vh;
+}
+.code-gen-body {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.code-gen-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--color-surface-1);
+}
+.code-gen-target-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+}
+.code-gen-target {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-1);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+.code-gen-target:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+.code-gen-pre {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: var(--space-5);
+  overflow: auto;
+  white-space: pre;
+  tab-size: 2;
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+  color: var(--color-text);
+  background: var(--color-mantle);
+  user-select: text;
+}
+
 /* Schema-aware autocomplete dropdown: field/arg name + muted type detail.
    Inherits the .hdr-autocomplete chrome; only the item layout differs. */
 .gql-autocomplete {

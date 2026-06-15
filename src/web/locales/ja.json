@@ -614,12 +614,18 @@
       "duplicate": "複製",
       "export": "エクスポート…",
       "variables": "変数",
-      "generateCurl": "cURL を生成",
+      "generateCode": "コードを生成…",
+      "copyAsCurl": "cURL としてコピー",
       "clearHistory": "実行履歴をクリア",
       "delete": "削除",
       "confirm": "確認しますか？"
     },
-    "curlCopied": "cURL コマンドをクリップボードにコピーしました。"
+    "curlCopied": "cURL コマンドをクリップボードにコピーしました。",
+    "code": {
+      "title": "コードを生成",
+      "target": "ターゲット",
+      "aria": "生成されたコード"
+    }
   },
   "collections": {
     "title": "コレクション",
