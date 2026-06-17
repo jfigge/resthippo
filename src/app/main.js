@@ -1309,7 +1309,19 @@ function startHotReload(win) {
 
 // ─── App icon ─────────────────────────────────────────────────────────────────
 // Resolved once at startup; used for both the BrowserWindow and the macOS dock.
-const APP_ICON_PATH = path.join(__dirname, "..", "web", "resthippo-logo.png");
+// macOS expects the icon artwork to sit inside the system "safe area" — a rounded
+// square filling ~80% of the canvas with transparent padding on every side — so
+// the dock renders it at the same visual weight as native apps. We therefore use
+// the pre-padded `resthippo-mac-icon.png` on darwin and the edge-to-edge logo for
+// Windows/Linux window icons, which are designed to fill their canvas.
+const APP_ICON_PATH = path.join(
+  __dirname,
+  "..",
+  "web",
+  process.platform === "darwin"
+    ? "resthippo-mac-icon.png"
+    : "resthippo-logo.png",
+);
 const appIcon = nativeImage.createFromPath(APP_ICON_PATH);
 
 // Set the dock icon synchronously before whenReady() — in Electron 14+ this is

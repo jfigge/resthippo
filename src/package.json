@@ -51,6 +51,7 @@
       "REVISION_INFO.txt"
     ],
     "mac": {
+      "icon": "web/resthippo-mac-icon.png",
       "category": "public.app-category.developer-tools",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
