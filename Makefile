@@ -292,6 +292,7 @@ dist: dist-mac dist-linux dist-win
 dist-mac: build-setup build-install
 	@echo "Building macOS distribution (dmg/zip)..."
 	@cd ${BUILD_DIR}/src; npx electron-builder --mac --publish never
+	@$(MAKE) staple-dmg
 	@echo "  → ${BUILD_DIR}/src/dist/"
 	@echo "--------------------------------"
 
@@ -306,6 +307,64 @@ dist-win: build-setup build-install
 	@cd ${BUILD_DIR}/src; npx electron-builder --win --publish never
 	@echo "  → ${BUILD_DIR}/src/dist/"
 	@echo "--------------------------------"
+
+# ─── Notarize & staple the DMGs ───────────────────────────────────────────────
+# electron-builder notarizes/staples the .app (it submits the zipped app), but
+# leaves the .dmg wrapper unsigned and un-notarized — so a freshly-built .dmg is
+# "not signed at all", `spctl` can't assess it, and `stapler` can't staple it
+# (Apple has no record of the dmg's hash → error 65). This SIGNS each .dmg with
+# the Developer ID Application identity, submits it to notarytool, and staples
+# the returned ticket — so the disk image is itself signed + notarized and passes
+# `spctl -a -t open` offline. Order matters: sign BEFORE notarizing (signing
+# changes the dmg's hash, which would invalidate an existing ticket). Invoked by
+# `dist-mac`; also runnable on its own to fix DMGs already in dist/ without a
+# full rebuild.
+#
+# Notarization creds mirror electron-builder: App Store Connect API key
+# (APPLE_API_*) if present, else Apple ID + app-specific password (APPLE_ID /
+# APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID); with neither set it skips cleanly
+# so unsigned / credential-less builds (local dev, CI PRs) still pass. The signing
+# identity comes from $$CSC_NAME if set, else the first "Developer ID Application"
+# identity in the keychain; if none is found (e.g. a CI runner where
+# electron-builder's temp keychain is already gone) the dmg is notarized+stapled
+# UNSIGNED rather than failing the build.
+# NOTE: the app-specific password is passed as a flag, so it shows in `ps` for the
+# duration of the submit (same as electron-builder's own notarytool call) — fine
+# on single-tenant dev/CI machines; for a shared host pre-create a keychain
+# profile (`xcrun notarytool store-credentials`) and switch to --keychain-profile.
+staple-dmg:
+	@set -e; \
+	DIST="$(BUILD_DIR)/src/dist"; \
+	dmgs=$$(ls "$$DIST"/*.dmg 2>/dev/null || true); \
+	if [ -z "$$dmgs" ]; then echo "No .dmg in $$DIST — nothing to staple."; exit 0; fi; \
+	if [ -n "$$APPLE_API_KEY" ] && [ -n "$$APPLE_API_KEY_ID" ] && [ -n "$$APPLE_API_ISSUER" ]; then \
+		auth="--key $$APPLE_API_KEY --key-id $$APPLE_API_KEY_ID --issuer $$APPLE_API_ISSUER"; \
+		echo "Notarizing DMG(s) via App Store Connect API key…"; \
+	elif [ -n "$$APPLE_ID" ] && [ -n "$$APPLE_APP_SPECIFIC_PASSWORD" ] && [ -n "$$APPLE_TEAM_ID" ]; then \
+		auth="--apple-id $$APPLE_ID --password $$APPLE_APP_SPECIFIC_PASSWORD --team-id $$APPLE_TEAM_ID"; \
+		echo "Notarizing DMG(s) via Apple ID…"; \
+	else \
+		echo "No Apple notarization credentials set — skipping DMG notarization (unsigned build)."; \
+		exit 0; \
+	fi; \
+	if [ -n "$$CSC_NAME" ]; then \
+		identity="$$CSC_NAME"; \
+	else \
+		identity=$$(security find-identity -p codesigning -v 2>/dev/null | grep "Developer ID Application" | head -1 | awk '{print $$2}'); \
+	fi; \
+	for d in $$dmgs; do \
+		if [ -n "$$identity" ]; then \
+			echo "  → codesign (Developer ID) $$d"; \
+			codesign --force --timestamp --sign "$$identity" "$$d"; \
+		else \
+			echo "  ! no Developer ID identity found — notarizing $$d UNSIGNED"; \
+		fi; \
+		echo "  → notarytool submit $$d"; \
+		xcrun notarytool submit "$$d" $$auth --wait; \
+		echo "  → stapler staple $$d"; \
+		xcrun stapler staple "$$d"; \
+	done; \
+	echo "DMG sign + notarize + staple complete."
 
 # ─── Release ──────────────────────────────────────────────────────────────────
 # Cut a release (Model A — "shipped pointer"):
@@ -379,6 +438,32 @@ release:
 	if [ -n "$$SLUG" ]; then \
 		echo "  Release: https://github.com/$$SLUG/releases/tag/v$$NEW"; \
 	fi
+
+# ─── Synchronize Secrets ──────────────────────────────────────────────────────
+# Push the macOS / Windows signing credentials from release.env up to this
+# repo's GitHub Actions secrets (consumed by the Release workflow). The value is
+# read via $(…) command substitution — which strips the trailing newline — then
+# re-emitted with `printf %s` and piped to `gh secret set` (never echoed). A
+# trailing newline would be stored verbatim and corrupt the secret (e.g. break
+# notarization auth). Empty/missing keys are skipped so we never push a blank
+# CSC_LINK (the empty-cert footgun the release.env export logic guards against).
+sync-mac:
+	@echo "Pushing mac secrets to GitHub repository secrets (for GitHub Actions)…"
+	@for k in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do \
+		v=$$(grep "^$$k=" $(WORKSPACE)/release.env | head -1 | cut -d= -f2-); \
+		if [ -z "$$v" ]; then echo "  ! $$k missing/empty in release.env — skipping"; continue; fi; \
+		printf '%s' "$$v" | gh secret set "$$k" && echo "  ✓ $$k"; \
+	done
+	@echo "--------------------------------"
+
+sync-win:
+	@echo "Pushing windows secrets to GitHub repository secrets (for GitHub Actions)…"
+	@for k in WIN_CSC_LINK WIN_CSC_KEY_PASSWORD; do \
+		v=$$(grep "^$$k=" $(WORKSPACE)/release.env | head -1 | cut -d= -f2-); \
+		if [ -z "$$v" ]; then echo "  ! $$k missing/empty in release.env — skipping"; continue; fi; \
+		printf '%s' "$$v" | gh secret set "$$k" && echo "  ✓ $$k"; \
+	done
+	@echo "--------------------------------"
 
 # ─── Launch ───────────────────────────────────────────────────────────────────
 # `open` does not inherit the shell environment, so forward the shared dev vars
@@ -799,9 +884,10 @@ mock-down:
         debug \
         build build-mac build-linux build-win \
         build-setup build-install \
-        dist dist-mac dist-linux dist-win \
+        dist dist-mac dist-linux dist-win staple-dmg \
         release \
+        sync-mac sync-win \
         vendor-yaml vendor-prism vendor-markdown vendor-graphql \
-        clean help launch
-		mock-up mock-down mock-build \
-		kc_start kc_wait kc_bootstrap kc_creds kc_stop kc_reset kc
+        clean help launch \
+        mock-up mock-down mock-build \
+        kc_start kc_wait kc_bootstrap kc_creds kc_stop kc_reset kc
