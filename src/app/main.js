@@ -32,6 +32,15 @@ const { registerHttpEngine } = require("./net/http-engine");
 const isDev = process.argv.includes("--dev");
 const isDebug = process.argv.includes("--hot-reload");
 
+// ─── Voluntary "tip jar" (Feature 53) ───────────────────────────────────────────
+// The single source of truth for the optional donation link. Rest Hippo is free
+// with no paid tier, license check, or unlock — this opens a hosted page in the
+// system browser so people who value the app can leave a thank-you (suggested
+// $5). The provider owns the transaction end-to-end; no card data ever touches
+// the app, donating gates nothing, and we never verify, track, or phone home
+// about it. Swap this one constant to change the destination (must be https:).
+const DONATE_URL = "https://github.com/sponsors/jfigge";
+
 // devPort is resolved asynchronously inside app.whenReady().
 // It is declared here so createWindow() can close over the final value.
 let devPort = 0;
@@ -1922,6 +1931,13 @@ function showAboutDialog() {
     if (rev.COMMIT) query.commit = rev.COMMIT;
   }
 
+  // Carry the (localized) voluntary-donation affordance into the static page.
+  // about.html can't reach the renderer's t(), so the label is resolved here via
+  // the main-process catalog and the destination travels alongside it; the link
+  // opens through the window-open handler registered below (https-only).
+  query.support = activeLabels()("menu.support", "Support Rest Hippo…");
+  query.donate = DONATE_URL;
+
   _aboutWin = new BrowserWindow({
     width: 360,
     height: 480,
@@ -1943,6 +1959,21 @@ function showAboutDialog() {
 
   _aboutWin.loadFile(path.join(__dirname, "..", "web", "about.html"), {
     query,
+  });
+
+  // The only external link in the About window is the voluntary donation link.
+  // Route its target=_blank open to the OS browser and hand the OS nothing but a
+  // vetted https URL (stricter than the main window's http/https/mailto set —
+  // there is no other link here to allow).
+  _aboutWin.webContents.setWindowOpenHandler(({ url }) => {
+    let scheme = "";
+    try {
+      scheme = new URL(url).protocol;
+    } catch {
+      return { action: "deny" };
+    }
+    if (scheme === "https:") shell.openExternal(url).catch(() => {});
+    return { action: "deny" };
   });
 
   _aboutWin.once("closed", () => {
@@ -2137,6 +2168,23 @@ function collectAppInfo() {
 }
 
 /** Open the log directory in the OS file manager (creating it if needed). */
+/**
+ * Open the voluntary donation page (DONATE_URL) in the OS browser. https-only:
+ * shell.openExternal will launch arbitrary URI handlers (file:, custom schemes),
+ * so we hand it nothing but a vetted https URL — the same scheme-allow-list
+ * discipline the window-open handlers use. Runs entirely in main; the Help-menu
+ * click handler calls it directly with no IPC.
+ */
+function openDonateLink() {
+  try {
+    if (new URL(DONATE_URL).protocol === "https:") {
+      shell.openExternal(DONATE_URL).catch(() => {});
+    }
+  } catch {
+    /* malformed URL — open nothing */
+  }
+}
+
 function revealLogs() {
   const dir = logger.dir();
   io.ensureDir(dir);
@@ -2427,6 +2475,12 @@ function buildMenu() {
           label: m("menu.userGuide", "Rest Hippo User Guide"),
           accelerator: "CmdOrCtrl+/",
           click: showDocsWindow,
+        },
+        {
+          // Voluntary tip jar — opens the donation page in the browser. Passive:
+          // no accelerator, no badge, never nags (Feature 53).
+          label: m("menu.support", "Support Rest Hippo…"),
+          click: openDonateLink,
         },
         { type: "separator" },
         { label: m("menu.revealLogs", "Reveal Logs"), click: revealLogs },
