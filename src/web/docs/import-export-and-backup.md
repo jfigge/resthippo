@@ -2,7 +2,7 @@
 
 [← Back to contents](README.md)
 
-wurl can exchange collections with other tools and back up your entire
+Rest Hippo can exchange collections with other tools and back up your entire
 workspace. There are two separate features:
 
 - **Import / Export** moves _collections_ in and out using standard interchange
@@ -21,17 +21,17 @@ Choose a format:
 
 | Format           | Notes                                                           |
 | ---------------- | --------------------------------------------------------------- |
-| **Postman v2.1** | Postman collection. Re-imports into Postman and back into wurl. |
-| **Insomnia v4**  | Insomnia export. Re-imports into Insomnia and back into wurl.   |
+| **Postman v2.1** | Postman collection. Re-imports into Postman and back into Rest Hippo. |
+| **Insomnia v4**  | Insomnia export. Re-imports into Insomnia and back into Rest Hippo.   |
 | **OpenAPI 3**    | A best-effort, lossy OpenAPI 3.0 description of the requests.   |
 | **HAR 1.2**      | Recorded request/response exchanges from recent runs.           |
 
 Secrets — passwords, tokens, and keys — are **redacted** in every export format,
-so exports are safe to share. wurl then opens a native save dialog.
+so exports are safe to share. Rest Hippo then opens a native save dialog.
 
 ## Importing
 
-Open **File → Import Collection…** and pick a file. wurl recognizes the format
+Open **File → Import Collection…** and pick a file. Rest Hippo recognizes the format
 automatically:
 
 - **Postman** collections (`.json`)
@@ -61,17 +61,17 @@ curl https://api.example.com/users \
   -d '{"name":"Ada"}'
 ```
 
-wurl parses the method, URL and query, headers, body (`-d` / `--data*`,
+Rest Hippo parses the method, URL and query, headers, body (`-d` / `--data*`,
 `--data-urlencode`, and `-F` form fields), and authentication — a `-u user:pass`
 or an `Authorization: Bearer`/`Basic` header is lifted into the request's **Auth**
 tab rather than left as a raw header. The result is added as a new collection,
 ready to send.
 
 > **Tip — paste a cURL straight onto a request.** You can also paste a `curl …`
-> command directly into a request's **URL bar**. wurl recognizes it and rewrites
+> command directly into a request's **URL bar**. Rest Hippo recognizes it and rewrites
 > that request to match the command (method, URL, params, headers, body, auth),
 > instead of dropping the raw text into the field. A brand-new, empty request is
-> updated in place; if the request already has content, wurl asks you to confirm
+> updated in place; if the request already has content, Rest Hippo asks you to confirm
 > before overwriting it.
 
 ## Backup & restore

@@ -66,7 +66,7 @@ system certificate store.
   custom CA isn't practical; it overrides the global **Verify SSL** toggle for
   those hosts only.
 
-Only file **paths** are stored — wurl reads the certificate bytes in the
+Only file **paths** are stored — Rest Hippo reads the certificate bytes in the
 background process when a request is sent. Passphrases are encrypted at rest with
 the OS keystore (like other secrets) and are removed from secret-free exports.
 
@@ -96,12 +96,12 @@ into four configurations:
 | **Top + full bottom** | Collections and Request on top; Response full-width below    |
 | **All stacked**       | The three panels stacked top to bottom                       |
 
-wurl also adapts automatically to narrow windows, and remembers where you drag
+Rest Hippo also adapts automatically to narrow windows, and remembers where you drag
 the panel dividers.
 
 ## Themes
 
-wurl ships with four built-in themes — **Mocha** (the default dark theme),
+Rest Hippo ships with four built-in themes — **Mocha** (the default dark theme),
 **Grey dark**, **Latte** (light), and **Grey light** — selectable from
 **Appearance → Theme**.
 

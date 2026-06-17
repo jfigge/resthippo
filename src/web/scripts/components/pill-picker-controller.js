@@ -73,9 +73,9 @@ export class PillPickerController {
       document.removeEventListener("mousedown", this.#outside, true);
       this.#outside = null;
     }
-    // Balance the wurl:popup-opened dispatched in #open (depth-counted by
+    // Balance the hippo:popup-opened dispatched in #open (depth-counted by
     // ResponseViewer); only when a picker was actually open.
-    if (wasOpen) window.dispatchEvent(new CustomEvent("wurl:popup-closed"));
+    if (wasOpen) window.dispatchEvent(new CustomEvent("hippo:popup-closed"));
   }
 
   // ── Keyboard pass-throughs (driven by the host's keydown handler) ─────────────
@@ -143,7 +143,7 @@ export class PillPickerController {
     document.body.appendChild(this.#inst.element);
     // Notify app-wide listeners so ResponseViewer hides its native HTML/PDF
     // preview overlay, which would otherwise render above this typeahead.
-    window.dispatchEvent(new CustomEvent("wurl:popup-opened"));
+    window.dispatchEvent(new CustomEvent("hippo:popup-opened"));
     this.#outside = (e) => {
       if (
         !this.#inst?.element.contains(e.target) &&

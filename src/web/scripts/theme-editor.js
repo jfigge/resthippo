@@ -554,11 +554,11 @@ async function persistCustomThemes() {
   manifest.settings.customThemes = _customThemes;
   const result = await window.themeEditor.saveManifest(manifest);
   // On a write failure (disk full / permission), main returns a discriminable
-  // { __wurlError } envelope. This editor is a separate window with no toast
+  // { __hippoError } envelope. This editor is a separate window with no toast
   // surface, so it cannot route into Notifications — but it must NOT broadcast
   // the themes as persisted, or the running app would show phantom themes that
   // vanish on the next restart (silent data loss). Surface the failure instead.
-  if (result && result.__wurlError === true) {
+  if (result && result.__hippoError === true) {
     console.error("[theme-editor] saveManifest failed:", result.message);
     window.alert(
       t("themeEditor.saveFailed", {

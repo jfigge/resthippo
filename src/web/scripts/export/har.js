@@ -6,7 +6,7 @@ import { isSecretHeader } from "./redact.js";
  * HAR 1.2 exporter.
  *
  * HAR (HTTP Archive) records actual request/response exchanges, not request
- * definitions. wurl keeps per-request run history, so this exporter emits one
+ * definitions. Rest Hippo keeps per-request run history, so this exporter emits one
  * `log.entries` entry per request that has a run — its MOST RECENT run — using
  * the history map the caller assembles. Requests that have never run contribute
  * nothing; a collection with no runs produces a valid HAR with `entries: []`.
@@ -147,9 +147,9 @@ function buildEntry(entry) {
 }
 
 /**
- * Serialize a wurl collection's run history to a HAR 1.2 JSON string.
+ * Serialize a Rest Hippo collection's run history to a HAR 1.2 JSON string.
  *
- * @param {object} collection          wurl collection node (type: "collection")
+ * @param {object} collection          Rest Hippo collection node (type: "collection")
  * @param {Map<string,object>|object}  historyByRequestId  Most-recent run per
  *        request id (the entry shape stored in `_requestHistory`). Requests
  *        absent from the map are skipped.
@@ -173,7 +173,7 @@ export function exportToHar(collection, historyByRequestId) {
     {
       log: {
         version: "1.2",
-        creator: { name: "wurl", version: APP_VERSION },
+        creator: { name: "Rest Hippo", version: APP_VERSION },
         entries,
       },
     },

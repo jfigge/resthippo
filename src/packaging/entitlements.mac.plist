@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Hardened-runtime entitlements for the wurl Electron app.
+  Hardened-runtime entitlements for the Rest Hippo Electron app.
 
   Applied to the main app bundle AND inherited by the nested helper
   executables (electron-builder `mac.entitlements` + `mac.entitlementsInherit`,
-  both pointed here). Kept deliberately minimal — only what Electron and wurl
+  both pointed here). Kept deliberately minimal — only what Electron and Rest Hippo
   actually need to run under the hardened runtime and pass notarization:
 
     * allow-jit / allow-unsigned-executable-memory   V8's JIT compiler.
     * disable-library-validation                     load Electron's framework
                                                       + bundled native modules.
-    * network.client                                 wurl is an HTTP/WS client.
+    * network.client                                 Rest Hippo is an HTTP/WS client.
     * network.server                                  OAuth loopback redirect
                                                       capture (http://localhost
                                                       callback servers).

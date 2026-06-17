@@ -350,9 +350,9 @@ export class PillEditorPopup {
     // path — Done, Cancel, Escape, or mask click).
     const onClosed = () => {
       this.#clearRevealTimer();
-      window.removeEventListener("wurl:popup-closed", onClosed);
+      window.removeEventListener("hippo:popup-closed", onClosed);
     };
-    window.addEventListener("wurl:popup-closed", onClosed);
+    window.addEventListener("hippo:popup-closed", onClosed);
   }
 
   // ── Commit ─────────────────────────────────────────────────────────────────

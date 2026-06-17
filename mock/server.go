@@ -27,19 +27,19 @@ var addr = listenAddr("MOCK_PORT", ":8888")
 
 var mimes = []struct{ Type, Body string }{
 	{"application/json",
-		`{"status":"ok","service":"wurl-mock","version":"1.0","items":[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]}`},
+		`{"status":"ok","service":"resthippo-mock","version":"1.0","items":[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]}`},
 	{"application/vnd.api+json",
 		`{"data":{"type":"users","id":"1","attributes":{"name":"Alice","role":"admin"}},"meta":{"total":1}}`},
 	{"application/yaml",
-		"service: wurl-mock\nversion: \"1.0\"\nfeatures:\n  - json\n  - yaml\n  - xml\n  - html\n  - css\n  - javascript\n"},
+		"service: resthippo-mock\nversion: \"1.0\"\nfeatures:\n  - json\n  - yaml\n  - xml\n  - html\n  - css\n  - javascript\n"},
 	{"application/x-yaml",
-		"---\nname: config\ndatabase:\n  host: localhost\n  port: 5432\n  name: wurl\n"},
+		"---\nname: config\ndatabase:\n  host: localhost\n  port: 5432\n  name: Rest Hippo\n"},
 	{"application/xml",
 		`<?xml version="1.0" encoding="UTF-8"?><response><status>ok</status><items><item id="1"><name>Alice</name></item><item id="2"><name>Bob</name></item></items></response>`},
 	{"application/xhtml+xml",
-		`<?xml version="1.0" encoding="UTF-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>wurl</title></head><body><h1>Mock Server</h1><p>XHTML response.</p></body></html>`},
+		`<?xml version="1.0" encoding="UTF-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>Rest Hippo</title></head><body><h1>Mock Server</h1><p>XHTML response.</p></body></html>`},
 	{"text/html",
-		"<!DOCTYPE html>\n<html>\n<head><title>wurl mock</title></head>\n<body>\n  <h1>Mock Server</h1>\n  <p>Mock response from the wurl test server.</p>\n  <ul><li>JSON</li><li>YAML</li><li>XML</li><li>HTML</li><li>CSS</li><li>JavaScript</li></ul>\n</body>\n</html>\n"},
+		"<!DOCTYPE html>\n<html>\n<head><title>Rest Hippo mock</title></head>\n<body>\n  <h1>Mock Server</h1>\n  <p>Mock response from the Rest Hippo test server.</p>\n  <ul><li>JSON</li><li>YAML</li><li>XML</li><li>HTML</li><li>CSS</li><li>JavaScript</li></ul>\n</body>\n</html>\n"},
 	{"text/css",
 		"body {\n  font-family: sans-serif;\n  color: #333;\n  margin: 0;\n}\n\nh1 {\n  color: steelblue;\n  border-bottom: 2px solid #ccc;\n}\n\n.api-response {\n  padding: 1rem;\n  background: #f5f5f5;\n  border-radius: 4px;\n}\n"},
 	{"text/javascript",
@@ -47,7 +47,7 @@ var mimes = []struct{ Type, Body string }{
 	{"application/ecmascript",
 		"export class MockClient {\n  #base;\n  constructor(base) { this.#base = base; }\n  async get(path) { return (await fetch(this.#base + path)).json(); }\n  async mimes() { return this.get('/mimes'); }\n}\n"},
 	{"text/markdown",
-		"# wurl Mock Server\n\nA **mock response** from the wurl test server.\n\n## Supported MIME types\n\n- `application/json`\n- `application/yaml`\n- `application/xml`\n- `text/html`\n- `text/css`\n- `text/markdown`\n\n## Example\n\n```js\nfetch('http://localhost:8888/mimes/text/markdown')\n  .then(r => r.text())\n  .then(console.log);\n```\n\n> See the [/mimes](http://localhost:8888/mimes) endpoint for the full list.\n\n| Code | Meaning |\n| ---- | ------- |\n| 200  | OK      |\n| 404  | Not Found |\n"},
+		"# Rest Hippo Mock Server\n\nA **mock response** from the Rest Hippo test server.\n\n## Supported MIME types\n\n- `application/json`\n- `application/yaml`\n- `application/xml`\n- `text/html`\n- `text/css`\n- `text/markdown`\n\n## Example\n\n```js\nfetch('http://localhost:8888/mimes/text/markdown')\n  .then(r => r.text())\n  .then(console.log);\n```\n\n> See the [/mimes](http://localhost:8888/mimes) endpoint for the full list.\n\n| Code | Meaning |\n| ---- | ------- |\n| 200  | OK      |\n| 404  | Not Found |\n"},
 }
 
 var statuses = []int{
@@ -173,7 +173,7 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
-			"service": "wurl-mock",
+			"service": "resthippo-mock",
 			"volumes": list,
 		})
 	})
@@ -212,7 +212,7 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
-			"service":  "wurl-mock",
+			"service":  "resthippo-mock",
 			"binaries": list,
 		})
 	})
@@ -300,7 +300,7 @@ func humanSize(n int) string {
 // record (never buffered whole) and a final filler record is padded so the
 // total length lands exactly on target.
 func writeVolumeJSON(w http.ResponseWriter, payload string, targetBytes int) {
-	head := fmt.Sprintf(`{"status":"ok","service":"wurl-mock","payload":%q,"items":[`, payload)
+	head := fmt.Sprintf(`{"status":"ok","service":"resthippo-mock","payload":%q,"items":[`, payload)
 	const tail = `]}`
 	w.Header().Set("Content-Type", "application/json")
 	bw := bufio.NewWriter(w)
@@ -394,7 +394,7 @@ func encodeImage(name string, img image.Image) []byte {
 // strict viewers (Chromium's pdfium) render it. Object offsets are computed as
 // the body is assembled rather than hardcoded.
 func minimalPDF() []byte {
-	content := "BT /F1 24 Tf 20 60 Td (wurl mock PDF) Tj ET"
+	content := "BT /F1 24 Tf 20 60 Td (Rest Hippo mock PDF) Tj ET"
 	objs := []string{
 		"<< /Type /Catalog /Pages 2 0 R >>",
 		"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -681,7 +681,7 @@ func echoHTML(d echoData) string {
 	esc := html.EscapeString
 	var b strings.Builder
 	b.WriteString("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n")
-	b.WriteString("<meta charset=\"utf-8\">\n<title>wurl echo</title>\n")
+	b.WriteString("<meta charset=\"utf-8\">\n<title>Rest Hippo echo</title>\n")
 	b.WriteString("<style>\n")
 	b.WriteString("body{font-family:system-ui,sans-serif;margin:2rem;color:#222}\n")
 	b.WriteString("h1{border-bottom:2px solid #ccc;padding-bottom:.25rem}\n")

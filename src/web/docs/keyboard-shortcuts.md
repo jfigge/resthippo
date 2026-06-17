@@ -81,10 +81,10 @@ The layout picker (and other dropdown menus) are fully keyboard-operable:
 
 ## Accessibility
 
-wurl respects your operating system's accessibility preferences automatically —
+Rest Hippo respects your operating system's accessibility preferences automatically —
 there's nothing to turn on in the app:
 
-- **Reduce motion** — when your OS asks apps to minimize motion, wurl drops the
+- **Reduce motion** — when your OS asks apps to minimize motion, Rest Hippo drops the
   slide-in, scale, and pulse animations on toasts, menus, and indicators
   (loading spinners keep turning, since the motion is the "in progress" signal).
 - **Increased contrast / High Contrast** — muted secondary text is strengthened,

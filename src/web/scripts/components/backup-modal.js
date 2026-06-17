@@ -52,7 +52,7 @@ export class BackupModal {
    * password-protected). Aborts silently if the user cancels the file picker.
    */
   static async openImport() {
-    const prep = await window.wurl.backup.prepare();
+    const prep = await window.hippo.backup.prepare();
     if (!prep || prep.canceled) return;
     if (!prep.ok) {
       Notifications.error(prep.error || t("backup.error.readFailed"), {
@@ -263,7 +263,7 @@ export class BackupModal {
 
     this.#setBusy(true);
     try {
-      const res = await window.wurl.backup.export({ mode, password });
+      const res = await window.hippo.backup.export({ mode, password });
       // On cancel (no file chosen) or error (main showed a native box) just
       // close; success likewise closes the modal.
       if (res && res.ok === false && res.error) {
@@ -281,7 +281,7 @@ export class BackupModal {
 
     this.#setBusy(true);
     try {
-      const res = await window.wurl.backup.import({
+      const res = await window.hippo.backup.import({
         filePath: this.#filePath,
         mode,
         password,

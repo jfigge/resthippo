@@ -2,7 +2,7 @@
 
 [← Back to contents](README.md)
 
-wurl has a first-class GraphQL editor. Set a request's **method** to `POST`,
+Rest Hippo has a first-class GraphQL editor. Set a request's **method** to `POST`,
 point the URL at your GraphQL endpoint, and choose **GraphQL** as the
 [body type](requests.md#request-body).
 
@@ -28,7 +28,7 @@ variables, the same as any other body.
 ## Fetching the schema
 
 Click **Fetch schema** to run a GraphQL **introspection** query against the
-request's URL. Once the schema loads, wurl uses it for two things:
+request's URL. Once the schema loads, Rest Hippo uses it for two things:
 
 ![A validated query after fetching the schema](images/graphql-validated.png)
 

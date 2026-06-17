@@ -4,22 +4,22 @@
  * import/shape.js
  *
  * Shared canonical-shape builders for every interchange importer (Postman,
- * Insomnia, …). The wurl request shape — the field names and structure a parsed
+ * Insomnia, …). The Rest Hippo request shape — the field names and structure a parsed
  * request must have — is identical across formats; only the *source* field names
  * differ. This module owns that canonical shape so it cannot drift between
  * importers: each importer maps its format onto the neutral descriptors here and
- * the builders emit the wurl fields.
+ * the builders emit the Rest Hippo fields.
  *
  * It is the import-side counterpart of `export/redact.js`: there, one neutral
  * shape (`redactedAuth`) is mapped *onto* each export format; here, each import
  * format is mapped *into* one neutral descriptor and the builders produce the
- * canonical wurl shape. Genuinely format-specific concerns (Postman's `mode`
+ * canonical Rest Hippo shape. Genuinely format-specific concerns (Postman's `mode`
  * vs. Insomnia's `mimeType`, multi-file fields, disabled-auth conventions) stay
  * in the per-format adapters; everything below is what they have in common.
  */
 
 /**
- * Build the canonical wurl auth fields from a neutral, format-agnostic auth
+ * Build the canonical Rest Hippo auth fields from a neutral, format-agnostic auth
  * descriptor. Returns the no-auth shape for a null/typeless/unsupported
  * descriptor, so callers can pass `null` for "no auth" and let unsupported
  * schemes fall through harmlessly.
@@ -32,7 +32,7 @@
  *       accessTokenUrl?, authUrl?, scope? }
  *
  * @param {object|null} d
- * @returns {object} wurl request auth fields
+ * @returns {object} Rest Hippo request auth fields
  */
 export function buildAuth(d) {
   if (!d || !d.type) return { authEnabled: false, authType: "none" };
@@ -73,7 +73,7 @@ export function buildAuth(d) {
 
 /**
  * Map an `Authorization` header value onto a neutral auth descriptor for
- * `buildAuth`, or null if the scheme isn't one wurl surfaces in its Auth tab.
+ * `buildAuth`, or null if the scheme isn't one Rest Hippo surfaces in its Auth tab.
  * Shared by the cURL and HAR importers so a captured `Authorization: Bearer …`
  * / `Basic …` becomes editable auth rather than an opaque header. Anything else
  * (Digest, Negotiate, AWS sigv4, …) returns null so the caller keeps it as a
@@ -108,7 +108,7 @@ export function authFromHeaderValue(value) {
 
 /**
  * Split a URL into its base (everything before `?`) and the canonical query-param
- * rows parsed from the query string. wurl stores the base URL and the query rows
+ * rows parsed from the query string. Rest Hippo stores the base URL and the query rows
  * separately, then re-assembles them at send time (`buildRequestPayload`); a URL
  * that kept its `?query` *and* repeated it in `params` would be sent twice, so
  * importers strip the query here. The fragment (`#…`, never sent) is dropped.
@@ -149,7 +149,7 @@ export function noBody() {
 
 /**
  * A raw-text body (json / xml / yaml / text). The caller resolves its format's
- * language/mime onto one of the wurl raw `bodyType`s.
+ * language/mime onto one of the Rest Hippo raw `bodyType`s.
  *
  * @param {string} bodyType
  * @param {string|undefined} text
@@ -181,7 +181,7 @@ export function graphqlBody(query, variables) {
   };
 }
 
-/** Normalize GraphQL variables to wurl's string form. @see graphqlBody */
+/** Normalize GraphQL variables to Rest Hippo's string form. @see graphqlBody */
 export function normalizeGraphqlVariables(variables) {
   if (variables == null) return "";
   return typeof variables === "string"

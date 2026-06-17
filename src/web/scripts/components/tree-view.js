@@ -9,10 +9,10 @@
  *   getItems()        — return the current items array (deep copy)
  *
  * Events dispatched on window:
- *   wurl:request-selected    { detail: node }   — user clicked a request
- *   wurl:collections-changed { detail: items }  — tree was mutated (add/remove)
- *   wurl:folder-vars-open    { nodeId, folderName, variables } — user opened folder vars
- *   wurl:request-cleared     (no detail)        — last request deleted; editor should reset
+ *   hippo:request-selected    { detail: node }   — user clicked a request
+ *   hippo:collections-changed { detail: items }  — tree was mutated (add/remove)
+ *   hippo:folder-vars-open    { nodeId, folderName, variables } — user opened folder vars
+ *   hippo:request-cleared     (no detail)        — last request deleted; editor should reset
  */
 
 "use strict";
@@ -192,12 +192,12 @@ export class TreeView {
     // tracks its own loading state from the requestId carried by the
     // lifecycle events. The TreeView is an app-lifetime singleton, so these
     // window listeners are intentionally never removed.
-    window.addEventListener("wurl:request-loading", (e) =>
+    window.addEventListener("hippo:request-loading", (e) =>
       this.#setNodeLoading(e.detail?.requestId, true),
     );
     const settleNode = (e) => this.#setNodeLoading(e.detail?.requestId, false);
-    window.addEventListener("wurl:response-received", settleNode);
-    window.addEventListener("wurl:request-error", settleNode);
+    window.addEventListener("hippo:response-received", settleNode);
+    window.addEventListener("hippo:request-error", settleNode);
 
     // Container-level: handle the actual drop (phantom target stores where to drop)
     this.#el.addEventListener("drop", (e) => {
@@ -265,7 +265,7 @@ export class TreeView {
 
   /**
    * Replace the full tree data and re-render.
-   * Does NOT fire wurl:collections-changed (caller already owns the source of truth).
+   * Does NOT fire hippo:collections-changed (caller already owns the source of truth).
    * @param {object[]} items
    */
   setItems(items) {
@@ -354,7 +354,7 @@ export class TreeView {
 
   /**
    * Switch to the Requests surface, select the request by id (firing
-   * wurl:request-selected), and scroll it into view. Used when opening a
+   * hippo:request-selected), and scroll it into view. Used when opening a
    * request from the Favorites/Recents lists.
    * @param {string} id
    * @returns {boolean} true if the request was found and selected
@@ -591,7 +591,7 @@ export class TreeView {
       e.stopPropagation();
       e.preventDefault();
       window.dispatchEvent(
-        new CustomEvent("wurl:favorite-toggle", {
+        new CustomEvent("hippo:favorite-toggle", {
           detail: {
             node: findNode(this.#items, requestId) ?? { id: requestId },
             favorited: !this.#favoriteIds.has(requestId),
@@ -626,7 +626,7 @@ export class TreeView {
 
   /**
    * Render a flat list of favorited or recent requests spanning all
-   * collections. Each row opens/focuses its request via wurl:request-open.
+   * collections. Each row opens/focuses its request via hippo:request-open.
    * @param {"favorites"|"recents"} kind
    */
   #renderQuickList(kind) {
@@ -655,7 +655,7 @@ export class TreeView {
    * Build a quick-access row for one favorites/recents entry. Mirrors a request
    * row (method badge + label, optional star) but carries data-qa-id instead of
    * data-id so tree lookups never collide with it, and dispatches
-   * wurl:request-open on activation.
+   * hippo:request-open on activation.
    * @param {object} entry  — { collectionId, requestId, name, method }
    * @param {"favorites"|"recents"} kind
    */
@@ -685,7 +685,7 @@ export class TreeView {
     }
     const open = () =>
       window.dispatchEvent(
-        new CustomEvent("wurl:request-open", {
+        new CustomEvent("hippo:request-open", {
           detail: {
             collectionId: entry.collectionId,
             requestId: entry.requestId,
@@ -716,14 +716,14 @@ export class TreeView {
 
   /** Minimal context menu for a favorites row: unfavorite. */
   async #showQuickContextMenu(entry, x, y) {
-    const clickedId = await window.wurl.ui.contextMenu.show({
+    const clickedId = await window.hippo.ui.contextMenu.show({
       items: [{ id: "unfavorite", label: t("tree.menu.unfavorite") }],
       x,
       y,
     });
     if (clickedId !== "unfavorite") return;
     window.dispatchEvent(
-      new CustomEvent("wurl:favorite-toggle", {
+      new CustomEvent("hippo:favorite-toggle", {
         detail: {
           node: {
             id: entry.requestId,
@@ -767,7 +767,7 @@ export class TreeView {
             variables: () => {
               const liveNode = findNode(this.#items, node.id) ?? node;
               window.dispatchEvent(
-                new CustomEvent("wurl:folder-vars-open", {
+                new CustomEvent("hippo:folder-vars-open", {
                   detail: {
                     nodeId: liveNode.id,
                     folderName: liveNode.name,
@@ -780,7 +780,7 @@ export class TreeView {
             "export-collection": () => {
               const liveNode = findNode(this.#items, node.id) ?? node;
               window.dispatchEvent(
-                new CustomEvent("wurl:export-collection", {
+                new CustomEvent("hippo:export-collection", {
                   detail: { collection: liveNode },
                 }),
               );
@@ -796,7 +796,7 @@ export class TreeView {
             favorite: () => {
               const liveNode = findNode(this.#items, node.id) ?? node;
               window.dispatchEvent(
-                new CustomEvent("wurl:favorite-toggle", {
+                new CustomEvent("hippo:favorite-toggle", {
                   detail: {
                     node: liveNode,
                     favorited: !this.#favoriteIds.has(liveNode.id),
@@ -810,7 +810,7 @@ export class TreeView {
             "copy-as-curl": () => this.#copyAsCurl(node),
             "clear-history": () =>
               window.dispatchEvent(
-                new CustomEvent("wurl:timeline-clear", {
+                new CustomEvent("hippo:timeline-clear", {
                   detail: { requestId: node.id },
                 }),
               ),
@@ -880,7 +880,7 @@ export class TreeView {
           : it,
       );
 
-      const clickedId = await window.wurl.ui.contextMenu.show({
+      const clickedId = await window.hippo.ui.contextMenu.show({
         items: items.map(({ id, label, type, enabled }) => ({
           id,
           label,
@@ -998,7 +998,7 @@ export class TreeView {
    * same place a plain [+] click would have created one.
    */
   async #showNewRequestMenu(x, y) {
-    const clickedId = await window.wurl.ui.contextMenu.show({
+    const clickedId = await window.hippo.ui.contextMenu.show({
       items: [
         { id: "add-request", label: t("tree.menu.addRequest") },
         { id: "add-ws-request", label: t("tree.menu.addWsRequest") },
@@ -1210,14 +1210,14 @@ export class TreeView {
         if (li) this.#selectRequest(nextToSelect, li);
       } else {
         window.dispatchEvent(
-          new CustomEvent("wurl:request-cleared", { bubbles: true }),
+          new CustomEvent("hippo:request-cleared", { bubbles: true }),
         );
       }
     }
 
     if (requestIds.length > 0) {
       window.dispatchEvent(
-        new CustomEvent("wurl:requests-deleted", {
+        new CustomEvent("hippo:requests-deleted", {
           detail: { ids: requestIds },
           bubbles: true,
         }),
@@ -1561,7 +1561,7 @@ export class TreeView {
       row.addEventListener("dblclick", () => {
         if (!this.#doubleClickExecute) return;
         window.dispatchEvent(
-          new CustomEvent("wurl:request-execute", {
+          new CustomEvent("hippo:request-execute", {
             detail: findNode(this.#items, node.id) ?? node,
             bubbles: true,
           }),
@@ -1956,7 +1956,7 @@ export class TreeView {
       // Cancel only — do not select the row.
       e.stopPropagation();
       window.dispatchEvent(
-        new CustomEvent("wurl:cancel-request", { detail: { requestId } }),
+        new CustomEvent("hippo:cancel-request", { detail: { requestId } }),
       );
     });
     // Keep rapid clicks from bubbling into the row's double-click-to-execute.
@@ -1967,7 +1967,7 @@ export class TreeView {
   #selectRequest(node, li) {
     // Skip re-loading the request (and its history/timeline) when the row is
     // already active — clicking or right-clicking the current selection
-    // should not trigger another wurl:request-selected dispatch.
+    // should not trigger another hippo:request-selected dispatch.
     const alreadyActive = li.classList.contains("tree-node--active");
     this.#selectedId = node.id;
     this.#setActiveRow(li);
@@ -1980,7 +1980,7 @@ export class TreeView {
     const currentNode = findNode(this.#items, node.id) ?? node;
 
     window.dispatchEvent(
-      new CustomEvent("wurl:request-selected", {
+      new CustomEvent("hippo:request-selected", {
         detail: currentNode,
         bubbles: true,
       }),
@@ -1999,7 +1999,7 @@ export class TreeView {
   /** Dispatch the canonical change event so app.js can auto-save. */
   #emitChange() {
     window.dispatchEvent(
-      new CustomEvent("wurl:collections-changed", {
+      new CustomEvent("hippo:collections-changed", {
         detail: this.getItems(), // deep clone — callers must not mutate
         bubbles: true,
       }),
@@ -2010,7 +2010,7 @@ export class TreeView {
     if (!this.#storageKey) return;
     try {
       localStorage.setItem(
-        `wurl:collapsed:${this.#storageKey}`,
+        `hippo:collapsed:${this.#storageKey}`,
         JSON.stringify([...this.#collapsedIds]),
       );
     } catch {
@@ -2021,7 +2021,7 @@ export class TreeView {
   #loadCollapsedState() {
     if (!this.#storageKey) return [];
     try {
-      const raw = localStorage.getItem(`wurl:collapsed:${this.#storageKey}`);
+      const raw = localStorage.getItem(`hippo:collapsed:${this.#storageKey}`);
       return raw ? JSON.parse(raw) : [];
     } catch {
       return [];

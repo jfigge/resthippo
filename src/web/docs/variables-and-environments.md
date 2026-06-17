@@ -9,7 +9,7 @@ you can insert a variable with double-brace syntax: `{{name}}`.
 ## Using variables
 
 Type `{{` in any field to open the **typeahead**, which lists the variables
-available in the current scope. Pick one and wurl inserts it as a highlighted
+available in the current scope. Pick one and Rest Hippo inserts it as a highlighted
 **pill**:
 
 ![The variable typeahead](images/variable-typeahead.png)
@@ -95,7 +95,7 @@ Each capture rule has:
 | **Variable**    | The variable name to write                                             |
 | **Secret**      | Mark the captured value secure (encrypted, masked)                     |
 
-Captures run after any successful (2xx) response. wurl shows a small toast
+Captures run after any successful (2xx) response. Rest Hippo shows a small toast
 confirming what was written (e.g. _Captured 1 variable → env.token_), and the
 response status bar shows a **captured** badge.
 

@@ -48,7 +48,7 @@ function detectFormat(data) {
 }
 
 /**
- * Parse a raw file string (JSON or YAML) and return a wurl collection.
+ * Parse a raw file string (JSON or YAML) and return a Rest Hippo collection.
  *
  * Supports:
  *   - Postman v2.0 / v2.1 (.json)
@@ -105,7 +105,7 @@ export function parseImport(content) {
 
 /**
  * Collect the local paths referenced by file-kind form rows anywhere in a parsed
- * import tree. A cURL `-F name=@file` (or wurl's `name=path;filename=…`) becomes
+ * import tree. A cURL `-F name=@file` (or Rest Hippo's `name=path;filename=…`) becomes
  * a file row carrying `filePath`; the renderer existence-checks these before
  * deciding whether to warn.
  *

@@ -4,7 +4,7 @@ package main
 //
 // Standard-library only (no deps), matching auth.go / graphql.go / websocket.go.
 // Each streaming handler sets the streaming headers, writes the status, and
-// flushes after every frame so the client (wurl's live response viewer) sees
+// flushes after every frame so the client (Rest Hippo's live response viewer) sees
 // data arrive incrementally instead of all at once at the end. Loops honor
 // r.Context().Done() so a client disconnect (the Stop button → req.destroy)
 // tears the goroutine down promptly.
@@ -68,7 +68,7 @@ func sseIndexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
-		"service": "wurl-mock",
+		"service": "resthippo-mock",
 		"streams": list,
 	})
 }
@@ -175,7 +175,7 @@ func sseLLMHandler(w http.ResponseWriter, r *http.Request) {
 			"id":      id,
 			"object":  "chat.completion.chunk",
 			"created": time.Now().Unix(),
-			"model":   "wurl-mock-1",
+			"model":   "resthippo-mock-1",
 			"choices": []map[string]any{{
 				"index":         0,
 				"delta":         delta,
@@ -189,7 +189,7 @@ func sseLLMHandler(w http.ResponseWriter, r *http.Request) {
 	// Opening role delta.
 	chunk(map[string]any{"role": "assistant"}, nil)
 
-	text := "Streaming responses let wurl show tokens the moment they arrive, " +
+	text := "Streaming responses let Rest Hippo show tokens the moment they arrive, " +
 		"instead of waiting for the whole reply. Press Stop to cancel at any time."
 	for _, tok := range strings.SplitAfter(text, " ") {
 		if tok == "" {

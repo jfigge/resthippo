@@ -5,13 +5,13 @@ import { redactedAuth } from "./redact.js";
 /**
  * OpenAPI 3.0.3 exporter — best-effort.
  *
- * A wurl collection is a set of concrete requests; OpenAPI is a description of
+ * A Rest Hippo collection is a set of concrete requests; OpenAPI is a description of
  * an API surface. The mapping is therefore lossy by nature, and the lossy areas
  * are intentional and documented here:
  *
  *   - PATHS: each request URL is reduced to a server origin + a path; the most
  *     common concrete `https://host` among requests becomes the single server,
- *     and request paths are made relative to it. wurl `{{var}}` templates become
+ *     and request paths are made relative to it. Rest Hippo `{{var}}` templates become
  *     OpenAPI `{var}` path templates (and are declared as path parameters).
  *   - COLLISIONS: OpenAPI allows one operation per (path, method); when two
  *     requests collapse to the same pair, the first wins and the rest are
@@ -139,7 +139,7 @@ function ioParams(node) {
   return out;
 }
 
-/** Build a requestBody object from a wurl body, or undefined for no-body. */
+/** Build a requestBody object from a Rest Hippo body, or undefined for no-body. */
 function requestBody(node) {
   const type = node.bodyType ?? "no-body";
   if (type === "no-body") return undefined;
@@ -284,9 +284,9 @@ function collectRequests(root) {
 }
 
 /**
- * Serialize a wurl collection to an OpenAPI 3.0.3 JSON string.
+ * Serialize a Rest Hippo collection to an OpenAPI 3.0.3 JSON string.
  *
- * @param {object} collection   wurl collection node (type: "collection")
+ * @param {object} collection   Rest Hippo collection node (type: "collection")
  * @param {Array}  [_variables]  Collection-level variables — intentionally not
  *                               embedded in the document (no secret leaks);
  *                               accepted only for a uniform exporter signature.

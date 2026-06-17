@@ -34,7 +34,9 @@ const ntlm = require("../../auth/ntlm");
 // ── Load main.js under a stubbed Electron, capturing its IPC handlers ─────────
 const handlers = {};
 const noop = () => {};
-const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "wurl-httpeng-"));
+const userDataDir = fs.mkdtempSync(
+  path.join(os.tmpdir(), "resthippo-httpeng-"),
+);
 
 const electronStub = {
   app: {
@@ -48,7 +50,7 @@ const electronStub = {
     getPath: () => userDataDir,
     getLocale: () => "en-US",
     getVersion: () => "0.0.0-test",
-    getName: () => "wurl",
+    getName: () => "Rest Hippo",
     setAboutPanelOptions: noop,
     commandLine: { appendSwitch: noop },
     isPackaged: false,

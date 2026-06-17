@@ -145,7 +145,7 @@ test("oauth2 clientSecret is redacted, non-secret fields are kept", () => {
   assert.equal(auth.clientSecret, "");
   assert.equal(auth.clientId, "client-123");
   assert.equal(auth.accessTokenUrl, "https://auth/token");
-  // wurl `authUrl` maps onto Insomnia's `authorizationUrl`.
+  // Rest Hippo `authUrl` maps onto Insomnia's `authorizationUrl`.
   assert.equal(auth.authorizationUrl, "https://auth/authorize");
   assert.equal(auth.scope, "read write");
   assert.equal(auth.grantType, "client_credentials");

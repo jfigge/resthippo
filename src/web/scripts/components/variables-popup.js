@@ -13,7 +13,7 @@
  *   • User-resizable via CSS `resize: both`.
  *
  * Constructor callbacks (this is a parent-owned popup that reports back to its
- * creator, so it uses callbacks rather than global wurl:* events — see the
+ * creator, so it uses callbacks rather than global hippo:* events — see the
  * "Component ↔ app communication" rule in CLAUDE.md):
  *   onSave({ scopeId, variables })       — debounced 500ms auto-save
  *   onBulkEditorChange({ bulkEditor }) — bulk-textarea / KV-row toggle changed

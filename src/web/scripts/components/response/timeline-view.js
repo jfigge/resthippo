@@ -4,7 +4,7 @@
  * Extracted from ResponseViewer as a delegated sub-component: it owns the
  * run-history list + master/detail DOM and the live "Xs ago" timestamp ticker,
  * and reports user actions (select / restore / delete / clear) by dispatching
- * the same window `wurl:timeline-*` events app.js already listens for — so the
+ * the same window `hippo:timeline-*` events app.js already listens for — so the
  * host stays a thin forwarder.
  *
  * The host (ResponseViewer) still owns tab lifecycle and the response panes, so
@@ -52,7 +52,7 @@ export class TimelineView {
   /**
    * Replace the cached run history and re-render. Selection resets to "none"
    * (the detail panel then previews the latest entry). Called by the host on
-   * every `wurl:timeline-update`.
+   * every `hippo:timeline-update`.
    */
   update(entries, requestId) {
     this.#timelineEntries = entries ?? [];
@@ -175,7 +175,7 @@ export class TimelineView {
 
   /**
    * Select a timeline entry: highlight the row, render its request snapshot in
-   * the detail panel, and dispatch wurl:timeline-select so app.js loads that
+   * the detail panel, and dispatch hippo:timeline-select so app.js loads that
    * run's response into the body/headers/cookies tabs. Non-destructive — the
    * live request editor is left untouched.
    */
@@ -185,7 +185,7 @@ export class TimelineView {
     const entry = this.#timelineEntries[idx];
     if (!entry) return;
     window.dispatchEvent(
-      new CustomEvent("wurl:timeline-select", {
+      new CustomEvent("hippo:timeline-select", {
         detail: {
           requestUrl: entry.requestUrl ?? "",
           response: entry.response,
@@ -206,10 +206,10 @@ export class TimelineView {
       { id: "delete", label: t("menu.deleteEntry") },
       { id: "delete-all", label: t("menu.deleteAllHistory") },
     ];
-    const clickedId = await window.wurl.ui.contextMenu.show({ items, x, y });
+    const clickedId = await window.hippo.ui.contextMenu.show({ items, x, y });
     if (clickedId === "restore") {
       window.dispatchEvent(
-        new CustomEvent("wurl:timeline-restore", {
+        new CustomEvent("hippo:timeline-restore", {
           detail: {
             requestNode: entry.requestNode,
             requestUrl: entry.requestUrl ?? "",
@@ -227,12 +227,12 @@ export class TimelineView {
   /**
    * Delete a single timeline entry. Delegates to app.js (owner of history
    * state + storage) which removes the on-disk files and re-dispatches
-   * wurl:timeline-update so the pane re-renders.
+   * hippo:timeline-update so the pane re-renders.
    */
   #deleteTimelineEntry(historyId) {
     if (!this.#requestId || !historyId) return;
     window.dispatchEvent(
-      new CustomEvent("wurl:timeline-delete-entry", {
+      new CustomEvent("hippo:timeline-delete-entry", {
         detail: { requestId: this.#requestId, historyId },
       }),
     );
@@ -242,7 +242,7 @@ export class TimelineView {
   #clearTimeline() {
     if (!this.#requestId) return;
     window.dispatchEvent(
-      new CustomEvent("wurl:timeline-clear", {
+      new CustomEvent("hippo:timeline-clear", {
         detail: { requestId: this.#requestId },
       }),
     );

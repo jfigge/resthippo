@@ -7,17 +7,17 @@
  *
  * It wires the two real components that bracket the cycle:
  *
- *     RequestEditor  ──(wurl:send-request)──►  [bridge]  ──window.wurl.http.execute──►  (mock)
+ *     RequestEditor  ──(hippo:send-request)──►  [bridge]  ──window.hippo.http.execute──►  (mock)
  *          ▲                                                                               │
- *          │            (wurl:response-received  |  wurl:request-error)                    ▼
+ *          │            (hippo:response-received  |  hippo:request-error)                    ▼
  *     ResponseViewer  ◄───────────────────────────────────────────────────────────────────
  *
  * The [bridge] in the middle mirrors the documented contract of app.js's
- * `wurl:send-request` handler (app.js:1554): it assembles the native descriptor,
- * calls the (mocked) `window.wurl.http.execute` IPC channel, and routes the
+ * `hippo:send-request` handler (app.js:1554): it assembles the native descriptor,
+ * calls the (mocked) `window.hippo.http.execute` IPC channel, and routes the
  * outcome down the same two branches app.js uses — an HTTP response re-dispatches
- * as `wurl:response-received`, while a transport failure (status 0 + error)
- * re-dispatches as `wurl:request-error`. app.js itself is a monolithic
+ * as `hippo:response-received`, while a transport failure (status 0 + error)
+ * re-dispatches as `hippo:request-error`. app.js itself is a monolithic
  * DOMContentLoaded bootstrap that cannot be imported in isolation, so the bridge
  * is reproduced here at exactly the seam the editor and viewer agree on. The two
  * components on either side are the real production classes.
@@ -48,12 +48,12 @@ import { ResponseViewer } from "../components/response-viewer.js";
 /**
  * Install the app.js request→response bridge.
  *
- * Mirrors app.js:1554 in full — listens for the editor's `wurl:send-request`,
+ * Mirrors app.js:1554 in full — listens for the editor's `hippo:send-request`,
  * builds the native descriptor app.js would build, hands it to the mocked IPC
  * channel, and routes the outcome down the SAME two branches app.js uses: a
  * transport failure (`status === 0` with an `error`) re-emits as
- * `wurl:request-error`, while any HTTP response re-emits as
- * `wurl:response-received`. Reproducing both branches in one place keeps this a
+ * `hippo:request-error`, while any HTTP response re-emits as
+ * `hippo:response-received`. Reproducing both branches in one place keeps this a
  * faithful stand-in for the (un-importable) bootstrap handler rather than a
  * happy-path-only shim.
  *
@@ -63,7 +63,7 @@ import { ResponseViewer } from "../components/response-viewer.js";
  */
 function installBridge(window, settings = {}) {
   const executed = [];
-  window.addEventListener("wurl:send-request", async (e) => {
+  window.addEventListener("hippo:send-request", async (e) => {
     const d = e.detail;
     const nativeDesc = {
       method: d.method,
@@ -80,7 +80,7 @@ function installBridge(window, settings = {}) {
     };
     executed.push(nativeDesc);
 
-    const result = await window.wurl.http.execute(nativeDesc);
+    const result = await window.hippo.http.execute(nativeDesc);
     const request = {
       method: nativeDesc.method,
       url: nativeDesc.url,
@@ -91,7 +91,7 @@ function installBridge(window, settings = {}) {
     if (result.error && result.status === 0) {
       // Transport-level failure — no HTTP response was received.
       window.dispatchEvent(
-        new window.CustomEvent("wurl:request-error", {
+        new window.CustomEvent("hippo:request-error", {
           detail: {
             request,
             name: result.error.name,
@@ -105,7 +105,7 @@ function installBridge(window, settings = {}) {
     } else {
       // An HTTP response (any status code, including 4xx / 5xx).
       window.dispatchEvent(
-        new window.CustomEvent("wurl:response-received", {
+        new window.CustomEvent("hippo:response-received", {
           detail: {
             request,
             status: result.status,
@@ -162,7 +162,7 @@ test("E2E: edit → execute → render drives the real editor and viewer", async
   // ── Mock IPC: the only transport. Records the descriptor and returns a canned
   //    HTTP response, standing in for the Electron main process. ───────────────
   let executeArg = null;
-  window.wurl = {
+  window.hippo = {
     isElectron: true,
     http: {
       execute: async (desc) => {
@@ -209,8 +209,8 @@ test("E2E: edit → execute → render drives the real editor and viewer", async
   // ── Trigger execute by clicking the real Send button, and wait for the
   //    response-received event that closes the cycle. ──────────────────────────
   const settled = waitForEvent(window, [
-    "wurl:response-received",
-    "wurl:request-error",
+    "hippo:response-received",
+    "hippo:request-error",
   ]);
   const sendBtn = editor.element.querySelector('[aria-label="Send request"]');
   assert.ok(sendBtn, "Send button is present in the editor DOM");
@@ -218,7 +218,7 @@ test("E2E: edit → execute → render drives the real editor and viewer", async
   const outcome = await settled;
   assert.equal(
     outcome.type,
-    "wurl:response-received",
+    "hippo:response-received",
     "the cycle ended in a rendered response, not an error",
   );
 
@@ -266,7 +266,7 @@ test("E2E: a base64 (binary) response is forwarded with its encoding and renders
   // This is the contract the bridge (and app.js) must forward; dropping the
   // encoding field silently degrades images to a broken <img> and PDFs to a
   // jumble of text. Regression guard for that field plumbing.
-  window.wurl = {
+  window.hippo = {
     isElectron: true,
     http: {
       execute: async () => ({
@@ -298,15 +298,15 @@ test("E2E: a base64 (binary) response is forwarded with its encoding and renders
   });
 
   const settled = waitForEvent(window, [
-    "wurl:response-received",
-    "wurl:request-error",
+    "hippo:response-received",
+    "hippo:request-error",
   ]);
   editor.element.querySelector('[aria-label="Send request"]').click();
   const outcome = await settled;
 
   assert.equal(
     outcome.type,
-    "wurl:response-received",
+    "hippo:response-received",
     "the cycle ended in a rendered response",
   );
   // The encoding must survive the bridge so the viewer takes the binary path.
@@ -331,9 +331,9 @@ test("E2E: a network-style failure renders the error state, not a response", asy
   const window = resetDom();
 
   // The bridge re-emits the IPC result; here the mock resolves to a transport
-  // failure shape (status 0 + error) which app.js routes to wurl:request-error.
+  // failure shape (status 0 + error) which app.js routes to hippo:request-error.
   let executeArg = null;
-  window.wurl = {
+  window.hippo = {
     isElectron: true,
     http: {
       execute: async (desc) => {
@@ -349,7 +349,7 @@ test("E2E: a network-style failure renders the error state, not a response", asy
   };
 
   // The SAME bridge as the success path — its status===0 branch routes this to
-  // wurl:request-error, exercising the error fork of the one real handler.
+  // hippo:request-error, exercising the error fork of the one real handler.
   installBridge(window);
 
   const viewer = new ResponseViewer();
@@ -361,15 +361,15 @@ test("E2E: a network-style failure renders the error state, not a response", asy
   editor.load({ id: "req-2", method: "GET", url: "https://down.example.com" });
 
   const settled = waitForEvent(window, [
-    "wurl:response-received",
-    "wurl:request-error",
+    "hippo:response-received",
+    "hippo:request-error",
   ]);
   editor.element.querySelector('[aria-label="Send request"]').click();
   const outcome = await settled;
 
   assert.equal(
     outcome.type,
-    "wurl:request-error",
+    "hippo:request-error",
     "a transport failure routes to the error event, not a response",
   );
   assert.ok(executeArg, "the request was still dispatched to the IPC channel");

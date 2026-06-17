@@ -1,6 +1,6 @@
-# wurl — Web URL REST API Client
+# Rest Hippo — Web URL REST API Client
 
-[![CI](https://github.com/jfigge/wurl/actions/workflows/ci.yml/badge.svg)](https://github.com/jfigge/wurl/actions/workflows/ci.yml)
+[![CI](https://github.com/jfigge/resthippo/actions/workflows/ci.yml/badge.svg)](https://github.com/jfigge/resthippo/actions/workflows/ci.yml)
 
 A lightweight, cross-platform desktop REST API client — like Postman or Insomnia —
 built with **Electron** and **Vanilla JavaScript**, backed by a file-based
@@ -23,7 +23,7 @@ built with **Electron** and **Vanilla JavaScript**, backed by a file-based
 
 ```
 Electron main process (src/app/main.js)        ← owns all filesystem I/O + native HTTP
-  └── IPC bridge (src/app/preload.js)  →  window.wurl.*
+  └── IPC bridge (src/app/preload.js)  →  window.hippo.*
         └── Renderer / UI (src/web/scripts/app.js)   ← sandboxed; talks to main via IPC only
               ├── TreeView
               ├── RequestEditor
@@ -32,7 +32,7 @@ Electron main process (src/app/main.js)        ← owns all filesystem I/O + nat
 
 The main process performs all HTTP execution natively, so requests are **not**
 subject to browser CORS constraints. The renderer is sandboxed and communicates
-with the main process exclusively through the `window.wurl.*` bridge. Storage is
+with the main process exclusively through the `window.hippo.*` bridge. Storage is
 file-based under Electron's `userData` path (see `src/app/store/`).
 
 ## Prerequisites
@@ -46,14 +46,14 @@ file-based under Electron's `userData` path (see `src/app/store/`).
 ## Project Structure
 
 ```
-wurl/
+Rest Hippo/
 ├── Makefile               # Build orchestration (authoritative command list)
 ├── mock/                  # Optional Go mock API for MIME / status / auth testing
 └── src/
     ├── package.json       # Node / Electron dependencies + electron-builder config
     ├── app/               # Electron main process (Node.js)
     │   ├── main.js        #   window lifecycle + IPC registration
-    │   ├── preload.js     #   IPC bridge exposed as window.wurl
+    │   ├── preload.js     #   IPC bridge exposed as window.hippo
     │   ├── store/         #   file-based storage layer (+ tests)
     │   └── auth/          #   Digest / NTLM signing (+ tests)
     └── web/               # Renderer (Vanilla JS + CSS)
@@ -126,9 +126,9 @@ and signs only on tag/release builds (PR builds stay unsigned `--dir`).
 Verify the artifacts:
 
 ```bash
-codesign --verify --deep --strict --verbose=2 <wurl.app>   # macOS
-spctl -a -vvv -t install <wurl.app>                         # macOS Gatekeeper
-signtool verify /pa /v <wurl-setup.exe>                     # Windows
+codesign --verify --deep --strict --verbose=2 <Rest Hippo.app>   # macOS
+spctl -a -vvv -t install <Rest Hippo.app>                         # macOS Gatekeeper
+signtool verify /pa /v <resthippo-setup.exe>                     # Windows
 ```
 
 ## Code Quality & Tests
@@ -204,7 +204,7 @@ which echoes every frame back; `/ws/time`, which pushes a timestamped JSON frame
 once per second (to test received-without-send traffic); and `/ws/reject`, which
 refuses the upgrade with `401` so handshake-failure handling can be exercised.
 
-It also runs a forward proxy on `http://localhost:9999` for exercising wurl's
+It also runs a forward proxy on `http://localhost:9999` for exercising Rest Hippo's
 proxy settings and request-retry policy. Point a request's proxy at it and send
 the `X-PROXY-ERROR` header to make the proxy fail a fixed number of times before
 the request succeeds — `X-PROXY-ERROR: 3` returns `503` for the first two

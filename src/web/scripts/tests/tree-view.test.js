@@ -64,11 +64,11 @@ const TREE = () => [
   },
 ];
 
-/** Mount a fresh TreeView with a stubbed `window.wurl` (context menu / export). */
+/** Mount a fresh TreeView with a stubbed `window.hippo` (context menu / export). */
 function mount(items = []) {
   const window = resetDom();
   let menuChoice = null;
-  window.wurl = {
+  window.hippo = {
     isElectron: false,
     ui: { contextMenu: { show: async () => menuChoice } },
     export: { file: { save: () => {} } },
@@ -155,9 +155,9 @@ test("setItems replaces the whole tree and re-renders", () => {
 
 // ── Selection ───────────────────────────────────────────────────────────────
 
-test("clicking a request dispatches wurl:request-selected and marks it active", () => {
+test("clicking a request dispatches hippo:request-selected and marks it active", () => {
   const tv = mount(TREE());
-  const sel = capture("wurl:request-selected");
+  const sel = capture("hippo:request-selected");
   rowOf(tv, "r1").click();
   assert.equal(sel.length, 1);
   assert.equal(sel[0].id, "r1");
@@ -166,7 +166,7 @@ test("clicking a request dispatches wurl:request-selected and marks it active", 
 
 test("clicking the already-active request does not re-dispatch", () => {
   const tv = mount(TREE());
-  const sel = capture("wurl:request-selected");
+  const sel = capture("hippo:request-selected");
   rowOf(tv, "r1").click();
   rowOf(tv, "r1").click();
   assert.equal(sel.length, 1, "second click on the active row is a no-op");
@@ -174,7 +174,7 @@ test("clicking the already-active request does not re-dispatch", () => {
 
 test("selectById selects a request programmatically and fires the event", () => {
   const tv = mount(TREE());
-  const sel = capture("wurl:request-selected");
+  const sel = capture("hippo:request-selected");
   assert.equal(tv.selectById("r2"), true);
   assert.equal(sel.at(-1).id, "r2");
 });
@@ -208,7 +208,7 @@ test("collapsed state persists to localStorage under the storage key", () => {
   tv.setStorageKey("colA");
   rowOf(tv, "f1").querySelector(".tree-node-icon").click(); // collapse f1
   const stored = JSON.parse(
-    globalThis.window.localStorage.getItem("wurl:collapsed:colA") || "[]",
+    globalThis.window.localStorage.getItem("hippo:collapsed:colA") || "[]",
   );
   assert.ok(stored.includes("f1"), "collapsed id saved");
 });
@@ -217,7 +217,7 @@ test("collapsed state persists to localStorage under the storage key", () => {
 
 test("New Collection adds a top-level collection and fires collections-changed", () => {
   const tv = mount([]);
-  const changed = capture("wurl:collections-changed");
+  const changed = capture("hippo:collections-changed");
   const [newColl] = toolbarBtns(tv);
   newColl.click();
   assert.equal(changed.length, 1);
@@ -227,7 +227,7 @@ test("New Collection adds a top-level collection and fires collections-changed",
 
 test("New Request adds a request under a collection and fires collections-changed", () => {
   const tv = mount(TREE());
-  const changed = capture("wurl:collections-changed");
+  const changed = capture("hippo:collections-changed");
   const [, newReq] = toolbarBtns(tv);
   assert.ok(!newReq.disabled, "enabled when a collection exists");
   newReq.click();
@@ -240,7 +240,7 @@ test("New Request adds a request under a collection and fires collections-change
 
 test("updateNode patches method in-place (badge + model) and persists", () => {
   const tv = mount(TREE());
-  const changed = capture("wurl:collections-changed");
+  const changed = capture("hippo:collections-changed");
   tv.updateNode("r1", { method: "DELETE" });
   const badge = rowOf(tv, "r1").querySelector(".tree-node-method");
   assert.equal(badge.textContent, "DELETE");
@@ -251,7 +251,7 @@ test("updateNode patches method in-place (badge + model) and persists", () => {
 
 test("updateNode with { silent:true } does not fire collections-changed", () => {
   const tv = mount(TREE());
-  const changed = capture("wurl:collections-changed");
+  const changed = capture("hippo:collections-changed");
   tv.updateNode("r1", { method: "PUT" }, { silent: true });
   assert.equal(changed.length, 0);
   assert.equal(
@@ -277,7 +277,7 @@ async function contextAction(tv, id, choice) {
 
 test("rename via context menu commits the new label on Enter and fires change", async () => {
   const tv = mount(TREE());
-  const changed = capture("wurl:collections-changed");
+  const changed = capture("hippo:collections-changed");
   await contextAction(tv, "r1", "rename");
   const input = tv.element.querySelector(".tree-node-rename-input");
   assert.ok(input, "rename input replaced the label");
@@ -294,8 +294,8 @@ test("rename via context menu commits the new label on Enter and fires change", 
 
 test("delete via context menu removes the node, fires change + requests-deleted", async () => {
   const tv = mount(TREE());
-  const changed = capture("wurl:collections-changed");
-  const deleted = capture("wurl:requests-deleted");
+  const changed = capture("hippo:collections-changed");
+  const deleted = capture("hippo:requests-deleted");
   await contextAction(tv, "r1", "delete");
   assert.equal(li(tv, "r1"), null, "row removed");
   assert.ok(changed.length >= 1);

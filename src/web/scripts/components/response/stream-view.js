@@ -3,7 +3,7 @@
  * (Feature 33), extracted from ResponseViewer.
  *
  * This owns everything stream-specific: the 14 live-stream state fields, the
- * reused WsConsole live log, the wurl:stream-* event handling, the terminal
+ * reused WsConsole live log, the hippo:stream-* event handling, the terminal
  * state, save, and the static summary render shown when a recorded stream is
  * reopened from the Timeline.
  *
@@ -31,7 +31,7 @@ export class StreamView {
   #host;
 
   #streaming = false; // a live stream is currently being shown
-  #streamId = null; // id of the active stream (matches wurl:stream-* payloads)
+  #streamId = null; // id of the active stream (matches hippo:stream-* payloads)
   #armedStreamId = null; // id from request-loading, before we know it will stream
   #streamConsole = null; // reused WsConsole instance acting as the live log
   #streamPending = []; // stream-data items buffered before the marker activates
@@ -75,7 +75,7 @@ export class StreamView {
   /**
    * Enter live-streaming mode from a streaming marker (response.streaming).
    * The Body pane becomes a live-append log (reused WsConsole) fed by the
-   * wurl:stream-* events; headers / cookies / console come from the marker.
+   * hippo:stream-* events; headers / cookies / console come from the marker.
    * @param {object} response  the streaming marker
    * @param {string} [requestUrl]
    */
@@ -322,10 +322,10 @@ export class StreamView {
     if (!this.#streamId) return;
     const filename = this.#streamSaveFilename();
     if (this.#streamEnded && this.#streamBodyRef) {
-      window.wurl?.http?.body?.save?.(this.#streamBodyRef, filename);
+      window.hippo?.http?.body?.save?.(this.#streamBodyRef, filename);
     } else {
       // Still running — save the bytes received so far.
-      window.wurl?.http?.stream?.save?.(this.#streamId, filename);
+      window.hippo?.http?.stream?.save?.(this.#streamId, filename);
     }
   }
 
@@ -347,7 +347,7 @@ export class StreamView {
    */
   teardownStream({ abort = false } = {}) {
     if (abort && this.#streaming && !this.#streamEnded && this.#streamId) {
-      window.wurl?.http?.stream?.abort?.(this.#streamId)?.catch?.(() => {});
+      window.hippo?.http?.stream?.abort?.(this.#streamId)?.catch?.(() => {});
     }
     this.#streaming = false;
     this.#streamId = null;

@@ -1,4 +1,4 @@
-// main.js — Electron main process for wurl
+// main.js — Electron main process for Rest Hippo
 "use strict";
 
 const {
@@ -74,7 +74,7 @@ const logger = createLogger({
     try {
       return path.join(app.getPath("userData"), "logs");
     } catch {
-      return path.join(os.tmpdir(), "wurl-logs");
+      return path.join(os.tmpdir(), "resthippo-logs");
     }
   })(),
 });
@@ -171,7 +171,7 @@ function getStores() {
 // 2. RETURN SHAPES. There is one shape per operation class:
 //      • Storage / throwing ops  → throw a tagged error; the IPC handler wraps it
 //        in safeCall / safeCallWrite (below) so the renderer sees a quiet
-//        fallback or a discriminable `{ __wurlError }` envelope.
+//        fallback or a discriminable `{ __hippoError }` envelope.
 //      • Result-or-error ops (http:execute, http:body:get, functions:invoke) →
 //        return the result envelope carrying a structured `{ name, message }`
 //        under `error` on failure (never a bare string).
@@ -198,7 +198,7 @@ function safeCall(channel, fn, fallback = null) {
 /**
  * Wrap a *write* store call. Unlike safeCall (which returns a look-alike
  * fallback that the renderer cannot distinguish from success), a failed write
- * returns a discriminable `{ __wurlError: true }` envelope so the renderer's
+ * returns a discriminable `{ __hippoError: true }` envelope so the renderer's
  * data-store can detect the failure and surface a user-visible error toast
  * instead of silently proceeding as if the save succeeded.
  *
@@ -212,7 +212,7 @@ function safeCallWrite(channel, fn) {
     return result === undefined ? null : result;
   } catch (err) {
     console.error(`[main] ${channel} error:`, err.message);
-    return { __wurlError: true, channel, message: err.message };
+    return { __hippoError: true, channel, message: err.message };
   }
 }
 
@@ -246,7 +246,7 @@ function fmtLabel(str, params) {
 // Reads and best-effort writes use safeCall (quiet: log + look-alike fallback).
 // Authoritative writes — those persisting user-authored data the user expects to
 // stick (manifest, collection blob, tree, requests, environments, cookies) — use
-// safeCallWrite, so a failure returns a discriminable { __wurlError } envelope
+// safeCallWrite, so a failure returns a discriminable { __hippoError } envelope
 // the renderer surfaces as a toast instead of proceeding as if the save worked.
 // Best-effort writes (on-disk reclamation that runs AFTER an authoritative save,
 // and auto-captured history telemetry) intentionally stay on safeCall because a
@@ -1309,7 +1309,7 @@ function startHotReload(win) {
 
 // ─── App icon ─────────────────────────────────────────────────────────────────
 // Resolved once at startup; used for both the BrowserWindow and the macOS dock.
-const APP_ICON_PATH = path.join(__dirname, "..", "web", "wurl-logo.png");
+const APP_ICON_PATH = path.join(__dirname, "..", "web", "resthippo-logo.png");
 const appIcon = nativeImage.createFromPath(APP_ICON_PATH);
 
 // Set the dock icon synchronously before whenReady() — in Electron 14+ this is
@@ -1441,7 +1441,7 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
     //   height     : 44 header + 500 content   = 544 px
     minWidth: 800,
     minHeight: 400,
-    title: "wurl",
+    title: "Rest Hippo",
     icon: appIcon,
     backgroundColor: "#1e1e2e",
     webPreferences: {
@@ -1689,10 +1689,10 @@ ipcMain.handle("backup:export", async (_event, { mode, password } = {}) => {
 
   const save = await dialog.showSaveDialog(win, {
     title: m("dialog.createBackupTitle", "Create Backup"),
-    defaultPath: `wurl-backup-${_backupDateStamp()}.json`,
+    defaultPath: `resthippo-backup-${_backupDateStamp()}.json`,
     filters: [
       {
-        name: m("dialog.wurlBackupFilter", "wurl Backup"),
+        name: m("dialog.resthippoBackupFilter", "Rest Hippo Backup"),
         extensions: ["json"],
       },
     ],
@@ -1748,7 +1748,7 @@ ipcMain.handle("backup:prepare", async () => {
     title: m("dialog.restoreBackupTitle", "Restore Backup"),
     filters: [
       {
-        name: m("dialog.wurlBackupFilter", "wurl Backup"),
+        name: m("dialog.resthippoBackupFilter", "Rest Hippo Backup"),
         extensions: ["json"],
       },
     ],
@@ -1761,12 +1761,12 @@ ipcMain.handle("backup:prepare", async () => {
   try {
     const raw = await fs.promises.readFile(filePath, "utf-8");
     const envelope = JSON.parse(raw);
-    if (!envelope || envelope.kind !== "wurl-backup") {
+    if (!envelope || envelope.kind !== "resthippo-backup") {
       return {
         ok: false,
         error: m(
           "dialog.invalidBackup",
-          "The selected file is not a valid wurl backup.",
+          "The selected file is not a valid Rest Hippo backup.",
         ),
       };
     }
@@ -1843,7 +1843,7 @@ ipcMain.handle(
         err.code === "INVALID_BACKUP"
           ? m(
               "dialog.invalidBackup",
-              "The selected file is not a valid wurl backup.",
+              "The selected file is not a valid Rest Hippo backup.",
             )
           : err.message;
       await dialog.showMessageBox(win, {
@@ -1918,7 +1918,7 @@ function showAboutDialog() {
     maximizable: false,
     fullscreenable: false,
     autoHideMenuBar: true,
-    title: activeLabels()("menu.about", "About wurl"),
+    title: activeLabels()("menu.about", "About Rest Hippo"),
     icon: appIcon,
     backgroundColor: "#1e1e2e",
     parent: _mainWin ?? undefined,
@@ -1956,7 +1956,10 @@ function showThemeEditor() {
     minHeight: 480,
     resizable: true,
     autoHideMenuBar: true,
-    title: activeLabels()("themeEditor.windowTitle", "Theme Editor — wurl"),
+    title: activeLabels()(
+      "themeEditor.windowTitle",
+      "Theme Editor — Rest Hippo",
+    ),
     icon: appIcon,
     backgroundColor: "#1e1e2e",
     webPreferences: {
@@ -1998,7 +2001,7 @@ function showDocsWindow() {
     minHeight: 480,
     resizable: true,
     autoHideMenuBar: true,
-    title: activeLabels()("menu.userGuide", "wurl User Guide"),
+    title: activeLabels()("menu.userGuide", "Rest Hippo User Guide"),
     icon: appIcon,
     backgroundColor: "#1e1e2e",
     webPreferences: {
@@ -2054,10 +2057,10 @@ function showDocsWindow() {
       _themeEditorWin ?? _mainWin ?? undefined,
       {
         title: m("dialog.exportThemeTitle", "Export Theme"),
-        defaultPath: `${safe}.wurl-theme.json`,
+        defaultPath: `${safe}.resthippo-theme.json`,
         filters: [
           {
-            name: m("dialog.wurlThemeFilter", "wurl Theme"),
+            name: m("dialog.resthippoThemeFilter", "Rest Hippo Theme"),
             extensions: ["json"],
           },
         ],
@@ -2066,7 +2069,7 @@ function showDocsWindow() {
     if (canceled || !filePath) return false;
     fs.writeFileSync(
       filePath,
-      JSON.stringify({ "wurl-theme": "1", ...themeData }, null, 2),
+      JSON.stringify({ "resthippo-theme": "1", ...themeData }, null, 2),
     );
     return true;
   });
@@ -2079,7 +2082,7 @@ function showDocsWindow() {
         title: m("dialog.importThemeTitle", "Import Theme"),
         filters: [
           {
-            name: m("dialog.wurlThemeFilter", "wurl Theme"),
+            name: m("dialog.resthippoThemeFilter", "Rest Hippo Theme"),
             extensions: ["json"],
           },
         ],
@@ -2139,7 +2142,7 @@ async function exportDiagnostics() {
   const m = activeLabels();
   const save = await dialog.showSaveDialog(win, {
     title: m("dialog.exportDiagnosticsTitle", "Export Diagnostics"),
-    defaultPath: `wurl-diagnostics-${_backupDateStamp()}.txt`,
+    defaultPath: `resthippo-diagnostics-${_backupDateStamp()}.txt`,
     filters: [
       {
         name: m("dialog.diagnosticsFilter", "Diagnostics"),
@@ -2208,10 +2211,10 @@ function showFatalErrorDialog(err) {
         type: "error",
         icon: appIcon,
         buttons: [m("common.ok", "OK")],
-        title: m("dialog.fatalErrorTitle", "wurl encountered a problem"),
+        title: m("dialog.fatalErrorTitle", "Rest Hippo encountered a problem"),
         message: m(
           "dialog.fatalErrorMsg",
-          "An unexpected error occurred and wurl needs to close.",
+          "An unexpected error occurred and Rest Hippo needs to close.",
         ),
         detail,
       },
@@ -2238,7 +2241,7 @@ function showRejectionDialog(err) {
         title: m("dialog.unhandledRejectionTitle", "Unexpected error"),
         message: m(
           "dialog.unhandledRejectionMsg",
-          "An unexpected error occurred. wurl will keep running.",
+          "An unexpected error occurred. Rest Hippo will keep running.",
         ),
         detail: err.message,
       },
@@ -2268,10 +2271,10 @@ function buildMenu() {
   const m = activeLabels();
   const template = [
     {
-      label: "wurl", // app name — proper noun, shown verbatim in every locale
-      // keep wurl app menu first on macOS
+      label: "Rest Hippo", // app name — proper noun, shown verbatim in every locale
+      // keep Rest Hippo app menu first on macOS
       submenu: [
-        { label: m("menu.about", "About wurl"), click: showAboutDialog },
+        { label: m("menu.about", "About Rest Hippo"), click: showAboutDialog },
         {
           label: m("menu.themeEditor", "Theme Editor…"),
           click: showThemeEditor,
@@ -2377,21 +2380,21 @@ function buildMenu() {
           label: m("menu.fontIncrease", "Increase Font Size"),
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
-              _mainWin.webContents.send("wurl:ui-font-change", "in");
+              _mainWin.webContents.send("hippo:ui-font-change", "in");
           },
         },
         {
           label: m("menu.fontDecrease", "Decrease Font Size"),
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
-              _mainWin.webContents.send("wurl:ui-font-change", "out");
+              _mainWin.webContents.send("hippo:ui-font-change", "out");
           },
         },
         {
           label: m("menu.fontReset", "Reset Font Size"),
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
-              _mainWin.webContents.send("wurl:ui-font-change", "reset");
+              _mainWin.webContents.send("hippo:ui-font-change", "reset");
           },
         },
         { type: "separator" },
@@ -2408,7 +2411,7 @@ function buildMenu() {
       role: "help",
       submenu: [
         {
-          label: m("menu.userGuide", "wurl User Guide"),
+          label: m("menu.userGuide", "Rest Hippo User Guide"),
           accelerator: "CmdOrCtrl+/",
           click: showDocsWindow,
         },
@@ -2448,7 +2451,7 @@ app.whenReady().then(async () => {
 
   logger.info(
     "startup",
-    `wurl ${app.getVersion()} ready (${process.platform})`,
+    `Rest Hippo ${app.getVersion()} ready (${process.platform})`,
   );
 
   // In dev mode: resolve the port, spawning the Go server if needed.

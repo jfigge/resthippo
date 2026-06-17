@@ -21,14 +21,14 @@ import { redactVariables, redactedAuth } from "./redact.js";
  */
 
 const EXPORT_FORMAT = 4;
-const EXPORT_SOURCE = "wurl.app:v0.6.1";
+const EXPORT_SOURCE = "resthippo.com:v0.6.1";
 
 /** Insomnia ids are prefixed, hyphen-free tokens (e.g. "req_ab12…"). */
 function newId(prefix) {
   return `${prefix}_${crypto.randomUUID().replace(/-/g, "")}`;
 }
 
-/** Map a wurl request body to an Insomnia body object (inverse of parseBody). */
+/** Map a Rest Hippo request body to an Insomnia body object (inverse of parseBody). */
 function exportBody(node) {
   const type = node.bodyType ?? "no-body";
   if (type === "no-body") return {};
@@ -98,7 +98,7 @@ function exportBody(node) {
 }
 
 /**
- * Map a wurl request's auth to an Insomnia `authentication` object. The shared
+ * Map a Rest Hippo request's auth to an Insomnia `authentication` object. The shared
  * `redactedAuth` helper strips the secret; Insomnia's importer-facing field
  * names are restored here (e.g. `authorizationUrl`).
  */
@@ -180,9 +180,9 @@ function exportAuth(node) {
 }
 
 /**
- * Serialize a wurl collection to an Insomnia v4 JSON string.
+ * Serialize a Rest Hippo collection to an Insomnia v4 JSON string.
  *
- * @param {object} collection  wurl collection node (type: "collection")
+ * @param {object} collection  Rest Hippo collection node (type: "collection")
  * @param {Array}  [variables] Collection-level variables in canonical array
  *                             shape ({ name, value, secure }); secure entries
  *                             are redacted into the base environment.

@@ -27,13 +27,13 @@ function ensureDir(dir) {
  * Distinctive infix marking write temp files. Real data files never contain it,
  * so the startup GC can match orphans with no risk of deleting real documents.
  */
-const TEMP_INFIX = ".wurltmp-";
+const TEMP_INFIX = ".resthippotmp-";
 
 /** Suffix appended after the unique counter. */
 const TEMP_SUFFIX = ".tmp";
 
 /** Matches a temp file name produced by {@link tempPathFor}. */
-const TEMP_FILE_RE = /\.wurltmp-\d+\.tmp$/;
+const TEMP_FILE_RE = /\.resthippotmp-\d+\.tmp$/;
 
 /** Process-local monotonic counter keeping concurrent temp names unique. */
 let tempCounter = 0;
@@ -53,7 +53,7 @@ function tempPathFor(filePath) {
 
 /**
  * Build a fresh temp-file path inside `dir` for callers that stream their own
- * content (e.g. spilled HTTP responses). The name carries the same `.wurltmp-`
+ * content (e.g. spilled HTTP responses). The name carries the same `.resthippotmp-`
  * infix as atomic writes, so {@link gcOrphanTempFiles} reaps it on the next
  * startup if the owning session exited before cleaning it up.
  * @param {string} dir Directory the temp file should live in.

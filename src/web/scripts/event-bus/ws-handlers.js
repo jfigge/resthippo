@@ -29,15 +29,15 @@ import { t } from "../i18n.js";
 import { WsConsole } from "../components/ws-console.js";
 
 export function installWsHandlers(ctx) {
-  window.addEventListener("wurl:ws-connect", async (e) => {
+  window.addEventListener("hippo:ws-connect", async (e) => {
     const { url, headers, subprotocols } = e.detail ?? {};
-    if (window.wurl?.isElectron !== true || !window.wurl.ws) {
+    if (window.hippo?.isElectron !== true || !window.hippo.ws) {
       ctx.getWsConsole().applyStatus({
         state: "error",
         message: t("app.wsDesktopOnly"),
       });
       window.dispatchEvent(
-        new CustomEvent("wurl:ws-state", { detail: { state: "error" } }),
+        new CustomEvent("hippo:ws-state", { detail: { state: "error" } }),
       );
       return;
     }
@@ -49,7 +49,7 @@ export function installWsHandlers(ctx) {
     ctx.getWsConsole().reset();
     ctx.getWsConsole().applyStatus({ state: "connecting" });
     window.dispatchEvent(
-      new CustomEvent("wurl:ws-state", { detail: { state: "connecting" } }),
+      new CustomEvent("hippo:ws-state", { detail: { state: "connecting" } }),
     );
     const settings = ctx.getSettings();
     const desc = {
@@ -61,7 +61,7 @@ export function installWsHandlers(ctx) {
       ...ctx.proxyDescriptorFields(settings),
     };
     try {
-      const { id } = await window.wurl.ws.open(desc);
+      const { id } = await window.hippo.ws.open(desc);
       const pendingTerminal = ctx.wsPendingTerminal.get(id);
       if (pendingTerminal) {
         // The socket failed/closed before we could register it (a status push
@@ -70,7 +70,7 @@ export function installWsHandlers(ctx) {
         ctx.wsPendingTerminal.delete(id);
         newConsole.applyStatus(pendingTerminal);
         window.dispatchEvent(
-          new CustomEvent("wurl:ws-state", {
+          new CustomEvent("hippo:ws-state", {
             detail: { state: pendingTerminal.state },
           }),
         );
@@ -89,16 +89,16 @@ export function installWsHandlers(ctx) {
         message: err?.message ?? t("app.wsOpenFailed"),
       });
       window.dispatchEvent(
-        new CustomEvent("wurl:ws-state", { detail: { state: "error" } }),
+        new CustomEvent("hippo:ws-state", { detail: { state: "error" } }),
       );
     }
   });
 
-  window.addEventListener("wurl:ws-send", async (e) => {
+  window.addEventListener("hippo:ws-send", async (e) => {
     const entry = ctx.connForRequest(ctx.getSelectedNode()?.id);
-    if (!entry || !window.wurl?.ws) return;
+    if (!entry || !window.hippo?.ws) return;
     const data = e.detail?.data ?? "";
-    const res = await window.wurl.ws.send({ id: entry.id, data });
+    const res = await window.hippo.ws.send({ id: entry.id, data });
     if (res?.ok) {
       entry.console.addFrame({ direction: "sent", data, ts: Date.now() });
     } else {
@@ -111,15 +111,15 @@ export function installWsHandlers(ctx) {
     }
   });
 
-  window.addEventListener("wurl:ws-disconnect", async () => {
+  window.addEventListener("hippo:ws-disconnect", async () => {
     const entry = ctx.connForRequest(ctx.getSelectedNode()?.id);
-    if (!entry || !window.wurl?.ws) return;
+    if (!entry || !window.hippo?.ws) return;
     entry.state = "closing";
     entry.console.applyStatus({ state: "closing" });
     window.dispatchEvent(
-      new CustomEvent("wurl:ws-state", { detail: { state: "closing" } }),
+      new CustomEvent("hippo:ws-state", { detail: { state: "closing" } }),
     );
-    await window.wurl.ws.close({
+    await window.hippo.ws.close({
       id: entry.id,
       code: 1000,
       reason: "client",

@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// graphql.go — a deliberately small mock GraphQL endpoint for exercising wurl's
+// graphql.go — a deliberately small mock GraphQL endpoint for exercising Rest Hippo's
 // GraphQL body mode (Feature 34). It is NOT a real GraphQL engine: it answers
 // the standard introspection query with a canned schema, returns canned data for
 // the handful of root fields that schema declares, and returns a GraphQL
@@ -168,7 +168,7 @@ func isIdentByte(b byte) bool {
 }
 
 // introspectionJSON is the canned response to the standard introspection query.
-// It mirrors the schema documented at the top of this file. wurl's own lenient
+// It mirrors the schema documented at the top of this file. Rest Hippo's own lenient
 // buildSchemaModel() only reads kind/name/fields[args,type]/enumValues + ofType
 // chains, but strict clients (Insomnia, GraphiQL, anything backed by graphql-js
 // buildClientSchema) additionally require an "interfaces" array on every OBJECT/

@@ -4,13 +4,13 @@
  * Integration tests for the renderer's IPC persistence bridge (data-store.js).
  *
  * Every persistence call the renderer makes routes through this module to the
- * Electron main process via `window.wurl.store.*` (exposed by preload.js). An
+ * Electron main process via `window.hippo.store.*` (exposed by preload.js). An
  * untested bridge means an IPC channel rename or argument-shape drift between
  * preload.js and data-store.js would silently break saves with no signal. These
- * tests drive the bridge against a recording mock of `window.wurl` (mirroring the
- * `window.wurl` mock pattern in auth/tests/oauth.test.js) and assert, for each
+ * tests drive the bridge against a recording mock of `window.hippo` (mirroring the
+ * `window.hippo` mock pattern in auth/tests/oauth.test.js) and assert, for each
  * public method:
- *   • it targets the correct `window.wurl.store.*` channel,
+ *   • it targets the correct `window.hippo.store.*` channel,
  *   • it forwards the right arguments / payload shape,
  *   • it surfaces the value the channel returns, and
  *   • it handles a thrown IPC error gracefully (warn + documented fallback)
@@ -30,13 +30,13 @@ import assert from "node:assert/strict";
 
 import * as store from "../data-store.js";
 
-// ── Recording mock for window.wurl.store ──────────────────────────────────────
+// ── Recording mock for window.hippo.store ──────────────────────────────────────
 // Each leaf channel records { path, args } on every call, returns a value
 // pre-seeded via setReturn(path, …), or throws an error seeded via
 // setThrow(path, err). isElectron() in data-store.js keys off the presence of
 // store.manifest.get being a function, so the mock satisfies that probe.
 
-function makeWurlMock() {
+function makeRestHippoMock() {
   const calls = [];
   const returns = {};
   const throws = {};
@@ -49,7 +49,7 @@ function makeWurlMock() {
       return returns[path];
     };
 
-  const wurl = {
+  const hippo = {
     isElectron: true,
     store: {
       manifest: {
@@ -98,7 +98,7 @@ function makeWurlMock() {
       return hits[0];
     },
     install: () => {
-      globalThis.window = { wurl };
+      globalThis.window = { hippo };
     },
   };
 }
@@ -163,7 +163,7 @@ async function loadActive(
 // ── loadAll: manifest.get + collections.get ───────────────────────────────────────────
 
 test("loadAll: reads manifest then the active collection's env file", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setReturn("manifest.get", {
     version: 2,
@@ -194,7 +194,7 @@ test("loadAll: reads manifest then the active collection's env file", async () =
 });
 
 test("loadAll: seeds a default collection on an empty (first-run) manifest", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setReturn("manifest.get", {
     version: 2,
@@ -218,7 +218,7 @@ test("loadAll: seeds a default collection on an empty (first-run) manifest", asy
 });
 
 test("loadAll: a thrown manifest channel is absorbed into a valid default doc", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setThrow("manifest.get", new Error("ipc disconnected"));
 
@@ -235,7 +235,7 @@ test("loadAll: a thrown manifest channel is absorbed into a valid default doc", 
 });
 
 test("loadAll: a malformed (null) manifest hits the outer catch and returns defaults", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setReturn("manifest.get", null); // raw.collections deref throws downstream
 
@@ -250,7 +250,7 @@ test("loadAll: a malformed (null) manifest hits the outer catch and returns defa
 // ── Collections: save paths ───────────────────────────────────────────────────
 
 test("saveCollections: writes the active collection's items via collections.save", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await loadActive(mock, { id: "coll-1", variables: { k: "v" } });
 
@@ -268,7 +268,7 @@ test("saveCollections: writes the active collection's items via collections.save
 });
 
 test("saveSettings: persists settings into the manifest via manifest.save", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await store.saveSettings({ theme: "latte", fontSize: 15 });
 
@@ -277,7 +277,7 @@ test("saveSettings: persists settings into the manifest via manifest.save", asyn
 });
 
 test("saveManifest: strips per-collection variables before persisting", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await store.saveManifest({
     collections: [{ id: "c1", name: "A", variables: { secret: "x" } }],
@@ -296,7 +296,7 @@ test("saveManifest: strips per-collection variables before persisting", async ()
 // ── Collections: read + targeted writes ───────────────────────────────────────
 
 test("loadCollectionData: reads a specific collection via collections.get and normalises", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setReturn("collections.get", {
     version: 1,
@@ -311,7 +311,7 @@ test("loadCollectionData: reads a specific collection via collections.get and no
 });
 
 test("saveCollectionData: forwards explicit variables in the env blob", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await store.saveCollectionData("coll-7", [{ id: "r1" }], { v: "1" });
 
@@ -327,7 +327,7 @@ test("saveCollectionData: forwards explicit variables in the env blob", async ()
 // ── updateRequest (granular write) + setActiveItems (cache sync) ───────────────
 
 test("updateRequest: forwards (id, patch) to store.requests.update and returns true", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   const ok = await store.updateRequest("req-1", { url: "/new", notes: "hi" });
   assert.equal(ok, true);
@@ -338,7 +338,7 @@ test("updateRequest: forwards (id, patch) to store.requests.update and returns t
 });
 
 test("updateRequest: returns false when the channel throws (so the caller falls back)", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setThrow("requests.update", new Error("request not found"));
   const { result } = await withCapturedWarn(() =>
@@ -348,7 +348,7 @@ test("updateRequest: returns false when the channel throws (so the caller falls 
 });
 
 test("setActiveItems: syncs the cache so a later variable save can't clobber granular edits", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await loadActive(mock, { id: "active" }); // _activeItems starts []
 
@@ -365,7 +365,7 @@ test("setActiveItems: syncs the cache so a later variable save can't clobber gra
 });
 
 test("saveCollectionVariables: for a non-active collection, reads-then-writes its env", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await loadActive(mock, { id: "active-coll" });
 
@@ -393,7 +393,7 @@ test("saveCollectionVariables: for a non-active collection, reads-then-writes it
 });
 
 test("setActiveCollection: is a local state switch with no IPC traffic", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   store.setActiveCollection("coll-local");
   assert.equal(mock.calls.length, 0);
@@ -402,7 +402,7 @@ test("setActiveCollection: is a local state switch with no IPC traffic", async (
 // ── Requests ──────────────────────────────────────────────────────────────────
 
 test("deleteRequest: routes to the requests.delete channel with the id", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await store.deleteRequest("req-123");
   assert.deepEqual(mock.one("requests.delete").args, ["req-123"]);
@@ -411,7 +411,7 @@ test("deleteRequest: routes to the requests.delete channel with the id", async (
 // ── History: full CRUD ────────────────────────────────────────────────────────
 
 test("listHistory: forwards id + options and surfaces the returned page", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   const page = { items: [{ id: "h1" }], nextCursor: "cur-2" };
   mock.setReturn("history.list", page);
@@ -429,7 +429,7 @@ test("listHistory: forwards id + options and surfaces the returned page", async 
 });
 
 test("addHistory: forwards (requestId, entry, response) and returns the stored entry", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   const stored = { id: "h7", status: 200 };
   mock.setReturn("history.add", stored);
@@ -443,7 +443,7 @@ test("addHistory: forwards (requestId, entry, response) and returns the stored e
 });
 
 test("getHistoryResponse: forwards (requestId, historyId) and surfaces the payload", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setReturn("history.getResponse", { headers: {}, body: "payload" });
 
@@ -454,21 +454,21 @@ test("getHistoryResponse: forwards (requestId, historyId) and surfaces the paylo
 });
 
 test("deleteHistory: forwards (requestId, historyId)", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await store.deleteHistory("req-1", "hist-9");
   assert.deepEqual(mock.one("history.delete").args, ["req-1", "hist-9"]);
 });
 
 test("clearHistory: forwards the requestId", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await store.clearHistory("req-1");
   assert.deepEqual(mock.one("history.clear").args, ["req-1"]);
 });
 
 test("trimHistory: forwards the max-entries cap", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await store.trimHistory(5);
   assert.deepEqual(mock.one("history.trim").args, [5]);
@@ -481,7 +481,7 @@ test("trimHistory: forwards the max-entries cap", async () => {
 // "silently return undefined" is caught.
 
 test("listHistory: a channel error degrades to the empty-page fallback (+warn)", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setThrow("history.list", new Error("ipc boom"));
 
@@ -494,7 +494,7 @@ test("listHistory: a channel error degrades to the empty-page fallback (+warn)",
 });
 
 test("addHistory: a channel error degrades to null (+warn)", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setThrow("history.add", new Error("disk full"));
 
@@ -507,7 +507,7 @@ test("addHistory: a channel error degrades to null (+warn)", async () => {
 });
 
 test("getHistoryResponse: a channel error degrades to null (+warn)", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setThrow("history.getResponse", new Error("nope"));
 
@@ -522,14 +522,14 @@ test("getHistoryResponse: a channel error degrades to null (+warn)", async () =>
 // ── Write-failure surfacing (loud writes) ─────────────────────────────────────
 // Writes never degrade silently: a failure is logged AND raised to the registered
 // write-error sink so the renderer can show a toast. Failure is detected either by
-// a thrown transport (IPC channel broken) or a `{ __wurlError }` envelope returned
+// a thrown transport (IPC channel broken) or a `{ __hippoError }` envelope returned
 // by the main process's safeCallWrite(). These tests pin both detection paths.
 
 test("deleteRequest: a channel error degrades quietly (+warn), no toast", async () => {
   // deleteRequest is best-effort reclamation after the authoritative tree save,
   // and runs in a per-id loop on folder deletes, so it stays on the quiet path:
   // a failure (incl. an already-gone file) warns but must NOT raise a toast.
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setThrow("requests.delete", new Error("locked"));
 
@@ -547,13 +547,13 @@ test("deleteRequest: a channel error degrades quietly (+warn), no toast", async 
 });
 
 test("saveCollections: a main-process error envelope is surfaced as a write error", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await loadActive(mock, { id: "coll-1" });
   // safeCallWrite() in main returns this discriminable envelope on a handler
   // throw — it must NOT be mistaken for a successful save.
   mock.setReturn("collections.save", {
-    __wurlError: true,
+    __hippoError: true,
     channel: "store:collections:save",
     message: "ENOSPC: no space left on device",
   });
@@ -568,7 +568,7 @@ test("saveCollections: a main-process error envelope is surfaced as a write erro
 });
 
 test("saveCollectionData: returns false and notifies when the channel throws", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await loadActive(mock, { id: "coll-1" });
   mock.setThrow("collections.save", new Error("permission denied"));
@@ -583,7 +583,7 @@ test("saveCollectionData: returns false and notifies when the channel throws", a
 });
 
 test("saveSettings: a thrown manifest.save is surfaced as a write error", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setThrow("manifest.save", new Error("disk full"));
 
@@ -596,7 +596,7 @@ test("saveSettings: a thrown manifest.save is surfaced as a write error", async 
 });
 
 test("write failure with no registered sink still logs and does not reject", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   store.setWriteErrorHandler(null); // explicitly unregistered
   mock.setThrow("manifest.save", new Error("nope"));
@@ -617,7 +617,7 @@ test("write failure with no registered sink still logs and does not reject", asy
 });
 
 test("saveEnvironments: forwards the document and returns true on success", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   const doc = { version: 1, globalVariables: { a: "1" }, environments: [] };
 
@@ -637,10 +637,10 @@ test("saveEnvironments: forwards the document and returns true on success", asyn
 test("saveEnvironments: a main-process error envelope is surfaced", async () => {
   // store:environments:save is an authoritative write (safeCallWrite in main), so
   // a handler throw returns this envelope rather than a look-alike success.
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setReturn("environments.save", {
-    __wurlError: true,
+    __hippoError: true,
     channel: "store:environments:save",
     message: "EACCES: permission denied",
   });
@@ -655,7 +655,7 @@ test("saveEnvironments: a main-process error envelope is surfaced", async () => 
 });
 
 test("upsertCookie: a thrown channel returns false and is surfaced", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setThrow("cookies.upsert", new Error("disk full"));
 
@@ -669,10 +669,10 @@ test("upsertCookie: a thrown channel returns false and is surfaced", async () =>
 });
 
 test("clearCookies: a main-process error envelope is surfaced", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setReturn("cookies.clear", {
-    __wurlError: true,
+    __hippoError: true,
     channel: "store:cookies:clear",
     message: "ENOSPC",
   });
@@ -687,10 +687,10 @@ test("clearCookies: a main-process error envelope is surfaced", async () => {
 
 // ── Transport detection ───────────────────────────────────────────────────────
 
-test("transport detection: without window.wurl.store the bridge takes the fetch path", async () => {
+test("transport detection: without window.hippo.store the bridge takes the fetch path", async () => {
   // No Electron surface present → isElectron() is false → storeCall routes to the
   // Go dev-server fetch path. We stub fetch to prove the IPC channel is NOT used.
-  globalThis.window = { wurl: { isElectron: false } };
+  globalThis.window = { hippo: { isElectron: false } };
   const originalFetch = globalThis.fetch;
   let fetched = null;
   globalThis.fetch = async (url, opts) => {
@@ -744,7 +744,7 @@ function makeFetchMock() {
 }
 
 /**
- * Run `fn` with the dev-server transport active: no `window.wurl` (so
+ * Run `fn` with the dev-server transport active: no `window.hippo` (so
  * isElectron() is false) and a recording fetch mock seeded from `routes`
  * (`[substr, respond]` pairs). Restores the prior globals afterwards.
  */
@@ -753,7 +753,7 @@ async function withDevServer(routes, fn) {
   const prevFetch = globalThis.fetch;
   const mock = makeFetchMock();
   for (const [substr, respond] of routes) mock.route(substr, respond);
-  globalThis.window = {}; // window.wurl absent → isElectron() === false
+  globalThis.window = {}; // window.hippo absent → isElectron() === false
   globalThis.fetch = mock.fetch;
   try {
     return await fn(mock);
@@ -932,7 +932,7 @@ test("dev-server: trimHistory is a no-op (a main-process-only concern)", async (
 // ── loadAll: migration + repair branches ──────────────────────────────────────
 
 test("loadAll: migrates legacy environments / activeEnvironmentId keys", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setReturn("manifest.get", {
     environments: [{ id: "e1", name: "Legacy" }],
@@ -952,7 +952,7 @@ test("loadAll: migrates legacy environments / activeEnvironmentId keys", async (
 });
 
 test("loadAll: repairs an activeCollectionId that references no collection", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   mock.setReturn("manifest.get", {
     version: 2,
@@ -979,7 +979,7 @@ test("loadAll: repairs an activeCollectionId that references no collection", asy
 // ── Variable-preservation branches in the targeted save paths ──────────────────
 
 test("loadCollectionData: refreshes the active-collection cache on a matching id", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await loadActive(mock, { id: "coll-1", variables: { old: "1" } });
 
@@ -998,7 +998,7 @@ test("loadCollectionData: refreshes the active-collection cache on a matching id
 });
 
 test("saveCollectionData: reuses the cached variables for the active collection", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await loadActive(mock, { id: "coll-1", variables: { cached: "1" } });
 
@@ -1009,7 +1009,7 @@ test("saveCollectionData: reuses the cached variables for the active collection"
 });
 
 test("saveCollectionData: preserves on-disk variables for a non-active collection", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await loadActive(mock, { id: "active" });
 
@@ -1024,7 +1024,7 @@ test("saveCollectionData: preserves on-disk variables for a non-active collectio
 });
 
 test("saveCollectionVariables: writes through the cache for the active collection", async () => {
-  const mock = makeWurlMock();
+  const mock = makeRestHippoMock();
   mock.install();
   await loadActive(mock, { id: "coll-1" });
 

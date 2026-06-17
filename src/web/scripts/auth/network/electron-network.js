@@ -2,7 +2,7 @@
  * auth/network/electron-network.js
  *
  * ElectronAuthNetworkService — routes ALL outbound OAuth HTTP requests through:
- *   • Electron:     window.wurl.http.execute  (IPC → main-process Node.js http/https)
+ *   • Electron:     window.hippo.http.execute  (IPC → main-process Node.js http/https)
  *   • Dev-server:   POST /api/execute          (Go server makes the outgoing call)
  *
  * NEVER uses browser fetch() / XMLHttpRequest directly.
@@ -44,9 +44,9 @@ export async function executeRequest(desc) {
     verifySsl: desc.verifySsl !== false,
   };
 
-  if (typeof window.wurl?.http?.execute === "function") {
+  if (typeof window.hippo?.http?.execute === "function") {
     // Electron path — IPC to main process Node.js http/https
-    return await window.wurl.http.execute(payload);
+    return await window.hippo.http.execute(payload);
   }
 
   // Go dev-server path — proxy endpoint makes the outgoing call

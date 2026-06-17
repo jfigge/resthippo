@@ -2,7 +2,7 @@
 
 [← Back to contents](README.md)
 
-The left panel is where your requests live. wurl organizes them into
+The left panel is where your requests live. Rest Hippo organizes them into
 **collections** (top-level groups) containing **folders** and **requests**,
 nested as deeply as you like.
 

@@ -1,5 +1,5 @@
 /**
- * data-store.js — Persistence layer for the wurl data document.
+ * data-store.js — Persistence layer for the Rest Hippo data document.
  *
  * Storage layout (new per-file architecture):
  *
@@ -14,7 +14,7 @@
  *     responses/<reqId>/<histId>.json — full response payloads (lazy)
  *
  * Transport detection:
- *   Electron:      window.wurl.store  (new IPC channels via preload.js)
+ *   Electron:      window.hippo.store  (new IPC channels via preload.js)
  *   Go dev server: fetch() against /api/*  (Go backend REST APIs)
  *
  * Public API (consumed by app.js and other renderer modules):
@@ -159,8 +159,8 @@ let _activeVariables = {};
 function isElectron() {
   return (
     typeof window !== "undefined" &&
-    window.wurl != null &&
-    typeof window.wurl.store?.manifest?.get === "function"
+    window.hippo != null &&
+    typeof window.hippo.store?.manifest?.get === "function"
   );
 }
 
@@ -217,7 +217,7 @@ export function setWriteErrorHandler(fn) {
  * @returns {boolean}
  */
 function isErrorEnvelope(v) {
-  return v != null && typeof v === "object" && v.__wurlError === true;
+  return v != null && typeof v === "object" && v.__hippoError === true;
 }
 
 /** Log a write failure and route it to the registered sink (if any). */
@@ -232,7 +232,7 @@ function _reportWriteError(label, message) {
  * write failure is never swallowed: it is logged AND raised to the write-error
  * sink so the user sees it. Failure is detected two ways —
  *   • the transport throws (IPC channel broken / fetch network error), or
- *   • the main process returns a `{ __wurlError }` envelope.
+ *   • the main process returns a `{ __hippoError }` envelope.
  *
  * @param {string}           label       User-facing action label (e.g. "Save settings")
  * @param {() => Promise<*>} electronFn  Electron (IPC) transport path
@@ -284,7 +284,7 @@ async function httpWrite(url, opts) {
 async function _loadManifest() {
   return storeCall(
     "manifest load",
-    () => window.wurl.store.manifest.get(),
+    () => window.hippo.store.manifest.get(),
     () => httpJson("/api/collections"),
     { version: 2, collections: [], activeCollectionId: null, settings: {} },
   );
@@ -293,7 +293,7 @@ async function _loadManifest() {
 async function _persistManifest(label = "Save changes") {
   return storeWrite(
     label,
-    () => window.wurl.store.manifest.save(_manifest),
+    () => window.hippo.store.manifest.save(_manifest),
     () =>
       httpWrite("/api/collections", {
         method: "PUT",
@@ -316,7 +316,7 @@ async function _loadCollectionFile(collectionId) {
   return storeCall(
     `env load (${collectionId})`,
     async () =>
-      normalize(await window.wurl.store.collections.get(collectionId)),
+      normalize(await window.hippo.store.collections.get(collectionId)),
     async () =>
       normalize(
         await httpJson(`/api/env?id=${encodeURIComponent(collectionId)}`),
@@ -329,7 +329,7 @@ async function _saveCollectionFile(collectionId, items, variables = {}, label) {
   const blob = { version: 1, collections: items, variables };
   return storeWrite(
     label ?? "Save collection",
-    () => window.wurl.store.collections.save(collectionId, blob),
+    () => window.hippo.store.collections.save(collectionId, blob),
     () =>
       httpWrite(`/api/env?id=${encodeURIComponent(collectionId)}`, {
         method: "PUT",
@@ -443,7 +443,7 @@ export async function saveCollections(items) {
  * Persist a single request's edited fields granularly — only that request's file
  * is rewritten (with its undecryptable secrets preserved by the main-side clobber
  * guard), instead of re-encrypting the whole collection. The patch must be the
- * *partial* set of changed fields (the wurl:request-updated detail), not the full
+ * *partial* set of changed fields (the hippo:request-updated detail), not the full
  * node, so the clobber guard can tell an untouched auth block from a deliberate
  * overwrite.
  *
@@ -459,7 +459,7 @@ export async function saveCollections(items) {
 export async function updateRequest(id, patch) {
   if (!isElectron()) return false;
   try {
-    await window.wurl.store.requests.update(id, patch);
+    await window.hippo.store.requests.update(id, patch);
     return true;
   } catch (err) {
     console.warn(
@@ -591,7 +591,7 @@ export async function deleteRequest(id) {
   // rather than raising a toast (or a toast per request).
   return storeCall(
     `deleteRequest(${id})`,
-    () => window.wurl.store.requests.delete(id),
+    () => window.hippo.store.requests.delete(id),
     () =>
       fetch(`/api/requests/${encodeURIComponent(id)}`, { method: "DELETE" }),
   );
@@ -611,7 +611,7 @@ export async function deleteCollection(id) {
   // the user can act on, so it degrades quietly (see deleteRequest).
   return storeCall(
     `deleteCollection(${id})`,
-    () => window.wurl.store.collections.delete(id),
+    () => window.hippo.store.collections.delete(id),
     () =>
       fetch(`/api/collections/${encodeURIComponent(id)}`, { method: "DELETE" }),
   );
@@ -634,7 +634,7 @@ export async function deleteCollection(id) {
 export async function listHistory(requestId, options = {}) {
   return storeCall(
     `listHistory(${requestId})`,
-    () => window.wurl.store.history.list(requestId, options),
+    () => window.hippo.store.history.list(requestId, options),
     () => {
       const params = new URLSearchParams();
       if (options.limit) params.set("limit", String(options.limit));
@@ -659,7 +659,7 @@ export async function listHistory(requestId, options = {}) {
 export async function addHistory(requestId, entry, response) {
   return storeCall(
     `addHistory(${requestId})`,
-    () => window.wurl.store.history.add(requestId, entry, response),
+    () => window.hippo.store.history.add(requestId, entry, response),
     () =>
       httpJson(`/api/requests/${encodeURIComponent(requestId)}/history`, {
         method: "POST",
@@ -680,7 +680,7 @@ export async function addHistory(requestId, entry, response) {
 export async function getHistoryResponse(requestId, historyId) {
   return storeCall(
     `getHistoryResponse(${requestId}, ${historyId})`,
-    () => window.wurl.store.history.getResponse(requestId, historyId),
+    () => window.hippo.store.history.getResponse(requestId, historyId),
     async () => {
       const res = await fetch(
         `/api/requests/${encodeURIComponent(requestId)}/history/${encodeURIComponent(historyId)}/response`,
@@ -703,7 +703,7 @@ export async function getHistoryResponse(requestId, historyId) {
 export async function deleteHistory(requestId, historyId) {
   return storeCall(
     `deleteHistory(${requestId}, ${historyId})`,
-    () => window.wurl.store.history.delete(requestId, historyId),
+    () => window.hippo.store.history.delete(requestId, historyId),
     () =>
       fetch(
         `/api/requests/${encodeURIComponent(requestId)}/history/${encodeURIComponent(historyId)}`,
@@ -721,7 +721,7 @@ export async function deleteHistory(requestId, historyId) {
 export async function clearHistory(requestId) {
   return storeCall(
     `clearHistory(${requestId})`,
-    () => window.wurl.store.history.clear(requestId),
+    () => window.hippo.store.history.clear(requestId),
     () =>
       fetch(`/api/requests/${encodeURIComponent(requestId)}/history`, {
         method: "DELETE",
@@ -739,7 +739,7 @@ export async function clearHistory(requestId) {
 export async function trimHistory(maxEntries) {
   return storeCall(
     `trimHistory(${maxEntries})`,
-    () => window.wurl.store.history.trim(maxEntries),
+    () => window.hippo.store.history.trim(maxEntries),
     // No Go dev-server equivalent — history trimming is a main-process concern.
     () => {},
   );
@@ -760,7 +760,7 @@ export async function trimHistory(maxEntries) {
 export async function saveEnvironments(data) {
   return storeWrite(
     "Save environments",
-    () => window.wurl.store.environments.save(data),
+    () => window.hippo.store.environments.save(data),
     () => {},
   );
 }
@@ -779,7 +779,7 @@ export async function saveEnvironments(data) {
 export async function upsertCookie(collectionId, cookie) {
   return storeWrite(
     "Save cookie",
-    () => window.wurl.store.cookies.upsert(collectionId, cookie),
+    () => window.hippo.store.cookies.upsert(collectionId, cookie),
     () => {},
   );
 }
@@ -793,7 +793,7 @@ export async function upsertCookie(collectionId, cookie) {
 export async function deleteCookie(collectionId, ident) {
   return storeWrite(
     "Delete cookie",
-    () => window.wurl.store.cookies.delete(collectionId, ident),
+    () => window.hippo.store.cookies.delete(collectionId, ident),
     () => {},
   );
 }
@@ -806,7 +806,7 @@ export async function deleteCookie(collectionId, ident) {
 export async function clearCookies(collectionId) {
   return storeWrite(
     "Clear cookies",
-    () => window.wurl.store.cookies.clear(collectionId),
+    () => window.hippo.store.cookies.clear(collectionId),
     () => {},
   );
 }

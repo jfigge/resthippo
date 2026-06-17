@@ -11,14 +11,14 @@
  *             • Variables — the inline key/value editor (bulk-textarea / KV-row
  *               toggle), functioning exactly as before.
  *             • Cookies    — the per-collection cookie-jar viewer/editor. Reads
- *               come straight from `window.wurl.store.cookies.*`; writes route
+ *               come straight from `window.hippo.store.cookies.*`; writes route
  *               through data-store so a save failure surfaces an error toast.
  *
  * Clicking a collection row both activates it (for tree-view data) and loads its
  * variables / cookies into the right pane.
  *
  * Constructor callbacks (this is a parent-owned popup that reports back to its
- * creator, so it uses callbacks rather than global wurl:* events — see the
+ * creator, so it uses callbacks rather than global hippo:* events — see the
  * "Component ↔ app communication" rule in CLAUDE.md):
  *   onSelect({ id })                   — switch active collection
  *   onAdd({ name })                    — create new empty collection
@@ -987,7 +987,7 @@ export class CollectionsPopup {
     }
     let list;
     try {
-      list = await window.wurl.store.cookies.list(id);
+      list = await window.hippo.store.cookies.list(id);
     } catch {
       list = [];
     }

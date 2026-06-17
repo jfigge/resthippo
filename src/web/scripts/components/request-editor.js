@@ -175,7 +175,7 @@ const STANDARD_HEADERS_DICT = {
 
   "User-Agent": [
     "Mozilla/5.0",
-    "wurl/<version>",
+    "RestHippo/<version>",
     "PostmanRuntime/<version>",
     "python-requests/<version>",
     "Go/<version>",
@@ -439,7 +439,7 @@ export class RequestEditor {
     getPickerDebounceMs: () => getPickerDebounceMs(),
   });
   // PillCodeEditor view preferences — global, persisted (via
-  // wurl:editor-setting-changed), and shared by every code editor (body text,
+  // hippo:editor-setting-changed), and shared by every code editor (body text,
   // GraphQL Query/Variables, WebSocket message). Each editor's right-click menu
   // toggles one of these and fires `pce:setting-change`; #makeCodeEditor mirrors
   // the change onto all live editors and persists it. `folding` keeps the legacy
@@ -548,7 +548,7 @@ export class RequestEditor {
 
     // Reflect the active WebSocket connection's state (dispatched by app.js for
     // the selected request) on the Connect button and the composer's Send button.
-    window.addEventListener("wurl:ws-state", (e) => {
+    window.addEventListener("hippo:ws-state", (e) => {
       this.#applyWsState(e.detail?.state ?? "idle");
     });
 
@@ -559,7 +559,7 @@ export class RequestEditor {
     // Each lifecycle event carries the requestId it belongs to (requests run
     // concurrently); events without one — history replays — fall back to the
     // loaded request, matching the pre-concurrency reset behavior.
-    window.addEventListener("wurl:request-loading", (e) => {
+    window.addEventListener("hippo:request-loading", (e) => {
       this.#inFlightIds.add(e.detail?.requestId ?? this.#currentNodeId);
       this.#applySendButtonState();
     });
@@ -570,10 +570,10 @@ export class RequestEditor {
       this.#applySendButtonState();
     };
     // A live streaming response (Feature 33) keeps its request in flight: the body
-    // arrives over wurl:stream-* and the Send button stays "Stop" until the stream
+    // arrives over hippo:stream-* and the Send button stays "Stop" until the stream
     // actually ends. Record the streamId so a Stop click can abort that stream;
-    // settle on wurl:stream-end/-error instead of on the streaming marker.
-    window.addEventListener("wurl:response-received", (e) => {
+    // settle on hippo:stream-end/-error instead of on the streaming marker.
+    window.addEventListener("hippo:response-received", (e) => {
       if (e.detail?.streaming === true) {
         const rid = e.detail?.requestId ?? this.#currentNodeId;
         if (e.detail?.streamId) this.#streamingReqs.set(rid, e.detail.streamId);
@@ -582,7 +582,7 @@ export class RequestEditor {
         settleSendBtn(e);
       }
     });
-    window.addEventListener("wurl:request-error", settleSendBtn);
+    window.addEventListener("hippo:request-error", settleSendBtn);
     const settleStream = (e) => {
       const sid = e.detail?.streamId;
       if (sid == null) return;
@@ -593,14 +593,14 @@ export class RequestEditor {
       }
       this.#applySendButtonState();
     };
-    window.addEventListener("wurl:stream-end", settleStream);
-    window.addEventListener("wurl:stream-error", settleStream);
+    window.addEventListener("hippo:stream-end", settleStream);
+    window.addEventListener("hippo:stream-error", settleStream);
 
     // The GraphQL Query/Variables split orientation tracks the app layout: the
     // side-by-side layout stacks the panes, wider layouts place them side by
     // side. The editor re-applies in place when mounted, else stores it for next
     // mount.
-    window.addEventListener("wurl:layout-changed", (e) => {
+    window.addEventListener("hippo:layout-changed", (e) => {
       this.#graphql.onLayoutChanged(e.detail?.layout);
     });
   }
@@ -667,13 +667,13 @@ export class RequestEditor {
     let _methodMenu = null;
     // Drops the stale reference when PopupManager closes the menu by any path
     // (item select, custom Enter, mask click, window resize) — all fire
-    // wurl:popup-closed — so the next trigger click re-opens.
+    // hippo:popup-closed — so the next trigger click re-opens.
     const _onMethodMenuClosed = () => {
       _methodMenu = null;
     };
     const _closeMethodMenu = () => {
       if (!_methodMenu) return;
-      // PopupManager.close() fires wurl:popup-closed → _onMethodMenuClosed.
+      // PopupManager.close() fires hippo:popup-closed → _onMethodMenuClosed.
       PopupManager.close();
     };
 
@@ -768,10 +768,10 @@ export class RequestEditor {
       _methodMenu = menu;
 
       // openMenu owns the click-capturing mask (replacing the old bespoke
-      // outside-click handler) and fires wurl:popup-opened. A mask click or
-      // window resize closes via PopupManager and fires wurl:popup-closed —
+      // outside-click handler) and fires hippo:popup-opened. A mask click or
+      // window resize closes via PopupManager and fires hippo:popup-closed —
       // listen once to drop our reference (see _onMethodMenuClosed).
-      window.addEventListener("wurl:popup-closed", _onMethodMenuClosed, {
+      window.addEventListener("hippo:popup-closed", _onMethodMenuClosed, {
         once: true,
       });
     });
@@ -815,7 +815,7 @@ export class RequestEditor {
     sendBtn.addEventListener("click", () => {
       if (this.#currentRequestInFlight()) {
         window.dispatchEvent(
-          new CustomEvent("wurl:cancel-request", {
+          new CustomEvent("hippo:cancel-request", {
             detail: {
               requestId: this.#currentNodeId,
               // For a live stream, carry its id so the cancel aborts the stream
@@ -1022,7 +1022,7 @@ export class RequestEditor {
   #toggleWsConnection() {
     if (this.#wsState === "open" || this.#wsState === "connecting") {
       window.dispatchEvent(
-        new CustomEvent("wurl:ws-disconnect", { detail: {}, bubbles: true }),
+        new CustomEvent("hippo:ws-disconnect", { detail: {}, bubbles: true }),
       );
     } else {
       this.#connectWebSocket();
@@ -1068,7 +1068,7 @@ export class RequestEditor {
     }
     const subprotocols = (await rv(this.#wsSubprotocols ?? "")).trim();
     window.dispatchEvent(
-      new CustomEvent("wurl:ws-connect", {
+      new CustomEvent("hippo:ws-connect", {
         detail: {
           url: payload.finalUrl,
           headers: payload.headers,
@@ -1087,7 +1087,7 @@ export class RequestEditor {
       : this.#wsMessage;
     const data = await resolveStringAsync(raw ?? "", this.#variableContext);
     window.dispatchEvent(
-      new CustomEvent("wurl:ws-send", { detail: { data }, bubbles: true }),
+      new CustomEvent("hippo:ws-send", { detail: { data }, bubbles: true }),
     );
   }
 
@@ -1117,7 +1117,7 @@ export class RequestEditor {
   #dispatchWsFieldUpdate(partial) {
     if (!this.#currentNodeId) return;
     window.dispatchEvent(
-      new CustomEvent("wurl:request-updated", {
+      new CustomEvent("hippo:request-updated", {
         detail: { id: this.#currentNodeId, ...partial },
         bubbles: true,
       }),
@@ -1183,7 +1183,7 @@ export class RequestEditor {
   #dispatchNotesUpdated() {
     if (!this.#currentNodeId) return;
     window.dispatchEvent(
-      new CustomEvent("wurl:request-updated", {
+      new CustomEvent("hippo:request-updated", {
         detail: {
           id: this.#currentNodeId,
           notes: this.#notesEditor.getValue(),
@@ -1196,7 +1196,7 @@ export class RequestEditor {
   #dispatchCapturesUpdated() {
     if (!this.#currentNodeId) return;
     window.dispatchEvent(
-      new CustomEvent("wurl:request-updated", {
+      new CustomEvent("hippo:request-updated", {
         detail: {
           id: this.#currentNodeId,
           captures: this.#capturesEditor.getValue(),
@@ -1307,7 +1307,7 @@ export class RequestEditor {
     if (!this.#currentNodeId) return;
     const body = this.#bodyEditor.getValue();
     window.dispatchEvent(
-      new CustomEvent("wurl:request-updated", {
+      new CustomEvent("hippo:request-updated", {
         detail: {
           id: this.#currentNodeId,
           bodyType: body.bodyType,
@@ -1322,7 +1322,7 @@ export class RequestEditor {
   }
 
   /**
-   * Surface a pre-send OAuth failure as a wurl:request-error. Both the
+   * Surface a pre-send OAuth failure as a hippo:request-error. Both the
    * token-acquisition throw and the unsuccessful-result path share this shape;
    * only name / message / hint / consoleLog vary.
    */
@@ -1332,7 +1332,7 @@ export class RequestEditor {
     { name, message, hint, consoleLog },
   ) {
     window.dispatchEvent(
-      new CustomEvent("wurl:request-error", {
+      new CustomEvent("hippo:request-error", {
         detail: {
           requestId,
           request: {
@@ -1547,7 +1547,7 @@ export class RequestEditor {
         if (!checked) _hdrAc.hide();
         // Persist the preference into settings
         window.dispatchEvent(
-          new CustomEvent("wurl:editor-setting-changed", {
+          new CustomEvent("hippo:editor-setting-changed", {
             detail: { listHeaders: checked },
             bubbles: true,
           }),
@@ -2313,7 +2313,7 @@ export class RequestEditor {
     if (this.#protocol !== "http") return false; // WebSocket bar: leave as-is
     if (!/^\s*\$?\s*curl[\s\\]/i.test(text)) return false;
     window.dispatchEvent(
-      new CustomEvent("wurl:curl-pasted", {
+      new CustomEvent("hippo:curl-pasted", {
         detail: { id: this.#currentNodeId, text },
         bubbles: true,
       }),
@@ -2325,7 +2325,7 @@ export class RequestEditor {
   #dispatchRequestUpdated() {
     if (!this.#currentNodeId) return;
     window.dispatchEvent(
-      new CustomEvent("wurl:request-updated", {
+      new CustomEvent("hippo:request-updated", {
         detail: {
           id: this.#currentNodeId,
           method: this.#method,
@@ -2339,7 +2339,7 @@ export class RequestEditor {
   #dispatchParamsUpdated() {
     if (!this.#currentNodeId) return;
     window.dispatchEvent(
-      new CustomEvent("wurl:request-updated", {
+      new CustomEvent("hippo:request-updated", {
         detail: {
           id: this.#currentNodeId,
           params: this.#params.map((p) => ({ ...p })),
@@ -2352,7 +2352,7 @@ export class RequestEditor {
   #dispatchHeadersUpdated() {
     if (!this.#currentNodeId) return;
     window.dispatchEvent(
-      new CustomEvent("wurl:request-updated", {
+      new CustomEvent("hippo:request-updated", {
         detail: {
           id: this.#currentNodeId,
           headers: this.#headers.map((h) => ({ ...h })),
@@ -2366,7 +2366,7 @@ export class RequestEditor {
     if (!this.#currentNodeId) return;
     // Persist only id/name/value; the token style is re-derived from the URL.
     window.dispatchEvent(
-      new CustomEvent("wurl:request-updated", {
+      new CustomEvent("hippo:request-updated", {
         detail: {
           id: this.#currentNodeId,
           pathParams: this.#pathParams.map((p) => ({
@@ -2508,7 +2508,7 @@ export class RequestEditor {
         // This turns the Send button into "Stop" immediately so the user can
         // cancel a long-running popup before the request fires.
         window.dispatchEvent(
-          new CustomEvent("wurl:request-loading", { detail: { requestId } }),
+          new CustomEvent("hippo:request-loading", { detail: { requestId } }),
         );
 
         // ── Acquire token (cache → refresh → full flow) ────────────────────
@@ -2560,7 +2560,7 @@ export class RequestEditor {
     }
 
     window.dispatchEvent(
-      new CustomEvent("wurl:send-request", {
+      new CustomEvent("hippo:send-request", {
         detail: {
           requestId,
           method: this.#method,
@@ -2720,7 +2720,10 @@ export class RequestEditor {
   /** Dispatch a settings change so app.js merges + persists it (see app.js). */
   #persistGqlSetting(detail) {
     window.dispatchEvent(
-      new CustomEvent("wurl:editor-setting-changed", { detail, bubbles: true }),
+      new CustomEvent("hippo:editor-setting-changed", {
+        detail,
+        bubbles: true,
+      }),
     );
   }
 

@@ -1,5 +1,5 @@
 {
-  "kind": "wurl-backup",
+  "kind": "resthippo-backup",
   "schemaVersion": 1,
   "exportedAt": "2026-06-05T20:59:33.405Z",
   "secretsIncluded": true,
@@ -917,7 +917,7 @@
           "method": "GET",
           "url": "{{mockUrl}}/echo",
           "headers": [],
-          "notes": "Baseline — confirms traffic actually goes through the forward proxy.\n\nPrereqs: `make mock-up`; Settings ▸ Proxy enabled with URL http://localhost:9999.\n\nThe response should carry the header `X-Proxy-Relayed: wurl-mock`, stamped by the mock forward proxy. This is a plain-HTTP target, so the proxy uses the absolute-URI forward path (not a CONNECT tunnel).",
+          "notes": "Baseline — confirms traffic actually goes through the forward proxy.\n\nPrereqs: `make mock-up`; Settings ▸ Proxy enabled with URL http://localhost:9999.\n\nThe response should carry the header `X-Proxy-Relayed: resthippo-mock`, stamped by the mock forward proxy. This is a plain-HTTP target, so the proxy uses the absolute-URI forward path (not a CONNECT tunnel).",
           "schemaVersion": 1
         },
         {
@@ -1285,7 +1285,7 @@
           "method": "GET",
           "url": "{{baseUrl}}/health",
           "headers": [],
-          "notes": "HTTPS target → the proxy opens a CONNECT tunnel and blindly relays encrypted bytes.\n\nBecause the tunnel is end-to-end, X-Proxy-Error is invisible here (only the plain-HTTP forward path can read it) — success itself proves the tunnel works. The CONNECT acknowledgement carries `X-Proxy-Relayed: wurl-mock`.\n\nPrereqs: Settings ▸ Proxy enabled with URL http://localhost:9999. Requires the {{baseUrl}} host (DEV environment) to be reachable; swap in any reachable https:// URL to test CONNECT against a different host.",
+          "notes": "HTTPS target → the proxy opens a CONNECT tunnel and blindly relays encrypted bytes.\n\nBecause the tunnel is end-to-end, X-Proxy-Error is invisible here (only the plain-HTTP forward path can read it) — success itself proves the tunnel works. The CONNECT acknowledgement carries `X-Proxy-Relayed: resthippo-mock`.\n\nPrereqs: Settings ▸ Proxy enabled with URL http://localhost:9999. Requires the {{baseUrl}} host (DEV environment) to be reachable; swap in any reachable https:// URL to test CONNECT against a different host.",
           "schemaVersion": 1
         },
         {
@@ -2050,7 +2050,7 @@
           "method": "GET",
           "url": "{{mockUrl}}/echo",
           "headers": [],
-          "notes": "Exercises proxy authentication on the forward proxy.\n\nStart the mock with credentials:\n  MOCK_PROXY_USER=alice MOCK_PROXY_PASS=s3cret make mock-up\n\nThe forward proxy then answers 407 Proxy Authentication Required until a matching Basic Proxy-Authorization arrives. Set Settings ▸ Proxy username/password to alice / s3cret to succeed; clear them to observe the 407 (which also carries `X-Proxy-Relayed: wurl-mock`).",
+          "notes": "Exercises proxy authentication on the forward proxy.\n\nStart the mock with credentials:\n  MOCK_PROXY_USER=alice MOCK_PROXY_PASS=s3cret make mock-up\n\nThe forward proxy then answers 407 Proxy Authentication Required until a matching Basic Proxy-Authorization arrives. Set Settings ▸ Proxy username/password to alice / s3cret to succeed; clear them to observe the 407 (which also carries `X-Proxy-Relayed: resthippo-mock`).",
           "schemaVersion": 1
         },
         {

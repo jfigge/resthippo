@@ -3,14 +3,14 @@
  *
  * Payload-coverage tests for the real RequestEditor. Each case loads a request
  * (the editor's public "selected" entry point), clicks the real Send button, and
- * captures the `wurl:send-request` descriptor the editor builds — asserting that
+ * captures the `hippo:send-request` descriptor the editor builds — asserting that
  * params, the various body types, and the static auth transforms all reach the
  * wire correctly.
  *
  * This complements renderer-e2e.test.js (which proves the full cycle for one
  * request) by sweeping the editor's load()/gather/build branches that a single
  * end-to-end path never touches. No IPC is needed: the editor dispatches
- * `wurl:send-request` after building the payload, so the test only listens.
+ * `hippo:send-request` after building the payload, so the test only listens.
  *
  * Run with:   node --test tests/request-editor.test.js
  */
@@ -27,11 +27,11 @@ import { RequestEditor } from "../components/request-editor.js";
 
 /**
  * Fresh DOM + editor; load `node`, click Send, and resolve the captured
- * `wurl:send-request` descriptor (or reject if the editor never dispatches).
+ * `hippo:send-request` descriptor (or reject if the editor never dispatches).
  */
 async function sendAndCapture(node) {
   const window = resetDom();
-  window.wurl = { isElectron: false };
+  window.hippo = { isElectron: false };
 
   const editor = new RequestEditor();
   document.body.appendChild(editor.element);
@@ -40,10 +40,10 @@ async function sendAndCapture(node) {
 
   const captured = new Promise((resolve, reject) => {
     const timer = setTimeout(
-      () => reject(new Error("editor never dispatched wurl:send-request")),
+      () => reject(new Error("editor never dispatched hippo:send-request")),
       1000,
     );
-    window.addEventListener("wurl:send-request", (e) => {
+    window.addEventListener("hippo:send-request", (e) => {
       clearTimeout(timer);
       resolve(e.detail);
     });
@@ -171,7 +171,7 @@ test("disabled auth contributes no Authorization header", async () => {
 /** Fresh DOM + editor loaded with `node`; returns { window, editor }. */
 function mountEditor(node, ctx = { collectionVariables: {}, folderChain: [] }) {
   const window = resetDom();
-  window.wurl = { isElectron: true, ws: {} };
+  window.hippo = { isElectron: true, ws: {} };
   const editor = new RequestEditor();
   document.body.appendChild(editor.element);
   editor.setVariableContext(ctx);
@@ -221,7 +221,7 @@ test("Connect resolves the URL + bearer header and dispatches ws-connect", async
   );
   const captured = new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("no ws-connect")), 1000);
-    window.addEventListener("wurl:ws-connect", (e) => {
+    window.addEventListener("hippo:ws-connect", (e) => {
       clearTimeout(t);
       resolve(e.detail);
     });
@@ -244,11 +244,11 @@ test("a composed message is variable-resolved and dispatched on ws-send", async 
   );
   // The composer's Send is enabled only once the connection reports "open".
   window.dispatchEvent(
-    new CustomEvent("wurl:ws-state", { detail: { state: "open" } }),
+    new CustomEvent("hippo:ws-state", { detail: { state: "open" } }),
   );
   const captured = new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("no ws-send")), 1000);
-    window.addEventListener("wurl:ws-send", (e) => {
+    window.addEventListener("hippo:ws-send", (e) => {
       clearTimeout(t);
       resolve(e.detail);
     });
@@ -306,7 +306,7 @@ test("Send stays Stop while a stream runs and a click cancels with its streamId"
 
   // In flight → Stop.
   window.dispatchEvent(
-    new CustomEvent("wurl:request-loading", {
+    new CustomEvent("hippo:request-loading", {
       detail: { requestId: "r1", streamId: "s1" },
     }),
   );
@@ -318,7 +318,7 @@ test("Send stays Stop while a stream runs and a click cancels with its streamId"
   // The streaming marker resolves execute() but the stream lives on — the button
   // must NOT revert to Send.
   window.dispatchEvent(
-    new CustomEvent("wurl:response-received", {
+    new CustomEvent("hippo:response-received", {
       detail: { requestId: "r1", streaming: true, streamId: "s1" },
     }),
   );
@@ -330,7 +330,7 @@ test("Send stays Stop while a stream runs and a click cancels with its streamId"
   // Clicking Stop cancels with the streamId so app.js aborts the stream.
   const cancel = new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("no cancel-request")), 1000);
-    window.addEventListener("wurl:cancel-request", (e) => {
+    window.addEventListener("hippo:cancel-request", (e) => {
       clearTimeout(t);
       resolve(e.detail);
     });
@@ -349,12 +349,12 @@ test("the Send button reverts to Send when the stream ends", () => {
   });
   const sendBtn = editor.element.querySelector(".req-send-btn");
   window.dispatchEvent(
-    new CustomEvent("wurl:request-loading", {
+    new CustomEvent("hippo:request-loading", {
       detail: { requestId: "r1", streamId: "s1" },
     }),
   );
   window.dispatchEvent(
-    new CustomEvent("wurl:response-received", {
+    new CustomEvent("hippo:response-received", {
       detail: { requestId: "r1", streaming: true, streamId: "s1" },
     }),
   );
@@ -364,7 +364,7 @@ test("the Send button reverts to Send when the stream ends", () => {
   );
 
   window.dispatchEvent(
-    new CustomEvent("wurl:stream-end", {
+    new CustomEvent("hippo:stream-end", {
       detail: { streamId: "s1", aborted: false },
     }),
   );

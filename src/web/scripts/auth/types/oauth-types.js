@@ -10,7 +10,7 @@
 // ── Grant type constants ─────────────────────────────────────────────────────
 
 /**
- * Grant type identifiers used internally by wurl (UI dropdown value, config key,
+ * Grant type identifiers used internally by Rest Hippo (UI dropdown value, config key,
  * cache key). For most grants this is the literal RFC 6749 `grant_type` string;
  * the two extension grants use a short internal id and emit the proper RFC URN
  * as the wire `grant_type` inside their flow:

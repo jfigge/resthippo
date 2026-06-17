@@ -7,7 +7,7 @@
 
 const { contextBridge, ipcRenderer } = require("electron");
 
-contextBridge.exposeInMainWorld("wurl", {
+contextBridge.exposeInMainWorld("hippo", {
   platform: process.platform,
   docs: {
     /**

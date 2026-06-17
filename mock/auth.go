@@ -17,7 +17,7 @@ import (
 	"unicode/utf16"
 )
 
-// auth.go — mock endpoints for exercising every authentication scheme wurl
+// auth.go — mock endpoints for exercising every authentication scheme Rest Hippo
 // supports: Basic, Bearer, API Key, Digest, AWS Signature v4 ("AWS CLI") and
 // NTLM. Each endpoint validates that the credentials are *well-formed* for the
 // scheme (it does NOT check them against any real secret) and echoes the parsed
@@ -28,7 +28,7 @@ import (
 //
 // Digest and NTLM require a challenge/response handshake, so an unauthenticated
 // request to those endpoints answers 401 with the appropriate WWW-Authenticate
-// header; wurl then retries with credentials.
+// header; Rest Hippo then retries with credentials.
 
 // authTypes is the catalogue advertised by GET /auth, in display order.
 var authTypes = []struct{ Type, Desc string }{
@@ -118,7 +118,7 @@ func randomHex(n int) string {
 func authBasic(w http.ResponseWriter, r *http.Request) {
 	h := r.Header.Get("Authorization")
 	if h == "" {
-		w.Header().Set("WWW-Authenticate", `Basic realm="wurl-mock"`)
+		w.Header().Set("WWW-Authenticate", `Basic realm="resthippo-mock"`)
 		writeError(w, http.StatusUnauthorized, "missing Authorization header")
 		return
 	}
@@ -148,7 +148,7 @@ func authBasic(w http.ResponseWriter, r *http.Request) {
 func authBearer(w http.ResponseWriter, r *http.Request) {
 	h := r.Header.Get("Authorization")
 	if h == "" {
-		w.Header().Set("WWW-Authenticate", `Bearer realm="wurl-mock"`)
+		w.Header().Set("WWW-Authenticate", `Bearer realm="resthippo-mock"`)
 		writeError(w, http.StatusUnauthorized, "missing Authorization header")
 		return
 	}
@@ -165,7 +165,7 @@ func authBearer(w http.ResponseWriter, r *http.Request) {
 // ── API Key ──────────────────────────────────────────────────────────────────
 
 func authAPIKey(w http.ResponseWriter, r *http.Request) {
-	// wurl lets the user choose the carrier (header name or query param), so we
+	// Rest Hippo lets the user choose the carrier (header name or query param), so we
 	// accept the conventional spellings and report where the key arrived.
 	headerNames := []string{"X-API-Key", "Api-Key", "X-Api-Key", "Apikey", "X-Auth-Token"}
 	for _, name := range headerNames {
@@ -204,7 +204,7 @@ func authDigest(w http.ResponseWriter, r *http.Request) {
 	if h == "" || !ok {
 		// Issue a fresh challenge.
 		w.Header().Set("WWW-Authenticate", fmt.Sprintf(
-			`Digest realm="wurl-mock", qop="auth", nonce="%s", opaque="%s", algorithm=MD5`,
+			`Digest realm="resthippo-mock", qop="auth", nonce="%s", opaque="%s", algorithm=MD5`,
 			randomHex(16), randomHex(8)))
 		writeError(w, http.StatusUnauthorized, "digest challenge issued — retry with credentials")
 		return
@@ -412,7 +412,7 @@ func ntlmField(raw []byte, off int) string {
 //
 // Unlike the other validators (which only check well-formedness), this one
 // actually verifies the signature — that is the whole point of OAuth 1.0a, and
-// the demo secrets are fixed, so it can recompute the HMAC and confirm wurl's
+// the demo secrets are fixed, so it can recompute the HMAC and confirm Rest Hippo's
 // live signing (nonce/timestamp/base-string) is correct. Supports HMAC-SHA1,
 // HMAC-SHA256 and PLAINTEXT. The known demo credentials match the "OAuth 1.0"
 // request shipped in the sample collection.
@@ -424,7 +424,7 @@ func authOAuth1(w http.ResponseWriter, r *http.Request) {
 	h := r.Header.Get("Authorization")
 	rest, ok := schemeValue(h, "OAuth")
 	if h == "" || !ok {
-		w.Header().Set("WWW-Authenticate", `OAuth realm="wurl-mock"`)
+		w.Header().Set("WWW-Authenticate", `OAuth realm="resthippo-mock"`)
 		writeError(w, http.StatusUnauthorized,
 			`expected 'Authorization: OAuth oauth_consumer_key="...", oauth_signature="...", ...'`)
 		return

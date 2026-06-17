@@ -4,7 +4,7 @@
  * Unit tests for variable resolution: scope precedence, {{name}} substitution,
  * and the dynamic function logic map (built-in, context, and backend-delegated
  * functions). Backend functions (hmac/hash/env/jq) are exercised by stubbing the
- * `window.wurl` IPC bridge that function-backend.js reads at call time, so no
+ * `window.hippo` IPC bridge that function-backend.js reads at call time, so no
  * real network or Electron runtime is needed.
  *
  * Run with:   node --test components/tests/variable-resolver.test.js
@@ -305,7 +305,7 @@ test("resolveStringAsync: unknown function name is left as a literal token", asy
   );
 });
 
-// ── Backend-delegated functions (window.wurl IPC stubbed) ────────────────────
+// ── Backend-delegated functions (window.hippo IPC stubbed) ────────────────────
 
 let backendCalls;
 
@@ -314,7 +314,7 @@ beforeEach(() => {
   // function-backend.js reads the bare `window` global at call time. Stub the
   // Electron IPC bridge so hmac/hash/env resolve deterministically offline.
   globalThis.window = {
-    wurl: {
+    hippo: {
       isElectron: true,
       functions: {
         invoke: async (fn, args) => {
@@ -356,7 +356,7 @@ test("resolveStringAsync: hash() and environmentVariable() delegate to the backe
 });
 
 test("resolveStringAsync: a throwing backend surfaces as an [error: …] token", async () => {
-  globalThis.window.wurl.functions.invoke = async () => ({ error: "boom" });
+  globalThis.window.hippo.functions.invoke = async () => ({ error: "boom" });
   assert.equal(
     await resolveStringAsync('{{hmac("SHA256", "k", "m")}}', {}),
     "[error: boom]",

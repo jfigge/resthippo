@@ -3,7 +3,7 @@
  *
  * All of these persist a settings delta and/or re-apply settings to the live
  * DOM. They reach shared state and the settings popup through the bus context
- * (`ctx`, built by buildBusContext() in app.js). See the wurl:* registry at the
+ * (`ctx`, built by buildBusContext() in app.js). See the hippo:* registry at the
  * top of app.js for payload shapes.
  *
  * @param {object} ctx
@@ -24,7 +24,7 @@ export function installSettingsHandlers(ctx) {
   // Persist settings immediately whenever any control in the popup changes.
   // Merge into currentSettings so fields not emitted by the popup (splitters,
   // selectedRequestIds, historyCount) are not silently dropped on each save.
-  window.addEventListener("wurl:settings-changed", (e) => {
+  window.addEventListener("hippo:settings-changed", (e) => {
     const prevLocale = ctx.getSettings().locale ?? "system";
     const saved = ctx.updateSettings(e.detail);
     ctx.applySettings(ctx.getSettings());
@@ -42,7 +42,7 @@ export function installSettingsHandlers(ctx) {
   });
 
   // Trim all per-request histories to the new max (fired only on settings Close click)
-  window.addEventListener("wurl:history-trim", (e) => {
+  window.addEventListener("hippo:history-trim", (e) => {
     const max = Math.max(
       0,
       Math.min(10, e.detail?.historyCount ?? ctx.getMaxHistory()),
@@ -60,17 +60,17 @@ export function installSettingsHandlers(ctx) {
     ctx.dispatchTimelineUpdate(ctx.getSelectedNode()?.id);
   });
 
-  window.addEventListener("wurl:theme-preview", (e) => {
+  window.addEventListener("hippo:theme-preview", (e) => {
     if (e.detail) ctx.applyCustomThemeVars(e.detail);
     else ctx.applySettings(ctx.getSettings());
   });
 
-  window.addEventListener("wurl:custom-themes-changed", (e) => {
+  window.addEventListener("hippo:custom-themes-changed", (e) => {
     ctx.updateSettings({ customThemes: e.detail });
     ctx.settingsPopup.refreshThemeList(e.detail);
   });
 
-  window.addEventListener("wurl:theme-apply", (e) => {
+  window.addEventListener("hippo:theme-apply", (e) => {
     ctx.updateSettings({ theme: e.detail });
     ctx.applySettings(ctx.getSettings());
     ctx.settingsPopup.load({
@@ -81,7 +81,7 @@ export function installSettingsHandlers(ctx) {
 
   // When the request editor fires a preference change (e.g. List Headers toggle),
   // merge into currentSettings and persist.
-  window.addEventListener("wurl:editor-setting-changed", (e) => {
+  window.addEventListener("hippo:editor-setting-changed", (e) => {
     ctx.updateSettings(e.detail);
   });
 }

@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-#  wurl – Web URL REST API Client
+#  Rest Hippo – Web URL REST API Client
 #  Electron desktop app (Vanilla JS + Node.js)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -469,7 +469,7 @@ sync-win:
 # `open` does not inherit the shell environment, so forward the shared dev vars
 # explicitly with --env so the packaged app sees the same values as `make debug`.
 launch: all
-	@open build/src/dist/mac-arm64/wurl.app \
+	@open "build/src/dist/mac-arm64/Rest Hippo.app" \
 		$(foreach v,$(DEV_ENV_VARS),--env $(v)=$($(v)))
 
 # ─── Clean ────────────────────────────────────────────────────────────────────
@@ -481,7 +481,7 @@ clean:
 # ─── Help ─────────────────────────────────────────────────────────────────────
 help:
 	@echo ""
-	@echo "  wurl — Web URL REST API Client"
+	@echo "  Rest Hippo — Web URL REST API Client"
 	@echo ""
 	@echo "  Targets:"
 	@echo "    all           fmt → lint → test → build  (default)"

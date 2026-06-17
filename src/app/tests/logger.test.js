@@ -31,7 +31,7 @@ function tmpDir() {
   _dirCounter += 1;
   const dir = path.join(
     os.tmpdir(),
-    `wurl-logger-test-${process.pid}-${_dirCounter}`,
+    `resthippo-logger-test-${process.pid}-${_dirCounter}`,
   );
   fs.rmSync(dir, { recursive: true, force: true });
   return dir;

@@ -6,7 +6,7 @@
  * Run with:   node --experimental-vm-modules auth/tests/oauth.test.js
  *
  * Dependencies: none external — uses Node's built-in assert module and a
- * lightweight mock for window.wurl so tests run without Electron.
+ * lightweight mock for window.hippo so tests run without Electron.
  *
  * Test coverage:
  *   • PKCE code verifier / challenge generation and format
@@ -43,13 +43,13 @@ import {
   validateOAuthConfig,
 } from "../types/oauth-types.js";
 
-// ── Global mock for window.wurl (simulates Electron preload) ─────────────────
+// ── Global mock for window.hippo (simulates Electron preload) ─────────────────
 // Each test group overrides _mockResponses to control what executeRequest returns.
 
 let _mockResponse = null;
 
 globalThis.window = {
-  wurl: {
+  hippo: {
     isElectron: true,
     http: {
       execute: async (desc) => {
@@ -581,7 +581,7 @@ await test("optionalClient body mode behaves like the standard body mode", async
 
 group("Client Credentials flow (mocked)");
 
-// The flow imports postTokenRequest which calls executeRequest which calls window.wurl.http.execute
+// The flow imports postTokenRequest which calls executeRequest which calls window.hippo.http.execute
 import { clientCredentialsFlow } from "../flows/client-credentials.js";
 
 await test("client credentials flow: success", async () => {

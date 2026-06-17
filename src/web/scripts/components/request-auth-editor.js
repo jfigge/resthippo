@@ -4,7 +4,7 @@
  * Owns the Auth tab of the request editor: the type selector, the bulk-edit
  * textarea, and all seven auth schemes (Basic, Bearer, API-key, Digest, NTLM,
  * OAuth 2.0 with OIDC discovery, AWS IAM). It encapsulates the full auth model
- * and emits the same partial `wurl:request-updated` event the rest of the
+ * and emits the same partial `hippo:request-updated` event the rest of the
  * editor uses, so the persisted model and event contract are unchanged.
  *
  * The parent {@link RequestEditor} owns send/load orchestration and supplies
@@ -197,9 +197,9 @@ function _apiKeyDropdownAccept(input, onSelect) {
 // ── Backend-routed HTTP helper ─────────────────────────────────────────────────
 /**
  * Perform a GET request through the same backend routing used for normal
- * wurl requests, bypassing the renderer's CORS enforcement.
+ * Rest Hippo requests, bypassing the renderer's CORS enforcement.
  *
- * • Electron  → window.wurl.http.execute  (IPC → main process Node.js http)
+ * • Electron  → window.hippo.http.execute  (IPC → main process Node.js http)
  * • Dev-server → POST /api/execute        (Go server makes the outgoing call)
  *
  * Resolves with the parsed JSON body on success.
@@ -212,9 +212,9 @@ async function _fetchJson(url) {
   const desc = { method: "GET", url, followRedirects: true, verifySsl: true };
 
   let result;
-  if (typeof window.wurl?.http?.execute === "function") {
+  if (typeof window.hippo?.http?.execute === "function") {
     // ── Electron path ──────────────────────────────────────────────────────
-    result = await window.wurl.http.execute(desc);
+    result = await window.hippo.http.execute(desc);
   } else {
     // ── Go dev-server path ─────────────────────────────────────────────────
     const res = await fetch("/api/execute", {
@@ -1452,11 +1452,11 @@ export class RequestAuthEditor {
         oauthExecutor.clearToken(this.#authOAuth2);
 
         // Clear Electron session (cookies, localStorage, cache, …)
-        if (typeof window.wurl?.oauth?.clearSession === "function") {
+        if (typeof window.hippo?.oauth?.clearSession === "function") {
           clearSessionBtn.disabled = true;
           clearSessionBtn.textContent = t("auth.oauth2.clearing");
           try {
-            await window.wurl.oauth.clearSession();
+            await window.hippo.oauth.clearSession();
           } catch (err) {
             console.warn("[oauth] clearSession failed:", err.message);
             Notifications.warning(t("auth.oauth2.clearSessionFailed"));
@@ -1791,7 +1791,7 @@ export class RequestAuthEditor {
     input.className = "auth-field-input";
     input.placeholder = t("auth.oauth2.scopePlaceholder");
     input.value = value;
-    input.name = "wurl-auth-scope";
+    input.name = "resthippo-auth-scope";
     input.setAttribute("autocomplete", "off");
     input.setAttribute("aria-label", t("auth.oauth2.scope"));
     input.setAttribute("aria-autocomplete", "list");
@@ -1872,7 +1872,7 @@ export class RequestAuthEditor {
     input.className = "auth-field-input";
     input.placeholder = t("auth.apiKey.namePlaceholder");
     input.value = value;
-    input.name = "wurl-auth-apikey-name";
+    input.name = "resthippo-auth-apikey-name";
     input.setAttribute("autocomplete", "off");
     input.setAttribute("aria-label", t("auth.apiKey.nameAria"));
     input.setAttribute("aria-autocomplete", "list");
@@ -1963,7 +1963,7 @@ export class RequestAuthEditor {
       ...oauth2Persisted
     } = this.#authOAuth2;
     window.dispatchEvent(
-      new CustomEvent("wurl:request-updated", {
+      new CustomEvent("hippo:request-updated", {
         detail: {
           id: currentNodeId,
           authEnabled: this.#authEnabled,
