@@ -256,6 +256,7 @@
     "window": "Finestra",
     "help": "Aiuto",
     "userGuide": "Guida utente di Rest Hippo",
+    "support": "Sostieni Rest Hippo…",
     "revealLogs": "Mostra log",
     "exportDiagnostics": "Esporta diagnostica…",
     "importCurl": "Importa da cURL…"

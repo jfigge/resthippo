@@ -254,6 +254,7 @@
     "window": "ウインドウ",
     "help": "ヘルプ",
     "userGuide": "Rest Hippo ユーザーガイド",
+    "support": "Rest Hippo を支援…",
     "revealLogs": "ログを表示",
     "exportDiagnostics": "診断情報をエクスポート…",
     "importCurl": "cURL からインポート…"

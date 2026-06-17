@@ -254,6 +254,7 @@
     "window": "窗口",
     "help": "帮助",
     "userGuide": "Rest Hippo 用户指南",
+    "support": "支持 Rest Hippo…",
     "revealLogs": "显示日志",
     "exportDiagnostics": "导出诊断信息…",
     "importCurl": "从 cURL 导入…"

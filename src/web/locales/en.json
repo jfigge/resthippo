@@ -256,6 +256,7 @@
     "window": "Window",
     "help": "Help",
     "userGuide": "Rest Hippo User Guide",
+    "support": "Support Rest Hippo…",
     "revealLogs": "Reveal Logs",
     "exportDiagnostics": "Export Diagnostics…",
     "importCurl": "Import from cURL…"

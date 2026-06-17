@@ -112,6 +112,18 @@ KC_SERVER := http://localhost:8080
 # `-c.mac.notarize=false` to also force notarization off.
 UNSIGNED_ENV := env $(foreach v,$(filter-out CSC_IDENTITY_AUTO_DISCOVERY,$(RELEASE_ENV_VARS)),-u $(v)) CSC_IDENTITY_AUTO_DISCOVERY=false
 
+# Force an ABSOLUTE entitlements path for codesign. app-builder-lib (26.x) passes
+# a custom `mac.entitlements` value straight through to codesign without resolving
+# it (macPackager getEntitlements returns the config string verbatim), and
+# codesign runs from a cwd other than build/src — so the relative
+# `packaging/entitlements.mac.plist` from package.json fails with
+# "cannot read entitlement data". Overriding both entitlements keys on the CLI
+# with an absolute path (resolved here, where Make's cwd is the project root)
+# fixes signing locally and in CI alike. Only the signing targets need it — the
+# UNSIGNED_ENV builds never invoke codesign with an identity.
+MAC_ENTITLEMENTS := $(abspath $(BUILD_DIR)/src/packaging/entitlements.mac.plist)
+MAC_SIGN_OVERRIDES := -c.mac.entitlements=$(MAC_ENTITLEMENTS) -c.mac.entitlementsInherit=$(MAC_ENTITLEMENTS)
+
 dmg: build-setup build-install
 	@echo "Building macOS .dmg (unsigned, un-notarized)…"
 	@cd ${BUILD_DIR}/src; $(UNSIGNED_ENV) npx electron-builder --mac dmg --publish never -c.mac.notarize=false
@@ -126,14 +138,14 @@ all: build-setup build-install
 
 sign-dmg: build-setup build-install
 	@echo "Building macOS .dmg (signed + notarized — ready to ship)…"
-	@cd ${BUILD_DIR}/src; npx electron-builder --mac dmg --publish never
+	@cd ${BUILD_DIR}/src; npx electron-builder --mac dmg --publish never $(MAC_SIGN_OVERRIDES)
 	@$(MAKE) staple-dmg
 	@echo "  → ${BUILD_DIR}/src/dist/"
 	@echo "--------------------------------"
 
 sign-all: build-setup build-install
 	@echo "Building ALL platforms (macOS + Windows signed where creds present)…"
-	@cd ${BUILD_DIR}/src; npx electron-builder --mac dmg --linux --win --publish never
+	@cd ${BUILD_DIR}/src; npx electron-builder --mac dmg --linux --win --publish never $(MAC_SIGN_OVERRIDES)
 	@$(MAKE) staple-dmg
 	@echo "  → ${BUILD_DIR}/src/dist/"
 	@echo "--------------------------------"
@@ -333,7 +345,7 @@ dist: dist-mac dist-linux dist-win
 
 dist-mac: build-setup build-install
 	@echo "Building macOS distribution (dmg/zip)..."
-	@cd ${BUILD_DIR}/src; npx electron-builder --mac --publish never
+	@cd ${BUILD_DIR}/src; npx electron-builder --mac --publish never $(MAC_SIGN_OVERRIDES)
 	@$(MAKE) staple-dmg
 	@echo "  → ${BUILD_DIR}/src/dist/"
 	@echo "--------------------------------"
@@ -394,7 +406,8 @@ staple-dmg:
 	else \
 		identity=$$(security find-identity -p codesigning -v 2>/dev/null | grep "Developer ID Application" | head -1 | awk '{print $$2}'); \
 	fi; \
-	for d in $$dmgs; do \
+	for d in "$$DIST"/*.dmg; do \
+		[ -e "$$d" ] || continue; \
 		if [ -n "$$identity" ]; then \
 			echo "  → codesign (Developer ID) $$d"; \
 			codesign --force --timestamp --sign "$$identity" "$$d"; \

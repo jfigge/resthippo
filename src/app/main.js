@@ -1940,7 +1940,7 @@ function showAboutDialog() {
 
   _aboutWin = new BrowserWindow({
     width: 360,
-    height: 480,
+    height: 560,
     resizable: false,
     minimizable: false,
     maximizable: false,

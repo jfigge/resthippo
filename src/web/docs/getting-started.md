@@ -87,6 +87,18 @@ silent.
 > Launching a second copy simply brings the existing window to the front instead
 > of opening a duplicate.
 
+## Supporting Rest Hippo
+
+Rest Hippo is free and always will be — there's no paid tier, license key, trial,
+or feature locked behind a payment. Every capability is available to everyone.
+
+If the app saves you time and you'd like to say thank you, **Help → Support
+Rest Hippo…** (also linked from the About window) opens a donation page in your
+browser with a suggested $5 tip. It's entirely optional: a donation unlocks
+nothing, nothing is ever gated or nagged behind it, and the app never tracks or
+verifies whether you've given. Skip it with zero downside — the gesture is
+appreciated, never expected.
+
 ## Where to go next
 
 - Organize your work into [collections and folders](collections.md).
