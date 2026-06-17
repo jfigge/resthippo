@@ -27,7 +27,7 @@ const { _setSafeStorage, isEncrypted } = require("../crypto");
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeTmpDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "wurl-integration-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "resthippo-integration-"));
 }
 
 function rmTmpDir(dir) {

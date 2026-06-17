@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// proxy.go — the small proxies that let wurl exercise its proxy and retry
+// proxy.go — the small proxies that let Rest Hippo exercise its proxy and retry
 // settings (feature 44). They run alongside the main mock API, each on its own
 // port, sharing this process so a single `make mock-up` brings everything up:
 //
@@ -37,7 +37,7 @@ const (
 	// for bypass-list hosts, by this header being *absent* on a direct connect).
 	proxyRelayHeader = "X-Proxy-Relayed"
 	// proxyRelayValue identifies this proxy in the relay header.
-	proxyRelayValue = "wurl-mock"
+	proxyRelayValue = "resthippo-mock"
 	// proxyErrorHeader asks the forward proxy to inject a transient failure so a
 	// client retry policy can be exercised. See injectProxyFault for the value
 	// grammar ("<n>", "<n>:reset", "<n>:timeout", "<n>:<status>").
@@ -139,7 +139,7 @@ func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if !r.URL.IsAbs() {
 		http.Error(w,
-			"this is wurl's mock forward proxy — point a client's proxy setting at it and send absolute-URI or CONNECT requests",
+			"this is Rest Hippo's mock forward proxy — point a client's proxy setting at it and send absolute-URI or CONNECT requests",
 			http.StatusBadRequest)
 		return
 	}
@@ -158,7 +158,7 @@ func checkProxyAuth(w http.ResponseWriter, r *http.Request) bool {
 		user == proxyAuthUser && pass == proxyAuthPass {
 		return true
 	}
-	w.Header().Set("Proxy-Authenticate", `Basic realm="wurl-mock"`)
+	w.Header().Set("Proxy-Authenticate", `Basic realm="resthippo-mock"`)
 	w.Header().Set(proxyRelayHeader, proxyRelayValue)
 	http.Error(w, "proxy authentication required", http.StatusProxyAuthRequired)
 	return false

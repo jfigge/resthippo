@@ -1,4 +1,4 @@
-// eslint.config.js — ESLint 9 flat configuration for wurl
+// eslint.config.js — ESLint 9 flat configuration for Rest Hippo
 "use strict";
 
 const js      = require("@eslint/js");

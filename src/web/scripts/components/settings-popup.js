@@ -3,7 +3,7 @@
  *
  * Built on top of PopupManager so it participates in the shared overlay/mask
  * system.  Settings are persisted immediately on every control change by
- * dispatching a "wurl:settings-changed" event; app.js listens and writes to
+ * dispatching a "hippo:settings-changed" event; app.js listens and writes to
  * storage.  There is no explicit Save button — any change is live.
  *
  * Usage:
@@ -464,7 +464,7 @@ export class SettingsPopup {
     themeSelect.addEventListener("change", () => {
       if (themeSelect.value === "__theme-editor__") {
         themeSelect.value = _prevTheme;
-        window.wurl.ui.openThemeEditor?.();
+        window.hippo.ui.openThemeEditor?.();
         return;
       }
       _prevTheme = themeSelect.value;
@@ -516,7 +516,7 @@ export class SettingsPopup {
       .addEventListener("click", () => this.#pickCaFile());
 
     // Escape handling lives in #onKeyDown, attached on open() and detached
-    // when PopupManager dispatches "wurl:popup-closed". See class fields above.
+    // when PopupManager dispatches "hippo:popup-closed". See class fields above.
 
     // X button (top-right ✕) — revert historyCount to the value at open time,
     // then close without committing the pending history count.
@@ -530,7 +530,7 @@ export class SettingsPopup {
       const historyCount = this.#readHistoryCount();
       this.#emitChange(historyCount);
       window.dispatchEvent(
-        new CustomEvent("wurl:history-trim", {
+        new CustomEvent("hippo:history-trim", {
           detail: { historyCount },
           bubbles: true,
         }),
@@ -573,7 +573,7 @@ export class SettingsPopup {
   }
 
   /**
-   * Read current control values and dispatch "wurl:settings-changed".
+   * Read current control values and dispatch "hippo:settings-changed".
    * Pass an explicit historyCount to include it (only done from the Close button).
    * @param {number} [historyCount]
    */
@@ -581,7 +581,7 @@ export class SettingsPopup {
     const detail = this.#readValues();
     if (historyCount !== undefined) detail.historyCount = historyCount;
     window.dispatchEvent(
-      new CustomEvent("wurl:settings-changed", {
+      new CustomEvent("hippo:settings-changed", {
         detail,
         bubbles: true,
       }),
@@ -782,7 +782,7 @@ export class SettingsPopup {
 
   /** Open the native picker for a client-cert file button, then record its path. */
   async #pickCertFile(btn) {
-    const path = await window.wurl?.dialog?.pickFile?.(btn.dataset.kind);
+    const path = await window.hippo?.dialog?.pickFile?.(btn.dataset.kind);
     if (!path) return;
     this.#setPickerPath(btn, path);
     this.#emitChange();
@@ -790,7 +790,7 @@ export class SettingsPopup {
 
   /** Open the native picker for a CA file and append a row when one is chosen. */
   async #pickCaFile() {
-    const path = await window.wurl?.dialog?.pickFile?.("ca");
+    const path = await window.hippo?.dialog?.pickFile?.("ca");
     if (!path) return;
     this.#el.querySelector("#ca-cert-list").appendChild(this.#buildCaRow(path));
     this.#emitChange();
@@ -885,11 +885,11 @@ export class SettingsPopup {
     this.#showPanel("appearance");
     PopupManager.open(this);
     // Scope the Escape handler to the open lifecycle. PopupManager.close()
-    // dispatches "wurl:popup-closed" via _hideMask(), which fires for every
+    // dispatches "hippo:popup-closed" via _hideMask(), which fires for every
     // close path (X button, Close button, Escape, and mask click), so this
     // one once-listener covers them all.
     document.addEventListener("keydown", this.#onKeyDown);
-    window.addEventListener("wurl:popup-closed", this.#onPopupClosed, {
+    window.addEventListener("hippo:popup-closed", this.#onPopupClosed, {
       once: true,
     });
   }

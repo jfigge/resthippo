@@ -25,7 +25,7 @@
  */
 function buildReport({ app = {}, logs = [], generatedAt } = {}) {
   const lines = [];
-  lines.push("wurl diagnostics report");
+  lines.push("Rest Hippo diagnostics report");
   lines.push("=======================");
   if (generatedAt) lines.push(`generated: ${generatedAt}`);
   for (const [key, value] of Object.entries(app)) {

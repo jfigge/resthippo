@@ -220,7 +220,7 @@ export function parseInsomnia(data) {
     }
   }
 
-  // wurl imports a single flat variable set, so any sub-environments (Insomnia's
+  // Rest Hippo imports a single flat variable set, so any sub-environments (Insomnia's
   // per-environment overrides, e.g. "Production"/"Staging") are dropped. Count
   // every environment resource in the export beyond the one we imported and warn
   // — silently keeping only the base would hide that the others were lost.

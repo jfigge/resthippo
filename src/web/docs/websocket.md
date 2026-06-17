@@ -2,7 +2,7 @@
 
 [← Back to contents](README.md)
 
-wurl is also a WebSocket client. Create a WebSocket request from the tree
+Rest Hippo is also a WebSocket client. Create a WebSocket request from the tree
 (right-click a folder → **Add WebSocket Request**, or right-click the **+**
 button above the tree and choose **Add WebSocket Request**), and point it at a
 `ws://` or `wss://` URL.

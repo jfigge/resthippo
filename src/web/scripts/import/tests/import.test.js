@@ -39,7 +39,7 @@ import {
 import { exportToPostman } from "../../export/postman.js";
 import { exportToInsomnia } from "../../export/insomnia.js";
 
-/** Find a request node by name anywhere in a wurl collection tree. */
+/** Find a request node by name anywhere in a Rest Hippo collection tree. */
 function findRequest(node, name) {
   if (!node) return null;
   if (node.type === "request" && node.name === name) return node;
@@ -138,7 +138,7 @@ test("postman: parses nested folder, request, method, body, and headers", () => 
   ]);
 });
 
-test("postman: maps basic auth into the wurl auth shape", () => {
+test("postman: maps basic auth into the Rest Hippo auth shape", () => {
   const login = findRequest(parsePostman(POSTMAN_FIXTURE).collection, "Login");
   assert.equal(login.authEnabled, true);
   assert.equal(login.authType, "basic");
@@ -662,7 +662,7 @@ test("round-trip: a Postman secret variable preserves its secure flag", () => {
 
 // ── Import → export round-trip (Insomnia v4) ─────────────────────────────────
 
-test("round-trip: wurl → Insomnia v4 export → import preserves structure", () => {
+test("round-trip: Rest Hippo → Insomnia v4 export → import preserves structure", () => {
   const collection = {
     id: "c1",
     type: "collection",
@@ -723,7 +723,7 @@ test("round-trip: wurl → Insomnia v4 export → import preserves structure", (
 
 // ── Round-trip: GraphQL body (Feature 34) ────────────────────────────────────
 
-test("round-trip: GraphQL body survives a wurl → Postman → wurl cycle", () => {
+test("round-trip: GraphQL body survives a Rest Hippo → Postman → Rest Hippo cycle", () => {
   const query = "query GetUser($id: ID!) { user(id: $id) { id name } }";
   const collection = {
     id: "c1",
@@ -761,7 +761,7 @@ test("round-trip: GraphQL body survives a wurl → Postman → wurl cycle", () =
   assert.equal(req.bodyGraphql.variables, '{ "id": "42" }');
 });
 
-test("round-trip: GraphQL body survives a wurl → Insomnia → wurl cycle", () => {
+test("round-trip: GraphQL body survives a Rest Hippo → Insomnia → Rest Hippo cycle", () => {
   const query = "query GetUser($id: ID!) { user(id: $id) { id name } }";
   const collection = {
     id: "c1",
@@ -848,7 +848,7 @@ test("round-trip: form-data file field + path variables survive a Postman cycle"
 
 // ── Shared canonical-shape builders (import/shape.js) ─────────────────────────
 
-test("shape.buildAuth: neutral descriptor → canonical wurl auth fields", () => {
+test("shape.buildAuth: neutral descriptor → canonical Rest Hippo auth fields", () => {
   // null / unknown → no-auth; this is what every importer maps an absent or
   // unsupported scheme to.
   assert.deepEqual(buildAuth(null), { authEnabled: false, authType: "none" });
@@ -868,7 +868,7 @@ test("shape.buildAuth: neutral descriptor → canonical wurl auth fields", () =>
     authBearer: { token: "t" },
   });
 
-  // oauth2 fills wurl defaults for omitted fields (notably grantType).
+  // oauth2 fills Rest Hippo defaults for omitted fields (notably grantType).
   assert.deepEqual(buildAuth({ type: "oauth2", clientId: "cid" }), {
     authEnabled: true,
     authType: "oauth2",
@@ -976,7 +976,7 @@ test("postman: a multi-file form-data field is imported lossily and warned about
   };
   const { collection, warnings } = parsePostman(data);
 
-  // Only the first file survives (wurl is one file per field) …
+  // Only the first file survives (Rest Hippo is one file per field) …
   const upload = findRequest(collection, "Upload");
   const file = upload.bodyFormRows.find((r) => r.name === "docs");
   assert.equal(file.filePath, "/tmp/a.pdf");
@@ -993,7 +993,7 @@ test("postman: a multi-file form-data field is imported lossily and warned about
 
 test("insomnia: dropped sub-environments are reported via warnings", () => {
   const data = structuredClone(INSOMNIA_FIXTURE);
-  // Add two extra environments beyond the base; wurl imports only the base.
+  // Add two extra environments beyond the base; Rest Hippo imports only the base.
   data.resources.push(
     {
       _id: "env_prod",
@@ -1151,7 +1151,7 @@ test("curl: -F builds a form-data body with file rows (no warning from the parse
 });
 
 test("curl: a -F file field without @ but with ;filename= is a file row", () => {
-  // wurl's own cURL export emits file fields as `name=path;type=…;filename=…`
+  // Rest Hippo's own cURL export emits file fields as `name=path;type=…;filename=…`
   // (no leading `@`); the `;filename=` attribute marks it as a file part.
   const { collection, warnings } = parseCurl(
     `curl --request POST --url 'http://127.0.0.1:8888/echo' \\

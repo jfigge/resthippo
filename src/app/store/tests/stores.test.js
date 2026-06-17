@@ -24,7 +24,7 @@ const { _setSafeStorage } = require("../crypto");
 // ── Helper: temp directory lifecycle ──────────────────────────────────────────
 
 function makeTmpDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "wurl-test-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "resthippo-test-"));
 }
 
 function rmTmpDir(dir) {

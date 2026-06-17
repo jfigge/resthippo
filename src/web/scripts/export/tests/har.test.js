@@ -67,11 +67,11 @@ function fixture() {
   return { collection, entry };
 }
 
-test("log skeleton is HAR 1.2 with a wurl creator", () => {
+test("log skeleton is HAR 1.2 with a Rest Hippo creator", () => {
   const { collection } = fixture();
   const out = JSON.parse(exportToHar(collection, new Map()));
   assert.equal(out.log.version, "1.2");
-  assert.equal(out.log.creator.name, "wurl");
+  assert.equal(out.log.creator.name, "Rest Hippo");
 });
 
 test("emits one entry per request with history; never-run requests are skipped", () => {

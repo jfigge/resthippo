@@ -15,7 +15,7 @@
  * loads its variables into the editor.
  *
  * Constructor callbacks (this is a parent-owned popup that reports back to its
- * creator, so it uses callbacks rather than global wurl:* events — see the
+ * creator, so it uses callbacks rather than global hippo:* events — see the
  * "Component ↔ app communication" rule in CLAUDE.md):
  *   onChange({ data })                 — add / rename / delete / reorder
  *   onActivate({ id })                 — row selected (null = Global)

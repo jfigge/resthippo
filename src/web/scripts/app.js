@@ -91,13 +91,13 @@ import { t } from "./i18n.js";
 // ─── Renderer crash mirroring ───────────────────────────────────────────────────
 // Forward uncaught renderer errors and unhandled promise rejections to the main
 // process so they land in the persistent log alongside main-process diagnostics
-// (see preload.js → wurl.diagnostics). Registered at module load so the earliest
+// (see preload.js → hippo.diagnostics). Registered at module load so the earliest
 // failures are caught. Best-effort and silent: a reporting failure must never mask
 // the original error, and there is no UI side effect here.
 (function installRendererDiagnostics() {
   const report = (info) => {
     try {
-      window.wurl?.diagnostics?.reportError?.(info);
+      window.hippo?.diagnostics?.reportError?.(info);
     } catch {
       /* logging is best-effort */
     }
@@ -349,15 +349,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       t.tagName === "TEXTAREA" ||
       t.isContentEditable;
     if (isEditable) {
-      window.wurl.ui.contextMenu.edit(e.clientX, e.clientY);
+      window.hippo.ui.contextMenu.edit(e.clientX, e.clientY);
     }
   });
 
-  // Undo / Redo routed from the app Edit menu (main → preload → wurl:edit-action).
+  // Undo / Redo routed from the app Edit menu (main → preload → hippo:edit-action).
   // A focused multi-line code editor (.pce-doc) runs its own snapshot undo/redo
   // and handles this itself; for plain inputs / textareas / other editables, fall
   // back to the browser's native editing command.
-  window.addEventListener("wurl:edit-action", (e) => {
+  window.addEventListener("hippo:edit-action", (e) => {
     const action = e.detail?.action;
     if (action !== "undo" && action !== "redo") return;
     const el = document.activeElement;
@@ -379,7 +379,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     win32: '"Segoe UI Variable", "Segoe UI", sans-serif',
     linux: 'system-ui, "Ubuntu", "Cantarell", sans-serif',
   };
-  const platform = window.wurl?.platform ?? "linux";
+  const platform = window.hippo?.platform ?? "linux";
   const uiFont = PLATFORM_UI_FONTS[platform] ?? PLATFORM_UI_FONTS.linux;
   document.documentElement.style.setProperty("--font-ui", uiFont);
 
@@ -425,6 +425,8 @@ function localizeChrome() {
 
   // Header + landmark regions
   setAttrAll("#app-header", "aria-label", "header.appHeaderAria");
+  setAttrAll("#btn-about", "title", "header.aboutTitle");
+  setAttrAll("#btn-about", "aria-label", "header.aboutTitle");
   setText(".app-subtitle", "header.subtitle");
   setAttrAll(".header-icon-panel", "aria-label", "header.actionsAria");
   setAttrAll("#app-main", "aria-label", "header.mainAria");
@@ -516,7 +518,7 @@ function initComponents() {
   requestEditor = new RequestEditor();
   responseViewer = new ResponseViewer();
   // Idle-state placeholder console — shown when a WS request is selected but
-  // not yet connected. Per-connection consoles are created in wurl:ws-connect
+  // not yet connected. Per-connection consoles are created in hippo:ws-connect
   // and swapped in via _setResponsePane.
   wsConsole = new WsConsole();
 
@@ -528,28 +530,30 @@ function initComponents() {
 
   // Stream WebSocket status + frames pushed from the main process into the
   // console (and, for lifecycle states, the editor's Connect button).
-  if (window.wurl?.ws) {
-    window.wurl.ws.onStatus(_onWsStatus);
-    window.wurl.ws.onMessage(_onWsMessage);
+  if (window.hippo?.ws) {
+    window.hippo.ws.onStatus(_onWsStatus);
+    window.hippo.ws.onMessage(_onWsMessage);
   }
 
-  // Bridge live HTTP streaming pushes (Feature 33) to global wurl:stream-*
+  // Bridge live HTTP streaming pushes (Feature 33) to global hippo:stream-*
   // events so the ResponseViewer (and any future listener) can consume them
   // the same way as the rest of the request lifecycle. The bridge listens for
   // the app's whole lifetime, so no stream frame is missed before the viewer
   // has switched into live mode.
-  if (window.wurl?.http?.stream) {
-    window.wurl.http.stream.onData((p) =>
-      window.dispatchEvent(new CustomEvent("wurl:stream-data", { detail: p })),
+  if (window.hippo?.http?.stream) {
+    window.hippo.http.stream.onData((p) =>
+      window.dispatchEvent(new CustomEvent("hippo:stream-data", { detail: p })),
     );
-    window.wurl.http.stream.onEnd((p) =>
-      window.dispatchEvent(new CustomEvent("wurl:stream-end", { detail: p })),
+    window.hippo.http.stream.onEnd((p) =>
+      window.dispatchEvent(new CustomEvent("hippo:stream-end", { detail: p })),
     );
-    window.wurl.http.stream.onError((p) =>
-      window.dispatchEvent(new CustomEvent("wurl:stream-error", { detail: p })),
+    window.hippo.http.stream.onError((p) =>
+      window.dispatchEvent(
+        new CustomEvent("hippo:stream-error", { detail: p }),
+      ),
     );
-    window.wurl.http.stream.onHint((p) =>
-      window.dispatchEvent(new CustomEvent("wurl:stream-hint", { detail: p })),
+    window.hippo.http.stream.onHint((p) =>
+      window.dispatchEvent(new CustomEvent("hippo:stream-hint", { detail: p })),
     );
   }
 
@@ -635,7 +639,7 @@ function _onWsStatus(status) {
   const isForeground = entry.requestId === _selectedNode?.id;
   if (isForeground) {
     window.dispatchEvent(
-      new CustomEvent("wurl:ws-state", { detail: { state: s } }),
+      new CustomEvent("hippo:ws-state", { detail: { state: s } }),
     );
   }
   if (s === "closed" || s === "error") {
@@ -672,7 +676,7 @@ async function _closeWsConn(requestId) {
   _wsConns.delete(entry.id);
   treeView?.setWsLiveIds(_getLiveRequestIds());
   try {
-    await window.wurl?.ws?.close({
+    await window.hippo?.ws?.close({
       id: entry.id,
       code: 1000,
       reason: "switch",
@@ -792,7 +796,7 @@ function applyLayout(layout) {
   // Broadcast so panels that adapt their own internal splits to the layout can
   // react (e.g. RequestEditor flips the GraphQL Query/Variables split).
   window.dispatchEvent(
-    new CustomEvent("wurl:layout-changed", { detail: { layout } }),
+    new CustomEvent("hippo:layout-changed", { detail: { layout } }),
   );
 }
 
@@ -1140,7 +1144,7 @@ async function _showCollContextMenu(x, y) {
     },
   };
 
-  const clickedId = await window.wurl.ui.contextMenu.show({
+  const clickedId = await window.hippo.ui.contextMenu.show({
     items: [
       { id: "rename", label: t("tree.menu.rename") },
       { type: "separator" },
@@ -1154,6 +1158,11 @@ async function _showCollContextMenu(x, y) {
 }
 
 function initHeader() {
+  // Brand mark (top-left) opens the native About window via the main process.
+  document
+    .getElementById("btn-about")
+    ?.addEventListener("click", () => window.hippo?.ui?.showAbout?.());
+
   document.getElementById("btn-settings").addEventListener("click", () => {
     settingsPopup.open(currentSettings);
   });
@@ -1239,7 +1248,7 @@ function _viewTimelineResponse(requestUrl, response) {
   _skipNextHistory = true;
   if (response?.error) {
     window.dispatchEvent(
-      new CustomEvent("wurl:request-error", {
+      new CustomEvent("hippo:request-error", {
         detail: {
           request: response.request ?? { url: requestUrl },
           name: response.error.name ?? "Error",
@@ -1252,7 +1261,7 @@ function _viewTimelineResponse(requestUrl, response) {
     );
   } else {
     window.dispatchEvent(
-      new CustomEvent("wurl:response-received", {
+      new CustomEvent("hippo:response-received", {
         detail: { ...response, request: { url: requestUrl } },
       }),
     );
@@ -1309,7 +1318,7 @@ function buildBusContext() {
 }
 
 function initEventBus() {
-  // ── wurl:* global event registry ───────────────────────────────────────────
+  // ── hippo:* global event registry ───────────────────────────────────────────
   // The renderer's app-wide channel. Only state changes / notifications with
   // MULTIPLE or open-ended listeners live here; parent-owned widgets (pickers,
   // modals, the editor popups) report to their creator via constructor callbacks
@@ -1401,7 +1410,7 @@ function initEventBus() {
     onActivate: handleEnvActivate,
     onVarsSave: handleEnvVarsSave,
     // onBulkEditorChange is intentionally left unwired: the prior
-    // wurl:env-bulk-editor-changed event had no listener, so the environments
+    // hippo:env-bulk-editor-changed event had no listener, so the environments
     // bulk toggle was never persisted. Preserve that behavior.
   });
 
@@ -1427,7 +1436,7 @@ function initEventBus() {
 
 // When a request is selected in the tree, load it into the editor.
 function installSelectionHandlers() {
-  window.addEventListener("wurl:request-selected", async (e) => {
+  window.addEventListener("hippo:request-selected", async (e) => {
     const node = e.detail;
     const prevNodeId = _selectedNode?.id;
     _selectedNode = node;
@@ -1458,7 +1467,7 @@ function installSelectionHandlers() {
       // Resume: swap the background connection's console into the pane.
       _setResponsePane(true, resumeConn.console);
       window.dispatchEvent(
-        new CustomEvent("wurl:ws-state", {
+        new CustomEvent("hippo:ws-state", {
           detail: { state: resumeConn.state ?? "idle" },
         }),
       );
@@ -1467,7 +1476,7 @@ function installSelectionHandlers() {
       if (isWs) {
         wsConsole.reset();
         window.dispatchEvent(
-          new CustomEvent("wurl:ws-state", { detail: { state: "idle" } }),
+          new CustomEvent("hippo:ws-state", { detail: { state: "idle" } }),
         );
       }
     }
@@ -1518,7 +1527,7 @@ function installSelectionHandlers() {
   });
 
   // Double-click-to-execute: load the request then click the send button
-  window.addEventListener("wurl:request-execute", (e) => {
+  window.addEventListener("hippo:request-execute", (e) => {
     if (!requestEditor) return;
     const node = e.detail;
     _selectedNode = node;
@@ -1531,7 +1540,7 @@ function installSelectionHandlers() {
 // Cache response data so function pills like response() / responseHeader() can
 // resolve; record real (non-replay) runs and failures into per-request history.
 function installResponseHandlers() {
-  window.addEventListener("wurl:response-received", async (e) => {
+  window.addEventListener("hippo:response-received", async (e) => {
     // Capture and reset the skip flag immediately so it is never left stale.
     const skipHistory = _skipNextHistory;
     _skipNextHistory = false;
@@ -1545,7 +1554,7 @@ function installResponseHandlers() {
     // Live streaming responses (Feature 33): the body never lands whole in the
     // renderer, so there is no static response to persist here. Instead we stash
     // the marker's request/status/headers keyed by streamId and write a single
-    // Timeline record when the stream ends (see wurl:stream-end/-error below).
+    // Timeline record when the stream ends (see hippo:stream-end/-error below).
     if (e.detail.streaming === true) {
       const sid = e.detail.streamId;
       if (sid && !skipHistory && _maxHistory > 0 && node?.id) {
@@ -1664,7 +1673,7 @@ function installResponseHandlers() {
   // Record network-level failures (ENOTFOUND, ETIMEDOUT, etc.) in the timeline.
   // Cancellations and "no URL" guards are excluded — only genuine request attempts
   // that reached the network layer are recorded.
-  window.addEventListener("wurl:request-error", async (e) => {
+  window.addEventListener("hippo:request-error", async (e) => {
     const skipHistory = _skipNextHistory;
     _skipNextHistory = false;
 
@@ -1852,10 +1861,10 @@ function installStreamHandlers() {
     if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
   }
 
-  window.addEventListener("wurl:stream-end", (e) =>
+  window.addEventListener("hippo:stream-end", (e) =>
     _recordStreamRun(e.detail, { errored: false }),
   );
-  window.addEventListener("wurl:stream-error", (e) =>
+  window.addEventListener("hippo:stream-error", (e) =>
     _recordStreamRun(e.detail, { errored: true }),
   );
 }
@@ -1864,7 +1873,7 @@ function installStreamHandlers() {
 // the quick-access lists, the cleared-editor reset, and timeline restore.
 function installTreeQuickAccessHandlers() {
   // Auto-save whenever the tree is mutated (add / remove collection or request)
-  window.addEventListener("wurl:collections-changed", (e) => {
+  window.addEventListener("hippo:collections-changed", (e) => {
     saveCollections(e.detail);
     // Keep favorites / recents for the active collection in sync with renames,
     // method changes, and any deletions reflected in the new tree.
@@ -1874,7 +1883,7 @@ function installTreeQuickAccessHandlers() {
   // Delete the backing request file(s) when a node is removed from the tree.
   // Fired by tree-view after #deleteNode; ids contains every request under the
   // deleted node (a single request, or all requests in a deleted folder/collection).
-  window.addEventListener("wurl:requests-deleted", (e) => {
+  window.addEventListener("hippo:requests-deleted", (e) => {
     for (const id of e.detail.ids) {
       deleteRequest(id);
       _requestHistory.delete(id);
@@ -1887,7 +1896,7 @@ function installTreeQuickAccessHandlers() {
   // Toggle a request's favorite state (from the tree context menu or the
   // Favorites list). Favorites span every collection, so the entry records the
   // collection it belongs to.
-  window.addEventListener("wurl:favorite-toggle", (e) => {
+  window.addEventListener("hippo:favorite-toggle", (e) => {
     const { node, favorited } = e.detail ?? {};
     if (!node?.id) return;
     const current = currentSettings.favorites ?? [];
@@ -1901,7 +1910,7 @@ function installTreeQuickAccessHandlers() {
 
   // Open a request from the Favorites / Recents lists. Switches to the owning
   // collection first when it differs from the active one, then focuses the row.
-  window.addEventListener("wurl:request-open", async (e) => {
+  window.addEventListener("hippo:request-open", async (e) => {
     const { collectionId, requestId } = e.detail ?? {};
     if (!requestId) return;
     if (collectionId && collectionId !== currentColls.activeCollectionId) {
@@ -1914,14 +1923,14 @@ function installTreeQuickAccessHandlers() {
   });
 
   // Reset the editor when the last request is deleted and there is nothing left to select.
-  window.addEventListener("wurl:request-cleared", () => {
+  window.addEventListener("hippo:request-cleared", () => {
     _selectedNode = null;
     _clearRequestEditor();
   });
 
   // Restoring (the right-click action) replays the snapshot back into the editor
   // — the one destructive timeline action — then shows its response.
-  window.addEventListener("wurl:timeline-restore", (e) => {
+  window.addEventListener("hippo:timeline-restore", (e) => {
     const { requestNode, requestUrl = "", response } = e.detail;
     const restoredNode = requestEditor.loadSnapshot(requestNode);
     if (restoredNode?.id) {
@@ -2091,7 +2100,7 @@ async function handleCollDelete({ id }) {
 
 /** Open the variables popup for a folder node (the one listener in this group). */
 function installFolderVarsHandler() {
-  window.addEventListener("wurl:folder-vars-open", (e) => {
+  window.addEventListener("hippo:folder-vars-open", (e) => {
     const { nodeId, folderName, variables } = e.detail;
     varsPopup.open({
       scopeId: nodeId,
@@ -2280,7 +2289,7 @@ function _refreshEditorVariableContext(nodeId) {
  * Also called by the future collection runner (Feature 02) between requests.
  *
  * @param {object} node    selected request node (carries `captures`)
- * @param {object} detail  wurl:response-received detail (status/headers/body)
+ * @param {object} detail  hippo:response-received detail (status/headers/body)
  */
 async function _applyCapturesForNode(node, detail) {
   const rules = node?.captures;
@@ -2379,7 +2388,7 @@ async function _applyCapturesForNode(node, detail) {
       t("app.captureApplied", { count: applied.length, summary }),
     );
     window.dispatchEvent(
-      new CustomEvent("wurl:captures-applied", {
+      new CustomEvent("hippo:captures-applied", {
         detail: { count: applied.length },
       }),
     );
@@ -2460,7 +2469,7 @@ async function _persistRequestEdits(patches) {
 // applyCurlToRequest are private to this group (only the curl-pasted listener
 // uses them).
 function installRequestEditSendHandlers() {
-  window.addEventListener("wurl:request-updated", (e) => {
+  window.addEventListener("hippo:request-updated", (e) => {
     const { id, ...fields } = e.detail;
     if (id && treeView) {
       // silent=true → in-memory patch + DOM update, no immediate #emitChange
@@ -2478,7 +2487,7 @@ function installRequestEditSendHandlers() {
 
   // A cURL command pasted into the URL bar rewrites the selected request to
   // match it (see RequestEditor#maybeHandleCurlPaste).
-  window.addEventListener("wurl:curl-pasted", (e) =>
+  window.addEventListener("hippo:curl-pasted", (e) =>
     handleCurlPaste(e.detail?.id, e.detail?.text),
   );
 
@@ -2538,7 +2547,7 @@ function installRequestEditSendHandlers() {
       let missing = filePaths;
       try {
         missing =
-          (await window.wurl?.import?.file?.checkMissing?.(filePaths)) ??
+          (await window.hippo?.import?.file?.checkMissing?.(filePaths)) ??
           filePaths;
       } catch {
         missing = filePaths;
@@ -2587,14 +2596,14 @@ function installRequestEditSendHandlers() {
     );
   });
 
-  window.addEventListener("wurl:cancel-request", (e) => {
+  window.addEventListener("hippo:cancel-request", (e) => {
     const requestId = e.detail?.requestId ?? null;
     // A live stream (Feature 33) is aborted in the main process; its stream-end
     // (aborted:true) push updates the viewer and settles the editor's Send/Stop
     // button, so we do NOT fall through to the abortController + request-error
     // path below (the execute() promise already resolved with the marker).
     if (e.detail?.streamId) {
-      window.wurl?.http?.stream?.abort?.(e.detail.streamId)?.catch?.(() => {});
+      window.hippo?.http?.stream?.abort?.(e.detail.streamId)?.catch?.(() => {});
       return;
     }
     // Cancel the execution(s) belonging to this request; with no requestId
@@ -2612,7 +2621,7 @@ function installRequestEditSendHandlers() {
     // execution matched — an OAuth-phase cancel happens before the execution
     // is registered, and the editor/panels still need the state reset.
     window.dispatchEvent(
-      new CustomEvent("wurl:request-error", {
+      new CustomEvent("hippo:request-error", {
         detail: {
           requestId,
           request: snapshot ?? {
@@ -2633,7 +2642,7 @@ function installRequestEditSendHandlers() {
 
   // When the request editor fires a send, execute the request via the
   // native layer (Electron IPC or the Go dev-server proxy endpoint).
-  window.addEventListener("wurl:send-request", async (e) => {
+  window.addEventListener("hippo:send-request", async (e) => {
     const descriptor = e.detail;
     const requestId = descriptor?.requestId ?? _selectedNode?.id ?? null;
 
@@ -2641,7 +2650,7 @@ function installRequestEditSendHandlers() {
     const rawUrl = descriptor?.url;
     if (!rawUrl || typeof rawUrl !== "string" || !rawUrl.trim()) {
       window.dispatchEvent(
-        new CustomEvent("wurl:request-error", {
+        new CustomEvent("hippo:request-error", {
           detail: {
             requestId,
             request: {
@@ -2690,7 +2699,7 @@ function installRequestEditSendHandlers() {
       body: typeof descriptor.body === "string" ? descriptor.body : null,
     };
 
-    // Register this execution so wurl:cancel-request can abort it individually.
+    // Register this execution so hippo:cancel-request can abort it individually.
     const exec = {
       requestId,
       snapshot: requestSnapshot,
@@ -2706,7 +2715,7 @@ function installRequestEditSendHandlers() {
     // streamNdjson setting is on (Settings → Request).
     const streamId = crypto.randomUUID();
     window.dispatchEvent(
-      new CustomEvent("wurl:request-loading", {
+      new CustomEvent("hippo:request-loading", {
         detail: { requestId, streamId },
       }),
     );
@@ -2742,12 +2751,12 @@ function installRequestEditSendHandlers() {
     };
 
     // ── Choose execution path ────────────────────────────────────────────────
-    // window.wurl.isElectron is set to true by Electron's preload.js.
+    // window.hippo.isElectron is set to true by Electron's preload.js.
     // It is never present when the page is served by the Go dev server in a
     // plain browser context.  We check this explicit sentinel rather than
     // testing for a function reference so detection cannot silently regress
     // if the preload is out of sync.
-    const inElectron = window.wurl?.isElectron === true;
+    const inElectron = window.hippo?.isElectron === true;
 
     try {
       let result;
@@ -2756,15 +2765,15 @@ function installRequestEditSendHandlers() {
         // ── Electron path: all HTTP via Node.js IPC (no Chromium/CORS) ───────
         // The main process uses Node's built-in http/https modules, so CORS,
         // certificate policies, and same-origin restrictions don't apply.
-        if (typeof window.wurl?.http?.execute !== "function") {
+        if (typeof window.hippo?.http?.execute !== "function") {
           // Preload is out of date — this is a developer error, not a user
           // error.  Surface it clearly rather than silently falling back.
           throw new Error(
-            "window.wurl.http.execute is not available. " +
+            "window.hippo.http.execute is not available. " +
               "Ensure the Electron app was rebuilt with the latest preload.js.",
           );
         }
-        result = await window.wurl.http.execute(nativeDesc);
+        result = await window.hippo.http.execute(nativeDesc);
       } else {
         // ── Go dev-server path: POST to /api/execute proxy endpoint ──────────
         // The Go server makes the outgoing request server-side so CORS is
@@ -2791,7 +2800,7 @@ function installRequestEditSendHandlers() {
       if (result.error && result.status === 0) {
         // Network-level failure — no HTTP response received
         window.dispatchEvent(
-          new CustomEvent("wurl:request-error", {
+          new CustomEvent("hippo:request-error", {
             detail: {
               requestId,
               requestNode,
@@ -2807,7 +2816,7 @@ function installRequestEditSendHandlers() {
       } else {
         // We got an HTTP response (any status code, including 4xx / 5xx)
         window.dispatchEvent(
-          new CustomEvent("wurl:response-received", {
+          new CustomEvent("hippo:response-received", {
             detail: {
               requestId,
               requestNode,
@@ -2828,7 +2837,7 @@ function installRequestEditSendHandlers() {
               bodyRef: result.bodyRef ?? null,
               fullSize: result.fullSize ?? result.size ?? 0,
               // Live streaming (Feature 33): the body is empty and flows over
-              // the wurl:stream-* events keyed by streamId; the viewer switches
+              // the hippo:stream-* events keyed by streamId; the viewer switches
               // to its live-append mode instead of rendering a static body.
               streaming: result.streaming === true,
               streamId: result.streamId ?? null,
@@ -2845,7 +2854,7 @@ function installRequestEditSendHandlers() {
       const msg = (err instanceof Error ? err.message : String(err)) || "";
 
       window.dispatchEvent(
-        new CustomEvent("wurl:request-error", {
+        new CustomEvent("hippo:request-error", {
           detail: {
             requestId,
             requestNode,
@@ -2874,7 +2883,7 @@ async function initCollections() {
   const [
     { items, settings, collections, activeCollectionId, variables },
     environmentsData,
-  ] = await Promise.all([loadAll(), window.wurl.store.environments.get()]);
+  ] = await Promise.all([loadAll(), window.hippo.store.environments.get()]);
 
   if (environmentsData) currentEnvironments = environmentsData;
 
@@ -3136,9 +3145,9 @@ function installZoomHandlers() {
 
   // ── Electron menu items (main → preload → renderer) ──────────────────────────
   // The Electron main process replaced the native zoomIn/zoomOut/resetZoom menu
-  // roles with custom items that send "wurl:ui-font-change" via webContents.send().
+  // roles with custom items that send "hippo:ui-font-change" via webContents.send().
   // preload.js re-dispatches these as window CustomEvents so we can handle them here.
-  window.addEventListener("wurl:ui-font-change", (e) => {
+  window.addEventListener("hippo:ui-font-change", (e) => {
     const direction = e.detail;
     if (direction === "in") changeFontByStep(+1);
     else if (direction === "out") changeFontByStep(-1);
@@ -3147,7 +3156,7 @@ function installZoomHandlers() {
 }
 
 /**
- * Dispatch wurl:timeline-update with the history entries for the given request ID.
+ * Dispatch hippo:timeline-update with the history entries for the given request ID.
  * @param {string|null}  requestId
  * @param {boolean}      [isRequestSwitch] – true when triggered by a request selection;
  *                                           the response-viewer uses this to update the body tab.
@@ -3174,7 +3183,7 @@ function _clearRequestEditor() {
 function _dispatchTimelineUpdate(requestId, isRequestSwitch = false) {
   const entries = requestId ? (_requestHistory.get(requestId) ?? []) : [];
   window.dispatchEvent(
-    new CustomEvent("wurl:timeline-update", {
+    new CustomEvent("hippo:timeline-update", {
       detail: {
         requestId: requestId ?? null,
         entries: [...entries],
@@ -3202,10 +3211,10 @@ const FONT_STACKS = {
 
 function _applyCustomThemeVars(theme) {
   document.documentElement.dataset.theme = "custom";
-  let styleEl = document.getElementById("wurl-custom-theme");
+  let styleEl = document.getElementById("resthippo-custom-theme");
   if (!styleEl) {
     styleEl = document.createElement("style");
-    styleEl.id = "wurl-custom-theme";
+    styleEl.id = "resthippo-custom-theme";
     document.head.appendChild(styleEl);
   }
   const vars = Object.entries(theme.vars)
@@ -3225,14 +3234,14 @@ function applySettings(settings) {
   const themeId = settings.theme ?? "mocha";
   if (BUILT_IN_THEMES.has(themeId)) {
     document.documentElement.dataset.theme = themeId;
-    document.getElementById("wurl-custom-theme")?.remove();
+    document.getElementById("resthippo-custom-theme")?.remove();
   } else {
     const custom = (settings.customThemes ?? []).find((t) => t.id === themeId);
     if (custom) {
       _applyCustomThemeVars(custom);
     } else {
       document.documentElement.dataset.theme = "mocha";
-      document.getElementById("wurl-custom-theme")?.remove();
+      document.getElementById("resthippo-custom-theme")?.remove();
     }
   }
   // Font size — sets --font-size-base; all other sizes (xs, sm, md, lg, xl)
@@ -3481,8 +3490,8 @@ async function _executeRequestNode(node, ctx) {
 
   try {
     let result;
-    if (window.wurl?.isElectron === true) {
-      result = await window.wurl.http.execute(nativeDesc);
+    if (window.hippo?.isElectron === true) {
+      result = await window.hippo.http.execute(nativeDesc);
     } else {
       const res = await fetch("/api/execute", {
         method: "POST",
@@ -3654,7 +3663,7 @@ async function _gatherHistory(rootNode) {
 /** Run the native save dialog for an already-serialized export and notify. */
 async function _saveExport(filename, content, format, successMsg) {
   try {
-    const saved = await window.wurl.export.file.save(
+    const saved = await window.hippo.export.file.save(
       filename,
       content,
       _exportFilters(format),
@@ -3673,10 +3682,10 @@ async function _saveExport(filename, content, format, successMsg) {
 /**
  * Open the format picker for a single collection. The modal calls back into
  * runCollectionExport with the chosen format.
- * @param {object} collection  Wurl collection node
+ * @param {object} collection  Rest Hippo collection node
  */
 function handleExport(collection) {
-  if (!window.wurl?.export?.file?.save) {
+  if (!window.hippo?.export?.file?.save) {
     Notifications.info(t("app.exportDesktopOnly"));
     return;
   }
@@ -3687,7 +3696,7 @@ function handleExport(collection) {
 
 /** Serialize a single collection to the chosen format and save it. */
 async function runCollectionExport(collection, format) {
-  if (!window.wurl?.export?.file?.save) return;
+  if (!window.hippo?.export?.file?.save) return;
 
   let variables = [];
   try {
@@ -3724,7 +3733,7 @@ async function runCollectionExport(collection, format) {
  * merged by name (first collection wins on a clash).
  */
 async function runWorkspaceExport(format) {
-  if (!window.wurl?.export?.file?.save) return;
+  if (!window.hippo?.export?.file?.save) return;
 
   const children = [];
   const mergedVars = [];
@@ -3759,13 +3768,13 @@ async function runWorkspaceExport(format) {
   const root = {
     id: crypto.randomUUID(),
     type: "collection",
-    name: "wurl Workspace",
+    name: "Rest Hippo Workspace",
     variables: {},
     children,
   };
 
   const meta = EXPORT_FORMATS[format] ?? EXPORT_FORMATS.postman;
-  const filename = `wurl-workspace${meta.suffix}`;
+  const filename = `resthippo-workspace${meta.suffix}`;
   const count = children.length;
   const plural = count !== 1 ? "s" : "";
 
@@ -3786,14 +3795,14 @@ async function runWorkspaceExport(format) {
 }
 
 async function handleImport() {
-  if (!window.wurl?.import?.file?.open) {
+  if (!window.hippo?.import?.file?.open) {
     Notifications.info(t("app.importDesktopOnly"));
     return;
   }
 
   let file;
   try {
-    file = await window.wurl.import.file.open();
+    file = await window.hippo.import.file.open();
   } catch (err) {
     Notifications.error(
       t("app.importFailed", { message: String(err.message ?? err) }),
@@ -3843,7 +3852,7 @@ async function handleCurlImport(text) {
     let missing = filePaths;
     try {
       missing =
-        (await window.wurl?.import?.file?.checkMissing?.(filePaths)) ??
+        (await window.hippo?.import?.file?.checkMissing?.(filePaths)) ??
         filePaths;
     } catch {
       missing = filePaths; // can't verify → warn about all, as before

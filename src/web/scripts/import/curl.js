@@ -14,7 +14,7 @@ import {
  * import/curl.js
  *
  * Parse a raw `curl` command — as produced by a browser's "Copy as cURL", an
- * API doc, or written by hand — into a wurl collection holding the single
+ * API doc, or written by hand — into a Rest Hippo collection holding the single
  * request it describes. Unlike the file importers this takes a pasted string,
  * but it returns the same `{ collection, variables, warnings }` shape so the
  * import flow in `app.js` appends it as a new collection identically.
@@ -208,7 +208,7 @@ function formPart(part) {
 
   // A file field is signalled by curl's `@`/`<` file-read prefix, OR by a
   // `;filename=` attribute — a multipart modifier valid only on file parts, and
-  // how wurl's own cURL export emits file fields (it omits the leading `@`, e.g.
+  // how Rest Hippo's own cURL export emits file fields (it omits the leading `@`, e.g.
   // `File1=/path;type=application/json;filename=graphql.json`).
   const prefixed = raw.startsWith("@") || raw.startsWith("<");
   const hasFilename = /;\s*filename=/i.test(raw);
@@ -224,7 +224,7 @@ function formPart(part) {
 }
 
 /**
- * Parse a single `curl` command into a wurl collection of one request.
+ * Parse a single `curl` command into a Rest Hippo collection of one request.
  *
  * @param {string} text  Raw pasted curl command
  * @returns {{ collection: object,
@@ -320,7 +320,7 @@ export function parseCurl(text) {
         case "--head":
           headOnly = true;
           break;
-        // Boolean flags wurl doesn't model — skip without consuming a value.
+        // Boolean flags Rest Hippo doesn't model — skip without consuming a value.
         case "--compressed":
         case "--location":
         case "--insecure":

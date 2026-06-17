@@ -1,5 +1,5 @@
 {
-  "kind": "wurl-backup",
+  "kind": "resthippo-backup",
   "schemaVersion": 2,
   "exportedAt": "2026-06-10T14:16:15.285Z",
   "secretsIncluded": true,
@@ -210,7 +210,7 @@
               "enabled": true
             }
           ],
-          "notes": "The mock also accepts GraphQL over GET, reading the query (and optional `variables`) from the query string instead of a JSON body. Here the query travels as the `query` param (URL-encoded by wurl) and returns the same users list.\n\nPrereq: `make mock-up`. Add a second param `variables` with a JSON value to pass variables over GET. Note: wurl's GraphQL body editor is POST-oriented, so this uses plain query params with No Body rather than the GraphQL body mode.",
+          "notes": "The mock also accepts GraphQL over GET, reading the query (and optional `variables`) from the query string instead of a JSON body. Here the query travels as the `query` param (URL-encoded by Rest Hippo) and returns the same users list.\n\nPrereq: `make mock-up`. Add a second param `variables` with a JSON value to pass variables over GET. Note: Rest Hippo's GraphQL body editor is POST-oriented, so this uses plain query params with No Body rather than the GraphQL body mode.",
           "schemaVersion": 2,
           "captures": []
         },
@@ -427,7 +427,7 @@
           "method": "GET",
           "url": "{{mockUrl}}/echo",
           "headers": [],
-          "notes": "Baseline — confirms traffic actually goes through the forward proxy.\n\nPrereqs: `make mock-up`; Settings ▸ Proxy enabled with URL http://localhost:9999.\n\nThe response should carry the header `X-Proxy-Relayed: wurl-mock`, stamped by the mock forward proxy. This is a plain-HTTP target, so the proxy uses the absolute-URI forward path (not a CONNECT tunnel).",
+          "notes": "Baseline — confirms traffic actually goes through the forward proxy.\n\nPrereqs: `make mock-up`; Settings ▸ Proxy enabled with URL http://localhost:9999.\n\nThe response should carry the header `X-Proxy-Relayed: resthippo-mock`, stamped by the mock forward proxy. This is a plain-HTTP target, so the proxy uses the absolute-URI forward path (not a CONNECT tunnel).",
           "schemaVersion": 2,
           "captures": []
         },
@@ -934,7 +934,7 @@
           "method": "GET",
           "url": "{{baseUrl}}/health",
           "headers": [],
-          "notes": "HTTPS target → the proxy opens a CONNECT tunnel and blindly relays encrypted bytes.\n\nBecause the tunnel is end-to-end, X-Proxy-Error is invisible here (only the plain-HTTP forward path can read it) — success itself proves the tunnel works. The CONNECT acknowledgement carries `X-Proxy-Relayed: wurl-mock`.\n\nPrereqs: Settings ▸ Proxy enabled with URL http://localhost:9999. Requires the {{baseUrl}} host (DEV environment) to be reachable; swap in any reachable https:// URL to test CONNECT against a different host.",
+          "notes": "HTTPS target → the proxy opens a CONNECT tunnel and blindly relays encrypted bytes.\n\nBecause the tunnel is end-to-end, X-Proxy-Error is invisible here (only the plain-HTTP forward path can read it) — success itself proves the tunnel works. The CONNECT acknowledgement carries `X-Proxy-Relayed: resthippo-mock`.\n\nPrereqs: Settings ▸ Proxy enabled with URL http://localhost:9999. Requires the {{baseUrl}} host (DEV environment) to be reachable; swap in any reachable https:// URL to test CONNECT against a different host.",
           "schemaVersion": 2,
           "captures": []
         },
@@ -1851,7 +1851,7 @@
           "method": "GET",
           "url": "{{mockUrl}}/echo",
           "headers": [],
-          "notes": "Exercises proxy authentication on the forward proxy.\n\nStart the mock with credentials:\n  MOCK_PROXY_USER=alice MOCK_PROXY_PASS=s3cret make mock-up\n\nThe forward proxy then answers 407 Proxy Authentication Required until a matching Basic Proxy-Authorization arrives. Set Settings ▸ Proxy username/password to alice / s3cret to succeed; clear them to observe the 407 (which also carries `X-Proxy-Relayed: wurl-mock`).",
+          "notes": "Exercises proxy authentication on the forward proxy.\n\nStart the mock with credentials:\n  MOCK_PROXY_USER=alice MOCK_PROXY_PASS=s3cret make mock-up\n\nThe forward proxy then answers 407 Proxy Authentication Required until a matching Basic Proxy-Authorization arrives. Set Settings ▸ Proxy username/password to alice / s3cret to succeed; clear them to observe the 407 (which also carries `X-Proxy-Relayed: resthippo-mock`).",
           "schemaVersion": 2,
           "captures": []
         },
@@ -2113,7 +2113,7 @@
           "name": "JSON echo — Postman",
           "url": "wss://ws.postman-echo.com/raw",
           "protocol": "websocket",
-          "wsMessage": "{\n  \"type\": \"greeting\",\n  \"from\": \"wurl\",\n  \"payload\": {\n    \"hello\": \"world\",\n    \"n\": 42\n  }\n}",
+          "wsMessage": "{\n  \"type\": \"greeting\",\n  \"from\": \"Rest Hippo\",\n  \"payload\": {\n    \"hello\": \"world\",\n    \"n\": 42\n  }\n}",
           "wsMessageFormat": "json",
           "wsSubprotocols": "",
           "schemaVersion": 2,
@@ -2144,7 +2144,7 @@
           "name": "Echo — Postman",
           "url": "wss://ws.postman-echo.com/raw",
           "protocol": "websocket",
-          "wsMessage": "{\n  \"Hello from wurl\":\"assa{{G}}\"\n}",
+          "wsMessage": "{\n  \"Hello from Rest Hippo\":\"assa{{G}}\"\n}",
           "wsMessageFormat": "json",
           "wsSubprotocols": "",
           "schemaVersion": 2,
@@ -2322,13 +2322,13 @@
             {
               "id": "7dd30392-0259-4b1b-bcf1-51ddca2800a6",
               "name": "X-Test-Header",
-              "value": "wurl-websocket",
+              "value": "resthippo-websocket",
               "enabled": true
             },
             {
               "id": "349a3b9f-8a07-477e-ae88-e39721c65901",
               "name": "Origin",
-              "value": "https://wurl.test",
+              "value": "https://resthippo.test",
               "enabled": true
             }
           ],

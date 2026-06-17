@@ -3,7 +3,7 @@
  *
  * Kept separate from graphql-schema.js (pure) and request-editor.js (UI): this
  * is the only piece that touches the native HTTP layer. It mirrors the
- * Electron / dev-server dispatch in app.js (window.wurl.http.execute vs. the
+ * Electron / dev-server dispatch in app.js (window.hippo.http.execute vs. the
  * /api/execute proxy) but stays isolated so a "Fetch schema" click never writes
  * history or repaints the response viewer.
  *
@@ -44,13 +44,13 @@ export async function executeIntrospection({
   };
 
   let result;
-  if (window.wurl?.isElectron === true) {
-    if (typeof window.wurl?.http?.execute !== "function") {
+  if (window.hippo?.isElectron === true) {
+    if (typeof window.hippo?.http?.execute !== "function") {
       throw new Error(
-        "window.wurl.http.execute is not available — rebuild the app with the latest preload.js.",
+        "window.hippo.http.execute is not available — rebuild the app with the latest preload.js.",
       );
     }
-    result = await window.wurl.http.execute(desc);
+    result = await window.hippo.http.execute(desc);
   } else {
     const res = await fetch("/api/execute", {
       method: "POST",

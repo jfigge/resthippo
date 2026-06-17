@@ -43,20 +43,20 @@ let _maskVisible = false;
 // ── Mask visibility helpers (dispatch popup-open/close events) ────────────────
 
 /**
- * Show the overlay mask and fire `wurl:popup-opened` the first time it becomes
+ * Show the overlay mask and fire `hippo:popup-opened` the first time it becomes
  * visible.  Safe to call multiple times — only fires one event per open cycle.
  */
 function _showMask() {
   if (!_maskEl) return;
   if (!_maskVisible) {
     _maskVisible = true;
-    window.dispatchEvent(new CustomEvent("wurl:popup-opened"));
+    window.dispatchEvent(new CustomEvent("hippo:popup-opened"));
   }
   _maskEl.classList.add("popup-overlay--visible");
 }
 
 /**
- * Hide the overlay mask and fire `wurl:popup-closed` once it goes away.
+ * Hide the overlay mask and fire `hippo:popup-closed` once it goes away.
  * Safe to call when the mask is already hidden (no-op).
  */
 function _hideMask() {
@@ -64,7 +64,7 @@ function _hideMask() {
   _maskEl.classList.remove("popup-overlay--visible");
   if (_maskVisible) {
     _maskVisible = false;
-    window.dispatchEvent(new CustomEvent("wurl:popup-closed"));
+    window.dispatchEvent(new CustomEvent("hippo:popup-closed"));
   }
 }
 
@@ -566,7 +566,7 @@ export const PopupManager = {
    * This is the canonical path for every anchored DOM menu (HTTP-method picker,
    * layout picker, …): callers build the element and pass an anchor point;
    * openMenu handles mount, the click-capturing mask, viewport clamping, and
-   * fires wurl:popup-opened / -closed via the shared mask. Components must NOT
+   * fires hippo:popup-opened / -closed via the shared mask. Components must NOT
    * roll their own outside-click/mount logic. Close with PopupManager.close().
    *
    * Invariant: only open a menu when no other popup is already active. Menus

@@ -50,7 +50,7 @@ test("document has openapi version, info title, server, and paths", () => {
   });
 });
 
-test("wurl {{var}} path segments become declared path parameters", () => {
+test("Rest Hippo {{var}} path segments become declared path parameters", () => {
   const out = exportObject({
     id: "c1",
     name: "C",

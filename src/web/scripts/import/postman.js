@@ -23,7 +23,7 @@ function rawUrlString(url) {
   return proto + host + pathStr;
 }
 
-// Base URL with the query stripped. wurl stores the base and the query rows
+// Base URL with the query stripped. Rest Hippo stores the base and the query rows
 // separately and re-assembles them at send time (buildRequestPayload), so
 // leaving the query on the URL *and* in `params` would send it twice. Mirrors
 // the cURL / HAR importers, which split the query out the same way.
@@ -48,7 +48,7 @@ function parseQueryFromUrl(url) {
 }
 
 // Map Postman's auth representation onto the neutral descriptor consumed by the
-// shared `buildAuth` (which owns the canonical wurl auth shape). Postman stores
+// shared `buildAuth` (which owns the canonical Rest Hippo auth shape). Postman stores
 // each scheme's fields as a key/value array; we read those out by key here.
 function parseAuth(auth) {
   if (!auth || auth.type === "noauth") return buildAuth(null);
@@ -119,12 +119,12 @@ function parseBody(body, warnings) {
         (body.formdata ?? []).map((r) => {
           if (r.type === "file") {
             // Postman's `src` is a path string, or an array of paths for a
-            // multi-file field. wurl is one file per row, so we take the first
+            // multi-file field. Rest Hippo is one file per row, so we take the first
             // and warn that the rest were dropped.
             if (Array.isArray(r.src) && r.src.length > 1) {
               warnings?.push(
                 `Form-data field "${r.key ?? ""}" listed ${r.src.length} files; ` +
-                  `only the first was imported (wurl supports one file per field).`,
+                  `only the first was imported (Rest Hippo supports one file per field).`,
               );
             }
             const filePath = Array.isArray(r.src)
@@ -156,7 +156,7 @@ function _descriptionText(desc) {
   return desc.content ?? "";
 }
 
-/** Read Postman's url.variable (path variables) into wurl path params. */
+/** Read Postman's url.variable (path variables) into Rest Hippo path params. */
 function parsePathVars(url) {
   if (!url || typeof url !== "object" || !Array.isArray(url.variable))
     return [];

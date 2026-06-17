@@ -14,7 +14,7 @@ import {
  * import/har.js
  *
  * Parse a HAR 1.2 archive (`{ log: { entries: [...] } }`) — the universal
- * browser/proxy capture format ("Save all as HAR") — into a wurl collection of
+ * browser/proxy capture format ("Save all as HAR") — into a Rest Hippo collection of
  * requests. Each `log.entries[].request` becomes one request; entries are
  * grouped into a folder per host so a multi-host capture stays navigable.
  *
@@ -44,7 +44,7 @@ function requestName(method, url) {
   }
 }
 
-/** Map a HAR `postData` object onto a canonical wurl body. */
+/** Map a HAR `postData` object onto a canonical Rest Hippo body. */
 function bodyFromPostData(postData, warnings) {
   if (!postData) return noBody();
   const mime = (postData.mimeType ?? "").toLowerCase();
@@ -90,7 +90,7 @@ function bodyFromPostData(postData, warnings) {
   return noBody();
 }
 
-/** Build a wurl request node from a HAR `entry.request`. */
+/** Build a Rest Hippo request node from a HAR `entry.request`. */
 function buildRequest(req, warnings) {
   const method = (req.method ?? "GET").toUpperCase();
   const url = req.url ?? "";
@@ -137,7 +137,7 @@ function buildRequest(req, warnings) {
 }
 
 /**
- * Parse a HAR 1.2 archive into a wurl collection.
+ * Parse a HAR 1.2 archive into a Rest Hippo collection.
  *
  * @param {object} data  Parsed HAR JSON
  * @returns {{ collection: object,

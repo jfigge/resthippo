@@ -14,7 +14,7 @@ Click the method button on the left to choose the HTTP verb:
 
 ![The method menu](images/method-menu.png)
 
-wurl supports `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, and a
+Rest Hippo supports `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, and a
 **Custom…** option for any non-standard verb your API expects.
 
 ### URL
@@ -22,7 +22,7 @@ wurl supports `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, and a
 Type the request URL into the bar. You can drop
 [`{{variables}}`](variables-and-environments.md) anywhere in it — for example
 `{{baseUrl}}/users/{{userId}}`. When **Show URL preview** is on (Settings →
-Appearance), wurl shows the fully-resolved URL beneath the params, so you can
+Appearance), Rest Hippo shows the fully-resolved URL beneath the params, so you can
 confirm exactly what will be sent.
 
 Press <kbd>Enter</kbd> in the URL bar to send the request, or click **Send**.
@@ -30,7 +30,7 @@ While a request is in flight the button becomes **Cancel**.
 
 ## Query parameters
 
-The **Params** tab edits the query string as an editable key/value grid. wurl
+The **Params** tab edits the query string as an editable key/value grid. Rest Hippo
 keeps it in sync with the URL — editing one updates the other.
 
 ![The Params tab](images/params-tab.png)
@@ -50,7 +50,7 @@ text mode.
 
 ![The Headers tab](images/headers-tab.png)
 
-As you type a header name, wurl suggests standard header names
+As you type a header name, Rest Hippo suggests standard header names
 (`Content-Type`, `Authorization`, `Accept`, …). Values accept `{{variables}}`.
 
 > Some headers are managed for you. When you choose an
@@ -75,7 +75,7 @@ The **Body** tab lets you choose a body type from the dropdown and edit it:
 | **GraphQL**          | A [GraphQL query + variables](graphql.md)                            |
 | **File**             | Send a file's raw bytes as the body                                  |
 
-For the structured editors (JSON / YAML / XML), wurl shows a **✓ VALID** /
+For the structured editors (JSON / YAML / XML), Rest Hippo shows a **✓ VALID** /
 **✗** badge as you type and can **prettify** the document. The code editor has
 line numbers, optional [code folding](settings-and-themes.md#appearance), and a
 resize handle. `{{variables}}` are highlighted inline and resolved at send time.

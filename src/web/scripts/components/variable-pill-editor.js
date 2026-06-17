@@ -994,7 +994,7 @@ export class VariablePillEditor {
   // ── Pill context menu ─────────────────────────────────────────────────────
 
   async #showPillContextMenu(x, y, onEdit, onDelete) {
-    const clicked = await window.wurl.ui.contextMenu.show({
+    const clicked = await window.hippo.ui.contextMenu.show({
       items: [
         { id: "edit", label: t("menu.edit") },
         { id: "delete", label: t("menu.delete") },

@@ -12,18 +12,18 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 // ─── Main → Renderer push events ─────────────────────────────────────────────
-ipcRenderer.on("wurl:ui-font-change", (_event, direction) => {
+ipcRenderer.on("hippo:ui-font-change", (_event, direction) => {
   window.dispatchEvent(
-    new CustomEvent("wurl:ui-font-change", { detail: direction }),
+    new CustomEvent("hippo:ui-font-change", { detail: direction }),
   );
 });
 
 ipcRenderer.on("menu:import", () => {
-  window.dispatchEvent(new CustomEvent("wurl:import-requested"));
+  window.dispatchEvent(new CustomEvent("hippo:import-requested"));
 });
 
 ipcRenderer.on("menu:import-curl", () => {
-  window.dispatchEvent(new CustomEvent("wurl:import-curl-requested"));
+  window.dispatchEvent(new CustomEvent("hippo:import-curl-requested"));
 });
 
 // Edit-menu Undo/Redo (and their ⌘Z/⌘⇧Z accelerators) are routed here instead
@@ -31,41 +31,41 @@ ipcRenderer.on("menu:import-curl", () => {
 // snapshot undo/redo; app.js falls back to document.execCommand for plain inputs.
 ipcRenderer.on("menu:edit-action", (_event, action) => {
   window.dispatchEvent(
-    new CustomEvent("wurl:edit-action", { detail: { action } }),
+    new CustomEvent("hippo:edit-action", { detail: { action } }),
   );
 });
 
 ipcRenderer.on("menu:export-all", () => {
-  window.dispatchEvent(new CustomEvent("wurl:export-all-requested"));
+  window.dispatchEvent(new CustomEvent("hippo:export-all-requested"));
 });
 
 ipcRenderer.on("menu:backup-export", () => {
-  window.dispatchEvent(new CustomEvent("wurl:backup-export-requested"));
+  window.dispatchEvent(new CustomEvent("hippo:backup-export-requested"));
 });
 
 ipcRenderer.on("menu:backup-import", () => {
-  window.dispatchEvent(new CustomEvent("wurl:backup-import-requested"));
+  window.dispatchEvent(new CustomEvent("hippo:backup-import-requested"));
 });
 
 ipcRenderer.on("theme:preview", (_event, themeData) => {
   window.dispatchEvent(
-    new CustomEvent("wurl:theme-preview", { detail: themeData }),
+    new CustomEvent("hippo:theme-preview", { detail: themeData }),
   );
 });
 
 ipcRenderer.on("theme:editor:notify", (_event, customThemes) => {
   window.dispatchEvent(
-    new CustomEvent("wurl:custom-themes-changed", { detail: customThemes }),
+    new CustomEvent("hippo:custom-themes-changed", { detail: customThemes }),
   );
 });
 
 ipcRenderer.on("theme:editor:apply", (_event, themeId) => {
   window.dispatchEvent(
-    new CustomEvent("wurl:theme-apply", { detail: themeId }),
+    new CustomEvent("hippo:theme-apply", { detail: themeId }),
   );
 });
 
-contextBridge.exposeInMainWorld("wurl", {
+contextBridge.exposeInMainWorld("hippo", {
   /**
    * Explicit sentinel that the renderer uses to detect the Electron environment.
    * Always true when loaded via Electron's preload; never present in a plain
@@ -111,9 +111,9 @@ contextBridge.exposeInMainWorld("wurl", {
    * Storage layer — exposes the new per-file storage architecture through IPC.
    *
    * All methods return Promises.  Storage is located in the platform user-data dir:
-   *   macOS:   ~/Library/Application Support/wurl/
-   *   Linux:   ~/.config/wurl/
-   *   Windows: %APPDATA%\wurl\
+   *   macOS:   ~/Library/Application Support/Rest Hippo/
+   *   Linux:   ~/.config/Rest Hippo/
+   *   Windows: %APPDATA%\Rest Hippo\
    *
    * Layout:
    *   collections/
@@ -403,7 +403,7 @@ contextBridge.exposeInMainWorld("wurl", {
    * MUST only be called for flows that require a browser-based login page
    * (Authorization Code, Implicit).  Machine-to-machine flows (Client
    * Credentials, Resource Owner Password) call the token endpoint directly
-   * via window.wurl.http.execute and do not need a popup.
+   * via window.hippo.http.execute and do not need a popup.
    *
    * Parameters:
    *   authUrl     {string} — Full authorization URL (with all query params)
@@ -580,6 +580,9 @@ contextBridge.exposeInMainWorld("wurl", {
     },
 
     openThemeEditor: () => ipcRenderer.invoke("ui:open-theme-editor"),
+
+    /** Open the native "About Rest Hippo" window (brand-mark click). */
+    showAbout: () => ipcRenderer.invoke("ui:show-about"),
   },
 
   /**

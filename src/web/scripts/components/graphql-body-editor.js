@@ -694,7 +694,7 @@ export class GraphQLBodyEditor {
 
   /** Native context menu for the loaded-schema badge: View / Download (as SDL). */
   async #showSchemaContextMenu(x, y) {
-    const id = await window.wurl?.ui?.contextMenu?.show({
+    const id = await window.hippo?.ui?.contextMenu?.show({
       items: [
         { id: "view", label: t("request.graphql.viewSchema") },
         { id: "download", label: t("request.graphql.downloadSchema") },
@@ -731,7 +731,7 @@ export class GraphQLBodyEditor {
   #downloadSchema() {
     const sdl = this.#schemaSDL();
     if (!sdl) return;
-    window.wurl?.export?.file?.save("schema.graphql", sdl, [
+    window.hippo?.export?.file?.save("schema.graphql", sdl, [
       {
         name: t("request.graphql.schemaFileType"),
         extensions: ["graphql", "gql"],

@@ -22,7 +22,7 @@
  * literal right after the key again and fails here.
  *
  * Two escape hatches, both narrow and enumerated:
- *   • INTENTIONAL — proper nouns shown verbatim in every locale ("wurl").
+ *   • INTENTIONAL — proper nouns shown verbatim in every locale ("Rest Hippo").
  *   • BASELINE    — pre-existing debt that is NOT a native-UI string: structured
  *     `error: { name, message }` payloads returned over IPC and displayed by the
  *     renderer. Those belong to a separate renderer-side error-name → t() mapping,
@@ -54,7 +54,7 @@ const KEY_RE = /\b(?:label|title|message|detail|buttonLabel)\s*:\s*"([^"]+)"/g;
 const BUTTONS_RE = /\bbuttons\s*:\s*\[\s*"([^"]+)"/g;
 
 // Proper nouns shown verbatim in every locale (the app name).
-const INTENTIONAL = new Set(["wurl"]);
+const INTENTIONAL = new Set(["Rest Hippo"]);
 
 // Pre-existing, non-native-UI debt: structured error payloads returned over IPC
 // and rendered by the renderer (keyed by their `name`), not by the menu/dialog

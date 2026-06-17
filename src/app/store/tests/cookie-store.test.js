@@ -21,7 +21,7 @@ const { Paths } = require("../paths");
 const { CookieStore } = require("../cookie-store");
 
 function makeTmpDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "wurl-cookie-test-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "resthippo-cookie-test-"));
 }
 
 /** A CookieStore whose clock is fixed and advanceable for deterministic expiry. */

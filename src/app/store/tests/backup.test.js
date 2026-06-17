@@ -26,7 +26,7 @@ const PW = "correct horse battery staple";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeTmpDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "wurl-test-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "resthippo-test-"));
 }
 
 function rmTmpDir(dir) {
@@ -135,7 +135,7 @@ describe("BackupStore.exportAll", () => {
 
   afterEach(() => rmTmpDir(tmpDir));
 
-  test("produces a wurl-backup envelope with all entities", () => {
+  test("produces a resthippo-backup envelope with all entities", () => {
     const env = stores.backupStore().exportAll();
 
     assert.equal(env.kind, BACKUP_KIND);

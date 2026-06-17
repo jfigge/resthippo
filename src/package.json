@@ -1,8 +1,8 @@
 {
-  "name": "wurl",
+  "name": "resthippo",
   "version": "0.8.0",
   "description": "A web-based REST API client — like Insomnia, built with Electron",
-  "homepage": "https://github.com/jfigge/wurl",
+  "homepage": "https://github.com/jfigge/resthippo",
   "author": {
     "name": "Jason Figge",
     "email": "jason.figge@gmail.com"
@@ -37,10 +37,10 @@
     "yaml": "^2.9.0"
   },
   "build": {
-    "appId": "dev.wurl.app",
-    "productName": "wurl",
+    "appId": "com.resthippo.app",
+    "productName": "Rest Hippo",
     "copyright": "Copyright © 2026",
-    "icon": "web/wurl-logo.png",
+    "icon": "web/resthippo-logo.png",
     "directories": {
       "output": "dist"
     },
@@ -51,6 +51,7 @@
       "REVISION_INFO.txt"
     ],
     "mac": {
+      "icon": "web/resthippo-mac-icon.png",
       "category": "public.app-category.developer-tools",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,

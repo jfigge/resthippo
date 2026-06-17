@@ -4,7 +4,7 @@
  * Helpers that open the Electron OAuth popup window and parse the callback URL.
  *
  * All popup-based flows (Authorization Code, Implicit) MUST go through
- * window.wurl.oauth.openPopup — never modify the renderer's own window.location
+ * window.hippo.oauth.openPopup — never modify the renderer's own window.location
  * or use window.open() which Electron routes through setWindowOpenHandler.
  *
  * In dev-server (non-Electron) mode a graceful error is returned because
@@ -39,7 +39,7 @@ export async function openOAuthPopup(
   redirectUri,
   title = "OAuth Authorization",
 ) {
-  if (typeof window.wurl?.oauth?.openPopup !== "function") {
+  if (typeof window.hippo?.oauth?.openPopup !== "function") {
     throw new OAuthError(
       OAuthErrorCode.POPUP_UNAVAILABLE,
       "OAuth popup is only available inside the Electron app. " +
@@ -48,7 +48,11 @@ export async function openOAuthPopup(
     );
   }
 
-  const result = await window.wurl.oauth.openPopup(authUrl, redirectUri, title);
+  const result = await window.hippo.oauth.openPopup(
+    authUrl,
+    redirectUri,
+    title,
+  );
 
   if (result?.cancelled || !result?.url) {
     throw popupCancelledError();

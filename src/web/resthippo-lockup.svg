@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 280" width="760" height="280" role="img" aria-label="RestHippo logo">
+  <title>RestHippo horizontal lockup</title>
+  <rect x="30" y="30" width="220" height="220" rx="49" fill="#6C5CE7"/>
+  <circle cx="103" cy="93" r="17" fill="#FFFFFF"/>
+  <circle cx="177" cy="93" r="17" fill="#FFFFFF"/>
+  <rect x="92" y="90" width="96" height="82" rx="32" fill="#FFFFFF"/>
+  <rect x="81" y="142" width="119" height="64" rx="32" fill="#FFFFFF"/>
+  <circle cx="116" cy="115" r="7.5" fill="#6C5CE7"/>
+  <circle cx="164" cy="115" r="7.5" fill="#6C5CE7"/>
+  <ellipse cx="120" cy="172" rx="6" ry="9" fill="#6C5CE7"/>
+  <ellipse cx="160" cy="172" rx="6" ry="9" fill="#6C5CE7"/>
+  <text x="285" y="172" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="700" font-size="80"><tspan fill="#2C2C3A">Rest</tspan><tspan fill="#6C5CE7">Hippo</tspan></text>
+</svg>

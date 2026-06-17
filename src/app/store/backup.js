@@ -2,12 +2,12 @@
  * backup.js — Whole-workspace export / import ("Backup").
  *
  * Bundles every collection, environment, and the global manifest (which carries
- * application settings) into a single portable `wurl-backup` envelope, and
+ * application settings) into a single portable `resthippo-backup` envelope, and
  * restores such an envelope onto a profile.
  *
  * Envelope shape:
  *   {
- *     kind: "wurl-backup",
+ *     kind: "resthippo-backup",
  *     schemaVersion: <int>,        // reuses the Feature 01 schema envelope
  *     exportedAt: <ISO-8601>,
  *     secretsIncluded: <boolean>,  // legacy flag: true for machine OR password
@@ -62,7 +62,7 @@ const {
 } = require("./crypto");
 const { CURRENT_SCHEMA_VERSION } = require("./migrations");
 
-const BACKUP_KIND = "wurl-backup";
+const BACKUP_KIND = "resthippo-backup";
 
 // Secret-handling modes for a backup. Recorded on the envelope as `secretsMode`
 // (with the legacy boolean `secretsIncluded` kept in sync for older readers):
@@ -86,7 +86,7 @@ class BackupStore {
   // ── Export ────────────────────────────────────────────────────────────────
 
   /**
-   * Build a `wurl-backup` envelope for the entire workspace.
+   * Build a `resthippo-backup` envelope for the entire workspace.
    *
    * Secrets live in six places — request auth fields, settings proxy URL +
    * credentials, collection-scope variables (metadata), folder-scope variables (tree nodes),
@@ -150,7 +150,7 @@ class BackupStore {
   // ── Import ──────────────────────────────────────────────────────────────────
 
   /**
-   * Restore a `wurl-backup` envelope onto this profile.
+   * Restore a `resthippo-backup` envelope onto this profile.
    *
    * When the envelope was exported in "password" mode its secrets are portable
    * ciphertext (encp:v2:). They are decrypted with `opts.password` and then

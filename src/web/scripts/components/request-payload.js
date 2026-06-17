@@ -324,7 +324,7 @@ export async function buildRequestPayload(spec, rv) {
           (r) => r.enabled && (r.name ?? "").trim(),
         );
         if (rows.length > 0) {
-          const boundary = `----WurlBoundary${Date.now()}`;
+          const boundary = `----RestHippoBoundary${Date.now()}`;
           if (rows.some((r) => r.kind === "file")) {
             // Mixed text + file parts can't be serialised here — only the file
             // PATH is available in the renderer, not its bytes. Emit a structured

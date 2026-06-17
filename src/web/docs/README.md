@@ -1,13 +1,13 @@
-# wurl User Guide
+# Rest Hippo User Guide
 
-**wurl** is a fast, cross-platform desktop REST API client — like Postman or
+**Rest Hippo** is a fast, cross-platform desktop REST API client — like Postman or
 Insomnia — for building, sending, and inspecting HTTP, GraphQL, and WebSocket
 requests. It runs natively (no browser CORS limits), stores everything in local
 files, and ships with a built-in theme editor and a bundled UI font.
 
-![The wurl interface](images/overview.png)
+![The Rest Hippo interface](images/overview.png)
 
-This guide walks through everything wurl can do, from sending your first request
+This guide walks through everything Rest Hippo can do, from sending your first request
 to OAuth 2.0, environments, GraphQL schema introspection, and encrypted backups.
 
 ## Contents
@@ -28,7 +28,7 @@ to OAuth 2.0, environments, GraphQL schema introspection, and encrypted backups.
 
 ## A quick tour
 
-wurl's window has three panels:
+Rest Hippo's window has three panels:
 
 - **Collections** (left) — your saved requests, organized into collections and
   folders, plus the **Favorites** and **Recents** tabs. Its toolbar holds the

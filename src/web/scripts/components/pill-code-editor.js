@@ -174,7 +174,7 @@ export class PillCodeEditor {
   #histAt = 0; // timestamp of the last record (for coalescing)
   #histBoundary = false; // force a new undo group on the next record
   #applyingHistory = false; // guard so undo/redo restores don't re-record
-  #onEditAction; // window "wurl:edit-action" handler (menu-routed undo/redo)
+  #onEditAction; // window "hippo:edit-action" handler (menu-routed undo/redo)
 
   constructor({
     value = "",
@@ -265,14 +265,14 @@ export class PillCodeEditor {
     this.#histValue = this.getValue(); // initial undo baseline
 
     // Menu-routed undo/redo: app.js re-dispatches the app Edit menu (and its
-    // ⌘Z/⌘⇧Z accelerators) as `wurl:edit-action`; act only when focused here.
+    // ⌘Z/⌘⇧Z accelerators) as `hippo:edit-action`; act only when focused here.
     this.#onEditAction = (e) => {
       if (!this.#doc.contains(document.activeElement)) return;
       const action = e.detail?.action;
       if (action === "undo") this.undo();
       else if (action === "redo") this.redo();
     };
-    window.addEventListener("wurl:edit-action", this.#onEditAction);
+    window.addEventListener("hippo:edit-action", this.#onEditAction);
   }
 
   #onSelectionChange;
@@ -287,7 +287,7 @@ export class PillCodeEditor {
     this.#picker.close();
     this.#ro?.disconnect();
     document.removeEventListener("selectionchange", this.#onSelectionChange);
-    window.removeEventListener("wurl:edit-action", this.#onEditAction);
+    window.removeEventListener("hippo:edit-action", this.#onEditAction);
   }
 
   // ── Value ↔ lines ─────────────────────────────────────────────────────────
@@ -598,7 +598,7 @@ export class PillCodeEditor {
   async #showContextMenu(e) {
     e.preventDefault();
     e.stopPropagation(); // pre-empt the app's generic editable-field menu
-    const show = window.wurl?.ui?.contextMenu?.edit;
+    const show = window.hippo?.ui?.contextMenu?.edit;
     if (!show) return;
     const ml = this.#multiline;
     // Undo / Redo lead the menu (above the native Cut/Copy/Paste). They drive the

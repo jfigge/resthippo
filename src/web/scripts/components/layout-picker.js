@@ -80,7 +80,7 @@ export class LayoutPicker {
 
   // Drops our stale #menu reference whenever PopupManager closes the menu by
   // any path (item select, mask click, window resize) — all fire
-  // wurl:popup-closed — so the next trigger click re-opens instead of no-oping.
+  // hippo:popup-closed — so the next trigger click re-opens instead of no-oping.
   #onPopupClosed = () => {
     this.#menu = null;
   };
@@ -197,10 +197,10 @@ export class LayoutPicker {
     PopupManager.openMenu(menu, x, y);
     this.#menu = menu;
 
-    // openMenu owns the click-capturing mask and fires wurl:popup-opened. A
+    // openMenu owns the click-capturing mask and fires hippo:popup-opened. A
     // mask click or window resize closes the menu via PopupManager and fires
-    // wurl:popup-closed — listen once to drop our reference (see #onPopupClosed).
-    window.addEventListener("wurl:popup-closed", this.#onPopupClosed, {
+    // hippo:popup-closed — listen once to drop our reference (see #onPopupClosed).
+    window.addEventListener("hippo:popup-closed", this.#onPopupClosed, {
       once: true,
     });
 
@@ -279,7 +279,7 @@ export class LayoutPicker {
 
   #closeMenu() {
     if (!this.#menu) return;
-    // PopupManager.close() fires wurl:popup-closed → #onPopupClosed nulls #menu.
+    // PopupManager.close() fires hippo:popup-closed → #onPopupClosed nulls #menu.
     PopupManager.close();
   }
 

@@ -6,7 +6,7 @@ package main
 // mock module dependency-free, matching graphql.go / auth.go. We hijack the TCP
 // connection after the HTTP handshake and hand-roll just enough framing to echo
 // messages, answer pings, push server-initiated frames and honor close — which
-// is everything the wurl WebSocket client needs to exercise.
+// is everything the Rest Hippo WebSocket client needs to exercise.
 //
 // Endpoints (registered from server.go):
 //
@@ -55,7 +55,7 @@ func registerWebsocketRoutes() {
 }
 
 // wsRejectHandler deliberately refuses the upgrade so clients can exercise
-// handshake-failure handling (the wurl console surfaces this as an error status).
+// handshake-failure handling (the Rest Hippo console surfaces this as an error status).
 func wsRejectHandler(w http.ResponseWriter, _ *http.Request) {
 	http.Error(w, "websocket upgrade rejected", http.StatusUnauthorized)
 }

@@ -15,7 +15,7 @@
  * The Electron main process owns all filesystem I/O and the OS locale
  * (`app.getLocale()`), so it resolves the active locale (persisted override →
  * system locale → English) and returns the ready-to-use catalog over IPC
- * (`window.wurl.i18n.load`). `init()` awaits that once, before any component
+ * (`window.hippo.i18n.load`). `init()` awaits that once, before any component
  * renders. A plain-browser dev context (no preload) falls back to fetching the
  * bundled JSON over http.
  *
@@ -221,8 +221,8 @@ export const LOCALE_OPTIONS = [
 export async function init() {
   let payload = null;
   try {
-    if (typeof window !== "undefined" && window.wurl?.i18n?.load) {
-      payload = await window.wurl.i18n.load();
+    if (typeof window !== "undefined" && window.hippo?.i18n?.load) {
+      payload = await window.hippo.i18n.load();
     }
   } catch (err) {
     console.warn("[i18n] catalog load over IPC failed:", err?.message);

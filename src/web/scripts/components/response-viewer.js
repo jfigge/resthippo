@@ -1,7 +1,7 @@
 /**
  * response-viewer.js — HTTP response display component
  *
- * Displays the result of a wurl:send-request in one of three views:
+ * Displays the result of a hippo:send-request in one of three views:
  *
  *  1. JSON / YAML / XML / CSS / JavaScript  — raw text or pretty-printed + syntax-highlighted depending on renderMode
  *  2. HTML               — raw text with syntax highlighting (raw mode) or live browser preview (preview mode)
@@ -316,7 +316,7 @@ export class ResponseViewer {
   #iframeEl = null; // dev-mode <iframe> element
   #resizeObserver = null; // observes body pane for Electron overlay
   #winResizeHandler = null; // window resize listener for Electron overlay
-  #settingsHandler = null; // wurl:settings-changed listener for font-size repositioning
+  #settingsHandler = null; // hippo:settings-changed listener for font-size repositioning
 
   // Binary-response state (images / PDF). The Hex view is a render mode (see
   // #renderMode), available for every content-type via the Body context menu.
@@ -337,7 +337,7 @@ export class ResponseViewer {
 
   // Timeline state
   // Timeline (run-history) tab — owns its own state + live timestamp ticker and
-  // dispatches the wurl:timeline-* events app.js handles. The host injects the
+  // dispatches the hippo:timeline-* events app.js handles. The host injects the
   // bits it owns: active tab, the timeline pane, and shared render helpers.
   #timeline = new TimelineView({
     getActiveTab: () => this.#activeTab,
@@ -396,11 +396,11 @@ export class ResponseViewer {
 
     // Track the active request's method so the Body tab colour stays in sync,
     // and its id so concurrent lifecycle events can be routed (below).
-    window.addEventListener("wurl:request-selected", (e) => {
+    window.addEventListener("hippo:request-selected", (e) => {
       this.#selectedRequestId = e.detail?.id ?? null;
       if (e.detail?.method) this.#setCurrentMethod(e.detail.method);
     });
-    window.addEventListener("wurl:request-updated", (e) => {
+    window.addEventListener("hippo:request-updated", (e) => {
       if (e.detail?.method) this.#setCurrentMethod(e.detail.method);
     });
 
@@ -410,12 +410,12 @@ export class ResponseViewer {
     // app.js and shown when their request is next selected. Events without a
     // requestId (history replays) always target the selected request.
     const isSelected = (rid) => rid == null || rid === this.#selectedRequestId;
-    window.addEventListener("wurl:response-received", (e) => {
+    window.addEventListener("hippo:response-received", (e) => {
       const rid = e.detail?.requestId;
       if (rid != null) this.#inFlightStarts.delete(rid);
       if (isSelected(rid)) this.#showResponse(e.detail);
     });
-    window.addEventListener("wurl:request-loading", (e) => {
+    window.addEventListener("hippo:request-loading", (e) => {
       const rid = e.detail?.requestId;
       // Keep the earliest mark — an OAuth send dispatches loading twice
       // (token acquisition, then the request itself).
@@ -429,7 +429,7 @@ export class ResponseViewer {
         this.#stream.arm(e.detail?.streamId ?? null);
       }
     });
-    window.addEventListener("wurl:request-error", (e) => {
+    window.addEventListener("hippo:request-error", (e) => {
       const rid = e.detail?.requestId;
       if (rid != null) this.#inFlightStarts.delete(rid);
       if (isSelected(rid)) this.#showError(e.detail);
@@ -437,24 +437,24 @@ export class ResponseViewer {
 
     // Live streaming pushes (Feature 33), bridged from IPC by app.js. Routed by
     // streamId to the active (or armed) stream; others are ignored.
-    window.addEventListener("wurl:stream-data", (e) =>
+    window.addEventListener("hippo:stream-data", (e) =>
       this.#stream.onStreamData(e.detail),
     );
-    window.addEventListener("wurl:stream-end", (e) =>
+    window.addEventListener("hippo:stream-end", (e) =>
       this.#stream.onStreamEnd(e.detail),
     );
-    window.addEventListener("wurl:stream-error", (e) =>
+    window.addEventListener("hippo:stream-error", (e) =>
       this.#stream.onStreamError(e.detail),
     );
     // Headers-time heads-up (Feature 33): a buffered NDJSON response is on the way
     // and live streaming is off — show the in-flight hint while the request runs.
-    window.addEventListener("wurl:stream-hint", (e) =>
+    window.addEventListener("hippo:stream-hint", (e) =>
       this.#stream.onStreamHint(e.detail),
     );
 
     // Post-response captures (Feature 03): show a small marker on the status bar
     // summarising how many variables were captured. Count only — never values.
-    window.addEventListener("wurl:captures-applied", (e) =>
+    window.addEventListener("hippo:captures-applied", (e) =>
       this.#showCapturedBadge(e.detail?.count ?? 0),
     );
 
@@ -462,7 +462,7 @@ export class ResponseViewer {
     // When isRequestSwitch is true the dispatch comes after the history load
     // is complete (sync from memory or after async storage fetch), so it is
     // safe to update the body display here rather than racing on a microtask.
-    window.addEventListener("wurl:timeline-update", (e) => {
+    window.addEventListener("hippo:timeline-update", (e) => {
       const entries = e.detail?.entries ?? [];
       const requestId = e.detail?.requestId ?? null;
       this.#timeline.update(entries, requestId);
@@ -525,19 +525,19 @@ export class ResponseViewer {
     // Before hiding, capture a screenshot and display it as a static stand-in so the
     // preview area does not go blank while the popup is open. Re-show the live view
     // and discard the snapshot once the popup is dismissed.
-    window.addEventListener("wurl:popup-opened", async () => {
+    window.addEventListener("hippo:popup-opened", async () => {
       this.#popupDepth++;
       // The native PDF overlay renders above all web content too — hide it so a
       // context menu / dialog is not obscured. (No snapshot: a brief blank under
       // a transient menu is acceptable.)
-      if (this.#pdfPreviewActive && window.wurl?.isElectron) {
-        window.wurl.preview.pdf.hide().catch(() => {});
+      if (this.#pdfPreviewActive && window.hippo?.isElectron) {
+        window.hippo.preview.pdf.hide().catch(() => {});
       }
-      if (!this.#htmlPreviewActive || !window.wurl?.isElectron) return;
+      if (!this.#htmlPreviewActive || !window.hippo?.isElectron) return;
       // Only capture on the first popup; nested popups reuse the existing snapshot.
       if (this.#popupDepth === 1) {
         this.#snapshotPending = true;
-        const dataUrl = await window.wurl.preview.html
+        const dataUrl = await window.hippo.preview.html
           .capture()
           .catch(() => null);
         // If the popup was dismissed while capture was in-flight, #snapshotPending
@@ -548,9 +548,9 @@ export class ResponseViewer {
           this.#showPreviewSnapshot(dataUrl);
         }
       }
-      window.wurl.preview.html.hide().catch(() => {});
+      window.hippo.preview.html.hide().catch(() => {});
     });
-    window.addEventListener("wurl:popup-closed", () => {
+    window.addEventListener("hippo:popup-closed", () => {
       this.#popupDepth = Math.max(0, this.#popupDepth - 1);
       // Cancel any capture still in-flight and remove the snapshot immediately —
       // the image must disappear as soon as the last popup is dismissed.
@@ -560,23 +560,23 @@ export class ResponseViewer {
       if (
         this.#popupDepth === 0 &&
         this.#pdfPreviewActive &&
-        window.wurl?.isElectron &&
+        window.hippo?.isElectron &&
         this.#activeTab === "body" &&
         this.#pdfHost
       ) {
         requestAnimationFrame(() => {
           if (this.#pdfPreviewActive && this.#popupDepth === 0) {
-            window.wurl.preview.pdf
+            window.hippo.preview.pdf
               .show(this.#computeBounds(this.#pdfHost))
               .catch(() => {});
           }
         });
       }
-      if (!this.#htmlPreviewActive || !window.wurl?.isElectron) return;
+      if (!this.#htmlPreviewActive || !window.hippo?.isElectron) return;
       if (this.#activeTab !== "preview") return; // preview tab not visible — stay hidden
       requestAnimationFrame(() => {
         if (!this.#htmlPreviewActive || this.#popupDepth > 0) return;
-        window.wurl.preview.html
+        window.hippo.preview.html
           .show(this.#computePreviewBounds())
           .catch(() => {});
       });
@@ -721,7 +721,7 @@ export class ResponseViewer {
     const { filename, ext, filterName } = this.#downloadNaming(resp);
     // Binary bodies travel as base64 and are decoded to bytes by the main
     // process so the saved file is byte-accurate; text is written as UTF-8.
-    window.wurl?.export?.file?.save(
+    window.hippo?.export?.file?.save(
       filename,
       resp.body,
       [
@@ -910,7 +910,7 @@ export class ResponseViewer {
       { type: "separator" },
       { id: "download", label: t("menu.download") },
     ];
-    const clickedId = await window.wurl.ui.contextMenu.show({ items, x, y });
+    const clickedId = await window.hippo.ui.contextMenu.show({ items, x, y });
     if (clickedId === "download") {
       // While a live stream is shown the body is the stream, not a buffered
       // response — Download saves the stream (Feature 33), replacing the removed
@@ -961,7 +961,7 @@ export class ResponseViewer {
         );
       }
     }
-    const clickedId = await window.wurl.ui.contextMenu.show({ items, x, y });
+    const clickedId = await window.hippo.ui.contextMenu.show({ items, x, y });
     if (clickedId === "copy") {
       if (selectedText) {
         navigator.clipboard.writeText(selectedText).catch(() => {});
@@ -970,7 +970,7 @@ export class ResponseViewer {
       // Invert and persist via the shared settings channel; app.js re-applies
       // the setting (which re-renders this pane with the new wrap state).
       window.dispatchEvent(
-        new CustomEvent("wurl:settings-changed", {
+        new CustomEvent("hippo:settings-changed", {
           detail: { wrapResponseText: !this.#wrapResponseText },
         }),
       );
@@ -979,7 +979,7 @@ export class ResponseViewer {
       // re-render directly (no applySettings round-trip — only the body changes).
       this.#showLineNumbers = !this.#showLineNumbers;
       window.dispatchEvent(
-        new CustomEvent("wurl:editor-setting-changed", {
+        new CustomEvent("hippo:editor-setting-changed", {
           detail: { responseBodyLineNumbers: this.#showLineNumbers },
         }),
       );
@@ -988,7 +988,7 @@ export class ResponseViewer {
       // Same component-owned pattern as line numbers (see above).
       this.#showCodeFolding = !this.#showCodeFolding;
       window.dispatchEvent(
-        new CustomEvent("wurl:editor-setting-changed", {
+        new CustomEvent("hippo:editor-setting-changed", {
           detail: { responseBodyCodeFolding: this.#showCodeFolding },
         }),
       );
@@ -1002,7 +1002,7 @@ export class ResponseViewer {
     this.#updateBodyTabStyle();
     // Persist the choice via the shared editor-setting channel
     window.dispatchEvent(
-      new CustomEvent("wurl:editor-setting-changed", {
+      new CustomEvent("hippo:editor-setting-changed", {
         detail: { responseBodyRenderMode: mode },
       }),
     );
@@ -1258,7 +1258,7 @@ export class ResponseViewer {
    * over a host element; the dev/browser build has no plugin and offers Save.
    */
   #renderPdf(response, pane) {
-    if (!window.wurl?.isElectron) {
+    if (!window.hippo?.isElectron) {
       pane.appendChild(
         this.#placeholder({
           icon: "📄",
@@ -1325,7 +1325,7 @@ export class ResponseViewer {
 
     const reposition = () => {
       if (this.#pdfPreviewActive) {
-        window.wurl?.preview?.pdf
+        window.hippo?.preview?.pdf
           ?.resize(this.#computeBounds(host))
           .catch(() => {});
       }
@@ -1335,14 +1335,14 @@ export class ResponseViewer {
     this.#pdfResizeObserver.observe(host);
 
     this.#pdfSettingsHandler = () => requestAnimationFrame(reposition);
-    window.addEventListener("wurl:settings-changed", this.#pdfSettingsHandler);
+    window.addEventListener("hippo:settings-changed", this.#pdfSettingsHandler);
 
     this.#pdfWinResizeHandler = () => requestAnimationFrame(reposition);
     window.addEventListener("resize", this.#pdfWinResizeHandler);
 
     requestAnimationFrame(() => {
       if (!this.#pdfPreviewActive) return;
-      window.wurl?.preview?.pdf
+      window.hippo?.preview?.pdf
         ?.loadFile(base64, this.#computeBounds(host))
         .catch(() => {});
     });
@@ -1363,14 +1363,14 @@ export class ResponseViewer {
     }
     if (this.#pdfSettingsHandler) {
       window.removeEventListener(
-        "wurl:settings-changed",
+        "hippo:settings-changed",
         this.#pdfSettingsHandler,
       );
       this.#pdfSettingsHandler = null;
     }
     this.#pdfHost = null;
-    if (window.wurl?.preview?.pdf?.destroy) {
-      window.wurl.preview.pdf.destroy().catch(() => {});
+    if (window.hippo?.preview?.pdf?.destroy) {
+      window.hippo.preview.pdf.destroy().catch(() => {});
     }
   }
 
@@ -1458,7 +1458,7 @@ export class ResponseViewer {
       return;
     }
 
-    const res = await window.wurl?.http?.body?.get(response.bodyRef);
+    const res = await window.hippo?.http?.body?.get(response.bodyRef);
     if (!res || res.error) {
       // Cache miss / read error — forget the ref so the banner stops offering it.
       response.bodyRef = null;
@@ -1481,7 +1481,7 @@ export class ResponseViewer {
   async #saveFullBody(response) {
     if (!response.bodyRef) return;
     const { filename } = this.#downloadNaming(response);
-    const result = await window.wurl?.http?.body?.save(
+    const result = await window.hippo?.http?.body?.save(
       response.bodyRef,
       filename,
     );
@@ -1574,8 +1574,8 @@ export class ResponseViewer {
     // (pane width/height changes) or font-size changes (pane grows/shrinks as
     // sibling elements like the tab-strip change height).
     this.#resizeObserver = new ResizeObserver(() => {
-      if (this.#htmlPreviewActive && window.wurl?.preview?.html?.resize) {
-        window.wurl.preview.html.resize(this.#computePreviewBounds());
+      if (this.#htmlPreviewActive && window.hippo?.preview?.html?.resize) {
+        window.hippo.preview.html.resize(this.#computePreviewBounds());
       }
     });
     this.#resizeObserver.observe(pane);
@@ -1586,24 +1586,24 @@ export class ResponseViewer {
     // (triggering the ResizeObserver), but a deferred reposition ensures we
     // pick up the final layout even if the observer fires before reflow settles.
     this.#settingsHandler = () => {
-      if (!this.#htmlPreviewActive || !window.wurl?.preview?.html?.resize)
+      if (!this.#htmlPreviewActive || !window.hippo?.preview?.html?.resize)
         return;
       requestAnimationFrame(() => {
-        if (this.#htmlPreviewActive && window.wurl?.preview?.html?.resize) {
-          window.wurl.preview.html.resize(this.#computePreviewBounds());
+        if (this.#htmlPreviewActive && window.hippo?.preview?.html?.resize) {
+          window.hippo.preview.html.resize(this.#computePreviewBounds());
         }
       });
     };
-    window.addEventListener("wurl:settings-changed", this.#settingsHandler);
+    window.addEventListener("hippo:settings-changed", this.#settingsHandler);
 
     // Also reposition when the Electron window itself is resized.
     this.#winResizeHandler = () => {
-      if (!this.#htmlPreviewActive || !window.wurl?.preview?.html?.resize)
+      if (!this.#htmlPreviewActive || !window.hippo?.preview?.html?.resize)
         return;
       // Defer one frame so the renderer layout has finished reflowing.
       requestAnimationFrame(() => {
-        if (this.#htmlPreviewActive && window.wurl?.preview?.html?.resize) {
-          window.wurl.preview.html.resize(this.#computePreviewBounds());
+        if (this.#htmlPreviewActive && window.hippo?.preview?.html?.resize) {
+          window.hippo.preview.html.resize(this.#computePreviewBounds());
         }
       });
     };
@@ -1612,7 +1612,7 @@ export class ResponseViewer {
     // Defer the first loadUrl call so the pane has been laid out.
     requestAnimationFrame(() => {
       if (!this.#htmlPreviewActive) return; // destroyed before frame fired
-      window.wurl?.preview?.html
+      window.hippo?.preview?.html
         ?.loadUrl(url, this.#computePreviewBounds())
         .catch(() => {});
     });
@@ -1667,7 +1667,7 @@ export class ResponseViewer {
     // Remove the settings-changed listener.
     if (this.#settingsHandler) {
       window.removeEventListener(
-        "wurl:settings-changed",
+        "hippo:settings-changed",
         this.#settingsHandler,
       );
       this.#settingsHandler = null;
@@ -1684,8 +1684,8 @@ export class ResponseViewer {
     }
 
     // Destroy the Electron WebContentsView.
-    if (window.wurl?.preview?.html?.destroy) {
-      window.wurl.preview.html.destroy().catch(() => {});
+    if (window.hippo?.preview?.html?.destroy) {
+      window.hippo.preview.html.destroy().catch(() => {});
     }
   }
 
@@ -1751,10 +1751,10 @@ export class ResponseViewer {
       if (this.#isHtmlResponse && this.#lastResponse) {
         if (this.#htmlPreviewActive) {
           // Preview was previously activated and hidden — re-show it.
-          if (window.wurl?.isElectron) {
+          if (window.hippo?.isElectron) {
             requestAnimationFrame(() => {
               if (this.#htmlPreviewActive && this.#activeTab === "preview") {
-                window.wurl.preview.html
+                window.hippo.preview.html
                   .show(this.#computePreviewBounds())
                   .catch(() => {});
               }
@@ -1763,7 +1763,7 @@ export class ResponseViewer {
           if (this.#iframeEl) this.#iframeEl.style.display = "";
         } else {
           // First time on this response — activate.
-          if (window.wurl?.isElectron === true) {
+          if (window.hippo?.isElectron === true) {
             this.#activateElectronHtmlPreview(this.#lastResponse.requestUrl);
           } else {
             this.#activateDevHtmlPreview(this.#lastResponse.requestUrl);
@@ -1773,8 +1773,8 @@ export class ResponseViewer {
     } else if (prevTab === "preview" && tabId !== "preview") {
       // Leaving Preview tab — hide the overlay/iframe but keep it alive.
       if (this.#htmlPreviewActive) {
-        if (window.wurl?.isElectron) {
-          window.wurl.preview.html.hide().catch(() => {});
+        if (window.hippo?.isElectron) {
+          window.hippo.preview.html.hide().catch(() => {});
         }
         if (this.#iframeEl) this.#iframeEl.style.display = "none";
       }
@@ -1783,7 +1783,7 @@ export class ResponseViewer {
     // ── Native PDF overlay — lives on the Body tab ────────────────────────
     // Hide it when leaving Body so it doesn't float over other tabs; re-show it
     // (deferred a frame so layout settles) when returning to Body.
-    if (this.#pdfPreviewActive && window.wurl?.isElectron && this.#pdfHost) {
+    if (this.#pdfPreviewActive && window.hippo?.isElectron && this.#pdfHost) {
       if (tabId === "body" && prevTab !== "body") {
         requestAnimationFrame(() => {
           if (
@@ -1791,13 +1791,13 @@ export class ResponseViewer {
             this.#activeTab === "body" &&
             this.#pdfHost
           ) {
-            window.wurl.preview.pdf
+            window.hippo.preview.pdf
               .show(this.#computeBounds(this.#pdfHost))
               .catch(() => {});
           }
         });
       } else if (prevTab === "body" && tabId !== "body") {
-        window.wurl.preview.pdf.hide().catch(() => {});
+        window.hippo.preview.pdf.hide().catch(() => {});
       }
     }
 
@@ -1945,7 +1945,7 @@ export class ResponseViewer {
     this.#stopLoadingTimer();
 
     // Live streaming (Feature 33): the marker carries no body — switch to the
-    // live-append surface and let the wurl:stream-* events fill it.
+    // live-append surface and let the hippo:stream-* events fill it.
     if (response.streaming === true) {
       this.#stream.startStream(response, requestUrl);
       return;
@@ -1978,7 +1978,7 @@ export class ResponseViewer {
 
     // Cache the raw response for re-rendering when the mode changes.
     // requestUrl comes from the caller (history path) or falls back to the
-    // request snapshot embedded in live wurl:response-received events.
+    // request snapshot embedded in live hippo:response-received events.
     // truncated/bodyRef/fullSize describe spilled (large) responses whose full
     // body lives in the main process and is only fetched on demand.
     // encoding is "base64" for binary bodies (images / PDF / arbitrary bytes).
@@ -2159,7 +2159,7 @@ export class ResponseViewer {
     this.#statusBar.querySelector(".res-time").textContent = time;
     this.#statusBar.querySelector(".res-size").textContent = size;
     // A fresh status render clears any captured marker from the previous
-    // response; the next wurl:captures-applied (fired after the response is
+    // response; the next hippo:captures-applied (fired after the response is
     // shown) re-shows it if this response captured anything.
     this.#hideCapturedBadge();
   }

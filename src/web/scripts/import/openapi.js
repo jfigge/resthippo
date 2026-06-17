@@ -232,7 +232,7 @@ function resolveBaseUrl(spec) {
     const vars = server.variables ?? {};
     // OpenAPI 3 server URLs may contain {name} placeholders bound to
     // server.variables[name].default. Substitute them so the imported request
-    // does not carry literal "{var}" segments that look like wurl template
+    // does not carry literal "{var}" segments that look like Rest Hippo template
     // refs but never resolve.
     url = url.replace(/\{([^}]+)\}/g, (m, name) => vars[name]?.default ?? m);
     return url.endsWith("/") ? url.slice(0, -1) : url;
@@ -245,10 +245,10 @@ function resolveBaseUrl(spec) {
   return "";
 }
 
-function toWurlUrl(baseUrl, path) {
-  // Replace OpenAPI {param} placeholders with wurl {{param}} template syntax
-  const wurlPath = path.replace(/\{([^}]+)\}/g, "{{$1}}");
-  return baseUrl ? `${baseUrl}${wurlPath}` : `{{baseUrl}}${wurlPath}`;
+function toRestHippoUrl(baseUrl, path) {
+  // Replace OpenAPI {param} placeholders with Rest Hippo {{param}} template syntax
+  const resthippoPath = path.replace(/\{([^}]+)\}/g, "{{$1}}");
+  return baseUrl ? `${baseUrl}${resthippoPath}` : `{{baseUrl}}${resthippoPath}`;
 }
 
 function resolveSecurityScheme(spec, name) {
@@ -330,7 +330,7 @@ function buildAuth(spec, security) {
       return { _extraParams: [{ enabled: true, name, value: "" }] };
     }
     if (scheme.in === "cookie") {
-      // wurl has no first-class cookie auth field, so surface the value as a
+      // Rest Hippo has no first-class cookie auth field, so surface the value as a
       // Cookie header the user can edit. Spec expects e.g. "Cookie: foo=bar".
       return {
         _extraHeaders: [{ enabled: true, name: "Cookie", value: `${name}=` }],
@@ -518,7 +518,7 @@ export function parseOpenApi(spec) {
           operation.summary ??
           `${method.toUpperCase()} ${path}`,
         method: method.toUpperCase(),
-        url: toWurlUrl(baseUrl, path),
+        url: toRestHippoUrl(baseUrl, path),
         params: [...queryParams, ...extraParams],
         headers: [...headerParams, ...contentTypeHeader, ...extraHeaders],
         notes: operation.description ?? operation.summary ?? "",

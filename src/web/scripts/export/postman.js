@@ -161,7 +161,7 @@ function exportBody(node) {
 }
 
 /**
- * Convert a wurl variable list to Postman `variable` entries.
+ * Convert a Rest Hippo variable list to Postman `variable` entries.
  *
  * Folder variables are stored canonically as an array of
  * { name, value, secure }; Postman wants { key, value }. The shared
@@ -229,9 +229,9 @@ function exportItem(node) {
 }
 
 /**
- * Serialize a wurl collection to a Postman v2.1 JSON string.
+ * Serialize a Rest Hippo collection to a Postman v2.1 JSON string.
  *
- * @param {object} collection  Wurl collection node (type: "collection")
+ * @param {object} collection  Rest Hippo collection node (type: "collection")
  * @param {Array}  [variables] Collection-level variables in canonical array
  *                             shape ({ name, value, secure }); secure entries
  *                             are redacted on export.
@@ -241,7 +241,7 @@ export function exportToPostman(collection, variables = []) {
   return JSON.stringify(
     {
       info: {
-        // Prefer the wurl collection id so re-exports of the same collection
+        // Prefer the Rest Hippo collection id so re-exports of the same collection
         // produce a stable `_postman_id`. Falling back to randomUUID still gives
         // Postman a unique value when the source has none.
         _postman_id: collection.id ?? crypto.randomUUID(),

@@ -14,19 +14,19 @@ const path = require("path");
 const io = require("../io");
 
 function tmpDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "wurl-io-lock-test-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "resthippo-io-lock-test-"));
 }
 
 // ── Orphan-scan matcher ─────────────────────────────────────────────────────────
 
 test("isTempFileName matches temp files and rejects real data files", () => {
-  assert.ok(io.isTempFileName("manifest.json.wurltmp-1.tmp"));
-  assert.ok(io.isTempFileName("collection.json.wurltmp-42.tmp"));
+  assert.ok(io.isTempFileName("manifest.json.resthippotmp-1.tmp"));
+  assert.ok(io.isTempFileName("collection.json.resthippotmp-42.tmp"));
   // Real data files and look-alikes must never match.
   assert.ok(!io.isTempFileName("manifest.json"));
   assert.ok(!io.isTempFileName("collection.json"));
   assert.ok(!io.isTempFileName("report.tmp")); // ends in .tmp but no infix
-  assert.ok(!io.isTempFileName("backup.wurltmp-.tmp")); // infix but no counter
+  assert.ok(!io.isTempFileName("backup.resthippotmp-.tmp")); // infix but no counter
 });
 
 // ── Startup GC ──────────────────────────────────────────────────────────────────
@@ -36,9 +36,9 @@ test("gcOrphanTempFiles removes old orphans but spares fresh temps and real data
   const sub = path.join(dir, "collections", "c1");
   fs.mkdirSync(sub, { recursive: true });
 
-  const orphan = path.join(dir, "manifest.json.wurltmp-1.tmp");
-  const nestedOrphan = path.join(sub, "collection.json.wurltmp-2.tmp");
-  const freshTemp = path.join(dir, "manifest.json.wurltmp-3.tmp");
+  const orphan = path.join(dir, "manifest.json.resthippotmp-1.tmp");
+  const nestedOrphan = path.join(sub, "collection.json.resthippotmp-2.tmp");
+  const freshTemp = path.join(dir, "manifest.json.resthippotmp-3.tmp");
   const realData = path.join(dir, "manifest.json");
   const lookalike = path.join(dir, "report.tmp"); // .tmp suffix, not one of ours
 

@@ -1,29 +1,54 @@
-# wurl — Web URL REST API Client
+# Rest Hippo — Cross-platform REST API Client
 
-[![CI](https://github.com/jfigge/wurl/actions/workflows/ci.yml/badge.svg)](https://github.com/jfigge/wurl/actions/workflows/ci.yml)
+[![CI](https://github.com/jfigge/resthippo/actions/workflows/ci.yml/badge.svg)](https://github.com/jfigge/resthippo/actions/workflows/ci.yml)
 
-A lightweight, cross-platform desktop REST API client — like Postman or Insomnia —
+A lightweight, cross-platform desktop API client — like Postman or Insomnia —
 built with **Electron** and **Vanilla JavaScript**, backed by a file-based
-**Node.js storage layer**. No framework, no CDN dependencies.
+**Node.js storage layer**. No framework, no CDN dependencies, and all HTTP runs
+natively in the main process, so requests are never subject to browser CORS.
 
 ## Features
 
-- **Full request/response workflow** — all HTTP methods, headers, query params,
-  body editors, and a response viewer with syntax highlighting (Prism.js) and
-  binary-response rendering.
-- **Authentication** — a custom OAuth 2.0 implementation with PKCE, plus Digest,
-  NTLM, and AWS SigV4 signing.
+- **Requests** — every HTTP method (and custom verbs), headers, query and path
+  params, and rich body editors (JSON, form-url-encoded, multipart with file
+  upload, raw, and binary).
+- **GraphQL** — a dedicated query/variables editor with schema introspection,
+  validation, and a browsable schema viewer.
+- **Realtime** — a WebSocket console and live **Server-Sent Events** /
+  chunked-streaming response rendering.
+- **Response viewer** — pretty-printing with syntax highlighting (Prism.js),
+  hex view for binary payloads, in-body search, and a request **timing
+  waterfall**. Post-response **captures** pull values from the body, headers, or
+  status straight into variables.
+- **Authentication** — API Key, Basic, Bearer, Digest, NTLM, and AWS SigV4 /
+  OAuth 1.0a request signing, plus a full **OAuth 2.0 / OIDC** implementation:
+  Authorization Code (PKCE), Implicit, Client Credentials, Resource Owner
+  Password, **Device Authorization** (RFC 8628), and **Token Exchange**
+  (RFC 8693), with OIDC discovery and token caching.
+- **mTLS** — per-host client certificates and TLS-verification overrides.
 - **Cookie jar** — persistent, per-domain cookie storage.
-- **Import / export** — Postman collection import and redaction-aware export.
-- **Environments & variables** — variable resolution across requests.
-- **Themes & typography** — a theme editor and a user-selectable UI font
-  (Inter bundled as a variable font; no CDN fonts).
+- **Environments & variables** — global / collection / environment scopes,
+  `{{variable}}` resolution with an inline typeahead, and secrets that are
+  **encrypted at rest**.
+- **Import / export** — import from **Postman**, **Insomnia**, **OpenAPI 3 /
+  Swagger 2**, **HAR**, and **cURL**; redaction-aware export back to Postman,
+  Insomnia, OpenAPI, and HAR; plus full-workspace backup & restore.
+- **Code generation** — copy any request as a snippet (cURL, `fetch`, Python
+  `requests`, Go, HTTPie).
+- **Networking** — configurable proxy with request-retry policy and per-host
+  network overrides.
+- **Productivity** — favorites & recents, and an in-app user guide
+  (Help → User Guide).
+- **Themes, typography & i18n** — a theme editor, a user-selectable UI font
+  (Inter bundled as a variable font; no CDN fonts), and a UI localized into
+  seven languages (English, German, Spanish, French, Italian, Japanese, and
+  Simplified Chinese).
 
 ## Architecture
 
 ```
 Electron main process (src/app/main.js)        ← owns all filesystem I/O + native HTTP
-  └── IPC bridge (src/app/preload.js)  →  window.wurl.*
+  └── IPC bridge (src/app/preload.js)  →  window.hippo.*
         └── Renderer / UI (src/web/scripts/app.js)   ← sandboxed; talks to main via IPC only
               ├── TreeView
               ├── RequestEditor
@@ -32,7 +57,7 @@ Electron main process (src/app/main.js)        ← owns all filesystem I/O + nat
 
 The main process performs all HTTP execution natively, so requests are **not**
 subject to browser CORS constraints. The renderer is sandboxed and communicates
-with the main process exclusively through the `window.wurl.*` bridge. Storage is
+with the main process exclusively through the `window.hippo.*` bridge. Storage is
 file-based under Electron's `userData` path (see `src/app/store/`).
 
 ## Prerequisites
@@ -46,18 +71,21 @@ file-based under Electron's `userData` path (see `src/app/store/`).
 ## Project Structure
 
 ```
-wurl/
+Rest Hippo/
 ├── Makefile               # Build orchestration (authoritative command list)
 ├── mock/                  # Optional Go mock API for MIME / status / auth testing
 └── src/
     ├── package.json       # Node / Electron dependencies + electron-builder config
     ├── app/               # Electron main process (Node.js)
     │   ├── main.js        #   window lifecycle + IPC registration
-    │   ├── preload.js     #   IPC bridge exposed as window.wurl
+    │   ├── preload.js     #   IPC bridge exposed as window.hippo
     │   ├── store/         #   file-based storage layer (+ tests)
-    │   └── auth/          #   Digest / NTLM signing (+ tests)
+    │   ├── net/           #   native HTTP, TLS/mTLS, SSE streaming
+    │   └── auth/          #   Digest / NTLM / SigV4 / OAuth 1.0a signing (+ tests)
     └── web/               # Renderer (Vanilla JS + CSS)
         ├── index.html
+        ├── docs/          #   shipped in-app user guide (Markdown)
+        ├── locales/       #   i18n catalogs (7 languages)
         ├── scripts/       #   UI components, OAuth, import/export, vendored libs
         ├── styles/        #   CSS + design tokens (theme.css)
         └── fonts/         #   Bundled Inter variable font
@@ -82,9 +110,22 @@ development data stays out of your real profile.
 
 ## Building
 
-`build-*` targets produce an **unpackaged** app directory (fast, for smoke
-tests). `dist-*` targets produce **installers**. Output lands in
-`build/src/dist/`.
+For day-to-day local builds, `make` with no arguments produces an **unsigned,
+un-notarized** macOS `.dmg` — fast, and it needs no signing credentials. Use the
+`sign` targets when you want a shippable, signed + notarized artifact. Output
+lands in `build/src/dist/`.
+
+```bash
+make                # Unsigned macOS .dmg (default; fast local testing)
+make dmg            # Unsigned macOS .dmg (same as bare `make`)
+make all            # Unsigned installers for all platforms
+make sign-dmg       # Signed + notarized macOS .dmg (ready to ship)
+make sign-all       # Signed installers for all platforms
+```
+
+`build-*` targets produce an **unpackaged** app directory (fastest, for smoke
+tests — always unsigned). `dist-*` targets produce **installers** (signed when
+credentials are present).
 
 ```bash
 make build          # Build the app directory for macOS (dir only)
@@ -126,9 +167,9 @@ and signs only on tag/release builds (PR builds stay unsigned `--dir`).
 Verify the artifacts:
 
 ```bash
-codesign --verify --deep --strict --verbose=2 <wurl.app>   # macOS
-spctl -a -vvv -t install <wurl.app>                         # macOS Gatekeeper
-signtool verify /pa /v <wurl-setup.exe>                     # Windows
+codesign --verify --deep --strict --verbose=2 <Rest Hippo.app>   # macOS
+spctl -a -vvv -t install <Rest Hippo.app>                         # macOS Gatekeeper
+signtool verify /pa /v <resthippo-setup.exe>                     # Windows
 ```
 
 ## Code Quality & Tests
@@ -174,6 +215,7 @@ esbuild rather than loaded from a CDN:
 make vendor-yaml        # yaml
 make vendor-prism       # Prism.js (syntax highlighting)
 make vendor-markdown    # marked + DOMPurify
+make vendor-graphql     # graphql (introspection + validation)
 ```
 
 ## Test Helpers
@@ -204,7 +246,7 @@ which echoes every frame back; `/ws/time`, which pushes a timestamped JSON frame
 once per second (to test received-without-send traffic); and `/ws/reject`, which
 refuses the upgrade with `401` so handshake-failure handling can be exercised.
 
-It also runs a forward proxy on `http://localhost:9999` for exercising wurl's
+It also runs a forward proxy on `http://localhost:9999` for exercising Rest Hippo's
 proxy settings and request-retry policy. Point a request's proxy at it and send
 the `X-PROXY-ERROR` header to make the proxy fail a fixed number of times before
 the request succeeds — `X-PROXY-ERROR: 3` returns `503` for the first two

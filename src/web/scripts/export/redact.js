@@ -52,7 +52,7 @@ export function redactVariables(list) {
  * retains the auth scheme and only needs the secret re-entered. Each exporter
  * maps this onto its own auth representation.
  *
- * @param {object} node  wurl request node
+ * @param {object} node  Rest Hippo request node
  * @returns {null
  *   | { type: "basic", username: string }
  *   | { type: "bearer" }

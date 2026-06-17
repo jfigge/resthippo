@@ -2,8 +2,8 @@
  * tests/response-viewer.test.js
  *
  * Rendering-coverage tests for the real ResponseViewer, driven directly through
- * the window events it subscribes to (`wurl:response-received`,
- * `wurl:request-loading`, `wurl:request-error`) under jsdom — no editor, no IPC,
+ * the window events it subscribes to (`hippo:response-received`,
+ * `hippo:request-loading`, `hippo:request-error`) under jsdom — no editor, no IPC,
  * no network. Where renderer-e2e.test.js proves the request→response *spine*,
  * this sweeps the viewer's content-type, status, error, loading, and cookie
  * render branches that a single end-to-end path never reaches.
@@ -21,10 +21,10 @@ import assert from "node:assert/strict";
 
 import { ResponseViewer } from "../components/response-viewer.js";
 
-/** Fresh DOM + viewer + a dev-mode window.wurl for each case. */
+/** Fresh DOM + viewer + a dev-mode window.hippo for each case. */
 function mountViewer() {
   const window = resetDom();
-  window.wurl = { isElectron: false };
+  window.hippo = { isElectron: false };
   const viewer = new ResponseViewer();
   document.body.appendChild(viewer.element);
   return { window, viewer };
@@ -33,7 +33,7 @@ function mountViewer() {
 /** Dispatch a response and let any deferred (rAF/microtask) render settle. */
 async function showResponse(window, detail) {
   window.dispatchEvent(
-    new window.CustomEvent("wurl:response-received", { detail }),
+    new window.CustomEvent("hippo:response-received", { detail }),
   );
   await new Promise((r) => setTimeout(r, 10));
 }
@@ -41,7 +41,7 @@ async function showResponse(window, detail) {
 /** Enter the in-flight (loading) state, arming `streamId` for the viewer. */
 async function startLoading(window, streamId) {
   window.dispatchEvent(
-    new window.CustomEvent("wurl:request-loading", { detail: { streamId } }),
+    new window.CustomEvent("hippo:request-loading", { detail: { streamId } }),
   );
   await new Promise((r) => setTimeout(r, 0));
 }
@@ -49,7 +49,7 @@ async function startLoading(window, streamId) {
 /** Push a headers-time buffered-NDJSON hint for `streamId`. */
 async function streamHint(window, streamId) {
   window.dispatchEvent(
-    new window.CustomEvent("wurl:stream-hint", { detail: { streamId } }),
+    new window.CustomEvent("hippo:stream-hint", { detail: { streamId } }),
   );
   await new Promise((r) => setTimeout(r, 0));
 }
@@ -163,9 +163,9 @@ test("renders response cookies into the cookies pane", async () => {
   assert.ok(cookies.includes("HttpOnly"), "cookie attribute rendered");
 });
 
-test("shows a loading placeholder on wurl:request-loading", async () => {
+test("shows a loading placeholder on hippo:request-loading", async () => {
   const { window, viewer } = mountViewer();
-  window.dispatchEvent(new window.CustomEvent("wurl:request-loading"));
+  window.dispatchEvent(new window.CustomEvent("hippo:request-loading"));
   await new Promise((r) => setTimeout(r, 10));
   assert.match(
     viewer.element.querySelector("#res-tab-body").textContent,
@@ -176,7 +176,7 @@ test("shows a loading placeholder on wurl:request-loading", async () => {
 test("renders a transport error with message, hint, and console log", async () => {
   const { window, viewer } = mountViewer();
   window.dispatchEvent(
-    new window.CustomEvent("wurl:request-error", {
+    new window.CustomEvent("hippo:request-error", {
       detail: {
         request: { method: "GET", url: "http://down" },
         name: "FetchError",
@@ -430,9 +430,9 @@ test("a PDF response in dev mode offers a save fallback (no native overlay)", as
 });
 
 // Right-click the Body tab and pick a context-menu item by its id. The viewer's
-// menu delegates to window.wurl.ui.contextMenu.show, so the mock returns the choice.
+// menu delegates to window.hippo.ui.contextMenu.show, so the mock returns the choice.
 async function pickBodyMenu(window, viewer, id) {
-  window.wurl.ui = { contextMenu: { show: async () => id } };
+  window.hippo.ui = { contextMenu: { show: async () => id } };
   const bodyTab = viewer.element.querySelector('.res-tab-btn[data-tab="body"]');
   bodyTab.dispatchEvent(
     new window.MouseEvent("contextmenu", { bubbles: true }),
@@ -485,7 +485,7 @@ test("the Hex render mode dumps the bytes of a text (non-binary) response", asyn
 test("Download sends base64 bodies with base64 encoding and a typed name", async () => {
   const { window, viewer } = mountViewer();
   let captured = null;
-  window.wurl.export = {
+  window.hippo.export = {
     file: {
       save: (filename, content, filters, encoding) => {
         captured = { filename, content, filters, encoding };
@@ -552,7 +552,7 @@ function timelineEntry(over = {}) {
 /** Feed entries to the viewer and switch to the (now-rendered) Timeline tab. */
 async function openTimeline(window, viewer, entries) {
   window.dispatchEvent(
-    new window.CustomEvent("wurl:timeline-update", {
+    new window.CustomEvent("hippo:timeline-update", {
       detail: { requestId: "req1", entries, isRequestSwitch: false },
     }),
   );
@@ -591,8 +591,11 @@ test("clicking a timeline entry views it non-destructively (select, not restore)
 
   let selected = null;
   let restored = false;
-  window.addEventListener("wurl:timeline-select", (e) => (selected = e.detail));
-  window.addEventListener("wurl:timeline-restore", () => (restored = true));
+  window.addEventListener(
+    "hippo:timeline-select",
+    (e) => (selected = e.detail),
+  );
+  window.addEventListener("hippo:timeline-restore", () => (restored = true));
 
   // Click the second (older) row.
   const rows = viewer.element.querySelectorAll(".timeline-list .timeline-item");
@@ -623,10 +626,10 @@ test("right-click → Restore dispatches timeline-restore with the snapshot", as
   const { window, viewer } = mountViewer();
   await openTimeline(window, viewer, [timelineEntry({ id: "h1" })]);
 
-  window.wurl.ui = { contextMenu: { show: async () => "restore" } };
+  window.hippo.ui = { contextMenu: { show: async () => "restore" } };
   let restored = null;
   window.addEventListener(
-    "wurl:timeline-restore",
+    "hippo:timeline-restore",
     (e) => (restored = e.detail),
   );
 
@@ -650,10 +653,10 @@ test("right-click → Delete Entry dispatches timeline-delete-entry", async () =
     timelineEntry({ id: "h2" }),
   ]);
 
-  window.wurl.ui = { contextMenu: { show: async () => "delete" } };
+  window.hippo.ui = { contextMenu: { show: async () => "delete" } };
   let deleted = null;
   window.addEventListener(
-    "wurl:timeline-delete-entry",
+    "hippo:timeline-delete-entry",
     (e) => (deleted = e.detail),
   );
 

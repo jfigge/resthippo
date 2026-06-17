@@ -1,6 +1,6 @@
-# wurl Mock Server
+# Rest Hippo Mock Server
 
-A **mock response** from the wurl test server.
+A **mock response** from the Rest Hippo test server.
 
 ## Supported MIME types
 

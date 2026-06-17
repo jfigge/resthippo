@@ -23,7 +23,7 @@ test("header includes the generated timestamp and every app-info field", () => {
     logs: [],
     generatedAt: "2026-06-11T00:00:00.000Z",
   });
-  assert.match(report, /wurl diagnostics report/);
+  assert.match(report, /Rest Hippo diagnostics report/);
   assert.match(report, /generated: 2026-06-11T00:00:00\.000Z/);
   assert.match(report, /version: 1\.2\.3/);
   assert.match(report, /platform: darwin arm64/);

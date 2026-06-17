@@ -1,5 +1,5 @@
 /**
- * docs-viewer.js — User-guide viewer (the Help → wurl User Guide window)
+ * docs-viewer.js — User-guide viewer (the Help → Rest Hippo User Guide window)
  *
  * A self-contained two-pane reader: a left-hand contents list and a right-hand
  * pane that renders one bundled help page (src/web/docs/*.md) at a time. It is
@@ -7,7 +7,7 @@
  * docs.html) — it is NOT a modal popup, so the guide can stay open beside the
  * main window while the user keeps working.
  *
- * Markdown text is fetched from the main process over IPC (window.wurl.docs.read)
+ * Markdown text is fetched from the main process over IPC (window.hippo.docs.read)
  * rather than fetch(), so it works under file:// (packaged / make debug). The
  * already-bundled marked + DOMPurify renderer (renderMarkdown) turns it into
  * sanitized HTML; styling comes from styles/docs.css.
@@ -185,7 +185,7 @@ export class DocsViewer {
     const token = ++this.#loadToken;
     let md;
     try {
-      md = await window.wurl.docs.read(page.file ?? page.slug);
+      md = await window.hippo.docs.read(page.file ?? page.slug);
     } catch (err) {
       if (token !== this.#loadToken) return;
       this.#contentEl.innerHTML = "";

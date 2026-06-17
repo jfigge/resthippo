@@ -454,7 +454,7 @@ test("form-data body: multipart parts with a boundary Content-Type", async () =>
   );
   assert.match(
     headers["Content-Type"],
-    /^multipart\/form-data; boundary=----WurlBoundary/,
+    /^multipart\/form-data; boundary=----RestHippoBoundary/,
   );
   assert.match(body, /Content-Disposition: form-data; name="field"\r\n\r\nval/);
 });
@@ -508,7 +508,7 @@ test("form-data with a file row: emits a structured multipart spec, not a string
   assert.ok(multipart, "multipart spec should be present");
   assert.match(
     headers["Content-Type"],
-    /^multipart\/form-data; boundary=----WurlBoundary/,
+    /^multipart\/form-data; boundary=----RestHippoBoundary/,
   );
   assert.ok(headers["Content-Type"].includes(multipart.boundary));
   assert.equal(multipart.parts.length, 3);

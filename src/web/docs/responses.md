@@ -27,7 +27,7 @@ it's **Styled** — pretty-printed and syntax-highlighted:
 
 **Secondary-click (right-click) the `Body` tab** for options: switch the render
 mode between **Styled**, **Raw** (plain monospace), and **Hex**; **Copy** the
-body; **Download** it (wurl picks an extension from the content type); or **Copy
+body; **Download** it (Rest Hippo picks an extension from the content type); or **Copy
 as cURL** to reproduce the whole request on the command line.
 
 ### Preview
@@ -36,14 +36,14 @@ For HTML and Markdown responses, the **Preview** tab renders the content live in
 a sandboxed view, so you can see the page as a browser would. Any `console.log`
 output the page produces is captured on the **Console** tab.
 
-> PDF responses open in wurl's built-in PDF viewer with zoom and page
+> PDF responses open in Rest Hippo's built-in PDF viewer with zoom and page
 > navigation.
 
 ## Streaming responses
 
 Some endpoints send their body **incrementally** rather than all at once —
 Server-Sent Events (`text/event-stream`), LLM token streams, and chunked logs.
-wurl consumes these live: the **Body** tab becomes a timestamped, scrolling log
+Rest Hippo consumes these live: the **Body** tab becomes a timestamped, scrolling log
 that fills as data arrives, instead of waiting for the response to finish.
 
 - A response whose `Content-Type` is `text/event-stream` **streams
@@ -53,7 +53,7 @@ that fills as data arrives, instead of waiting for the response to finish.
   but only when you enable **Stream NDJSON responses live** under **Settings →
   Request**. It is off by default, so a finite NDJSON document keeps the
   formatted **Body** view; turn it on to watch a live NDJSON feed line by line.
-  While the setting is off and an NDJSON request is in flight, wurl shows a brief
+  While the setting is off and an NDJSON request is in flight, Rest Hippo shows a brief
   reminder over the loading view pointing you at the setting — handy when an
   endless feed would otherwise just sit and buffer. The reminder clears as soon
   as the request finishes.

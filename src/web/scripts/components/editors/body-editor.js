@@ -578,7 +578,7 @@ export class BodyEditor {
 
   /**
    * Build the value-cell file picker for a form-data file field. The file's
-   * absolute PATH is captured here via window.wurl.getPathForFile (Electron
+   * absolute PATH is captured here via window.hippo.getPathForFile (Electron
    * removed File.path in v32); the bytes are read in the main process at send
    * time, so only the path crosses IPC.
    */
@@ -592,7 +592,7 @@ export class BodyEditor {
     fileInput.addEventListener("change", () => {
       const f = fileInput.files?.[0];
       if (!f) return;
-      row.filePath = window.wurl?.getPathForFile?.(f) || f.path || f.name;
+      row.filePath = window.hippo?.getPathForFile?.(f) || f.path || f.name;
       row.fileName = f.name;
       row.contentType = f.type || "";
       this.#renderBodyContent();
@@ -798,7 +798,8 @@ export class BodyEditor {
       const f = fileInput.files?.[0];
       if (!f) return;
       // Electron removed File.path in v32; resolve via the preload bridge.
-      this.#bodyFilePath = window.wurl?.getPathForFile?.(f) || f.path || f.name;
+      this.#bodyFilePath =
+        window.hippo?.getPathForFile?.(f) || f.path || f.name;
       this.#bodyFileObject = f;
       this.#renderFileChosen(el);
       this.#dispatchBodyUpdated();
@@ -822,7 +823,7 @@ export class BodyEditor {
       const f = e.dataTransfer.files?.[0];
       if (!f) return;
       this.#bodyFilePath =
-        window.wurl?.getPathForFile?.(f) ||
+        window.hippo?.getPathForFile?.(f) ||
         f.path ||
         f.webkitRelativePath ||
         f.name;
