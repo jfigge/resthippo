@@ -113,6 +113,7 @@
   },
   "header": {
     "appHeaderAria": "Intestazione dell'applicazione",
+    "aboutTitle": "Informazioni su Rest Hippo",
     "subtitle": "Client API REST",
     "actionsAria": "Azioni dell'applicazione",
     "environmentTitle": "Ambiente",

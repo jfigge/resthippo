@@ -113,6 +113,7 @@
   },
   "header": {
     "appHeaderAria": "Application header",
+    "aboutTitle": "About Rest Hippo",
     "subtitle": "REST API Client",
     "actionsAria": "Application actions",
     "environmentTitle": "Environment",

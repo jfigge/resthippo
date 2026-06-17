@@ -36,14 +36,23 @@
       <!-- ── App header ────────────────────────────────────────────────── -->
       <header id="app-header" aria-label="Application header">
         <!-- Brand mark, top-left corner (visible only when app-header is
-             shown — i.e. "Remove headers" is off) -->
-        <img
-          class="app-header-icon"
-          src="resthippo-icon.svg"
-          alt=""
-          aria-hidden="true"
-          draggable="false"
-        />
+             shown — i.e. "Remove headers" is off). Clicking opens the About
+             dialog. -->
+        <button
+          class="app-header-icon-btn"
+          id="btn-about"
+          type="button"
+          aria-label="About Rest Hippo"
+          title="About Rest Hippo"
+        >
+          <img
+            class="app-header-icon"
+            src="resthippo-icon.svg"
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+          />
+        </button>
         <span class="app-logo" aria-label="Rest Hippo">Rest Hippo</span>
         <span class="app-subtitle">REST API Client</span>
 

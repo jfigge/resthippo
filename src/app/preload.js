@@ -580,6 +580,9 @@ contextBridge.exposeInMainWorld("hippo", {
     },
 
     openThemeEditor: () => ipcRenderer.invoke("ui:open-theme-editor"),
+
+    /** Open the native "About Rest Hippo" window (brand-mark click). */
+    showAbout: () => ipcRenderer.invoke("ui:show-about"),
   },
 
   /**

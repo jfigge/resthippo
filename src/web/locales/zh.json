@@ -111,6 +111,7 @@
   },
   "header": {
     "appHeaderAria": "应用程序标题栏",
+    "aboutTitle": "关于 Rest Hippo",
     "subtitle": "REST API 客户端",
     "actionsAria": "应用程序操作",
     "environmentTitle": "环境",

@@ -111,6 +111,7 @@
   },
   "header": {
     "appHeaderAria": "アプリケーションヘッダー",
+    "aboutTitle": "Rest Hippo について",
     "subtitle": "REST API クライアント",
     "actionsAria": "アプリケーションの操作",
     "environmentTitle": "環境",

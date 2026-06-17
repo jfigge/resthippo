@@ -425,6 +425,8 @@ function localizeChrome() {
 
   // Header + landmark regions
   setAttrAll("#app-header", "aria-label", "header.appHeaderAria");
+  setAttrAll("#btn-about", "title", "header.aboutTitle");
+  setAttrAll("#btn-about", "aria-label", "header.aboutTitle");
   setText(".app-subtitle", "header.subtitle");
   setAttrAll(".header-icon-panel", "aria-label", "header.actionsAria");
   setAttrAll("#app-main", "aria-label", "header.mainAria");
@@ -1156,6 +1158,11 @@ async function _showCollContextMenu(x, y) {
 }
 
 function initHeader() {
+  // Brand mark (top-left) opens the native About window via the main process.
+  document
+    .getElementById("btn-about")
+    ?.addEventListener("click", () => window.hippo?.ui?.showAbout?.());
+
   document.getElementById("btn-settings").addEventListener("click", () => {
     settingsPopup.open(currentSettings);
   });

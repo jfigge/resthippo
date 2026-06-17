@@ -2049,6 +2049,7 @@ function showDocsWindow() {
 
 (function initThemeEditorIPC() {
   ipcMain.handle("ui:open-theme-editor", () => showThemeEditor());
+  ipcMain.handle("ui:show-about", () => showAboutDialog());
   ipcMain.on("theme:preview", (_e, themeData) => {
     if (_mainWin && !_mainWin.isDestroyed())
       _mainWin.webContents.send("theme:preview", themeData);
