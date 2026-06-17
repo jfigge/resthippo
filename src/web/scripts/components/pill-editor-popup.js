@@ -10,9 +10,11 @@ import {
   collectScopeNames,
 } from "./variable-resolver.js";
 
+// i18n keys (not display text) — resolved via t() at render time, since a
+// module-level t() call would run before the catalog is loaded.
 const TYPE_LABELS = {
-  variable: "Variable",
-  function: "Function",
+  variable: "pillEditor.typeVariable",
+  function: "pillEditor.typeFunction",
 };
 
 /**
@@ -134,12 +136,12 @@ export class PillEditorPopup {
   // ── Build ──────────────────────────────────────────────────────────────────
 
   #build({ type, funcName, funcDef, rawArgs, getItems }) {
-    const label = TYPE_LABELS[type] ?? type;
+    const label = TYPE_LABELS[type] ? t(TYPE_LABELS[type]) : type;
     const el = document.createElement("div");
     el.className = "popup pill-editor-popup";
     el.setAttribute("role", "dialog");
     el.setAttribute("aria-modal", "true");
-    el.setAttribute("aria-label", `${label} editor`);
+    el.setAttribute("aria-label", t("pillEditor.editorAria", { label }));
 
     const bodyHtml =
       type === "function"
@@ -203,7 +205,7 @@ export class PillEditorPopup {
               .join("");
             inputHtml =
               `<select class="pill-editor-param-input settings-input" data-param-idx="${i}">` +
-              `<option value="">— select request —</option>${opts}</select>`;
+              `<option value="">${t("pillEditor.selectRequest")}</option>${opts}</select>`;
           } else {
             const ph = p.placeholder
               ? ` placeholder="${escapeHtml(p.placeholder)}"`
@@ -439,7 +441,7 @@ export class PillEditorPopup {
       this.#previewValueEl.textContent = "***";
     } else {
       this.#previewValueEl.textContent =
-        value === "" ? "(empty string)" : value;
+        value === "" ? t("pillEditor.emptyString") : value;
     }
   }
 
@@ -466,7 +468,9 @@ export class PillEditorPopup {
     if (!this.#revealBtn || this.#revealBtn.hidden) return;
     // Masked → offer "reveal" (open eye); revealed → offer "hide".
     this.#revealBtn.innerHTML = icon(this.#secretRevealed ? "eyeOff" : "eye");
-    const action = this.#secretRevealed ? "Hide value" : "Reveal value";
+    const action = this.#secretRevealed
+      ? t("pillEditor.hideValue")
+      : t("pillEditor.revealValue");
     this.#revealBtn.title = action;
     this.#revealBtn.setAttribute("aria-label", action);
     this.#revealBtn.setAttribute("aria-pressed", String(this.#secretRevealed));

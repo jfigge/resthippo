@@ -17,7 +17,8 @@
     "variables": "Variables",
     "copy": "Copy",
     "copied": "Copied",
-    "download": "Download"
+    "download": "Download",
+    "allFiles": "All Files"
   },
   "app": {
     "wsOpen": "WebSocket connection is open",
@@ -188,7 +189,12 @@
     "name": "Name",
     "value": "Value",
     "header": "Header",
-    "varsHint": "One  name=value  per line · prefix  $  for secure"
+    "varsHint": "One  name=value  per line · prefix  $  for secure",
+    "add": "Add {noun}",
+    "deleteAllNoun": "Delete all {noun}",
+    "delete": "Delete {noun}",
+    "enable": "Enable {noun}",
+    "disable": "Disable {noun}"
   },
   "menu": {
     "cut": "Cut",
@@ -356,12 +362,17 @@
       "urlAria": "WebSocket URL",
       "connect": "Connect",
       "connectAria": "Connect WebSocket",
+      "disconnect": "Disconnect",
+      "connecting": "Connecting…",
+      "disconnecting": "Disconnecting…",
       "send": "Send",
       "sendAria": "Send message",
       "messagePlaceholder": "Message to send… (supports {{variables}})",
       "subprotoPlaceholder": "Subprotocols (optional, comma-separated)",
       "subprotoAria": "WebSocket subprotocols",
-      "hint": "Connect first, then send. ⌘/Ctrl+Enter to send."
+      "hint": "Connect first, then send. ⌘/Ctrl+Enter to send.",
+      "msgFormatToText": "JSON message — switch to text",
+      "msgFormatToJson": "Text message — switch to JSON"
     },
     "notes": {
       "placeholder": "Add freeform notes about this request…",
@@ -389,7 +400,9 @@
       "bulkAria": "Form fields bulk editor",
       "empty": "No fields — click  +  to add one.",
       "nameAria": "Field name",
-      "valueAria": "Field value"
+      "valueAria": "Field value",
+      "typeToText": "File field — switch to text",
+      "typeToFile": "Text field — switch to file"
     },
     "file": {
       "drop": "Drop a file here",
@@ -426,12 +439,15 @@
       "empty": "No headers — click  +  to add one.",
       "nameAria": "Header name",
       "valueAria": "Header value",
-      "suggestTitle": "Show standard header suggestions when editing the header name"
+      "suggestTitle": "Show standard header suggestions when editing the header name",
+      "bulkAria": "Headers bulk editor",
+      "listHeaders": "List Headers"
     },
     "params": {
       "empty": "No parameters — click  +  to add one.",
       "nameAria": "Parameter name",
-      "valueAria": "Parameter value"
+      "valueAria": "Parameter value",
+      "bulkAria": "Parameters bulk editor"
     },
     "pathParams": {
       "label": "Path parameter",
@@ -477,6 +493,15 @@
       "replace": "Replace",
       "applied": "Request updated from the cURL command.",
       "failed": "Couldn't read the cURL command: {message}"
+    },
+    "sendAnyway": "Send Anyway",
+    "noun": {
+      "parameter": "parameter",
+      "parameters": "parameters",
+      "header": "header",
+      "headers": "headers",
+      "field": "field",
+      "pathParameter": "path parameter"
     }
   },
   "response": {
@@ -580,6 +605,33 @@
         "other": "Last {count} events"
       },
       "noEvents": "No events were received."
+    },
+    "time": {
+      "justNow": "Just now",
+      "lessThanMinute": "Less than a minute ago",
+      "last5Minutes": "Within the last 5 minutes",
+      "lastHalfHour": "Within the last half hour",
+      "lastHour": "Within the last hour",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "thisWeek": "This week",
+      "lastWeek": "Last week"
+    },
+    "image": {
+      "alt": "Response image"
+    },
+    "captured": {
+      "badge": "{count} captured"
+    },
+    "error": {
+      "connection": "Connection Error",
+      "requestFailed": "Request failed",
+      "unknown": "An unknown error occurred."
+    },
+    "download": {
+      "text": "Text",
+      "image": "Image",
+      "binary": "Binary"
     }
   },
   "pillEditor": {
@@ -590,7 +642,14 @@
     "availableVars": "Available variables",
     "noParams": "This function has no parameters.",
     "noVarsDefined": "No variables defined",
-    "undefined": "Undefined"
+    "undefined": "Undefined",
+    "typeVariable": "Variable",
+    "typeFunction": "Function",
+    "editorAria": "{label} editor",
+    "selectRequest": "— select request —",
+    "emptyString": "(empty string)",
+    "revealValue": "Reveal value",
+    "hideValue": "Hide value"
   },
   "tree": {
     "newCollection": "New Collection",
@@ -625,7 +684,11 @@
       "title": "Generate code",
       "target": "Target",
       "aria": "Generated code"
-    }
+    },
+    "favorited": "Favorited",
+    "favoriteHint": "Double-click to favorite",
+    "unfavoriteHint": "Double-click to unfavorite",
+    "unnamed": "(unnamed)"
   },
   "collections": {
     "title": "Collections",

@@ -19,7 +19,13 @@
  */
 "use strict";
 
-const { readJSON, writeJSON, ensureDir, validateID } = require("./io");
+const {
+  readJSON,
+  writeJSON,
+  ensureDir,
+  validateID,
+  isValidID,
+} = require("./io");
 const {
   encryptRequest,
   decryptRequest,
@@ -145,6 +151,11 @@ class CollectionsStore {
     const result = [];
     for (const node of nodes) {
       if (node.type === "requestRef") {
+        // The ref id is interpolated into the request file path, so a traversal
+        // value ("../../x") from a tampered tree.json or a malicious imported
+        // backup could read outside the requests dir. Skip such a ref rather
+        // than throw, so a poisoned tree degrades to "request missing".
+        if (!isValidID(node.id)) continue;
         const req = readJSON(this._paths.requestPath(collId, node.id));
         if (req !== null) result.push(decryptRequest(req));
       } else if (node.type === "folder") {

@@ -107,8 +107,10 @@ export async function postTokenRequest(url, params, opts = {}) {
 
   // Parse the response body as JSON
   if (!result.body) {
-    throw new Error(
+    throw new OAuthError(
+      OAuthErrorCode.MALFORMED_RESPONSE,
       `Token endpoint returned an empty body (HTTP ${result.status})`,
+      result.status,
     );
   }
   let parsed;

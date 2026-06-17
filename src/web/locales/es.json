@@ -17,7 +17,8 @@
     "variables": "Variables",
     "copy": "Copiar",
     "copied": "Copiado",
-    "download": "Descargar"
+    "download": "Descargar",
+    "allFiles": "Todos los archivos"
   },
   "app": {
     "wsOpen": "La conexión WebSocket está abierta",
@@ -188,7 +189,12 @@
     "name": "Nombre",
     "value": "Valor",
     "header": "Encabezado",
-    "varsHint": "Un  name=value  por línea · prefijo  $  para asegurar"
+    "varsHint": "Un  name=value  por línea · prefijo  $  para asegurar",
+    "add": "Agregar {noun}",
+    "deleteAllNoun": "Eliminar todos los {noun}",
+    "delete": "Eliminar {noun}",
+    "enable": "Activar {noun}",
+    "disable": "Desactivar {noun}"
   },
   "menu": {
     "cut": "Cortar",
@@ -356,12 +362,17 @@
       "urlAria": "URL de WebSocket",
       "connect": "Conectar",
       "connectAria": "Conectar WebSocket",
+      "disconnect": "Desconectar",
+      "connecting": "Conectando…",
+      "disconnecting": "Desconectando…",
       "send": "Enviar",
       "sendAria": "Enviar mensaje",
       "messagePlaceholder": "Mensaje a enviar… (admite {{variables}})",
       "subprotoPlaceholder": "Subprotocolos (opcional, separados por comas)",
       "subprotoAria": "Subprotocolos de WebSocket",
-      "hint": "Conéctate primero y luego envía. ⌘/Ctrl+Enter para enviar."
+      "hint": "Conéctate primero y luego envía. ⌘/Ctrl+Enter para enviar.",
+      "msgFormatToText": "Mensaje JSON: cambiar a texto",
+      "msgFormatToJson": "Mensaje de texto: cambiar a JSON"
     },
     "notes": {
       "placeholder": "Añade notas libres sobre esta solicitud…",
@@ -389,7 +400,9 @@
       "bulkAria": "Editor masivo de campos del formulario",
       "empty": "Sin campos — haz clic en  +  para añadir uno.",
       "nameAria": "Nombre del campo",
-      "valueAria": "Valor del campo"
+      "valueAria": "Valor del campo",
+      "typeToText": "Campo de archivo: cambiar a texto",
+      "typeToFile": "Campo de texto: cambiar a archivo"
     },
     "file": {
       "drop": "Suelta un archivo aquí",
@@ -426,12 +439,15 @@
       "empty": "Sin encabezados — haz clic en  +  para añadir uno.",
       "nameAria": "Nombre del encabezado",
       "valueAria": "Valor del encabezado",
-      "suggestTitle": "Mostrar sugerencias de encabezados estándar al editar el nombre del encabezado"
+      "suggestTitle": "Mostrar sugerencias de encabezados estándar al editar el nombre del encabezado",
+      "bulkAria": "Editor masivo de encabezados",
+      "listHeaders": "Listar encabezados"
     },
     "params": {
       "empty": "Sin parámetros — haz clic en  +  para añadir uno.",
       "nameAria": "Nombre del parámetro",
-      "valueAria": "Valor del parámetro"
+      "valueAria": "Valor del parámetro",
+      "bulkAria": "Editor masivo de parámetros"
     },
     "pathParams": {
       "label": "Parámetro de ruta",
@@ -477,6 +493,15 @@
       "replace": "Reemplazar",
       "applied": "Petición actualizada a partir del comando cURL.",
       "failed": "No se pudo leer el comando cURL: {message}"
+    },
+    "sendAnyway": "Enviar de todos modos",
+    "noun": {
+      "parameter": "parámetro",
+      "parameters": "parámetros",
+      "header": "encabezado",
+      "headers": "encabezados",
+      "field": "campo",
+      "pathParameter": "parámetro de ruta"
     }
   },
   "response": {
@@ -580,6 +605,33 @@
         "other": "Últimos {count} eventos"
       },
       "noEvents": "No se recibió ningún evento."
+    },
+    "time": {
+      "justNow": "Justo ahora",
+      "lessThanMinute": "Hace menos de un minuto",
+      "last5Minutes": "En los últimos 5 minutos",
+      "lastHalfHour": "En la última media hora",
+      "lastHour": "En la última hora",
+      "today": "Hoy",
+      "yesterday": "Ayer",
+      "thisWeek": "Esta semana",
+      "lastWeek": "La semana pasada"
+    },
+    "image": {
+      "alt": "Imagen de la respuesta"
+    },
+    "captured": {
+      "badge": "{count} capturados"
+    },
+    "error": {
+      "connection": "Error de conexión",
+      "requestFailed": "La solicitud falló",
+      "unknown": "Se produjo un error desconocido."
+    },
+    "download": {
+      "text": "Texto",
+      "image": "Imagen",
+      "binary": "Binario"
     }
   },
   "pillEditor": {
@@ -590,7 +642,14 @@
     "availableVars": "Variables disponibles",
     "noParams": "Esta función no tiene parámetros.",
     "noVarsDefined": "No hay variables definidas",
-    "undefined": "Sin definir"
+    "undefined": "Sin definir",
+    "typeVariable": "Variable",
+    "typeFunction": "Función",
+    "editorAria": "Editor de {label}",
+    "selectRequest": "— seleccionar solicitud —",
+    "emptyString": "(cadena vacía)",
+    "revealValue": "Mostrar valor",
+    "hideValue": "Ocultar valor"
   },
   "tree": {
     "newCollection": "Nueva colección",
@@ -625,7 +684,11 @@
       "title": "Generar código",
       "target": "Destino",
       "aria": "Código generado"
-    }
+    },
+    "favorited": "Favorito",
+    "favoriteHint": "Doble clic para marcar como favorito",
+    "unfavoriteHint": "Doble clic para quitar de favoritos",
+    "unnamed": "(sin nombre)"
   },
   "collections": {
     "title": "Colecciones",

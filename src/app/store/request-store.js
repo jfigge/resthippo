@@ -51,6 +51,7 @@ const PATCHABLE_FIELDS = [
   "authApiKey",
   "authDigest",
   "authNtlm",
+  "authOAuth1",
   "authOAuth2",
   "authAwsIam",
   "preRequestScript",

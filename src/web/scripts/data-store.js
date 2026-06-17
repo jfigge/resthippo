@@ -522,16 +522,15 @@ export function setActiveCollection(collectionId) {
 export async function saveCollectionVariables(collectionId, variables) {
   if (collectionId === _activeCollectionId) {
     _activeVariables = variables;
-    await _saveEnvFile(
+    return _saveEnvFile(
       _activeCollectionId,
       _activeItems,
       variables,
       "Save variables",
     );
-  } else {
-    const { items } = await _loadEnvFile(collectionId);
-    await _saveEnvFile(collectionId, items, variables, "Save variables");
   }
+  const { items } = await _loadEnvFile(collectionId);
+  return _saveEnvFile(collectionId, items, variables, "Save variables");
 }
 
 /**

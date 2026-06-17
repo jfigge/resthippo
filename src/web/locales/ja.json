@@ -17,7 +17,8 @@
     "variables": "変数",
     "copy": "コピー",
     "copied": "コピーしました",
-    "download": "ダウンロード"
+    "download": "ダウンロード",
+    "allFiles": "すべてのファイル"
   },
   "app": {
     "wsOpen": "WebSocket 接続は開いています",
@@ -188,7 +189,12 @@
     "name": "名前",
     "value": "値",
     "header": "ヘッダー",
-    "varsHint": "1 行に 1 つの  name=value · 機密にするには  $  を接頭辞に付けます"
+    "varsHint": "1 行に 1 つの  name=value · 機密にするには  $  を接頭辞に付けます",
+    "add": "{noun}を追加",
+    "deleteAllNoun": "すべての{noun}を削除",
+    "delete": "{noun}を削除",
+    "enable": "{noun}を有効化",
+    "disable": "{noun}を無効化"
   },
   "menu": {
     "cut": "切り取り",
@@ -356,12 +362,17 @@
       "urlAria": "WebSocket URL",
       "connect": "接続",
       "connectAria": "WebSocket に接続",
+      "disconnect": "切断",
+      "connecting": "接続中…",
+      "disconnecting": "切断中…",
       "send": "送信",
       "sendAria": "メッセージを送信",
       "messagePlaceholder": "送信するメッセージ…（{{variables}} に対応）",
       "subprotoPlaceholder": "サブプロトコル（任意、カンマ区切り）",
       "subprotoAria": "WebSocket サブプロトコル",
-      "hint": "先に接続してから送信します。⌘/Ctrl+Enter で送信。"
+      "hint": "先に接続してから送信します。⌘/Ctrl+Enter で送信。",
+      "msgFormatToText": "JSON メッセージ — テキストに切り替え",
+      "msgFormatToJson": "テキストメッセージ — JSON に切り替え"
     },
     "notes": {
       "placeholder": "このリクエストに関する自由なメモを追加…",
@@ -389,7 +400,9 @@
       "bulkAria": "フォームフィールドの一括エディター",
       "empty": "フィールドがありません —  +  をクリックして追加します。",
       "nameAria": "フィールド名",
-      "valueAria": "フィールド値"
+      "valueAria": "フィールド値",
+      "typeToText": "ファイルフィールド — テキストに切り替え",
+      "typeToFile": "テキストフィールド — ファイルに切り替え"
     },
     "file": {
       "drop": "ここにファイルをドロップ",
@@ -426,12 +439,15 @@
       "empty": "ヘッダーがありません —  +  をクリックして追加します。",
       "nameAria": "ヘッダー名",
       "valueAria": "ヘッダー値",
-      "suggestTitle": "ヘッダー名の編集時に標準ヘッダーの候補を表示"
+      "suggestTitle": "ヘッダー名の編集時に標準ヘッダーの候補を表示",
+      "bulkAria": "ヘッダー一括エディター",
+      "listHeaders": "ヘッダー一覧"
     },
     "params": {
       "empty": "パラメーターがありません —  +  をクリックして追加します。",
       "nameAria": "パラメーター名",
-      "valueAria": "パラメーター値"
+      "valueAria": "パラメーター値",
+      "bulkAria": "パラメーター一括エディター"
     },
     "pathParams": {
       "label": "パスパラメーター",
@@ -477,6 +493,15 @@
       "replace": "置き換え",
       "applied": "cURL コマンドからリクエストを更新しました。",
       "failed": "cURL コマンドを読み取れませんでした: {message}"
+    },
+    "sendAnyway": "それでも送信",
+    "noun": {
+      "parameter": "パラメーター",
+      "parameters": "パラメーター",
+      "header": "ヘッダー",
+      "headers": "ヘッダー",
+      "field": "フィールド",
+      "pathParameter": "パスパラメーター"
     }
   },
   "response": {
@@ -580,6 +605,33 @@
         "other": "直近の {count} 件のイベント"
       },
       "noEvents": "イベントは受信されませんでした。"
+    },
+    "time": {
+      "justNow": "たった今",
+      "lessThanMinute": "1分前未満",
+      "last5Minutes": "過去5分以内",
+      "lastHalfHour": "過去30分以内",
+      "lastHour": "過去1時間以内",
+      "today": "今日",
+      "yesterday": "昨日",
+      "thisWeek": "今週",
+      "lastWeek": "先週"
+    },
+    "image": {
+      "alt": "レスポンス画像"
+    },
+    "captured": {
+      "badge": "{count} 件キャプチャ"
+    },
+    "error": {
+      "connection": "接続エラー",
+      "requestFailed": "リクエストに失敗しました",
+      "unknown": "不明なエラーが発生しました。"
+    },
+    "download": {
+      "text": "テキスト",
+      "image": "画像",
+      "binary": "バイナリ"
     }
   },
   "pillEditor": {
@@ -590,7 +642,14 @@
     "availableVars": "利用可能な変数",
     "noParams": "この関数にはパラメーターがありません。",
     "noVarsDefined": "変数が定義されていません",
-    "undefined": "未定義"
+    "undefined": "未定義",
+    "typeVariable": "変数",
+    "typeFunction": "関数",
+    "editorAria": "{label}エディター",
+    "selectRequest": "— リクエストを選択 —",
+    "emptyString": "（空の文字列）",
+    "revealValue": "値を表示",
+    "hideValue": "値を隠す"
   },
   "tree": {
     "newCollection": "新しいコレクション",
@@ -625,7 +684,11 @@
       "title": "コードを生成",
       "target": "ターゲット",
       "aria": "生成されたコード"
-    }
+    },
+    "favorited": "お気に入り",
+    "favoriteHint": "ダブルクリックでお気に入りに追加",
+    "unfavoriteHint": "ダブルクリックでお気に入りから削除",
+    "unnamed": "（名称未設定）"
   },
   "collections": {
     "title": "コレクション",

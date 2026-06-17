@@ -7,9 +7,11 @@ import {
   fileBody,
   graphqlBody,
   formBody,
+  splitUrlQuery,
 } from "./shape.js";
 
-function parseUrl(url) {
+/** Assemble Postman's string- or object-form URL into a single URL string. */
+function rawUrlString(url) {
   if (typeof url === "string") return url;
   if (!url) return "";
   if (url.raw) return url.raw;
@@ -21,31 +23,28 @@ function parseUrl(url) {
   return proto + host + pathStr;
 }
 
+// Base URL with the query stripped. wurl stores the base and the query rows
+// separately and re-assembles them at send time (buildRequestPayload), so
+// leaving the query on the URL *and* in `params` would send it twice. Mirrors
+// the cURL / HAR importers, which split the query out the same way.
+function parseUrl(url) {
+  return splitUrlQuery(rawUrlString(url)).base;
+}
+
 function parseQueryFromUrl(url) {
   if (!url) return [];
-  // Postman URLs come in two shapes: a bare string ("https://api.example.com?x=1")
-  // or a structured object with a separate `query` array. The structured form
-  // already separates query params; the string form does not, so parse it here
-  // — otherwise string-form URLs lose all their query params on import.
-  if (typeof url === "string") {
-    try {
-      // Provide a base so relative or template-prefixed URLs still parse.
-      const parsed = new URL(url, "http://_/");
-      return [...parsed.searchParams.entries()].map(([name, value]) => ({
-        enabled: true,
-        name,
-        value,
-      }));
-    } catch {
-      return [];
-    }
+  // Postman's structured form carries an explicit `query` array that preserves
+  // each param's disabled flag — authoritative when present.
+  if (typeof url === "object" && Array.isArray(url.query) && url.query.length) {
+    return url.query.map((q) => ({
+      enabled: !q.disabled,
+      name: q.key ?? "",
+      value: q.value ?? "",
+    }));
   }
-  if (typeof url !== "object") return [];
-  return (url.query ?? []).map((q) => ({
-    enabled: !q.disabled,
-    name: q.key ?? "",
-    value: q.value ?? "",
-  }));
+  // String form (or a structured form whose raw URL carries the query but has no
+  // separate `query` array): parse the query out of the assembled URL string.
+  return splitUrlQuery(rawUrlString(url)).params;
 }
 
 // Map Postman's auth representation onto the neutral descriptor consumed by the

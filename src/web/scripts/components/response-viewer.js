@@ -671,12 +671,16 @@ export class ResponseViewer {
     const kind = classifyContentType(ct);
 
     let ext = "txt";
-    let filterName = "Text";
+    let filterName = t("response.download.text");
     // Binary bodies (base64 in transit) name their file from the content-type.
     if (resp.encoding === "base64" || kind === "image" || kind === "pdf") {
       ext = binaryExtension(ct);
       filterName =
-        kind === "pdf" ? "PDF" : kind === "image" ? "Image" : "Binary";
+        kind === "pdf"
+          ? "PDF"
+          : kind === "image"
+            ? t("response.download.image")
+            : t("response.download.binary");
     } else if (kind === "json") {
       ext = "json";
       filterName = "JSON";
@@ -731,7 +735,7 @@ export class ResponseViewer {
       resp.body,
       [
         { name: filterName, extensions: [ext] },
-        { name: "All Files", extensions: ["*"] },
+        { name: t("common.allFiles"), extensions: ["*"] },
       ],
       resp.encoding === "base64" ? "base64" : undefined,
     );
@@ -1580,7 +1584,7 @@ export class ResponseViewer {
     wrap.className = "res-image-wrap";
     const img = document.createElement("img");
     img.className = "res-body-image";
-    img.alt = "Response image";
+    img.alt = t("response.image.alt");
     img.src = this.#objectUrl;
     wrap.appendChild(img);
     pane.appendChild(wrap);
@@ -2405,6 +2409,7 @@ export class ResponseViewer {
     this.#destroyHtmlPreview();
     this.#teardownBinaryEphemera();
     this.#teardownStream({ abort: true });
+    this.#setPreviewTabVisible(false);
     this.#clearHighlights();
     this.#setStatus("", "", "", "");
     const bodyPane = this.#bodyPane;
@@ -2455,7 +2460,8 @@ export class ResponseViewer {
     this.#clearHighlights();
     const hasStatus = detail?.status && detail.status > 0;
     const statusCode = hasStatus ? String(detail.status) : "ERR";
-    const statusTxt = detail?.statusText || detail?.name || "Connection Error";
+    const statusTxt =
+      detail?.statusText || detail?.name || t("response.error.connection");
     const elapsed = detail?.elapsed ? `${detail.elapsed} ms` : "";
 
     this.#setStatus(statusCode, statusTxt, elapsed, "");
@@ -2467,7 +2473,7 @@ export class ResponseViewer {
     bodyPane.innerHTML = "";
     const err = this.#placeholder({
       icon: "⚠️",
-      text: detail?.message ?? "Request failed",
+      text: detail?.message ?? t("response.error.requestFailed"),
     });
     if (detail?.hint) {
       const hint = document.createElement("span");
@@ -2483,7 +2489,7 @@ export class ResponseViewer {
         ? detail.consoleLog
         : [
             `* Error: ${detail?.name || "NetworkError"}`,
-            `* ${detail?.message || "An unknown error occurred."}`,
+            `* ${detail?.message || t("response.error.unknown")}`,
             detail?.hint ? `* Hint: ${detail.hint}` : null,
           ].filter(Boolean);
     this.#renderConsole(log);
@@ -3553,11 +3559,11 @@ export class ResponseViewer {
     const secs = delta / 1000;
     const mins = secs / 60;
 
-    if (secs < 10) return "Just now";
-    if (mins < 1) return "Less than a minute ago";
-    if (mins < 5) return "Within the last 5 minutes";
-    if (mins < 30) return "Within the last half hour";
-    if (mins < 60) return "Within the last hour";
+    if (secs < 10) return t("response.time.justNow");
+    if (mins < 1) return t("response.time.lessThanMinute");
+    if (mins < 5) return t("response.time.last5Minutes");
+    if (mins < 30) return t("response.time.lastHalfHour");
+    if (mins < 60) return t("response.time.lastHour");
 
     const then = new Date(ts);
     const todayMid = new Date();
@@ -3566,61 +3572,27 @@ export class ResponseViewer {
     thenMid.setHours(0, 0, 0, 0);
     const daysDiff = Math.round((todayMid - thenMid) / 86400000);
 
-    if (daysDiff === 0) return "Today";
-    if (daysDiff === 1) return "Yesterday";
+    if (daysDiff === 0) return t("response.time.today");
+    if (daysDiff === 1) return t("response.time.yesterday");
 
     // Start of the current calendar week (Sunday = day 0)
     const weekStart = new Date(todayMid);
     weekStart.setDate(todayMid.getDate() - todayMid.getDay());
-    if (thenMid >= weekStart) return "This week";
+    if (thenMid >= weekStart) return t("response.time.thisWeek");
 
     const lastWeekStart = new Date(weekStart);
     lastWeekStart.setDate(weekStart.getDate() - 7);
-    if (thenMid >= lastWeekStart) return "Last Week";
+    if (thenMid >= lastWeekStart) return t("response.time.lastWeek");
 
-    // Full format: "On Monday, June 12th, at 12:45 pm"
-    const DAYS = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
-    const MONTHS = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
-    const d = then.getDate();
-    const ordinal = (n) => {
-      if (n >= 11 && n <= 13) return "th";
-      switch (n % 10) {
-        case 1:
-          return "st";
-        case 2:
-          return "nd";
-        case 3:
-          return "rd";
-        default:
-          return "th";
-      }
-    };
-    const h = then.getHours();
-    const h12 = h % 12 || 12;
-    const m = String(then.getMinutes()).padStart(2, "0");
-    const ampm = h < 12 ? "am" : "pm";
-    return `On ${DAYS[then.getDay()]}, ${MONTHS[then.getMonth()]} ${d}${ordinal(d)}, at ${h12}:${m} ${ampm}`;
+    // Older than two weeks: a fully locale-formatted absolute date/time (Intl
+    // handles weekday/month names, ordinals, and 12/24-hour clock per locale).
+    return formatDate(then, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   }
 
   #setStatus(code, text, time, size) {
@@ -3642,7 +3614,7 @@ export class ResponseViewer {
       this.#hideCapturedBadge();
       return;
     }
-    badge.textContent = `⤓ ${count} captured`;
+    badge.textContent = `⤓ ${t("response.captured.badge", { count })}`;
     badge.hidden = false;
   }
 

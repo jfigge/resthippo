@@ -161,12 +161,15 @@ export class EnvironmentsPopup {
     const stillExists =
       this.#selectedId === null ||
       data.environments.some((e) => e.id === this.#selectedId);
+    // Reassign #data before (re)loading the editor: when the selection was
+    // deleted, #loadEditorForSelected() falls back to the global variables, which
+    // must come from the new data — not the stale snapshot.
+    this.#data = deepClone(data);
+    this.#editState = null;
     if (!stillExists) {
       this.#selectedId = null;
       this.#loadEditorForSelected();
     }
-    this.#data = deepClone(data);
-    this.#editState = null;
     this.#renderList();
   }
 

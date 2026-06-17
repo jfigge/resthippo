@@ -967,17 +967,22 @@ export class CollectionsPopup {
   }
 
   async #reloadCookies() {
-    if (!this.#selectedId) {
+    const id = this.#selectedId;
+    if (!id) {
       this.#cookies = [];
       this.#renderCookies();
       return;
     }
+    let list;
     try {
-      const list = await window.wurl.store.cookies.list(this.#selectedId);
-      this.#cookies = Array.isArray(list) ? list : [];
+      list = await window.wurl.store.cookies.list(id);
     } catch {
-      this.#cookies = [];
+      list = [];
     }
+    // The selection may have changed during the await — don't render one
+    // collection's cookies under another.
+    if (this.#selectedId !== id) return;
+    this.#cookies = Array.isArray(list) ? list : [];
     this.#renderCookies();
   }
 

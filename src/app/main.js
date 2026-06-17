@@ -939,7 +939,12 @@ function fmtLabel(str, params) {
           headers: { ...reqHeaders },
           service: awsIam.service || undefined,
           region: awsIam.region || undefined,
-          body: bodyBuffer ? bodyBuffer.toString("utf8") : undefined,
+          // Pass the raw Buffer so the signed payload hash matches the exact
+          // bytes written to the wire (req.write(bodyBuffer)). Decoding to UTF-8
+          // here would corrupt binary / multipart bodies that aren't UTF-8
+          // round-trippable, yielding SignatureDoesNotMatch. aws4 hashes a Buffer
+          // via createHash().update(buf), so the bytes are hashed verbatim.
+          body: bodyBuffer ?? undefined,
         };
         const creds = {
           accessKeyId: awsIam.accessKeyId,

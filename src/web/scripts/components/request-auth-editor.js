@@ -2361,18 +2361,14 @@ export class RequestAuthEditor {
   }
 
   /**
-   * Resolve the OAuth 2.0 Authorization header prefix at send time. Reads the
-   * live DOM input first (covers a value typed but not yet committed to state),
-   * then the in-memory state, then the "Bearer" default.
+   * Resolve the OAuth 2.0 Authorization header prefix at send time: the
+   * in-memory state, then the "Bearer" default. (The prefix field is a
+   * VariablePillEditor that commits to state synchronously, so there is no
+   * uncommitted DOM value to read.)
    * @returns {string}
    */
   getOAuth2HeaderPrefix() {
-    const prefixEl = this.#el.querySelector('[name="wurl-auth-header-prefix"]');
-    return (
-      prefixEl?.value?.trim() ||
-      this.#authOAuth2.headerPrefix?.trim() ||
-      "Bearer"
-    );
+    return this.#authOAuth2.headerPrefix?.trim() || "Bearer";
   }
 
   /**

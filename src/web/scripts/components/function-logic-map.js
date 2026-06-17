@@ -26,7 +26,9 @@ export const logicMap = {
     btoa(unescape(encodeURIComponent(String(v)))),
   base64decode: ([v = ""], _ctx) => {
     try {
-      return atob(String(v));
+      // Inverse of base64encode's UTF-8-safe btoa(unescape(encodeURIComponent))
+      // so non-ASCII round-trips instead of decoding to mojibake.
+      return decodeURIComponent(escape(atob(String(v))));
     } catch {
       return "";
     }

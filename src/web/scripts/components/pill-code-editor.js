@@ -357,9 +357,20 @@ export class PillCodeEditor {
     this.#richErrors = !!on;
     this.#runValidate(); // recompute + (un)render the squiggles
   }
-  /** Re-run validation now and re-emit `pce:validity` (e.g. after wiring a
-   *  listener, or when the variable context changes). */
+  /** Re-resolve variable pills against the current context and re-run validation
+   *  (e.g. after wiring a listener, or when the variable context changes). */
   revalidate() {
+    // Re-colour existing variable pills so their known/unknown state tracks an
+    // environment / collection switch (mirrors VariablePillEditor.revalidate()).
+    const ctx = this.#getContext();
+    for (const pill of this.#doc.querySelectorAll(".variable-pill")) {
+      if (pill.dataset.function !== undefined) continue;
+      const name = pill.dataset.variable;
+      if (!name) continue;
+      const { found } = resolveVariable(name, ctx);
+      pill.classList.toggle("variable-pill--known", found);
+      pill.classList.toggle("variable-pill--unknown", !found);
+    }
     this.#runValidate();
   }
 
@@ -1272,6 +1283,10 @@ export class PillCodeEditor {
       onClose: () => this.#closePicker(),
     });
     document.body.appendChild(this.#pickerInst.element);
+    // Notify app-wide listeners (mirrors VariablePillEditor) so ResponseViewer
+    // hides its native HTML/PDF preview overlay, which would otherwise render
+    // above this typeahead in the multi-line body / GraphQL / WS editors.
+    window.dispatchEvent(new CustomEvent("wurl:popup-opened"));
     this.#pickerOutside = (e) => {
       if (
         !this.#pickerInst?.element.contains(e.target) &&
@@ -1285,6 +1300,7 @@ export class PillCodeEditor {
   #closePicker() {
     clearTimeout(this.#pickerTimer);
     this.#pickerTimer = null;
+    const wasOpen = !!this.#pickerInst;
     if (this.#pickerInst) {
       this.#pickerInst.destroy();
       this.#pickerInst = null;
@@ -1293,6 +1309,9 @@ export class PillCodeEditor {
       document.removeEventListener("mousedown", this.#pickerOutside, true);
       this.#pickerOutside = null;
     }
+    // Balance the wurl:popup-opened dispatched in #openPicker (depth-counted by
+    // ResponseViewer); only when a picker was actually open.
+    if (wasOpen) window.dispatchEvent(new CustomEvent("wurl:popup-closed"));
   }
 
   #pickerVariables() {

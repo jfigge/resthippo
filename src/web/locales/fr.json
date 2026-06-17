@@ -17,7 +17,8 @@
     "variables": "Variables",
     "copy": "Copier",
     "copied": "Copié",
-    "download": "Télécharger"
+    "download": "Télécharger",
+    "allFiles": "Tous les fichiers"
   },
   "app": {
     "wsOpen": "La connexion WebSocket est ouverte",
@@ -188,7 +189,12 @@
     "name": "Nom",
     "value": "Valeur",
     "header": "En-tête",
-    "varsHint": "Un  name=value  par ligne · préfixe  $  pour sécuriser"
+    "varsHint": "Un  name=value  par ligne · préfixe  $  pour sécuriser",
+    "add": "Ajouter {noun}",
+    "deleteAllNoun": "Supprimer tous les {noun}",
+    "delete": "Supprimer {noun}",
+    "enable": "Activer {noun}",
+    "disable": "Désactiver {noun}"
   },
   "menu": {
     "cut": "Couper",
@@ -356,12 +362,17 @@
       "urlAria": "URL WebSocket",
       "connect": "Connecter",
       "connectAria": "Connecter le WebSocket",
+      "disconnect": "Déconnecter",
+      "connecting": "Connexion…",
+      "disconnecting": "Déconnexion…",
       "send": "Envoyer",
       "sendAria": "Envoyer le message",
       "messagePlaceholder": "Message à envoyer… (prend en charge {{variables}})",
       "subprotoPlaceholder": "Sous-protocoles (facultatif, séparés par des virgules)",
       "subprotoAria": "Sous-protocoles WebSocket",
-      "hint": "Connectez-vous d'abord, puis envoyez. ⌘/Ctrl+Entrée pour envoyer."
+      "hint": "Connectez-vous d'abord, puis envoyez. ⌘/Ctrl+Entrée pour envoyer.",
+      "msgFormatToText": "Message JSON — passer au texte",
+      "msgFormatToJson": "Message texte — passer au JSON"
     },
     "notes": {
       "placeholder": "Ajoutez des notes libres sur cette requête…",
@@ -389,7 +400,9 @@
       "bulkAria": "Éditeur en bloc des champs du formulaire",
       "empty": "Aucun champ — cliquez sur  +  pour en ajouter un.",
       "nameAria": "Nom du champ",
-      "valueAria": "Valeur du champ"
+      "valueAria": "Valeur du champ",
+      "typeToText": "Champ fichier — passer au texte",
+      "typeToFile": "Champ texte — passer au fichier"
     },
     "file": {
       "drop": "Déposez un fichier ici",
@@ -426,12 +439,15 @@
       "empty": "Aucun en-tête — cliquez sur  +  pour en ajouter un.",
       "nameAria": "Nom de l'en-tête",
       "valueAria": "Valeur de l'en-tête",
-      "suggestTitle": "Afficher les suggestions d'en-têtes standard lors de la modification du nom de l'en-tête"
+      "suggestTitle": "Afficher les suggestions d'en-têtes standard lors de la modification du nom de l'en-tête",
+      "bulkAria": "Éditeur groupé d’en-têtes",
+      "listHeaders": "Lister les en-têtes"
     },
     "params": {
       "empty": "Aucun paramètre — cliquez sur  +  pour en ajouter un.",
       "nameAria": "Nom du paramètre",
-      "valueAria": "Valeur du paramètre"
+      "valueAria": "Valeur du paramètre",
+      "bulkAria": "Éditeur groupé de paramètres"
     },
     "pathParams": {
       "label": "Paramètre de chemin",
@@ -477,6 +493,15 @@
       "replace": "Remplacer",
       "applied": "Requête mise à jour à partir de la commande cURL.",
       "failed": "Impossible de lire la commande cURL : {message}"
+    },
+    "sendAnyway": "Envoyer quand même",
+    "noun": {
+      "parameter": "paramètre",
+      "parameters": "paramètres",
+      "header": "en-tête",
+      "headers": "en-têtes",
+      "field": "champ",
+      "pathParameter": "paramètre de chemin"
     }
   },
   "response": {
@@ -580,6 +605,33 @@
         "other": "{count} derniers événements"
       },
       "noEvents": "Aucun événement reçu."
+    },
+    "time": {
+      "justNow": "À l’instant",
+      "lessThanMinute": "Il y a moins d’une minute",
+      "last5Minutes": "Au cours des 5 dernières minutes",
+      "lastHalfHour": "Au cours de la dernière demi-heure",
+      "lastHour": "Au cours de la dernière heure",
+      "today": "Aujourd’hui",
+      "yesterday": "Hier",
+      "thisWeek": "Cette semaine",
+      "lastWeek": "La semaine dernière"
+    },
+    "image": {
+      "alt": "Image de la réponse"
+    },
+    "captured": {
+      "badge": "{count} capturé(s)"
+    },
+    "error": {
+      "connection": "Erreur de connexion",
+      "requestFailed": "Échec de la requête",
+      "unknown": "Une erreur inconnue s’est produite."
+    },
+    "download": {
+      "text": "Texte",
+      "image": "Image",
+      "binary": "Binaire"
     }
   },
   "pillEditor": {
@@ -590,7 +642,14 @@
     "availableVars": "Variables disponibles",
     "noParams": "Cette fonction n'a aucun paramètre.",
     "noVarsDefined": "Aucune variable définie",
-    "undefined": "Indéfini"
+    "undefined": "Indéfini",
+    "typeVariable": "Variable",
+    "typeFunction": "Fonction",
+    "editorAria": "Éditeur de {label}",
+    "selectRequest": "— sélectionner une requête —",
+    "emptyString": "(chaîne vide)",
+    "revealValue": "Afficher la valeur",
+    "hideValue": "Masquer la valeur"
   },
   "tree": {
     "newCollection": "Nouvelle collection",
@@ -625,7 +684,11 @@
       "title": "Générer du code",
       "target": "Cible",
       "aria": "Code généré"
-    }
+    },
+    "favorited": "Favori",
+    "favoriteHint": "Double-cliquez pour ajouter aux favoris",
+    "unfavoriteHint": "Double-cliquez pour retirer des favoris",
+    "unnamed": "(sans nom)"
   },
   "collections": {
     "title": "Collections",

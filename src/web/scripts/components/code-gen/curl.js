@@ -26,7 +26,10 @@ export const curl = {
       // One --form per field; curl sets the multipart Content-Type + boundary.
       for (const f of b.fields) {
         if (f.kind === "file") {
-          let spec = `${f.name}=${f.file}`;
+          // curl needs an `@` prefix on the path to upload a file; without it the
+          // field is sent as a literal text value (and `;type=`/`;filename=` are
+          // only valid alongside `@<file>`).
+          let spec = `${f.name}=@${f.file}`;
           if (f.contentType) spec += `;type=${f.contentType}`;
           if (f.filename) spec += `;filename=${f.filename}`;
           cmd += ` \\\n  --form ${sq(spec)}`;

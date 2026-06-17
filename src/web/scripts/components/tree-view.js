@@ -453,8 +453,16 @@ export class TreeView {
       if (!id) return; // skip quick-list rows (they use data-qa-id)
       const fav = this.#favoriteIds.has(id);
       li.classList.toggle("tree-node--favorite", fav);
-      const hot = li.querySelector(":scope > .tree-node-row > .tree-node-star");
+      const row = li.querySelector(":scope > .tree-node-row");
+      const hot = row?.querySelector(":scope > .tree-node-star");
       if (hot) this.#updateHotspot(hot, fav);
+      // Keep the visually-hidden "Favorited" label in step with the star so a
+      // screen reader doesn't announce stale state after a surgical toggle.
+      if (row) {
+        const sr = row.querySelector(":scope > .tree-node-fav-sr");
+        if (fav && !sr) row.appendChild(this.#makeSrText(t("tree.favorited")));
+        else if (!fav && sr) sr.remove();
+      }
     });
   }
 
@@ -498,7 +506,8 @@ export class TreeView {
    */
   #makeSrText(text) {
     const span = document.createElement("span");
-    span.className = "sr-only";
+    // tree-node-fav-sr lets #syncStars find + remove this label surgically.
+    span.className = "sr-only tree-node-fav-sr";
     span.textContent = text;
     return span;
   }
@@ -506,9 +515,7 @@ export class TreeView {
   /** Reflect favorite state in a hotspot: show the star glyph and its tooltip. */
   #updateHotspot(hot, favorited) {
     hot.textContent = favorited ? "★" : "";
-    hot.title = favorited
-      ? "Double-click to unfavorite"
-      : "Double-click to favorite";
+    hot.title = favorited ? t("tree.unfavoriteHint") : t("tree.favoriteHint");
   }
 
   // ── Quick-access list rendering (favorites / recents) ───────────────────
@@ -563,14 +570,14 @@ export class TreeView {
     li.innerHTML = `
       <div class="tree-node-row" tabindex="-1">
         ${this.#methodBadgeHtml(entry.protocol, entry.method)}
-        <span class="tree-node-label">${escapeHtml(entry.name || "(unnamed)")}</span>
+        <span class="tree-node-label">${escapeHtml(entry.name || t("tree.unnamed"))}</span>
       </div>
     `;
 
     const row = li.querySelector(".tree-node-row");
     if (isFav) {
       row.insertBefore(this.#makeFavHotspot(entry.requestId), row.firstChild);
-      row.appendChild(this.#makeSrText("Favorited"));
+      row.appendChild(this.#makeSrText(t("tree.favorited")));
     }
     const open = () =>
       window.dispatchEvent(
@@ -1589,7 +1596,7 @@ export class TreeView {
       const row = li.querySelector(".tree-node-row");
       row.insertBefore(this.#makeFavHotspot(node.id), row.firstChild);
       // The star is aria-hidden; surface the favorite state to screen readers.
-      if (isFav) row.appendChild(this.#makeSrText("Favorited"));
+      if (isFav) row.appendChild(this.#makeSrText(t("tree.favorited")));
       // Restore the stop/spinner control when re-rendering mid-flight (the
       // class alone was re-applied above; the control is a real element).
       if (this.#loadingIds.has(node.id)) {
@@ -1853,6 +1860,10 @@ export class TreeView {
       case "ArrowLeft":
         e.preventDefault();
         this.#collapseOrLeave(row);
+        break;
+      // Space is owned by the per-row activation handler (select-only); keep it
+      // out of type-ahead so it doesn't pollute the search buffer.
+      case " ":
         break;
       default:
         // A single printable character (no modifier) drives type-ahead.

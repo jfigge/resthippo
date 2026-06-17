@@ -77,6 +77,8 @@ class TreeStore {
 function _validateTreeRefs(nodes, collectionId, paths) {
   for (const node of nodes) {
     if (node.type === "requestRef") {
+      // Reject traversal/forbidden ids before they reach the request file path.
+      validateID(node.id, "requestId");
       const p = paths.requestPath(collectionId, node.id);
       if (!exists(p)) {
         throw notFoundError(

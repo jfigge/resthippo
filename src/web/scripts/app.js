@@ -1034,6 +1034,41 @@ const envPopupState = () => ({
   bulkEditor: currentSettings.varsBulkEditor ?? true,
 });
 
+/**
+ * Native context menu for the collection title / collection buttons: rename the
+ * active collection, or edit its variables. Reuses the CollectionsPopup (rename)
+ * and VariablesPopup (variables) that the rest of the header wiring already drives.
+ */
+async function _showCollContextMenu(x, y) {
+  const actions = {
+    rename: () => envPopup.openWithRename(envPopupState()),
+    variables: () => {
+      const activeColl = currentColls.collections.find(
+        (c) => c.id === currentColls.activeCollectionId,
+      );
+      if (!activeColl) return;
+      varsPopup.open({
+        envId: activeColl.id,
+        envName: activeColl.name,
+        variables: activeColl.variables ?? [],
+        bulkEditor: currentSettings.varsBulkEditor ?? true,
+      });
+    },
+  };
+
+  const clickedId = await window.wurl.ui.contextMenu.show({
+    items: [
+      { id: "rename", label: t("tree.menu.rename") },
+      { type: "separator" },
+      { id: "variables", label: t("tree.menu.variables") },
+    ],
+    x,
+    y,
+  });
+
+  if (clickedId) actions[clickedId]?.();
+}
+
 function initHeader() {
   document.getElementById("btn-settings").addEventListener("click", () => {
     settingsPopup.open(currentSettings);

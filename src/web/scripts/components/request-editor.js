@@ -1012,8 +1012,8 @@ export class RequestEditor {
       const isJson = this.#wsMessageFormat === "json";
       fmt.innerHTML = icon(isJson ? "json" : "text", { size: 14 });
       const label = isJson
-        ? "JSON message — switch to text"
-        : "Text message — switch to JSON";
+        ? t("request.ws.msgFormatToText")
+        : t("request.ws.msgFormatToJson");
       fmt.title = label;
       fmt.setAttribute("aria-label", label);
     };
@@ -1167,12 +1167,12 @@ export class RequestEditor {
       const open = state === "open";
       const closing = state === "closing";
       this.#wsConnectBtn.textContent = open
-        ? "Disconnect"
+        ? t("request.ws.disconnect")
         : state === "connecting"
-          ? "Connecting…"
+          ? t("request.ws.connecting")
           : closing
-            ? "Disconnecting…"
-            : "Connect";
+            ? t("request.ws.disconnecting")
+            : t("request.ws.connect");
       this.#wsConnectBtn.classList.toggle(
         "req-send-btn--cancel",
         open || closing,
@@ -1892,8 +1892,8 @@ export class RequestEditor {
       typeToggle.className = "icon-btn bf-type-toggle";
       typeToggle.innerHTML = icon(isFile ? "file" : "text", { size: 14 });
       const label = isFile
-        ? "File field — switch to text"
-        : "Text field — switch to file";
+        ? t("request.fields.typeToText")
+        : t("request.fields.typeToFile");
       typeToggle.title = label;
       typeToggle.setAttribute("aria-label", label);
       typeToggle.addEventListener("click", () => {
@@ -1912,7 +1912,7 @@ export class RequestEditor {
 
     return this.#buildKvRow({
       item: row,
-      noun: "field",
+      noun: t("request.noun.field"),
       name: nameEditor.element,
       value: valueEl,
       drag: this.#bfDrag,
@@ -2804,7 +2804,7 @@ export class RequestEditor {
     if (!sdl) return;
     window.wurl?.export?.file?.save("schema.graphql", sdl, [
       { name: "GraphQL Schema", extensions: ["graphql", "gql"] },
-      { name: "All Files", extensions: ["*"] },
+      { name: t("common.allFiles"), extensions: ["*"] },
     ]);
   }
 
@@ -3008,16 +3008,19 @@ export class RequestEditor {
 
     const addBtn = document.createElement("button");
     addBtn.className = "icon-btn params-toolbar-btn";
-    addBtn.title = `Add ${o.noun}`;
-    addBtn.setAttribute("aria-label", `Add ${o.noun}`);
+    addBtn.title = t("kv.add", { noun: o.noun });
+    addBtn.setAttribute("aria-label", t("kv.add", { noun: o.noun }));
     addBtn.innerHTML = `<span class="icon">${icon("add", { size: 15 })}</span>`;
     addBtn.addEventListener("click", () => o.onAdd());
 
     const delAllBtn = document.createElement("button");
     delAllBtn.className =
       "params-toolbar-btn params-toolbar-btn--danger params-delete-all-btn";
-    delAllBtn.title = `Delete all ${o.nounPlural}`;
-    delAllBtn.setAttribute("aria-label", `Delete all ${o.nounPlural}`);
+    delAllBtn.title = t("kv.deleteAllNoun", { noun: o.nounPlural });
+    delAllBtn.setAttribute(
+      "aria-label",
+      t("kv.deleteAllNoun", { noun: o.nounPlural }),
+    );
     delAllBtn.textContent = t("kv.deleteAll");
 
     // Inline confirm: first click → "Confirm?"; second click → delete all.
@@ -3103,14 +3106,14 @@ export class RequestEditor {
     } = this.#buildKvEditor({
       bulkMode: this.#paramsBulkMode,
       onBulkToggle: (checked) => this.#handleParamsBulkToggle(checked),
-      noun: "parameter",
-      nounPlural: "parameters",
+      noun: t("request.noun.parameter"),
+      nounPlural: t("request.noun.parameters"),
       onAdd: () => this.#addParam(),
       getCount: () => this.#params.length,
       onDeleteAll: () => this.#deleteAllParams(),
       nameColLabel: t("kv.name"),
       bulkPlaceholder: "name=value\nparam1=foo\nparam2=bar\n# disabled=row",
-      bulkAriaLabel: "Parameters bulk editor",
+      bulkAriaLabel: t("request.params.bulkAria"),
       onBulkInput: (value) => {
         this.#params = this.#textToKvRows(value);
         this.#updateUrlPreview();
@@ -3136,7 +3139,7 @@ export class RequestEditor {
   #buildHeadersEditor() {
     // Right-side toggle: show standard header-name suggestions
     const { label: listHdrLabel } = this.#buildToolbarToggle({
-      text: " List Headers",
+      text: " " + t("request.headers.listHeaders"),
       title: t("request.headers.suggestTitle"),
       id: "list-headers-toggle",
       checked: this.#headerSuggestionsEnabled,
@@ -3166,15 +3169,15 @@ export class RequestEditor {
     } = this.#buildKvEditor({
       bulkMode: this.#headersBulkMode,
       onBulkToggle: (checked) => this.#handleHeadersBulkToggle(checked),
-      noun: "header",
-      nounPlural: "headers",
+      noun: t("request.noun.header"),
+      nounPlural: t("request.noun.headers"),
       onAdd: () => this.#addHeader(),
       getCount: () => this.#headers.length,
       onDeleteAll: () => this.#deleteAllHeaders(),
       nameColLabel: t("kv.header"),
       bulkPlaceholder:
         "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped",
-      bulkAriaLabel: "Headers bulk editor",
+      bulkAriaLabel: t("request.headers.bulkAria"),
       onBulkInput: (value) => {
         this.#headers = this.#textToHeaderRows(value);
         this.#dispatchHeadersUpdated();
@@ -3412,7 +3415,7 @@ export class RequestEditor {
     return this.#buildKvRow({
       item: header,
       index,
-      noun: "header",
+      noun: t("request.noun.header"),
       name: headerInput,
       value: valueEditor.element,
       drag: this.#headersDrag,
@@ -3553,7 +3556,7 @@ export class RequestEditor {
 
     return this.#buildKvRow({
       item: pp,
-      noun: "path parameter",
+      noun: t("request.noun.pathParameter"),
       name: nameInput,
       value: valueEditor.element,
       statusIcon,
@@ -3766,7 +3769,7 @@ export class RequestEditor {
     return this.#buildKvRow({
       item: param,
       index,
-      noun: "parameter",
+      noun: t("request.noun.parameter"),
       name: nameEditor.element,
       value: valueEditor.element,
       drag: this.#paramsDrag,
@@ -4078,7 +4081,7 @@ export class RequestEditor {
       if (badCount > 0) {
         PopupManager.warnVariables({
           variables: allVars,
-          actionLabel: "Send Anyway",
+          actionLabel: t("request.sendAnyway"),
           onAction: () => this.#sendRequest(true),
         });
         return;
@@ -4314,6 +4317,7 @@ export class RequestEditor {
       ...this.#paramPillEditors,
       ...this.#headerPillEditors,
       ...this.#bodyFormPillEditors,
+      ...this.#codeEditors,
     ].filter(Boolean);
     for (const editor of allEditors) {
       editor.revalidate();
@@ -4442,6 +4446,7 @@ export class RequestEditor {
     if (node.method && this.#methodSel) {
       this.#method = node.method;
       this.#methodSelLabel.textContent = node.method;
+      this.#methodSel.title = node.method; // keep the icon-mode tooltip in step
       this.#methodSel.dataset.method = node.method.toLowerCase();
       this.#sendBtn.dataset.method = node.method.toLowerCase();
     }
@@ -4544,6 +4549,7 @@ export class RequestEditor {
     this.#bodyGraphqlQuery = node.bodyGraphql?.query ?? "";
     this.#bodyGraphqlVariables = node.bodyGraphql?.variables ?? "";
     this.#graphqlSchema = null;
+    this.#graphqlIntrospection = null;
     // Sync the select element if the body tab has been built
     const sel = this.#el.querySelector(".body-type-select");
     if (sel) sel.value = this.#bodyType;

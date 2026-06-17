@@ -284,7 +284,8 @@ function renderThemeList() {
 
 function makeThemeItem(theme, isBuiltIn) {
   const li = document.createElement("li");
-  li.className = "theme-item" + (_selectedId === theme.id ? " selected" : "");
+  li.className =
+    "theme-item" + (_selectedId === theme.id ? " theme-item--selected" : "");
   li.dataset.id = theme.id;
 
   const swatch = document.createElement("span");

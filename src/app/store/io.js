@@ -241,6 +241,26 @@ function gcOrphanTempFiles(dir, opts = {}) {
 const FORBIDDEN_ID_RE = /[/\\<>:"|?*\x00-\x1f]/;
 
 /**
+ * Whether `id` is safe to use as a filename component (non-empty string, not
+ * "."/".."/and free of path separators or other forbidden characters). The
+ * non-throwing counterpart to validateID, for callers that ingest ids from
+ * untrusted data (a tampered tree.json, an imported backup) and want to skip a
+ * bad ref rather than abort the whole operation.
+ *
+ * @param {unknown} id
+ * @returns {boolean}
+ */
+function isValidID(id) {
+  return (
+    typeof id === "string" &&
+    id !== "" &&
+    id !== "." &&
+    id !== ".." &&
+    !FORBIDDEN_ID_RE.test(id)
+  );
+}
+
+/**
  * Validate that `id` is safe to use as a filename component.
  * Throws an error (code "INVALID_ID") on failure.
  *
@@ -253,7 +273,7 @@ function validateID(id, label = "id") {
     err.code = "INVALID_ID";
     throw err;
   }
-  if (id === "." || id === ".." || FORBIDDEN_ID_RE.test(id)) {
+  if (!isValidID(id)) {
     const err = new Error(`invalid ${label}: contains forbidden characters`);
     err.code = "INVALID_ID";
     throw err;
@@ -291,6 +311,7 @@ module.exports = {
   gcOrphanTempFiles,
   isTempFileName,
   newTempPath,
+  isValidID,
   validateID,
   newUUID,
   notFoundError,

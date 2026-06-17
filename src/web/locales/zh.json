@@ -17,7 +17,8 @@
     "variables": "变量",
     "copy": "复制",
     "copied": "已复制",
-    "download": "下载"
+    "download": "下载",
+    "allFiles": "所有文件"
   },
   "app": {
     "wsOpen": "WebSocket 连接已打开",
@@ -188,7 +189,12 @@
     "name": "名称",
     "value": "值",
     "header": "标头",
-    "varsHint": "每行一个  name=value · 前缀  $  表示机密"
+    "varsHint": "每行一个  name=value · 前缀  $  表示机密",
+    "add": "添加{noun}",
+    "deleteAllNoun": "删除所有{noun}",
+    "delete": "删除{noun}",
+    "enable": "启用{noun}",
+    "disable": "禁用{noun}"
   },
   "menu": {
     "cut": "剪切",
@@ -356,12 +362,17 @@
       "urlAria": "WebSocket URL",
       "connect": "连接",
       "connectAria": "连接 WebSocket",
+      "disconnect": "断开",
+      "connecting": "连接中…",
+      "disconnecting": "断开中…",
       "send": "发送",
       "sendAria": "发送消息",
       "messagePlaceholder": "要发送的消息…（支持 {{variables}}）",
       "subprotoPlaceholder": "子协议（可选，以逗号分隔）",
       "subprotoAria": "WebSocket 子协议",
-      "hint": "先连接，再发送。⌘/Ctrl+Enter 发送。"
+      "hint": "先连接，再发送。⌘/Ctrl+Enter 发送。",
+      "msgFormatToText": "JSON 消息 — 切换为文本",
+      "msgFormatToJson": "文本消息 — 切换为 JSON"
     },
     "notes": {
       "placeholder": "添加关于此请求的自由备注…",
@@ -389,7 +400,9 @@
       "bulkAria": "表单字段批量编辑器",
       "empty": "暂无字段——点击  +  添加。",
       "nameAria": "字段名称",
-      "valueAria": "字段值"
+      "valueAria": "字段值",
+      "typeToText": "文件字段 — 切换为文本",
+      "typeToFile": "文本字段 — 切换为文件"
     },
     "file": {
       "drop": "将文件拖放到此处",
@@ -426,12 +439,15 @@
       "empty": "暂无标头——点击  +  添加。",
       "nameAria": "标头名称",
       "valueAria": "标头值",
-      "suggestTitle": "编辑标头名称时显示标准标头建议"
+      "suggestTitle": "编辑标头名称时显示标准标头建议",
+      "bulkAria": "标头批量编辑器",
+      "listHeaders": "列出标头"
     },
     "params": {
       "empty": "暂无参数——点击  +  添加。",
       "nameAria": "参数名称",
-      "valueAria": "参数值"
+      "valueAria": "参数值",
+      "bulkAria": "参数批量编辑器"
     },
     "pathParams": {
       "label": "路径参数",
@@ -477,6 +493,15 @@
       "replace": "替换",
       "applied": "已根据 cURL 命令更新请求。",
       "failed": "无法读取 cURL 命令：{message}"
+    },
+    "sendAnyway": "仍然发送",
+    "noun": {
+      "parameter": "参数",
+      "parameters": "参数",
+      "header": "标头",
+      "headers": "标头",
+      "field": "字段",
+      "pathParameter": "路径参数"
     }
   },
   "response": {
@@ -580,6 +605,33 @@
         "other": "最近 {count} 个事件"
       },
       "noEvents": "未接收到任何事件。"
+    },
+    "time": {
+      "justNow": "刚刚",
+      "lessThanMinute": "不到一分钟前",
+      "last5Minutes": "最近5分钟内",
+      "lastHalfHour": "最近半小时内",
+      "lastHour": "最近一小时内",
+      "today": "今天",
+      "yesterday": "昨天",
+      "thisWeek": "本周",
+      "lastWeek": "上周"
+    },
+    "image": {
+      "alt": "响应图片"
+    },
+    "captured": {
+      "badge": "已捕获 {count} 个"
+    },
+    "error": {
+      "connection": "连接错误",
+      "requestFailed": "请求失败",
+      "unknown": "发生未知错误。"
+    },
+    "download": {
+      "text": "文本",
+      "image": "图片",
+      "binary": "二进制"
     }
   },
   "pillEditor": {
@@ -590,7 +642,14 @@
     "availableVars": "可用变量",
     "noParams": "此函数没有参数。",
     "noVarsDefined": "未定义任何变量",
-    "undefined": "未定义"
+    "undefined": "未定义",
+    "typeVariable": "变量",
+    "typeFunction": "函数",
+    "editorAria": "{label}编辑器",
+    "selectRequest": "— 选择请求 —",
+    "emptyString": "（空字符串）",
+    "revealValue": "显示值",
+    "hideValue": "隐藏值"
   },
   "tree": {
     "newCollection": "新建集合",
@@ -625,7 +684,11 @@
       "title": "生成代码",
       "target": "目标",
       "aria": "生成的代码"
-    }
+    },
+    "favorited": "已收藏",
+    "favoriteHint": "双击以收藏",
+    "unfavoriteHint": "双击以取消收藏",
+    "unnamed": "（未命名）"
   },
   "collections": {
     "title": "集合",

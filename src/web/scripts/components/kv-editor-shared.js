@@ -404,10 +404,12 @@ export function buildKvRow({
     checkbox.className = "params-checkbox";
     checkbox.checked = item.enabled;
     const syncCbTitle = () => {
-      checkbox.title = item.enabled ? `Disable ${noun}` : `Enable ${noun}`;
+      checkbox.title = item.enabled
+        ? t("kv.disable", { noun })
+        : t("kv.enable", { noun });
     };
     syncCbTitle();
-    checkbox.setAttribute("aria-label", `Enable ${noun}`);
+    checkbox.setAttribute("aria-label", t("kv.enable", { noun }));
     checkbox.addEventListener("change", () => {
       item.enabled = checkbox.checked;
       syncCbTitle();
@@ -420,8 +422,8 @@ export function buildKvRow({
   // ── Delete button ────────────────────────────────────────────────────
   const deleteBtn = document.createElement("button");
   deleteBtn.className = "icon-btn params-delete-btn";
-  deleteBtn.title = `Delete ${noun}`;
-  deleteBtn.setAttribute("aria-label", `Delete ${noun}`);
+  deleteBtn.title = t("kv.delete", { noun });
+  deleteBtn.setAttribute("aria-label", t("kv.delete", { noun }));
   wireDeleteConfirm(deleteBtn, onDelete);
 
   // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
