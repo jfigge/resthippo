@@ -30,6 +30,8 @@ import { EnvPicker } from "./components/env-picker.js";
 import {
   loadAll,
   saveCollections,
+  updateRequest,
+  setActiveItems,
   saveSettings,
   saveManifest,
   loadCollectionData,
@@ -76,9 +78,11 @@ import { exportToPostman } from "./export/postman.js";
 import { exportToInsomnia } from "./export/insomnia.js";
 import { exportToOpenApi } from "./export/openapi.js";
 import { exportToHar } from "./export/har.js";
-import { BackupModal } from "./components/backup-modal.js";
 import { ExportModal } from "./components/export-modal.js";
-import { CurlImportModal } from "./components/curl-import-modal.js";
+import { installMenuHandlers } from "./event-bus/menu-handlers.js";
+import { installSettingsHandlers } from "./event-bus/settings-handlers.js";
+import { installWsHandlers } from "./event-bus/ws-handlers.js";
+import { installTimelineHandlers } from "./event-bus/timeline-handlers.js";
 import { PopupManager } from "./popup-manager.js";
 import * as i18n from "./i18n.js";
 import { t } from "./i18n.js";
@@ -129,6 +133,26 @@ let _skipNextHistory = false; // set true when replaying a history entry
 // last events. We bridge the two here, keyed by streamId.
 // streamId → { node, requestUrl, status, statusText, headers, cookies, consoleLog, sse }
 const _pendingStreams = new Map();
+
+// ─── Request / selection state ──────────────────────────────────────────────
+// Shared across the event-bus handler groups (some now in scripts/event-bus/*),
+// so it lives at module scope rather than inside initEventBus(). The extracted
+// modules read/write it through the bus context (buildBusContext); the in-file
+// core groups reference these bindings directly.
+//
+// In-flight executions, one record per running request. Requests run
+// concurrently, so each carries its own cancel flag, request snapshot, and
+// (in Go-dev mode) AbortController. Record: { requestId, snapshot, abortController, cancelled }
+const _inFlightExecs = new Set();
+// Currently selected tree node (request or folder), for context functions.
+let _selectedNode = null;
+// Response caches keyed by request name — fed into variable context for function pills.
+let _responseCache = {};
+let _responseHeaders = {};
+let _responseStatus = {};
+// Debounced granular request-edit persistence (see _scheduleRequestSave).
+let _requestSaveTimer = null;
+const _pendingRequestPatches = new Map(); // id → merged partial patch
 
 /**
  * Serialize a request node into the history snapshot format.
@@ -541,6 +565,13 @@ function initComponents() {
 /** @type {Map<string, { id: string, requestId: string|null, state: string, console: WsConsole }>} */
 const _wsConns = new Map(); // keyed by socket id
 
+// Terminal statuses (error/closed) that arrived before the renderer could
+// register the connection. An immediate failure (bad URL, unsupported scheme,
+// socket-construction throw) is pushed synchronously in main, before ws.open's
+// {id} response lets us add the _wsConns entry — so without this the status is
+// dropped and a pulsing live-dot is stranded for a socket that already died.
+const _wsPendingTerminal = new Map(); // socket id → terminal status
+
 /** Return the live entry for a given request id, or null. */
 function _connForRequest(requestId) {
   for (const entry of _wsConns.values()) {
@@ -585,7 +616,16 @@ function _setResponsePane(showWs, consoleInstance) {
 /** Route a status push to the correct connection's console. */
 function _onWsStatus(status) {
   const entry = _wsConns.get(status.id);
-  if (!entry) return;
+  if (!entry) {
+    // The connection may not be registered yet: an immediate failure is pushed
+    // synchronously in main, before ws.open's response. Remember a terminal
+    // status so the connect handler can surface it instead of registering a
+    // live-dot for a socket that already died.
+    if (status.state === "error" || status.state === "closed") {
+      _wsPendingTerminal.set(status.id, status);
+    }
+    return;
+  }
   entry.console.applyStatus(status);
   const s = status.state;
   if (["connecting", "open", "closing", "closed", "error"].includes(s)) {
@@ -695,13 +735,11 @@ function applyGridVars() {
 
 /** Persist current splitter positions into the settings document. */
 function saveSplitterPositions() {
-  currentSettings = {
-    ...currentSettings,
+  updateSettings({
     splitterNav: splitterSizes.nav,
     splitterRes: splitterSizes.res,
     splitterRowRes: splitterSizes.rowRes,
-  };
-  saveSettings(currentSettings);
+  });
 }
 
 /** Returns the #app-main element (cached after first call). */
@@ -997,7 +1035,7 @@ const settingsPopup = new SettingsPopup();
 // communication" rule in CLAUDE.md). Their callbacks close over collection /
 // environment handlers defined inside initEventBus(), so they are constructed
 // there — declared here only so initHeader() and applySettings() can reach them.
-let envPopup, varsPopup, environmentsPopup;
+let collPopup, varsPopup, environmentsPopup;
 const envPicker = new EnvPicker({
   onManage: () =>
     environmentsPopup.open(currentEnvironments, {
@@ -1007,11 +1045,25 @@ const envPicker = new EnvPicker({
 const layoutPicker = new LayoutPicker({
   onSelect: (layout) => {
     applyLayout(layout);
-    currentSettings = { ...currentSettings, layout };
-    saveSettings(currentSettings);
+    updateSettings({ layout });
   },
 });
 let currentSettings = {};
+
+/**
+ * Merge `delta` into the settings document and persist in one step, so a
+ * settings change can never be applied without being saved (the prior footgun
+ * was a bare `currentSettings = {...}` with a forgotten saveSettings()). Reads
+ * stay as direct `currentSettings` access and UI refresh stays explicit at the
+ * call site; only hydration from disk (loadAll) assigns `currentSettings`
+ * directly, since it must not persist back.
+ * @param {object} delta
+ * @returns {*} whatever saveSettings returns
+ */
+function updateSettings(delta) {
+  currentSettings = { ...currentSettings, ...delta };
+  return saveSettings(currentSettings);
+}
 
 /** Live collection state — kept in sync with data-store. */
 let currentColls = {
@@ -1028,7 +1080,7 @@ let currentEnvironments = {
 };
 
 /** Map currentColls to the shape CollectionsPopup expects. */
-const envPopupState = () => ({
+const collPopupState = () => ({
   collections: currentColls.collections,
   activeCollectionId: currentColls.activeCollectionId,
   bulkEditor: currentSettings.varsBulkEditor ?? true,
@@ -1041,15 +1093,15 @@ const envPopupState = () => ({
  */
 async function _showCollContextMenu(x, y) {
   const actions = {
-    rename: () => envPopup.openWithRename(envPopupState()),
+    rename: () => collPopup.openWithRename(collPopupState()),
     variables: () => {
       const activeColl = currentColls.collections.find(
         (c) => c.id === currentColls.activeCollectionId,
       );
       if (!activeColl) return;
       varsPopup.open({
-        envId: activeColl.id,
-        envName: activeColl.name,
+        scopeId: activeColl.id,
+        scopeName: activeColl.name,
         variables: activeColl.variables ?? [],
         bulkEditor: currentSettings.varsBulkEditor ?? true,
       });
@@ -1085,12 +1137,12 @@ function initHeader() {
 
   // Collection buttons (panel header + bottom bar)
   document.getElementById("btn-collection").addEventListener("click", () => {
-    envPopup.open(envPopupState());
+    collPopup.open(collPopupState());
   });
   document
     .getElementById("btn-collection-nav")
     .addEventListener("click", () => {
-      envPopup.open(envPopupState());
+      collPopup.open(collPopupState());
     });
 
   // Environment picker — app header (hidden with it when removeHeaders is on)
@@ -1125,6 +1177,105 @@ function initHeader() {
 }
 
 // ─── Event bus ────────────────────────────────────────────────────────────────
+
+// Classify a common network failure into a human-readable hint. Shared by the
+// request-error (installResponseHandlers) and send-request
+// (installRequestEditSendHandlers) groups, so it lives at module scope.
+function _buildHint(errName, msg) {
+  if (errName === "AbortError") return "The request was aborted.";
+  if (/cors/i.test(msg))
+    return "CORS policy blocked the request — the server may need to send Access-Control-Allow-Origin headers.";
+  if (
+    /failed to fetch|load failed|networkerror|network request failed/i.test(msg)
+  )
+    return "Could not reach the server. Check the URL, network connectivity, and whether the server is running.";
+  if (/ssl|certificate|cert/i.test(msg))
+    return "TLS/SSL certificate error — the server certificate may be self-signed or invalid.";
+  if (/timeout/i.test(msg))
+    return "The request timed out before the server responded.";
+  if (/too many redirects/i.test(msg))
+    return "The server sent too many redirects. Check for redirect loops.";
+  return "";
+}
+
+// Load a past run's response into the body/headers/cookies/console tabs without
+// recording a new history entry (sets _skipNextHistory so the resulting
+// response/error event is not re-persisted). Shared by the timeline-select
+// (view-only) handler in event-bus/timeline-handlers.js and the in-file
+// timeline-restore handler (view + replay into the editor).
+function _viewTimelineResponse(requestUrl, response) {
+  _skipNextHistory = true;
+  if (response?.error) {
+    window.dispatchEvent(
+      new CustomEvent("wurl:request-error", {
+        detail: {
+          request: response.request ?? { url: requestUrl },
+          name: response.error.name ?? "Error",
+          message: response.error.message ?? "",
+          hint: response.error.hint ?? "",
+          elapsed: response.elapsed ?? 0,
+          consoleLog: response.consoleLog ?? [],
+        },
+      }),
+    );
+  } else {
+    window.dispatchEvent(
+      new CustomEvent("wurl:response-received", {
+        detail: { ...response, request: { url: requestUrl } },
+      }),
+    );
+  }
+}
+
+/**
+ * Build the dependency context handed to the extracted event-bus handler
+ * modules (scripts/event-bus/*). Module-level state that is *reassigned* is
+ * exposed via get/set accessors so a module in another file sees live values;
+ * Maps/Sets (mutated in place) and stable function references are passed
+ * directly. The in-file core groups reference the same module-level bindings
+ * without going through this object. Built once inside initEventBus(), after
+ * the components and popups exist.
+ */
+function buildBusContext() {
+  return {
+    // Reassigned state → accessors.
+    getSelectedNode: () => _selectedNode,
+    getSettings: () => currentSettings,
+    getMaxHistory: () => _maxHistory,
+    setMaxHistory: (n) => {
+      _maxHistory = n;
+    },
+    // Components: treeView/wsConsole are reassigned at runtime, so read live.
+    getTreeView: () => treeView,
+    getWsConsole: () => wsConsole,
+    settingsPopup,
+    // Maps / Sets — mutated via methods, safe to share by reference.
+    requestHistory: _requestHistory,
+    historyLoaded: _historyLoaded,
+    wsConns: _wsConns,
+    wsPendingTerminal: _wsPendingTerminal,
+    // Stable helper references.
+    updateSettings,
+    applySettings,
+    applyCustomThemeVars: _applyCustomThemeVars,
+    dispatchTimelineUpdate: _dispatchTimelineUpdate,
+    proxyDescriptorFields: _proxyDescriptorFields,
+    closeWsConn: _closeWsConn,
+    setResponsePane: _setResponsePane,
+    connForRequest: _connForRequest,
+    getLiveRequestIds: _getLiveRequestIds,
+    viewTimelineResponse: _viewTimelineResponse,
+    deleteHistory,
+    clearHistory,
+    trimHistory,
+    // App-level command handlers (import / export).
+    handleImport,
+    handleCurlImport,
+    handleExport,
+    runWorkspaceExport,
+  };
+}
+
 function initEventBus() {
   // ── wurl:* global event registry ───────────────────────────────────────────
   // The renderer's app-wide channel. Only state changes / notifications with
@@ -1200,7 +1351,7 @@ function initEventBus() {
   // These are `function` declarations (hoisted), so referencing them here is
   // fine. handleVarsSave / handleVarsBulkEditorChange are shared by the variables
   // and collections popups, which edit the same flat variable shape.
-  envPopup = new CollectionsPopup({
+  collPopup = new CollectionsPopup({
     onSelect: handleCollSelect,
     onAdd: handleCollAdd,
     onRename: handleCollRename,
@@ -1222,7 +1373,28 @@ function initEventBus() {
     // bulk toggle was never persisted. Preserve that behavior.
   });
 
-  // When a request is selected in the tree, load it into the editor
+  // Self-contained handler groups live in their own modules and receive the
+  // shared dependency context; the deeply state-coupled core groups stay in
+  // this file (below) and reference the module-level bindings directly.
+  const ctx = buildBusContext();
+  installMenuHandlers(ctx);
+  installSettingsHandlers(ctx);
+  installWsHandlers(ctx);
+  installTimelineHandlers(ctx);
+
+  // Core handler groups: these read/write the module-level state directly, so
+  // they stay in this file, but are split into focused install functions rather
+  // than one monolithic body.
+  installSelectionHandlers();
+  installResponseHandlers();
+  installStreamHandlers();
+  installTreeQuickAccessHandlers();
+  installFolderVarsHandler();
+  installRequestEditSendHandlers();
+}
+
+// When a request is selected in the tree, load it into the editor.
+function installSelectionHandlers() {
   window.addEventListener("wurl:request-selected", async (e) => {
     const node = e.detail;
     const prevNodeId = _selectedNode?.id;
@@ -1280,9 +1452,8 @@ function initEventBus() {
         currentSettings.recents ?? [],
         makeEntry(node, currentColls.activeCollectionId),
       );
-      currentSettings = { ...currentSettings, selectedRequestIds, recents };
+      updateSettings({ selectedRequestIds, recents });
       if (treeView) treeView.setRecents(recents);
-      saveSettings(currentSettings);
     }
     // Update the timeline pane with this request's history.
     // If history has not yet been loaded from storage, load it first.
@@ -1323,93 +1494,11 @@ function initEventBus() {
     requestEditor.load(node);
     requestEditor.element.querySelector(".req-send-btn")?.click();
   });
+}
 
-  // ── WebSocket connect / send / disconnect (Feature 32) ───────────────────
-  // The editor has already resolved {{var}} tokens and built the handshake
-  // headers; here we open/close the main-process socket and mirror sent frames
-  // into the console (the server only echoes the received side).
-  window.addEventListener("wurl:ws-connect", async (e) => {
-    const { url, headers, subprotocols } = e.detail ?? {};
-    if (window.wurl?.isElectron !== true || !window.wurl.ws) {
-      wsConsole.applyStatus({
-        state: "error",
-        message: t("app.wsDesktopOnly"),
-      });
-      window.dispatchEvent(
-        new CustomEvent("wurl:ws-state", { detail: { state: "error" } }),
-      );
-      return;
-    }
-    // Close any existing connection for this request (re-connect scenario).
-    await _closeWsConn(_selectedNode?.id);
-    // Create a fresh console for this connection and swap it into the pane.
-    const newConsole = new WsConsole();
-    _setResponsePane(true, newConsole);
-    wsConsole.reset();
-    wsConsole.applyStatus({ state: "connecting" });
-    window.dispatchEvent(
-      new CustomEvent("wurl:ws-state", { detail: { state: "connecting" } }),
-    );
-    const desc = {
-      url,
-      headers,
-      subprotocols,
-      verifySsl: currentSettings.verifySsl ?? true,
-      timeout: currentSettings.timeout ?? 30000,
-      ..._proxyDescriptorFields(currentSettings),
-    };
-    try {
-      const { id } = await window.wurl.ws.open(desc);
-      _wsConns.set(id, {
-        id,
-        requestId: _selectedNode?.id ?? null,
-        state: "connecting",
-        console: newConsole,
-      });
-      treeView?.setWsLiveIds(_getLiveRequestIds());
-    } catch (err) {
-      wsConsole.applyStatus({
-        state: "error",
-        message: err?.message ?? "Failed to open socket.",
-      });
-      window.dispatchEvent(
-        new CustomEvent("wurl:ws-state", { detail: { state: "error" } }),
-      );
-    }
-  });
-
-  window.addEventListener("wurl:ws-send", async (e) => {
-    const entry = _connForRequest(_selectedNode?.id);
-    if (!entry || !window.wurl?.ws) return;
-    const data = e.detail?.data ?? "";
-    const res = await window.wurl.ws.send({ id: entry.id, data });
-    if (res?.ok) {
-      entry.console.addFrame({ direction: "sent", data, ts: Date.now() });
-    } else {
-      entry.console.applyStatus({
-        state: "system",
-        message: `Send failed: ${res?.reason ?? "unknown"}`,
-      });
-    }
-  });
-
-  window.addEventListener("wurl:ws-disconnect", async () => {
-    const entry = _connForRequest(_selectedNode?.id);
-    if (!entry || !window.wurl?.ws) return;
-    entry.state = "closing";
-    entry.console.applyStatus({ state: "closing" });
-    window.dispatchEvent(
-      new CustomEvent("wurl:ws-state", { detail: { state: "closing" } }),
-    );
-    await window.wurl.ws.close({
-      id: entry.id,
-      code: 1000,
-      reason: "client",
-    });
-    // The "closed" push removes the entry and updates the console + editor.
-  });
-
-  // Cache response data so function pills like response() / responseHeader() can resolve
+// Cache response data so function pills like response() / responseHeader() can
+// resolve; record real (non-replay) runs and failures into per-request history.
+function installResponseHandlers() {
   window.addEventListener("wurl:response-received", async (e) => {
     // Capture and reset the skip flag immediately so it is never left stale.
     const skipHistory = _skipNextHistory;
@@ -1631,12 +1720,17 @@ function initEventBus() {
     }
     if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
   });
+}
 
-  // Live streaming runs (Feature 33): write exactly one Timeline record when a
-  // stream ends — cleanly, stopped, or errored. The streaming marker stashed the
-  // request / status / headers under _pendingStreams (keyed by streamId); the
-  // end/error push adds the duration, counts, and last events. Unlike a buffered
-  // response there is no body to persist, so a compact summary stands in for it.
+// Live streaming runs (Feature 33): record exactly one Timeline entry per stream
+// when it ends. _recordStreamRun is private to this group (only the stream-end /
+// stream-error listeners below call it).
+function installStreamHandlers() {
+  // Write exactly one Timeline record when a stream ends — cleanly, stopped, or
+  // errored. The streaming marker stashed the request / status / headers under
+  // _pendingStreams (keyed by streamId); the end/error push adds the duration,
+  // counts, and last events. Unlike a buffered response there is no body to
+  // persist, so a compact summary stands in for it.
   async function _recordStreamRun(d, { errored = false } = {}) {
     const sid = d?.streamId;
     if (!sid) return;
@@ -1732,7 +1826,11 @@ function initEventBus() {
   window.addEventListener("wurl:stream-error", (e) =>
     _recordStreamRun(e.detail, { errored: true }),
   );
+}
 
+// Tree mutations, request deletion, favorites/recents, opening a request from
+// the quick-access lists, the cleared-editor reset, and timeline restore.
+function installTreeQuickAccessHandlers() {
   // Auto-save whenever the tree is mutated (add / remove collection or request)
   window.addEventListener("wurl:collections-changed", (e) => {
     saveCollections(e.detail);
@@ -1740,39 +1838,6 @@ function initEventBus() {
     // method changes, and any deletions reflected in the new tree.
     reconcileQuickAccess(e.detail);
   });
-
-  // Import a collection from an external file (Postman / Insomnia / OpenAPI / HAR).
-  // Triggered by the toolbar button in tree-view or the File > Import menu item.
-  window.addEventListener("wurl:import-requested", () => handleImport());
-
-  // Import a single request from a pasted cURL command. Triggered by the
-  // File > "Import from cURL" menu item; opens a paste-box modal.
-  window.addEventListener("wurl:import-curl-requested", () =>
-    CurlImportModal.open(handleCurlImport),
-  );
-
-  // Whole-workspace backup create/restore. Triggered by the File menu items,
-  // which signal the renderer so the theme-styled BackupModal can collect the
-  // secret mode and any password before main does the file I/O and encryption.
-  window.addEventListener("wurl:backup-export-requested", () =>
-    BackupModal.openExport(),
-  );
-  window.addEventListener("wurl:backup-import-requested", () =>
-    BackupModal.openImport(),
-  );
-
-  // Export a collection to an interchange file (Postman / Insomnia / OpenAPI /
-  // HAR). Triggered by "Export…" in the collection context menu; opens the
-  // format picker, which calls back into runCollectionExport.
-  window.addEventListener("wurl:export-collection", (e) =>
-    handleExport(e.detail.collection),
-  );
-
-  // Export every collection to one interchange file. Triggered by the
-  // "Export All Collections…" File-menu item.
-  window.addEventListener("wurl:export-all-requested", () =>
-    ExportModal.openWorkspace((format) => runWorkspaceExport(format)),
-  );
 
   // Delete the backing request file(s) when a node is removed from the tree.
   // Fired by tree-view after #deleteNode; ids contains every request under the
@@ -1798,9 +1863,8 @@ function initEventBus() {
       ? addFavorite(current, makeEntry(node, currentColls.activeCollectionId))
       : removeIds(current, new Set([node.id]));
     if (favorites === current) return; // no-op (already in desired state)
-    currentSettings = { ...currentSettings, favorites };
+    updateSettings({ favorites });
     if (treeView) treeView.setFavorites(favorites);
-    saveSettings(currentSettings);
   });
 
   // Open a request from the Favorites / Recents lists. Switches to the owning
@@ -1817,134 +1881,10 @@ function initEventBus() {
     if (treeView) treeView.focusRequest(requestId);
   });
 
-  // Remove a single timeline entry (the ✕ on a timeline row). Updates the
-  // in-memory list, deletes the on-disk metadata + response payload, then
-  // re-dispatches so the timeline pane re-renders.
-  window.addEventListener("wurl:timeline-delete-entry", (e) => {
-    const { requestId, historyId } = e.detail ?? {};
-    if (!requestId || !historyId) return;
-    const entries = _requestHistory.get(requestId);
-    if (entries) {
-      const idx = entries.findIndex((en) => en.id === historyId);
-      if (idx >= 0) entries.splice(idx, 1);
-    }
-    deleteHistory(requestId, historyId);
-    if (requestId === _selectedNode?.id) _dispatchTimelineUpdate(requestId);
-  });
-
-  // Clear a request's entire run history. Fired by the "Delete All" button on
-  // the latest timeline entry and by the tree "Clear Run History" context item.
-  // Removes every on-disk history + response file for the request.
-  window.addEventListener("wurl:timeline-clear", (e) => {
-    const requestId = e.detail?.requestId;
-    if (!requestId) return;
-    _requestHistory.set(requestId, []);
-    _historyLoaded.add(requestId);
-    clearHistory(requestId);
-    if (requestId === _selectedNode?.id) _dispatchTimelineUpdate(requestId);
-  });
-
   // Reset the editor when the last request is deleted and there is nothing left to select.
   window.addEventListener("wurl:request-cleared", () => {
     _selectedNode = null;
     _clearRequestEditor();
-  });
-
-  // Persist settings immediately whenever any control in the popup changes.
-  // Merge into currentSettings so fields not emitted by the popup (splitters,
-  // selectedRequestIds, historyCount) are not silently dropped on each save.
-  window.addEventListener("wurl:settings-changed", (e) => {
-    const prevLocale = currentSettings.locale ?? "system";
-    currentSettings = { ...currentSettings, ...e.detail };
-    applySettings(currentSettings);
-    const saved = saveSettings(currentSettings);
-    if (e.detail.historyCount !== undefined) {
-      _maxHistory = e.detail.historyCount;
-    }
-    // A language change can't be retro-applied to already-rendered, imperatively
-    // built DOM piecemeal, so reload the window: every string re-resolves against
-    // the new catalog at startup (main reads settings.locale — hence the reload
-    // waits for the save to settle). Settings persist above and request edits
-    // autosave, so the reload loses nothing.
-    if (e.detail.locale !== undefined && e.detail.locale !== prevLocale) {
-      Promise.resolve(saved).finally(() => window.location.reload());
-    }
-  });
-
-  // Trim all per-request histories to the new max (fired only on settings Close click)
-  window.addEventListener("wurl:history-trim", (e) => {
-    _maxHistory = Math.max(
-      0,
-      Math.min(10, e.detail?.historyCount ?? _maxHistory),
-    );
-    for (const [id, entries] of _requestHistory.entries()) {
-      while (entries.length > _maxHistory) {
-        const old = entries.pop();
-        if (old?.id) deleteHistory(id, old.id);
-      }
-      if (_maxHistory === 0) _requestHistory.delete(id);
-    }
-    // Sweep on-disk history for requests not yet loaded into _requestHistory.
-    trimHistory(_maxHistory).catch(console.error);
-    _dispatchTimelineUpdate(_selectedNode?.id);
-  });
-
-  window.addEventListener("wurl:theme-preview", (e) => {
-    if (e.detail) _applyCustomThemeVars(e.detail);
-    else applySettings(currentSettings);
-  });
-
-  window.addEventListener("wurl:custom-themes-changed", (e) => {
-    currentSettings = { ...currentSettings, customThemes: e.detail };
-    settingsPopup.refreshThemeList(e.detail);
-    saveSettings(currentSettings);
-  });
-
-  window.addEventListener("wurl:theme-apply", (e) => {
-    currentSettings = { ...currentSettings, theme: e.detail };
-    applySettings(currentSettings);
-    saveSettings(currentSettings);
-    settingsPopup.load({
-      theme: e.detail,
-      customThemes: currentSettings.customThemes,
-    });
-  });
-
-  // Replay a historical entry: restore the request editor state and display the
-  // saved response without actually re-running the request.
-  // Load a past run's response into the body/headers/cookies/console tabs
-  // without recording a new history entry. Shared by timeline-select (view) and
-  // timeline-restore (view + replay into the editor).
-  function _viewTimelineResponse(requestUrl, response) {
-    _skipNextHistory = true;
-    if (response?.error) {
-      window.dispatchEvent(
-        new CustomEvent("wurl:request-error", {
-          detail: {
-            request: response.request ?? { url: requestUrl },
-            name: response.error.name ?? "Error",
-            message: response.error.message ?? "",
-            hint: response.error.hint ?? "",
-            elapsed: response.elapsed ?? 0,
-            consoleLog: response.consoleLog ?? [],
-          },
-        }),
-      );
-    } else {
-      window.dispatchEvent(
-        new CustomEvent("wurl:response-received", {
-          detail: { ...response, request: { url: requestUrl } },
-        }),
-      );
-    }
-  }
-
-  // Selecting a timeline entry is non-destructive: show its response, but leave
-  // the live request editor untouched (the snapshot is shown in the timeline
-  // detail panel instead).
-  window.addEventListener("wurl:timeline-select", (e) => {
-    const { requestUrl = "", response } = e.detail;
-    _viewTimelineResponse(requestUrl, response);
   });
 
   // Restoring (the right-click action) replays the snapshot back into the editor
@@ -1956,521 +1896,545 @@ function initEventBus() {
       const { id, ...nodeFields } = restoredNode;
       treeView.updateNode(id, nodeFields, { silent: true });
       _selectedNode = { ..._selectedNode, id, ...nodeFields };
-      _scheduleRequestSave();
+      _scheduleRequestSave(id, nodeFields);
     }
     _viewTimelineResponse(requestUrl, response);
   });
+}
 
-  // When the request editor fires a preference change (e.g. List Headers toggle),
-  // merge into currentSettings and persist.
-  window.addEventListener("wurl:editor-setting-changed", (e) => {
-    currentSettings = { ...currentSettings, ...e.detail };
-    saveSettings(currentSettings);
+// ── Collection / variable / capture helpers ─────────────────────────────────
+// Module-level so they are shared by the editor-popup callbacks (wired in
+// initEventBus) and by the handler groups above/below.
+
+/**
+ * Switch the active collection: persist the current tree, load the target
+ * collection's items + variables, and refresh the dependent UI. Does NOT
+ * restore a selected request — callers decide what to focus afterwards.
+ * @param {string} id
+ */
+async function activateCollection(id) {
+  // Persist the current collection's items before switching
+  if (treeView)
+    await saveCollectionData(
+      currentColls.activeCollectionId,
+      treeView.getItems(),
+    );
+
+  setActiveCollection(id);
+  currentColls = { ...currentColls, activeCollectionId: id };
+
+  await saveManifest({
+    collections: currentColls.collections,
+    activeCollectionId: id,
   });
 
-  // ── Collection events ────────────────────────────────────────────────────
+  const { items, variables } = await loadCollectionData(id);
+  treeView.setStorageKey(id);
+  treeView.setItems(items);
 
-  /**
-   * Switch the active collection: persist the current tree, load the target
-   * collection's items + variables, and refresh the dependent UI. Does NOT
-   * restore a selected request — callers decide what to focus afterwards.
-   * @param {string} id
-   */
-  async function activateCollection(id) {
-    // Persist the current collection's items before switching
-    if (treeView)
-      await saveCollectionData(
-        currentColls.activeCollectionId,
-        treeView.getItems(),
-      );
+  // Attach variables to the collection entry in memory
+  currentColls = {
+    ...currentColls,
+    collections: currentColls.collections.map((coll) =>
+      coll.id === id ? { ...coll, variables: variables ?? [] } : coll,
+    ),
+  };
 
-    setActiveCollection(id);
-    currentColls = { ...currentColls, activeCollectionId: id };
+  setNavPanelTitle(_collName(currentColls.collections, id));
+  collPopup.update(collPopupState());
+  _refreshEditorVariableContext();
+}
 
-    await saveManifest({
-      collections: currentColls.collections,
-      activeCollectionId: id,
-    });
+/** Switch the active collection: save current items, load new ones. */
+async function handleCollSelect({ id }) {
+  if (id === currentColls.activeCollectionId) return;
 
-    const { items, variables } = await loadCollectionData(id);
-    treeView.setStorageKey(id);
-    treeView.setItems(items);
+  await activateCollection(id);
 
-    // Attach variables to the collection entry in memory
-    currentColls = {
-      ...currentColls,
-      collections: currentColls.collections.map((coll) =>
-        coll.id === id ? { ...coll, variables: variables ?? [] } : coll,
-      ),
-    };
-
-    setNavPanelTitle(_collName(currentColls.collections, id));
-    envPopup.update(envPopupState());
-    _refreshEditorVariableContext();
+  // Restore previously selected request for this collection, or clear if none
+  const savedId = currentSettings.selectedRequestIds?.[id];
+  if (!savedId || !treeView.selectById(savedId)) {
+    _selectedNode = null;
+    _clearRequestEditor();
   }
+}
 
-  /** Switch the active collection: save current items, load new ones. */
-  async function handleCollSelect({ id }) {
-    if (id === currentColls.activeCollectionId) return;
+/** Add a new (empty) collection and switch to it. */
+async function handleCollAdd({ name }) {
+  const newColl = { id: crypto.randomUUID(), name, sendCookies: true };
+  const collections = [...currentColls.collections, newColl];
 
-    await activateCollection(id);
+  // Save empty items for the new collection
+  await saveCollectionData(newColl.id, []);
 
-    // Restore previously selected request for this collection, or clear if none
-    const savedId = currentSettings.selectedRequestIds?.[id];
+  // Switch to the new collection
+  if (treeView)
+    await saveCollectionData(
+      currentColls.activeCollectionId,
+      treeView.getItems(),
+    );
+  setActiveCollection(newColl.id);
+  currentColls = { collections, activeCollectionId: newColl.id };
+
+  await saveManifest({ collections, activeCollectionId: newColl.id });
+
+  treeView.setStorageKey(newColl.id);
+  treeView.setItems([]);
+  _selectedNode = null;
+  _clearRequestEditor();
+  setNavPanelTitle(newColl.name);
+  collPopup.update(collPopupState());
+}
+
+/** Rename a collection — updates its display name everywhere without touching its items. */
+async function handleCollRename({ id, name }) {
+  const collections = currentColls.collections.map((coll) =>
+    coll.id === id ? { ...coll, name } : coll,
+  );
+  currentColls = { ...currentColls, collections };
+
+  // Persist the manifest with the new name
+  await saveManifest({
+    collections,
+    activeCollectionId: currentColls.activeCollectionId,
+  });
+
+  // If the renamed collection is active, update the nav panel title
+  if (id === currentColls.activeCollectionId) setNavPanelTitle(name);
+
+  collPopup.update(collPopupState());
+}
+
+/** Delete a collection (must always leave at least 1). */
+async function handleCollDelete({ id }) {
+  if (currentColls.collections.length <= 1) return; // guard
+
+  let collections = currentColls.collections.filter((coll) => coll.id !== id);
+  let activeId = currentColls.activeCollectionId;
+
+  // If we're deleting the active collection, switch to the first remaining one
+  if (id === activeId) {
+    activeId = collections[0].id;
+    const { items, variables } = await loadCollectionData(activeId);
+    setActiveCollection(activeId);
+    treeView.setStorageKey(activeId);
+    treeView.setItems(items);
+    const savedId = currentSettings.selectedRequestIds?.[activeId];
     if (!savedId || !treeView.selectById(savedId)) {
       _selectedNode = null;
       _clearRequestEditor();
     }
-  }
-
-  /** Add a new (empty) collection and switch to it. */
-  async function handleCollAdd({ name }) {
-    const newColl = { id: crypto.randomUUID(), name, sendCookies: true };
-    const collections = [...currentColls.collections, newColl];
-
-    // Save empty items for the new collection
-    await saveCollectionData(newColl.id, []);
-
-    // Switch to the new collection
-    if (treeView)
-      await saveCollectionData(
-        currentColls.activeCollectionId,
-        treeView.getItems(),
-      );
-    setActiveCollection(newColl.id);
-    currentColls = { collections, activeCollectionId: newColl.id };
-
-    await saveManifest({ collections, activeCollectionId: newColl.id });
-
-    treeView.setStorageKey(newColl.id);
-    treeView.setItems([]);
-    _selectedNode = null;
-    _clearRequestEditor();
-    setNavPanelTitle(newColl.name);
-    envPopup.update(envPopupState());
-  }
-
-  /** Rename a collection — updates its display name everywhere without touching its items. */
-  async function handleCollRename({ id, name }) {
-    const collections = currentColls.collections.map((coll) =>
-      coll.id === id ? { ...coll, name } : coll,
+    setNavPanelTitle(_collName(collections, activeId));
+    // Attach variables in memory
+    collections = collections.map((coll) =>
+      coll.id === activeId ? { ...coll, variables: variables ?? [] } : coll,
     );
-    currentColls = { ...currentColls, collections };
-
-    // Persist the manifest with the new name
-    await saveManifest({
-      collections,
-      activeCollectionId: currentColls.activeCollectionId,
-    });
-
-    // If the renamed collection is active, update the nav panel title
-    if (id === currentColls.activeCollectionId) setNavPanelTitle(name);
-
-    envPopup.update(envPopupState());
+  } else {
+    setActiveCollection(activeId);
   }
 
-  /** Delete a collection (must always leave at least 1). */
-  async function handleCollDelete({ id }) {
-    if (currentColls.collections.length <= 1) return; // guard
-
-    let collections = currentColls.collections.filter((coll) => coll.id !== id);
-    let activeId = currentColls.activeCollectionId;
-
-    // If we're deleting the active collection, switch to the first remaining one
-    if (id === activeId) {
-      activeId = collections[0].id;
-      const { items, variables } = await loadCollectionData(activeId);
-      setActiveCollection(activeId);
-      treeView.setStorageKey(activeId);
-      treeView.setItems(items);
-      const savedId = currentSettings.selectedRequestIds?.[activeId];
-      if (!savedId || !treeView.selectById(savedId)) {
-        _selectedNode = null;
-        _clearRequestEditor();
-      }
-      setNavPanelTitle(_collName(collections, activeId));
-      // Attach variables in memory
-      collections = collections.map((coll) =>
-        coll.id === activeId ? { ...coll, variables: variables ?? [] } : coll,
-      );
-    } else {
-      setActiveCollection(activeId);
+  currentColls = { collections, activeCollectionId: activeId };
+  await saveManifest({ collections, activeCollectionId: activeId });
+  // Reclaim the collection's on-disk directory now that the manifest no longer
+  // references it (requests, history, responses, cookies, metadata).
+  await deleteCollection(id);
+  // Drop favorites / recents that pointed into the deleted collection.
+  const favorites = removeCollection(currentSettings.favorites ?? [], id);
+  const recents = removeCollection(currentSettings.recents ?? [], id);
+  if (
+    favorites !== currentSettings.favorites ||
+    recents !== currentSettings.recents
+  ) {
+    updateSettings({ favorites, recents });
+    if (treeView) {
+      treeView.setFavorites(favorites);
+      treeView.setRecents(recents);
     }
-
-    currentColls = { collections, activeCollectionId: activeId };
-    await saveManifest({ collections, activeCollectionId: activeId });
-    // Reclaim the collection's on-disk directory now that the manifest no longer
-    // references it (requests, history, responses, cookies, metadata).
-    await deleteCollection(id);
-    // Drop favorites / recents that pointed into the deleted collection.
-    const favorites = removeCollection(currentSettings.favorites ?? [], id);
-    const recents = removeCollection(currentSettings.recents ?? [], id);
-    if (
-      favorites !== currentSettings.favorites ||
-      recents !== currentSettings.recents
-    ) {
-      currentSettings = { ...currentSettings, favorites, recents };
-      if (treeView) {
-        treeView.setFavorites(favorites);
-        treeView.setRecents(recents);
-      }
-      saveSettings(currentSettings);
-    }
-    envPopup.update(envPopupState());
   }
+  collPopup.update(collPopupState());
+}
 
-  // ── Variable handlers ────────────────────────────────────────────────────
+// ── Variable handlers ───────────────────────────────────────────────────────
 
-  /** Open the variables popup for a folder node. */
+/** Open the variables popup for a folder node (the one listener in this group). */
+function installFolderVarsHandler() {
   window.addEventListener("wurl:folder-vars-open", (e) => {
     const { nodeId, folderName, variables } = e.detail;
     varsPopup.open({
-      envId: nodeId,
-      envName: folderName,
+      scopeId: nodeId,
+      scopeName: folderName,
       variables: variables ?? [],
       bulkEditor: currentSettings.varsBulkEditor ?? true,
     });
   });
+}
 
-  /**
-   * Persist variables and keep in-memory state in sync.
-   * The `envId` field doubles as a folder-node ID when it doesn't match any
-   * collection — in that case the variables are stored on the tree node.
-   */
-  async function handleVarsSave({ envId, variables }) {
-    const isColl = currentColls.collections.some((coll) => coll.id === envId);
+/**
+ * Persist variables and keep in-memory state in sync.
+ * The `scopeId` field doubles as a folder-node ID when it doesn't match any
+ * collection — in that case the variables are stored on the tree node.
+ */
+async function handleVarsSave({ scopeId, variables }) {
+  const isColl = currentColls.collections.some((coll) => coll.id === scopeId);
 
-    if (isColl) {
-      // Update in-memory collection state
-      currentColls = {
-        ...currentColls,
-        collections: currentColls.collections.map((coll) =>
-          coll.id === envId ? { ...coll, variables } : coll,
-        ),
-      };
-      saveCollectionVariables(envId, variables);
-    } else {
-      // It's a folder node — patch the tree and persist collections
-      if (treeView) {
-        treeView.updateNode(envId, { variables }, { silent: true });
-        await saveCollections(treeView.getItems());
-      }
-    }
-
-    // Revalidate pill editors in the request panel for the updated context
-    _refreshEditorVariableContext(
-      currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
-    );
-  }
-
-  /**
-   * Persist a collection's "send cookies" flag (whether its cookie jar is
-   * attached to outgoing requests). Stored in the manifest alongside id/name.
-   */
-  async function handleCollSendCookies({ id, sendCookies }) {
-    const collections = currentColls.collections.map((coll) =>
-      coll.id === id ? { ...coll, sendCookies } : coll,
-    );
-    currentColls = { ...currentColls, collections };
-    await saveManifest({
-      collections,
-      activeCollectionId: currentColls.activeCollectionId,
-    });
-    envPopup.update(envPopupState());
-  }
-
-  /** Persist the Bulk Editor toggle preference into settings. */
-  function handleVarsBulkEditorChange({ bulkEditor }) {
-    currentSettings = {
-      ...currentSettings,
-      varsBulkEditor: bulkEditor,
+  if (isColl) {
+    // Update in-memory collection state
+    currentColls = {
+      ...currentColls,
+      collections: currentColls.collections.map((coll) =>
+        coll.id === scopeId ? { ...coll, variables } : coll,
+      ),
     };
-    saveSettings(currentSettings);
+    saveCollectionVariables(scopeId, variables);
+  } else {
+    // It's a folder node — patch the tree and persist collections
+    if (treeView) {
+      treeView.updateNode(scopeId, { variables }, { silent: true });
+      await saveCollections(treeView.getItems());
+    }
   }
 
-  // ── Environment handlers ─────────────────────────────────────────────────
+  // Revalidate pill editors in the request panel for the updated context
+  _refreshEditorVariableContext(
+    currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
+  );
+}
 
-  async function handleEnvironmentsChanged({ data }) {
-    currentEnvironments = data;
-    await saveEnvironments(currentEnvironments);
-    environmentsPopup.update(currentEnvironments);
-    _refreshEditorVariableContext();
-    envPicker.load(currentEnvironments);
-  }
+/**
+ * Persist a collection's "send cookies" flag (whether its cookie jar is
+ * attached to outgoing requests). Stored in the manifest alongside id/name.
+ */
+async function handleCollSendCookies({ id, sendCookies }) {
+  const collections = currentColls.collections.map((coll) =>
+    coll.id === id ? { ...coll, sendCookies } : coll,
+  );
+  currentColls = { ...currentColls, collections };
+  await saveManifest({
+    collections,
+    activeCollectionId: currentColls.activeCollectionId,
+  });
+  collPopup.update(collPopupState());
+}
 
-  async function handleEnvActivate({ id }) {
+/** Persist the Bulk Editor toggle preference into settings. */
+function handleVarsBulkEditorChange({ bulkEditor }) {
+  updateSettings({ varsBulkEditor: bulkEditor });
+}
+
+// ── Environment handlers ─────────────────────────────────────────────────
+
+async function handleEnvironmentsChanged({ data }) {
+  currentEnvironments = data;
+  await saveEnvironments(currentEnvironments);
+  environmentsPopup.update(currentEnvironments);
+  _refreshEditorVariableContext();
+  envPicker.load(currentEnvironments);
+}
+
+async function handleEnvActivate({ id }) {
+  currentEnvironments = {
+    ...currentEnvironments,
+    activeEnvironmentId: id,
+  };
+  await saveEnvironments(currentEnvironments);
+  environmentsPopup.update(currentEnvironments);
+  _refreshEditorVariableContext();
+  envPicker.load(currentEnvironments);
+}
+
+async function handleEnvVarsSave({ id, variables }) {
+  if (id === null) {
     currentEnvironments = {
       ...currentEnvironments,
-      activeEnvironmentId: id,
+      globalVariables: variables,
     };
-    await saveEnvironments(currentEnvironments);
-    environmentsPopup.update(currentEnvironments);
-    _refreshEditorVariableContext();
-    envPicker.load(currentEnvironments);
+  } else {
+    currentEnvironments = {
+      ...currentEnvironments,
+      environments: currentEnvironments.environments.map((env) =>
+        env.id === id ? { ...env, variables } : env,
+      ),
+    };
   }
+  await saveEnvironments(currentEnvironments);
+  _refreshEditorVariableContext();
+}
 
-  async function handleEnvVarsSave({ id, variables }) {
-    if (id === null) {
-      currentEnvironments = {
-        ...currentEnvironments,
-        globalVariables: variables,
-      };
-    } else {
-      currentEnvironments = {
-        ...currentEnvironments,
-        environments: currentEnvironments.environments.map((env) =>
-          env.id === id ? { ...env, variables } : env,
-        ),
-      };
-    }
-    await saveEnvironments(currentEnvironments);
-    _refreshEditorVariableContext();
-  }
+// ── Variable context helper ──────────────────────────────────────────────
 
-  // ── Variable context helper ──────────────────────────────────────────────
+/**
+ * Compute the current variable resolution context and push it to the
+ * request editor so its pill editors can validate {{variables}}.
+ *
+ * @param {string|null} [nodeId]  — the selected request/folder node ID;
+ *   defaults to the active collection's selectedRequestId.
+ */
+function _refreshEditorVariableContext(nodeId) {
+  if (!requestEditor) return;
+  const id =
+    nodeId ??
+    currentSettings.selectedRequestIds?.[currentColls.activeCollectionId] ??
+    null;
+  // Variables are stored canonically as arrays; the resolver consumes maps,
+  // so flatten each scope (and every folder-chain node) here at the boundary.
+  const folderChain = (
+    treeView && id ? buildFolderChain(treeView.getItems(), id) : []
+  ).map((folder) => ({
+    ...folder,
+    variables: varsArrayToMap(folder.variables),
+    // Parallel set of secret names — the map above drops the secure flag.
+    secureVariables: varsArrayToSecureSet(folder.variables),
+  }));
+  const activeColl = currentColls.collections.find(
+    (coll) => coll.id === currentColls.activeCollectionId,
+  );
+  const collectionVariables = varsArrayToMap(activeColl?.variables);
+  const secureCollectionVariables = varsArrayToSecureSet(activeColl?.variables);
+  const node =
+    _selectedNode ??
+    (id && treeView ? _findNodeById(treeView.getItems(), id) : null);
 
-  /**
-   * Compute the current variable resolution context and push it to the
-   * request editor so its pill editors can validate {{variables}}.
-   *
-   * @param {string|null} [nodeId]  — the selected request/folder node ID;
-   *   defaults to the active collection's selectedRequestId.
-   */
-  function _refreshEditorVariableContext(nodeId) {
-    if (!requestEditor) return;
-    const id =
-      nodeId ??
-      currentSettings.selectedRequestIds?.[currentColls.activeCollectionId] ??
-      null;
-    // Variables are stored canonically as arrays; the resolver consumes maps,
-    // so flatten each scope (and every folder-chain node) here at the boundary.
-    const folderChain = (
-      treeView && id ? buildFolderChain(treeView.getItems(), id) : []
-    ).map((folder) => ({
-      ...folder,
-      variables: varsArrayToMap(folder.variables),
-      // Parallel set of secret names — the map above drops the secure flag.
-      secureVariables: varsArrayToSecureSet(folder.variables),
-    }));
-    const activeColl = currentColls.collections.find(
-      (coll) => coll.id === currentColls.activeCollectionId,
-    );
-    const envVariables = varsArrayToMap(activeColl?.variables);
-    const secureEnvVariables = varsArrayToSecureSet(activeColl?.variables);
-    const node =
-      _selectedNode ??
-      (id && treeView ? _findNodeById(treeView.getItems(), id) : null);
+  const activeEnvId = currentEnvironments.activeEnvironmentId;
+  const activeEnv = currentEnvironments.environments.find(
+    (e) => e.id === activeEnvId,
+  );
+  const environmentVariables = varsArrayToMap(activeEnv?.variables);
+  const secureEnvironmentVariables = varsArrayToSecureSet(activeEnv?.variables);
+  const globalVariables = varsArrayToMap(currentEnvironments.globalVariables);
+  const secureGlobalVariables = varsArrayToSecureSet(
+    currentEnvironments.globalVariables,
+  );
 
-    const activeEnvId = currentEnvironments.activeEnvironmentId;
-    const activeEnv = currentEnvironments.environments.find(
-      (e) => e.id === activeEnvId,
-    );
-    const environmentVariables = varsArrayToMap(activeEnv?.variables);
-    const secureEnvironmentVariables = varsArrayToSecureSet(
-      activeEnv?.variables,
-    );
-    const globalVariables = varsArrayToMap(currentEnvironments.globalVariables);
-    const secureGlobalVariables = varsArrayToSecureSet(
-      currentEnvironments.globalVariables,
-    );
-
-    requestEditor.setVariableContext({
-      envVariables,
-      secureEnvVariables,
-      environmentVariables,
-      secureEnvironmentVariables,
-      globalVariables,
-      secureGlobalVariables,
-      folderChain,
-      envName: activeColl?.name ?? "",
-      activeEnvironmentName: activeEnv?.name ?? "",
-      requestName: node?.name ?? "",
-      responseCache: _responseCache,
-      responseHeaders: _responseHeaders,
-      responseStatus: _responseStatus,
+  requestEditor.setVariableContext({
+    collectionVariables,
+    secureCollectionVariables,
+    environmentVariables,
+    secureEnvironmentVariables,
+    globalVariables,
+    secureGlobalVariables,
+    folderChain,
+    collectionName: activeColl?.name ?? "",
+    activeEnvironmentName: activeEnv?.name ?? "",
+    requestName: node?.name ?? "",
+    responseCache: _responseCache,
+    responseHeaders: _responseHeaders,
+    responseStatus: _responseStatus,
+  });
+  // Feed merged variables to the tree-view so "Generate cURL" resolves correctly.
+  // Collection-level wins over environment which wins over global.
+  if (treeView) {
+    treeView.setEnvVariables({
+      ...globalVariables,
+      ...environmentVariables,
+      ...collectionVariables,
     });
-    // Feed merged variables to the tree-view so "Generate cURL" resolves correctly.
-    // Collection-level wins over environment which wins over global.
-    if (treeView) {
-      treeView.setEnvVariables({
-        ...globalVariables,
-        ...environmentVariables,
-        ...envVariables,
-      });
-    }
+  }
+}
+
+// ── Post-response captures (Feature 03) ──────────────────────────────────
+
+/**
+ * Run a request's capture rules against a freshly received response and write
+ * the extracted values into their target variable scopes.
+ *
+ * Gated on a 2xx response (a failed login must not clobber a good token).
+ * Persistence reuses the existing env / collection variable handlers — which
+ * encrypt `secure` values, refresh the variables UI, and route write failures
+ * into the Notifications.error sink — so this adds no new write path. Never
+ * surfaces a captured value (secure or not): toasts and the response marker
+ * carry variable names + scopes only.
+ *
+ * Also called by the future collection runner (Feature 02) between requests.
+ *
+ * @param {object} node    selected request node (carries `captures`)
+ * @param {object} detail  wurl:response-received detail (status/headers/body)
+ */
+async function _applyCapturesForNode(node, detail) {
+  const rules = node?.captures;
+  if (!Array.isArray(rules) || rules.length === 0) return;
+  const status = detail?.status ?? 0;
+  if (status < 200 || status >= 300) return; // 2xx-only
+
+  const { writes, warnings } = applyCaptures(
+    { status, headers: detail?.headers ?? {}, body: detail?.body ?? "" },
+    rules,
+  );
+
+  // Group writes by scope so each scope is persisted once.
+  const byScope = { environment: [], collection: [], global: [] };
+  for (const w of writes) {
+    if (byScope[w.scope]) byScope[w.scope].push(w);
   }
 
-  // ── Post-response captures (Feature 03) ──────────────────────────────────
+  const applied = []; // { scope, name } — drives the success summary
+  let envTouched = false;
 
-  /**
-   * Run a request's capture rules against a freshly received response and write
-   * the extracted values into their target variable scopes.
-   *
-   * Gated on a 2xx response (a failed login must not clobber a good token).
-   * Persistence reuses the existing env / collection variable handlers — which
-   * encrypt `secure` values, refresh the variables UI, and route write failures
-   * into the Notifications.error sink — so this adds no new write path. Never
-   * surfaces a captured value (secure or not): toasts and the response marker
-   * carry variable names + scopes only.
-   *
-   * Also called by the future collection runner (Feature 02) between requests.
-   *
-   * @param {object} node    selected request node (carries `captures`)
-   * @param {object} detail  wurl:response-received detail (status/headers/body)
-   */
-  async function _applyCapturesForNode(node, detail) {
-    const rules = node?.captures;
-    if (!Array.isArray(rules) || rules.length === 0) return;
-    const status = detail?.status ?? 0;
-    if (status < 200 || status >= 300) return; // 2xx-only
-
-    const { writes, warnings } = applyCaptures(
-      { status, headers: detail?.headers ?? {}, body: detail?.body ?? "" },
-      rules,
+  // Global variables
+  if (byScope.global.length) {
+    const variables = _mergeCaptureWrites(
+      currentEnvironments.globalVariables,
+      byScope.global,
     );
+    await handleEnvVarsSave({ id: null, variables });
+    byScope.global.forEach((w) =>
+      applied.push({ scope: "global", name: w.name }),
+    );
+    envTouched = true;
+  }
 
-    // Group writes by scope so each scope is persisted once.
-    const byScope = { environment: [], collection: [], global: [] };
-    for (const w of writes) {
-      if (byScope[w.scope]) byScope[w.scope].push(w);
-    }
-
-    const applied = []; // { scope, name } — drives the success summary
-    let envTouched = false;
-
-    // Global variables
-    if (byScope.global.length) {
-      const variables = _mergeCaptureWrites(
-        currentEnvironments.globalVariables,
-        byScope.global,
+  // Active environment
+  if (byScope.environment.length) {
+    const activeId = currentEnvironments.activeEnvironmentId;
+    const activeEnv = currentEnvironments.environments.find(
+      (e) => e.id === activeId,
+    );
+    if (!activeId || !activeEnv) {
+      Notifications.warning(
+        `No active environment — skipped capturing ${_captureNameList(
+          byScope.environment,
+        )}.`,
+        { title: t("app.captureSkipped") },
       );
-      await handleEnvVarsSave({ id: null, variables });
-      byScope.global.forEach((w) =>
-        applied.push({ scope: "global", name: w.name }),
+    } else {
+      const variables = _mergeCaptureWrites(
+        activeEnv.variables,
+        byScope.environment,
+      );
+      await handleEnvVarsSave({ id: activeId, variables });
+      byScope.environment.forEach((w) =>
+        applied.push({ scope: "env", name: w.name }),
       );
       envTouched = true;
     }
+  }
 
-    // Active environment
-    if (byScope.environment.length) {
-      const activeId = currentEnvironments.activeEnvironmentId;
-      const activeEnv = currentEnvironments.environments.find(
-        (e) => e.id === activeId,
-      );
-      if (!activeId || !activeEnv) {
-        Notifications.warning(
-          `No active environment — skipped capturing ${_captureNameList(
-            byScope.environment,
-          )}.`,
-          { title: t("app.captureSkipped") },
-        );
-      } else {
-        const variables = _mergeCaptureWrites(
-          activeEnv.variables,
-          byScope.environment,
-        );
-        await handleEnvVarsSave({ id: activeId, variables });
-        byScope.environment.forEach((w) =>
-          applied.push({ scope: "env", name: w.name }),
-        );
-        envTouched = true;
-      }
-    }
-
-    // Active collection
-    if (byScope.collection.length) {
-      const activeCollId = currentColls.activeCollectionId;
-      const activeColl = currentColls.collections.find(
-        (c) => c.id === activeCollId,
-      );
-      if (!activeCollId || !activeColl) {
-        Notifications.warning(
-          `No active collection — skipped capturing ${_captureNameList(
-            byScope.collection,
-          )}.`,
-          { title: t("app.captureSkipped") },
-        );
-      } else {
-        const variables = _mergeCaptureWrites(
-          activeColl.variables,
-          byScope.collection,
-        );
-        await handleVarsSave({ envId: activeCollId, variables });
-        byScope.collection.forEach((w) =>
-          applied.push({ scope: "coll", name: w.name }),
-        );
-      }
-    }
-
-    // Reflect new env/global values in any open popup + the picker.
-    if (envTouched) {
-      environmentsPopup.update(currentEnvironments);
-      envPicker.load(currentEnvironments);
-    }
-
-    // Surface outcomes — names + scopes only, never values.
-    if (applied.length) {
-      const summary = applied.map((a) => `${a.scope}.${a.name}`).join(", ");
-      Notifications.info(
-        `Captured ${applied.length} variable${
-          applied.length === 1 ? "" : "s"
-        } → ${summary}`,
-      );
-      window.dispatchEvent(
-        new CustomEvent("wurl:captures-applied", {
-          detail: { count: applied.length },
-        }),
-      );
-    }
-    if (warnings.length) {
+  // Active collection
+  if (byScope.collection.length) {
+    const activeCollId = currentColls.activeCollectionId;
+    const activeColl = currentColls.collections.find(
+      (c) => c.id === activeCollId,
+    );
+    if (!activeCollId || !activeColl) {
       Notifications.warning(
-        `${warnings.length} capture${
-          warnings.length === 1 ? "" : "s"
-        } found no value: ${_captureNameList(warnings)}`,
+        `No active collection — skipped capturing ${_captureNameList(
+          byScope.collection,
+        )}.`,
+        { title: t("app.captureSkipped") },
+      );
+    } else {
+      const variables = _mergeCaptureWrites(
+        activeColl.variables,
+        byScope.collection,
+      );
+      await handleVarsSave({ scopeId: activeCollId, variables });
+      byScope.collection.forEach((w) =>
+        applied.push({ scope: "coll", name: w.name }),
       );
     }
   }
 
-  /** Comma-join capture entry names for a message (names only — never values). */
-  function _captureNameList(entries) {
-    return entries.map((e) => e.name).join(", ");
+  // Reflect new env/global values in any open popup + the picker.
+  if (envTouched) {
+    environmentsPopup.update(currentEnvironments);
+    envPicker.load(currentEnvironments);
   }
 
-  /**
-   * Upsert capture writes (matched by name) into a canonical variable array,
-   * carrying each write's `secure` flag. Returns a fresh array; the input is not
-   * mutated.
-   */
-  function _mergeCaptureWrites(existing, writes) {
-    const list = normalizeVariables(existing);
-    for (const w of writes) {
-      const entry = { name: w.name, value: w.value, secure: !!w.secure };
-      const i = list.findIndex((v) => v.name === w.name);
-      if (i >= 0) list[i] = entry;
-      else list.push(entry);
+  // Surface outcomes — names + scopes only, never values.
+  if (applied.length) {
+    const summary = applied.map((a) => `${a.scope}.${a.name}`).join(", ");
+    Notifications.info(
+      `Captured ${applied.length} variable${
+        applied.length === 1 ? "" : "s"
+      } → ${summary}`,
+    );
+    window.dispatchEvent(
+      new CustomEvent("wurl:captures-applied", {
+        detail: { count: applied.length },
+      }),
+    );
+  }
+  if (warnings.length) {
+    Notifications.warning(
+      `${warnings.length} capture${
+        warnings.length === 1 ? "" : "s"
+      } found no value: ${_captureNameList(warnings)}`,
+    );
+  }
+}
+
+/** Comma-join capture entry names for a message (names only — never values). */
+function _captureNameList(entries) {
+  return entries.map((e) => e.name).join(", ");
+}
+
+/**
+ * Upsert capture writes (matched by name) into a canonical variable array,
+ * carrying each write's `secure` flag. Returns a fresh array; the input is not
+ * mutated.
+ */
+function _mergeCaptureWrites(existing, writes) {
+  const list = normalizeVariables(existing);
+  for (const w of writes) {
+    const entry = { name: w.name, value: w.value, secure: !!w.secure };
+    const i = list.findIndex((v) => v.name === w.name);
+    if (i >= 0) list[i] = entry;
+    else list.push(entry);
+  }
+  return list;
+}
+
+// When the request editor mutates a field (method, url, params, body, auth, …),
+// immediately sync the in-memory tree and update the visible tree-view node
+// (e.g. the method badge), then schedule a debounced storage write so that
+// rapid typing does not flood the persistence layer with individual saves.
+// Accumulate the partial patch (the changed fields) per request across the
+// debounce window, then write each request granularly — only that request's
+// file is re-encrypted, not the whole collection. Partial (not full-node)
+// patches are required so the main-side clobber guard can preserve an auth
+// block that the edit didn't touch (see data-store.updateRequest).
+function _scheduleRequestSave(id, fields) {
+  if (id) {
+    _pendingRequestPatches.set(id, {
+      ...(_pendingRequestPatches.get(id) ?? {}),
+      ...fields,
+    });
+  }
+  clearTimeout(_requestSaveTimer);
+  _requestSaveTimer = setTimeout(() => {
+    const patches = [..._pendingRequestPatches];
+    _pendingRequestPatches.clear();
+    void _persistRequestEdits(patches);
+  }, 400);
+}
+
+async function _persistRequestEdits(patches) {
+  if (!treeView) return;
+  // Keep the data-store items mirror in step with the tree so a later
+  // saveCollectionVariables() (full write) can't clobber these edits.
+  setActiveItems(treeView.getItems());
+  for (const [id, patch] of patches) {
+    const ok = await updateRequest(id, patch);
+    if (!ok) {
+      // Brand-new request not yet on disk, a write failure, or the dev-server:
+      // fall back to a full save, which creates the file and reports failures.
+      await saveCollections(treeView.getItems());
+      return;
     }
-    return list;
   }
+}
 
-  // When the request editor mutates a field (method, url, params, body, auth, …),
-  // immediately sync the in-memory tree and update the visible tree-view node
-  // (e.g. the method badge), then schedule a debounced storage write so that
-  // rapid typing does not flood the persistence layer with individual saves.
-  let _requestSaveTimer = null;
-  function _scheduleRequestSave() {
-    clearTimeout(_requestSaveTimer);
-    _requestSaveTimer = setTimeout(() => {
-      if (treeView) saveCollections(treeView.getItems());
-    }, 400);
-  }
-
+// Request-editor field mutations (debounced per-request persistence), cURL
+// paste rewrite, request cancel, and the send pipeline. handleCurlPaste and
+// applyCurlToRequest are private to this group (only the curl-pasted listener
+// uses them).
+function installRequestEditSendHandlers() {
   window.addEventListener("wurl:request-updated", (e) => {
     const { id, ...fields } = e.detail;
     if (id && treeView) {
       // silent=true → in-memory patch + DOM update, no immediate #emitChange
       treeView.updateNode(id, fields, { silent: true });
-      // Debounced write so keystrokes batch into a single save
-      _scheduleRequestSave();
+      // Debounced granular write so keystrokes batch into a single per-request save
+      _scheduleRequestSave(id, fields);
       // Mirror the patch onto _selectedNode so history captures the latest
       // editor state. updateNode() creates a new object in the tree, so
       // _selectedNode would otherwise remain stale until the next selection.
@@ -2534,7 +2498,7 @@ function initEventBus() {
     if (_selectedNode?.id === node.id) {
       _selectedNode = { ..._selectedNode, ...fields };
     }
-    _scheduleRequestSave();
+    _scheduleRequestSave(node.id, fields);
 
     // -F file fields reference local paths; warn only about ones not on disk.
     const filePaths = collectFormFilePaths(parsed.collection);
@@ -2559,18 +2523,6 @@ function initEventBus() {
       Notifications.success(t("request.curlPaste.applied"));
     }
   }
-
-  // In-flight executions, one record per running request. Requests run
-  // concurrently, so each execution carries its own cancel flag, request
-  // snapshot, and (in Go-dev mode) AbortController.
-  // Record shape: { requestId, snapshot, abortController, cancelled }
-  const _inFlightExecs = new Set();
-  // Currently selected tree node (request or folder), for context functions
-  let _selectedNode = null;
-  // Response caches keyed by request name — fed into variable context for function pills
-  let _responseCache = {};
-  let _responseHeaders = {};
-  let _responseStatus = {};
 
   // Lazy-load response caches when a request is executed that references another request
   requestEditor?.setEnsureResponseCaches(async (refs, ctx) => {
@@ -2647,26 +2599,6 @@ function initEventBus() {
     );
   });
 
-  // ── classify common network failures for a human-readable hint ──────────────
-  function _buildHint(errName, msg) {
-    if (errName === "AbortError") return "The request was aborted.";
-    if (/cors/i.test(msg))
-      return "CORS policy blocked the request — the server may need to send Access-Control-Allow-Origin headers.";
-    if (
-      /failed to fetch|load failed|networkerror|network request failed/i.test(
-        msg,
-      )
-    )
-      return "Could not reach the server. Check the URL, network connectivity, and whether the server is running.";
-    if (/ssl|certificate|cert/i.test(msg))
-      return "TLS/SSL certificate error — the server certificate may be self-signed or invalid.";
-    if (/timeout/i.test(msg))
-      return "The request timed out before the server responded.";
-    if (/too many redirects/i.test(msg))
-      return "The server sent too many redirects. Check for redirect loops.";
-    return "";
-  }
-
   // When the request editor fires a send, execute the request via the
   // native layer (Electron IPC or the Go dev-server proxy endpoint).
   window.addEventListener("wurl:send-request", async (e) => {
@@ -2707,9 +2639,8 @@ function initEventBus() {
         currentSettings.recents ?? [],
         makeEntry(_selectedNode, currentColls.activeCollectionId),
       );
-      currentSettings = { ...currentSettings, recents };
+      updateSettings({ recents });
       if (treeView) treeView.setRecents(recents);
-      saveSettings(currentSettings);
     }
 
     // Snapshot the originating tree node now: requests run concurrently, so
@@ -2958,12 +2889,11 @@ function pruneQuickAccess(idSet) {
     recents === currentSettings.recents
   )
     return;
-  currentSettings = { ...currentSettings, favorites, recents };
+  updateSettings({ favorites, recents });
   if (treeView) {
     treeView.setFavorites(favorites);
     treeView.setRecents(recents);
   }
-  saveSettings(currentSettings);
 }
 
 /**
@@ -2994,12 +2924,11 @@ function reconcileQuickAccess(items) {
     recents === currentSettings.recents
   )
     return;
-  currentSettings = { ...currentSettings, favorites, recents };
+  updateSettings({ favorites, recents });
   if (treeView) {
     treeView.setFavorites(favorites);
     treeView.setRecents(recents);
   }
-  saveSettings(currentSettings);
 }
 
 /**
@@ -3112,17 +3041,15 @@ function installZoomHandlers() {
     const newSize = FONT_SIZES[nextIdx];
     if (newSize === current) return; // already at min/max limit
 
-    currentSettings = { ...currentSettings, fontSize: newSize };
+    updateSettings({ fontSize: newSize });
     applySettings(currentSettings);
-    saveSettings(currentSettings);
   }
 
   /** Reset to the default font size. */
   function resetFont() {
     if ((currentSettings.fontSize ?? DEFAULT_FONT) === DEFAULT_FONT) return;
-    currentSettings = { ...currentSettings, fontSize: DEFAULT_FONT };
+    updateSettings({ fontSize: DEFAULT_FONT });
     applySettings(currentSettings);
-    saveSettings(currentSettings);
   }
 
   // ── Wheel / Pinch ────────────────────────────────────────────────────────────
@@ -3321,7 +3248,7 @@ function applySettings(settings) {
   if (requestEditor) requestEditor.applySettings(settings);
   if (responseViewer) responseViewer.applySettings(settings);
   if (varsPopup) varsPopup.applySettings(settings);
-  if (envPopup) envPopup.applySettings(settings);
+  if (collPopup) collPopup.applySettings(settings);
   if (environmentsPopup) environmentsPopup.applySettings(settings);
   if (treeView) {
     treeView.setDoubleClickExecute(settings.doubleClickExecute ?? false);

@@ -56,8 +56,14 @@ function makeWurlMock() {
         get: channel("manifest.get"),
         save: channel("manifest.save"),
       },
-      env: { get: channel("env.get"), save: channel("env.save") },
-      requests: { delete: channel("requests.delete") },
+      collections: {
+        get: channel("collections.get"),
+        save: channel("collections.save"),
+      },
+      requests: {
+        update: channel("requests.update"),
+        delete: channel("requests.delete"),
+      },
       history: {
         list: channel("history.list"),
         add: channel("history.add"),
@@ -150,11 +156,11 @@ async function loadActive(
     activeCollectionId: id,
     settings: {},
   });
-  mock.setReturn("env.get", { version: 1, collections: [], variables });
+  mock.setReturn("collections.get", { version: 1, collections: [], variables });
   return store.loadAll();
 }
 
-// ── loadAll: manifest.get + env.get ───────────────────────────────────────────
+// ── loadAll: manifest.get + collections.get ───────────────────────────────────────────
 
 test("loadAll: reads manifest then the active collection's env file", async () => {
   const mock = makeWurlMock();
@@ -165,7 +171,7 @@ test("loadAll: reads manifest then the active collection's env file", async () =
     activeCollectionId: "c1",
     settings: { theme: "dark" },
   });
-  mock.setReturn("env.get", {
+  mock.setReturn("collections.get", {
     version: 1,
     collections: [{ id: "r1", name: "req" }],
     variables: { base: "https://x" },
@@ -174,7 +180,7 @@ test("loadAll: reads manifest then the active collection's env file", async () =
   const result = await store.loadAll();
 
   mock.one("manifest.get");
-  assert.deepEqual(mock.one("env.get").args, ["c1"]);
+  assert.deepEqual(mock.one("collections.get").args, ["c1"]);
 
   assert.equal(result.activeCollectionId, "c1");
   assert.equal(result.collections[0].id, "c1");
@@ -196,15 +202,19 @@ test("loadAll: seeds a default collection on an empty (first-run) manifest", asy
     activeCollectionId: null,
     settings: {},
   });
-  mock.setReturn("env.get", { version: 1, collections: [], variables: {} });
+  mock.setReturn("collections.get", {
+    version: 1,
+    collections: [],
+    variables: {},
+  });
 
   const result = await store.loadAll();
 
   assert.equal(result.collections.length, 1);
   assert.equal(result.collections[0].name, "COLLECTIONS");
   assert.ok(result.collections[0].id, "seeded collection has an id");
-  // env.get is called with the freshly-minted collection id.
-  assert.equal(mock.one("env.get").args[0], result.activeCollectionId);
+  // collections.get is called with the freshly-minted collection id.
+  assert.equal(mock.one("collections.get").args[0], result.activeCollectionId);
 });
 
 test("loadAll: a thrown manifest channel is absorbed into a valid default doc", async () => {
@@ -239,7 +249,7 @@ test("loadAll: a malformed (null) manifest hits the outer catch and returns defa
 
 // ── Collections: save paths ───────────────────────────────────────────────────
 
-test("saveCollections: writes the active collection's items via env.save", async () => {
+test("saveCollections: writes the active collection's items via collections.save", async () => {
   const mock = makeWurlMock();
   mock.install();
   await loadActive(mock, { id: "coll-1", variables: { k: "v" } });
@@ -247,7 +257,7 @@ test("saveCollections: writes the active collection's items via env.save", async
   const items = [{ id: "r9", name: "new" }];
   await store.saveCollections(items);
 
-  const call = mock.one("env.save");
+  const call = mock.one("collections.save");
   assert.equal(call.args[0], "coll-1");
   assert.deepEqual(call.args[1], {
     version: 1,
@@ -285,10 +295,10 @@ test("saveManifest: strips per-collection variables before persisting", async ()
 
 // ── Collections: read + targeted writes ───────────────────────────────────────
 
-test("loadCollectionData: reads a specific collection via env.get and normalises", async () => {
+test("loadCollectionData: reads a specific collection via collections.get and normalises", async () => {
   const mock = makeWurlMock();
   mock.install();
-  mock.setReturn("env.get", {
+  mock.setReturn("collections.get", {
     version: 1,
     collections: [{ id: "r1" }],
     variables: { a: "1" },
@@ -296,7 +306,7 @@ test("loadCollectionData: reads a specific collection via env.get and normalises
 
   const data = await store.loadCollectionData("coll-42");
 
-  assert.deepEqual(mock.one("env.get").args, ["coll-42"]);
+  assert.deepEqual(mock.one("collections.get").args, ["coll-42"]);
   assert.deepEqual(data, { items: [{ id: "r1" }], variables: { a: "1" } });
 });
 
@@ -305,7 +315,7 @@ test("saveCollectionData: forwards explicit variables in the env blob", async ()
   mock.install();
   await store.saveCollectionData("coll-7", [{ id: "r1" }], { v: "1" });
 
-  const call = mock.one("env.save");
+  const call = mock.one("collections.save");
   assert.equal(call.args[0], "coll-7");
   assert.deepEqual(call.args[1], {
     version: 1,
@@ -314,25 +324,67 @@ test("saveCollectionData: forwards explicit variables in the env blob", async ()
   });
 });
 
+// ── updateRequest (granular write) + setActiveItems (cache sync) ───────────────
+
+test("updateRequest: forwards (id, patch) to store.requests.update and returns true", async () => {
+  const mock = makeWurlMock();
+  mock.install();
+  const ok = await store.updateRequest("req-1", { url: "/new", notes: "hi" });
+  assert.equal(ok, true);
+  assert.deepEqual(mock.one("requests.update").args, [
+    "req-1",
+    { url: "/new", notes: "hi" },
+  ]);
+});
+
+test("updateRequest: returns false when the channel throws (so the caller falls back)", async () => {
+  const mock = makeWurlMock();
+  mock.install();
+  mock.setThrow("requests.update", new Error("request not found"));
+  const { result } = await withCapturedWarn(() =>
+    store.updateRequest("ghost", { url: "/x" }),
+  );
+  assert.equal(result, false);
+});
+
+test("setActiveItems: syncs the cache so a later variable save can't clobber granular edits", async () => {
+  const mock = makeWurlMock();
+  mock.install();
+  await loadActive(mock, { id: "active" }); // _activeItems starts []
+
+  // A granular edit happened; the renderer mirrors the new tree into the cache.
+  store.setActiveItems([{ id: "r1", url: "/edited" }]);
+
+  await store.saveCollectionVariables("active", { token: "abc" });
+
+  // The variable save (a full write) must carry the synced items, not the stale [].
+  const save = mock.of("collections.save").find((c) => c.args[0] === "active");
+  assert.ok(save, "collections.save targeted the active collection");
+  assert.deepEqual(save.args[1].collections, [{ id: "r1", url: "/edited" }]);
+  assert.deepEqual(save.args[1].variables, { token: "abc" });
+});
+
 test("saveCollectionVariables: for a non-active collection, reads-then-writes its env", async () => {
   const mock = makeWurlMock();
   mock.install();
   await loadActive(mock, { id: "active-coll" });
 
-  mock.setReturn("env.get", {
+  mock.setReturn("collections.get", {
     version: 1,
     collections: [{ id: "keep" }],
     variables: {},
   });
   await store.saveCollectionVariables("other-coll", { token: "abc" });
 
-  // Round-trips through env.get (to preserve existing items) then env.save.
+  // Round-trips through collections.get (to preserve existing items) then collections.save.
   assert.equal(
-    mock.of("env.get").some((c) => c.args[0] === "other-coll"),
+    mock.of("collections.get").some((c) => c.args[0] === "other-coll"),
     true,
   );
-  const save = mock.of("env.save").find((c) => c.args[0] === "other-coll");
-  assert.ok(save, "env.save targeted the non-active collection");
+  const save = mock
+    .of("collections.save")
+    .find((c) => c.args[0] === "other-coll");
+  assert.ok(save, "collections.save targeted the non-active collection");
   assert.deepEqual(save.args[1], {
     version: 1,
     collections: [{ id: "keep" }],
@@ -500,9 +552,9 @@ test("saveCollections: a main-process error envelope is surfaced as a write erro
   await loadActive(mock, { id: "coll-1" });
   // safeCallWrite() in main returns this discriminable envelope on a handler
   // throw — it must NOT be mistaken for a successful save.
-  mock.setReturn("env.save", {
+  mock.setReturn("collections.save", {
     __wurlError: true,
-    channel: "store:env:save",
+    channel: "store:collections:save",
     message: "ENOSPC: no space left on device",
   });
 
@@ -519,7 +571,7 @@ test("saveCollectionData: returns false and notifies when the channel throws", a
   const mock = makeWurlMock();
   mock.install();
   await loadActive(mock, { id: "coll-1" });
-  mock.setThrow("env.save", new Error("permission denied"));
+  mock.setThrow("collections.save", new Error("permission denied"));
 
   const { result, errors } = await withWriteHandler(() =>
     store.saveCollectionData("coll-1", [{ id: "r1" }], {}),
@@ -886,7 +938,11 @@ test("loadAll: migrates legacy environments / activeEnvironmentId keys", async (
     environments: [{ id: "e1", name: "Legacy" }],
     activeEnvironmentId: "e1",
   });
-  mock.setReturn("env.get", { version: 1, collections: [], variables: {} });
+  mock.setReturn("collections.get", {
+    version: 1,
+    collections: [],
+    variables: {},
+  });
 
   const result = await store.loadAll();
 
@@ -907,13 +963,17 @@ test("loadAll: repairs an activeCollectionId that references no collection", asy
     activeCollectionId: "ghost",
     settings: {},
   });
-  mock.setReturn("env.get", { version: 1, collections: [], variables: {} });
+  mock.setReturn("collections.get", {
+    version: 1,
+    collections: [],
+    variables: {},
+  });
 
   const result = await store.loadAll();
 
   // Falls back to the first collection and loads its env.
   assert.equal(result.activeCollectionId, "c1");
-  assert.ok(mock.of("env.get").some((c) => c.args[0] === "c1"));
+  assert.ok(mock.of("collections.get").some((c) => c.args[0] === "c1"));
 });
 
 // ── Variable-preservation branches in the targeted save paths ──────────────────
@@ -924,7 +984,7 @@ test("loadCollectionData: refreshes the active-collection cache on a matching id
   await loadActive(mock, { id: "coll-1", variables: { old: "1" } });
 
   // Re-read the active collection with new variables…
-  mock.setReturn("env.get", {
+  mock.setReturn("collections.get", {
     version: 1,
     collections: [{ id: "r1" }],
     variables: { fresh: "2" },
@@ -933,7 +993,7 @@ test("loadCollectionData: refreshes the active-collection cache on a matching id
 
   // …so a later saveCollections persists the refreshed variables, not the stale.
   await store.saveCollections([{ id: "r1" }]);
-  const save = mock.of("env.save").pop();
+  const save = mock.of("collections.save").pop();
   assert.deepEqual(save.args[1].variables, { fresh: "2" });
 });
 
@@ -943,7 +1003,7 @@ test("saveCollectionData: reuses the cached variables for the active collection"
   await loadActive(mock, { id: "coll-1", variables: { cached: "1" } });
 
   await store.saveCollectionData("coll-1", [{ id: "r1" }]); // no variables arg
-  const save = mock.of("env.save").pop();
+  const save = mock.of("collections.save").pop();
   assert.deepEqual(save.args[1].variables, { cached: "1" });
   assert.deepEqual(save.args[1].collections, [{ id: "r1" }]);
 });
@@ -953,13 +1013,13 @@ test("saveCollectionData: preserves on-disk variables for a non-active collectio
   mock.install();
   await loadActive(mock, { id: "active" });
 
-  mock.setReturn("env.get", {
+  mock.setReturn("collections.get", {
     version: 1,
     collections: [],
     variables: { disk: "1" },
   });
   await store.saveCollectionData("other", [{ id: "r1" }]); // no variables arg
-  const save = mock.of("env.save").find((c) => c.args[0] === "other");
+  const save = mock.of("collections.save").find((c) => c.args[0] === "other");
   assert.deepEqual(save.args[1].variables, { disk: "1" });
 });
 
@@ -969,7 +1029,7 @@ test("saveCollectionVariables: writes through the cache for the active collectio
   await loadActive(mock, { id: "coll-1" });
 
   await store.saveCollectionVariables("coll-1", { t: "x" });
-  const save = mock.of("env.save").pop();
+  const save = mock.of("collections.save").pop();
   assert.equal(save.args[0], "coll-1");
   assert.deepEqual(save.args[1].variables, { t: "x" });
 });

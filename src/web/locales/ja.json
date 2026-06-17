@@ -18,7 +18,14 @@
     "copy": "コピー",
     "copied": "コピーしました",
     "download": "ダウンロード",
-    "allFiles": "すべてのファイル"
+    "allFiles": "すべてのファイル",
+    "reveal": "表示",
+    "hide": "非表示",
+    "revealValue": "値を表示",
+    "hideValue": "値を非表示",
+    "selectItem": "{name} を選択",
+    "renameItem": "{name} の名前を変更",
+    "deleteItem": "{name} を削除"
   },
   "app": {
     "wsOpen": "WebSocket 接続は開いています",
@@ -502,6 +509,10 @@
       "headers": "ヘッダー",
       "field": "フィールド",
       "pathParameter": "パスパラメーター"
+    },
+    "bodyValidate": {
+      "validTitle": "{type} は有効です",
+      "invalidTitle": "{type} に構文エラーがあります"
     }
   },
   "response": {
@@ -688,7 +699,10 @@
     "favorited": "お気に入り",
     "favoriteHint": "ダブルクリックでお気に入りに追加",
     "unfavoriteHint": "ダブルクリックでお気に入りから削除",
-    "unnamed": "（名称未設定）"
+    "unnamed": "（名称未設定）",
+    "emptyFavorites": "お気に入りはまだありません",
+    "emptyRecent": "最近のリクエストはありません",
+    "newWebSocket": "新しい WebSocket"
   },
   "collections": {
     "title": "コレクション",
@@ -719,7 +733,9 @@
       "path": "パス",
       "expires": "有効期限",
       "sameSite": "SameSite"
-    }
+    },
+    "cannotDeleteOnly": "唯一のコレクションは削除できません",
+    "deleteCollection": "コレクションを削除"
   },
   "environments": {
     "title": "環境",
@@ -732,7 +748,9 @@
     "closeAria": "環境を閉じる",
     "deleteTitle": "環境を削除しますか？",
     "delete": "環境を削除",
-    "nameExists": "この名前の環境は既に存在します。"
+    "nameExists": "この名前の環境は既に存在します。",
+    "selectGlobalAria": "グローバル変数を選択",
+    "deleteMessage": "環境「{name}」とそのすべての変数を削除しますか？"
   },
   "cookies": {
     "session": "セッション",
@@ -1054,5 +1072,8 @@
     "placeholder": "curl https://api.example.com/users \\\n  -H 'Authorization: Bearer ...' \\\n  -d '{\"name\":\"Ada\"}'",
     "submit": "インポート",
     "empty": "インポートする cURL コマンドを貼り付けてください。"
+  },
+  "variables": {
+    "titleScope": "変数 — {scope}"
   }
 }

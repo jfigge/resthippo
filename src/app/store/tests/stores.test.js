@@ -356,6 +356,17 @@ describe("RequestStore", () => {
     assert.equal(reloaded.url, "/new");
   });
 
+  test("updateRequest persists the notes field (PATCHABLE_FIELDS regression)", () => {
+    reqStore.createRequest(COL, makeRequest({ id: "req-notes", url: "/x" }));
+    const updated = reqStore.updateRequest("req-notes", {
+      notes: "remember the milk",
+    });
+    assert.equal(updated.notes, "remember the milk");
+    // Persisted, not merely returned — proves notes is on the patch allowlist
+    // (a granular edit must not silently drop the notes tab).
+    assert.equal(reqStore.getRequest("req-notes").notes, "remember the milk");
+  });
+
   test("updateRequest preserves fields not in patch", () => {
     const req = makeRequest({
       id: "req-preserve",

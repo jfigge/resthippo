@@ -40,7 +40,13 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
 
-const MAIN_FILE = path.join(__dirname, "..", "main.js");
+// Native-UI / structured-error literals live across the main-process files:
+// main.js (menus, dialogs) and the modules it delegates to — net/http-engine.js
+// carries the http:* handlers' error payloads. Scan all of them as one surface.
+const MAIN_FILES = [
+  path.join(__dirname, "..", "main.js"),
+  path.join(__dirname, "..", "net", "http-engine.js"),
+];
 
 // Native-UI option keys whose value, when a bare string literal, is on-screen text.
 const KEY_RE = /\b(?:label|title|message|detail|buttonLabel)\s*:\s*"([^"]+)"/g;
@@ -58,9 +64,9 @@ const BASELINE = new Set([
   "complex jq queries require the dev server",
 ]);
 
-/** Scan main.js and return the sorted set of flagged display literals. */
+/** Scan the main-process files and return the sorted set of flagged literals. */
 function findViolations() {
-  const src = fs.readFileSync(MAIN_FILE, "utf8");
+  const src = MAIN_FILES.map((f) => fs.readFileSync(f, "utf8")).join("\n");
   const found = new Set();
   for (const rawLine of src.split("\n")) {
     const line = rawLine.trim();

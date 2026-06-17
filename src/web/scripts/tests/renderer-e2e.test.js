@@ -193,7 +193,7 @@ test("E2E: edit → execute → render drives the real editor and viewer", async
 
   const editor = new RequestEditor();
   document.body.appendChild(editor.element);
-  editor.setVariableContext({ envVariables: {}, folderChain: [] });
+  editor.setVariableContext({ collectionVariables: {}, folderChain: [] });
 
   // ── Select a request, then edit method / URL / headers / body. load() is the
   //    editor's public "a request was selected" entry point. ──────────────────
@@ -290,7 +290,7 @@ test("E2E: a base64 (binary) response is forwarded with its encoding and renders
 
   const editor = new RequestEditor();
   document.body.appendChild(editor.element);
-  editor.setVariableContext({ envVariables: {}, folderChain: [] });
+  editor.setVariableContext({ collectionVariables: {}, folderChain: [] });
   editor.load({
     id: "req-3",
     method: "GET",
@@ -357,7 +357,7 @@ test("E2E: a network-style failure renders the error state, not a response", asy
 
   const editor = new RequestEditor();
   document.body.appendChild(editor.element);
-  editor.setVariableContext({ envVariables: {}, folderChain: [] });
+  editor.setVariableContext({ collectionVariables: {}, folderChain: [] });
   editor.load({ id: "req-2", method: "GET", url: "https://down.example.com" });
 
   const settled = waitForEvent(window, [

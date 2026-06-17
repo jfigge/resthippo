@@ -5,13 +5,13 @@
  *   {
  *     globalVariables?:      { name: value, … }   — lowest priority
  *     environmentVariables?: { name: value, … }   — selected named env
- *     envVariables?:         { name: value, … }   — collection-level
+ *     collectionVariables?:         { name: value, … }   — collection-level
  *     folderChain?:          [ { variables: {…} }, … ] — highest; nearest-ancestor first
  *   }
  *
  * Each scope may carry a parallel `secure*` Set naming the variables stored as
  * secrets (folder entries use `secureVariables`; collection/environment/global
- * use `secureEnvVariables` / `secureEnvironmentVariables` / `secureGlobalVariables`).
+ * use `secureCollectionVariables` / `secureEnvironmentVariables` / `secureGlobalVariables`).
  * resolveVariable() reports a `secure` flag for the winning scope so callers can
  * mask secret values.
  */
@@ -105,7 +105,7 @@ export function buildFunctionToken(name, rawArgs = []) {
  * Priority order (highest → lowest): folder chain → collection → environment → global.
  *
  * @param {string} name
- * @param {{ globalVariables?: object, environmentVariables?: object, envVariables?: object, folderChain?: object[] } | null} context
+ * @param {{ globalVariables?: object, environmentVariables?: object, collectionVariables?: object, folderChain?: object[] } | null} context
  * @returns {{ found: boolean, value: any, source: 'folder' | 'collection' | 'environment' | 'global' | null, secure: boolean }}
  */
 export function resolveVariable(name, context) {
@@ -128,13 +128,13 @@ export function resolveVariable(name, context) {
   }
 
   // 2. Collection-level variables
-  const envVars = context.envVariables ?? {};
+  const envVars = context.collectionVariables ?? {};
   if (Object.prototype.hasOwnProperty.call(envVars, name)) {
     return {
       found: true,
       value: envVars[name],
       source: "collection",
-      secure: !!context.secureEnvVariables?.has?.(name),
+      secure: !!context.secureCollectionVariables?.has?.(name),
     };
   }
 
@@ -171,7 +171,7 @@ export function resolveVariable(name, context) {
  * without re-encoding which context keys are scopes. Absent/empty scopes are
  * skipped; folder-chain entries are returned individually, one per folder.
  *
- * @param {{ globalVariables?: object, environmentVariables?: object, envVariables?: object, folderChain?: object[] } | null} context
+ * @param {{ globalVariables?: object, environmentVariables?: object, collectionVariables?: object, folderChain?: object[] } | null} context
  * @returns {Array<{ source: 'folder' | 'collection' | 'environment' | 'global', vars: object }>}
  */
 export function collectScopes(context) {
@@ -183,8 +183,8 @@ export function collectScopes(context) {
         scopes.push({ source: "folder", vars: folder.variables });
     }
   }
-  if (context.envVariables)
-    scopes.push({ source: "collection", vars: context.envVariables });
+  if (context.collectionVariables)
+    scopes.push({ source: "collection", vars: context.collectionVariables });
   if (context.environmentVariables)
     scopes.push({ source: "environment", vars: context.environmentVariables });
   if (context.globalVariables)
@@ -312,7 +312,7 @@ export async function resolveStringAsync(template, context) {
  * multiple strings.
  *
  * @param {string[]} templates
- * @param {{ envVariables?: object, folderChain?: object[] } | null} context
+ * @param {{ collectionVariables?: object, folderChain?: object[] } | null} context
  * @returns {Array<{ name: string, found: boolean, value: string|null }>}
  */
 export function collectTemplateVariables(templates, context) {
@@ -341,7 +341,7 @@ export function collectTemplateVariables(templates, context) {
  * left as-is ({{varName}}) so the caller can still see what was unresolved.
  *
  * @param {string} template
- * @param {{ envVariables?: object, folderChain?: object[] } | null} context
+ * @param {{ collectionVariables?: object, folderChain?: object[] } | null} context
  * @returns {string}
  */
 export function resolveString(template, context) {

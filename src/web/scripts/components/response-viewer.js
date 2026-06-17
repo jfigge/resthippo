@@ -18,6 +18,7 @@ import { icon } from "../icons.js";
 import { escapeHtml, escapeHtmlText, escapeHtmlAttr } from "../utils/html.js";
 import { t, formatDate, formatNumber } from "../i18n.js";
 import { WsConsole } from "./ws-console.js";
+import { ResponseSearch } from "./response-search.js";
 
 // Live-streaming limits (Feature 33). The DOM log is capped so an unbounded
 // stream stays memory-bounded; the full stream still lives in the main-process
@@ -350,16 +351,13 @@ export class ResponseViewer {
   #pdfWinResizeHandler = null; // window resize listener for the PDF overlay
   #pdfSettingsHandler = null; // settings-changed listener for the PDF overlay
 
-  // Find-in-response search bar state
-  #searchBar = null; // the bar element
-  #searchInput = null; // text input
-  #prevBtn = null; // navigate to previous match
-  #nextBtn = null; // navigate to next match
-  #caseBtn = null; // Cc toggle button
-  #regexBtn = null; // .* toggle button
-  #searchMatches = []; // current <mark> elements
-  #searchCurrent = -1; // index of the active (focused) match
-  #foldReveal = null; // fn(lineEl) that expands collapsed folds around a line, or null when the body isn't a foldable view
+  // Find-in-response search bar — its UI, match highlighting/navigation and the
+  // fold-reveal hook are owned by ResponseSearch; the viewer keeps the body
+  // content and injects read access to it (getBodyPane / isHtmlPreviewActive).
+  #search = new ResponseSearch({
+    getBodyPane: () => this.#bodyPane,
+    isHtmlPreviewActive: () => this.#htmlPreviewActive,
+  });
 
   // Timeline state
   #timelineEntries = []; // current list of HistoryEntry objects (newest first)
@@ -397,7 +395,8 @@ export class ResponseViewer {
     this.#renderStatusBar();
     this.#renderTabStrip();
     this.#renderTabContent();
-    this.#renderSearchBar(); // inserted between tab-strip and tab-content
+    // Search bar inserted between tab-strip and tab-content.
+    this.#search.mount(this.#el, this.#tabContent);
 
     // Track the active request's method so the Body tab colour stays in sync,
     // and its id so concurrent lifecycle events can be routed (below).
@@ -506,7 +505,7 @@ export class ResponseViewer {
       // Cmd/Ctrl+A → select body text only (pass through when search input is focused)
       const selectAll =
         e.key === "a" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
-      if (selectAll && e.target !== this.#searchInput) {
+      if (selectAll && !this.#search.isSearchInput(e.target)) {
         const pre = this.#bodyPane?.querySelector(".res-body-pre");
         if (!pre) return;
         e.preventDefault();
@@ -525,7 +524,7 @@ export class ResponseViewer {
       if (findKey) {
         e.preventDefault();
         e.stopPropagation();
-        this.#openSearch();
+        this.#search.open();
       }
     });
 
@@ -821,294 +820,6 @@ export class ResponseViewer {
     this.#tabContent = content;
   }
 
-  // ── Find / search bar ─────────────────────────────────────────────────────
-
-  /**
-   * Build the search bar and insert it between the tab strip and the tab
-   * content area.  The bar starts hidden and is revealed by Cmd/Ctrl+F.
-   */
-  #renderSearchBar() {
-    const bar = document.createElement("div");
-    bar.className = "res-search-bar";
-    bar.hidden = true;
-
-    const label = document.createElement("span");
-    label.className = "res-search-label";
-    label.textContent = t("response.find.label");
-    label.setAttribute("aria-hidden", "true");
-
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "res-search-input";
-    input.placeholder = t("response.find.placeholder");
-    input.setAttribute("aria-label", t("response.find.inputAria"));
-
-    const actions = document.createElement("div");
-    actions.className = "res-search-actions";
-
-    // Previous-match button (up arrow)
-    const prevBtn = document.createElement("button");
-    prevBtn.className = "res-search-btn res-search-nav-btn";
-    prevBtn.title = t("response.find.prevTitle");
-    prevBtn.setAttribute("aria-label", t("response.find.prevAria"));
-    prevBtn.disabled = true;
-    prevBtn.innerHTML = icon("chevronUp", { size: 12 });
-
-    // Next-match button (down arrow)
-    const nextBtn = document.createElement("button");
-    nextBtn.className = "res-search-btn res-search-nav-btn";
-    nextBtn.title = t("response.find.nextTitle");
-    nextBtn.setAttribute("aria-label", t("response.find.nextAria"));
-    nextBtn.disabled = true;
-    nextBtn.innerHTML = icon("chevronDown", { size: 12 });
-
-    // Case-sensitivity toggle
-    const caseBtn = document.createElement("button");
-    caseBtn.className = "res-search-btn";
-    caseBtn.title = t("response.find.caseTitle");
-    caseBtn.setAttribute("aria-label", t("response.find.caseTitle"));
-    caseBtn.setAttribute("aria-pressed", "false");
-    caseBtn.textContent = t("response.find.caseLabel");
-
-    // Regular-expression toggle
-    const regexBtn = document.createElement("button");
-    regexBtn.className = "res-search-btn";
-    regexBtn.title = t("response.find.regexTitle");
-    regexBtn.setAttribute("aria-label", t("response.find.regexAria"));
-    regexBtn.setAttribute("aria-pressed", "false");
-    regexBtn.textContent = ".*";
-
-    // Close button
-    const closeBtn = document.createElement("button");
-    closeBtn.className = "res-search-btn res-search-close-btn";
-    closeBtn.title = t("response.find.closeTitle");
-    closeBtn.setAttribute("aria-label", t("response.find.closeAria"));
-    closeBtn.innerHTML = icon("close", { size: 12 });
-
-    actions.appendChild(prevBtn);
-    actions.appendChild(nextBtn);
-    actions.appendChild(caseBtn);
-    actions.appendChild(regexBtn);
-    actions.appendChild(closeBtn);
-
-    bar.appendChild(label);
-    bar.appendChild(input);
-    bar.appendChild(actions);
-
-    // ── Event wiring ──────────────────────────────────────────────────────
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        // If results are already applied, Enter/Shift+Enter navigates; otherwise run.
-        if (this.#searchMatches.length > 0) {
-          this.#goToMatch(this.#searchCurrent + (e.shiftKey ? -1 : 1));
-        } else {
-          this.#runSearch();
-        }
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        this.#closeSearch();
-      }
-    });
-
-    prevBtn.addEventListener("click", () =>
-      this.#goToMatch(this.#searchCurrent - 1),
-    );
-    nextBtn.addEventListener("click", () =>
-      this.#goToMatch(this.#searchCurrent + 1),
-    );
-
-    caseBtn.addEventListener("click", () => {
-      const active = caseBtn.classList.toggle("res-search-btn--active");
-      caseBtn.setAttribute("aria-pressed", String(active));
-      if (input.value.trim()) this.#runSearch();
-    });
-
-    regexBtn.addEventListener("click", () => {
-      const active = regexBtn.classList.toggle("res-search-btn--active");
-      regexBtn.setAttribute("aria-pressed", String(active));
-      if (input.value.trim()) this.#runSearch();
-    });
-
-    closeBtn.addEventListener("click", () => this.#closeSearch());
-
-    this.#searchBar = bar;
-    this.#searchInput = input;
-    this.#prevBtn = prevBtn;
-    this.#nextBtn = nextBtn;
-    this.#caseBtn = caseBtn;
-    this.#regexBtn = regexBtn;
-
-    // Insert between tab strip and tab content
-    this.#el.insertBefore(bar, this.#tabContent);
-  }
-
-  /** Show the search bar and focus the input. No-op when HTML preview is live. */
-  #openSearch() {
-    if (this.#htmlPreviewActive) return;
-    this.#searchBar.hidden = false;
-    this.#searchInput.select();
-    this.#searchInput.focus();
-  }
-
-  /** Hide the search bar and remove all highlights. */
-  #closeSearch() {
-    this.#searchBar.hidden = true;
-    this.#clearHighlights();
-  }
-
-  /**
-   * Navigate to the match at `index`, wrapping at both ends.
-   * Removes the current-highlight class from the old match, adds it to the
-   * new one, and scrolls it into view.
-   */
-  #goToMatch(index) {
-    const count = this.#searchMatches.length;
-    if (count === 0) return;
-
-    // Remove current-highlight from the previous active match
-    if (this.#searchCurrent >= 0 && this.#searchCurrent < count) {
-      this.#searchMatches[this.#searchCurrent].classList.remove(
-        "res-search-highlight--current",
-      );
-    }
-
-    // Wrap around
-    this.#searchCurrent = ((index % count) + count) % count;
-
-    const mark = this.#searchMatches[this.#searchCurrent];
-    mark.classList.add("res-search-highlight--current");
-
-    // In the foldable JSON/XML view the match may sit inside a collapsed fold;
-    // open the enclosing folds so the row is visible before scrolling to it.
-    if (this.#foldReveal) {
-      const lineEl = mark.closest(".res-fold-line");
-      if (lineEl) this.#foldReveal(lineEl);
-    }
-
-    mark.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }
-
-  /** Enable or disable the prev/next nav buttons based on whether matches exist. */
-  #updateNavButtons() {
-    const has = this.#searchMatches.length > 0;
-    if (this.#prevBtn) this.#prevBtn.disabled = !has;
-    if (this.#nextBtn) this.#nextBtn.disabled = !has;
-  }
-
-  /**
-   * Run the current search query against the visible body text, wrapping
-   * each match in a <mark class="res-search-highlight"> element.
-   * Navigates to and highlights the first match.
-   */
-  #runSearch() {
-    const query = this.#searchInput?.value ?? "";
-    this.#clearHighlights();
-    if (!query) return;
-
-    // Only search text content — bail out for HTML previews or missing body
-    if (this.#htmlPreviewActive) return;
-    const pre = this.#bodyPane?.querySelector(".res-body-pre");
-    if (!pre) return;
-
-    const caseSensitive = this.#caseBtn.classList.contains(
-      "res-search-btn--active",
-    );
-    const useRegex = this.#regexBtn.classList.contains(
-      "res-search-btn--active",
-    );
-    const flags = caseSensitive ? "g" : "gi";
-
-    let pattern;
-    try {
-      pattern = useRegex
-        ? new RegExp(query, flags)
-        : new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), flags);
-    } catch {
-      return; // invalid regex — silently skip
-    }
-
-    this.#searchMatches = this.#highlightMatches(pre, pattern);
-    this.#updateNavButtons();
-
-    if (this.#searchMatches.length > 0) {
-      this.#goToMatch(0);
-    }
-  }
-
-  /**
-   * Walk every text node inside `element`, wrap all regex matches in <mark>
-   * elements styled with `res-search-highlight`, and return those marks.
-   *
-   * @param {HTMLElement} element
-   * @param {RegExp}      regex    Must have the `g` flag set.
-   * @returns {HTMLElement[]} ordered list of <mark> nodes
-   */
-  #highlightMatches(element, regex) {
-    const marks = [];
-    // Skip the line-number gutter — its digits are presentational, not body text.
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
-      acceptNode: (n) =>
-        n.parentElement?.closest(".res-fold-num")
-          ? NodeFilter.FILTER_REJECT
-          : NodeFilter.FILTER_ACCEPT,
-    });
-    const textNodes = [];
-    let node;
-    while ((node = walker.nextNode())) textNodes.push(node);
-
-    for (const textNode of textNodes) {
-      const text = textNode.textContent;
-      regex.lastIndex = 0;
-      if (!regex.test(text)) continue;
-      regex.lastIndex = 0;
-
-      const frag = document.createDocumentFragment();
-      let lastIndex = 0;
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        if (match.index > lastIndex) {
-          frag.appendChild(
-            document.createTextNode(text.slice(lastIndex, match.index)),
-          );
-        }
-        const mark = document.createElement("mark");
-        mark.className = "res-search-highlight";
-        mark.textContent = match[0];
-        frag.appendChild(mark);
-        marks.push(mark);
-        lastIndex = match.index + match[0].length;
-        if (match[0].length === 0) regex.lastIndex++; // guard against zero-length matches
-      }
-      if (lastIndex < text.length) {
-        frag.appendChild(document.createTextNode(text.slice(lastIndex)));
-      }
-      textNode.parentNode.replaceChild(frag, textNode);
-    }
-
-    return marks;
-  }
-
-  /**
-   * Unwrap all <mark class="res-search-highlight"> nodes, restoring plain
-   * text in their place, and reset the match list.
-   */
-  #clearHighlights() {
-    if (this.#bodyPane) {
-      this.#bodyPane
-        .querySelectorAll("mark.res-search-highlight")
-        .forEach((mark) => {
-          const parent = mark.parentNode;
-          if (!parent) return;
-          parent.replaceChild(document.createTextNode(mark.textContent), mark);
-          parent.normalize();
-        });
-    }
-    this.#searchMatches = [];
-    this.#searchCurrent = -1;
-    this.#updateNavButtons();
-  }
-
   /**
    * Build a `.panel-placeholder` element — the empty/loading/error message a
    * pane shows before (or instead of) real content. Every placeholder across
@@ -1371,7 +1082,7 @@ export class ResponseViewer {
     const pane = this.#bodyPane;
     const category = classifyContentType(this.#contentTypeOf(response.headers));
 
-    this.#clearHighlights();
+    this.#search.clearHighlights();
     // Tear down any binary ephemera (PDF overlay, image blob URL) before the
     // pane is rebuilt; the new render re-creates whatever it needs.
     this.#teardownBinaryEphemera();
@@ -1383,7 +1094,7 @@ export class ResponseViewer {
     // (sent time, duration, event/byte counts, last events) instead. Render
     // modes (Styled/Raw/Hex) don't apply, so this precedes them.
     if (response.streamSummary) {
-      this.#foldReveal = null;
+      this.#search.setFoldReveal(null);
       this.#renderStreamSummary(response.streamSummary, pane);
       return;
     }
@@ -1392,7 +1103,7 @@ export class ResponseViewer {
     // A render mode (like Styled/Raw) selectable for every content-type from
     // the Body context menu: dump the raw bytes regardless of the body's type.
     if (this.#renderMode === "hex") {
-      this.#foldReveal = null;
+      this.#search.setFoldReveal(null);
       if (response.truncated) {
         pane.appendChild(this.#buildTruncationBanner(response));
       }
@@ -1419,7 +1130,7 @@ export class ResponseViewer {
     // fenced code blocks are then re-highlighted with the bundled Prism.
     // Raw mode falls through to the verbatim <pre> path below.
     if (this.#renderMode !== "raw" && category === "markdown") {
-      this.#foldReveal = null;
+      this.#search.setFoldReveal(null);
       const md = document.createElement("div");
       // Keep the .res-body-pre class so select-all, copy and search machinery
       // (which query `.res-body-pre`) keep working on the rendered block.
@@ -1430,13 +1141,7 @@ export class ResponseViewer {
       pane.appendChild(md);
 
       // Re-apply an active search query (the pane was just rebuilt).
-      if (
-        this.#searchBar &&
-        !this.#searchBar.hidden &&
-        this.#searchInput?.value.trim()
-      ) {
-        this.#runSearch();
-      }
+      this.#search.reapplyActiveSearch();
       return;
     }
 
@@ -1486,7 +1191,7 @@ export class ResponseViewer {
 
     // Styled JSON/XML/YAML/HTML/CSS/JS get a collapsible, line-based render with
     // a fold gutter; everything else is a single highlighted (or plain) block.
-    this.#foldReveal = null;
+    this.#search.setFoldReveal(null);
     const foldable =
       this.#renderMode !== "raw" &&
       (category === "json" ||
@@ -1507,13 +1212,7 @@ export class ResponseViewer {
     pane.appendChild(pre);
 
     // Re-apply an active search query (the pane was just rebuilt from scratch)
-    if (
-      this.#searchBar &&
-      !this.#searchBar.hidden &&
-      this.#searchInput?.value.trim()
-    ) {
-      this.#runSearch();
-    }
+    this.#search.reapplyActiveSearch();
   }
 
   // ── Binary rendering (images / PDF / hex) ─────────────────────────────────
@@ -1531,7 +1230,7 @@ export class ResponseViewer {
    */
   #renderBinaryBody(response, category) {
     const pane = this.#bodyPane;
-    this.#foldReveal = null;
+    this.#search.setFoldReveal(null);
 
     // Spilled preview banner (View full / Save).
     if (response.truncated) {
@@ -1635,7 +1334,7 @@ export class ResponseViewer {
     pre.tabIndex = 0;
     this.#fillHexDump(pre, bytes, shown);
     pane.appendChild(pre);
-    this.#reapplyActiveSearch();
+    this.#search.reapplyActiveSearch();
   }
 
   /**
@@ -1675,17 +1374,6 @@ export class ResponseViewer {
       pre.appendChild(document.createTextNode("  "));
       pre.appendChild(bytesSpan);
       pre.appendChild(document.createTextNode(` |${ascii}|`));
-    }
-  }
-
-  /** Re-run an open find query after the body pane was rebuilt. */
-  #reapplyActiveSearch() {
-    if (
-      this.#searchBar &&
-      !this.#searchBar.hidden &&
-      this.#searchInput?.value.trim()
-    ) {
-      this.#runSearch();
     }
   }
 
@@ -1923,8 +1611,9 @@ export class ResponseViewer {
    * always intact (Prism escapes each line independently).
    *
    * The full text stays in the DOM even when folded (rows are hidden, not
-   * removed) so find-in-response, select-all and copy keep working; #foldReveal
-   * lets the search navigator open folds around a match.
+   * removed) so find-in-response, select-all and copy keep working; the
+   * fold-reveal hook handed to ResponseSearch (setFoldReveal) lets the search
+   * navigator open folds around a match.
    *
    * @param {HTMLPreElement} pre   the body <pre> to populate
    * @param {string} text          body text (pretty-printed for JSON/XML/HTML)
@@ -2057,10 +1746,10 @@ export class ResponseViewer {
     pre.appendChild(frag);
 
     // Search navigator hook: open every collapsed fold enclosing a match line.
-    // Only meaningful with folding on; otherwise #foldReveal stays null and the
-    // navigator just scrolls to the match.
+    // Only meaningful with folding on; otherwise the search keeps a null
+    // fold-reveal and the navigator just scrolls to the match.
     if (!folding) return;
-    this.#foldReveal = (lineEl) => {
+    this.#search.setFoldReveal((lineEl) => {
       const idx = Number(lineEl?.dataset?.line);
       if (Number.isNaN(idx)) return;
       let changed = false;
@@ -2076,7 +1765,7 @@ export class ResponseViewer {
         }
       }
       if (changed) applyFolds();
-    };
+    });
   }
 
   // ── HTML preview helpers ──────────────────────────────────────────────────
@@ -2410,7 +2099,7 @@ export class ResponseViewer {
     this.#teardownBinaryEphemera();
     this.#teardownStream({ abort: true });
     this.#setPreviewTabVisible(false);
-    this.#clearHighlights();
+    this.#search.clearHighlights();
     this.#setStatus("", "", "", "");
     const bodyPane = this.#bodyPane;
     bodyPane.innerHTML = "";
@@ -2457,7 +2146,7 @@ export class ResponseViewer {
     this.#teardownBinaryEphemera();
     this.#teardownStream({ abort: true });
     this.#setPreviewTabVisible(false);
-    this.#clearHighlights();
+    this.#search.clearHighlights();
     const hasStatus = detail?.status && detail.status > 0;
     const statusCode = hasStatus ? String(detail.status) : "ERR";
     const statusTxt =
@@ -2503,7 +2192,7 @@ export class ResponseViewer {
     this.#teardownBinaryEphemera();
     this.#teardownStream({ abort: true });
     this.#setPreviewTabVisible(false);
-    this.#clearHighlights();
+    this.#search.clearHighlights();
     this.#setStatus("", "", "", "");
     this.#statusBar.querySelector(".res-status-badge").className =
       "res-status-badge";
@@ -2609,16 +2298,7 @@ export class ResponseViewer {
     this.#renderBodyPane(this.#lastResponse);
 
     // ── Headers pane ───────────────────────────────────────────────────────
-    const headersPane = this.#tabContent.querySelector("#res-tab-headers");
-    headersPane.innerHTML = "";
-    const table = document.createElement("table");
-    table.className = "res-headers-table res-headers-table--split";
-    Object.entries(headers).forEach(([k, v]) => {
-      const row = table.insertRow();
-      row.insertCell().textContent = k;
-      row.insertCell().textContent = v;
-    });
-    headersPane.appendChild(table);
+    this.#renderHeadersPane(headers);
 
     // ── Cookies pane ───────────────────────────────────────────────────────
     this.#renderCookiesPane(cookies);
@@ -2638,7 +2318,7 @@ export class ResponseViewer {
    */
   #startStream(response, requestUrl) {
     this.#teardownBinaryEphemera();
-    this.#clearHighlights();
+    this.#search.clearHighlights();
     this.#destroyHtmlPreview();
 
     this.#streaming = true;
@@ -2670,16 +2350,7 @@ export class ResponseViewer {
     this.#buildStreamPane(response);
 
     // Headers / cookies / console from the marker.
-    const headersPane = this.#tabContent.querySelector("#res-tab-headers");
-    headersPane.innerHTML = "";
-    const table = document.createElement("table");
-    table.className = "res-headers-table res-headers-table--split";
-    Object.entries(response.headers ?? {}).forEach(([k, v]) => {
-      const row = table.insertRow();
-      row.insertCell().textContent = k;
-      row.insertCell().textContent = v;
-    });
-    headersPane.appendChild(table);
+    this.#renderHeadersPane(response.headers ?? {});
     this.#renderCookiesPane(response.cookies ?? []);
     this.#renderConsole(response.consoleLog ?? []);
 
@@ -2700,7 +2371,7 @@ export class ResponseViewer {
     this.#teardownBinaryEphemera();
     pane.innerHTML = "";
     pane.classList.remove("res-tab-pane--fill");
-    this.#foldReveal = null;
+    this.#search.setFoldReveal(null);
 
     const wrap = document.createElement("div");
     wrap.className = "res-stream";
@@ -3080,6 +2751,20 @@ export class ResponseViewer {
     return `${m} m ${s} s`;
   }
 
+  /** Fill the Headers tab with a key/value table (shared by the static + stream renders). */
+  #renderHeadersPane(headers) {
+    const headersPane = this.#tabContent.querySelector("#res-tab-headers");
+    headersPane.innerHTML = "";
+    const table = document.createElement("table");
+    table.className = "res-headers-table res-headers-table--split";
+    Object.entries(headers ?? {}).forEach(([k, v]) => {
+      const row = table.insertRow();
+      row.insertCell().textContent = k;
+      row.insertCell().textContent = v;
+    });
+    headersPane.appendChild(table);
+  }
+
   /**
    * Render the Cookies tab from the response's raw Set-Cookie strings.
    *
@@ -3272,7 +2957,6 @@ export class ResponseViewer {
    * explicit); the rest cover copy and history lifecycle.
    */
   async #showTimelineContextMenu(entry, x, y) {
-    const url = entry.requestUrl || entry.requestNode?.url || "";
     const items = [
       { id: "restore", label: t("menu.restoreEntry") },
       { type: "separator" },
@@ -3290,8 +2974,6 @@ export class ResponseViewer {
           },
         }),
       );
-    } else if (clickedId === "copy-url") {
-      if (url) navigator.clipboard.writeText(url).catch(() => {});
     } else if (clickedId === "delete") {
       this.#deleteTimelineEntry(entry.id);
     } else if (clickedId === "delete-all") {

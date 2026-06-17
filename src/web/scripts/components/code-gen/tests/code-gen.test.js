@@ -19,7 +19,7 @@ import { buildRequestModel, generateCode, TARGETS } from "../index.js";
 
 // Empty resolver context — no env / folder variables. resolveString returns
 // strings with no {{tokens}} unchanged, so request fields pass through verbatim.
-const CTX = { envVariables: {}, folderChain: [] };
+const CTX = { collectionVariables: {}, folderChain: [] };
 
 const GET_NODE = {
   type: "request",
@@ -177,7 +177,7 @@ test("buildRequestModel: a GET drops a body even if one is configured", () => {
 });
 
 test("buildRequestModel: {{var}} tokens resolve from the context", () => {
-  const ctx = { envVariables: { host: "example.org" }, folderChain: [] };
+  const ctx = { collectionVariables: { host: "example.org" }, folderChain: [] };
   const m = buildRequestModel(
     { type: "request", method: "GET", url: "https://{{host}}/v1" },
     ctx,

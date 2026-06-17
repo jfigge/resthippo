@@ -25,7 +25,7 @@
  *   onRename({ id, name })             — rename a collection
  *   onDelete({ id })                   — delete a collection
  *   onSendCookiesChange({ id, sendCookies }) — toggle the cookie-jar attach flag
- *   onVarsSave({ envId, variables })   — debounced 500ms auto-save
+ *   onVarsSave({ scopeId, variables })   — debounced 500ms auto-save
  *   onBulkEditorChange({ bulkEditor }) — bulk-textarea / KV-row toggle changed
  *
  * The cookie jar is owned by the main process, so no cookie callbacks fire for
@@ -125,7 +125,7 @@ export class CollectionsPopup {
    *   onRename?: (payload: { id: string, name: string }) => void,
    *   onDelete?: (payload: { id: string }) => void,
    *   onSendCookiesChange?: (payload: { id: string, sendCookies: boolean }) => void,
-   *   onVarsSave?: (payload: { envId: string, variables: Array }) => void,
+   *   onVarsSave?: (payload: { scopeId: string, variables: Array }) => void,
    *   onBulkEditorChange?: (payload: { bulkEditor: boolean }) => void,
    * }} [opts]
    */
@@ -480,7 +480,10 @@ export class CollectionsPopup {
     const nameBtn = document.createElement("button");
     nameBtn.className = "coll-list-item-name";
     nameBtn.textContent = collection.name;
-    nameBtn.setAttribute("aria-label", `Select ${collection.name}`);
+    nameBtn.setAttribute(
+      "aria-label",
+      t("common.selectItem", { name: collection.name }),
+    );
     nameBtn.addEventListener("click", () => this.#selectColl(collection.id));
 
     const actions = document.createElement("div");
@@ -490,16 +493,24 @@ export class CollectionsPopup {
     renameBtn.className = "coll-action-btn";
     renameBtn.title = t("collections.rename");
     renameBtn.innerHTML = ICON_RENAME;
-    renameBtn.setAttribute("aria-label", `Rename ${collection.name}`);
+    renameBtn.setAttribute(
+      "aria-label",
+      t("common.renameItem", { name: collection.name }),
+    );
     renameBtn.addEventListener("click", () => this.#startRename(collection));
 
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "coll-action-btn coll-action-btn--danger";
     deleteBtn.title =
-      count <= 1 ? "Cannot delete the only collection" : "Delete collection";
+      count <= 1
+        ? t("collections.cannotDeleteOnly")
+        : t("collections.deleteCollection");
     deleteBtn.disabled = count <= 1;
     deleteBtn.innerHTML = icon("trash", { size: 13 });
-    deleteBtn.setAttribute("aria-label", `Delete ${collection.name}`);
+    deleteBtn.setAttribute(
+      "aria-label",
+      t("common.deleteItem", { name: collection.name }),
+    );
     deleteBtn.addEventListener("click", () => this.#confirmDelete(collection));
 
     actions.appendChild(renameBtn);
@@ -841,7 +852,7 @@ export class CollectionsPopup {
       valIn.classList.toggle("params-value--masked", masked);
       reveal.style.display = row.secure ? "" : "none";
       reveal.innerHTML = icon(revealed ? "eyeOff" : "eye", { size: 14 });
-      const action = revealed ? "Hide value" : "Reveal value";
+      const action = revealed ? t("common.hideValue") : t("common.revealValue");
       reveal.title = action;
       reveal.setAttribute("aria-label", action);
       reveal.setAttribute("aria-pressed", String(revealed));
@@ -949,7 +960,7 @@ export class CollectionsPopup {
     this.#collections = this.#collections.map((c) =>
       c.id === this.#selectedId ? { ...c, variables } : c,
     );
-    this.#onVarsSave?.({ envId: this.#selectedId, variables });
+    this.#onVarsSave?.({ scopeId: this.#selectedId, variables });
   }
 
   // ── Cookies tab ──────────────────────────────────────────────────────────────

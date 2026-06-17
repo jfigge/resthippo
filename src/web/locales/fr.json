@@ -18,7 +18,14 @@
     "copy": "Copier",
     "copied": "Copié",
     "download": "Télécharger",
-    "allFiles": "Tous les fichiers"
+    "allFiles": "Tous les fichiers",
+    "reveal": "Afficher",
+    "hide": "Masquer",
+    "revealValue": "Afficher la valeur",
+    "hideValue": "Masquer la valeur",
+    "selectItem": "Sélectionner {name}",
+    "renameItem": "Renommer {name}",
+    "deleteItem": "Supprimer {name}"
   },
   "app": {
     "wsOpen": "La connexion WebSocket est ouverte",
@@ -502,6 +509,10 @@
       "headers": "en-têtes",
       "field": "champ",
       "pathParameter": "paramètre de chemin"
+    },
+    "bodyValidate": {
+      "validTitle": "{type} est valide",
+      "invalidTitle": "{type} contient une erreur de syntaxe"
     }
   },
   "response": {
@@ -688,7 +699,10 @@
     "favorited": "Favori",
     "favoriteHint": "Double-cliquez pour ajouter aux favoris",
     "unfavoriteHint": "Double-cliquez pour retirer des favoris",
-    "unnamed": "(sans nom)"
+    "unnamed": "(sans nom)",
+    "emptyFavorites": "Aucun favori pour l’instant",
+    "emptyRecent": "Aucune requête récente",
+    "newWebSocket": "Nouveau WebSocket"
   },
   "collections": {
     "title": "Collections",
@@ -719,7 +733,9 @@
       "path": "Chemin",
       "expires": "Expire",
       "sameSite": "SameSite"
-    }
+    },
+    "cannotDeleteOnly": "Impossible de supprimer la seule collection",
+    "deleteCollection": "Supprimer la collection"
   },
   "environments": {
     "title": "Environnements",
@@ -732,7 +748,9 @@
     "closeAria": "Fermer les environnements",
     "deleteTitle": "Supprimer l'environnement ?",
     "delete": "Supprimer l'environnement",
-    "nameExists": "Un environnement portant ce nom existe déjà."
+    "nameExists": "Un environnement portant ce nom existe déjà.",
+    "selectGlobalAria": "Sélectionner les variables globales",
+    "deleteMessage": "Supprimer l’environnement « {name} » et toutes ses variables ?"
   },
   "cookies": {
     "session": "Session",
@@ -1055,5 +1073,8 @@
     "placeholder": "curl https://api.example.com/users \\\n  -H 'Authorization: Bearer ...' \\\n  -d '{\"name\":\"Ada\"}'",
     "submit": "Importer",
     "empty": "Collez une commande cURL à importer."
+  },
+  "variables": {
+    "titleScope": "Variables — {scope}"
   }
 }

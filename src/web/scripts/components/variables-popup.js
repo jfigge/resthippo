@@ -15,7 +15,7 @@
  * Constructor callbacks (this is a parent-owned popup that reports back to its
  * creator, so it uses callbacks rather than global wurl:* events — see the
  * "Component ↔ app communication" rule in CLAUDE.md):
- *   onSave({ envId, variables })       — debounced 500ms auto-save
+ *   onSave({ scopeId, variables })       — debounced 500ms auto-save
  *   onBulkEditorChange({ bulkEditor }) — bulk-textarea / KV-row toggle changed
  */
 
@@ -39,7 +39,7 @@ export class VariablesPopup {
   /** @type {HTMLElement} */ #hintEl;
   /** @type {HTMLButtonElement} */ #addBtnEl;
 
-  /** @type {string|null} */ #envId = null;
+  /** @type {string|null} */ #scopeId = null;
 
   /** true = textarea (bulk); false = KV rows */
   #isBulkMode = true;
@@ -57,14 +57,14 @@ export class VariablesPopup {
   /** Auto re-mask a revealed secure value after this many ms. */
   static #REVEAL_MS = 30000;
 
-  /** @type {(payload: { envId: string, variables: Array }) => void} */
+  /** @type {(payload: { scopeId: string, variables: Array }) => void} */
   #onSave;
   /** @type {(payload: { bulkEditor: boolean }) => void} */
   #onBulkEditorChange;
 
   /**
    * @param {{
-   *   onSave?: (payload: { envId: string, variables: Array }) => void,
+   *   onSave?: (payload: { scopeId: string, variables: Array }) => void,
    *   onBulkEditorChange?: (payload: { bulkEditor: boolean }) => void,
    * }} [opts]
    */
@@ -93,12 +93,15 @@ export class VariablesPopup {
   }
 
   /**
-   * @param {{ envId:string, envName:string, variables:Array|object, bulkEditor?:boolean }} opts
+   * @param {{ scopeId:string, scopeName:string, variables:Array|object, bulkEditor?:boolean }} opts
    */
-  open({ envId, envName, variables, bulkEditor = true }) {
-    this.#envId = envId;
-    this.#titleEl.textContent = `Variables — ${envName}`;
-    this.#el.setAttribute("aria-label", `Variables — ${envName}`);
+  open({ scopeId, scopeName, variables, bulkEditor = true }) {
+    this.#scopeId = scopeId;
+    this.#titleEl.textContent = t("variables.titleScope", { scope: scopeName });
+    this.#el.setAttribute(
+      "aria-label",
+      t("variables.titleScope", { scope: scopeName }),
+    );
 
     const vars = normalizeVariables(variables);
 
@@ -380,7 +383,7 @@ export class VariablesPopup {
       valIn.classList.toggle("params-value--masked", masked);
       reveal.style.display = row.secure ? "" : "none";
       reveal.innerHTML = icon(revealed ? "eyeOff" : "eye", { size: 14 });
-      const action = revealed ? "Hide value" : "Reveal value";
+      const action = revealed ? t("common.hideValue") : t("common.revealValue");
       reveal.title = action;
       reveal.setAttribute("aria-label", action);
       reveal.setAttribute("aria-pressed", String(revealed));
@@ -465,17 +468,17 @@ export class VariablesPopup {
   }
 
   #saveFromBulk() {
-    if (!this.#envId) return;
+    if (!this.#scopeId) return;
     this.#dispatchSave(this.#textToVars(this.#textareaEl.value));
   }
 
   #saveFromRows() {
-    if (!this.#envId) return;
+    if (!this.#scopeId) return;
     this.#dispatchSave(this.#rowsToArray());
   }
 
   #dispatchSave(variables) {
-    this.#onSave?.({ envId: this.#envId, variables });
+    this.#onSave?.({ scopeId: this.#scopeId, variables });
   }
 
   // ── Close ───────────────────────────────────────────────────────────────────

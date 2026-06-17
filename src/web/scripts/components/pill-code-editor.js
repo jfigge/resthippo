@@ -32,12 +32,9 @@ import {
   isFunctionCall,
   parseFunctionCall,
   buildFunctionToken,
-  collectScopes,
 } from "./variable-resolver.js";
-import { PillEditorPopup } from "./pill-editor-popup.js";
-import { PillPicker } from "./pill-picker.js";
-import { registry } from "./function-registry.js";
-import { logicMap } from "./function-logic-map.js";
+import { makeVariablePill, makeFunctionPill } from "./pill-builders.js";
+import { PillPickerController } from "./pill-picker-controller.js";
 import Prism from "../vendor/prism.js";
 import {
   parse as parseYaml,
@@ -152,9 +149,14 @@ export class PillCodeEditor {
   #onEnter;
   #onCaret; // fired when the caret/selection moves within the document
   #collapsed = new Set(); // source-line indices of collapsed openers
-  #pickerInst = null;
-  #pickerTimer = null;
-  #pickerOutside = null;
+  // The `{{` typeahead lifecycle is owned by the shared controller; this editor
+  // injects its editable root, context, debounce, and how to insert a token.
+  #picker = new PillPickerController({
+    getRoot: () => this.#doc,
+    getContext: () => this.#getContext(),
+    onInsert: (raw) => this.#insertToken(raw),
+    debounceMs: () => PICKER_DEBOUNCE_MS,
+  });
   #hlTimer = null;
   #valTimer = null;
   #placeholder;
@@ -282,7 +284,7 @@ export class PillCodeEditor {
   destroy() {
     clearTimeout(this.#hlTimer);
     clearTimeout(this.#valTimer);
-    this.#closePicker();
+    this.#picker.close();
     this.#ro?.disconnect();
     document.removeEventListener("selectionchange", this.#onSelectionChange);
     window.removeEventListener("wurl:edit-action", this.#onEditAction);
@@ -296,7 +298,7 @@ export class PillCodeEditor {
   }
 
   setValue(text) {
-    this.#closePicker();
+    this.#picker.close();
     this.#collapsed.clear();
     let lines = String(text ?? "").split("\n");
     if (!this.#multiline) lines = [lines.join(" ")];
@@ -351,7 +353,7 @@ export class PillCodeEditor {
   setReadonly(on) {
     this.#readonly = !!on;
     this.#applyReadonly();
-    if (this.#readonly) this.#closePicker();
+    if (this.#readonly) this.#picker.close();
   }
   setRichErrors(on) {
     this.#richErrors = !!on;
@@ -424,7 +426,7 @@ export class PillCodeEditor {
   /** True while the inline `{{` variable picker is open, so a host autocomplete
    *  can defer the navigation keys to it. */
   isPickerOpen() {
-    return !!this.#pickerInst;
+    return this.#picker.isOpen();
   }
 
   /** Replace the value range [start, end) with `text` (splitting on newlines),
@@ -989,7 +991,7 @@ export class PillCodeEditor {
     this.#applyFolds();
     this.#scheduleHighlight();
     this.#scheduleValidate();
-    this.#schedulePicker();
+    this.#picker.schedule();
   }
 
   /** Keep the doc as a flat list of `.pce-line` blocks with <br> in empties. */
@@ -1054,7 +1056,7 @@ export class PillCodeEditor {
     r.collapse(true);
     sel.removeAllRanges();
     sel.addRange(r);
-    this.#closePicker();
+    this.#picker.close();
   }
 
   // ── Keyboard (only the picker + prettify shortcut; the rest is native) ────
@@ -1064,21 +1066,21 @@ export class PillCodeEditor {
       this.prettify();
       return;
     }
-    if (!this.#pickerInst) return;
+    if (!this.#picker.isOpen()) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      this.#pickerInst.selectNext();
+      this.#picker.selectNext();
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      this.#pickerInst.selectPrev();
+      this.#picker.selectPrev();
     } else if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
-      const item = this.#pickerInst.getSelected();
+      const item = this.#picker.getSelected();
       if (item) this.#insertToken(item.rawToken);
-      else this.#closePicker();
+      else this.#picker.close();
     } else if (e.key === "Escape") {
       e.preventDefault();
-      this.#closePicker();
+      this.#picker.close();
     }
   }
 
@@ -1120,76 +1122,26 @@ export class PillCodeEditor {
 
   // ── Pills (reused from the single-line editor's model) ────────────────────
   #makePill(name, ctx) {
-    const span = document.createElement("span");
-    span.contentEditable = "false";
-    span.dataset.variable = name;
-    span.textContent = name;
-    span.title = `{{${name}}}`;
-    const { found } = resolveVariable(name, ctx);
-    span.className =
-      "variable-pill " +
-      (found ? "variable-pill--known" : "variable-pill--unknown");
-    span.addEventListener("click", (e) => {
-      if (this.#readonly) return; // selection only; no edit popup
-      e.preventDefault();
-      e.stopPropagation();
-      PillEditorPopup.open({
-        type: "variable",
-        rawValue: `{{${span.dataset.variable}}}`,
-        getContext: this.#getContext,
-        onCommit: (raw) => {
-          const m = /^\{\{([^{}]+)\}\}$/.exec(raw);
-          if (!m) return;
-          span.dataset.variable = m[1];
-          span.textContent = m[1];
-          span.title = raw;
-          const { found: f } = resolveVariable(m[1], this.#getContext());
-          span.classList.toggle("variable-pill--known", f);
-          span.classList.toggle("variable-pill--unknown", !f);
-          this.#emit();
-          this.#scheduleHighlight();
-        },
-      });
+    return makeVariablePill(name, ctx, {
+      getContext: this.#getContext,
+      isReadonly: () => this.#readonly,
+      onCommit: () => {
+        this.#emit();
+        this.#scheduleHighlight();
+      },
     });
-    return span;
   }
 
   #makeFunctionPill(name, rawArgs) {
-    const funcDef = registry[name];
-    const span = document.createElement("span");
-    span.contentEditable = "false";
-    span.dataset.function = name;
-    span.dataset.fnArgs = JSON.stringify(rawArgs);
-    span.textContent = funcDef?.labelKey ? t(funcDef.labelKey) : name;
-    span.title = buildFunctionToken(name, rawArgs);
-    span.className = "variable-pill function-pill";
-    span.addEventListener("click", (e) => {
-      if (this.#readonly) return; // selection only; no edit popup
-      e.preventDefault();
-      e.stopPropagation();
-      PillEditorPopup.open({
-        type: "function",
-        funcName: name,
-        funcDef: registry[name],
-        rawArgs: JSON.parse(span.dataset.fnArgs ?? "[]"),
-        getContext: this.#getContext,
-        getItems: this.#getItems,
-        getPreview: async (args) => {
-          const fn = logicMap[name];
-          return fn ? String(await fn(args, this.#getContext())) : null;
-        },
-        onCommit: (raw) => {
-          const m = /^\{\{([^{}]+)\}\}$/.exec(raw);
-          const parsed = m && parseFunctionCall(m[1]);
-          if (!parsed) return;
-          span.dataset.fnArgs = JSON.stringify(parsed.rawArgs);
-          span.title = raw;
-          this.#emit();
-          this.#scheduleHighlight();
-        },
-      });
+    return makeFunctionPill(name, rawArgs, {
+      getContext: this.#getContext,
+      getItems: this.#getItems,
+      isReadonly: () => this.#readonly,
+      onCommit: () => {
+        this.#emit();
+        this.#scheduleHighlight();
+      },
     });
-    return span;
   }
 
   // ── `{{` typeahead picker ─────────────────────────────────────────────────
@@ -1205,7 +1157,7 @@ export class PillCodeEditor {
     const openIdx = before.lastIndexOf("{{");
     if (openIdx === -1) return;
     const m = /^\{\{([^{}]+)\}\}$/.exec(rawToken);
-    if (!m) return this.#closePicker();
+    if (!m) return this.#picker.close();
     const content = m[1].trim();
     const pill = this.#makeToken(content, this.#getContext());
     const parent = node.parentNode;
@@ -1221,134 +1173,9 @@ export class PillCodeEditor {
     r.collapse(true);
     sel.removeAllRanges();
     sel.addRange(r);
-    this.#closePicker();
+    this.#picker.close();
     this.#emit();
     this.#scheduleHighlight();
-  }
-
-  #schedulePicker() {
-    clearTimeout(this.#pickerTimer);
-    const filter = this.#pickerFilter();
-    if (filter === null) return this.#closePicker();
-    if (this.#pickerInst) {
-      this.#pickerInst.updateFilter(
-        filter,
-        this.#pickerVariables(),
-        this.#pickerFunctions(),
-      );
-      return;
-    }
-    this.#pickerTimer = setTimeout(() => {
-      const f = this.#pickerFilter();
-      if (f === null) return;
-      const rect = this.#caretRect();
-      if (rect) this.#openPicker(f, rect);
-    }, PICKER_DEBOUNCE_MS);
-  }
-
-  #pickerFilter() {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return null;
-    const range = sel.getRangeAt(0);
-    if (!range.collapsed || range.startContainer.nodeType !== Node.TEXT_NODE)
-      return null;
-    if (!this.#doc.contains(range.startContainer)) return null;
-    const before = range.startContainer.textContent.slice(0, range.startOffset);
-    const openIdx = before.lastIndexOf("{{");
-    if (openIdx === -1) return null;
-    const between = before.slice(openIdx + 2);
-    return between.includes("}}") ? null : between;
-  }
-
-  #caretRect() {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return null;
-    const r = sel.getRangeAt(0).cloneRange();
-    r.collapse(true);
-    const rects = r.getClientRects();
-    if (rects.length) return { x: rects[0].left, y: rects[0].bottom };
-    const er = this.#doc.getBoundingClientRect();
-    return { x: er.left, y: er.bottom };
-  }
-
-  #openPicker(filter, rect) {
-    this.#closePicker();
-    this.#pickerInst = new PillPicker({
-      x: rect.x,
-      y: rect.y,
-      filter,
-      variables: this.#pickerVariables(),
-      functions: this.#pickerFunctions(),
-      onSelect: (item) => this.#insertToken(item.rawToken),
-      onClose: () => this.#closePicker(),
-    });
-    document.body.appendChild(this.#pickerInst.element);
-    // Notify app-wide listeners (mirrors VariablePillEditor) so ResponseViewer
-    // hides its native HTML/PDF preview overlay, which would otherwise render
-    // above this typeahead in the multi-line body / GraphQL / WS editors.
-    window.dispatchEvent(new CustomEvent("wurl:popup-opened"));
-    this.#pickerOutside = (e) => {
-      if (
-        !this.#pickerInst?.element.contains(e.target) &&
-        !this.#doc.contains(e.target)
-      )
-        this.#closePicker();
-    };
-    document.addEventListener("mousedown", this.#pickerOutside, true);
-  }
-
-  #closePicker() {
-    clearTimeout(this.#pickerTimer);
-    this.#pickerTimer = null;
-    const wasOpen = !!this.#pickerInst;
-    if (this.#pickerInst) {
-      this.#pickerInst.destroy();
-      this.#pickerInst = null;
-    }
-    if (this.#pickerOutside) {
-      document.removeEventListener("mousedown", this.#pickerOutside, true);
-      this.#pickerOutside = null;
-    }
-    // Balance the wurl:popup-opened dispatched in #openPicker (depth-counted by
-    // ResponseViewer); only when a picker was actually open.
-    if (wasOpen) window.dispatchEvent(new CustomEvent("wurl:popup-closed"));
-  }
-
-  #pickerVariables() {
-    const ctx = this.#getContext();
-    const bySource = { global: null, environment: null, collection: null };
-    const folderNames = new Set();
-    for (const { source, vars } of collectScopes(ctx)) {
-      if (source === "folder")
-        for (const name of Object.keys(vars)) folderNames.add(name);
-      else bySource[source] = vars;
-    }
-    const labels = {
-      global: "Global",
-      environment: ctx?.activeEnvironmentName || "Environment",
-      collection: ctx?.envName || "Collection",
-    };
-    const scopes = [];
-    for (const source of ["global", "environment", "collection"]) {
-      const vars = bySource[source];
-      if (!vars) continue;
-      const names = Object.keys(vars).sort();
-      if (names.length)
-        scopes.push({ label: labels[source], variables: names });
-    }
-    if (folderNames.size)
-      scopes.push({
-        label: t("vars.folders"),
-        variables: [...folderNames].sort(),
-      });
-    return scopes;
-  }
-
-  #pickerFunctions() {
-    return Object.entries(registry).map(([name, funcDef]) => ({
-      name,
-      funcDef,
-    }));
   }
 
   /**

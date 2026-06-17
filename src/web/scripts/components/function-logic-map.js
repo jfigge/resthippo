@@ -55,7 +55,7 @@ export const logicMap = {
     if (isNaN(d)) return "";
     return ctx?.folderChain?.[d]?.name ?? "";
   },
-  collectionName: (_args, ctx) => ctx?.envName ?? "",
+  collectionName: (_args, ctx) => ctx?.collectionName ?? "",
   requestName: (_args, ctx) => ctx?.requestName ?? "",
   environmentName: (_args, ctx) => ctx?.activeEnvironmentName ?? "",
 

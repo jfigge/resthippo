@@ -98,10 +98,40 @@ export function resetDom() {
     globalThis.URL.revokeObjectURL = () => {};
   }
 
+  // jsdom doesn't implement CSS.escape — renderer code (e.g. TreeView) uses the
+  // bare global to escape ids in attribute selectors. A spec-adequate shim
+  // (backslash-escape anything outside [A-Za-z0-9_-]) covers the id/uuid cases.
+  if (typeof globalThis.CSS?.escape !== "function") {
+    const escape = (s) => String(s).replace(/[^a-zA-Z0-9_-]/g, (c) => "\\" + c);
+    globalThis.CSS = Object.assign(globalThis.CSS ?? {}, { escape });
+    window.CSS = globalThis.CSS;
+  }
+
+  // jsdom exposes localStorage on window only; renderer code reads the bare
+  // global (e.g. TreeView's collapsed-state persistence).
+  globalThis.localStorage = window.localStorage;
+
   // jsdom has no layout engine, so scrollIntoView is missing — the find-in-
   // response navigator calls it on each match. A no-op keeps search tests quiet.
   if (window.Element && !window.Element.prototype.scrollIntoView) {
     window.Element.prototype.scrollIntoView = () => {};
+  }
+
+  // Likewise, Range geometry is absent — the `{{` pill picker anchors at the
+  // caret via Range.getClientRects()/getBoundingClientRect(). Empty/zeroed stubs
+  // let the editors fall back to the element rect (the no-layout behaviour).
+  if (window.Range && !window.Range.prototype.getClientRects) {
+    window.Range.prototype.getClientRects = () => [];
+    window.Range.prototype.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+    });
   }
 
   return window;

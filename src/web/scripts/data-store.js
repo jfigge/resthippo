@@ -307,7 +307,7 @@ async function _persistManifest(label = "Save changes") {
 // The "env blob" shape is: { version: 1, collections: [...], variables: {...} }
 // It is assembled from / decomposed into the new per-file layout transparently.
 
-async function _loadEnvFile(collectionId) {
+async function _loadCollectionFile(collectionId) {
   const normalize = (raw) => ({
     items: Array.isArray(raw?.collections) ? raw.collections : [],
     variables:
@@ -315,7 +315,8 @@ async function _loadEnvFile(collectionId) {
   });
   return storeCall(
     `env load (${collectionId})`,
-    async () => normalize(await window.wurl.store.env.get(collectionId)),
+    async () =>
+      normalize(await window.wurl.store.collections.get(collectionId)),
     async () =>
       normalize(
         await httpJson(`/api/env?id=${encodeURIComponent(collectionId)}`),
@@ -324,11 +325,11 @@ async function _loadEnvFile(collectionId) {
   );
 }
 
-async function _saveEnvFile(collectionId, items, variables = {}, label) {
+async function _saveCollectionFile(collectionId, items, variables = {}, label) {
   const blob = { version: 1, collections: items, variables };
   return storeWrite(
     label ?? "Save collection",
-    () => window.wurl.store.env.save(collectionId, blob),
+    () => window.wurl.store.collections.save(collectionId, blob),
     () =>
       httpWrite(`/api/env?id=${encodeURIComponent(collectionId)}`, {
         method: "PUT",
@@ -390,7 +391,7 @@ export async function loadAll() {
     };
     _activeCollectionId = activeId;
 
-    const { items, variables } = await _loadEnvFile(activeId);
+    const { items, variables } = await _loadCollectionFile(activeId);
     _activeItems = items;
     _activeVariables = variables;
 
@@ -430,12 +431,56 @@ export async function loadAll() {
 export async function saveCollections(items) {
   if (!_activeCollectionId) return true; // nothing to persist is not a failure
   _activeItems = items;
-  return _saveEnvFile(
+  return _saveCollectionFile(
     _activeCollectionId,
     items,
     _activeVariables,
     "Save collection",
   );
+}
+
+/**
+ * Persist a single request's edited fields granularly — only that request's file
+ * is rewritten (with its undecryptable secrets preserved by the main-side clobber
+ * guard), instead of re-encrypting the whole collection. The patch must be the
+ * *partial* set of changed fields (the wurl:request-updated detail), not the full
+ * node, so the clobber guard can tell an untouched auth block from a deliberate
+ * overwrite.
+ *
+ * Electron only — the Go dev-server has no granular endpoint. Returns true on
+ * success; false on any failure (e.g. a brand-new request not yet on disk, or a
+ * non-Electron host) so the caller can fall back to a full saveCollections(),
+ * which both creates the file and surfaces a genuine write failure loudly.
+ *
+ * @param {string} id
+ * @param {object} patch  partial request fields
+ * @returns {Promise<boolean>} whether the granular write succeeded
+ */
+export async function updateRequest(id, patch) {
+  if (!isElectron()) return false;
+  try {
+    await window.wurl.store.requests.update(id, patch);
+    return true;
+  } catch (err) {
+    console.warn(
+      `[data-store] updateRequest(${id}) failed:`,
+      err?.message ?? err,
+    );
+    return false;
+  }
+}
+
+/**
+ * Keep the active-collection items mirror in step with the renderer's tree after
+ * a granular request edit (which does not itself touch the cache). Without this a
+ * later saveCollectionVariables() — which re-pairs the cached items with new
+ * variables and does a full write — would clobber the granular edits with a stale
+ * snapshot. In-memory only; no persistence.
+ *
+ * @param {object[]} items
+ */
+export function setActiveItems(items) {
+  _activeItems = items;
 }
 
 /**
@@ -472,7 +517,7 @@ export async function saveManifest({
  * @returns {Promise<{ items: object[], variables: object }>}
  */
 export async function loadCollectionData(collectionId) {
-  const data = await _loadEnvFile(collectionId);
+  const data = await _loadCollectionFile(collectionId);
   if (collectionId === _activeCollectionId) {
     _activeItems = data.items;
     _activeVariables = data.variables;
@@ -494,13 +539,13 @@ export async function saveCollectionData(collectionId, items, variables) {
     vars = _activeVariables;
   } else {
     // Load existing variables from disk so they are not silently discarded
-    const existing = await _loadEnvFile(collectionId);
+    const existing = await _loadCollectionFile(collectionId);
     vars = existing?.variables ?? {};
   }
   if (collectionId === _activeCollectionId) {
     _activeItems = items;
   }
-  return _saveEnvFile(collectionId, items, vars, "Save collection");
+  return _saveCollectionFile(collectionId, items, vars, "Save collection");
 }
 
 /**
@@ -522,15 +567,15 @@ export function setActiveCollection(collectionId) {
 export async function saveCollectionVariables(collectionId, variables) {
   if (collectionId === _activeCollectionId) {
     _activeVariables = variables;
-    return _saveEnvFile(
+    return _saveCollectionFile(
       _activeCollectionId,
       _activeItems,
       variables,
       "Save variables",
     );
   }
-  const { items } = await _loadEnvFile(collectionId);
-  return _saveEnvFile(collectionId, items, variables, "Save variables");
+  const { items } = await _loadCollectionFile(collectionId);
+  return _saveCollectionFile(collectionId, items, variables, "Save variables");
 }
 
 /**

@@ -14,7 +14,7 @@
  *     placeholder: "Value",
  *     ariaLabel:   "Parameter value",
  *     className:   "params-value",
- *     getContext:  () => ({ envVariables: {…}, folderChain: […] }),
+ *     getContext:  () => ({ collectionVariables: {…}, folderChain: […] }),
  *     getItems:    () => treeView.getItems(),   // for request-picker params
  *     onInput:     (value) => { row.value = value; },
  *     onEnter:     () => addNewRow(),
@@ -32,12 +32,9 @@ import {
   isFunctionCall,
   parseFunctionCall,
   buildFunctionToken,
-  collectScopes,
 } from "./variable-resolver.js";
-import { PillEditorPopup } from "./pill-editor-popup.js";
-import { PillPicker } from "./pill-picker.js";
-import { registry } from "./function-registry.js";
-import { logicMap } from "./function-logic-map.js";
+import { makeVariablePill, makeFunctionPill } from "./pill-builders.js";
+import { PillPickerController } from "./pill-picker-controller.js";
 import { t } from "../i18n.js";
 
 let _pickerDebounceMs = 200;
@@ -82,9 +79,14 @@ export class VariablePillEditor {
   #getItems;
   #ensureResponseCaches;
   #lastValue = "\x00"; // sentinel forces first setValue to always render
-  #pickerTimer = null;
-  #pickerInst = null;
-  #pickerOutsideHandler = null;
+  // The `{{` typeahead lifecycle is owned by the shared controller; this editor
+  // injects its contenteditable root, context, debounce, and how to insert.
+  #picker = new PillPickerController({
+    getRoot: () => this.#el,
+    getContext: () => this.#getContext(),
+    onInsert: (raw) => this.insertToken(raw),
+    debounceMs: () => getPickerDebounceMs(),
+  });
 
   #isFocused = false;
 
@@ -149,7 +151,7 @@ export class VariablePillEditor {
     });
     el.addEventListener("blur", () => {
       this.#isFocused = false;
-      this.#closePicker();
+      this.#picker.close();
       for (const p of el.querySelectorAll(".variable-pill--selected"))
         p.classList.remove("variable-pill--selected");
     });
@@ -173,11 +175,7 @@ export class VariablePillEditor {
       clearTimeout(this.#histTimer);
       this.#histTimer = null;
     }
-    if (this.#pickerTimer) {
-      clearTimeout(this.#pickerTimer);
-      this.#pickerTimer = null;
-    }
-    this.#closePicker();
+    this.#picker.close(); // controller clears its own pending-open timer
   }
 
   getValue() {
@@ -248,7 +246,7 @@ export class VariablePillEditor {
       }
     }
     if (!pill) {
-      this.#closePicker();
+      this.#picker.close();
       return;
     }
 
@@ -270,7 +268,7 @@ export class VariablePillEditor {
     const pos = this.#logicalToDom(afterPill);
     this.#setCollapsedCaret(pos.node, pos.offset);
 
-    this.#closePicker();
+    this.#picker.close();
     this.#emitChange();
   }
 
@@ -303,172 +301,23 @@ export class VariablePillEditor {
   }
 
   #makePill(name, ctx) {
-    const span = document.createElement("span");
-    span.contentEditable = "false";
-    span.dataset.variable = name;
-    span.textContent = name;
-    span.title = `{{${name}}}`;
-    const { found } = resolveVariable(name, ctx);
-    span.className = [
-      "variable-pill",
-      found ? "variable-pill--known" : "variable-pill--unknown",
-    ].join(" ");
-
-    span.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      PillEditorPopup.open({
-        type: "variable",
-        rawValue: `{{${span.dataset.variable}}}`,
-        getContext: this.#getContext,
-        onCommit: (newRaw) => {
-          const match = /^\{\{([^{}]+)\}\}$/.exec(newRaw);
-          if (!match) return;
-          const newName = match[1];
-          span.dataset.variable = newName;
-          span.textContent = newName;
-          span.title = `{{${newName}}}`;
-          const { found: f } = resolveVariable(newName, this.#getContext());
-          span.classList.toggle("variable-pill--known", f);
-          span.classList.toggle("variable-pill--unknown", !f);
-          this.#emitChange();
-        },
-      });
+    return makeVariablePill(name, ctx, {
+      getContext: this.#getContext,
+      onCommit: () => this.#emitChange(),
+      onContextMenu: (x, y, onEdit, onDelete) =>
+        this.#showPillContextMenu(x, y, onEdit, onDelete),
     });
-
-    span.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.#showPillContextMenu(
-        e.clientX,
-        e.clientY,
-        () =>
-          PillEditorPopup.open({
-            type: "variable",
-            rawValue: `{{${span.dataset.variable}}}`,
-            getContext: this.#getContext,
-            onCommit: (newRaw) => {
-              const match = /^\{\{([^{}]+)\}\}$/.exec(newRaw);
-              if (!match) return;
-              const newName = match[1];
-              span.dataset.variable = newName;
-              span.textContent = newName;
-              span.title = `{{${newName}}}`;
-              const { found: f } = resolveVariable(newName, this.#getContext());
-              span.classList.toggle("variable-pill--known", f);
-              span.classList.toggle("variable-pill--unknown", !f);
-              this.#emitChange();
-            },
-          }),
-        () => {
-          span.remove();
-          this.#emitChange();
-        },
-      );
-    });
-
-    return span;
   }
 
   #makeFunctionPill(name, rawArgs) {
-    const funcDef = registry[name];
-    const rawToken = buildFunctionToken(name, rawArgs);
-
-    const span = document.createElement("span");
-    span.contentEditable = "false";
-    span.dataset.function = name;
-    span.dataset.fnArgs = JSON.stringify(rawArgs);
-    span.textContent = funcDef?.labelKey ? t(funcDef.labelKey) : name;
-    span.title = rawToken;
-    span.className = "variable-pill function-pill";
-
-    span.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const currentArgs = JSON.parse(span.dataset.fnArgs ?? "[]");
-      PillEditorPopup.open({
-        type: "function",
-        funcName: span.dataset.function,
-        funcDef: registry[span.dataset.function],
-        rawArgs: currentArgs,
-        getContext: this.#getContext,
-        getItems: this.#getItems,
-        getPreview: async (args) => {
-          const fn = logicMap[span.dataset.function];
-          if (!fn) return null;
-          const fnName = span.dataset.function;
-          if (
-            this.#ensureResponseCaches &&
-            (fnName === "response" ||
-              fnName === "responseHeader" ||
-              fnName === "responseStatus")
-          ) {
-            const name = args[0];
-            if (name) await this.#ensureResponseCaches([name]);
-          }
-          return String(await fn(args, this.#getContext()));
-        },
-        onCommit: (newRawToken) => {
-          const m = /^\{\{([^{}]+)\}\}$/.exec(newRawToken);
-          if (!m) return;
-          const parsed = parseFunctionCall(m[1]);
-          if (!parsed) return;
-          span.dataset.fnArgs = JSON.stringify(parsed.rawArgs);
-          span.title = newRawToken;
-          this.#emitChange();
-        },
-      });
+    return makeFunctionPill(name, rawArgs, {
+      getContext: this.#getContext,
+      getItems: this.#getItems,
+      ensureResponseCaches: this.#ensureResponseCaches,
+      onCommit: () => this.#emitChange(),
+      onContextMenu: (x, y, onEdit, onDelete) =>
+        this.#showPillContextMenu(x, y, onEdit, onDelete),
     });
-
-    span.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.#showPillContextMenu(
-        e.clientX,
-        e.clientY,
-        () => {
-          const currentArgs = JSON.parse(span.dataset.fnArgs ?? "[]");
-          PillEditorPopup.open({
-            type: "function",
-            funcName: span.dataset.function,
-            funcDef: registry[span.dataset.function],
-            rawArgs: currentArgs,
-            getContext: this.#getContext,
-            getItems: this.#getItems,
-            getPreview: async (args) => {
-              const fn = logicMap[span.dataset.function];
-              if (!fn) return null;
-              const fnName = span.dataset.function;
-              if (
-                this.#ensureResponseCaches &&
-                (fnName === "response" ||
-                  fnName === "responseHeader" ||
-                  fnName === "responseStatus")
-              ) {
-                const name = args[0];
-                if (name) await this.#ensureResponseCaches([name]);
-              }
-              return String(await fn(args, this.#getContext()));
-            },
-            onCommit: (newRawToken) => {
-              const m = /^\{\{([^{}]+)\}\}$/.exec(newRawToken);
-              if (!m) return;
-              const parsed = parseFunctionCall(m[1]);
-              if (!parsed) return;
-              span.dataset.fnArgs = JSON.stringify(parsed.rawArgs);
-              span.title = newRawToken;
-              this.#emitChange();
-            },
-          });
-        },
-        () => {
-          span.remove();
-          this.#emitChange();
-        },
-      );
-    });
-
-    return span;
   }
 
   #scanAndConvertAll() {
@@ -527,114 +376,7 @@ export class VariablePillEditor {
     }
     this.#tryConvertAtCaret();
     this.#emitChange();
-    this.#schedulePicker();
-  }
-
-  // ── Picker ────────────────────────────────────────────────────────────────
-
-  #schedulePicker() {
-    if (this.#pickerTimer !== null) clearTimeout(this.#pickerTimer);
-
-    const filter = this.#getPickerFilter();
-    if (filter === null) {
-      this.#closePicker();
-      return;
-    }
-
-    // Picker already open — update its filter immediately
-    if (this.#pickerInst) {
-      this.#pickerInst.updateFilter(
-        filter,
-        this.#getPickerVariables(),
-        this.#getPickerFunctions(),
-      );
-      return;
-    }
-
-    this.#pickerTimer = setTimeout(() => {
-      this.#pickerTimer = null;
-      const f = this.#getPickerFilter();
-      if (f === null) return;
-      const rect = this.#getCaretRect();
-      if (!rect) return;
-      this.#openPicker(f, rect);
-    }, _pickerDebounceMs);
-  }
-
-  #getPickerFilter() {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return null;
-    const range = sel.getRangeAt(0);
-    if (!range.collapsed) return null;
-    const { startContainer, startOffset } = range;
-    if (startContainer.nodeType !== Node.TEXT_NODE) return null;
-    if (!this.#el.contains(startContainer)) return null;
-
-    const before = startContainer.textContent.slice(0, startOffset);
-    const openIdx = before.lastIndexOf("{{");
-    if (openIdx === -1) return null;
-    const between = before.slice(openIdx + 2);
-    if (between.includes("}}")) return null;
-    return between;
-  }
-
-  #getCaretRect() {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return null;
-    const r = sel.getRangeAt(0).cloneRange();
-    r.collapse(true);
-    const rects = r.getClientRects();
-    if (rects.length) return { x: rects[0].left, y: rects[0].bottom };
-    const er = this.#el.getBoundingClientRect();
-    return { x: er.left, y: er.bottom };
-  }
-
-  #openPicker(filter, rect) {
-    this.#closePicker();
-
-    this.#pickerInst = new PillPicker({
-      x: rect.x,
-      y: rect.y,
-      filter,
-      variables: this.#getPickerVariables(),
-      functions: this.#getPickerFunctions(),
-      onSelect: (item) => this.insertToken(item.rawToken),
-      onClose: () => this.#closePicker(),
-    });
-    document.body.appendChild(this.#pickerInst.element);
-    window.dispatchEvent(new CustomEvent("wurl:popup-opened"));
-
-    this.#pickerOutsideHandler = (e) => {
-      if (
-        !this.#pickerInst?.element.contains(e.target) &&
-        e.target !== this.#el &&
-        !this.#el.contains(e.target)
-      ) {
-        this.#closePicker();
-      }
-    };
-    document.addEventListener("mousedown", this.#pickerOutsideHandler, {
-      capture: true,
-    });
-  }
-
-  #closePicker() {
-    if (this.#pickerTimer !== null) {
-      clearTimeout(this.#pickerTimer);
-      this.#pickerTimer = null;
-    }
-    const wasOpen = !!this.#pickerInst;
-    if (this.#pickerInst) {
-      this.#pickerInst.destroy();
-      this.#pickerInst = null;
-    }
-    if (this.#pickerOutsideHandler) {
-      document.removeEventListener("mousedown", this.#pickerOutsideHandler, {
-        capture: true,
-      });
-      this.#pickerOutsideHandler = null;
-    }
-    if (wasOpen) window.dispatchEvent(new CustomEvent("wurl:popup-closed"));
+    this.#picker.schedule();
   }
 
   #scrollToSelectionEnd() {
@@ -701,58 +443,6 @@ export class VariablePillEditor {
     }
   }
 
-  #getPickerVariables() {
-    const ctx = this.#getContext();
-    // collectScopes() is the single source of truth for which context keys are
-    // scopes and their resolution priority; here we render them lowest-priority
-    // first (the reverse) with picker-specific labels.
-    const bySource = { global: null, environment: null, collection: null };
-    const folderNames = new Set();
-    for (const { source, vars } of collectScopes(ctx)) {
-      if (source === "folder") {
-        for (const name of Object.keys(vars)) folderNames.add(name);
-      } else {
-        bySource[source] = vars;
-      }
-    }
-
-    const labels = {
-      global: "Global",
-      environment: ctx?.activeEnvironmentName || "Environment",
-      collection: ctx?.envName || "Collection",
-    };
-
-    const scopes = [];
-    // Non-folder scopes, lowest priority first: global → environment → collection.
-    for (const source of ["global", "environment", "collection"]) {
-      const vars = bySource[source];
-      if (!vars) continue;
-      const names = Object.keys(vars).sort();
-      if (names.length)
-        scopes.push({ label: labels[source], variables: names });
-    }
-
-    // Folder chain — child folders override their parents, so when several
-    // folders in the chain define the same name only the innermost is ever
-    // reachable. Present the reachable set as a single "Folders" list of unique
-    // names rather than one subsection per folder (which would surface
-    // superseded, unselectable duplicates).
-    if (folderNames.size)
-      scopes.push({
-        label: t("vars.folders"),
-        variables: [...folderNames].sort(),
-      });
-
-    return scopes;
-  }
-
-  #getPickerFunctions() {
-    return Object.entries(registry).map(([name, funcDef]) => ({
-      name,
-      funcDef,
-    }));
-  }
-
   // ── Caret conversion ──────────────────────────────────────────────────────
 
   #tryConvertAtCaret() {
@@ -815,7 +505,7 @@ export class VariablePillEditor {
     if ((e.ctrlKey || e.metaKey) && !e.altKey) {
       if (e.key === "z" && !e.shiftKey) {
         e.preventDefault();
-        this.#closePicker();
+        this.#picker.close();
         this.#undo();
         return;
       }
@@ -826,27 +516,27 @@ export class VariablePillEditor {
       }
     }
 
-    if (this.#pickerInst) {
+    if (this.#picker.isOpen()) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        this.#pickerInst.selectNext();
+        this.#picker.selectNext();
         return;
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        this.#pickerInst.selectPrev();
+        this.#picker.selectPrev();
         return;
       }
       if (e.key === "Tab" || e.key === "Enter") {
         e.preventDefault();
-        const item = this.#pickerInst.getSelected();
+        const item = this.#picker.getSelected();
         if (item) this.insertToken(item.rawToken);
-        else this.#closePicker();
+        else this.#picker.close();
         return;
       }
       if (e.key === "Escape") {
         e.preventDefault();
-        this.#closePicker();
+        this.#picker.close();
         return;
       }
     }

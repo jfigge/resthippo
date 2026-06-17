@@ -28,17 +28,9 @@ import {
   applyPathParams,
   resolvePathParamValues,
 } from "./request-payload.js";
-import {
-  INTROSPECTION_QUERY,
-  buildSchemaModel,
-  suggestAtCursor,
-} from "./graphql-schema.js";
+import { INTROSPECTION_QUERY } from "./graphql-schema.js";
 import { executeIntrospection } from "./graphql-introspection.js";
-import {
-  validateGraphQLQuery,
-  introspectionToSDL,
-} from "./graphql-validate.js";
-import { GraphQLSchemaViewer } from "./graphql-schema-viewer.js";
+import { GraphQLBodyEditor } from "./graphql-body-editor.js";
 import { RequestAuthEditor } from "./request-auth-editor.js";
 import {
   DragReorderController,
@@ -229,35 +221,6 @@ const _hdrVal = new AutocompleteDropdown(
   "Header value suggestions",
 );
 let _hdrValOnSelect = null;
-
-// GraphQL query-editor autocomplete (Feature 34). One shared dropdown reused by
-// whichever GraphQL query textarea is focused; it anchors at the text caret via
-// a tiny fixed-position anchor element (the dropdown machinery anchors below an
-// element, so we move this stand-in to the caret before each show()).
-const _gqlAc = new AutocompleteDropdown(
-  "hdr-autocomplete gql-autocomplete",
-  "GraphQL suggestions",
-);
-// px floor for each GraphQL pane when the splitter is dragged/derived — keeps
-// both the Query and Variables panes usable no matter how the container resizes.
-const GQL_PANE_MIN = 64;
-let _gqlCaretAnchor = null;
-function _gqlAnchorAt({ left, top, height }) {
-  if (!_gqlCaretAnchor) {
-    _gqlCaretAnchor = document.createElement("div");
-    _gqlCaretAnchor.className = "gql-caret-anchor";
-    _gqlCaretAnchor.setAttribute("aria-hidden", "true");
-    document.body.appendChild(_gqlCaretAnchor);
-  }
-  const s = _gqlCaretAnchor.style;
-  s.position = "fixed";
-  s.width = "0";
-  s.pointerEvents = "none";
-  s.left = `${left}px`;
-  s.top = `${top}px`;
-  s.height = `${height}px`;
-  return _gqlCaretAnchor;
-}
 
 // ── Header-name suggestions dropdown ──────────────────────────────────────────
 
@@ -465,15 +428,26 @@ export class RequestEditor {
   #bodyText = ""; // shared for json, yaml, xml, and plain text
   #bodyFilePath = ""; // path/name of selected file (display)
   #bodyFileObject = null; // actual File object reference for sending
-  // GraphQL body (Feature 34) — query + raw-JSON variables text. The introspected
-  // schema is cached in-memory per loaded request (reset in load()), never
-  // persisted, and drives the query-editor autocomplete.
-  #bodyGraphqlQuery = "";
-  #bodyGraphqlVariables = "";
-  #graphqlSchema = null; // result of buildSchemaModel(), or null until fetched
-  #graphqlIntrospection = null; // raw introspection ({ __schema }) for graphql-js validation
-  #revalidateGqlQuery = null; // fn() to re-run query validation, or null when not in GraphQL mode
-  #graphqlFetching = false; // guards against concurrent "Fetch schema" clicks
+  // GraphQL body (Feature 34) — the Query + Variables composer, schema fetch,
+  // autocomplete, validation and split layout are owned by GraphQLBodyEditor.
+  // RequestEditor injects the request-coupled pieces: the shared code-editor
+  // factory (so the Query/Variables panes register in #codeEditors and follow
+  // view-setting changes / disposal), the app layout (for split orientation),
+  // setting persistence, the body-changed hook, the introspection-debounce, and
+  // the introspection fetch (POSTed with the current URL/params/headers/auth).
+  // Everything else is delegated: setValue/getValue/reset/onLayoutChanged/
+  // setVarsFraction/setRemoveHeaders, plus mount/unmount per body re-render.
+  #graphql = new GraphQLBodyEditor({
+    makeCodeEditor: (opts) => this.#makeCodeEditor(opts),
+    getLayout: () => {
+      const v = Number(document.getElementById("app-main")?.dataset.layout);
+      return v >= 1 && v <= 4 ? v : 2;
+    },
+    persistSetting: (detail) => this.#persistGqlSetting(detail),
+    onChange: () => this.#dispatchBodyUpdated(),
+    fetchIntrospection: () => this.#fetchIntrospection(),
+    getPickerDebounceMs: () => getPickerDebounceMs(),
+  });
   // PillCodeEditor view preferences — global, persisted (via
   // wurl:editor-setting-changed), and shared by every code editor (body text,
   // GraphQL Query/Variables, WebSocket message). Each editor's right-click menu
@@ -489,25 +463,6 @@ export class RequestEditor {
   // Live PillCodeEditor instances, so a view-setting change applies to all of
   // them at once and they can be torn down (destroy()) on re-render.
   #codeEditors = new Set();
-  // GraphQL Query/Variables split layout — session-level UI prefs (not persisted,
-  // not part of the request). #bodyGraphqlFlow is the container flex-direction:
-  // "column" = stacked (horizontal splitter, drag ↕), "row" = side by side
-  // (vertical splitter, drag ↔). It is chosen automatically from the app layout
-  // (#flowForLayout): the side-by-side layout puts the editor in a narrow column
-  // so the panes stack; wider layouts place them side by side. #bodyGraphqlVarsSize
-  // is the Variables pane's share of the container's main axis as a FRACTION
-  // (0..1), kept per orientation; null → use the default flex ratio. Storing a
-  // fraction (rather than px) preserves the split's aspect ratio on resize.
-  #bodyGraphqlFlow = "row";
-  #bodyGraphqlVarsSize = { column: null, row: null };
-  // Live GraphQL split element refs, so a layout change can re-apply the flow in
-  // place (the panes are never rebuilt, preserving content/focus). Set per render.
-  #gqlWrap = null;
-  #gqlSplitter = null;
-  #gqlVarsPane = null;
-  // Observes the GraphQL container so the pane sizes re-derive from the fraction
-  // on window/panel resize. Recreated per render, disconnected on body re-render.
-  #gqlResizeObserver = null;
   // Body-form list element — rebuilt on every render; rows are re-wired through
   // the controller below. The controller owns all transient drag state.
   #bfListEl = null;
@@ -574,7 +529,7 @@ export class RequestEditor {
   #streamingReqs = new Map();
 
   // ── Variable pill editor support ───────────────────────────────────────────
-  /** Current variable resolution context: { envVariables, folderChain, … } */
+  /** Current variable resolution context: { collectionVariables, folderChain, … } */
   #variableContext = null;
   /** Callback returning request items for function popup request-picker params. */
   #getItems = () => [];
@@ -659,15 +614,10 @@ export class RequestEditor {
 
     // The GraphQL Query/Variables split orientation tracks the app layout: the
     // side-by-side layout stacks the panes, wider layouts place them side by
-    // side. Re-apply in place when the layout changes while a GraphQL body is up.
+    // side. The editor re-applies in place when mounted, else stores it for next
+    // mount.
     window.addEventListener("wurl:layout-changed", (e) => {
-      const flow = this.#flowForLayout(e.detail?.layout);
-      if (flow === this.#bodyGraphqlFlow) return;
-      if (this.#bodyType === "graphql" && this.#gqlWrap) {
-        this.#applyGqlFlow(flow);
-      } else {
-        this.#bodyGraphqlFlow = flow;
-      }
+      this.#graphql.onLayoutChanged(e.detail?.layout);
     });
   }
 
@@ -1691,19 +1641,11 @@ export class RequestEditor {
     this.#disposeCodeEditors();
     // Remove any validation badge left over from a previous text type
     this.#bodyTypeBarEl?.querySelector(".body-validate-badge")?.remove();
-    // Remove any GraphQL fetch-schema button / status badge from a prior render,
-    // dismiss a stale query-autocomplete dropdown, and stop observing the old
-    // GraphQL container (and drop its element refs).
-    this.#bodyTypeBarEl?.querySelector(".body-graphql-fetch-btn")?.remove();
-    this.#bodyTypeBarEl?.querySelector(".body-graphql-status")?.remove();
-    this.#bodyTypeBarEl?.querySelector(".body-graphql-bar-spacer")?.remove();
-    this.#gqlResizeObserver?.disconnect();
-    this.#gqlResizeObserver = null;
-    this.#gqlWrap = null;
-    this.#gqlSplitter = null;
-    this.#gqlVarsPane = null;
-    this.#revalidateGqlQuery = null; // reassigned by #renderBodyGraphql when applicable
-    _gqlAc.hide();
+    // Tear down any prior GraphQL composer: removes its fetch-schema button /
+    // status badge / spacer from the type bar, dismisses a stale autocomplete
+    // dropdown, and stops observing the old container (safe no-op when not in
+    // GraphQL mode).
+    this.#graphql.unmount();
     // Reset body form drag state whenever we switch panels
     this.#bfListEl = null;
     this.#bfDrag.reset();
@@ -1739,7 +1681,7 @@ export class RequestEditor {
       case "text":
         return this.#renderBodyText(el, "text", false);
       case "graphql":
-        return this.#renderBodyGraphql(el);
+        return this.#graphql.mount(el, this.#bodyTypeBarEl);
       case "file":
         return this.#renderBodyFile(el);
     }
@@ -2131,11 +2073,15 @@ export class RequestEditor {
         validateBadge.dataset.state =
           state == null ? "" : state ? "valid" : "invalid";
         if (state === true) {
-          validateBadge.textContent = "✓ VALID";
-          validateBadge.title = `${type.toUpperCase()} is valid`;
+          validateBadge.textContent = t("request.graphql.valid");
+          validateBadge.title = t("request.bodyValidate.validTitle", {
+            type: type.toUpperCase(),
+          });
         } else if (state === false) {
           validateBadge.textContent = t("request.graphql.invalid");
-          validateBadge.title = `${type.toUpperCase()} has a syntax error`;
+          validateBadge.title = t("request.bodyValidate.invalidTitle", {
+            type: type.toUpperCase(),
+          });
         } else {
           validateBadge.textContent = "";
           validateBadge.title = "";
@@ -2145,667 +2091,51 @@ export class RequestEditor {
     }
   }
 
-  // ── GraphQL editor (Query + Variables) ────────────────────────────────────
-  #renderBodyGraphql(el) {
-    // Type-bar controls, left to right: a layout toggle, a schema-status icon,
-    // and the "Fetch schema" introspection button. The icon is empty until a
-    // fetch runs, then shows a green tick on success or a red X on failure; the
-    // tick carries the View / Download context menu.
-    let statusBadge = null;
-    if (this.#bodyTypeBarEl) {
-      // Always-present spacer separating the body-type picker from the schema
-      // status/fetch cluster, so the gap holds whether or not the tick/error
-      // badge is showing (the badge itself collapses when empty).
-      const spacer = document.createElement("span");
-      spacer.className = "body-graphql-bar-spacer";
-      this.#bodyTypeBarEl.appendChild(spacer);
-
-      statusBadge = document.createElement("span");
-      statusBadge.className = "body-graphql-status";
-      statusBadge.setAttribute("aria-live", "polite");
-      if (this.#graphqlSchema) this.#markSchemaBadgeLoaded(statusBadge);
-
-      // Right-clicking the green tick offers View / Download of the schema.
-      // No-op until a schema is actually loaded (i.e. only on the tick); stop the
-      // event from reaching app.js's document-level handler.
-      statusBadge.addEventListener("contextmenu", (e) => {
-        if (!this.#graphqlIntrospection) return;
-        e.preventDefault();
-        e.stopPropagation();
-        this.#showSchemaContextMenu(e.clientX, e.clientY);
-      });
-
-      // The Query/Variables split orientation is chosen from the app layout (see
-      // #flowForLayout / applyFlow below), so there is no manual toggle button.
-      this.#bodyTypeBarEl.appendChild(statusBadge);
-
-      const fetchBtn = document.createElement("button");
-      fetchBtn.className =
-        "params-toolbar-btn params-delete-all-btn body-graphql-fetch-btn";
-      fetchBtn.textContent = t("request.graphql.fetchSchema");
-      fetchBtn.title = t("request.graphql.fetchSchemaTitle");
-      fetchBtn.addEventListener("click", () =>
-        this.#fetchGraphqlSchema(statusBadge, fetchBtn),
-      );
-      this.#bodyTypeBarEl.appendChild(fetchBtn);
-    }
-
-    const wrap = document.createElement("div");
-    wrap.className = "body-graphql";
-
-    // ── Query pane (GraphQL, with schema-aware autocomplete) ──────────────
-    const queryPane = document.createElement("div");
-    queryPane.className = "body-graphql-pane body-graphql-pane--query";
-    const queryLabel = document.createElement("div");
-    queryLabel.className = "body-graphql-pane-label";
-    queryLabel.textContent = t("request.graphql.query");
-    const queryBadge = document.createElement("span");
-    queryBadge.className = "body-validate-badge body-graphql-query-badge";
-    queryBadge.setAttribute("aria-live", "polite");
-    // Warning (left of the tick/X) shown while no schema is loaded — validation
-    // is then syntax-only. Carries its own tooltip, separate from the verdict's.
-    const SCHEMA_WARN =
-      "Validation is limited until the schema has been fetched";
-    const queryWarn = document.createElement("span");
-    queryWarn.className = "body-graphql-schema-warn";
-    queryWarn.innerHTML = icon("warning", { size: 12 });
-    queryWarn.title = SCHEMA_WARN;
-    queryWarn.setAttribute("aria-label", SCHEMA_WARN);
-    queryWarn.hidden = true;
-    const queryStatus = document.createElement("span");
-    queryStatus.className = "body-graphql-query-status";
-    queryBadge.append(queryWarn, queryStatus);
-    queryLabel.appendChild(queryBadge);
-    queryPane.appendChild(queryLabel);
-
-    // Live query validation — syntax always; full schema checks once the schema
-    // has been fetched. Errors drive both the badge and the editor's inline
-    // markers (red underlines + gutter dots).
-    const applyQueryValidity = (
-      state /* "valid" | "invalid" | null */,
-      title,
-    ) => {
-      queryBadge.dataset.state = state ?? "";
-      queryStatus.textContent =
-        state === "valid"
-          ? t("request.graphql.valid")
-          : state === "invalid"
-            ? t("request.graphql.invalid")
-            : "";
-      queryStatus.title = title ?? "";
-      // Flag limited validation whenever a verdict is shown but no schema loaded.
-      queryWarn.hidden = !state || Boolean(this.#graphqlIntrospection);
-    };
-    const runQueryValidation = (text) => {
-      const { errors, schemaChecked } = validateGraphQLQuery(
-        text,
-        this.#graphqlIntrospection,
-      );
-      // Map graphql-js errors (full-text start/end offsets) to the editor's
-      // { line, col, length } squiggle shape (the editor clamps the span to the
-      // line). richErrors are on for the Query editor, so these render inline.
-      q?.setErrors(
-        errors.map((e) => ({
-          line: e.line,
-          col: e.column,
-          length: Math.max(1, (e.end ?? 0) - (e.start ?? 0)),
-          message: e.message,
-        })),
-      );
-      if (!text.trim()) {
-        applyQueryValidity(null, "");
-      } else if (errors.length) {
-        const n = errors.length;
-        applyQueryValidity(
-          "invalid",
-          `${n} error${n > 1 ? "s" : ""}:\n` +
-            errors
-              .map((e) => `  ${e.line}:${e.column}  ${e.message}`)
-              .join("\n"),
-        );
-      } else {
-        applyQueryValidity(
-          "valid",
-          schemaChecked
-            ? "Query is valid against the schema"
-            : "Query syntax is valid — fetch the schema for full validation",
-        );
-      }
-    };
-    let qValidateTimer = null;
-    const scheduleQueryValidation = (text) => {
-      clearTimeout(qValidateTimer);
-      qValidateTimer = setTimeout(() => runQueryValidation(text), 400);
-    };
-
-    // The Query editor owns its (schema-aware) validation: externalErrors turns
-    // off the editor's built-in GraphQL parse so runQueryValidation drives the
-    // squiggles via setErrors(). richErrors on → those squiggles render inline.
-    let q;
-    q = this.#makeCodeEditor({
-      language: "graphql",
-      externalErrors: true,
-      richErrors: true,
-      value: this.#bodyGraphqlQuery,
-      placeholder: "query {\n  …\n}",
-      onInput: (v) => {
-        this.#bodyGraphqlQuery = v;
-        this.#dispatchBodyUpdated();
-        scheduleQueryValidation(v);
-        q?._gqlRefresh?.(); // refresh the schema-field autocomplete popup
-      },
-      onCaret: () => q?._gqlRefresh?.(),
-    });
-    queryPane.appendChild(q.element);
-    this.#wireGqlAutocomplete(q);
-    // Exposed so #fetchGraphqlSchema can re-validate once a schema arrives.
-    this.#revalidateGqlQuery = () => runQueryValidation(this.#bodyGraphqlQuery);
-    wrap.appendChild(queryPane);
-
-    // ── Splitter — drag to resize Query vs Variables ──────────────────────
-    // Reuses the app's splitter styling; applyFlow() (below) sets the --v / --h
-    // orientation class, cursor, and aria to match the current layout.
-    const splitter = document.createElement("div");
-    splitter.className = "splitter body-graphql-splitter";
-    splitter.setAttribute("role", "separator");
-    splitter.setAttribute("aria-label", t("request.graphql.resizeAria"));
-    splitter.tabIndex = 0;
-    wrap.appendChild(splitter);
-
-    // ── Variables pane (JSON, validated) ──────────────────────────────────
-    const varsPane = document.createElement("div");
-    varsPane.className = "body-graphql-pane body-graphql-pane--vars";
-    const varsHeader = document.createElement("div");
-    varsHeader.className = "body-graphql-pane-label";
-    varsHeader.textContent = t("common.variables");
-    const varsBadge = document.createElement("span");
-    varsBadge.className = "body-validate-badge body-graphql-vars-badge";
-    varsBadge.setAttribute("aria-live", "polite");
-    varsHeader.appendChild(varsBadge);
-    varsPane.appendChild(varsHeader);
-
-    const applyVarsValidity = (state /* "valid" | "invalid" | null */) => {
-      varsBadge.dataset.state = state ?? "";
-      if (state === "valid") {
-        varsBadge.textContent = "✓ VALID";
-        varsBadge.title = t("request.graphql.varsValid");
-      } else if (state === "invalid") {
-        varsBadge.textContent = t("request.graphql.invalid");
-        varsBadge.title = t("request.graphql.varsInvalid");
-      } else {
-        varsBadge.textContent = "";
-        varsBadge.title = "";
-      }
-    };
-
-    // Variables are JSON — let the editor validate itself (richErrors on → inline
-    // JSON squiggles) and drive the pane badge from its `pce:validity` event.
-    const v = this.#makeCodeEditor({
-      language: "json",
-      richErrors: true,
-      value: this.#bodyGraphqlVariables,
-      placeholder: '{\n  "key": "value"\n}',
-      onInput: (val) => {
-        this.#bodyGraphqlVariables = val;
-        this.#dispatchBodyUpdated();
-      },
-    });
-    v.element.addEventListener("pce:validity", (e) => {
-      const s = e.detail?.state; // true | false | null
-      applyVarsValidity(s == null ? null : s ? "valid" : "invalid");
-    });
-    varsPane.appendChild(v.element);
-    wrap.appendChild(varsPane);
-
-    // Store refs so #applyGqlFlow (and a later layout change) can re-orient the
-    // split in place — the editors are never rebuilt, so content/focus survive.
-    this.#gqlWrap = wrap;
-    this.#gqlSplitter = splitter;
-    this.#gqlVarsPane = varsPane;
-
-    // Attach first so #applyGqlFlow can read real container dimensions, then wire
-    // dragging and observe the container so the split keeps its aspect ratio when
-    // the window or surrounding panels resize.
-    el.appendChild(wrap);
-    this.#applyGraphqlHeaderRows();
-    // Orientation follows the app layout: side by side → stacked, else side by side.
-    this.#applyGqlFlow(this.#flowForLayout(this.#currentAppLayout()));
-    this.#wireGqlSplitter(splitter, varsPane, wrap);
-    this.#gqlResizeObserver?.disconnect();
-    if (typeof ResizeObserver !== "undefined") {
-      this.#gqlResizeObserver = new ResizeObserver(() =>
-        this.#applyGqlVarsSize(varsPane, wrap),
-      );
-      this.#gqlResizeObserver.observe(wrap);
-    }
-
-    // Sync both badges to any pre-loaded content now the editors are laid out
-    // (the Query editor's inline markers need real geometry, so this runs after
-    // el.appendChild(wrap)). v.revalidate() re-emits `pce:validity`.
-    v.revalidate();
-    this.#revalidateGqlQuery?.();
-  }
-
+  // ── GraphQL introspection fetch (the request-coupled half of the editor) ──
   /**
-   * Apply the GraphQL split orientation to the container, splitter, and Variables
-   * pane, in place (the editors are not rebuilt). "row" = side by side (vertical
-   * splitter, drag ↔); "column" = stacked (horizontal splitter, drag ↕).
+   * Run the standard introspection query against the current request URL,
+   * reusing the request's own params/headers/auth via buildRequestPayload, and
+   * return the raw introspection JSON — or null when there's no URL (surfaced to
+   * the user here). GraphQLBodyEditor owns schema caching / badge / validation /
+   * error reporting; this performs only the request-coupled fetch, so a thrown
+   * network or payload error propagates to the editor's own failure handling.
    */
-  #applyGqlFlow(flow) {
-    this.#bodyGraphqlFlow = flow;
-    const wrap = this.#gqlWrap;
-    const splitter = this.#gqlSplitter;
-    if (!wrap || !splitter) return;
-    const row = flow === "row";
-    wrap.classList.toggle("body-graphql--row", row);
-    // row flow → vertical splitter bar (col-resize, --h);
-    // column flow → horizontal splitter bar (row-resize, --v).
-    splitter.classList.toggle("splitter--h", row);
-    splitter.classList.toggle("splitter--v", !row);
-    splitter.setAttribute("aria-orientation", row ? "vertical" : "horizontal");
-    this.#applyGqlVarsSize(this.#gqlVarsPane, wrap);
-  }
-
-  /**
-   * The Query/Variables split orientation for an app layout. The side-by-side
-   * layout (1) puts the editor in a narrow column, so the panes stack ("column",
-   * a horizontal splitter); every wider layout places them side by side ("row").
-   */
-  #flowForLayout(layout) {
-    return Number(layout) === 1 ? "column" : "row";
-  }
-
-  /** The current app layout (1–4) read from #app-main; defaults to 2. */
-  #currentAppLayout() {
-    const v = Number(document.getElementById("app-main")?.dataset.layout);
-    return v >= 1 && v <= 4 ? v : 2;
-  }
-
-  /**
-   * Size the Variables pane from the stored fraction of the container's main axis
-   * (width when side by side, height when stacked), clamped so neither pane
-   * collapses. With no stored fraction the explicit basis is cleared so the CSS
-   * flex ratio applies. Re-deriving px from the fraction is what keeps the split's
-   * aspect ratio constant as the window/panels resize.
-   */
-  #applyGqlVarsSize(varsPane, wrap) {
-    const frac = this.#bodyGraphqlVarsSize[this.#bodyGraphqlFlow];
-    if (frac == null) {
-      varsPane.style.flex = "";
-      return;
-    }
-    const total =
-      this.#bodyGraphqlFlow === "row" ? wrap.clientWidth : wrap.clientHeight;
-    if (total <= 0) return; // not laid out yet — a later resize callback sizes it
-    const max = Math.max(GQL_PANE_MIN, total - GQL_PANE_MIN);
-    const px = Math.min(max, Math.max(GQL_PANE_MIN, frac * total));
-    varsPane.style.flex = `0 0 ${px}px`;
-  }
-
-  /**
-   * Make the GraphQL splitter draggable (and keyboard-resizable) on whichever
-   * axis the current layout uses: vertical drag (↕) when stacked, horizontal
-   * drag (↔) when side by side. The Variables pane trails the splitter, so
-   * dragging toward the start of the axis (up / left) grows it. The chosen size
-   * is applied as a main-axis flex-basis and remembered for the session, per
-   * orientation, in #bodyGraphqlVarsSize. This mirrors app.js's makeSplitter but
-   * is scoped to this component, since makeSplitter isn't exported.
-   */
-  #wireGqlSplitter(splitterEl, varsPane, wrap) {
-    const isRow = () => this.#bodyGraphqlFlow === "row";
-    const apply = (size) => {
-      const total = isRow() ? wrap.clientWidth : wrap.clientHeight;
-      if (total <= 0) return;
-      const max = Math.max(GQL_PANE_MIN, total - GQL_PANE_MIN);
-      const clamped = Math.min(max, Math.max(GQL_PANE_MIN, size));
-      // Store the share as a fraction so the ratio survives a resize.
-      this.#bodyGraphqlVarsSize[this.#bodyGraphqlFlow] = clamped / total;
-      varsPane.style.flex = `0 0 ${clamped}px`;
-    };
-    const pointerPos = (e) => {
-      const src = e.touches ? e.touches[0] : e;
-      return isRow() ? src.clientX : src.clientY;
-    };
-    const varsExtent = () => {
-      const rect = varsPane.getBoundingClientRect();
-      return isRow() ? rect.width : rect.height;
-    };
-
-    let dragging = false;
-    let start = 0;
-    let startSize = 0;
-
-    const onMove = (e) => {
-      if (!dragging) return;
-      if (e.cancelable) e.preventDefault();
-      apply(startSize - (pointerPos(e) - start)); // toward start → grows Variables
-    };
-    const onEnd = () => {
-      if (!dragging) return;
-      dragging = false;
-      splitterEl.classList.remove("splitter--dragging");
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onEnd);
-      window.removeEventListener("touchmove", onMove);
-      window.removeEventListener("touchend", onEnd);
-      this.#persistGqlVarsFraction(); // save the final position
-    };
-    const onStart = (e) => {
-      e.preventDefault();
-      dragging = true;
-      start = pointerPos(e);
-      startSize = varsExtent();
-      splitterEl.classList.add("splitter--dragging");
-      document.body.style.cursor = isRow() ? "col-resize" : "row-resize";
-      document.body.style.userSelect = "none";
-    };
-
-    splitterEl.addEventListener("mousedown", (e) => {
-      onStart(e);
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onEnd);
-    });
-    splitterEl.addEventListener(
-      "touchstart",
-      (e) => {
-        onStart(e);
-        window.addEventListener("touchmove", onMove, { passive: false });
-        window.addEventListener("touchend", onEnd);
-      },
-      { passive: false },
-    );
-
-    // Keyboard resize (the splitter is focusable). Grow key = toward the start of
-    // the axis (↑ stacked / ← side by side); the opposite key shrinks Variables.
-    splitterEl.addEventListener("keydown", (e) => {
-      const growKey = isRow() ? "ArrowLeft" : "ArrowUp";
-      const shrinkKey = isRow() ? "ArrowRight" : "ArrowDown";
-      if (e.key !== growKey && e.key !== shrinkKey) return;
-      e.preventDefault();
-      const step = e.shiftKey ? 48 : 16;
-      apply(varsExtent() + (e.key === growKey ? step : -step));
-      this.#persistGqlVarsFraction();
-    });
-  }
-
-  /**
-   * Wire schema-aware autocomplete (fields / arguments / enum values) onto the
-   * GraphQL Query PillCodeEditor. The editor reports the caret offset + screen
-   * coords; `editor._gqlRefresh` is invoked from the editor's onInput/onCaret
-   * hooks (see #renderBodyGraphql). The editor's own `{{` variable picker takes
-   * priority — while it's open this autocomplete stays hidden and defers its
-   * navigation keys.
-   */
-  #wireGqlAutocomplete(editor) {
-    const showSuggestions = () => {
-      if (!this.#graphqlSchema || editor.isPickerOpen()) {
-        _gqlAc.hide();
-        return;
-      }
-      const pos = editor.getCaretOffset();
-      if (pos < 0) {
-        _gqlAc.hide();
-        return;
-      }
-      const res = suggestAtCursor(editor.getValue(), pos, this.#graphqlSchema);
-      const coords = res ? editor.caretCoords() : null;
-      if (!res || !coords) {
-        _gqlAc.hide();
-        return;
-      }
-      const anchor = _gqlAnchorAt(coords);
-      _gqlAc.show(
-        anchor,
-        res.items,
-        (label) => this.#applyGqlSuggestion(editor, label),
-        {
-          minWidth: 220,
-          renderItem: (item, entry) => {
-            item.dataset.value = entry.label;
-            item.innerHTML = "";
-            const name = document.createElement("span");
-            name.className = "gql-ac-name";
-            name.textContent = entry.label;
-            item.appendChild(name);
-            if (entry.detail) {
-              const detail = document.createElement("span");
-              detail.className = "gql-ac-detail";
-              detail.textContent = entry.detail;
-              item.appendChild(detail);
-            }
-          },
-        },
-      );
-    };
-
-    // Hold the popup back by the configurable picker-debounce so it doesn't cover
-    // the query the instant you type/move the caret. Mirrors the {{ }} picker:
-    // while the popup is already open it updates immediately (responsive
-    // filtering); while it's hidden, the first appearance waits out the debounce.
-    let acTimer = null;
-    const cancelRefresh = () => {
-      clearTimeout(acTimer);
-      acTimer = null;
-    };
-    const refresh = () => {
-      cancelRefresh();
-      if (_gqlAc.visible) showSuggestions();
-      else acTimer = setTimeout(showSuggestions, getPickerDebounceMs());
-    };
-    // Driven by the editor's onInput / onCaret hooks.
-    editor._gqlRefresh = refresh;
-
-    // Navigation / accept keys — capture phase so we pre-empt the editor's own
-    // Enter→newline. Only while the popup is up AND the {{ }} picker is closed
-    // (it owns those keys when active).
-    editor.element.addEventListener(
-      "keydown",
-      (e) => {
-        if (e.key === "Escape") cancelRefresh();
-        if (!_gqlAc.visible || editor.isPickerOpen()) return;
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          _gqlAc.navigate(1);
-        } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          _gqlAc.navigate(-1);
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          _gqlAc.hide();
-        } else if (e.key === "Enter" || e.key === "Tab") {
-          const label = _gqlAc.activeLabel();
-          if (label !== null) {
-            e.preventDefault();
-            this.#applyGqlSuggestion(editor, label);
-          }
-        }
-      },
-      true,
-    );
-
-    editor.element.addEventListener("focusout", () => {
-      cancelRefresh();
-      _gqlAc.scheduleHide();
-    });
-  }
-
-  /** Replace the identifier being typed at the caret with the chosen suggestion. */
-  #applyGqlSuggestion(editor, label) {
-    const value = editor.getValue();
-    const pos = editor.getCaretOffset();
-    if (pos < 0) {
-      _gqlAc.hide();
-      return;
-    }
-    const before = value.slice(0, pos);
-    const m = /[_A-Za-z][_A-Za-z0-9]*$/.exec(before);
-    const start = m ? pos - m[0].length : pos;
-    // replaceRange fires the editor's onInput → persists + schedules validation;
-    // the dropdown's item mousedown preventDefault keeps the caret, so no refocus.
-    editor.replaceRange(start, pos, label);
-    _gqlAc.hide();
-    this.#revalidateGqlQuery?.(); // re-validate now rather than waiting on debounce
-  }
-
-  /**
-   * Run the standard introspection query against the request URL (reusing the
-   * request's own params/headers/auth via buildRequestPayload) and cache the
-   * resulting schema for autocomplete. Every failure path is surfaced via a
-   * notification + the status badge — never silent.
-   */
-  async #fetchGraphqlSchema(statusBadge, btn) {
-    if (this.#graphqlFetching) return;
+  async #fetchIntrospection() {
     const rawUrl = this.#urlPillEditor.getValue().trim();
     if (!rawUrl) {
       Notifications.warning(t("request.graphql.noUrlMessage"), {
         title: t("request.url.none"),
       });
-      return;
-    }
-
-    this.#graphqlFetching = true;
-    if (btn) btn.disabled = true;
-    if (statusBadge) {
-      statusBadge.dataset.state = "loading";
-      statusBadge.innerHTML = "";
-      statusBadge.removeAttribute("aria-label");
-      statusBadge.title = t("request.graphql.fetching");
-    }
-
-    const ctx = this.#variableContext;
-    const rv = (s) => resolveStringAsync(s, ctx);
-    try {
-      const authModel = this.#auth.getModel();
-      const { finalUrl, headers, body } = await buildRequestPayload(
-        {
-          method: "POST",
-          urlBase: encodeBaseUrl(
-            applyPathParams(
-              await rv(rawUrl),
-              await resolvePathParamValues(this.#pathParams, rv),
-            ),
-          ),
-          params: this.#params,
-          headers: this.#headers,
-          authEnabled: authModel.authEnabled,
-          authType: authModel.authType,
-          authBasic: authModel.authBasic,
-          authBearer: authModel.authBearer,
-          authApiKey: authModel.authApiKey,
-          authDigest: authModel.authDigest,
-          authNtlm: authModel.authNtlm,
-          authAwsIam: authModel.authAwsIam,
-          bodyType: "graphql",
-          bodyGraphql: { query: INTROSPECTION_QUERY, variables: "" },
-        },
-        rv,
-      );
-      const json = await executeIntrospection({ url: finalUrl, headers, body });
-      const model = buildSchemaModel(json);
-      if (!model) throw new Error(t("request.graphql.parseFailed"));
-      this.#graphqlSchema = model;
-      // Keep the raw introspection ({ __schema }) so graphql-js can build a real
-      // schema for full query validation, then re-validate the live query.
-      this.#graphqlIntrospection = json?.data?.__schema
-        ? json.data
-        : json?.__schema
-          ? json
-          : null;
-      this.#revalidateGqlQuery?.();
-      this.#markSchemaBadgeLoaded(statusBadge);
-    } catch (err) {
-      this.#graphqlSchema = null;
-      this.#graphqlIntrospection = null;
-      this.#revalidateGqlQuery?.();
-      if (statusBadge) {
-        statusBadge.dataset.state = "error";
-        statusBadge.innerHTML = icon("close", { size: 14 });
-        statusBadge.setAttribute(
-          "aria-label",
-          t("request.graphql.fetchFailed"),
-        );
-        statusBadge.title =
-          err?.message ?? t("request.graphql.fetchSchemaFailed");
-      }
-      Notifications.error(
-        err?.message ?? t("request.graphql.fetchSchemaFailed"),
-        {
-          title: t("request.graphql.introspectionFailed"),
-        },
-      );
-    } finally {
-      this.#graphqlFetching = false;
-      if (btn) btn.disabled = false;
-    }
-  }
-
-  /**
-   * Put the introspection status icon into its "schema loaded" (green tick)
-   * state and advertise that it carries a right-click menu (View / Download
-   * schema).
-   */
-  #markSchemaBadgeLoaded(badge) {
-    if (!badge || !this.#graphqlSchema) return;
-    badge.dataset.state = "ok";
-    badge.innerHTML = icon("check", { size: 14 });
-    badge.setAttribute("aria-label", t("request.graphql.loaded"));
-    badge.title = t("request.graphql.typesAvailable", {
-      count: this.#graphqlSchema.types.size,
-    });
-  }
-
-  /**
-   * Native context menu for the "schema loaded" badge: view the schema in a
-   * read-only modal, or save it to a file. Both render the cached introspection
-   * as SDL.
-   */
-  async #showSchemaContextMenu(x, y) {
-    const id = await window.wurl?.ui?.contextMenu?.show({
-      items: [
-        { id: "view", label: t("request.graphql.viewSchema") },
-        { id: "download", label: t("request.graphql.downloadSchema") },
-      ],
-      x,
-      y,
-    });
-    if (id === "view") this.#viewGraphqlSchema();
-    else if (id === "download") this.#downloadGraphqlSchema();
-  }
-
-  /**
-   * Render the cached introspection as SDL, or surface a notification and
-   * return null when it cannot be produced.
-   */
-  #graphqlSchemaSDL() {
-    const sdl = introspectionToSDL(this.#graphqlIntrospection);
-    if (!sdl) {
-      Notifications.warning(t("request.graphql.renderFailed"), {
-        title: t("request.graphql.unavailable"),
-      });
       return null;
     }
-    return sdl;
-  }
-
-  /** Open the read-only schema viewer for the loaded schema. */
-  #viewGraphqlSchema() {
-    const sdl = this.#graphqlSchemaSDL();
-    if (!sdl) return;
-    GraphQLSchemaViewer.open(sdl, {
-      onDownload: () => this.#downloadGraphqlSchema(),
-    });
-  }
-
-  /** Save the loaded schema to a `.graphql` file via the native save dialog. */
-  #downloadGraphqlSchema() {
-    const sdl = this.#graphqlSchemaSDL();
-    if (!sdl) return;
-    window.wurl?.export?.file?.save("schema.graphql", sdl, [
-      { name: "GraphQL Schema", extensions: ["graphql", "gql"] },
-      { name: t("common.allFiles"), extensions: ["*"] },
-    ]);
+    const ctx = this.#variableContext;
+    const rv = (s) => resolveStringAsync(s, ctx);
+    const authModel = this.#auth.getModel();
+    const { finalUrl, headers, body } = await buildRequestPayload(
+      {
+        method: "POST",
+        urlBase: encodeBaseUrl(
+          applyPathParams(
+            await rv(rawUrl),
+            await resolvePathParamValues(this.#pathParams, rv),
+          ),
+        ),
+        params: this.#params,
+        headers: this.#headers,
+        authEnabled: authModel.authEnabled,
+        authType: authModel.authType,
+        authBasic: authModel.authBasic,
+        authBearer: authModel.authBearer,
+        authApiKey: authModel.authApiKey,
+        authDigest: authModel.authDigest,
+        authNtlm: authModel.authNtlm,
+        authAwsIam: authModel.authAwsIam,
+        bodyType: "graphql",
+        bodyGraphql: { query: INTROSPECTION_QUERY, variables: "" },
+      },
+      rv,
+    );
+    return executeIntrospection({ url: finalUrl, headers, body });
   }
 
   // ── File picker ───────────────────────────────────────────────────────────
@@ -2942,12 +2272,39 @@ export class RequestEditor {
           bodyFormRows: [...this.#bodyFormRows],
           bodyText: this.#bodyText,
           bodyFilePath: this.#bodyFilePath,
-          bodyGraphql: {
-            query: this.#bodyGraphqlQuery,
-            variables: this.#bodyGraphqlVariables,
-          },
+          bodyGraphql: this.#graphql.getValue(),
         },
         bubbles: true,
+      }),
+    );
+  }
+
+  /**
+   * Surface a pre-send OAuth failure as a wurl:request-error. Both the
+   * token-acquisition throw and the unsuccessful-result path share this shape;
+   * only name / message / hint / consoleLog vary.
+   */
+  #dispatchOAuthError(
+    requestId,
+    finalUrl,
+    { name, message, hint, consoleLog },
+  ) {
+    window.dispatchEvent(
+      new CustomEvent("wurl:request-error", {
+        detail: {
+          requestId,
+          request: {
+            method: this.#method,
+            url: finalUrl,
+            headers: {},
+            body: null,
+          },
+          name,
+          message,
+          hint,
+          elapsed: 0,
+          consoleLog,
+        },
       }),
     );
   }
@@ -4139,10 +3496,7 @@ export class RequestEditor {
         bodyText: this.#bodyText,
         bodyFormRows: this.#bodyFormRows,
         bodyFile: this.#bodyFileObject,
-        bodyGraphql: {
-          query: this.#bodyGraphqlQuery,
-          variables: this.#bodyGraphqlVariables,
-        },
+        bodyGraphql: this.#graphql.getValue(),
       },
       rv,
     );
@@ -4170,24 +3524,12 @@ export class RequestEditor {
             ...authModel.authOAuth2,
           });
         } catch (err) {
-          window.dispatchEvent(
-            new CustomEvent("wurl:request-error", {
-              detail: {
-                requestId,
-                request: {
-                  method: this.#method,
-                  url: finalUrl,
-                  headers: {},
-                  body: null,
-                },
-                name: "OAuthError",
-                message: err?.message ?? String(err),
-                hint: t("request.oauth.failedBefore"),
-                elapsed: 0,
-                consoleLog: [`* OAuth error: ${err?.message ?? err}`],
-              },
-            }),
-          );
+          this.#dispatchOAuthError(requestId, finalUrl, {
+            name: "OAuthError",
+            message: err?.message ?? String(err),
+            hint: t("request.oauth.failedBefore"),
+            consoleLog: [`* OAuth error: ${err?.message ?? err}`],
+          });
           return;
         }
 
@@ -4198,24 +3540,12 @@ export class RequestEditor {
         if (!_oauthResult.success || !_oauthResult.accessToken) {
           const _errCode = _oauthResult.error?.code ?? "OAuthError";
           const _errMsg = _oauthResult.error?.description ?? _errCode;
-          window.dispatchEvent(
-            new CustomEvent("wurl:request-error", {
-              detail: {
-                requestId,
-                request: {
-                  method: this.#method,
-                  url: finalUrl,
-                  headers: {},
-                  body: null,
-                },
-                name: _errCode,
-                message: _errMsg,
-                hint: t("request.oauth.failedCheck"),
-                elapsed: 0,
-                consoleLog: [`* OAuth ${_errCode}: ${_errMsg}`],
-              },
-            }),
-          );
+          this.#dispatchOAuthError(requestId, finalUrl, {
+            name: _errCode,
+            message: _errMsg,
+            hint: t("request.oauth.failedCheck"),
+            consoleLog: [`* OAuth ${_errCode}: ${_errMsg}`],
+          });
           return;
         }
 
@@ -4308,7 +3638,7 @@ export class RequestEditor {
    * Call this whenever the selected request, collection, or folder variables
    * change so that pills are re-validated immediately.
    *
-   * @param {{ envVariables?: object, folderChain?: object[] } | null} context
+   * @param {{ collectionVariables?: object, folderChain?: object[] } | null} context
    */
   setVariableContext(context) {
     this.#variableContext = context;
@@ -4357,7 +3687,7 @@ export class RequestEditor {
     if (settings.removeHeaders != null) {
       this.#removeHeaders = !!settings.removeHeaders;
       this.#applyBodyFormHeaderRow();
-      this.#applyGraphqlHeaderRows();
+      this.#graphql.setRemoveHeaders(this.#removeHeaders);
     }
     // PillCodeEditor view preferences (folding keeps the legacy `editorFolding`
     // key). Update the shared state and apply live to every on-screen editor
@@ -4372,21 +3702,21 @@ export class RequestEditor {
     applyView("lineNumbers", settings.editorLineNumbers, "setLineNumbers");
     applyView("highlight", settings.editorHighlight, "setHighlight");
 
-    // GraphQL Variables-pane position (a fraction kept per orientation). Apply
-    // only the keys that differ from the live state so unrelated settings changes
-    // don't disturb the editor; if something did change and the GraphQL body is on
-    // screen, re-render it so the restored sizes take effect. The split
-    // orientation itself is layout-driven (see #flowForLayout), not a setting.
+    // GraphQL Variables-pane position (a fraction kept per orientation). The
+    // editor applies only the keys that differ from its live state (so unrelated
+    // settings changes don't disturb it) and reports whether anything changed; if
+    // so and the GraphQL body is on screen, re-render so the restored sizes take
+    // effect. The split orientation itself is layout-driven, not a setting.
     let gqlChanged = false;
-    const setFrac = (flow, val) => {
-      const frac = typeof val === "number" && val > 0 && val < 1 ? val : null;
-      if (frac !== this.#bodyGraphqlVarsSize[flow]) {
-        this.#bodyGraphqlVarsSize[flow] = frac;
-        gqlChanged = true;
-      }
-    };
-    setFrac("column", settings.graphqlVarsFractionColumn);
-    setFrac("row", settings.graphqlVarsFractionRow);
+    if (
+      this.#graphql.setVarsFraction(
+        "column",
+        settings.graphqlVarsFractionColumn,
+      )
+    )
+      gqlChanged = true;
+    if (this.#graphql.setVarsFraction("row", settings.graphqlVarsFractionRow))
+      gqlChanged = true;
     if (gqlChanged && this.#bodyType === "graphql") this.#renderBodyContent();
   }
 
@@ -4397,30 +3727,10 @@ export class RequestEditor {
     );
   }
 
-  /** Persist the Variables-pane fraction for the current orientation. */
-  #persistGqlVarsFraction() {
-    const key =
-      this.#bodyGraphqlFlow === "row"
-        ? "graphqlVarsFractionRow"
-        : "graphqlVarsFractionColumn";
-    this.#persistGqlSetting({
-      [key]: this.#bodyGraphqlVarsSize[this.#bodyGraphqlFlow],
-    });
-  }
-
   /** Show/hide the body-form column-label row to match the removeHeaders setting. */
   #applyBodyFormHeaderRow() {
     const hdr = this.#bodyFormKvWrapEl?.querySelector(".params-header-row");
     if (hdr) hdr.style.display = this.#removeHeaders ? "none" : "";
-  }
-
-  /** Show/hide the GraphQL Query/Variables pane labels to match removeHeaders. */
-  #applyGraphqlHeaderRows() {
-    this.#bodyContentEl
-      ?.querySelectorAll(".body-graphql-pane-label")
-      .forEach((hdr) => {
-        hdr.style.display = this.#removeHeaders ? "none" : "";
-      });
   }
 
   /**
@@ -4546,10 +3856,11 @@ export class RequestEditor {
     this.#bodyFileObject = null;
     // GraphQL body (Feature 34) — query + variables; the introspected schema is
     // per-request and not persisted, so reset it when a new request loads.
-    this.#bodyGraphqlQuery = node.bodyGraphql?.query ?? "";
-    this.#bodyGraphqlVariables = node.bodyGraphql?.variables ?? "";
-    this.#graphqlSchema = null;
-    this.#graphqlIntrospection = null;
+    this.#graphql.setValue({
+      query: node.bodyGraphql?.query ?? "",
+      variables: node.bodyGraphql?.variables ?? "",
+    });
+    this.#graphql.reset();
     // Sync the select element if the body tab has been built
     const sel = this.#el.querySelector(".body-type-select");
     if (sel) sel.value = this.#bodyType;

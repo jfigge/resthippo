@@ -28,6 +28,19 @@ import {
   collectTemplateVariables,
 } from "./variable-resolver.js";
 import { varsArrayToMap } from "./variable-shape.js";
+import {
+  findParentId,
+  insertChild,
+  removeNode,
+  findNode,
+  cloneWithNewIds,
+  insertNodeAfter,
+  insertBefore,
+  updateNodeName,
+  patchNodeFields,
+  getFlatRequests,
+  collectRequestIds,
+} from "./tree-model.js";
 import { NO_BODY_METHODS } from "./request-payload.js";
 import { buildRequestModel, generateCode } from "./code-gen/index.js";
 import { CodeGenModal } from "./code-gen-modal.js";
@@ -69,7 +82,7 @@ export class TreeView {
   #draggedIsCollection = false;
 
   /** @type {object} — active collection variables used for variable resolution in cURL generation */
-  #envVariables = {};
+  #collectionVariables = {};
 
   /** @type {boolean} — true while the drag cursor is inside the treeview */
   #dragInsideTreeView = false;
@@ -244,7 +257,7 @@ export class TreeView {
    * @param {object} vars  — plain { name: value } map of resolved env variables
    */
   setEnvVariables(vars) {
-    this.#envVariables = vars && typeof vars === "object" ? vars : {};
+    this.#collectionVariables = vars && typeof vars === "object" ? vars : {};
   }
 
   /**
@@ -489,7 +502,7 @@ export class TreeView {
       window.dispatchEvent(
         new CustomEvent("wurl:favorite-toggle", {
           detail: {
-            node: this.#findNode(this.#items, requestId) ?? { id: requestId },
+            node: findNode(this.#items, requestId) ?? { id: requestId },
             favorited: !this.#favoriteIds.has(requestId),
           },
           bubbles: true,
@@ -535,7 +548,7 @@ export class TreeView {
       const empty = document.createElement("li");
       empty.className = "tree-empty";
       empty.innerHTML = `<span>${
-        kind === "favorites" ? "No favorites yet" : "No recent requests"
+        kind === "favorites" ? t("tree.emptyFavorites") : t("tree.emptyRecent")
       }</span>`;
       listEl.appendChild(empty);
     } else {
@@ -661,7 +674,7 @@ export class TreeView {
             rename: () => this.#renameNode(node.id),
             duplicate: () => this.#duplicateNode(node.id),
             variables: () => {
-              const liveNode = this.#findNode(this.#items, node.id) ?? node;
+              const liveNode = findNode(this.#items, node.id) ?? node;
               window.dispatchEvent(
                 new CustomEvent("wurl:folder-vars-open", {
                   detail: {
@@ -674,7 +687,7 @@ export class TreeView {
               );
             },
             "export-collection": () => {
-              const liveNode = this.#findNode(this.#items, node.id) ?? node;
+              const liveNode = findNode(this.#items, node.id) ?? node;
               window.dispatchEvent(
                 new CustomEvent("wurl:export-collection", {
                   detail: { collection: liveNode },
@@ -690,7 +703,7 @@ export class TreeView {
             "add-folder": () => this.#addFolderAfter(node.id),
             rename: () => this.#renameNode(node.id),
             favorite: () => {
-              const liveNode = this.#findNode(this.#items, node.id) ?? node;
+              const liveNode = findNode(this.#items, node.id) ?? node;
               window.dispatchEvent(
                 new CustomEvent("wurl:favorite-toggle", {
                   detail: {
@@ -835,7 +848,7 @@ export class TreeView {
    */
   #addCollection() {
     const parentId = this.#selectedId
-      ? this.#findParentId(this.#items, this.#selectedId)
+      ? findParentId(this.#items, this.#selectedId)
       : (this.#activeCollectionId ?? null);
 
     if (parentId) {
@@ -847,7 +860,7 @@ export class TreeView {
       };
       this.#collapsedIds.delete(parentId);
       this.#saveCollapsedState();
-      this.#items = this.#insertChild(this.#items, parentId, folder);
+      this.#items = insertChild(this.#items, parentId, folder);
       this.#activeCollectionId = folder.id;
       this.#syncButtonState();
       this.#rerender();
@@ -858,7 +871,7 @@ export class TreeView {
       const collection = {
         id: crypto.randomUUID(),
         type: "collection",
-        name: "New Collection",
+        name: t("tree.newCollection"),
         children: [],
       };
       this.#items = [...this.#items, collection];
@@ -880,7 +893,7 @@ export class TreeView {
     // request lands as a sibling. Fall back to the last-active collection.
     const targetId =
       (this.#selectedId
-        ? this.#findParentId(this.#items, this.#selectedId)
+        ? findParentId(this.#items, this.#selectedId)
         : undefined) ??
       this.#activeCollectionId ??
       this.#items.find((n) => n.type === "collection")?.id;
@@ -919,7 +932,7 @@ export class TreeView {
     return {
       id: crypto.randomUUID(),
       type: "request",
-      name: isWs ? "New WebSocket" : "New Request",
+      name: isWs ? t("tree.newWebSocket") : t("tree.newRequest"),
       url: "",
       ...(isWs ? { protocol: "websocket" } : { method: "GET" }),
     };
@@ -933,7 +946,7 @@ export class TreeView {
     const request = this.#newRequestNode(protocol);
     this.#collapsedIds.delete(collectionId);
     this.#saveCollapsedState();
-    this.#items = this.#insertChild(this.#items, collectionId, request);
+    this.#items = insertChild(this.#items, collectionId, request);
     this.#rerender();
     this.#emitChange();
     const li = this.#el.querySelector(`[data-id="${CSS.escape(request.id)}"]`);
@@ -950,7 +963,7 @@ export class TreeView {
     };
     this.#collapsedIds.delete(collectionId);
     this.#saveCollapsedState();
-    this.#items = this.#insertChild(this.#items, collectionId, folder);
+    this.#items = insertChild(this.#items, collectionId, folder);
     this.#rerender();
     this.#emitChange();
     const li = this.#el.querySelector(`[data-id="${CSS.escape(folder.id)}"]`);
@@ -966,7 +979,7 @@ export class TreeView {
    */
   #addRequestAfter(nodeId, { protocol } = {}) {
     const request = this.#newRequestNode(protocol);
-    this.#items = this.#insertNodeAfter(this.#items, nodeId, request);
+    this.#items = insertNodeAfter(this.#items, nodeId, request);
     this.#rerender();
     this.#emitChange();
     const li = this.#el.querySelector(`[data-id="${CSS.escape(request.id)}"]`);
@@ -981,7 +994,7 @@ export class TreeView {
       name: "New Folder",
       children: [],
     };
-    this.#items = this.#insertNodeAfter(this.#items, nodeId, folder);
+    this.#items = insertNodeAfter(this.#items, nodeId, folder);
     this.#rerender();
     this.#emitChange();
     const li = this.#el.querySelector(`[data-id="${CSS.escape(folder.id)}"]`);
@@ -1015,7 +1028,7 @@ export class TreeView {
 
     const commit = () => {
       const newName = input.value.trim() || originalName;
-      this.#items = this.#updateNodeName(this.#items, nodeId, newName);
+      this.#items = updateNodeName(this.#items, nodeId, newName);
       this.#rerender();
       if (newName !== originalName) this.#emitChange();
     };
@@ -1044,12 +1057,12 @@ export class TreeView {
    * name it "<original> (copy)", and insert it right after the original.
    */
   #duplicateNode(nodeId) {
-    const original = this.#findNode(this.#items, nodeId);
+    const original = findNode(this.#items, nodeId);
     if (!original) return;
 
-    const clone = this.#cloneWithNewIds(original);
+    const clone = cloneWithNewIds(original);
     clone.name = `${clone.name} (copy)`;
-    this.#items = this.#insertNodeAfter(this.#items, nodeId, clone);
+    this.#items = insertNodeAfter(this.#items, nodeId, clone);
     this.#rerender();
     this.#emitChange();
 
@@ -1063,8 +1076,8 @@ export class TreeView {
   #deleteNode(nodeId) {
     // Collect all request IDs that live under the deleted node so the
     // caller (app.js) can remove the backing files from the backend.
-    const deleted = this.#findNode(this.#items, nodeId);
-    const requestIds = deleted ? this.#collectRequestIds(deleted) : [];
+    const deleted = findNode(this.#items, nodeId);
+    const requestIds = deleted ? collectRequestIds(deleted) : [];
     const deletedIdSet = new Set(requestIds);
 
     // If the currently selected request is being deleted, find the next
@@ -1073,7 +1086,7 @@ export class TreeView {
     const selectedWillBeDeleted =
       this.#selectedId != null && deletedIdSet.has(this.#selectedId);
     if (selectedWillBeDeleted) {
-      const allRequests = this.#getFlatRequests();
+      const allRequests = getFlatRequests(this.#items);
       const deletedIndices = allRequests.reduce((acc, r, i) => {
         if (deletedIdSet.has(r.id)) acc.push(i);
         return acc;
@@ -1091,7 +1104,7 @@ export class TreeView {
       }
     }
 
-    this.#items = this.#removeNode(this.#items, nodeId);
+    this.#items = removeNode(this.#items, nodeId);
     if (this.#activeCollectionId === nodeId) this.#activeCollectionId = null;
     if (selectedWillBeDeleted) this.#selectedId = null;
     this.#syncButtonState();
@@ -1122,23 +1135,6 @@ export class TreeView {
   }
 
   /**
-   * Recursively collect all request IDs under `node` (inclusive if it is
-   * itself a request, or all descendant requests if it is a folder/collection).
-   * @param {object} node
-   * @returns {string[]}
-   */
-  #collectRequestIds(node) {
-    if (node.type === "request") return [node.id];
-    const ids = [];
-    if (Array.isArray(node.children)) {
-      for (const child of node.children) {
-        ids.push(...this.#collectRequestIds(child));
-      }
-    }
-    return ids;
-  }
-
-  /**
    * Resolve the live node + variable-resolver context for code generation, or
    * null when the node is not a request. The closure-captured `node` may be
    * stale: updateNode() replaces the node object in #items immutably, so any
@@ -1149,12 +1145,12 @@ export class TreeView {
    * @returns {{ liveNode: object, context: object } | null}
    */
   #codeGenInputs(node) {
-    const liveNode = this.#findNode(this.#items, node.id) ?? node;
+    const liveNode = findNode(this.#items, node.id) ?? node;
     if (liveNode.type !== "request") return null;
     return {
       liveNode,
       context: {
-        envVariables: this.#envVariables,
+        collectionVariables: this.#collectionVariables,
         folderChain: this.#resolverFolderChain(liveNode.id),
       },
     };
@@ -1289,142 +1285,6 @@ export class TreeView {
   // ── Tree mutation helpers ───────────────────────────────────────────────
 
   /**
-   * Recursively insert `child` under the node with `parentId`.
-   * Supports arbitrary nesting (folders within folders).
-   */
-  /** Return the id of the direct parent of `targetId`, or null if at the root level. */
-  #findParentId(nodes, targetId, parentId = null) {
-    for (const node of nodes) {
-      if (node.id === targetId) return parentId;
-      if (Array.isArray(node.children)) {
-        const found = this.#findParentId(node.children, targetId, node.id);
-        if (found !== undefined) return found;
-      }
-    }
-    return undefined;
-  }
-
-  #insertChild(nodes, parentId, child) {
-    return nodes.map((node) => {
-      if (node.id === parentId) {
-        return { ...node, children: [child, ...(node.children ?? [])] };
-      }
-      if (Array.isArray(node.children) && node.children.length > 0) {
-        return {
-          ...node,
-          children: this.#insertChild(node.children, parentId, child),
-        };
-      }
-      return node;
-    });
-  }
-
-  /**
-   * Recursively remove the node with `targetId` from the tree.
-   * Works at any nesting depth.
-   */
-  #removeNode(nodes, targetId) {
-    return nodes
-      .filter((n) => n.id !== targetId)
-      .map((n) => {
-        if (Array.isArray(n.children) && n.children.length > 0) {
-          return { ...n, children: this.#removeNode(n.children, targetId) };
-        }
-        return n;
-      });
-  }
-
-  /** Find a node by id at any depth. Returns the node or null. */
-  #findNode(nodes, targetId) {
-    for (const node of nodes) {
-      if (node.id === targetId) return node;
-      if (Array.isArray(node.children)) {
-        const found = this.#findNode(node.children, targetId);
-        if (found) return found;
-      }
-    }
-    return null;
-  }
-
-  /** Deep-clone a node, replacing every `id` with a new UUID. */
-  #cloneWithNewIds(node) {
-    const clone = { ...node, id: crypto.randomUUID() };
-    // Recurse into tree children (sub-folders / sub-requests)
-    if (Array.isArray(node.children)) {
-      clone.children = node.children.map((c) => this.#cloneWithNewIds(c));
-    }
-    // Regenerate IDs for request-level row arrays so duplicated requests
-    // never share row IDs with the original.
-    if (Array.isArray(node.bodyFormRows)) {
-      clone.bodyFormRows = node.bodyFormRows.map((r) => ({
-        ...r,
-        id: crypto.randomUUID(),
-      }));
-    }
-    if (Array.isArray(node.params)) {
-      clone.params = node.params.map((r) => ({
-        ...r,
-        id: crypto.randomUUID(),
-      }));
-    }
-    if (Array.isArray(node.headers)) {
-      clone.headers = node.headers.map((r) => ({
-        ...r,
-        id: crypto.randomUUID(),
-      }));
-    }
-    return clone;
-  }
-
-  /**
-   * Insert `newNode` immediately after the node with `afterId`.
-   * Searches recursively; handles nested collections correctly.
-   */
-  #insertNodeAfter(nodes, afterId, newNode) {
-    const result = [];
-    for (const node of nodes) {
-      let current = node;
-      let insertedInChildren = false;
-
-      if (Array.isArray(node.children) && node.children.length > 0) {
-        const newChildren = this.#insertNodeAfter(
-          node.children,
-          afterId,
-          newNode,
-        );
-        // Use both a length check (item inserted at this level) AND a reference
-        // check (item inserted at a deeper level — immediate count unchanged but
-        // one of the child objects is a new spread copy).
-        insertedInChildren =
-          newChildren.length > node.children.length ||
-          newChildren.some((c, i) => c !== node.children[i]);
-        if (insertedInChildren) current = { ...node, children: newChildren };
-      }
-
-      result.push(current);
-
-      if (!insertedInChildren && node.id === afterId) {
-        result.push(newNode);
-      }
-    }
-    return result;
-  }
-
-  /** Return a new tree with the name of `targetId` replaced. */
-  #updateNodeName(nodes, targetId, newName) {
-    return nodes.map((node) => {
-      if (node.id === targetId) return { ...node, name: newName };
-      if (Array.isArray(node.children) && node.children.length > 0) {
-        return {
-          ...node,
-          children: this.#updateNodeName(node.children, targetId, newName),
-        };
-      }
-      return node;
-    });
-  }
-
-  /**
    * Build the folder chain for variable resolution, converting each node's
    * canonical array `.variables` into the { name: value } map the resolver
    * consumes. The resolver context is the boundary where arrays flatten to maps.
@@ -1436,19 +1296,6 @@ export class TreeView {
       ...folder,
       variables: varsArrayToMap(folder.variables),
     }));
-  }
-
-  /** Return all request nodes in depth-first (visual) order across the whole tree. */
-  #getFlatRequests(nodes = this.#items) {
-    const result = [];
-    for (const node of nodes) {
-      if (node.type === "request") {
-        result.push(node);
-      } else if (Array.isArray(node.children)) {
-        result.push(...this.#getFlatRequests(node.children));
-      }
-    }
-    return result;
   }
 
   // ── Rendering ───────────────────────────────────────────────────────────
@@ -1624,7 +1471,7 @@ export class TreeView {
         if (!this.#doubleClickExecute) return;
         window.dispatchEvent(
           new CustomEvent("wurl:request-execute", {
-            detail: this.#findNode(this.#items, node.id) ?? node,
+            detail: findNode(this.#items, node.id) ?? node,
             bubbles: true,
           }),
         );
@@ -2039,7 +1886,7 @@ export class TreeView {
     // The click-handler closure captures the node object at render time; if
     // updateNode() has since patched #items (creating a new object), the
     // closure reference would be stale and load outdated method/url/etc.
-    const currentNode = this.#findNode(this.#items, node.id) ?? node;
+    const currentNode = findNode(this.#items, node.id) ?? node;
 
     window.dispatchEvent(
       new CustomEvent("wurl:request-selected", {
@@ -2275,9 +2122,9 @@ export class TreeView {
     if (!this.#dragId) return false;
     if (this.#dragId === targetNode.id) return false;
     // Prevent dragging a collection into one of its own descendants
-    const dragged = this.#findNode(this.#items, this.#dragId);
+    const dragged = findNode(this.#items, this.#dragId);
     if (dragged?.type === "collection") {
-      if (this.#findNode(dragged.children ?? [], targetNode.id)) return false;
+      if (findNode(dragged.children ?? [], targetNode.id)) return false;
     }
     return true;
   }
@@ -2291,19 +2138,19 @@ export class TreeView {
   #moveNode(draggedId, targetId, position) {
     if (draggedId === targetId) return;
 
-    const node = this.#findNode(this.#items, draggedId);
+    const node = findNode(this.#items, draggedId);
     if (!node) return;
 
     // Remove the node from its current position (children travel with it)
-    let newItems = this.#removeNode(this.#items, draggedId);
+    let newItems = removeNode(this.#items, draggedId);
 
     // Insert at the requested position
     if (position === "before") {
-      newItems = this.#insertBefore(newItems, targetId, node);
+      newItems = insertBefore(newItems, targetId, node);
     } else if (position === "after") {
-      newItems = this.#insertNodeAfter(newItems, targetId, node);
+      newItems = insertNodeAfter(newItems, targetId, node);
     } else if (position === "inside") {
-      newItems = this.#insertChild(newItems, targetId, node);
+      newItems = insertChild(newItems, targetId, node);
     }
 
     this.#items = newItems;
@@ -2327,7 +2174,7 @@ export class TreeView {
    */
   updateNode(id, fields, { silent = false } = {}) {
     // 1. Patch in-memory tree
-    this.#items = this.#patchNodeFields(this.#items, id, fields);
+    this.#items = patchNodeFields(this.#items, id, fields);
 
     // 2. Attempt surgical DOM update
     const li = this.#el.querySelector(`[data-id="${CSS.escape(id)}"]`);
@@ -2361,52 +2208,6 @@ export class TreeView {
     if (!silent) this.#emitChange();
   }
 
-  /** Recursively return a new tree with the fields of `targetId` merged. */
-  #patchNodeFields(nodes, targetId, fields) {
-    return nodes.map((node) => {
-      if (node.id === targetId) return { ...node, ...fields };
-      if (Array.isArray(node.children) && node.children.length > 0) {
-        return {
-          ...node,
-          children: this.#patchNodeFields(node.children, targetId, fields),
-        };
-      }
-      return node;
-    });
-  }
-
-  /**
-   * Insert `newNode` immediately before the node with `beforeId`.
-   * Searches recursively through the tree.
-   */
-  #insertBefore(nodes, beforeId, newNode) {
-    const result = [];
-    for (const node of nodes) {
-      if (node.id === beforeId) {
-        result.push(newNode, node);
-        continue;
-      }
-      if (Array.isArray(node.children) && node.children.length > 0) {
-        const newChildren = this.#insertBefore(
-          node.children,
-          beforeId,
-          newNode,
-        );
-        // Use both a length check AND a reference check (deep insertion changes
-        // a child object reference even if the count stays the same).
-        if (
-          newChildren.length > node.children.length ||
-          newChildren.some((c, i) => c !== node.children[i])
-        ) {
-          result.push({ ...node, children: newChildren });
-          continue;
-        }
-      }
-      result.push(node);
-    }
-    return result;
-  }
-
   /**
    * Programmatically select a request node by ID, as if the user clicked it.
    * Used to restore the last-selected request on page/app reload.
@@ -2418,7 +2219,7 @@ export class TreeView {
    */
   selectById(id) {
     if (!id) return false;
-    const node = this.#findNode(this.#items, id);
+    const node = findNode(this.#items, id);
     if (!node || node.type !== "request") return false;
 
     const li = this.#el.querySelector(`[data-id="${CSS.escape(id)}"]`);

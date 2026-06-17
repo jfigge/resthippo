@@ -125,8 +125,8 @@ test-auth:
 	@echo "--------------------------------"
 
 test-net:
-	@echo "Running proxy / retry / websocket / timing / sse tests..."
-	@node --test $(APP_DIR)/net/tests/proxy.test.js $(APP_DIR)/net/tests/retry.test.js $(APP_DIR)/net/tests/websocket.test.js $(APP_DIR)/net/tests/timing.test.js $(APP_DIR)/net/tests/sse.test.js
+	@echo "Running proxy / retry / websocket / timing / sse / http-engine tests..."
+	@node --test $(APP_DIR)/net/tests/proxy.test.js $(APP_DIR)/net/tests/retry.test.js $(APP_DIR)/net/tests/websocket.test.js $(APP_DIR)/net/tests/timing.test.js $(APP_DIR)/net/tests/sse.test.js $(APP_DIR)/net/tests/http-engine.test.js
 	@echo "--------------------------------"
 
 test-content-type:
@@ -151,7 +151,7 @@ test-export:
 
 test-components:
 	@echo "Running renderer component tests (variable resolution, request payload)..."
-	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js $(WEB_DIR)/scripts/components/tests/captures.test.js $(WEB_DIR)/scripts/components/code-gen/tests/code-gen.test.js
+	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js $(WEB_DIR)/scripts/components/tests/captures.test.js $(WEB_DIR)/scripts/components/tests/tree-model.test.js $(WEB_DIR)/scripts/components/code-gen/tests/code-gen.test.js
 	@echo "--------------------------------"
 
 test-import:
@@ -180,8 +180,8 @@ test-diagnostics:
 	@echo "--------------------------------"
 
 test-renderer-components:
-	@echo "Running renderer component render tests (editor + viewer + notifications, jsdom)..."
-	@node --test $(WEB_DIR)/scripts/tests/request-editor.test.js $(WEB_DIR)/scripts/tests/response-viewer.test.js $(WEB_DIR)/scripts/tests/notifications.test.js
+	@echo "Running renderer component render tests (editor + viewer + notifications + pill editors, jsdom)..."
+	@node --test $(WEB_DIR)/scripts/tests/request-editor.test.js $(WEB_DIR)/scripts/tests/response-viewer.test.js $(WEB_DIR)/scripts/tests/notifications.test.js $(WEB_DIR)/scripts/tests/pill-editors.test.js $(WEB_DIR)/scripts/tests/tree-view.test.js
 	@echo "--------------------------------"
 
 test-renderer-e2e:

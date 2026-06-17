@@ -11,7 +11,6 @@
  */
 "use strict";
 
-const fs = require("fs");
 const {
   readJSON,
   writeJSON,
@@ -19,13 +18,15 @@ const {
   validateID,
   newUUID,
   notFoundError,
-  remove,
 } = require("./io");
-const { encryptRequest, decryptRequest } = require("./crypto");
+const { CollectionRepository } = require("./collection-repository");
 
 // ── Fields that PATCH may update ──────────────────────────────────────────────
 const PATCHABLE_FIELDS = [
   "name",
+  // Free-text notes tab — a persisted, user-authored request field. Omitting it
+  // would make a granular update silently drop notes edits.
+  "notes",
   "method",
   "url",
   // protocol distinguishes a WebSocket request ("websocket") from a normal HTTP
@@ -70,10 +71,11 @@ class RequestStore {
    *   payloads when the request is removed. Optional so the store still works in
    *   isolation (e.g. focused unit tests); when absent, history is left in place.
    */
-  constructor(paths, resolver, history) {
+  constructor(paths, resolver, history, repository) {
     this._paths = paths;
     this._resolver = resolver;
     this._history = history ?? null;
+    this._repo = repository ?? new CollectionRepository(paths);
   }
 
   // ── Read ────────────────────────────────────────────────────────────────────
@@ -88,9 +90,9 @@ class RequestStore {
   getRequest(id) {
     validateID(id, "requestId");
     const collId = this._resolver.resolve(id); // throws NOT_FOUND if unknown
-    const data = readJSON(this._paths.requestPath(collId, id));
-    if (data === null) throw notFoundError(`request not found: ${id}`);
-    return decryptRequest(data);
+    const req = this._repo.readRequest(collId, id);
+    if (req === null) throw notFoundError(`request not found: ${id}`);
+    return req;
   }
 
   // ── Create ──────────────────────────────────────────────────────────────────
@@ -110,17 +112,13 @@ class RequestStore {
     if (!req.id) req = { ...req, id: newUUID() };
     req = { ...req, type: "request" };
 
-    ensureDir(this._paths.requestsDir(collectionId));
-    writeJSON(
-      this._paths.requestPath(collectionId, req.id),
-      encryptRequest(req),
-    );
+    this._repo.writeRequest(collectionId, req.id, req);
 
     try {
       this._appendToTree(collectionId, collectionId, req.id);
     } catch (treeErr) {
       // Best-effort rollback: remove the request file so we don't leave orphans.
-      remove(this._paths.requestPath(collectionId, req.id));
+      this._repo.removeRequestQuiet(collectionId, req.id);
       throw treeErr;
     }
 
@@ -143,13 +141,13 @@ class RequestStore {
   updateRequest(id, patch) {
     validateID(id, "requestId");
     const collId = this._resolver.resolve(id);
-    const reqPath = this._paths.requestPath(collId, id);
-    const existing = readJSON(reqPath);
-    if (existing === null) throw notFoundError(`request not found: ${id}`);
+    const decrypted = this._repo.readRequest(collId, id);
+    if (decrypted === null) throw notFoundError(`request not found: ${id}`);
 
-    // Decrypt before merging so the patch (plaintext from the renderer) is
-    // applied to plaintext values; then re-encrypt the merged result for storage.
-    const decrypted = decryptRequest(existing);
+    // Merge the patch (plaintext from the renderer) onto the decrypted plaintext;
+    // the repository re-encrypts and applies the secret-preserving clobber guard
+    // so a field that failed to decrypt can't be blanked over recoverable
+    // ciphertext.
     const failedPaths = decrypted._decryptErrors ?? [];
     const updated = { ...decrypted };
     delete updated._decryptErrors;
@@ -159,22 +157,7 @@ class RequestStore {
       }
     }
 
-    const encrypted = encryptRequest(updated);
-
-    // Clobber guard: a field that failed to decrypt was blanked above, so
-    // re-encrypting would persist an empty value over recoverable ciphertext.
-    // For each failed secret field that the caller did NOT explicitly re-supply
-    // (the whole auth block is absent from the patch), restore the original
-    // stored ciphertext so a transient keystore failure can't destroy a secret.
-    for (const path of failedPaths) {
-      const [parent, field] = path.split(".");
-      if (patch[parent] !== undefined) continue; // user is overwriting on purpose
-      const original = existing[parent]?.[field];
-      if (original === undefined) continue;
-      encrypted[parent] = { ...encrypted[parent], [field]: original };
-    }
-
-    writeJSON(reqPath, encrypted);
+    this._repo.writeUpdatedRequest(collId, id, updated, { failedPaths, patch });
     return updated;
   }
 
@@ -193,18 +176,10 @@ class RequestStore {
   deleteRequest(id) {
     validateID(id, "requestId");
     const collId = this._resolver.resolve(id);
-    const reqPath = this._paths.requestPath(collId, id);
 
-    // Deliberately a direct unlinkSync, not the best-effort io.remove(): this
-    // delete is NOT fire-and-forget — a missing file must surface as NOT_FOUND
-    // and any other error must propagate, both of which io.remove() would swallow.
-    try {
-      fs.unlinkSync(reqPath);
-    } catch (err) {
-      if (err.code === "ENOENT")
-        throw notFoundError(`request not found: ${id}`);
-      throw err;
-    }
+    // Strict delete (not fire-and-forget): a missing file must surface as
+    // NOT_FOUND and any other error must propagate — the repository enforces both.
+    this._repo.removeRequest(collId, id);
 
     // Best-effort: keep the tree consistent (file is already gone, so not critical).
     try {
@@ -234,8 +209,8 @@ class RequestStore {
    * the collection's tree.json. If no such folder exists, a new top-level
    * folder is created using the folderId as the name.
    */
-  _appendToTree(envId, folderId, reqId) {
-    const treePath = this._paths.treePath(envId);
+  _appendToTree(collId, folderId, reqId) {
+    const treePath = this._paths.treePath(collId);
     const tree = readJSON(treePath) ?? { children: [] };
     const ref = { id: reqId, type: "requestRef" };
 
@@ -248,7 +223,7 @@ class RequestStore {
       });
     }
 
-    ensureDir(this._paths.collectionDir(envId));
+    ensureDir(this._paths.collectionDir(collId));
     writeJSON(treePath, tree);
   }
 

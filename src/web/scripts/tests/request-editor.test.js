@@ -35,7 +35,7 @@ async function sendAndCapture(node) {
 
   const editor = new RequestEditor();
   document.body.appendChild(editor.element);
-  editor.setVariableContext({ envVariables: {}, folderChain: [] });
+  editor.setVariableContext({ collectionVariables: {}, folderChain: [] });
   editor.load(node);
 
   const captured = new Promise((resolve, reject) => {
@@ -169,7 +169,7 @@ test("disabled auth contributes no Authorization header", async () => {
 // ── WebSocket mode (Feature 32) ─────────────────────────────────────────────
 
 /** Fresh DOM + editor loaded with `node`; returns { window, editor }. */
-function mountEditor(node, ctx = { envVariables: {}, folderChain: [] }) {
+function mountEditor(node, ctx = { collectionVariables: {}, folderChain: [] }) {
   const window = resetDom();
   window.wurl = { isElectron: true, ws: {} };
   const editor = new RequestEditor();
@@ -215,7 +215,7 @@ test("Connect resolves the URL + bearer header and dispatches ws-connect", async
       authBearer: { token: "{{tok}}" },
     },
     {
-      envVariables: { host: "echo.example.com", tok: "secret123" },
+      collectionVariables: { host: "echo.example.com", tok: "secret123" },
       folderChain: [],
     },
   );
@@ -240,7 +240,7 @@ test("a composed message is variable-resolved and dispatched on ws-send", async 
       url: "wss://x",
       wsMessage: "hi {{name}}",
     },
-    { envVariables: { name: "Ada" }, folderChain: [] },
+    { collectionVariables: { name: "Ada" }, folderChain: [] },
   );
   // The composer's Send is enabled only once the connection reports "open".
   window.dispatchEvent(

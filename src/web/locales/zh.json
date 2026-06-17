@@ -18,7 +18,14 @@
     "copy": "复制",
     "copied": "已复制",
     "download": "下载",
-    "allFiles": "所有文件"
+    "allFiles": "所有文件",
+    "reveal": "显示",
+    "hide": "隐藏",
+    "revealValue": "显示值",
+    "hideValue": "隐藏值",
+    "selectItem": "选择 {name}",
+    "renameItem": "重命名 {name}",
+    "deleteItem": "删除 {name}"
   },
   "app": {
     "wsOpen": "WebSocket 连接已打开",
@@ -502,6 +509,10 @@
       "headers": "标头",
       "field": "字段",
       "pathParameter": "路径参数"
+    },
+    "bodyValidate": {
+      "validTitle": "{type} 有效",
+      "invalidTitle": "{type} 存在语法错误"
     }
   },
   "response": {
@@ -688,7 +699,10 @@
     "favorited": "已收藏",
     "favoriteHint": "双击以收藏",
     "unfavoriteHint": "双击以取消收藏",
-    "unnamed": "（未命名）"
+    "unnamed": "（未命名）",
+    "emptyFavorites": "暂无收藏",
+    "emptyRecent": "暂无最近的请求",
+    "newWebSocket": "新建 WebSocket"
   },
   "collections": {
     "title": "集合",
@@ -719,7 +733,9 @@
       "path": "路径",
       "expires": "过期时间",
       "sameSite": "SameSite"
-    }
+    },
+    "cannotDeleteOnly": "无法删除唯一的集合",
+    "deleteCollection": "删除集合"
   },
   "environments": {
     "title": "环境",
@@ -732,7 +748,9 @@
     "closeAria": "关闭环境",
     "deleteTitle": "删除环境？",
     "delete": "删除环境",
-    "nameExists": "已存在同名环境。"
+    "nameExists": "已存在同名环境。",
+    "selectGlobalAria": "选择全局变量",
+    "deleteMessage": "删除环境“{name}”及其所有变量？"
   },
   "cookies": {
     "session": "会话",
@@ -1054,5 +1072,8 @@
     "placeholder": "curl https://api.example.com/users \\\n  -H 'Authorization: Bearer ...' \\\n  -d '{\"name\":\"Ada\"}'",
     "submit": "导入",
     "empty": "粘贴要导入的 cURL 命令。"
+  },
+  "variables": {
+    "titleScope": "变量 — {scope}"
   }
 }

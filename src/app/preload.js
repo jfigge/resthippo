@@ -137,25 +137,23 @@ contextBridge.exposeInMainWorld("wurl", {
       save: (data) => ipcRenderer.invoke("store:manifest:save", data),
     },
 
-    /** Collection lifecycle operations beyond the manifest list. */
+    /**
+     * Collection lifecycle plus the per-collection blob, which assembles
+     * { version, collections[], variables } from the per-file layout for
+     * backward-compatible renderer access.
+     */
     collections: {
+      /** @param {string} id @returns {Promise<{ version, collections, variables }>} */
+      get: (id) => ipcRenderer.invoke("store:collections:get", id),
+      /** @param {string} id @param {object} data @returns {Promise<void>} */
+      save: (id, data) =>
+        ipcRenderer.invoke("store:collections:save", id, data),
       /**
        * Permanently delete a collection's on-disk directory and all its data
        * (requests, history, responses, cookies, metadata).
        * @param {string} id @returns {Promise<void>}
        */
       delete: (id) => ipcRenderer.invoke("store:collections:delete", id),
-    },
-
-    /**
-     * Per-collection blob — assembles { version, collections[], variables }
-     * from the new per-file layout for backward-compatible renderer access.
-     */
-    env: {
-      /** @param {string} id @returns {Promise<{ version, collections, variables }>} */
-      get: (id) => ipcRenderer.invoke("store:env:get", id),
-      /** @param {string} id @param {object} data @returns {Promise<void>} */
-      save: (id, data) => ipcRenderer.invoke("store:env:save", id, data),
     },
 
     /**

@@ -18,7 +18,14 @@
     "copy": "Copy",
     "copied": "Copied",
     "download": "Download",
-    "allFiles": "All Files"
+    "allFiles": "All Files",
+    "reveal": "Reveal",
+    "hide": "Hide",
+    "revealValue": "Reveal value",
+    "hideValue": "Hide value",
+    "selectItem": "Select {name}",
+    "renameItem": "Rename {name}",
+    "deleteItem": "Delete {name}"
   },
   "app": {
     "wsOpen": "WebSocket connection is open",
@@ -502,6 +509,10 @@
       "headers": "headers",
       "field": "field",
       "pathParameter": "path parameter"
+    },
+    "bodyValidate": {
+      "validTitle": "{type} is valid",
+      "invalidTitle": "{type} has a syntax error"
     }
   },
   "response": {
@@ -688,7 +699,10 @@
     "favorited": "Favorited",
     "favoriteHint": "Double-click to favorite",
     "unfavoriteHint": "Double-click to unfavorite",
-    "unnamed": "(unnamed)"
+    "unnamed": "(unnamed)",
+    "emptyFavorites": "No favorites yet",
+    "emptyRecent": "No recent requests",
+    "newWebSocket": "New WebSocket"
   },
   "collections": {
     "title": "Collections",
@@ -719,7 +733,9 @@
       "path": "Path",
       "expires": "Expires",
       "sameSite": "SameSite"
-    }
+    },
+    "cannotDeleteOnly": "Cannot delete the only collection",
+    "deleteCollection": "Delete collection"
   },
   "environments": {
     "title": "Environments",
@@ -732,7 +748,9 @@
     "closeAria": "Close environments",
     "deleteTitle": "Delete Environment?",
     "delete": "Delete environment",
-    "nameExists": "An environment with this name already exists."
+    "nameExists": "An environment with this name already exists.",
+    "selectGlobalAria": "Select Global variables",
+    "deleteMessage": "Delete the environment \"{name}\" and all its variables?"
   },
   "cookies": {
     "session": "Session",
@@ -1055,5 +1073,8 @@
     "placeholder": "curl https://api.example.com/users \\\n  -H 'Authorization: Bearer ...' \\\n  -d '{\"name\":\"Ada\"}'",
     "submit": "Import",
     "empty": "Paste a cURL command to import."
+  },
+  "variables": {
+    "titleScope": "Variables — {scope}"
   }
 }

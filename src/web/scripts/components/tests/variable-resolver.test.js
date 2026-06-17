@@ -37,7 +37,7 @@ import {
 test("resolveVariable: folder chain wins over collection/environment/global", () => {
   const ctx = {
     folderChain: [{ variables: { host: "folder-host" } }],
-    envVariables: { host: "collection-host" },
+    collectionVariables: { host: "collection-host" },
     environmentVariables: { host: "environment-host" },
     globalVariables: { host: "global-host" },
   };
@@ -49,7 +49,7 @@ test("resolveVariable: folder chain wins over collection/environment/global", ()
 
 test("resolveVariable: collection wins over environment and global", () => {
   const ctx = {
-    envVariables: { host: "collection-host" },
+    collectionVariables: { host: "collection-host" },
     environmentVariables: { host: "environment-host" },
     globalVariables: { host: "global-host" },
   };
@@ -103,15 +103,15 @@ test("resolveVariable: null name or context is not found", () => {
 test("resolveVariable: secure flag reflects the winning scope's secure set", () => {
   const ctx = {
     folderChain: [{ variables: { k: "v" }, secureVariables: new Set(["k"]) }],
-    envVariables: { plain: "x" },
-    secureEnvVariables: new Set(),
+    collectionVariables: { plain: "x" },
+    secureCollectionVariables: new Set(),
   };
   assert.equal(resolveVariable("k", ctx).secure, true);
   assert.equal(resolveVariable("plain", ctx).secure, false);
 });
 
 test("resolveVariable: empty-string value is still 'found' (hasOwnProperty, not truthiness)", () => {
-  const r = resolveVariable("blank", { envVariables: { blank: "" } });
+  const r = resolveVariable("blank", { collectionVariables: { blank: "" } });
   assert.equal(r.found, true);
   assert.equal(r.value, "");
 });
@@ -121,7 +121,7 @@ test("resolveVariable: empty-string value is still 'found' (hasOwnProperty, not 
 test("collectScopes lists scopes in priority order, one entry per folder", () => {
   const ctx = {
     folderChain: [{ variables: { a: 1 } }, { variables: { b: 2 } }],
-    envVariables: { c: 3 },
+    collectionVariables: { c: 3 },
     globalVariables: { d: 4 },
   };
   const sources = collectScopes(ctx).map((s) => s.source);
@@ -131,7 +131,7 @@ test("collectScopes lists scopes in priority order, one entry per folder", () =>
 test("collectScopeNames dedupes by first occurrence and sorts within a scope", () => {
   const ctx = {
     folderChain: [{ variables: { z: 1, a: 1 } }],
-    envVariables: { a: 2, m: 2 },
+    collectionVariables: { a: 2, m: 2 },
   };
   // folder names sorted (a, z) then collection-only names (m); 'a' not repeated.
   assert.deepEqual(collectScopeNames(ctx), ["a", "z", "m"]);
@@ -177,7 +177,7 @@ test("buildFunctionToken is the inverse of parseFunctionCall", () => {
 // ── resolveString (synchronous {{name}} substitution) ────────────────────────
 
 test("resolveString substitutes known vars and leaves unknowns intact", () => {
-  const ctx = { envVariables: { host: "example.com" } };
+  const ctx = { collectionVariables: { host: "example.com" } };
   assert.equal(
     resolveString("https://{{host}}/{{missing}}", ctx),
     "https://example.com/{{missing}}",
@@ -187,7 +187,7 @@ test("resolveString substitutes known vars and leaves unknowns intact", () => {
 test("resolveString resolves multiple/nested-scope variables in one template", () => {
   const ctx = {
     folderChain: [{ variables: { path: "v1" } }],
-    envVariables: { host: "api" },
+    collectionVariables: { host: "api" },
     globalVariables: { proto: "https" },
   };
   assert.equal(
@@ -197,7 +197,7 @@ test("resolveString resolves multiple/nested-scope variables in one template", (
 });
 
 test("collectTemplateVariables reports found/unfound across templates, deduped", () => {
-  const ctx = { envVariables: { host: "h" } };
+  const ctx = { collectionVariables: { host: "h" } };
   const out = collectTemplateVariables(["{{host}}/{{host}}", "{{gone}}"], ctx);
   assert.deepEqual(out, [
     { name: "host", found: true, value: "h" },
@@ -208,7 +208,7 @@ test("collectTemplateVariables reports found/unfound across templates, deduped",
 // ── resolveStringAsync (functions + variables) ───────────────────────────────
 
 test("resolveStringAsync: plain variable substitution still works", async () => {
-  const ctx = { envVariables: { host: "api.example.com" } };
+  const ctx = { collectionVariables: { host: "api.example.com" } };
   assert.equal(
     await resolveStringAsync("https://{{host}}", ctx),
     "https://api.example.com",
@@ -261,7 +261,7 @@ test("resolveStringAsync: randomInt() stays within bounds", async () => {
 test("resolveStringAsync: context functions read from the context object", async () => {
   const ctx = {
     folderChain: [{ name: "Inner" }, { name: "Outer" }],
-    envName: "My Collection",
+    collectionName: "My Collection",
     requestName: "Get User",
     activeEnvironmentName: "Staging",
   };

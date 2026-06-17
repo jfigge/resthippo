@@ -19,6 +19,7 @@
 const io = require("./io");
 const { Paths } = require("./paths");
 const { Resolver } = require("./resolver");
+const { CollectionRepository } = require("./collection-repository");
 const { CollectionStore } = require("./collection-store");
 const { CollectionsStore } = require("./collections-store");
 const { TreeStore } = require("./tree-store");
@@ -39,8 +40,16 @@ class Stores {
     // Sweep orphaned temp files left by any prior crashed write before stores run.
     io.gcOrphanTempFiles(this._paths.dataDir);
 
+    // Single owner of the per-collection file layout (request files for now);
+    // shared so CollectionsStore and RequestStore read/write them one way.
+    this._repository = new CollectionRepository(this._paths);
+
     this._collectionStore = new CollectionStore(this._paths, this._resolver);
-    this._collectionsStore = new CollectionsStore(this._paths, this._resolver);
+    this._collectionsStore = new CollectionsStore(
+      this._paths,
+      this._resolver,
+      this._repository,
+    );
     this._treeStore = new TreeStore(this._paths, this._resolver);
     // History store is built before the request store so the latter can cascade
     // history deletion when a request is removed.
@@ -49,6 +58,7 @@ class Stores {
       this._paths,
       this._resolver,
       this._historyStore,
+      this._repository,
     );
     this._environmentStore = new EnvironmentStore(this._paths);
     this._cookieStore = new CookieStore(this._paths);
@@ -101,6 +111,11 @@ class Stores {
   /** Shared Paths instance — the single source of truth for filesystem paths. */
   paths() {
     return this._paths;
+  }
+
+  /** Single owner of the per-collection file layout (request files). */
+  repository() {
+    return this._repository;
   }
 }
 

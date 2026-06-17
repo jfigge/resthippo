@@ -18,7 +18,14 @@
     "copy": "Copiar",
     "copied": "Copiado",
     "download": "Descargar",
-    "allFiles": "Todos los archivos"
+    "allFiles": "Todos los archivos",
+    "reveal": "Mostrar",
+    "hide": "Ocultar",
+    "revealValue": "Mostrar valor",
+    "hideValue": "Ocultar valor",
+    "selectItem": "Seleccionar {name}",
+    "renameItem": "Renombrar {name}",
+    "deleteItem": "Eliminar {name}"
   },
   "app": {
     "wsOpen": "La conexión WebSocket está abierta",
@@ -502,6 +509,10 @@
       "headers": "encabezados",
       "field": "campo",
       "pathParameter": "parámetro de ruta"
+    },
+    "bodyValidate": {
+      "validTitle": "{type} es válido",
+      "invalidTitle": "{type} tiene un error de sintaxis"
     }
   },
   "response": {
@@ -688,7 +699,10 @@
     "favorited": "Favorito",
     "favoriteHint": "Doble clic para marcar como favorito",
     "unfavoriteHint": "Doble clic para quitar de favoritos",
-    "unnamed": "(sin nombre)"
+    "unnamed": "(sin nombre)",
+    "emptyFavorites": "Aún no hay favoritos",
+    "emptyRecent": "No hay solicitudes recientes",
+    "newWebSocket": "Nuevo WebSocket"
   },
   "collections": {
     "title": "Colecciones",
@@ -719,7 +733,9 @@
       "path": "Ruta",
       "expires": "Caduca",
       "sameSite": "SameSite"
-    }
+    },
+    "cannotDeleteOnly": "No se puede eliminar la única colección",
+    "deleteCollection": "Eliminar colección"
   },
   "environments": {
     "title": "Entornos",
@@ -732,7 +748,9 @@
     "closeAria": "Cerrar entornos",
     "deleteTitle": "¿Eliminar entorno?",
     "delete": "Eliminar entorno",
-    "nameExists": "Ya existe un entorno con este nombre."
+    "nameExists": "Ya existe un entorno con este nombre.",
+    "selectGlobalAria": "Seleccionar variables globales",
+    "deleteMessage": "¿Eliminar el entorno «{name}» y todas sus variables?"
   },
   "cookies": {
     "session": "Sesión",
@@ -1055,5 +1073,8 @@
     "placeholder": "curl https://api.example.com/users \\\n  -H 'Authorization: Bearer ...' \\\n  -d '{\"name\":\"Ada\"}'",
     "submit": "Importar",
     "empty": "Pega un comando cURL para importar."
+  },
+  "variables": {
+    "titleScope": "Variables — {scope}"
   }
 }

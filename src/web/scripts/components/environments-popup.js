@@ -478,7 +478,9 @@ export class EnvironmentsPopup {
     nameBtn.textContent = name;
     nameBtn.setAttribute(
       "aria-label",
-      isGlobal ? "Select Global variables" : `Select ${name}`,
+      isGlobal
+        ? t("environments.selectGlobalAria")
+        : t("common.selectItem", { name }),
     );
     nameBtn.addEventListener("click", () => this.#selectEnv(id));
 
@@ -518,7 +520,7 @@ export class EnvironmentsPopup {
       renameBtn.className = "coll-action-btn";
       renameBtn.title = t("environments.rename");
       renameBtn.innerHTML = ICON_RENAME;
-      renameBtn.setAttribute("aria-label", `Rename ${name}`);
+      renameBtn.setAttribute("aria-label", t("common.renameItem", { name }));
       renameBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         this.#startRename({ id, name });
@@ -528,7 +530,7 @@ export class EnvironmentsPopup {
       deleteBtn.className = "coll-action-btn coll-action-btn--danger";
       deleteBtn.title = t("environments.delete");
       deleteBtn.innerHTML = icon("trash", { size: 13 });
-      deleteBtn.setAttribute("aria-label", `Delete ${name}`);
+      deleteBtn.setAttribute("aria-label", t("common.deleteItem", { name }));
       deleteBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         this.#confirmDelete({ id, name });
@@ -698,7 +700,7 @@ export class EnvironmentsPopup {
   #confirmDelete(env) {
     PopupManager.confirmDelete({
       title: t("environments.deleteTitle"),
-      message: `Delete the environment "${env.name}" and all its variables?`,
+      message: t("environments.deleteMessage", { name: env.name }),
       onConfirm: () => this.#deleteEnvironment(env),
     });
   }
@@ -901,7 +903,7 @@ export class EnvironmentsPopup {
       valIn.classList.toggle("params-value--masked", masked);
       reveal.style.display = row.secure ? "" : "none";
       reveal.innerHTML = icon(revealed ? "eyeOff" : "eye", { size: 14 });
-      const action = revealed ? "Hide value" : "Reveal value";
+      const action = revealed ? t("common.hideValue") : t("common.revealValue");
       reveal.title = action;
       reveal.setAttribute("aria-label", action);
       reveal.setAttribute("aria-pressed", String(revealed));

@@ -27,21 +27,21 @@ const {
   isValidID,
 } = require("./io");
 const {
-  encryptRequest,
-  decryptRequest,
   encryptVariables,
   decryptVariables,
   restoreUndecryptableVariables,
 } = require("./crypto");
+const { CollectionRepository } = require("./collection-repository");
 
 class CollectionsStore {
   /**
    * @param {import('./paths').Paths}    paths
    * @param {import('./resolver').Resolver} resolver
    */
-  constructor(paths, resolver) {
+  constructor(paths, resolver, repository) {
     this._paths = paths;
     this._resolver = resolver;
+    this._repo = repository ?? new CollectionRepository(paths);
   }
 
   // ── Read ────────────────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ class CollectionsStore {
       } catch {
         continue;
       }
-      writeJSON(this._paths.requestPath(id, reqId), encryptRequest(reqData));
+      this._repo.writeRequest(id, reqId, reqData);
     }
 
     // Invalidate resolver so it rescans for new request→collection mappings.
@@ -156,8 +156,8 @@ class CollectionsStore {
         // backup could read outside the requests dir. Skip such a ref rather
         // than throw, so a poisoned tree degrades to "request missing".
         if (!isValidID(node.id)) continue;
-        const req = readJSON(this._paths.requestPath(collId, node.id));
-        if (req !== null) result.push(decryptRequest(req));
+        const req = this._repo.readRequest(collId, node.id);
+        if (req !== null) result.push(req);
       } else if (node.type === "folder") {
         result.push({
           id: node.id,

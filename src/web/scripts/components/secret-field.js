@@ -16,6 +16,7 @@
  */
 
 import { icon } from "../icons.js";
+import { t } from "../i18n.js";
 
 /**
  * Wrap an input-like element with a mask/reveal eye toggle.
@@ -43,7 +44,7 @@ export function wrapSecretField(fieldEl, { masked = true } = {}) {
     wrapper.classList.toggle("secret-field--masked", isMasked);
     // Masked → offer the "reveal" (open eye); revealed → offer the "hide".
     toggle.innerHTML = icon(isMasked ? "eye" : "eyeOff");
-    const action = isMasked ? "Reveal" : "Hide";
+    const action = isMasked ? t("common.reveal") : t("common.hide");
     toggle.title = action;
     toggle.setAttribute("aria-label", action);
     toggle.setAttribute("aria-pressed", String(!isMasked));

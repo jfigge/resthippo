@@ -43,7 +43,7 @@ import { extractOperationName } from "../graphql-schema.js";
  *   }
  *
  * @param {object} node     a request-type tree node (live copy)
- * @param {object} context  variable-resolver context { envVariables, folderChain }
+ * @param {object} context  variable-resolver context { collectionVariables, folderChain }
  * @returns {object} the normalized request model
  */
 export function buildRequestModel(node, context) {
