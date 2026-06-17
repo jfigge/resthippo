@@ -92,9 +92,51 @@ CLIENT_SECRET ?= super-secret-client-value
 KC := docker exec $(CONTAINER_NAME) /opt/keycloak/bin/kcadm.sh
 KC_SERVER := http://localhost:8080
 
-# ─── Default ──────────────────────────────────────────────────────────────────
-all: clean install fmt lint test build
-	@echo "Build complete"
+# ─── Local builds (what you run day-to-day) ───────────────────────────────────
+# Quick reference:
+#   make            UNSIGNED, un-notarized macOS .dmg                 (fast; local testing)
+#   make all        UNSIGNED, un-notarized installers for ALL platforms
+#   make sign-dmg   SIGNED + notarized macOS .dmg                     (ready to ship)
+#   make sign-all   SIGNED installers for ALL platforms               (Windows signing is
+#                   skipped automatically when WIN_CSC_* creds are absent)
+# Signed targets read credentials from release.env (see RELEASE_ENV_VARS above).
+# NOTE: the all-platform targets build Windows + Linux too, which needs the
+# matching host toolchain (e.g. Wine for the Windows nsis target). On a host that
+# lacks it, build that platform on its native runner via the dist-* targets / CI.
+# The per-platform CI/release entrypoints (build-*, dist-*) live further down.
+.DEFAULT_GOAL := dmg
+
+# Neutralize signing for one electron-builder call: strip every credential from
+# its environment and disable keychain auto-discovery, so the output is unsigned
+# regardless of release.env or inherited CI secrets. Paired per-recipe with
+# `-c.mac.notarize=false` to also force notarization off.
+UNSIGNED_ENV := env $(foreach v,$(filter-out CSC_IDENTITY_AUTO_DISCOVERY,$(RELEASE_ENV_VARS)),-u $(v)) CSC_IDENTITY_AUTO_DISCOVERY=false
+
+dmg: build-setup build-install
+	@echo "Building macOS .dmg (unsigned, un-notarized)…"
+	@cd ${BUILD_DIR}/src; $(UNSIGNED_ENV) npx electron-builder --mac dmg --publish never -c.mac.notarize=false
+	@echo "  → ${BUILD_DIR}/src/dist/"
+	@echo "--------------------------------"
+
+all: build-setup build-install
+	@echo "Building ALL platforms (unsigned, un-notarized)…"
+	@cd ${BUILD_DIR}/src; $(UNSIGNED_ENV) npx electron-builder --mac dmg --linux --win --publish never -c.mac.notarize=false
+	@echo "  → ${BUILD_DIR}/src/dist/"
+	@echo "--------------------------------"
+
+sign-dmg: build-setup build-install
+	@echo "Building macOS .dmg (signed + notarized — ready to ship)…"
+	@cd ${BUILD_DIR}/src; npx electron-builder --mac dmg --publish never
+	@$(MAKE) staple-dmg
+	@echo "  → ${BUILD_DIR}/src/dist/"
+	@echo "--------------------------------"
+
+sign-all: build-setup build-install
+	@echo "Building ALL platforms (macOS + Windows signed where creds present)…"
+	@cd ${BUILD_DIR}/src; npx electron-builder --mac dmg --linux --win --publish never
+	@$(MAKE) staple-dmg
+	@echo "  → ${BUILD_DIR}/src/dist/"
+	@echo "--------------------------------"
 
 # ─── Version / Info ───────────────────────────────────────────────────────────
 version:
@@ -223,18 +265,18 @@ debug:
 build: build-mac # build-linux build-win
 
 build-mac: build-setup build-install
-	@echo "Building Electron app for macOS..."
-	@cd ${BUILD_DIR}/src; npx electron-builder --mac --dir --publish never > /dev/null
+	@echo "Building Electron app for macOS (dir, unsigned)..."
+	@cd ${BUILD_DIR}/src; $(UNSIGNED_ENV) npx electron-builder --mac --dir --publish never -c.mac.notarize=false > /dev/null
 	@echo "--------------------------------"
 
 build-linux: build-setup build-install
-	@echo "Building Electron app for Linux..."
-	@cd ${BUILD_DIR}/src; npx electron-builder --linux --dir --publish never > /dev/null
+	@echo "Building Electron app for Linux (dir, unsigned)..."
+	@cd ${BUILD_DIR}/src; $(UNSIGNED_ENV) npx electron-builder --linux --dir --publish never > /dev/null
 	@echo "--------------------------------"
 
 build-win: build-setup build-install
-	@echo "Building Electron app for Windows..."
-	@cd ${BUILD_DIR}/src; npx electron-builder --win --dir --publish never > /dev/null
+	@echo "Building Electron app for Windows (dir, unsigned)..."
+	@cd ${BUILD_DIR}/src; $(UNSIGNED_ENV) npx electron-builder --win --dir --publish never > /dev/null
 	@echo "--------------------------------"
 
 # ─── Dependencies ─────────────────────────────────────────────────────────────
@@ -468,7 +510,7 @@ sync-win:
 # ─── Launch ───────────────────────────────────────────────────────────────────
 # `open` does not inherit the shell environment, so forward the shared dev vars
 # explicitly with --env so the packaged app sees the same values as `make debug`.
-launch: all
+launch: build-mac
 	@open "build/src/dist/mac-arm64/Rest Hippo.app" \
 		$(foreach v,$(DEV_ENV_VARS),--env $(v)=$($(v)))
 
@@ -483,15 +525,21 @@ help:
 	@echo ""
 	@echo "  Rest Hippo — Web URL REST API Client"
 	@echo ""
+	@echo "  Local builds:"
+	@echo "    make          Unsigned, un-notarized macOS .dmg  (default; fast local testing)"
+	@echo "    dmg           Unsigned, un-notarized macOS .dmg  (same as bare 'make')"
+	@echo "    all           Unsigned, un-notarized installers for ALL platforms"
+	@echo "    sign-dmg      Signed + notarized macOS .dmg  (ready to ship)"
+	@echo "    sign-all      Signed installers for ALL platforms"
+	@echo ""
 	@echo "  Targets:"
-	@echo "    all           fmt → lint → test → build  (default)"
 	@echo "    install       Install Node.js dependencies (npm ci)"
 	@echo "    debug         Run Electron with DevTools + hot-reload"
-	@echo "    build         Build Electron app for macOS (dir only)"
-	@echo "    build-mac     Build Electron app for macOS (dir only)"
-	@echo "    build-linux   Build Electron app for Linux (dir only)"
-	@echo "    build-win     Build Electron app for Windows (dir only)"
-	@echo "    dist          Build full installers for all platforms"
+	@echo "    build         Build Electron app for macOS (dir only, unsigned)"
+	@echo "    build-mac     Build Electron app for macOS (dir only, unsigned)"
+	@echo "    build-linux   Build Electron app for Linux (dir only, unsigned)"
+	@echo "    build-win     Build Electron app for Windows (dir only, unsigned)"
+	@echo "    dist          Build full installers for all platforms (signed if creds present)"
 	@echo "    release       Bump version, tag, and push to trigger a release (VERSION=x.y.z)"
 	@echo "    dist-mac      Build macOS installer"
 	@echo "    dist-linux    Build Linux installer"
@@ -875,7 +923,7 @@ mock-down:
 	fi
 
 # ─── Phony ────────────────────────────────────────────────────────────────────
-.PHONY: all version info \
+.PHONY: dmg all sign-dmg sign-all version info \
         install \
         fmt fmt-check \
         lint \

@@ -82,9 +82,22 @@ development data stays out of your real profile.
 
 ## Building
 
-`build-*` targets produce an **unpackaged** app directory (fast, for smoke
-tests). `dist-*` targets produce **installers**. Output lands in
-`build/src/dist/`.
+For day-to-day local builds, `make` with no arguments produces an **unsigned,
+un-notarized** macOS `.dmg` — fast, and it needs no signing credentials. Use the
+`sign` targets when you want a shippable, signed + notarized artifact. Output
+lands in `build/src/dist/`.
+
+```bash
+make                # Unsigned macOS .dmg (default; fast local testing)
+make dmg            # Unsigned macOS .dmg (same as bare `make`)
+make all            # Unsigned installers for all platforms
+make sign-dmg       # Signed + notarized macOS .dmg (ready to ship)
+make sign-all       # Signed installers for all platforms
+```
+
+`build-*` targets produce an **unpackaged** app directory (fastest, for smoke
+tests — always unsigned). `dist-*` targets produce **installers** (signed when
+credentials are present).
 
 ```bash
 make build          # Build the app directory for macOS (dir only)

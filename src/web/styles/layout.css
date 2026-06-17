@@ -67,6 +67,18 @@
   pointer-events: none;
 }
 
+/* Brand mark at the header's left corner (decorative), beside the logo text.
+   Only present when the app-header is shown, i.e. "Remove headers" is off.
+   The header's flex `gap` handles spacing to the logo. */
+.app-header-icon {
+  width: var(--control-h-md);
+  height: var(--control-h-md);
+  border-radius: var(--radius-sm);
+  -webkit-app-region: no-drag;
+  user-select: none;
+  pointer-events: none;
+}
+
 /* ── Nav settings bar — kept in HTML for legacy; never shown ─────────────── */
 .nav-settings-bar {
   display: none;
