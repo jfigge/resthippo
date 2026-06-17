@@ -440,7 +440,15 @@
       "parseFailed": "Impossibile analizzare lo schema di introspezione.",
       "typesAvailable": "{count} tipi disponibili — clic destro per visualizzare o scaricare lo schema",
       "renderFailed": "Lo schema recuperato non può essere visualizzato. Prova a recuperarlo di nuovo.",
-      "fetchSchemaTitle": "Esegui l'introspezione GraphQL sull'URL per abilitare il completamento automatico delle query"
+      "fetchSchemaTitle": "Esegui l'introspezione GraphQL sull'URL per abilitare il completamento automatico delle query",
+      "schemaWarn": "La convalida è limitata finché non viene recuperato lo schema",
+      "queryValidSchema": "La query è valida rispetto allo schema",
+      "querySyntaxValid": "La sintassi della query è valida: recupera lo schema per la convalida completa",
+      "schemaFileType": "Schema GraphQL",
+      "errorCount": {
+        "one": "{count} errore:",
+        "other": "{count} errori:"
+      }
     },
     "headers": {
       "empty": "Nessuna intestazione — fai clic su  +  per aggiungerne una.",
@@ -513,6 +521,10 @@
     "bodyValidate": {
       "validTitle": "{type} è valido",
       "invalidTitle": "{type} contiene un errore di sintassi"
+    },
+    "body": {
+      "placeholder": "Inserisci qui il corpo {type}…",
+      "plainText": "testo semplice"
     }
   },
   "response": {
@@ -848,7 +860,13 @@
       "name": "Chiave",
       "nameAria": "Nome della chiave API",
       "namePlaceholder": "es. X-API-Key",
-      "nameHint": "Nome dell'intestazione (o della query) per la chiave — scegli un nome comune o digita il tuo"
+      "nameHint": "Nome dell'intestazione (o della query) per la chiave — scegli un nome comune o digita il tuo",
+      "comment": {
+        "standard": "Il nome standard de facto del settore.",
+        "uppercase": "La variante in maiuscolo dello standard de facto.",
+        "lowercase": "Alternativa comune in minuscolo, senza prefisso.",
+        "token": "Spesso usato quando la chiave funge da token di sicurezza di lunga durata."
+      }
     },
     "digest": {
       "hint": "La sfida/risposta (RFC 2617 / 7616) viene negoziata all'invio della richiesta."
@@ -1075,6 +1093,8 @@
     "empty": "Incolla un comando cURL da importare."
   },
   "variables": {
-    "titleScope": "Variabili — {scope}"
+    "titleScope": "Variabili — {scope}",
+    "secureTooltip": "Sicuro (cifrato a riposo)",
+    "markSecure": "Contrassegna la variabile come sicura"
   }
 }

@@ -30,7 +30,7 @@
  *     to the originating machine's OS keystore and will NOT decrypt elsewhere —
  *     hence "this machine only".
  *   - "password": secrets are re-encrypted under a user-supplied password into
- *     portable `encp:v1:` ciphertext (PBKDF2 + AES-256-GCM). Such a backup is
+ *     portable `encp:v2:` ciphertext (PBKDF2 + AES-256-GCM). Such a backup is
  *     fully portable; on import the password decrypts the secrets, which are
  *     then re-encrypted to the destination machine's keystore.
  *
@@ -68,7 +68,7 @@ const BACKUP_KIND = "wurl-backup";
 // (with the legacy boolean `secretsIncluded` kept in sync for older readers):
 //   "none"     — secrets redacted (blanked); safe to share.
 //   "machine"  — keystore ciphertext kept verbatim; only restores on THIS machine.
-//   "password" — secrets re-encrypted under a user password (portable encp:v1:).
+//   "password" — secrets re-encrypted under a user password (portable encp:v2:).
 const SECRETS_NONE = "none";
 const SECRETS_MACHINE = "machine";
 const SECRETS_PASSWORD = "password";
@@ -153,7 +153,7 @@ class BackupStore {
    * Restore a `wurl-backup` envelope onto this profile.
    *
    * When the envelope was exported in "password" mode its secrets are portable
-   * ciphertext (encp:v1:). They are decrypted with `opts.password` and then
+   * ciphertext (encp:v2:). They are decrypted with `opts.password` and then
    * RE-ENCRYPTED to this machine's local keystore before being written, so the
    * profile never holds password ciphertext or plaintext at rest. With no (or a
    * wrong) password the values clear out while the `secure` flag is preserved.
@@ -580,7 +580,7 @@ function _exportTreeNodes(nodes, mode, password) {
 // ── Import-side password localisation ─────────────────────────────────────────
 
 /**
- * Convert every portable (encp:v1:) secret in a password-mode envelope into this
+ * Convert every portable (encp:v2:) secret in a password-mode envelope into this
  * machine's local keystore ciphertext, returning a new envelope. Secrets are
  * decrypted with `password` then re-encrypted via the keystore encrypt* helpers;
  * with no/wrong password the underlying import* helpers clear the value (keeping

@@ -880,8 +880,8 @@ export class CollectionsPopup {
       secure.classList.toggle("params-secure-btn--active", !!row.secure);
       secure.innerHTML = icon(row.secure ? "lock" : "lockOpen", { size: 14 });
       const label = row.secure
-        ? "Secure (encrypted at rest)"
-        : "Mark variable secure";
+        ? t("variables.secureTooltip")
+        : t("variables.markSecure");
       secure.title = label;
       secure.setAttribute("aria-label", label);
       secure.setAttribute("aria-pressed", String(!!row.secure));

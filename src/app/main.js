@@ -1449,13 +1449,13 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
       contextIsolation: true, // Renderer cannot access Node APIs directly
       nodeIntegration: false, // Keep Node out of the renderer
       sandbox: true, // Extra process isolation
-      // Disable Chromium's web security (CORS, same-origin policy) so the
-      // renderer can make fetch() calls to any host without restriction.
-      // This is intentional for a desktop HTTP testing tool — requests from
-      // the renderer go through the main-process IPC bridge (Node.js http/https),
-      // not through Chromium's networking stack, but disabling web security
-      // prevents Chromium from blocking anything that might slip through.
-      webSecurity: false,
+      // Keep Chromium's web security ON. All outgoing HTTP/WS for the tool runs
+      // through the main-process IPC bridge (Node's http/https), so the renderer
+      // never needs cross-origin fetch — disabling webSecurity bought nothing and
+      // only weakened defense-in-depth (it would let a malicious response body
+      // rendered in-app reach arbitrary origins). The dev-server build talks to
+      // its own origin (/api/*), which same-origin policy already permits.
+      webSecurity: true,
     },
   });
 
@@ -1494,6 +1494,24 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
     }
     return { action: "deny" };
   });
+
+  // Navigation lockdown: the main window is a single-page app that only ever
+  // loads its own index.html (prod) / dev-server root and reloads in place (a
+  // locale change calls location.reload). Block any attempt to drive the top
+  // frame to a different document — e.g. a crafted response body or injected
+  // link trying to navigate the app off its own origin. External links are
+  // already routed to the OS browser by the window-open handler above; an
+  // in-place reload navigates to the same URL and is allowed through.
+  // (programmatic loadURL/loadFile do not emit will-navigate, so the initial
+  // load is unaffected.)
+  const blockOffAppNavigation = (e, url) => {
+    if (url !== win.webContents.getURL()) {
+      e.preventDefault();
+      console.warn("[main] blocked top-frame navigation to", url);
+    }
+  };
+  win.webContents.on("will-navigate", blockOffAppNavigation);
+  win.webContents.on("will-redirect", blockOffAppNavigation);
 
   // Track the main window globally so the HTML preview IPC can reference it.
   _mainWin = win;

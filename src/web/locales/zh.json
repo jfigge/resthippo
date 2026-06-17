@@ -440,7 +440,14 @@
       "parseFailed": "无法解析内省架构。",
       "typesAvailable": "{count} 个类型可用——右键单击可查看或下载架构",
       "renderFailed": "无法呈现获取的架构。请重试获取。",
-      "fetchSchemaTitle": "对该 URL 运行 GraphQL 内省以启用查询自动补全"
+      "fetchSchemaTitle": "对该 URL 运行 GraphQL 内省以启用查询自动补全",
+      "schemaWarn": "在获取 schema 之前，校验功能有限",
+      "queryValidSchema": "查询对照 schema 有效",
+      "querySyntaxValid": "查询语法有效 — 获取 schema 以进行完整校验",
+      "schemaFileType": "GraphQL 架构",
+      "errorCount": {
+        "other": "{count} 个错误："
+      }
     },
     "headers": {
       "empty": "暂无标头——点击  +  添加。",
@@ -513,6 +520,10 @@
     "bodyValidate": {
       "validTitle": "{type} 有效",
       "invalidTitle": "{type} 存在语法错误"
+    },
+    "body": {
+      "placeholder": "在此输入 {type} 正文…",
+      "plainText": "纯文本"
     }
   },
   "response": {
@@ -847,7 +858,13 @@
       "name": "密钥",
       "nameAria": "API 密钥名称",
       "namePlaceholder": "例如 X-API-Key",
-      "nameHint": "密钥的标头（或查询）名称 — 选择常用名称或自行输入"
+      "nameHint": "密钥的标头（或查询）名称 — 选择常用名称或自行输入",
+      "comment": {
+        "standard": "事实上的行业标准名称。",
+        "uppercase": "事实上标准的大写变体。",
+        "lowercase": "常见的小写、无前缀替代名称。",
+        "token": "当密钥用作长期有效的安全令牌时常用。"
+      }
     },
     "digest": {
       "hint": "质询/响应（RFC 2617 / 7616）在发送请求时协商。"
@@ -1074,6 +1091,8 @@
     "empty": "粘贴要导入的 cURL 命令。"
   },
   "variables": {
-    "titleScope": "变量 — {scope}"
+    "titleScope": "变量 — {scope}",
+    "secureTooltip": "安全（静态加密）",
+    "markSecure": "将变量标记为安全"
   }
 }

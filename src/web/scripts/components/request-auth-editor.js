@@ -135,19 +135,16 @@ function _scopeDropdownAccept(input, onSelect) {
 // Reuses the .hdr-autocomplete CSS classes. Offers the common API-key header
 // names, each with a short comment, but the user can always type their own.
 
+// The display comment for each suggestion is stored as a t() key (resolved at
+// render time, since this table is module-level — see the i18n note in
+// CLAUDE.md about never calling t() at module top-level). The header names
+// themselves are technical literals and stay as-is.
 const API_KEY_NAMES = [
-  { name: "X-API-Key", comment: "The de-facto industry standard name." },
-  {
-    name: "X-API-KEY",
-    comment: "The uppercase variant of the de-facto standard.",
-  },
-  { name: "api-key", comment: "Common lowercase, non-prefixed alternative." },
-  { name: "apikey", comment: "Common lowercase, non-prefixed alternative." },
-  {
-    name: "X-Auth-Token",
-    comment:
-      "Frequently used when the key serves as a long-lived security token.",
-  },
+  { name: "X-API-Key", commentKey: "auth.apiKey.comment.standard" },
+  { name: "X-API-KEY", commentKey: "auth.apiKey.comment.uppercase" },
+  { name: "api-key", commentKey: "auth.apiKey.comment.lowercase" },
+  { name: "apikey", commentKey: "auth.apiKey.comment.lowercase" },
+  { name: "X-Auth-Token", commentKey: "auth.apiKey.comment.token" },
 ];
 
 /**
@@ -178,7 +175,7 @@ function _showApiKeyDropdown(input, onSelect) {
         name.textContent = k.name;
         const comment = document.createElement("span");
         comment.className = "apikey-autocomplete-comment";
-        comment.textContent = k.comment;
+        comment.textContent = t(k.commentKey);
         item.appendChild(name);
         item.appendChild(comment);
         item.dataset.value = k.name;

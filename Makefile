@@ -111,7 +111,7 @@ test: test-js test-cookies test-auth test-net test-content-type test-ipc test-oa
 
 test-js:
 	@echo "Running JavaScript store tests..."
-	@node --test $(APP_DIR)/store/tests/stores.test.js $(APP_DIR)/store/tests/crypto.test.js $(APP_DIR)/store/tests/integration.test.js $(APP_DIR)/store/tests/migrations.test.js $(APP_DIR)/store/tests/io-locking.test.js $(APP_DIR)/store/tests/backup.test.js
+	@node --test $(APP_DIR)/store/tests/stores.test.js $(APP_DIR)/store/tests/crypto.test.js $(APP_DIR)/store/tests/integration.test.js $(APP_DIR)/store/tests/migrations.test.js $(APP_DIR)/store/tests/io-locking.test.js $(APP_DIR)/store/tests/backup.test.js $(APP_DIR)/store/tests/synchronous-writes.test.js
 	@echo "--------------------------------"
 
 test-cookies:

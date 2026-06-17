@@ -617,17 +617,19 @@ describe("restoreUndecryptableVariables (clobber guard)", () => {
   });
 });
 
-// ── Password-based portable encryption (encp:v1:) ─────────────────────────────
+// ── Password-based portable encryption (encp:v2:, reads legacy encp:v1:) ──────
 //
 // Unlike the keystore helpers above, these use Node's `crypto` directly, so they
 // perform REAL encryption in this test environment. Tests exercise round-trips,
-// the encp:v1: tagging, tamper/wrong-password detection, and the object-level
-// portable transforms for requests, settings, and variables.
+// the encp:v2: tagging with an embedded iteration count, legacy encp:v1: decrypt,
+// the iteration-count DoS guard, tamper/wrong-password detection, and the
+// object-level portable transforms for requests, settings, and variables.
 
 const PW = "correct horse battery staple";
 
 describe("isPasswordEncrypted", () => {
-  it("recognises the encp:v1: prefix", () => {
+  it("recognises the encp:v2: and legacy encp:v1: prefixes", () => {
+    assert.ok(isPasswordEncrypted("encp:v2:abc"));
     assert.ok(isPasswordEncrypted("encp:v1:abc"));
   });
 
@@ -725,13 +727,58 @@ describe("encryptWithPassword / decryptWithPassword", () => {
 
   it("throws PasswordError(bad-password) on tampered ciphertext", () => {
     const ct = encryptWithPassword("s3cret", PW);
-    const raw = Buffer.from(ct.slice("encp:v1:".length), "base64");
+    const raw = Buffer.from(ct.slice("encp:v2:".length), "base64");
     raw[raw.length - 1] ^= 0xff; // flip a ciphertext bit
-    const tampered = "encp:v1:" + raw.toString("base64");
+    const tampered = "encp:v2:" + raw.toString("base64");
     assert.throws(
       () => decryptWithPassword(tampered, PW),
       (err) => {
         assert.equal(err.reason, "bad-password");
+        return true;
+      },
+    );
+  });
+
+  it("tags new ciphertext encp:v2: and embeds the iteration count", () => {
+    const ct = encryptWithPassword("s3cret", PW);
+    assert.ok(ct.startsWith("encp:v2:"));
+    const blob = Buffer.from(ct.slice("encp:v2:".length), "base64");
+    // First 4 bytes are the uint32 BE PBKDF2 iteration count (210000 today).
+    assert.equal(blob.readUInt32BE(0), 210000);
+    assert.equal(decryptWithPassword(ct, PW), "s3cret");
+  });
+
+  it("still decrypts a legacy encp:v1: blob at the fixed cost", () => {
+    // Hand-roll a blob in the old v1 format (salt|iv|tag|ct, 210000 PBKDF2),
+    // since the encryptor no longer emits v1 — this pins backward compatibility.
+    const nodeCrypto = require("crypto");
+    const salt = nodeCrypto.randomBytes(16);
+    const iv = nodeCrypto.randomBytes(12);
+    const key = nodeCrypto.pbkdf2Sync(PW, salt, 210000, 32, "sha256");
+    const cipher = nodeCrypto.createCipheriv("aes-256-gcm", key, iv);
+    const data = Buffer.concat([
+      cipher.update("legacy", "utf8"),
+      cipher.final(),
+    ]);
+    const tag = cipher.getAuthTag();
+    const v1 =
+      "encp:v1:" + Buffer.concat([salt, iv, tag, data]).toString("base64");
+    assert.ok(isPasswordEncrypted(v1));
+    assert.equal(decryptWithPassword(v1, PW), "legacy");
+  });
+
+  it("rejects an implausibly large embedded iteration count (DoS guard)", () => {
+    // The embedded count drives PBKDF2 before the GCM tag can be checked, so a
+    // ~4.3-billion count from an untrusted backup must be refused, not honoured.
+    const iter = Buffer.alloc(4);
+    iter.writeUInt32BE(0xffffffff, 0);
+    const evil =
+      "encp:v2:" +
+      Buffer.concat([iter, Buffer.alloc(16 + 12 + 16)]).toString("base64");
+    assert.throws(
+      () => decryptWithPassword(evil, PW),
+      (err) => {
+        assert.equal(err.reason, "malformed");
         return true;
       },
     );

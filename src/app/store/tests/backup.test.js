@@ -530,25 +530,25 @@ describe("BackupStore password mode", () => {
 
     const meta = env.collections[0].metadata;
     assert.equal(varValue(meta.variables, "base"), "https://api.test"); // non-secret kept
-    assert.match(varValue(meta.variables, "apiKey"), /^encp:v1:/);
+    assert.match(varValue(meta.variables, "apiKey"), /^encp:v2:/);
 
     const folder = findFolder(env.collections[0].tree.children, "folder-1");
-    assert.match(varValue(folder.variables, "folderKey"), /^encp:v1:/);
+    assert.match(varValue(folder.variables, "folderKey"), /^encp:v2:/);
 
     assert.match(
       varValue(env.environments.globalVariables, "globalToken"),
-      /^encp:v1:/,
+      /^encp:v2:/,
     );
     assert.match(
       varValue(env.environments.environments[0].variables, "envSecret"),
-      /^encp:v1:/,
+      /^encp:v2:/,
     );
 
     const req =
       findRequest(env.collections[0].requests, "req-1") ??
       env.collections[0].requests[0];
-    assert.match(req.authBasic.password, /^encp:v1:/);
-    assert.match(env.manifest.settings.proxyUrl, /^encp:v1:/);
+    assert.match(req.authBasic.password, /^encp:v2:/);
+    assert.match(env.manifest.settings.proxyUrl, /^encp:v2:/);
   });
 
   test("never leaks a plaintext secret in a password export", () => {

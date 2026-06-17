@@ -203,8 +203,7 @@ export class GraphQLBodyEditor {
     const queryBadge = document.createElement("span");
     queryBadge.className = "body-validate-badge body-graphql-query-badge";
     queryBadge.setAttribute("aria-live", "polite");
-    const SCHEMA_WARN =
-      "Validation is limited until the schema has been fetched";
+    const SCHEMA_WARN = t("request.graphql.schemaWarn");
     const queryWarn = document.createElement("span");
     queryWarn.className = "body-graphql-schema-warn";
     queryWarn.innerHTML = icon("warning", { size: 12 });
@@ -247,7 +246,7 @@ export class GraphQLBodyEditor {
         const n = errors.length;
         applyQueryValidity(
           "invalid",
-          `${n} error${n > 1 ? "s" : ""}:\n` +
+          `${t("request.graphql.errorCount", { count: n })}\n` +
             errors
               .map((e) => `  ${e.line}:${e.column}  ${e.message}`)
               .join("\n"),
@@ -256,8 +255,8 @@ export class GraphQLBodyEditor {
         applyQueryValidity(
           "valid",
           schemaChecked
-            ? "Query is valid against the schema"
-            : "Query syntax is valid — fetch the schema for full validation",
+            ? t("request.graphql.queryValidSchema")
+            : t("request.graphql.querySyntaxValid"),
         );
       }
     };
@@ -310,7 +309,7 @@ export class GraphQLBodyEditor {
     const applyVarsValidity = (state) => {
       varsBadge.dataset.state = state ?? "";
       if (state === "valid") {
-        varsBadge.textContent = "✓ VALID";
+        varsBadge.textContent = t("request.graphql.valid");
         varsBadge.title = t("request.graphql.varsValid");
       } else if (state === "invalid") {
         varsBadge.textContent = t("request.graphql.invalid");
@@ -733,7 +732,10 @@ export class GraphQLBodyEditor {
     const sdl = this.#schemaSDL();
     if (!sdl) return;
     window.wurl?.export?.file?.save("schema.graphql", sdl, [
-      { name: "GraphQL Schema", extensions: ["graphql", "gql"] },
+      {
+        name: t("request.graphql.schemaFileType"),
+        extensions: ["graphql", "gql"],
+      },
       { name: t("common.allFiles"), extensions: ["*"] },
     ]);
   }

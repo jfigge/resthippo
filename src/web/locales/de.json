@@ -440,7 +440,15 @@
       "parseFailed": "Das Introspektions-Schema konnte nicht analysiert werden.",
       "typesAvailable": "{count} Typen verfügbar — Rechtsklick zum Anzeigen oder Herunterladen des Schemas",
       "renderFailed": "Das abgerufene Schema konnte nicht dargestellt werden. Versuchen Sie, es erneut abzurufen.",
-      "fetchSchemaTitle": "GraphQL-Introspection für die URL ausführen, um die Abfrage-Autovervollständigung zu aktivieren"
+      "fetchSchemaTitle": "GraphQL-Introspection für die URL ausführen, um die Abfrage-Autovervollständigung zu aktivieren",
+      "schemaWarn": "Die Validierung ist eingeschränkt, bis das Schema abgerufen wurde",
+      "queryValidSchema": "Die Abfrage ist gemäß dem Schema gültig",
+      "querySyntaxValid": "Die Abfragesyntax ist gültig – Schema abrufen für vollständige Validierung",
+      "schemaFileType": "GraphQL-Schema",
+      "errorCount": {
+        "one": "{count} Fehler:",
+        "other": "{count} Fehler:"
+      }
     },
     "headers": {
       "empty": "Keine Header — klicken Sie auf  +,  um einen hinzuzufügen.",
@@ -513,6 +521,10 @@
     "bodyValidate": {
       "validTitle": "{type} ist gültig",
       "invalidTitle": "{type} enthält einen Syntaxfehler"
+    },
+    "body": {
+      "placeholder": "Hier {type}-Inhalt eingeben…",
+      "plainText": "Klartext"
     }
   },
   "response": {
@@ -848,7 +860,13 @@
       "name": "Schlüssel",
       "nameAria": "API-Schlüsselname",
       "namePlaceholder": "z. B. X-API-Key",
-      "nameHint": "Header- (oder Query-)Name für den Schlüssel — wählen Sie einen gängigen Namen oder geben Sie Ihren eigenen ein"
+      "nameHint": "Header- (oder Query-)Name für den Schlüssel — wählen Sie einen gängigen Namen oder geben Sie Ihren eigenen ein",
+      "comment": {
+        "standard": "Der De-facto-Industriestandardname.",
+        "uppercase": "Die Großbuchstaben-Variante des De-facto-Standards.",
+        "lowercase": "Gängige Kleinbuchstaben-Alternative ohne Präfix.",
+        "token": "Häufig verwendet, wenn der Schlüssel als langlebiges Sicherheitstoken dient."
+      }
     },
     "digest": {
       "hint": "Challenge/Response (RFC 2617 / 7616) wird beim Senden der Anfrage ausgehandelt."
@@ -1075,6 +1093,8 @@
     "empty": "Füge einen cURL-Befehl zum Importieren ein."
   },
   "variables": {
-    "titleScope": "Variablen — {scope}"
+    "titleScope": "Variablen — {scope}",
+    "secureTooltip": "Sicher (verschlüsselt gespeichert)",
+    "markSecure": "Variable als sicher markieren"
   }
 }

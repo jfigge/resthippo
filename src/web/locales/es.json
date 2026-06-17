@@ -440,7 +440,15 @@
       "parseFailed": "No se pudo analizar el esquema de introspección.",
       "typesAvailable": "{count} tipos disponibles — haz clic derecho para ver o descargar el esquema",
       "renderFailed": "No se pudo representar el esquema obtenido. Intenta obtenerlo de nuevo.",
-      "fetchSchemaTitle": "Ejecuta la introspección de GraphQL en la URL para habilitar el autocompletado de consultas"
+      "fetchSchemaTitle": "Ejecuta la introspección de GraphQL en la URL para habilitar el autocompletado de consultas",
+      "schemaWarn": "La validación es limitada hasta que se obtenga el esquema",
+      "queryValidSchema": "La consulta es válida según el esquema",
+      "querySyntaxValid": "La sintaxis de la consulta es válida: obtén el esquema para una validación completa",
+      "schemaFileType": "Esquema GraphQL",
+      "errorCount": {
+        "one": "{count} error:",
+        "other": "{count} errores:"
+      }
     },
     "headers": {
       "empty": "Sin encabezados — haz clic en  +  para añadir uno.",
@@ -513,6 +521,10 @@
     "bodyValidate": {
       "validTitle": "{type} es válido",
       "invalidTitle": "{type} tiene un error de sintaxis"
+    },
+    "body": {
+      "placeholder": "Escribe aquí el cuerpo {type}…",
+      "plainText": "texto sin formato"
     }
   },
   "response": {
@@ -848,7 +860,13 @@
       "name": "Clave",
       "nameAria": "Nombre de la clave de API",
       "namePlaceholder": "p. ej. X-API-Key",
-      "nameHint": "Nombre de encabezado (o de consulta) para la clave — elige un nombre común o escribe el tuyo"
+      "nameHint": "Nombre de encabezado (o de consulta) para la clave — elige un nombre común o escribe el tuyo",
+      "comment": {
+        "standard": "El nombre estándar de facto del sector.",
+        "uppercase": "La variante en mayúsculas del estándar de facto.",
+        "lowercase": "Alternativa común en minúsculas y sin prefijo.",
+        "token": "Se usa con frecuencia cuando la clave funciona como un token de seguridad de larga duración."
+      }
     },
     "digest": {
       "hint": "El desafío/respuesta (RFC 2617 / 7616) se negocia al enviar la solicitud."
@@ -1075,6 +1093,8 @@
     "empty": "Pega un comando cURL para importar."
   },
   "variables": {
-    "titleScope": "Variables — {scope}"
+    "titleScope": "Variables — {scope}",
+    "secureTooltip": "Seguro (cifrado en reposo)",
+    "markSecure": "Marcar la variable como segura"
   }
 }

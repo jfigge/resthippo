@@ -458,25 +458,39 @@ function restoreUndecryptableVariables(encrypted, incoming, existing) {
   });
 }
 
-// ── Password-based portable encryption (encp:v1:) ─────────────────────────────
+// ── Password-based portable encryption (encp:v2:, reads legacy encp:v1:) ──────
 //
 // The keystore helpers above bind ciphertext to one machine's OS keystore, so an
 // "enc:v1:" value cannot be restored elsewhere. For a PORTABLE backup that still
 // carries secrets, each value is re-encrypted under a key derived from a user
 // password (PBKDF2-HMAC-SHA256) and sealed with AES-256-GCM. Such values are
-// tagged "encp:v1:" so they are self-identifying and distinct from the keystore
+// tagged "encp:v<n>:" so they are self-identifying and distinct from the keystore
 // family.
 //
-// Wire format after the prefix is base64 of:  salt(16) | iv(12) | tag(16) | ct
-// Each value embeds its own salt + iv, so it is independently decryptable with
-// the password alone — no envelope-level state.
+// Wire format (base64 after the prefix):
+//   encp:v2:  iterations(4, uint32 BE) | salt(16) | iv(12) | tag(16) | ct
+//   encp:v1:  salt(16) | iv(12) | tag(16) | ct                 (legacy, decrypt-only)
+//
+// Embedding the PBKDF2 iteration count in v2 makes the work factor tunable: the
+// cost can be raised over time and every existing backup still decrypts, because
+// each blob records the count it was sealed with. v1 blobs (no embedded count)
+// predate this and are decrypted at the fixed legacy cost. Each value still
+// embeds its own salt + iv, so it is independently decryptable with the password
+// alone — no envelope-level state.
 
 const nodeCrypto = require("crypto");
 
-const PASSWORD_PREFIX = "encp:v1:";
-const PBKDF2_ITERATIONS = 210000; // OWASP 2023 floor for PBKDF2-HMAC-SHA256
+const PASSWORD_PREFIX_V1 = "encp:v1:"; // legacy: fixed iteration count, decrypt-only
+const PASSWORD_PREFIX_V2 = "encp:v2:"; // current: iteration count embedded in the blob
+const PBKDF2_ITERATIONS = 210000; // cost for new blobs (OWASP 2023 floor for PBKDF2-HMAC-SHA256)
+const LEGACY_V1_ITERATIONS = 210000; // the fixed cost every encp:v1: blob was sealed with
+// Upper bound on a blob's embedded iteration count. The count is read and used to
+// derive the key BEFORE the GCM tag can be verified, so an untrusted backup could
+// otherwise force an unbounded PBKDF2 run (CPU DoS). This bounds the work.
+const MAX_PBKDF2_ITERATIONS = 10_000_000;
 const PBKDF2_DIGEST = "sha256";
 const PBKDF2_KEYLEN = 32; // 256-bit AES key
+const ITER_LEN = 4; // uint32 BE iteration count (v2 only)
 const SALT_LEN = 16;
 const IV_LEN = 12; // GCM standard nonce length
 const TAG_LEN = 16;
@@ -497,9 +511,13 @@ class PasswordError extends Error {
   }
 }
 
-/** Returns true when `value` was produced by encryptWithPassword(). */
+/** Returns true when `value` was produced by encryptWithPassword() (any version). */
 function isPasswordEncrypted(value) {
-  return typeof value === "string" && value.startsWith(PASSWORD_PREFIX);
+  return (
+    typeof value === "string" &&
+    (value.startsWith(PASSWORD_PREFIX_V2) ||
+      value.startsWith(PASSWORD_PREFIX_V1))
+  );
 }
 
 /**
@@ -510,7 +528,7 @@ function isPasswordEncrypted(value) {
  *
  * @param {string} plaintext
  * @param {string} password
- * @returns {string} "encp:v1:"-tagged base64 blob
+ * @returns {string} "encp:v2:"-tagged base64 blob
  * @throws {PasswordError} when no password is supplied
  */
 function encryptWithPassword(plaintext, password) {
@@ -519,29 +537,36 @@ function encryptWithPassword(plaintext, password) {
   if (typeof password !== "string" || password.length === 0) {
     throw new PasswordError("malformed");
   }
+  const iterations = PBKDF2_ITERATIONS;
   const salt = nodeCrypto.randomBytes(SALT_LEN);
   const iv = nodeCrypto.randomBytes(IV_LEN);
   const key = nodeCrypto.pbkdf2Sync(
     password,
     salt,
-    PBKDF2_ITERATIONS,
+    iterations,
     PBKDF2_KEYLEN,
     PBKDF2_DIGEST,
   );
   const cipher = nodeCrypto.createCipheriv("aes-256-gcm", key, iv);
   const ct = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
+  // v2 prepends the iteration count so the cost is tunable without breaking
+  // already-written backups (each blob decrypts at the count it records).
+  const iterBuf = Buffer.alloc(ITER_LEN);
+  iterBuf.writeUInt32BE(iterations, 0);
   return (
-    PASSWORD_PREFIX + Buffer.concat([salt, iv, tag, ct]).toString("base64")
+    PASSWORD_PREFIX_V2 +
+    Buffer.concat([iterBuf, salt, iv, tag, ct]).toString("base64")
   );
 }
 
 /**
  * Decrypt a value produced by encryptWithPassword().
  *
- * Values without the "encp:v1:" prefix are returned unchanged. A structurally
- * malformed blob throws PasswordError("malformed"); a wrong password (GCM auth
- * failure) throws PasswordError("bad-password").
+ * Values without an "encp:v<n>:" prefix are returned unchanged. Both the current
+ * v2 format (embedded iteration count) and legacy v1 (fixed count) are accepted.
+ * A structurally malformed blob throws PasswordError("malformed"); a wrong
+ * password (GCM auth failure) throws PasswordError("bad-password").
  *
  * @param {string} value
  * @param {string} password
@@ -553,18 +578,43 @@ function decryptWithPassword(value, password) {
   if (typeof password !== "string" || password.length === 0) {
     throw new PasswordError("bad-password");
   }
-  const blob = Buffer.from(value.slice(PASSWORD_PREFIX.length), "base64");
-  if (blob.length < SALT_LEN + IV_LEN + TAG_LEN) {
-    throw new PasswordError("malformed");
+  const isV2 = value.startsWith(PASSWORD_PREFIX_V2);
+  // Both prefixes are the same length; slice off whichever one matched.
+  const prefix = isV2 ? PASSWORD_PREFIX_V2 : PASSWORD_PREFIX_V1;
+  const blob = Buffer.from(value.slice(prefix.length), "base64");
+
+  let iterations;
+  let offset;
+  if (isV2) {
+    if (blob.length < ITER_LEN + SALT_LEN + IV_LEN + TAG_LEN) {
+      throw new PasswordError("malformed");
+    }
+    iterations = blob.readUInt32BE(0);
+    // The count drives PBKDF2 before the tag is checked, so reject implausible
+    // values (untrusted backup) rather than letting them dictate the work.
+    if (iterations < 1 || iterations > MAX_PBKDF2_ITERATIONS) {
+      throw new PasswordError("malformed");
+    }
+    offset = ITER_LEN;
+  } else {
+    if (blob.length < SALT_LEN + IV_LEN + TAG_LEN) {
+      throw new PasswordError("malformed");
+    }
+    iterations = LEGACY_V1_ITERATIONS;
+    offset = 0;
   }
-  const salt = blob.subarray(0, SALT_LEN);
-  const iv = blob.subarray(SALT_LEN, SALT_LEN + IV_LEN);
-  const tag = blob.subarray(SALT_LEN + IV_LEN, SALT_LEN + IV_LEN + TAG_LEN);
-  const ct = blob.subarray(SALT_LEN + IV_LEN + TAG_LEN);
+
+  const salt = blob.subarray(offset, offset + SALT_LEN);
+  const iv = blob.subarray(offset + SALT_LEN, offset + SALT_LEN + IV_LEN);
+  const tag = blob.subarray(
+    offset + SALT_LEN + IV_LEN,
+    offset + SALT_LEN + IV_LEN + TAG_LEN,
+  );
+  const ct = blob.subarray(offset + SALT_LEN + IV_LEN + TAG_LEN);
   const key = nodeCrypto.pbkdf2Sync(
     password,
     salt,
-    PBKDF2_ITERATIONS,
+    iterations,
     PBKDF2_KEYLEN,
     PBKDF2_DIGEST,
   );

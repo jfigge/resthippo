@@ -5,6 +5,7 @@ data/
 data.backup/
 data-docs/
 .docs-build/
+.keys/
 
 # ── Node / npm ────────────────────────────────────────────────────────────────
 src/node_modules/
