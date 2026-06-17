@@ -1,23 +1,48 @@
-# Rest Hippo — Web URL REST API Client
+# Rest Hippo — Cross-platform REST API Client
 
 [![CI](https://github.com/jfigge/resthippo/actions/workflows/ci.yml/badge.svg)](https://github.com/jfigge/resthippo/actions/workflows/ci.yml)
 
-A lightweight, cross-platform desktop REST API client — like Postman or Insomnia —
+A lightweight, cross-platform desktop API client — like Postman or Insomnia —
 built with **Electron** and **Vanilla JavaScript**, backed by a file-based
-**Node.js storage layer**. No framework, no CDN dependencies.
+**Node.js storage layer**. No framework, no CDN dependencies, and all HTTP runs
+natively in the main process, so requests are never subject to browser CORS.
 
 ## Features
 
-- **Full request/response workflow** — all HTTP methods, headers, query params,
-  body editors, and a response viewer with syntax highlighting (Prism.js) and
-  binary-response rendering.
-- **Authentication** — a custom OAuth 2.0 implementation with PKCE, plus Digest,
-  NTLM, and AWS SigV4 signing.
+- **Requests** — every HTTP method (and custom verbs), headers, query and path
+  params, and rich body editors (JSON, form-url-encoded, multipart with file
+  upload, raw, and binary).
+- **GraphQL** — a dedicated query/variables editor with schema introspection,
+  validation, and a browsable schema viewer.
+- **Realtime** — a WebSocket console and live **Server-Sent Events** /
+  chunked-streaming response rendering.
+- **Response viewer** — pretty-printing with syntax highlighting (Prism.js),
+  hex view for binary payloads, in-body search, and a request **timing
+  waterfall**. Post-response **captures** pull values from the body, headers, or
+  status straight into variables.
+- **Authentication** — API Key, Basic, Bearer, Digest, NTLM, and AWS SigV4 /
+  OAuth 1.0a request signing, plus a full **OAuth 2.0 / OIDC** implementation:
+  Authorization Code (PKCE), Implicit, Client Credentials, Resource Owner
+  Password, **Device Authorization** (RFC 8628), and **Token Exchange**
+  (RFC 8693), with OIDC discovery and token caching.
+- **mTLS** — per-host client certificates and TLS-verification overrides.
 - **Cookie jar** — persistent, per-domain cookie storage.
-- **Import / export** — Postman collection import and redaction-aware export.
-- **Environments & variables** — variable resolution across requests.
-- **Themes & typography** — a theme editor and a user-selectable UI font
-  (Inter bundled as a variable font; no CDN fonts).
+- **Environments & variables** — global / collection / environment scopes,
+  `{{variable}}` resolution with an inline typeahead, and secrets that are
+  **encrypted at rest**.
+- **Import / export** — import from **Postman**, **Insomnia**, **OpenAPI 3 /
+  Swagger 2**, **HAR**, and **cURL**; redaction-aware export back to Postman,
+  Insomnia, OpenAPI, and HAR; plus full-workspace backup & restore.
+- **Code generation** — copy any request as a snippet (cURL, `fetch`, Python
+  `requests`, Go, HTTPie).
+- **Networking** — configurable proxy with request-retry policy and per-host
+  network overrides.
+- **Productivity** — favorites & recents, and an in-app user guide
+  (Help → User Guide).
+- **Themes, typography & i18n** — a theme editor, a user-selectable UI font
+  (Inter bundled as a variable font; no CDN fonts), and a UI localized into
+  seven languages (English, German, Spanish, French, Italian, Japanese, and
+  Simplified Chinese).
 
 ## Architecture
 
@@ -55,9 +80,12 @@ Rest Hippo/
     │   ├── main.js        #   window lifecycle + IPC registration
     │   ├── preload.js     #   IPC bridge exposed as window.hippo
     │   ├── store/         #   file-based storage layer (+ tests)
-    │   └── auth/          #   Digest / NTLM signing (+ tests)
+    │   ├── net/           #   native HTTP, TLS/mTLS, SSE streaming
+    │   └── auth/          #   Digest / NTLM / SigV4 / OAuth 1.0a signing (+ tests)
     └── web/               # Renderer (Vanilla JS + CSS)
         ├── index.html
+        ├── docs/          #   shipped in-app user guide (Markdown)
+        ├── locales/       #   i18n catalogs (7 languages)
         ├── scripts/       #   UI components, OAuth, import/export, vendored libs
         ├── styles/        #   CSS + design tokens (theme.css)
         └── fonts/         #   Bundled Inter variable font
@@ -187,6 +215,7 @@ esbuild rather than loaded from a CDN:
 make vendor-yaml        # yaml
 make vendor-prism       # Prism.js (syntax highlighting)
 make vendor-markdown    # marked + DOMPurify
+make vendor-graphql     # graphql (introspection + validation)
 ```
 
 ## Test Helpers
