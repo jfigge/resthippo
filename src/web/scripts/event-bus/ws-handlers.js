@@ -86,7 +86,7 @@ export function installWsHandlers(ctx) {
     } catch (err) {
       ctx.getWsConsole().applyStatus({
         state: "error",
-        message: err?.message ?? "Failed to open socket.",
+        message: err?.message ?? t("app.wsOpenFailed"),
       });
       window.dispatchEvent(
         new CustomEvent("wurl:ws-state", { detail: { state: "error" } }),
@@ -104,7 +104,9 @@ export function installWsHandlers(ctx) {
     } else {
       entry.console.applyStatus({
         state: "system",
-        message: `Send failed: ${res?.reason ?? "unknown"}`,
+        message: t("app.wsSendFailed", {
+          reason: res?.reason ?? t("app.wsSendUnknownReason"),
+        }),
       });
     }
   });

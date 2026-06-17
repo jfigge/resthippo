@@ -19,8 +19,9 @@ wurl is organized into three panels:
 ![The three-panel interface](images/overview.png)
 
 1. **Collections** (left) — the tree of saved requests. Switch between the
-   **Requests**, **Favorites**, and **Recents** tabs at the top, and filter the
-   tree with the search box.
+   **Requests**, **Favorites**, and **Recents** tabs at the top, and press
+   <kbd>Cmd</kbd>+<kbd>F</kbd> (<kbd>Ctrl</kbd>+<kbd>F</kbd>) while the tree is
+   focused to filter it.
 2. **Request** (center) — the method selector, URL bar, and the tabs where you
    define query parameters, headers, the body, authentication, and captures.
 3. **Response** (right) — the response status and timing, plus tabs for the

@@ -53,8 +53,8 @@ An **environment** is a named set of variables you can switch between — the
 classic use is one environment per deployment (Local, Staging, Production), each
 with its own `baseUrl`, credentials, and IDs.
 
-Click the **environment picker** in the header (it shows the active environment,
-e.g. `LOCAL`) to open the environments editor:
+Click the **environment picker** in the collections toolbar (it shows the active
+environment, e.g. `LOCAL`) to open the environments editor:
 
 ![The environments editor](images/environments-popup.png)
 

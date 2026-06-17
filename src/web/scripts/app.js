@@ -27,6 +27,7 @@ import { CollectionsPopup } from "./components/collections-popup.js";
 import { VariablesPopup } from "./components/variables-popup.js";
 import { EnvironmentsPopup } from "./components/environments-popup.js";
 import { EnvPicker } from "./components/env-picker.js";
+import { CollPicker } from "./components/coll-picker.js";
 import {
   loadAll,
   saveCollections,
@@ -428,9 +429,9 @@ function localizeChrome() {
   setAttrAll(".header-icon-panel", "aria-label", "header.actionsAria");
   setAttrAll("#app-main", "aria-label", "header.mainAria");
 
-  // Collections nav + its open buttons
+  // Collections nav + its selector triggers
   setAttrAll("#panel-nav", "aria-label", "header.collections");
-  setText("#panel-nav .panel-title", "header.collections");
+  setText("#panel-nav .panel-title", "header.collectionPanelTitle");
   setAttrAll(
     "#btn-collection, #btn-collection-nav",
     "title",
@@ -642,9 +643,9 @@ function _onWsStatus(status) {
     if (!isForeground) {
       const label = _getRequestLabel(entry.requestId);
       if (s === "error") {
-        Notifications.warning(`WebSocket "${label}" disconnected with error.`);
+        Notifications.warning(t("app.wsDisconnectedError", { label }));
       } else {
-        Notifications.info(`WebSocket "${label}" closed.`);
+        Notifications.info(t("app.wsClosed", { label }));
       }
       entry.console.element.remove();
     }
@@ -708,15 +709,16 @@ function _askKeepWsAlive(label) {
  *   --row-res   : height of the response panel in between / portrait
  *
  * Panel minimum sizes (pixels):
- *   nav    ≥ 160     request ≥ 200 (1fr, unconstrained here)
+ *   nav    ≥ 200     request ≥ 200 (1fr, unconstrained here)
  *   res    ≥ 160     rowRes  ≥ 120
  */
-const SPLITTER_MIN_NAV = 100;
+const SPLITTER_MIN_NAV = 200;
 const SPLITTER_MIN_RES = 100;
 const SPLITTER_MIN_ROWRES = 120;
-// Minimum panel width that keeps the ctrl group (Env, Layout, Settings) fully
-// visible when "Remove headers" is active. The Collections button is no longer
-// part of this group — it lives in the tree-toolbar — so the group is narrower.
+// Minimum panel width that keeps the layout+settings ctrl group fully visible
+// when "Remove headers" is active. Neither the Collections button nor the
+// environment selector is part of this group — both live in the tree-toolbar —
+// so the group is just the layout + settings buttons.
 const SPLITTER_MIN_CTRL = 200;
 
 let splitterSizes = {
@@ -753,8 +755,11 @@ function getAppMain() {
 /** Current pinned layout (1–4). Always set; default matches DEFAULT_SETTINGS. */
 let _currentLayout = 2;
 
-/** The floating env/layout/settings control group injected by placeCtrlGroup(). */
+/** The floating layout+settings control group, relocated by placeRemoveHeaderControls(). */
 let _ctrlGroup = null;
+
+/** The standalone environment selector, relocated by placeRemoveHeaderControls(). */
+let _envCtrl = null;
 
 /**
  * Map the manual layout number to the splitter-mode string used throughout
@@ -783,8 +788,7 @@ function applyLayout(layout) {
   const mode = getEffectiveSplitterMode();
   _splitter1?.setFlow(mode === "portrait" ? "column" : "row");
   _splitter2?.setFlow(mode === "landscape" ? "row" : "column");
-  placeCtrlGroup(layout, currentSettings.removeHeaders ?? false);
-  placeCollectionsButton(currentSettings.removeHeaders ?? false);
+  placeRemoveHeaderControls(layout, currentSettings.removeHeaders ?? false);
   // Broadcast so panels that adapt their own internal splits to the layout can
   // react (e.g. RequestEditor flips the GraphQL Query/Variables split).
   window.dispatchEvent(
@@ -792,15 +796,18 @@ function applyLayout(layout) {
   );
 }
 
-/** Build the detached env/layout/settings control group element. */
+/**
+ * Build the detached layout + settings control group element. The environment
+ * selector is intentionally NOT part of this group: in "Remove headers" mode it
+ * is placed independently in the tree-toolbar for every layout (see
+ * buildEnvCtrl / placeRemoveHeaderControls), while this group follows the layout
+ * into the response status bar / request tab strip / tree-toolbar.
+ */
 function buildCtrlGroup() {
   const group = document.createElement("div");
   group.className = "header-ctrl-group";
   group.innerHTML = `
     <span class="ctrl-divider" aria-hidden="true"></span>
-    <button class="env-picker-trigger" id="btn-env-picker-ctrl"
-        title="${t("header.environmentTitle")}" aria-label="${t("header.environmentAria")}"
-        aria-haspopup="dialog"></button>
     <button class="layout-picker-trigger" id="btn-layout-ctrl"
         aria-haspopup="listbox" aria-label="${t("header.layoutAria")}" title="${t("header.layoutAria")}"></button>
     <button class="icon-btn header-icon-btn" id="btn-settings-ctrl"
@@ -825,50 +832,69 @@ function buildCtrlGroup() {
 }
 
 /**
- * Move the ctrl-group into the correct container based on layout and removeHeaders.
- * Layout 1 → res-status-bar (far right, with divider between meta and controls).
- * Layout 2/3 → req-tab-strip (far right via margin-left:auto).
- * Layout 4 → tree-toolbar (after tree-search, with divider).
+ * Build the standalone environment selector. It is the primary env trigger and
+ * is positioned by placeRemoveHeaderControls into the tree-toolbar's trailing
+ * cluster. Unlike the layout+settings ctrl-group it is never bundled with them.
  */
-function placeCtrlGroup(layout, removeHeaders) {
-  if (!_ctrlGroup) return;
-  _ctrlGroup.remove();
-  if (!removeHeaders) return;
-  let target;
-  if (layout === 1) {
-    target = document.querySelector(".res-status-bar");
-  } else if (layout === 2 || layout === 3) {
-    target = document.querySelector(".req-tab-strip");
-  } else {
-    target = document.querySelector(".tree-toolbar");
-  }
-  target?.appendChild(_ctrlGroup);
+function buildEnvCtrl() {
+  const btn = document.createElement("button");
+  btn.className = "env-picker-trigger";
+  btn.id = "btn-env-picker-ctrl";
+  btn.title = t("header.environmentTitle");
+  btn.setAttribute("aria-label", t("header.environmentAria"));
+  btn.setAttribute("aria-haspopup", "dialog");
+  return btn;
 }
 
 /**
- * Pin the Collections button to one of two homes (it never follows the layout,
- * unlike the ctrl-group):
- *   removeHeaders off → the nav panel-header's action area (its default spot).
- *   removeHeaders on  → the tree-toolbar, trailing the filter input.
- * Must run after placeCtrlGroup: in the "all stacked" (portrait) layout the
- * ctrl-group also parks in the tree-toolbar, and Collections must sit to its
- * left — right of the filter input, left of the environment selector. In every
- * other layout the ctrl-group lives elsewhere, so the button is simply last.
+ * Arrange the relocatable chrome (environment selector, Collections selector,
+ * and layout+settings ctrl-group) for the active layout and the "Remove
+ * headers" setting.
+ *
+ * The collection + environment selectors always live in the tree-toolbar's
+ * right-aligned trailing cluster: [Collections] [Environment]. The Collections
+ * button carries the margin-left:auto that pushes the whole cluster to the
+ * trailing edge (see layout.css), and the leading [+ collection] [+ request]
+ * buttons stay at the left. (The nav panel-header is left empty and hidden — see
+ * panels.css.)
+ *
+ * The layout+settings ctrl-group only relocates in Remove-headers mode, where
+ * the static app-header that normally holds it is hidden; it then follows the
+ * layout:
+ *   Side by side       (1) → response status bar
+ *   Left/Top + stacked (2,3) → request tab strip
+ *   All stacked        (4) → the tree-toolbar, right after the env selector,
+ *                            extending the cluster to
+ *                            [Collections][Environment][layout][settings].
+ * The ctrl-group's own divider stays hidden inside the tree-toolbar, so All
+ * stacked reads as one cluster.
  */
-function placeCollectionsButton(removeHeaders) {
-  const btn = document.getElementById("btn-collection");
-  if (!btn) return;
-  if (!removeHeaders) {
-    document
-      .querySelector("#panel-nav .panel-header .panel-actions")
-      ?.appendChild(btn);
-    return;
-  }
+function placeRemoveHeaderControls(layout, removeHeaders) {
+  const collBtn = document.getElementById("btn-collection");
   const toolbar = document.querySelector(".tree-toolbar");
-  if (!toolbar) return;
-  const ctrlGroup = toolbar.querySelector(".header-ctrl-group");
-  if (ctrlGroup) toolbar.insertBefore(btn, ctrlGroup);
-  else toolbar.appendChild(btn);
+
+  // Detach everything we own so each call rebuilds the arrangement cleanly.
+  _ctrlGroup?.remove();
+  _envCtrl?.remove();
+
+  // Trailing cluster (left → right): Collections, Environment. The Collections
+  // button's margin-left:auto pushes the cluster to the trailing edge.
+  if (toolbar) {
+    if (collBtn) toolbar.appendChild(collBtn);
+    if (_envCtrl) toolbar.appendChild(_envCtrl);
+  }
+
+  // The layout+settings ctrl-group only moves when the app-header is hidden;
+  // otherwise it stays put in the static app-header.
+  if (!removeHeaders) return;
+
+  // Layout + settings follow the active layout.
+  let groupTarget;
+  if (layout === 1) groupTarget = document.querySelector(".res-status-bar");
+  else if (layout === 2 || layout === 3)
+    groupTarget = document.querySelector(".req-tab-strip");
+  else groupTarget = toolbar; // All stacked → after the env selector
+  groupTarget?.appendChild(_ctrlGroup);
 }
 
 function initSplitters() {
@@ -1042,6 +1068,12 @@ const envPicker = new EnvPicker({
       bulkEditor: currentSettings.varsBulkEditor ?? true,
     }),
 });
+// Collection selector — the mirror of envPicker. Its onManage opens the same
+// CollectionsPopup the header buttons used to; collPopup / collPopupState are
+// defined further down but only read when the closure fires (on click).
+const collPicker = new CollPicker({
+  onManage: () => collPopup.open(collPopupState()),
+});
 const layoutPicker = new LayoutPicker({
   onSelect: (layout) => {
     applyLayout(layout);
@@ -1135,21 +1167,19 @@ function initHeader() {
   layoutPicker.bindTrigger(document.getElementById("btn-layout"));
   layoutPicker.bindTrigger(document.getElementById("btn-layout-nav"));
 
-  // Collection buttons (panel header + bottom bar)
-  document.getElementById("btn-collection").addEventListener("click", () => {
-    collPopup.open(collPopupState());
-  });
-  document
-    .getElementById("btn-collection-nav")
-    .addEventListener("click", () => {
-      collPopup.open(collPopupState());
-    });
+  // Collection selector triggers (panel header + nav-settings bar) — bound to
+  // collPicker, which renders the icon + active collection name and routes
+  // clicks to onManage (open CollectionsPopup).
+  collPicker.bindTrigger(document.getElementById("btn-collection"));
+  collPicker.bindTrigger(document.getElementById("btn-collection-nav"));
 
-  // Environment picker — app header (hidden with it when removeHeaders is on)
-  envPicker.bindTrigger(document.getElementById("btn-env-picker-header"));
+  // Environment picker — the standalone selector (_envCtrl, bound below) is the
+  // primary one; placeRemoveHeaderControls puts it in the tree-toolbar's
+  // trailing cluster. The legacy nav-settings-bar copy is never shown but stays
+  // bound for safety.
   envPicker.bindTrigger(document.getElementById("btn-env-picker-nav"));
 
-  // Right-click on the collection label or either collection icon → OS context menu
+  // Right-click on either collection selector → OS context menu
   const _openCollCtxMenu = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1157,23 +1187,25 @@ function initHeader() {
   };
 
   document
-    .querySelector("#panel-nav .panel-title")
-    .addEventListener("contextmenu", _openCollCtxMenu);
-  document
     .getElementById("btn-collection")
     .addEventListener("contextmenu", _openCollCtxMenu);
   document
     .getElementById("btn-collection-nav")
     .addEventListener("contextmenu", _openCollCtxMenu);
 
-  // Floating ctrl-group — injected into the layout-appropriate container when
-  // "Remove headers" is active, replacing the fixed nav-settings-bar.
+  // Floating layout+settings ctrl-group — injected into the layout-appropriate
+  // container when "Remove headers" is active, replacing the fixed nav-settings-bar.
   _ctrlGroup = buildCtrlGroup();
   layoutPicker.bindTrigger(_ctrlGroup.querySelector("#btn-layout-ctrl"));
-  envPicker.bindTrigger(_ctrlGroup.querySelector("#btn-env-picker-ctrl"));
   _ctrlGroup
     .querySelector("#btn-settings-ctrl")
     .addEventListener("click", () => settingsPopup.open(currentSettings));
+
+  // The environment selector is placed independently of the ctrl-group (it
+  // always lives in the tree-toolbar's trailing cluster — see
+  // placeRemoveHeaderControls).
+  _envCtrl = buildEnvCtrl();
+  envPicker.bindTrigger(_envCtrl);
 }
 
 // ─── Event bus ────────────────────────────────────────────────────────────────
@@ -1940,7 +1972,7 @@ async function activateCollection(id) {
     ),
   };
 
-  setNavPanelTitle(_collName(currentColls.collections, id));
+  collPicker.load(currentColls);
   collPopup.update(collPopupState());
   _refreshEditorVariableContext();
 }
@@ -1982,7 +2014,7 @@ async function handleCollAdd({ name }) {
   treeView.setItems([]);
   _selectedNode = null;
   _clearRequestEditor();
-  setNavPanelTitle(newColl.name);
+  collPicker.load(currentColls);
   collPopup.update(collPopupState());
 }
 
@@ -1999,8 +2031,9 @@ async function handleCollRename({ id, name }) {
     activeCollectionId: currentColls.activeCollectionId,
   });
 
-  // If the renamed collection is active, update the nav panel title
-  if (id === currentColls.activeCollectionId) setNavPanelTitle(name);
+  // Refresh the selector — a no-op label change unless the renamed collection
+  // is the active one.
+  collPicker.load(currentColls);
 
   collPopup.update(collPopupState());
 }
@@ -2024,7 +2057,6 @@ async function handleCollDelete({ id }) {
       _selectedNode = null;
       _clearRequestEditor();
     }
-    setNavPanelTitle(_collName(collections, activeId));
     // Attach variables in memory
     collections = collections.map((coll) =>
       coll.id === activeId ? { ...coll, variables: variables ?? [] } : coll,
@@ -2034,6 +2066,7 @@ async function handleCollDelete({ id }) {
   }
 
   currentColls = { collections, activeCollectionId: activeId };
+  collPicker.load(currentColls);
   await saveManifest({ collections, activeCollectionId: activeId });
   // Reclaim the collection's on-disk directory now that the manifest no longer
   // references it (requests, history, responses, cookies, metadata).
@@ -2290,9 +2323,9 @@ async function _applyCapturesForNode(node, detail) {
     );
     if (!activeId || !activeEnv) {
       Notifications.warning(
-        `No active environment — skipped capturing ${_captureNameList(
-          byScope.environment,
-        )}.`,
+        t("app.captureSkippedEnv", {
+          names: _captureNameList(byScope.environment),
+        }),
         { title: t("app.captureSkipped") },
       );
     } else {
@@ -2316,9 +2349,9 @@ async function _applyCapturesForNode(node, detail) {
     );
     if (!activeCollId || !activeColl) {
       Notifications.warning(
-        `No active collection — skipped capturing ${_captureNameList(
-          byScope.collection,
-        )}.`,
+        t("app.captureSkippedColl", {
+          names: _captureNameList(byScope.collection),
+        }),
         { title: t("app.captureSkipped") },
       );
     } else {
@@ -2343,9 +2376,7 @@ async function _applyCapturesForNode(node, detail) {
   if (applied.length) {
     const summary = applied.map((a) => `${a.scope}.${a.name}`).join(", ");
     Notifications.info(
-      `Captured ${applied.length} variable${
-        applied.length === 1 ? "" : "s"
-      } → ${summary}`,
+      t("app.captureApplied", { count: applied.length, summary }),
     );
     window.dispatchEvent(
       new CustomEvent("wurl:captures-applied", {
@@ -2355,9 +2386,10 @@ async function _applyCapturesForNode(node, detail) {
   }
   if (warnings.length) {
     Notifications.warning(
-      `${warnings.length} capture${
-        warnings.length === 1 ? "" : "s"
-      } found no value: ${_captureNameList(warnings)}`,
+      t("app.captureNoValue", {
+        count: warnings.length,
+        names: _captureNameList(warnings),
+      }),
     );
   }
 }
@@ -2860,7 +2892,7 @@ async function initCollections() {
       : coll,
   );
   currentColls = { collections: collsWithVars, activeCollectionId };
-  setNavPanelTitle(_collName(collections, activeCollectionId));
+  collPicker.load(currentColls);
   envPicker.load(currentEnvironments);
 
   // Restore the previously selected request for this collection (or clear if none)
@@ -2868,11 +2900,6 @@ async function initCollections() {
   if (!savedId || !treeView.selectById(savedId)) {
     _clearRequestEditor();
   }
-}
-
-/** Return the name of a collection by id, falling back to a default. */
-function _collName(collections, id) {
-  return collections.find((c) => c.id === id)?.name ?? "Collections";
 }
 
 /**
@@ -2988,12 +3015,6 @@ function _retryDescriptor(settings) {
     onTimeout: settings.retryOnTimeout === true,
     statusCodes: settings.retryStatusCodes ?? "",
   };
-}
-
-/** Update the nav panel's title text. */
-function setNavPanelTitle(name) {
-  const titleEl = document.querySelector("#panel-nav .panel-title");
-  if (titleEl) titleEl.textContent = name;
 }
 
 // ─── Zoom → Font-size handler ─────────────────────────────────────────────────
@@ -3237,8 +3258,11 @@ function applySettings(settings) {
     applyLayout(settings.layout);
     layoutPicker.load(settings.layout);
   }
-  // Splitter positions — restore saved pixel values into the grid variables
-  if (settings.splitterNav != null) splitterSizes.nav = settings.splitterNav;
+  // Splitter positions — restore saved pixel values into the grid variables,
+  // clamping the nav width up to its minimum so older saved positions below the
+  // current floor don't reopen narrower than allowed.
+  if (settings.splitterNav != null)
+    splitterSizes.nav = Math.max(SPLITTER_MIN_NAV, settings.splitterNav);
   if (settings.splitterRes != null) splitterSizes.res = settings.splitterRes;
   if (settings.splitterRowRes != null)
     splitterSizes.rowRes = settings.splitterRowRes;
@@ -3278,11 +3302,9 @@ function applySettings(settings) {
     const appHeader = document.getElementById("app-header");
     if (appHeader) appHeader.style.display = remove ? "none" : "";
 
-    // Place ctrl-group in the layout-appropriate container (replaces nav-settings-bar)
-    placeCtrlGroup(_currentLayout, remove);
-    // Pin the Collections button: tree-toolbar when headers are removed,
-    // back to the nav panel-header otherwise. Stays put across all layouts.
-    placeCollectionsButton(remove);
+    // Relocate the env selector, Collections button, ctrl-group, and tree-toolbar
+    // separator for the active layout (replaces the static nav-settings-bar).
+    placeRemoveHeaderControls(_currentLayout, remove);
   }
 
   // Method icons — replace textual HTTP method names with iconography app-wide.

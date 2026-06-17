@@ -45,13 +45,6 @@
           aria-label="Application actions"
         >
           <button
-            class="env-picker-trigger"
-            id="btn-env-picker-header"
-            title="Environment"
-            aria-label="Select environment"
-            aria-haspopup="dialog"
-          ></button>
-          <button
             class="layout-picker-trigger"
             id="btn-layout"
             aria-haspopup="listbox"
@@ -112,32 +105,23 @@
           role="region"
           aria-label="Collections"
         >
+          <!--
+            The panel-header shows the "Collection" title (hidden in Remove
+            Headers mode like every other .panel-header). Its .panel-actions is
+            only the initial DOM home for #btn-collection — kept hidden, since
+            placeRemoveHeaderControls relocates that button into the tree-toolbar's
+            trailing cluster (next to the environment selector) at startup.
+          -->
           <div class="panel-header">
-            <span class="panel-title">Collections</span>
+            <span class="panel-title">Collection</span>
             <div class="panel-actions">
               <button
-                class="icon-btn header-icon-btn btn-collection"
+                class="coll-picker-trigger"
                 id="btn-collection"
                 title="Collections"
                 aria-label="Open collections"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                  <polyline points="2 17 12 22 22 17" />
-                  <polyline points="2 12 12 17 22 12" />
-                </svg>
-              </button>
+                aria-haspopup="dialog"
+              ></button>
             </div>
           </div>
           <div class="panel-body" id="tree-view-root"></div>
@@ -149,28 +133,12 @@
             aria-hidden="true"
           >
             <button
-              class="icon-btn header-icon-btn"
+              class="coll-picker-trigger"
               id="btn-collection-nav"
               title="Collections"
               aria-label="Open collections"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                <polyline points="2 17 12 22 22 17" />
-                <polyline points="2 12 12 17 22 12" />
-              </svg>
-            </button>
+              aria-haspopup="dialog"
+            ></button>
             <button
               class="env-picker-trigger"
               id="btn-env-picker-nav"

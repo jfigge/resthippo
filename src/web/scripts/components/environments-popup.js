@@ -225,6 +225,7 @@ export class EnvironmentsPopup {
                 class="body-text-editor env-textarea"
                 spellcheck="false"
                 autocomplete="off"
+                wrap="off"
                 placeholder="${t("vars.bulkPlaceholder")}"
                 aria-label="${t("vars.editorAria")}"
               ></textarea>

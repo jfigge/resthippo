@@ -16,6 +16,7 @@ src/npm-debug.log*
 .DS_Store
 .AppleDouble
 .LSOverride
+.keys
 
 # ── Editor / IDE ──────────────────────────────────────────────────────────────
 *.swp
@@ -32,6 +33,19 @@ mock/.mock.log
 # ── Local dev environment (shared by make debug / launch / mock-up) ───────────
 # Tracked template lives in dev.env.example; the real file stays local.
 dev.env
+
+# ── Release signing credentials (used by dist-mac / dist-win) ─────────────────
+# Tracked template lives in release.env.example; the real file holds signing
+# secrets (Developer ID p12, Apple notarization creds, Authenticode pfx) and
+# stays local. CI supplies the same values from repository secrets instead.
+release.env
+
+# Raw signing material — Developer ID certs/keys, Apple notarization API .p8,
+# Authenticode .pfx. These are SECRETS; never commit them.
+keys/
+*.p8
+*.p12
+*.pfx
 
 # ── Data and local test files ─────────────────────────────────────────────────
 data/collections.json

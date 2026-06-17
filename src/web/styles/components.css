@@ -61,20 +61,22 @@
   background: var(--color-mantle);
 }
 
-.tree-search {
-  flex: 1;
-  min-width: 0;
-  height: var(--control-h-md);
-  padding: 0 var(--space-3);
-  background: var(--color-surface-0);
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
+/* Inline filter bar — revealed via Cmd/Ctrl+F, sits between the tabs and the
+   list. Styled to match the response find bar: the bar mirrors .res-search-bar
+   here, and its label / input / close button reuse the .res-search-* rules
+   directly (grouped alongside them further down) so the two stay identical. */
+.tree-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-mantle);
+  flex-shrink: 0;
 }
 
-.tree-search::placeholder {
-  color: var(--color-overlay-0);
+.tree-filter-bar[hidden] {
+  display: none;
 }
 
 /* Surface tabs: [Requests | Favorites | Recents]. Hidden until a favorite
@@ -3282,7 +3284,10 @@ html.show-method-icons .req-method-menu-item-label::before {
   display: none;
 }
 
-.res-search-label {
+/* The tree-view filter bar (.tree-filter-*) reuses these rules so its label,
+   input, and close button render exactly like the response find bar. */
+.res-search-label,
+.tree-filter-label {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-overlay-0);
@@ -3292,7 +3297,8 @@ html.show-method-icons .req-method-menu-item-label::before {
   user-select: none;
 }
 
-.res-search-input {
+.res-search-input,
+.tree-search {
   flex: 1;
   min-width: 0;
   height: var(--control-h-sm);
@@ -3306,12 +3312,14 @@ html.show-method-icons .req-method-menu-item-label::before {
   transition: border-color var(--transition-fast);
 }
 
-.res-search-input:focus {
+.res-search-input:focus,
+.tree-search:focus {
   outline: none;
   border-color: var(--color-accent);
 }
 
-.res-search-input::placeholder {
+.res-search-input::placeholder,
+.tree-search::placeholder {
   color: var(--color-overlay-0);
 }
 
@@ -3326,7 +3334,8 @@ html.show-method-icons .req-method-menu-item-label::before {
  * All three search tool buttons (Cc, .*, ✕) share the same invisible-until-
  * hovered style that all other X/close buttons in the app use (.popup-close).
  */
-.res-search-btn {
+.res-search-btn,
+.tree-filter-close {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3348,7 +3357,8 @@ html.show-method-icons .req-method-menu-item-label::before {
     color var(--transition-fast);
 }
 
-.res-search-btn:hover {
+.res-search-btn:hover,
+.tree-filter-close:hover {
   background-color: var(--color-surface-1);
   color: var(--color-text);
 }
@@ -3364,11 +3374,13 @@ html.show-method-icons .req-method-menu-item-label::before {
   color: var(--color-accent);
 }
 
-.res-search-close-btn {
+.res-search-close-btn,
+.tree-filter-close {
   font-size: var(--font-size-xl);
 }
 /* Close (✕) button — turns red on hover, like .popup-close */
-.res-search-close-btn:hover {
+.res-search-close-btn:hover,
+.tree-filter-close:hover {
   background-color: var(--color-surface-1);
   color: var(--color-error);
 }
@@ -4634,6 +4646,10 @@ html.show-method-icons .req-method-menu-item-label::before {
   flex: 1 1 auto;
   min-height: 0;
   resize: none;
+  /* One name=value pair per line — never soft-wrap; scroll horizontally for
+     long values (paired with the textarea's wrap="off"). */
+  white-space: pre;
+  overflow-x: auto;
 }
 
 .coll-kv-wrap {
@@ -4967,6 +4983,10 @@ html.show-method-icons .req-method-menu-item-label::before {
   flex: 1 1 auto;
   min-height: 0;
   resize: none;
+  /* One name=value pair per line — never soft-wrap; scroll horizontally for
+     long values (paired with the textarea's wrap="off"). */
+  white-space: pre;
+  overflow-x: auto;
 }
 
 /* ── KV (table) mode ─────────────────────────────────────────────────────── */
@@ -5630,9 +5650,15 @@ input[type="checkbox"]:disabled {
   white-space: nowrap;
 }
 
-/* ── Environment picker (.env-picker__*) ──────────────────────────────────── */
+/* ── Environment & collection pickers (.env-picker-* / .coll-picker-*) ─────────
+   Twin pill triggers (icon + label) that open the environments / collections
+   editors. They must read as a matched pair, so the shared trigger / hover /
+   icon / label rules are grouped here — keep them grouped so the two never
+   visually drift. The .env-picker-trigger--active accent is env-only (a
+   collection is always active, so there's no inactive state to signal). */
 
-.env-picker-trigger {
+.env-picker-trigger,
+.coll-picker-trigger {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -5652,7 +5678,8 @@ input[type="checkbox"]:disabled {
     border-color var(--transition-fast);
 }
 
-.env-picker-trigger:hover {
+.env-picker-trigger:hover,
+.coll-picker-trigger:hover {
   background-color: var(--color-surface-2);
   border-color: var(--color-accent);
 }
@@ -5661,13 +5688,15 @@ input[type="checkbox"]:disabled {
   color: var(--color-accent);
 }
 
-.env-picker-globe {
+.env-picker-globe,
+.coll-picker-icon {
   flex-shrink: 0;
   line-height: 0;
   opacity: 0.6;
 }
 
-.env-picker-label {
+.env-picker-label,
+.coll-picker-label {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

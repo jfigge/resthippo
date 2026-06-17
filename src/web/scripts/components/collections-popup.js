@@ -291,6 +291,7 @@ export class CollectionsPopup {
                 class="body-text-editor coll-textarea"
                 spellcheck="false"
                 autocomplete="off"
+                wrap="off"
                 placeholder="${t("vars.bulkPlaceholder")}"
                 aria-label="${t("vars.editorAria")}"
               ></textarea>

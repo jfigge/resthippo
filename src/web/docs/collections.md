@@ -12,11 +12,13 @@ nested as deeply as you like.
 
 A **collection** is a self-contained group of requests with its own
 [variables](variables-and-environments.md#collection-variables) and an optional
-[cookie jar](#cookies). The name of the active collection is shown at the top of
-the panel (e.g. **Demo API**).
+[cookie jar](#cookies). The active collection is shown in the **collection
+selector** in the panel's toolbar (the row with the **+** buttons), on the
+right — a stacked-layers icon plus its name (e.g. **Demo API**) — sitting next
+to the [environment picker](variables-and-environments.md#environments).
 
-Open the **Collections** manager (the stacked-layers icon at the top of the
-panel) to create, rename, switch, and delete collections:
+Click the collection selector to open the **Collections** manager, where you
+create, rename, switch, and delete collections:
 
 ![The collections manager](images/collections-popup.png)
 
@@ -41,7 +43,10 @@ Inside a collection you build a tree of folders and requests:
   shows where it will land.
 - **Rename** — double-click the name (or right-click → **Rename**).
   <kbd>Enter</kbd> confirms, <kbd>Esc</kbd> cancels.
-- **Filter** — type in the search box at the top to filter requests by name.
+- **Filter** — click anywhere in the tree and press <kbd>Cmd</kbd>+<kbd>F</kbd>
+  (<kbd>Ctrl</kbd>+<kbd>F</kbd> on Windows/Linux) to reveal a filter box above the
+  list; type to filter requests by name. <kbd>Esc</kbd> hides it and clears the
+  filter.
 
 Each request shows a colored **method badge** (GET, POST, PUT, DELETE, …). You
 can switch these badges to compact icons in

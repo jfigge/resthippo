@@ -51,6 +51,8 @@ move around entirely with the arrow keys — you don't tab through every row.
 | <kbd>←</kbd>                      | Collapse an open collection, or jump to its parent      |
 | <kbd>Home</kbd> / <kbd>End</kbd>  | Jump to the first / last visible row                    |
 | _Type a name_                     | Type-ahead: jump to the next row that starts with it    |
+| <kbd>⌘/Ctrl</kbd>+<kbd>F</kbd>    | Reveal the filter box above the list                    |
+| <kbd>Esc</kbd>                    | Hide the filter box and clear the filter                |
 | <kbd>Enter</kbd>                  | Open the request, or toggle the collection              |
 | <kbd>Space</kbd>                  | Select the row without opening / toggling               |
 

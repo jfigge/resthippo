@@ -43,7 +43,22 @@
     "wsCloseMessage": "„{label}“ hat eine offene Verbindung. Im Hintergrund weiterlaufen lassen oder jetzt trennen?",
     "wsKeepOpen": "Offen lassen",
     "exportFailed": "Export fehlgeschlagen: {message}",
-    "importFailed": "Import fehlgeschlagen: {message}"
+    "importFailed": "Import fehlgeschlagen: {message}",
+    "captureSkippedEnv": "Keine aktive Umgebung — Erfassen von {names} übersprungen.",
+    "captureSkippedColl": "Keine aktive Sammlung — Erfassen von {names} übersprungen.",
+    "captureApplied": {
+      "one": "{count} Variable erfasst → {summary}",
+      "other": "{count} Variablen erfasst → {summary}"
+    },
+    "captureNoValue": {
+      "one": "{count} Erfassung ohne Wert: {names}",
+      "other": "{count} Erfassungen ohne Wert: {names}"
+    },
+    "wsDisconnectedError": "WebSocket „{label}“ mit Fehler getrennt.",
+    "wsClosed": "WebSocket „{label}“ geschlossen.",
+    "wsOpenFailed": "Socket konnte nicht geöffnet werden.",
+    "wsSendFailed": "Senden fehlgeschlagen: {reason}",
+    "wsSendUnknownReason": "unbekannt"
   },
   "vars": {
     "title": "Variablen-Editor",
@@ -112,6 +127,7 @@
     "responsePanelAria": "Antwort-Viewer",
     "requestPanelTitle": "Anfrage",
     "responsePanelTitle": "Antwort",
+    "collectionPanelTitle": "Sammlung",
     "resizeTitle": "Zum Ändern der Größe ziehen"
   },
   "notifications": {
@@ -682,6 +698,9 @@
     "tabRecent": "Zuletzt verwendet",
     "filterPlaceholder": "Filtern…",
     "filterAria": "Anfragen filtern",
+    "filterLabel": "Filter",
+    "filterCloseTitle": "Filter schließen (Escape)",
+    "filterCloseAria": "Filter schließen",
     "empty": "Noch keine Sammlungen",
     "copyFailed": "Kopieren fehlgeschlagen",
     "copyFailedBody": "Schreiben in die Zwischenablage nicht möglich. Bitte versuchen Sie es erneut.",

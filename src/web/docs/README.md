@@ -31,14 +31,15 @@ to OAuth 2.0, environments, GraphQL schema introspection, and encrypted backups.
 wurl's window has three panels:
 
 - **Collections** (left) — your saved requests, organized into collections and
-  folders, plus the **Favorites** and **Recents** tabs.
+  folders, plus the **Favorites** and **Recents** tabs. Its toolbar holds the
+  **collection** and **environment** selectors.
 - **Request** (center) — where you set the method, URL, query parameters,
   headers, body, authentication, and post-response captures.
 - **Response** (right) — the status, timing, body (syntax-highlighted), headers,
   cookies, console output, and a request timeline.
 
-At the top right are the **environment picker**, the **layout picker**, and
-**settings**. You can rearrange the three panels into four different
+At the top right are the **layout picker** and **settings**. You can rearrange
+the three panels into four different
 [layouts](settings-and-themes.md#layouts) and restyle everything with
 [themes](settings-and-themes.md#themes).
 

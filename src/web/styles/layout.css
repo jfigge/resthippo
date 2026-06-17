@@ -72,11 +72,15 @@
   display: none;
 }
 
-/* ── Contextual control group (env / layout / settings) ──────────────────── */
-/* Injected into the layout-appropriate container when "Remove headers" is on.
-   Layout 1  → res-status-bar   (divider shown, group at trailing edge)
+/* ── Contextual control group (layout / settings) ────────────────────────── */
+/* The layout+settings group is injected into the layout-appropriate container
+   when "Remove headers" is on (the environment selector is placed separately —
+   always in the tree-toolbar; see app.js placeRemoveHeaderControls):
+   Layout 1   → res-status-bar  (divider shown, group at trailing edge)
    Layout 2/3 → req-tab-strip   (no divider, pushed right by margin-left:auto)
-   Layout 4  → tree-toolbar     (divider shown, group at trailing edge) */
+   Layout 4   → tree-toolbar    (after the env selector; its own divider stays
+                                 hidden — the Collections button's margin-left:auto
+                                 already opens the cluster) */
 .header-ctrl-group {
   display: flex;
   align-items: center;
@@ -94,10 +98,16 @@
   flex-shrink: 0;
 }
 
-/* Show divider when the group sits in the status bar or tree toolbar */
-.res-status-bar .ctrl-divider,
-.tree-toolbar .ctrl-divider {
+/* Show the group's divider only when it sits in the status bar (layout 1). */
+.res-status-bar .ctrl-divider {
   display: block;
+}
+
+/* The tree-toolbar's trailing cluster [Collections][Environment]. The
+   Collections button opens the cluster and carries the margin-left:auto that
+   pushes the whole cluster to the trailing edge. */
+.tree-toolbar > #btn-collection {
+  margin-left: auto;
 }
 
 /* Push group to the trailing edge when inside a tab strip */

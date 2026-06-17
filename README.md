@@ -104,6 +104,33 @@ make launch         # Build and open the macOS app
 > needs macOS, etc.). CI runs `dist-mac` / `dist-linux` / `dist-win` on native
 > runners.
 
+### Code signing & notarization
+
+`dist-mac` / `dist-win` sign their installers when signing credentials are
+present and produce **unsigned** artifacts (no failure) when they are absent —
+so unsigned `--dir` dev builds and credential-less CI keep working unchanged.
+
+- **macOS** builds run under the hardened runtime with the entitlements in
+  `src/packaging/entitlements.mac.plist`, are signed with a **Developer ID
+  Application** identity, and are **notarized + stapled** via Apple's
+  `notarytool`. A signed, notarized `.dmg` passes Gatekeeper (`spctl -a`).
+- **Windows** installers are **Authenticode**-signed (SHA-256, RFC-3161
+  timestamped), which clears SmartScreen on a clean machine.
+
+For a signed build **locally**, copy `release.env.example` → `release.env`
+(git-ignored) and fill in the credentials; `make dist-*` reads them
+automatically. In **CI** the same values come from repository secrets — the
+[Release workflow](.github/workflows/release.yml) lists the exact secret names
+and signs only on tag/release builds (PR builds stay unsigned `--dir`).
+
+Verify the artifacts:
+
+```bash
+codesign --verify --deep --strict --verbose=2 <wurl.app>   # macOS
+spctl -a -vvv -t install <wurl.app>                         # macOS Gatekeeper
+signtool verify /pa /v <wurl-setup.exe>                     # Windows
+```
+
 ## Code Quality & Tests
 
 ```bash

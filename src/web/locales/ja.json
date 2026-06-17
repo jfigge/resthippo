@@ -43,7 +43,20 @@
     "wsCloseMessage": "「{label}」は接続が開いています。バックグラウンドで実行し続けますか、それとも今すぐ切断しますか？",
     "wsKeepOpen": "開いたまま",
     "exportFailed": "エクスポートに失敗しました: {message}",
-    "importFailed": "インポートに失敗しました: {message}"
+    "importFailed": "インポートに失敗しました: {message}",
+    "captureSkippedEnv": "アクティブな環境がありません — {names} のキャプチャをスキップしました。",
+    "captureSkippedColl": "アクティブなコレクションがありません — {names} のキャプチャをスキップしました。",
+    "captureApplied": {
+      "other": "{count} 個の変数をキャプチャしました → {summary}"
+    },
+    "captureNoValue": {
+      "other": "{count} 件のキャプチャで値が見つかりませんでした: {names}"
+    },
+    "wsDisconnectedError": "WebSocket「{label}」がエラーで切断されました。",
+    "wsClosed": "WebSocket「{label}」が閉じられました。",
+    "wsOpenFailed": "ソケットを開けませんでした。",
+    "wsSendFailed": "送信に失敗しました: {reason}",
+    "wsSendUnknownReason": "不明"
   },
   "vars": {
     "title": "変数エディター",
@@ -112,6 +125,7 @@
     "responsePanelAria": "レスポンスビューアー",
     "requestPanelTitle": "リクエスト",
     "responsePanelTitle": "レスポンス",
+    "collectionPanelTitle": "コレクション",
     "resizeTitle": "ドラッグしてサイズ変更"
   },
   "notifications": {
@@ -681,6 +695,9 @@
     "tabRecent": "最近",
     "filterPlaceholder": "フィルター…",
     "filterAria": "リクエストをフィルター",
+    "filterLabel": "フィルター",
+    "filterCloseTitle": "フィルターを閉じる (Escape)",
+    "filterCloseAria": "フィルターを閉じる",
     "empty": "コレクションはまだありません",
     "copyFailed": "コピーに失敗しました",
     "copyFailedBody": "クリップボードに書き込めませんでした。もう一度お試しください。",

@@ -54,6 +54,15 @@
   gap: var(--space-2);
 }
 
+/* The nav panel header shows only the "Collection" title — the collection +
+   environment selectors live in the tree-toolbar (see placeRemoveHeaderControls).
+   Its .panel-actions is just the initial DOM home for #btn-collection before
+   that relocation, so keep it hidden (it is empty once the button has moved, and
+   hiding it also avoids a startup flash of the button in the header). */
+#panel-nav .panel-header .panel-actions {
+  display: none;
+}
+
 /* ── Panel body (scrollable content area) ────────────────────────────────── */
 .panel-body {
   flex: 1 1 0;

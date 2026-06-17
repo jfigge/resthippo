@@ -44,6 +44,30 @@ DEV_ENV_VARS := MOCK_PORT MOCK_PROXY_PORT MOCK_SOCKS_PORT \
 -include $(WORKSPACE)/dev.env
 export $(DEV_ENV_VARS)
 
+# ── Release signing environment ───────────────────────────────────────────────
+# Credentials for SIGNED installer builds (dist-mac / dist-win). Copy
+# release.env.example → release.env (git-ignored) and fill in the values; the
+# `-include` + conditional `export` below hand them to electron-builder, which
+# reads these names directly. All are optional — absent ⇒ electron-builder emits
+# unsigned artifacts and skips notarization (see release.env.example). In CI the
+# same names come from repository secrets, not this file.
+#
+# Export each var only when it is set AND non-empty; otherwise `unexport` it.
+# This matters because:
+#   * a blanket `export` of an undefined var hands it to electron-builder as an
+#     EMPTY string, and an empty CSC_LINK / WIN_CSC_LINK is read as "a cert was
+#     provided" → `… not a file` build failure; and
+#   * CI sets `CSC_LINK: ${{ secrets.CSC_LINK }}` which is an empty (but present)
+#     env var when the secret is unset — Make passes inherited env vars to
+#     sub-processes automatically, so `unexport` is what actually strips it.
+# Testing `$(value …)` (not `$(…)`) keeps secret contents out of Make expansion.
+RELEASE_ENV_VARS := CSC_LINK CSC_KEY_PASSWORD CSC_IDENTITY_AUTO_DISCOVERY \
+                    APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID \
+                    APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER \
+                    WIN_CSC_LINK WIN_CSC_KEY_PASSWORD
+-include $(WORKSPACE)/release.env
+$(foreach v,$(RELEASE_ENV_VARS),$(if $(strip $(value $(v))),$(eval export $(v)),$(eval unexport $(v))))
+
 # -----------------------------------------------------------------------------
 # Keycloak Configuration
 # -----------------------------------------------------------------------------
@@ -257,6 +281,12 @@ vendor-graphql:
 # `dist` builds every platform, but a given host can only build its own
 # (mac dmg needs macOS, etc.). CI runs dist-mac/linux/win on native runners;
 # locally only the host-platform target will succeed.
+#
+# Signing & notarization: dist-mac/dist-win sign + (macOS) notarize when the
+# credentials in RELEASE_ENV_VARS are present (release.env locally, secrets in
+# CI). With none set the artifacts are simply unsigned — no failure. Verify a
+# signed build with: codesign --verify --deep --strict <app> && spctl -a -vv
+# <app> (macOS); signtool verify /pa <exe> (Windows).
 dist: dist-mac dist-linux dist-win
 
 dist-mac: build-setup build-install

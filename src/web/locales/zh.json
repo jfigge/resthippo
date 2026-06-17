@@ -43,7 +43,20 @@
     "wsCloseMessage": "“{label}”有一个打开的连接。在后台保持运行，还是立即断开？",
     "wsKeepOpen": "保持打开",
     "exportFailed": "导出失败：{message}",
-    "importFailed": "导入失败：{message}"
+    "importFailed": "导入失败：{message}",
+    "captureSkippedEnv": "没有活动环境——已跳过捕获 {names}。",
+    "captureSkippedColl": "没有活动集合——已跳过捕获 {names}。",
+    "captureApplied": {
+      "other": "已捕获 {count} 个变量 → {summary}"
+    },
+    "captureNoValue": {
+      "other": "{count} 个捕获未找到值：{names}"
+    },
+    "wsDisconnectedError": "WebSocket“{label}”因错误而断开连接。",
+    "wsClosed": "WebSocket“{label}”已关闭。",
+    "wsOpenFailed": "无法打开套接字。",
+    "wsSendFailed": "发送失败：{reason}",
+    "wsSendUnknownReason": "未知"
   },
   "vars": {
     "title": "变量编辑器",
@@ -112,6 +125,7 @@
     "responsePanelAria": "响应查看器",
     "requestPanelTitle": "请求",
     "responsePanelTitle": "响应",
+    "collectionPanelTitle": "集合",
     "resizeTitle": "拖动以调整大小"
   },
   "notifications": {
@@ -681,6 +695,9 @@
     "tabRecent": "最近",
     "filterPlaceholder": "筛选…",
     "filterAria": "筛选请求",
+    "filterLabel": "筛选",
+    "filterCloseTitle": "关闭筛选 (Escape)",
+    "filterCloseAria": "关闭筛选",
     "empty": "暂无集合",
     "copyFailed": "复制失败",
     "copyFailedBody": "无法写入剪贴板。请重试。",

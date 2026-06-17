@@ -43,7 +43,22 @@
     "wsCloseMessage": "«{label}» ha una connessione aperta. Mantenerla in esecuzione in background o disconnettere ora?",
     "wsKeepOpen": "Mantieni aperta",
     "exportFailed": "Esportazione non riuscita: {message}",
-    "importFailed": "Importazione non riuscita: {message}"
+    "importFailed": "Importazione non riuscita: {message}",
+    "captureSkippedEnv": "Nessun ambiente attivo — acquisizione di {names} ignorata.",
+    "captureSkippedColl": "Nessuna raccolta attiva — acquisizione di {names} ignorata.",
+    "captureApplied": {
+      "one": "Acquisita {count} variabile → {summary}",
+      "other": "Acquisite {count} variabili → {summary}"
+    },
+    "captureNoValue": {
+      "one": "{count} acquisizione senza valore: {names}",
+      "other": "{count} acquisizioni senza valore: {names}"
+    },
+    "wsDisconnectedError": "WebSocket \"{label}\" disconnesso con errore.",
+    "wsClosed": "WebSocket \"{label}\" chiuso.",
+    "wsOpenFailed": "Impossibile aprire il socket.",
+    "wsSendFailed": "Invio non riuscito: {reason}",
+    "wsSendUnknownReason": "sconosciuto"
   },
   "vars": {
     "title": "Editor di variabili",
@@ -112,6 +127,7 @@
     "responsePanelAria": "Visualizzatore della risposta",
     "requestPanelTitle": "Richiesta",
     "responsePanelTitle": "Risposta",
+    "collectionPanelTitle": "Raccolta",
     "resizeTitle": "Trascina per ridimensionare"
   },
   "notifications": {
@@ -682,6 +698,9 @@
     "tabRecent": "Recenti",
     "filterPlaceholder": "Filtra…",
     "filterAria": "Filtra richieste",
+    "filterLabel": "Filtro",
+    "filterCloseTitle": "Chiudi filtro (Escape)",
+    "filterCloseAria": "Chiudi filtro",
     "empty": "Ancora nessuna raccolta",
     "copyFailed": "Copia non riuscita",
     "copyFailedBody": "Impossibile scrivere negli appunti. Riprova.",

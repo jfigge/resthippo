@@ -108,6 +108,12 @@ export class TreeView {
   /** @type {string} — current filter query (lowercased) */
   #filterText = "";
 
+  /** @type {HTMLElement|null} — inline filter bar, revealed via Cmd/Ctrl+F */
+  #filterBarEl = null;
+
+  /** @type {HTMLInputElement|null} — the filter text input inside #filterBarEl */
+  #filterInput = null;
+
   /** @type {object[]} — favorited requests across all collections (enriched entries) */
   #favorites = [];
 
@@ -158,6 +164,10 @@ export class TreeView {
     this.#el = document.createElement("div");
     this.#el.className = "tree-view";
     this.#el.setAttribute("role", "tree");
+    // Focusable so a click anywhere in the main area (not just on a row) gives
+    // the tree focus — that focus is what gates the Cmd/Ctrl+F filter shortcut.
+    // tabindex="-1" keeps it out of the Tab order (the roving row owns that).
+    this.#el.setAttribute("tabindex", "-1");
 
     // Create the phantom drop-target placeholder (shared, moved around the DOM)
     this.#dragPhantomEl = document.createElement("li");
@@ -166,6 +176,7 @@ export class TreeView {
 
     this.#renderToolbar();
     this.#renderTabBar();
+    this.#renderFilterBar();
     this.#items = items;
     this.#rerender();
 
@@ -211,6 +222,29 @@ export class TreeView {
     // delegated handler deliberately ignores those keys. The rename input stops
     // propagation, so this never fires while editing a label.
     this.#el.addEventListener("keydown", (e) => {
+      // Cmd+F (macOS) / Ctrl+F reveals the inline filter bar. This listener lives
+      // on #el, so it only fires while focus is inside the tree — i.e. after the
+      // user has clicked the treeview main area (or a row).
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.altKey &&
+        e.key.toLowerCase() === "f"
+      ) {
+        e.preventDefault();
+        this.#showFilter();
+        return;
+      }
+      // Escape hides the filter bar (and clears the query) whenever it is open,
+      // whether focus is still in the input or back on a row.
+      if (
+        e.key === "Escape" &&
+        this.#filterBarEl &&
+        !this.#filterBarEl.hidden
+      ) {
+        e.preventDefault();
+        this.#hideFilter();
+        return;
+      }
       const row = e.target.closest?.(".tree-node-row");
       if (row) this.#handleTreeKeydown(e, row);
     });
@@ -365,22 +399,79 @@ export class TreeView {
       this.#showNewRequestMenu(e.clientX, e.clientY);
     });
 
-    // Search / filter input
-    const search = document.createElement("input");
-    search.className = "tree-search";
-    search.type = "search";
-    search.placeholder = t("tree.filterPlaceholder");
-    search.setAttribute("aria-label", t("tree.filterAria"));
+    bar.appendChild(btnNewCollection);
+    bar.appendChild(this.#btnNewRequest);
+    this.#el.appendChild(bar);
+  }
 
+  // ── Filter bar (inline, Cmd/Ctrl+F) ──────────────────────────────────────
+
+  /**
+   * Build the inline filter bar. It sits between the tab bar and the list and
+   * stays hidden until the user presses Cmd/Ctrl+F with focus inside the tree;
+   * Escape hides it again and clears the query. Built once and reused — the
+   * #rerender() path only ever rebuilds the .tree-list, never this bar.
+   */
+  #renderFilterBar() {
+    const bar = document.createElement("div");
+    bar.className = "tree-filter-bar";
+    bar.hidden = true;
+
+    const label = document.createElement("label");
+    label.className = "tree-filter-label";
+    label.htmlFor = "tree-filter-input";
+    label.textContent = t("tree.filterLabel");
+
+    const search = document.createElement("input");
+    search.id = "tree-filter-input";
+    search.className = "tree-search";
+    search.type = "text";
+    search.placeholder = t("tree.filterPlaceholder");
+    // The visible label provides context for sighted users; the richer
+    // aria-label stays the accessible name for assistive tech.
+    search.setAttribute("aria-label", t("tree.filterAria"));
     search.addEventListener("input", () => {
       this.#filterText = search.value.trim().toLowerCase();
       this.#applyFilter();
     });
 
-    bar.appendChild(btnNewCollection);
-    bar.appendChild(this.#btnNewRequest);
+    // Close (✕) button — the input's flex:1 pushes it to the far right. Clicking
+    // it cancels the filter, identical to pressing Escape in the input.
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "tree-filter-close";
+    closeBtn.title = t("tree.filterCloseTitle");
+    closeBtn.setAttribute("aria-label", t("tree.filterCloseAria"));
+    closeBtn.innerHTML = icon("close", { size: 12 });
+    closeBtn.addEventListener("click", () => this.#hideFilter());
+
+    bar.appendChild(label);
     bar.appendChild(search);
+    bar.appendChild(closeBtn);
+    this.#filterBarEl = bar;
+    this.#filterInput = search;
     this.#el.appendChild(bar);
+  }
+
+  /** Reveal the inline filter bar and focus its input (selecting any text). */
+  #showFilter() {
+    if (!this.#filterBarEl) return;
+    this.#filterBarEl.hidden = false;
+    this.#filterInput.focus();
+    this.#filterInput.select();
+  }
+
+  /**
+   * Hide the inline filter bar, clear the query, restore the unfiltered tree,
+   * and return focus to the tree so keyboard navigation keeps working.
+   */
+  #hideFilter() {
+    if (!this.#filterBarEl || this.#filterBarEl.hidden) return;
+    this.#filterBarEl.hidden = true;
+    this.#filterInput.value = "";
+    this.#filterText = "";
+    this.#applyFilter();
+    this.#rovingRow?.focus();
   }
 
   // ── Tab bar (Requests / Favorites / Recents) ────────────────────────────

@@ -43,7 +43,22 @@
     "wsCloseMessage": "\"{label}\" has an open connection. Keep it running in the background, or disconnect now?",
     "wsKeepOpen": "Keep open",
     "exportFailed": "Export failed: {message}",
-    "importFailed": "Import failed: {message}"
+    "importFailed": "Import failed: {message}",
+    "captureSkippedEnv": "No active environment — skipped capturing {names}.",
+    "captureSkippedColl": "No active collection — skipped capturing {names}.",
+    "captureApplied": {
+      "one": "Captured {count} variable → {summary}",
+      "other": "Captured {count} variables → {summary}"
+    },
+    "captureNoValue": {
+      "one": "{count} capture found no value: {names}",
+      "other": "{count} captures found no value: {names}"
+    },
+    "wsDisconnectedError": "WebSocket \"{label}\" disconnected with error.",
+    "wsClosed": "WebSocket \"{label}\" closed.",
+    "wsOpenFailed": "Failed to open socket.",
+    "wsSendFailed": "Send failed: {reason}",
+    "wsSendUnknownReason": "unknown"
   },
   "vars": {
     "title": "Variable Editor",
@@ -112,6 +127,7 @@
     "responsePanelAria": "Response viewer",
     "requestPanelTitle": "Request",
     "responsePanelTitle": "Response",
+    "collectionPanelTitle": "Collection",
     "resizeTitle": "Drag to resize"
   },
   "notifications": {
@@ -682,6 +698,9 @@
     "tabRecent": "Recent",
     "filterPlaceholder": "Filter…",
     "filterAria": "Filter requests",
+    "filterLabel": "Filter",
+    "filterCloseTitle": "Close filter (Escape)",
+    "filterCloseAria": "Close filter",
     "empty": "No collections yet",
     "copyFailed": "Copy failed",
     "copyFailedBody": "Unable to write to the clipboard. Please try again.",

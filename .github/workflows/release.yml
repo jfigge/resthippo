@@ -6,10 +6,24 @@ name: Release
 # to smoke-test packaging — that path builds installers but does NOT publish a
 # GitHub Release (only tag pushes do).
 #
-# These artifacts are UNSIGNED. Code signing + notarization (Apple Developer ID,
-# Windows cert) is Feature 31; add the certs as repo secrets and wire them into
-# the build env there. The installer's internal version comes from
-# src/package.json ("version"), so bump that to match the tag before tagging.
+# Code signing + notarization (Feature 31) is wired into the build steps below
+# and driven entirely by repository secrets — when a secret is empty the build
+# still succeeds, just unsigned, so this workflow works before the certs are
+# configured. Add these secrets to enable signing (Settings → Secrets and
+# variables → Actions):
+#
+#   macOS signing       CSC_LINK                     base64 of the Developer ID
+#                                                    Application .p12
+#                        CSC_KEY_PASSWORD            its export password
+#   macOS notarization   APPLE_ID                     Apple ID email
+#                        APPLE_APP_SPECIFIC_PASSWORD  app-specific password
+#                        APPLE_TEAM_ID                10-char Team ID
+#   Windows signing      WIN_CSC_LINK                 base64 of the Authenticode
+#                                                    .pfx
+#                        WIN_CSC_KEY_PASSWORD         its password
+#
+# The installer's internal version comes from src/package.json ("version"), so
+# bump that to match the tag before tagging.
 on:
   push:
     tags:
@@ -44,10 +58,6 @@ jobs:
     defaults:
       run:
         shell: bash
-    env:
-      # No Apple cert in CI — tell electron-builder not to hunt for a signing
-      # identity (which would otherwise fail the macOS build).
-      CSC_IDENTITY_AUTO_DISCOVERY: false
     steps:
       - uses: actions/checkout@v5
         with:
@@ -73,10 +83,26 @@ jobs:
       - name: Build installers (Windows)
         if: runner.os == 'Windows'
         shell: "msys2 {0}"
+        # Authenticode signing — empty secrets ⇒ electron-builder skips signing.
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: make ${{ matrix.target }}
 
       - name: Build installers (macOS / Linux)
         if: runner.os != 'Windows'
+        # Developer ID signing + notarization. Auto-discovery is enabled only
+        # when a cert is present; otherwise it is forced off so the macOS build
+        # cleanly skips signing instead of hunting for an identity. Linux
+        # ignores all of these. Empty notarization secrets ⇒ notarization is
+        # skipped (no failure).
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: make ${{ matrix.target }}
 
       - name: Upload installers

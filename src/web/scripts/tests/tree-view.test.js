@@ -333,8 +333,31 @@ test("setShowRecents reveals the Recents tab", () => {
 
 // ── Filtering ───────────────────────────────────────────────────────────────
 
+/** Press Cmd/Ctrl+F on the tree to reveal the inline filter bar. */
+const revealFilter = (tv) =>
+  tv.element.dispatchEvent(
+    new globalThis.window.KeyboardEvent("keydown", {
+      key: "f",
+      metaKey: true,
+      bubbles: true,
+    }),
+  );
+
+test("the filter bar is hidden until Cmd/Ctrl+F is pressed", () => {
+  const tv = mount(TREE());
+  const bar = tv.element.querySelector(".tree-filter-bar");
+  assert.ok(bar.hidden, "filter bar starts hidden");
+  assert.ok(
+    !tv.element.querySelector(".tree-toolbar .tree-search"),
+    "the search input no longer lives in the toolbar",
+  );
+  revealFilter(tv);
+  assert.ok(!bar.hidden, "Cmd/Ctrl+F reveals the filter bar");
+});
+
 test("the search input filters rows by name (keeping matching ancestors)", () => {
   const tv = mount(TREE());
+  revealFilter(tv);
   const search = tv.element.querySelector(".tree-search");
   search.value = "login";
   search.dispatchEvent(new globalThis.window.Event("input", { bubbles: true }));
@@ -343,13 +366,44 @@ test("the search input filters rows by name (keeping matching ancestors)", () =>
   assert.ok(!visible(li(tv, "rw")), "non-matching request is hidden");
 });
 
-test("clearing the search restores all rows", () => {
+test("Escape hides the filter bar and restores all rows", () => {
   const tv = mount(TREE());
+  revealFilter(tv);
   const search = tv.element.querySelector(".tree-search");
   search.value = "login";
   search.dispatchEvent(new globalThis.window.Event("input", { bubbles: true }));
-  search.value = "";
+  assert.ok(
+    !visible(li(tv, "rw")),
+    "non-matching request hidden while filtered",
+  );
+
+  search.dispatchEvent(
+    new globalThis.window.KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+    }),
+  );
+  const bar = tv.element.querySelector(".tree-filter-bar");
+  assert.ok(bar.hidden, "filter bar hidden after Escape");
+  assert.equal(search.value, "", "query cleared after Escape");
+  assert.ok(visible(li(tv, "rw")), "all rows visible again");
+});
+
+test("the close button cancels the filter, like Escape", () => {
+  const tv = mount(TREE());
+  revealFilter(tv);
+  const search = tv.element.querySelector(".tree-search");
+  search.value = "login";
   search.dispatchEvent(new globalThis.window.Event("input", { bubbles: true }));
+  assert.ok(
+    !visible(li(tv, "rw")),
+    "non-matching request hidden while filtered",
+  );
+
+  tv.element.querySelector(".tree-filter-close").click();
+  const bar = tv.element.querySelector(".tree-filter-bar");
+  assert.ok(bar.hidden, "filter bar hidden after clicking the close button");
+  assert.equal(search.value, "", "query cleared after close");
   assert.ok(visible(li(tv, "rw")), "all rows visible again");
 });
 
