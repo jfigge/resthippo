@@ -2169,6 +2169,41 @@ html.show-method-icons .req-method-menu-item-label::before {
   margin-top: var(--space-2);
 }
 
+/* Two-token header: clickable Access / ID token tabs (implicit "both").
+   Mirrors .auth-section-title typography; the active tab carries an accent
+   underline that overlaps the container's bottom border. */
+.auth-token-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-2);
+  border-bottom: 1px solid var(--color-surface-2);
+}
+
+.auth-token-tab {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-overlay-0);
+  padding: 0 0 var(--space-3);
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.auth-token-tab:hover {
+  color: var(--color-text);
+}
+
+.auth-token-tab--active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
 /* ── Advanced toggle row ─────────────────────────────────────────────────── */
 
 /*
@@ -2186,7 +2221,7 @@ html.show-method-icons .req-method-menu-item-label::before {
 /* Token display box */
 .auth-token-display {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: var(--space-4);
   padding: var(--space-4);
   background: var(--color-surface-0);
@@ -2209,6 +2244,34 @@ html.show-method-icons .req-method-menu-item-label::before {
   flex-direction: column;
   gap: var(--space-2);
   flex-shrink: 0;
+}
+
+/* Copy-to-clipboard button, pinned to the bottom-right of the token panel.
+   margin-top:auto pushes it below the stacked clear buttons once the column
+   stretches to the panel height (driven by a long, wrapped token value). */
+.auth-token-copy-btn {
+  margin-top: auto;
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  color: var(--color-subtext);
+  flex-shrink: 0;
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.auth-token-copy-btn:hover {
+  color: var(--color-accent);
+  background-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.auth-token-copy-btn--copied {
+  color: var(--color-success) !important;
 }
 
 /* ── Get Token button row ────────────────────────────────────────────────── */

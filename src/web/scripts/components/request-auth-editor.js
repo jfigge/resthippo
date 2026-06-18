@@ -24,6 +24,8 @@ import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
 import { t } from "../i18n.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
+import { resolveOAuth2Config } from "../auth/utils/resolve-config.js";
+import { resolveStringAsync } from "./variable-resolver.js";
 import {
   AutocompleteDropdown,
   buildToolbarToggle,
@@ -274,7 +276,8 @@ export class RequestAuthEditor {
     accessTokenUrl: "",
     authUrl: "",
     scope: "",
-    token: "",
+    token: "", // access token (runtime, never persisted)
+    idToken: "", // OIDC id_token, when the response carries one (runtime)
     refreshToken: "", // stored refresh token
     expiresAt: null, // ms timestamp when stored token expires (null = unknown)
     // Advanced fields
@@ -336,6 +339,10 @@ export class RequestAuthEditor {
 
   // OAuth 2.0 advanced-fields toggle
   #oauth2Advanced = false;
+
+  // Which token the display panel currently shows when both an access_token and
+  // an id_token are present (implicit "both" response): "access" | "id".
+  #activeTokenView = "access";
 
   /** All active pill editors in the auth form (cleared on each re-render). */
   #authPillEditors = [];
@@ -1408,18 +1415,69 @@ export class RequestAuthEditor {
       );
     }
 
-    // ── Current access token display ───────────────────────────────────────
-    if (this.#authOAuth2.token) {
-      const tokenSection = document.createElement("div");
-      tokenSection.className = "auth-section-title";
-      tokenSection.textContent = t("auth.oauth2.currentToken");
-      form.appendChild(tokenSection);
+    // ── Current token display ──────────────────────────────────────────────
+    const hasAccessToken = !!this.#authOAuth2.token;
+    const hasIdToken = !!this.#authOAuth2.idToken;
+    if (hasAccessToken || hasIdToken) {
+      // Clamp the active view to a token that actually exists.
+      if (this.#activeTokenView === "id" && !hasIdToken)
+        this.#activeTokenView = "access";
+      if (this.#activeTokenView === "access" && !hasAccessToken)
+        this.#activeTokenView = "id";
+
+      const tokenValue = document.createElement("span");
+      tokenValue.className = "auth-token-value";
+      const tokenFor = (view) =>
+        view === "id" ? this.#authOAuth2.idToken : this.#authOAuth2.token;
+
+      if (hasAccessToken && hasIdToken) {
+        // ── Both tokens present (implicit "both"): clickable token tabs ────
+        // The active tab drives which token fills the value span below; the
+        // copy button reads #activeTokenView so it copies the shown token.
+        const tabs = document.createElement("div");
+        tabs.className = "auth-token-tabs";
+
+        const accessTab = document.createElement("button");
+        accessTab.type = "button";
+        accessTab.className = "auth-token-tab";
+        accessTab.textContent = t("auth.oauth2.currentToken");
+
+        const idTab = document.createElement("button");
+        idTab.type = "button";
+        idTab.className = "auth-token-tab";
+        idTab.textContent = t("auth.oauth2.currentIdToken");
+
+        const setActiveView = (view) => {
+          this.#activeTokenView = view;
+          tokenValue.textContent = tokenFor(view);
+          accessTab.classList.toggle(
+            "auth-token-tab--active",
+            view === "access",
+          );
+          idTab.classList.toggle("auth-token-tab--active", view === "id");
+          accessTab.setAttribute("aria-pressed", String(view === "access"));
+          idTab.setAttribute("aria-pressed", String(view === "id"));
+        };
+        accessTab.addEventListener("click", () => setActiveView("access"));
+        idTab.addEventListener("click", () => setActiveView("id"));
+
+        tabs.appendChild(accessTab);
+        tabs.appendChild(idTab);
+        form.appendChild(tabs);
+        setActiveView(this.#activeTokenView);
+      } else {
+        // ── Single token: plain section heading ───────────────────────────
+        const tokenSection = document.createElement("div");
+        tokenSection.className = "auth-section-title";
+        tokenSection.textContent = hasIdToken
+          ? t("auth.oauth2.currentIdToken")
+          : t("auth.oauth2.currentToken");
+        form.appendChild(tokenSection);
+        tokenValue.textContent = tokenFor(this.#activeTokenView);
+      }
 
       const tokenDisplay = document.createElement("div");
       tokenDisplay.className = "auth-token-display";
-      const tokenValue = document.createElement("span");
-      tokenValue.className = "auth-token-value";
-      tokenValue.textContent = this.#authOAuth2.token;
 
       // ── Button column: Clear Token + Clear Session stacked ─────────────
       const tokenBtnGroup = document.createElement("div");
@@ -1431,6 +1489,7 @@ export class RequestAuthEditor {
       clearBtn.textContent = t("auth.oauth2.clearToken");
       clearBtn.addEventListener("click", () => {
         this.#authOAuth2.token = "";
+        this.#authOAuth2.idToken = "";
         this.#authOAuth2.refreshToken = "";
         this.#authOAuth2.expiresAt = null;
         // Also clear from executor cache
@@ -1447,6 +1506,7 @@ export class RequestAuthEditor {
       clearSessionBtn.addEventListener("click", async () => {
         // Clear token state and executor cache
         this.#authOAuth2.token = "";
+        this.#authOAuth2.idToken = "";
         this.#authOAuth2.refreshToken = "";
         this.#authOAuth2.expiresAt = null;
         oauthExecutor.clearToken(this.#authOAuth2);
@@ -1470,6 +1530,34 @@ export class RequestAuthEditor {
 
       tokenBtnGroup.appendChild(clearBtn);
       tokenBtnGroup.appendChild(clearSessionBtn);
+
+      // ── Copy-to-clipboard button (pinned to the bottom-right) ──────────
+      const copyIconSvg = icon("copy", { size: 16 });
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.className = "auth-token-copy-btn";
+      copyBtn.title = t("auth.oauth2.copyToken");
+      copyBtn.setAttribute("aria-label", t("auth.oauth2.copyToken"));
+      copyBtn.innerHTML = copyIconSvg;
+      copyBtn.addEventListener("click", async () => {
+        try {
+          const activeToken =
+            this.#activeTokenView === "id"
+              ? this.#authOAuth2.idToken
+              : this.#authOAuth2.token;
+          await navigator.clipboard.writeText(activeToken);
+          copyBtn.innerHTML = icon("check", { size: 16 });
+          copyBtn.classList.add("auth-token-copy-btn--copied");
+          setTimeout(() => {
+            if (!copyBtn.isConnected) return;
+            copyBtn.innerHTML = copyIconSvg;
+            copyBtn.classList.remove("auth-token-copy-btn--copied");
+          }, 1500);
+        } catch {
+          Notifications.error(t("auth.oauth2.copyFailed"));
+        }
+      });
+      tokenBtnGroup.appendChild(copyBtn);
 
       tokenDisplay.appendChild(tokenValue);
       tokenDisplay.appendChild(tokenBtnGroup);
@@ -1517,18 +1605,31 @@ export class RequestAuthEditor {
       tokenStatusEl.textContent = "";
       tokenStatusEl.className = "auth-token-status";
 
+      let acquired = false;
       try {
-        const result = await oauthExecutor.forceRefresh({
-          ...this.#authOAuth2,
-        });
+        // Resolve {{variables}} in the config (clientId, secret, URLs, scope, …)
+        // before hitting the token / authorization endpoint, mirroring what the
+        // send path does for every other request field.
+        const rv = (s) => resolveStringAsync(s, this.#getContext());
+        const result = await oauthExecutor.forceRefresh(
+          await resolveOAuth2Config(this.#authOAuth2, rv),
+        );
         if (this.#getCurrentNodeId() !== tokenNodeId) return;
 
-        if (result.success && result.accessToken) {
-          this.#authOAuth2.token = result.accessToken;
+        // Store whatever the response carried. The implicit "both" response
+        // yields an access_token AND an id_token (the panel shows tabs to switch
+        // between them); "id_token" yields only an id_token; everything else only
+        // an access_token. Default the view to the access token when present.
+        const accessToken = result.accessToken ?? "";
+        const idToken = result.idToken ?? "";
+
+        if (result.success && (accessToken || idToken)) {
+          this.#authOAuth2.token = accessToken;
+          this.#authOAuth2.idToken = idToken;
           this.#authOAuth2.refreshToken = result.refreshToken ?? "";
           this.#authOAuth2.expiresAt = result.expiresAt ?? null;
-          tokenStatusEl.textContent = t("auth.oauth2.tokenAcquired");
-          tokenStatusEl.className = "auth-token-status auth-token-status--ok";
+          this.#activeTokenView = "access";
+          acquired = true;
         } else {
           const msg =
             result.error?.description ??
@@ -1539,6 +1640,7 @@ export class RequestAuthEditor {
             "auth-token-status auth-token-status--error";
         }
       } catch (err) {
+        if (this.#getCurrentNodeId() !== tokenNodeId) return;
         tokenStatusEl.textContent = `✗ ${err.message}`;
         tokenStatusEl.className = "auth-token-status auth-token-status--error";
       } finally {
@@ -1548,8 +1650,14 @@ export class RequestAuthEditor {
           : t("auth.oauth2.getToken");
       }
 
-      this.#renderAuthContent();
-      this.#dispatchAuthUpdated();
+      // Re-render ONLY on success — that reveals the new token panel and flips
+      // the button to "Refresh". On failure we must NOT re-render: rebuilding the
+      // form replaces tokenStatusEl with a fresh empty one, which would instantly
+      // erase the "✗ …" error set above and leave the user staring at nothing.
+      if (acquired) {
+        this.#renderAuthContent();
+        this.#dispatchAuthUpdated();
+      }
     });
 
     getTokenRow.appendChild(getTokenBtn);
@@ -1958,6 +2066,7 @@ export class RequestAuthEditor {
     // Exclude runtime-only token fields — acquired tokens must not be persisted.
     const {
       token: _t,
+      idToken: _it,
       refreshToken: _rt,
       expiresAt: _ea,
       ...oauth2Persisted
@@ -2223,15 +2332,18 @@ export class RequestAuthEditor {
     // Merge saved fields — default advanced fields to empty string / known defaults.
     // OIDC discovery fields are restored from the persisted node data so previously
     // discovered configurations survive a request reload.
-    // Runtime-only token fields (token, refreshToken, expiresAt) are intentionally
-    // excluded from the spread so previously-persisted tokens are never restored.
+    // Runtime-only token fields (token, idToken, refreshToken, expiresAt) are
+    // intentionally excluded from the spread so previously-persisted tokens are
+    // never restored.
     {
       const {
         token: _t,
+        idToken: _it,
         refreshToken: _rt,
         expiresAt: _ea,
         ...savedOAuth2
       } = node.authOAuth2 ?? {};
+      this.#activeTokenView = "access";
       this.#authOAuth2 = {
         grantType: "client_credentials",
         clientType: "confidential",
@@ -2241,6 +2353,7 @@ export class RequestAuthEditor {
         authUrl: "",
         scope: "",
         token: "",
+        idToken: "",
         refreshToken: "",
         expiresAt: null,
         state: "",
@@ -2333,6 +2446,21 @@ export class RequestAuthEditor {
    */
   gatherTemplates() {
     if (!(this.#authEnabled && this.#authType !== "none")) return [];
+    // Every OAuth 2.0 config field can carry {{variables}} (clientId, secret,
+    // URLs, scope, grant-specific fields …) and is resolved before send, so the
+    // pre-send unresolved-variable check must scan them too. The runtime tokens
+    // and the discovery-dialog pre-fill are not user templates and are skipped.
+    const oauth2Templates = Object.entries(this.#authOAuth2)
+      .filter(
+        ([k, v]) =>
+          typeof v === "string" &&
+          v &&
+          k !== "token" &&
+          k !== "idToken" &&
+          k !== "refreshToken" &&
+          k !== "discoveredIssuer",
+      )
+      .map(([, v]) => v);
     return [
       this.#authBasic?.username ?? "",
       this.#authBasic?.password ?? "",
@@ -2343,7 +2471,7 @@ export class RequestAuthEditor {
       this.#authNtlm?.password ?? "",
       this.#authNtlm?.domain ?? "",
       this.#authNtlm?.workstation ?? "",
-      this.#authOAuth2?.token ?? "",
+      ...oauth2Templates,
       this.#authOAuth1?.consumerKey ?? "",
       this.#authOAuth1?.consumerSecret ?? "",
       this.#authOAuth1?.token ?? "",
@@ -2372,13 +2500,15 @@ export class RequestAuthEditor {
    * Sync local auth state with a token acquired during send (token display +
    * expiry badge), then re-render and persist. Mirrors the post-send block of
    * RequestEditor#sendRequest.
-   * @param {{ accessToken: string, refreshToken?: string, expiresAt?: number|null }} result
+   * @param {{ accessToken: string, idToken?: string|null, refreshToken?: string, expiresAt?: number|null }} result
    */
-  applyAcquiredToken({ accessToken, refreshToken, expiresAt }) {
-    this.#authOAuth2.token = accessToken;
+  applyAcquiredToken({ accessToken, idToken, refreshToken, expiresAt }) {
+    this.#authOAuth2.token = accessToken ?? "";
+    this.#authOAuth2.idToken = idToken ?? "";
     this.#authOAuth2.refreshToken =
       refreshToken ?? this.#authOAuth2.refreshToken ?? "";
     this.#authOAuth2.expiresAt = expiresAt ?? this.#authOAuth2.expiresAt;
+    this.#activeTokenView = "access";
     this.#renderAuthContent();
     this.#dispatchAuthUpdated();
   }

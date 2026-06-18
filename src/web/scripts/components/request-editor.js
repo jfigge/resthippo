@@ -21,6 +21,7 @@ import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
 import { t } from "../i18n.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
+import { resolveOAuth2Config } from "../auth/utils/resolve-config.js";
 import {
   buildRequestPayload,
   encodeBaseUrl,
@@ -2512,11 +2513,14 @@ export class RequestEditor {
         );
 
         // ── Acquire token (cache → refresh → full flow) ────────────────────
+        // Resolve {{variables}} in the OAuth config first — unlike the other
+        // auth types it bypasses buildRequestPayload(), so without this the
+        // token / authorization endpoints would receive literal placeholders.
         let _oauthResult;
         try {
-          _oauthResult = await oauthExecutor.acquireToken({
-            ...authModel.authOAuth2,
-          });
+          _oauthResult = await oauthExecutor.acquireToken(
+            await resolveOAuth2Config(authModel.authOAuth2, rv),
+          );
         } catch (err) {
           this.#dispatchOAuthError(requestId, finalUrl, {
             name: "OAuthError",
@@ -2544,15 +2548,18 @@ export class RequestEditor {
         }
 
         // ── Inject bearer token ──────────────────────────────────────────
-        // The prefix is resolved by the auth editor: live DOM input first
-        // (covers a value typed but not yet committed to state), then the
-        // in-memory state, then the "Bearer" default.
-        const _prefix = this.#auth.getOAuth2HeaderPrefix();
+        // The prefix comes from in-memory auth state (or the "Bearer" default);
+        // resolve any {{variables}} in it too before it goes on the wire, then
+        // fall back to "Bearer" if resolution leaves it blank.
+        const _prefix =
+          (await rv(this.#auth.getOAuth2HeaderPrefix())).trim() || "Bearer";
         headers["Authorization"] = `${_prefix} ${_oauthResult.accessToken}`;
 
-        // Keep local auth state in sync (token display + expiry badge).
+        // Keep local auth state in sync (token display + expiry badge). Pass
+        // the id_token too so an implicit "both" response shows its token tabs.
         this.#auth.applyAcquiredToken({
           accessToken: _oauthResult.accessToken,
+          idToken: _oauthResult.idToken,
           refreshToken: _oauthResult.refreshToken,
           expiresAt: _oauthResult.expiresAt,
         });

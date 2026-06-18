@@ -963,5 +963,85 @@ await test("token exchange flow: sends RFC 8693 params and returns the new token
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Variable resolution in the OAuth config
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { resolveOAuth2Config } from "../utils/resolve-config.js";
+
+group("resolveOAuth2Config");
+
+// Mock resolver: substitutes {{name}} from a dictionary, leaving unknown tokens
+// intact — the same contract as the real renderer resolver.
+const _vars = {
+  clientId: "abc-123",
+  secret: "s3cr3t",
+  base: "https://idp.example.com",
+};
+const _rv = async (s) =>
+  s.replace(/\{\{(\w+)\}\}/g, (m, name) =>
+    Object.prototype.hasOwnProperty.call(_vars, name) ? _vars[name] : m,
+  );
+
+await test("resolveOAuth2Config: substitutes {{vars}} in every string field", async () => {
+  const out = await resolveOAuth2Config(
+    {
+      grantType: "authorization_code",
+      clientId: "{{clientId}}",
+      clientSecret: "{{secret}}",
+      authUrl: "{{base}}/authorize",
+      accessTokenUrl: "{{base}}/token",
+      scope: "openid",
+    },
+    _rv,
+  );
+  assert.equal(out.clientId, "abc-123");
+  assert.equal(out.clientSecret, "s3cr3t");
+  assert.equal(out.authUrl, "https://idp.example.com/authorize");
+  assert.equal(out.accessTokenUrl, "https://idp.example.com/token");
+  assert.equal(out.scope, "openid");
+});
+
+await test("resolveOAuth2Config: leaves unresolved {{vars}} intact", async () => {
+  const out = await resolveOAuth2Config({ clientId: "{{missing}}" }, _rv);
+  assert.equal(out.clientId, "{{missing}}");
+});
+
+await test("resolveOAuth2Config: skips runtime token fields and non-strings", async () => {
+  const out = await resolveOAuth2Config(
+    {
+      token: "{{clientId}}", // an acquired token is not a template — untouched
+      refreshToken: "{{secret}}",
+      expiresAt: 123456,
+      discoveredScopes: ["openid", "email"],
+      clientId: "{{clientId}}",
+    },
+    _rv,
+  );
+  assert.equal(out.token, "{{clientId}}");
+  assert.equal(out.refreshToken, "{{secret}}");
+  assert.equal(out.expiresAt, 123456);
+  assert.deepEqual(out.discoveredScopes, ["openid", "email"]);
+  assert.equal(out.clientId, "abc-123"); // a real field still resolves
+});
+
+await test("resolveOAuth2Config: returns a new object, never mutates input", async () => {
+  const input = { clientId: "{{clientId}}" };
+  const out = await resolveOAuth2Config(input, _rv);
+  assert.notEqual(out, input);
+  assert.equal(input.clientId, "{{clientId}}");
+  assert.equal(out.clientId, "abc-123");
+});
+
+await test("resolveOAuth2Config: tolerates null config / non-function resolver", async () => {
+  assert.deepEqual(await resolveOAuth2Config(null, _rv), {});
+  assert.deepEqual(
+    await resolveOAuth2Config({ clientId: "{{clientId}}" }, null),
+    {
+      clientId: "{{clientId}}",
+    },
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 console.log("\n✓ All tests passed\n");
