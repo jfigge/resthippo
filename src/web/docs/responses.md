@@ -120,6 +120,28 @@ Press <kbd>⌘/Ctrl</kbd>+<kbd>F</kbd> with the response focused to open the
 <kbd>⌘/Ctrl</kbd>+<kbd>A</kbd> selects the whole body text (when the find box
 isn't focused).
 
+## Filtering the body
+
+Press <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> with the response focused to
+open the **Filter** bar. Where Find _highlights_ matches, Filter _transforms_ the
+body to just the fields your expression selects, re-rendered in the same styled
+view. The expression language depends on the body's type:
+
+- **JSON** — a [jq](https://jqlang.github.io/jq/manual/) filter, e.g.
+  `.items[] | select(.active) | .name`.
+- **YAML** — the same jq filter applied to the parsed document (like
+  [`yq`](https://github.com/kislyuk/yq)); the result is re-emitted as YAML.
+- **XML** — an [XPath](https://developer.mozilla.org/docs/Web/XPath) expression,
+  e.g. `//book/title`.
+
+Type to filter as you go; an invalid expression turns the box red and leaves the
+original body untouched. <kbd>Esc</kbd> or the **✕** button closes the bar and
+restores the full response.
+
+Filtering is only offered for a **styled** JSON, YAML, or XML body. If the body
+is shown in Raw or Hex mode, or is some other content type, a notification
+explains that the current MIME type or view doesn't support filtering.
+
 ---
 
 Next: [Import, Export & Backup →](import-export-and-backup.md)

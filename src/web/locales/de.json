@@ -583,6 +583,18 @@
       "closeTitle": "Suche schließen (Escape)",
       "closeAria": "Suche schließen"
     },
+    "filter": {
+      "label": "Filtern",
+      "inputAria": "Filterausdruck",
+      "placeholderJson": "jq-Filter — z. B. .items[] | select(.active)",
+      "placeholderYaml": "yq-Filter — z. B. .items[].name",
+      "placeholderXml": "XPath — z. B. //book/title",
+      "closeTitle": "Filter schließen (Escape)",
+      "closeAria": "Filter schließen",
+      "unsupported": "Der angezeigte MIME-Typ oder Anzeigestil unterstützt keine Filterung.",
+      "invalid": "Ungültiger Filterausdruck",
+      "error": "Filterfehler: {message}"
+    },
     "truncation": {
       "previewHint": "Große Antwort — verwenden Sie oben „Vollständig anzeigen“ für die Vorschau.",
       "hexNote": "Erste {shown} von {total} werden angezeigt — verwenden Sie „In Datei speichern“ für den vollständigen Inhalt.",

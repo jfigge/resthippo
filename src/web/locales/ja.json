@@ -580,6 +580,18 @@
       "closeTitle": "検索を閉じる (Escape)",
       "closeAria": "検索を閉じる"
     },
+    "filter": {
+      "label": "フィルター",
+      "inputAria": "フィルター式",
+      "placeholderJson": "jq フィルター — 例: .items[] | select(.active)",
+      "placeholderYaml": "yq フィルター — 例: .items[].name",
+      "placeholderXml": "XPath — 例: //book/title",
+      "closeTitle": "フィルターを閉じる (Escape)",
+      "closeAria": "フィルターを閉じる",
+      "unsupported": "表示されている MIME タイプまたは本文の表示形式はフィルタリングに対応していません。",
+      "invalid": "無効なフィルター式",
+      "error": "フィルターエラー: {message}"
+    },
     "truncation": {
       "previewHint": "大きなレスポンス — 上の「全体を表示」でプレビューしてください。",
       "hexNote": "最初の {shown} / {total} を表示しています — 全体は「ファイルに保存」を使用してください。",

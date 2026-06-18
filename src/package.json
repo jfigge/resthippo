@@ -20,9 +20,11 @@
     "vendor-yaml": "esbuild node_modules/yaml/browser/dist/index.js --bundle --format=esm --outfile=web/scripts/vendor/yaml.js",
     "vendor-prism": "esbuild web/scripts/vendor/prism-entry.js --bundle --format=esm --outfile=web/scripts/vendor/prism.js",
     "vendor-markdown": "esbuild web/scripts/vendor/markdown-entry.js --bundle --format=esm --outfile=web/scripts/vendor/markdown.js",
-    "vendor-graphql": "esbuild web/scripts/vendor/graphql-entry.js --bundle --format=esm --outfile=web/scripts/vendor/graphql.js"
+    "vendor-graphql": "esbuild web/scripts/vendor/graphql-entry.js --bundle --format=esm --outfile=web/scripts/vendor/graphql.js",
+    "vendor-jq": "esbuild node_modules/@michaelhomer/jqjs/jq.js --bundle --format=esm --outfile=web/scripts/vendor/jq.js"
   },
   "devDependencies": {
+    "@michaelhomer/jqjs": "^1.6.0",
     "dompurify": "^3.4.7",
     "electron": "^42.1.0",
     "electron-builder": "~26.8.1",

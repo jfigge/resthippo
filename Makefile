@@ -229,7 +229,7 @@ test-export:
 
 test-components:
 	@echo "Running renderer component tests (variable resolution, request payload)..."
-	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js $(WEB_DIR)/scripts/components/tests/captures.test.js $(WEB_DIR)/scripts/components/tests/tree-model.test.js $(WEB_DIR)/scripts/components/code-gen/tests/code-gen.test.js
+	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js $(WEB_DIR)/scripts/components/tests/captures.test.js $(WEB_DIR)/scripts/components/tests/tree-model.test.js $(WEB_DIR)/scripts/components/tests/body-filter.test.js $(WEB_DIR)/scripts/components/code-gen/tests/code-gen.test.js
 	@echo "--------------------------------"
 
 test-import:
@@ -329,6 +329,11 @@ vendor-markdown:
 vendor-graphql:
 	@echo "Bundling graphql-js vendor file..."
 	@cd $(SRC_DIR); npm run vendor-graphql
+	@echo "--------------------------------"
+
+vendor-jq:
+	@echo "Bundling jqjs vendor file..."
+	@cd $(SRC_DIR); npm run vendor-jq
 	@echo "--------------------------------"
 
 # ─── Distribution packages ────────────────────────────────────────────────────
@@ -561,6 +566,7 @@ help:
 	@echo "    vendor-prism  Bundle Prism.js → web/scripts/vendor/prism.js"
 	@echo "    vendor-markdown  Bundle marked+DOMPurify → web/scripts/vendor/markdown.js"
 	@echo "    vendor-graphql   Bundle graphql-js → web/scripts/vendor/graphql.js"
+	@echo "    vendor-jq     Bundle jqjs → web/scripts/vendor/jq.js"
 	@echo "    fmt           Format JS/CSS/HTML (prettier)"
 	@echo "    fmt-check     Check formatting without writing (prettier --check)"
 	@echo "    lint          Lint JS (eslint)"
@@ -948,7 +954,7 @@ mock-down:
         dist dist-mac dist-linux dist-win staple-dmg \
         release \
         sync-mac sync-win \
-        vendor-yaml vendor-prism vendor-markdown vendor-graphql \
+        vendor-yaml vendor-prism vendor-markdown vendor-graphql vendor-jq \
         clean help launch \
         mock-up mock-down mock-build \
         kc_start kc_wait kc_bootstrap kc_creds kc_stop kc_reset kc

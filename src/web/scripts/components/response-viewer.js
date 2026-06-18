@@ -15,7 +15,10 @@
 import renderMarkdown from "../vendor/markdown.js";
 import { escapeHtml, escapeHtmlText, escapeHtmlAttr } from "../utils/html.js";
 import { t } from "../i18n.js";
+import { Notifications } from "../notifications.js";
 import { ResponseSearch } from "./response-search.js";
+import { ResponseFilter } from "./response-filter.js";
+import { isFilterable } from "./response/body-filter.js";
 import {
   appendCodeBlock,
   fillHexDump,
@@ -335,6 +338,21 @@ export class ResponseViewer {
     isHtmlPreviewActive: () => this.#htmlPreviewActive,
   });
 
+  // Filter-the-response bar (Cmd/Ctrl+Shift+F) — transforms a styled JSON/YAML/
+  // XML body into the fields a jq / yq / XPath expression selects, re-rendered
+  // in the same view. ResponseFilter owns the bar UI; the viewer injects the
+  // eligibility check, the filtered/original renders, and the unsupported toast.
+  #filter = new ResponseFilter({
+    getFilterTarget: () => this.#filterTarget(),
+    renderFiltered: (text, category) =>
+      this.#renderFilteredText(text, category),
+    restoreOriginal: () => {
+      if (this.#lastResponse) this.#renderBodyPane(this.#lastResponse);
+    },
+    notifyUnsupported: () =>
+      Notifications.info(t("response.filter.unsupported")),
+  });
+
   // Timeline state
   // Timeline (run-history) tab — owns its own state + live timestamp ticker and
   // dispatches the hippo:timeline-* events app.js handles. The host injects the
@@ -391,8 +409,9 @@ export class ResponseViewer {
     this.#renderStatusBar();
     this.#renderTabStrip();
     this.#renderTabContent();
-    // Search bar inserted between tab-strip and tab-content.
+    // Search + filter bars inserted between tab-strip and tab-content.
     this.#search.mount(this.#el, this.#tabContent);
+    this.#filter.mount(this.#el, this.#tabContent);
 
     // Track the active request's method so the Body tab colour stays in sync,
     // and its id so concurrent lifecycle events can be routed (below).
@@ -497,7 +516,11 @@ export class ResponseViewer {
       // Cmd/Ctrl+A → select body text only (pass through when search input is focused)
       const selectAll =
         e.key === "a" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
-      if (selectAll && !this.#search.isSearchInput(e.target)) {
+      if (
+        selectAll &&
+        !this.#search.isSearchInput(e.target) &&
+        !this.#filter.isFilterInput(e.target)
+      ) {
         const pre = this.#bodyPane?.querySelector(".res-body-pre");
         if (!pre) return;
         e.preventDefault();
@@ -517,6 +540,20 @@ export class ResponseViewer {
         e.preventDefault();
         e.stopPropagation();
         this.#search.open();
+        return;
+      }
+
+      // Cmd/Ctrl+Shift+F → open filter bar (styled JSON/YAML/XML only; a
+      // shifted "F" arrives as either "f" or "F" depending on the platform)
+      const filterKey =
+        (e.key === "f" || e.key === "F") &&
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        !e.altKey;
+      if (filterKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.#filter.open();
       }
     });
 
@@ -1006,6 +1043,9 @@ export class ResponseViewer {
         detail: { responseBodyRenderMode: mode },
       }),
     );
+    // Switching render mode invalidates any active filter (the styled view it
+    // transformed is gone) — drop it before the body is rebuilt.
+    this.#filter.reset();
     // Re-render the body pane if we have a cached response
     if (this.#lastResponse) {
       this.#renderBodyPane(this.#lastResponse);
@@ -1030,6 +1070,26 @@ export class ResponseViewer {
         ([k]) => k.toLowerCase() === "content-type",
       )?.[1] ?? ""
     );
+  }
+
+  /**
+   * Eligibility probe for the filter bar: returns the original body text and
+   * its category when the current body is a *styled* JSON/YAML/XML render, or
+   * null when filtering can't apply (raw/hex view, HTML preview, binary or
+   * streamed body, or a non-filterable content type). ResponseFilter consults
+   * this both to decide whether to open and to read the body it filters.
+   *
+   * @returns {{ category: string, body: string } | null}
+   */
+  #filterTarget() {
+    const resp = this.#lastResponse;
+    if (!resp || this.#renderMode !== "styled" || this.#htmlPreviewActive) {
+      return null;
+    }
+    if (resp.streamSummary || resp.encoding === "base64") return null;
+    const category = classifyContentType(this.#contentTypeOf(resp.headers));
+    if (!isFilterable(category)) return null;
+    return { category, body: resp.body ?? "" };
   }
 
   /**
@@ -1175,7 +1235,43 @@ export class ResponseViewer {
 
     pane.appendChild(pre);
 
-    // Re-apply an active search query (the pane was just rebuilt from scratch)
+    // An active body filter owns the rendered body — re-apply it over the
+    // freshly-built original (it re-applies the find query itself). Otherwise
+    // just re-highlight an active find query (the pane was rebuilt from scratch).
+    if (!this.#filter.reapply()) this.#search.reapplyActiveSearch();
+  }
+
+  /**
+   * Render filtered body `text` (the output of a jq / yq / XPath expression)
+   * into the body pane, styled exactly like the original styled view of
+   * `category`. Used only by ResponseFilter; the original body is untouched in
+   * `#lastResponse`, so closing the filter restores it via a normal re-render.
+   *
+   * @param {string} text      the filtered body text
+   * @param {string} category  "json" | "yaml" | "xml"
+   */
+  #renderFilteredText(text, category) {
+    const pane = this.#bodyPane;
+    this.#search.clearHighlights();
+    pane.innerHTML = "";
+    pane.classList.remove("res-tab-pane--fill");
+
+    const pre = document.createElement("pre");
+    pre.className = "res-body-pre";
+    pre.tabIndex = 0;
+    if (!this.#wrapResponseText) pre.classList.add("res-body-pre--no-wrap");
+
+    const prismLang =
+      category === "json" ? "json" : category === "yaml" ? "yaml" : "markup";
+    this.#search.setFoldReveal(null);
+    renderFoldableCode(pre, text, prismLang, {
+      folding: this.#showCodeFolding,
+      lineNumbers: this.#showLineNumbers,
+      setFoldReveal: (fn) => this.#search.setFoldReveal(fn),
+    });
+    pane.appendChild(pre);
+
+    // Re-apply an active find query against the freshly-filtered text.
     this.#search.reapplyActiveSearch();
   }
 
@@ -1917,6 +2013,7 @@ export class ResponseViewer {
     this.#stream.teardownStream({ abort: true });
     this.#setPreviewTabVisible(false);
     this.#search.clearHighlights();
+    this.#filter.reset();
     this.#setStatus("", "", "", "");
     this.#statusBar.querySelector(".res-status-badge").className =
       "res-status-badge";
@@ -2019,6 +2116,8 @@ export class ResponseViewer {
     badge.className = `res-status-badge ${statusClass}`;
 
     // ── Body pane ──────────────────────────────────────────────────────────
+    // A fresh response closes any filter left open on the previous one.
+    this.#filter.reset();
     this.#renderBodyPane(this.#lastResponse);
 
     // ── Headers pane ───────────────────────────────────────────────────────

@@ -13,13 +13,14 @@
 
 ## Response viewer
 
-| Shortcut                          | Action                           |
-| --------------------------------- | -------------------------------- |
-| <kbd>⌘/Ctrl</kbd>+<kbd>F</kbd>    | Open the find-in-response bar    |
-| <kbd>Enter</kbd>                  | Next match (in the find bar)     |
-| <kbd>Shift</kbd>+<kbd>Enter</kbd> | Previous match (in the find bar) |
-| <kbd>⌘/Ctrl</kbd>+<kbd>A</kbd>    | Select the entire response body  |
-| <kbd>Esc</kbd>                    | Close the find bar               |
+| Shortcut                                        | Action                                  |
+| ----------------------------------------------- | --------------------------------------- |
+| <kbd>⌘/Ctrl</kbd>+<kbd>F</kbd>                  | Open the find-in-response bar           |
+| <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> | Open the filter bar (JSON / YAML / XML) |
+| <kbd>Enter</kbd>                                | Next match (in the find bar)            |
+| <kbd>Shift</kbd>+<kbd>Enter</kbd>               | Previous match (in the find bar)        |
+| <kbd>⌘/Ctrl</kbd>+<kbd>A</kbd>                  | Select the entire response body         |
+| <kbd>Esc</kbd>                                  | Close the find or filter bar            |
 
 ## Editors & typeahead
 

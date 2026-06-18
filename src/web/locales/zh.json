@@ -580,6 +580,18 @@
       "closeTitle": "关闭搜索 (Escape)",
       "closeAria": "关闭搜索"
     },
+    "filter": {
+      "label": "过滤",
+      "inputAria": "过滤表达式",
+      "placeholderJson": "jq 过滤器 — 例如 .items[] | select(.active)",
+      "placeholderYaml": "yq 过滤器 — 例如 .items[].name",
+      "placeholderXml": "XPath — 例如 //book/title",
+      "closeTitle": "关闭过滤 (Escape)",
+      "closeAria": "关闭过滤",
+      "unsupported": "显示的 MIME 类型或正文样式不支持过滤。",
+      "invalid": "无效的过滤表达式",
+      "error": "过滤错误：{message}"
+    },
     "truncation": {
       "previewHint": "响应过大 — 使用上方的“查看完整内容”进行预览。",
       "hexNote": "正在显示前 {shown}（共 {total}）— 使用“保存到文件”获取完整正文。",

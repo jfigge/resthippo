@@ -3267,9 +3267,12 @@ html.show-method-icons .req-method-menu-item-label::before {
 
 /*
  * Sits between .res-tab-strip and .res-tab-content.
- * Revealed by Cmd/Ctrl+F when focus is inside the response viewer.
+ * Revealed by Cmd/Ctrl+F (find) or Cmd/Ctrl+Shift+F (filter) when focus is
+ * inside the response viewer. The filter bar (.res-filter-*) reuses every find
+ * bar rule so the two render identically; only its error state is bespoke.
  */
-.res-search-bar {
+.res-search-bar,
+.res-filter-bar {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -3280,13 +3283,16 @@ html.show-method-icons .req-method-menu-item-label::before {
 }
 
 /* Explicit rule so the CSS display:flex doesn't override the hidden attribute */
-.res-search-bar[hidden] {
+.res-search-bar[hidden],
+.res-filter-bar[hidden] {
   display: none;
 }
 
-/* The tree-view filter bar (.tree-filter-*) reuses these rules so its label,
-   input, and close button render exactly like the response find bar. */
+/* The tree-view filter bar (.tree-filter-*) and the response filter bar
+   (.res-filter-*) reuse these rules so their label, input, and close button
+   render exactly like the response find bar. */
 .res-search-label,
+.res-filter-label,
 .tree-filter-label {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -3298,6 +3304,7 @@ html.show-method-icons .req-method-menu-item-label::before {
 }
 
 .res-search-input,
+.res-filter-input,
 .tree-search {
   flex: 1;
   min-width: 0;
@@ -3313,17 +3320,27 @@ html.show-method-icons .req-method-menu-item-label::before {
 }
 
 .res-search-input:focus,
+.res-filter-input:focus,
 .tree-search:focus {
   outline: none;
   border-color: var(--color-accent);
 }
 
 .res-search-input::placeholder,
+.res-filter-input::placeholder,
 .tree-search::placeholder {
   color: var(--color-overlay-0);
 }
 
-.res-search-actions {
+/* Invalid jq / yq / XPath expression — the original body stays on screen and
+   the input border turns red (the error detail is on the input's tooltip). */
+.res-filter-input--error,
+.res-filter-input--error:focus {
+  border-color: var(--color-error);
+}
+
+.res-search-actions,
+.res-filter-actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -3335,6 +3352,7 @@ html.show-method-icons .req-method-menu-item-label::before {
  * hovered style that all other X/close buttons in the app use (.popup-close).
  */
 .res-search-btn,
+.res-filter-btn,
 .tree-filter-close {
   display: flex;
   align-items: center;
@@ -3358,6 +3376,7 @@ html.show-method-icons .req-method-menu-item-label::before {
 }
 
 .res-search-btn:hover,
+.res-filter-btn:hover,
 .tree-filter-close:hover {
   background-color: var(--color-surface-1);
   color: var(--color-text);
@@ -3375,11 +3394,13 @@ html.show-method-icons .req-method-menu-item-label::before {
 }
 
 .res-search-close-btn,
+.res-filter-close-btn,
 .tree-filter-close {
   font-size: var(--font-size-xl);
 }
 /* Close (✕) button — turns red on hover, like .popup-close */
 .res-search-close-btn:hover,
+.res-filter-close-btn:hover,
 .tree-filter-close:hover {
   background-color: var(--color-surface-1);
   color: var(--color-error);

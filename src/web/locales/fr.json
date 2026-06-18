@@ -583,6 +583,18 @@
       "closeTitle": "Fermer la recherche (Escape)",
       "closeAria": "Fermer la recherche"
     },
+    "filter": {
+      "label": "Filtrer",
+      "inputAria": "Expression de filtre",
+      "placeholderJson": "Filtre jq — p. ex. .items[] | select(.active)",
+      "placeholderYaml": "Filtre yq — p. ex. .items[].name",
+      "placeholderXml": "XPath — p. ex. //book/title",
+      "closeTitle": "Fermer le filtre (Escape)",
+      "closeAria": "Fermer le filtre",
+      "unsupported": "Le type MIME ou le style de corps affiché ne prend pas en charge le filtrage.",
+      "invalid": "Expression de filtre non valide",
+      "error": "Erreur de filtre : {message}"
+    },
     "truncation": {
       "previewHint": "Réponse volumineuse — utilisez « Afficher en entier » ci-dessus pour l'aperçu.",
       "hexNote": "Affichage des {shown} premiers sur {total} — utilisez « Enregistrer dans un fichier » pour le corps complet.",
