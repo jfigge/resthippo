@@ -84,8 +84,8 @@ Set how many runs each request keeps in its
 
 ## Layouts
 
-The **layout picker** (the ▦ button in the header) rearranges the three panels
-into four configurations:
+The **layout picker** in **Appearance → Layout** rearranges the three panels
+into four configurations — click a layout icon to switch:
 
 ![The layout picker](images/layout-picker.png)
 

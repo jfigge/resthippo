@@ -167,20 +167,6 @@ export class CollectionsPopup {
   }
 
   /**
-   * Open the popup and immediately begin renaming the specified collection.
-   * @param {{ collections: object[], activeCollectionId: string, bulkEditor?: boolean }} state
-   * @param {string} collectionId
-   */
-  openWithRename(
-    { collections, activeCollectionId, bulkEditor },
-    collectionId = activeCollectionId,
-  ) {
-    this.open({ collections, activeCollectionId, bulkEditor });
-    const coll = this.#collections.find((e) => e.id === collectionId);
-    if (coll) this.#startRename(coll);
-  }
-
-  /**
    * Open the popup seeded with the current app state.
    * @param {{ collections: object[], activeCollectionId: string, bulkEditor?: boolean }} state
    */

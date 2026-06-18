@@ -19,6 +19,7 @@
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
 import { wrapSecretField } from "./secret-field.js";
+import { LAYOUT_ICONS } from "./layout-icons.js";
 import { t, LOCALE_OPTIONS } from "../i18n.js";
 
 export class SettingsPopup {
@@ -154,6 +155,27 @@ export class SettingsPopup {
                 <option value="ubuntu">Ubuntu (Linux)</option>
                 <option value="roboto">Roboto</option>
               </select>
+            </div>
+
+            <div class="settings-row">
+              <span class="settings-label" id="setting-layout-label">${t("settings.appearance.layout")}</span>
+              <div class="settings-layout-picker" role="radiogroup" aria-labelledby="setting-layout-label">
+                ${[1, 2, 3, 4]
+                  .map(
+                    (n) => `
+                <button
+                  type="button"
+                  class="settings-layout-option"
+                  role="radio"
+                  aria-checked="false"
+                  tabindex="-1"
+                  data-layout="${n}"
+                  title="${t("layout.option." + n)}"
+                  aria-label="${t("layout.option." + n)}"
+                >${LAYOUT_ICONS[n]}</button>`,
+                  )
+                  .join("")}
+              </div>
             </div>
 
             <div class="settings-row settings-row--toggle" id="setting-remove-headers-row">
@@ -479,6 +501,40 @@ export class SettingsPopup {
         return;
       control.addEventListener("change", () => this.#emitChange());
     });
+
+    // Layout picker — a radiogroup of icon buttons. Clicking (or arrowing onto)
+    // an option marks it and emits the change, so the layout applies live like
+    // every other setting (app.js's settings handler calls applyLayout).
+    const layoutGroup = this.#el.querySelector(".settings-layout-picker");
+    const layoutOpts = [
+      ...layoutGroup.querySelectorAll(".settings-layout-option"),
+    ];
+    layoutOpts.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        this.#selectLayout(parseInt(btn.dataset.layout, 10));
+        this.#emitChange();
+      });
+    });
+    // Roving-tabindex keyboard model: arrows / Home / End move and select.
+    layoutGroup.addEventListener("keydown", (e) => {
+      const cur = layoutOpts.indexOf(
+        e.target.closest(".settings-layout-option"),
+      );
+      let next = -1;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown")
+        next = Math.min(layoutOpts.length - 1, cur + 1);
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp")
+        next = Math.max(0, cur - 1);
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = layoutOpts.length - 1;
+      if (next < 0 || next === cur) return;
+      e.preventDefault();
+      this.#selectLayout(parseInt(layoutOpts[next].dataset.layout, 10), {
+        focus: true,
+      });
+      this.#emitChange();
+    });
+
     this.#el.querySelectorAll("input[type='checkbox']").forEach((control) => {
       control.addEventListener("change", () => this.#emitChange());
     });
@@ -559,6 +615,23 @@ export class SettingsPopup {
   }
 
   /**
+   * Mark layout option `n` as the selected radio: toggles the --selected class
+   * and aria-checked, and moves the single roving tab stop onto it. Pass
+   * focus:true (keyboard navigation) to also move focus there.
+   * @param {number} n  1–4
+   * @param {{ focus?: boolean }} [opts]
+   */
+  #selectLayout(n, { focus = false } = {}) {
+    this.#el.querySelectorAll(".settings-layout-option").forEach((btn) => {
+      const on = parseInt(btn.dataset.layout, 10) === n;
+      btn.classList.toggle("settings-layout-option--selected", on);
+      btn.setAttribute("aria-checked", String(on));
+      btn.tabIndex = on ? 0 : -1;
+      if (on && focus) btn.focus();
+    });
+  }
+
+  /**
    * Sync the tooltip on the "Remove headers" row to reflect the current state.
    * Checked → explains where the icon will be after checking the box.
    * Unchecked   → explains where the settings icon moves when headers are hidden.
@@ -609,6 +682,12 @@ export class SettingsPopup {
       fontSize:
         parseInt(this.#el.querySelector("#setting-font-size").value, 10) || 13,
       fontFamily: this.#el.querySelector("#setting-font-family").value,
+      layout:
+        parseInt(
+          this.#el.querySelector(".settings-layout-option--selected")?.dataset
+            .layout,
+          10,
+        ) || 2,
       removeHeaders: this.#el.querySelector("#setting-remove-headers").checked,
       methodIcons: this.#el.querySelector("#setting-method-icons").checked,
       showRecents: this.#el.querySelector("#setting-show-recents").checked,
@@ -948,6 +1027,14 @@ export class SettingsPopup {
     if (settings.fontFamily !== undefined) {
       this.#el.querySelector("#setting-font-family").value =
         settings.fontFamily;
+    }
+    // Layout — reflect the stored layout when present. Guarded like every
+    // other field: a partial load (e.g. { fontSize } from applySettings, which
+    // fires on every settings change) must NOT reset the selection. The full
+    // startup load (and open()) always carry layout, so the selected option /
+    // roving tab stop is established before the popup is ever shown.
+    if (settings.layout !== undefined) {
+      this.#selectLayout(settings.layout);
     }
     if (settings.removeHeaders !== undefined) {
       this.#el.querySelector("#setting-remove-headers").checked =

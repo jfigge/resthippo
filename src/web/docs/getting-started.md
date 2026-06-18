@@ -27,13 +27,12 @@ Rest Hippo is organized into three panels:
 3. **Response** (right) — the response status and timing, plus tabs for the
    body, headers, cookies, console, and timeline.
 
-The header holds three controls, from left to right:
+The header holds two controls, from left to right:
 
 | Control            | What it does                                                                                                                 |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | 🌐 **Environment** | Shows the active environment (e.g. `LOCAL`) and opens the [environments editor](variables-and-environments.md#environments). |
-| ▦ **Layout**       | Switches between the four [panel layouts](settings-and-themes.md#layouts).                                                   |
-| ⚙ **Settings**     | Opens [Settings](settings-and-themes.md) — theme, fonts, timeouts, proxy, and more.                                          |
+| ⚙ **Settings**     | Opens [Settings](settings-and-themes.md) — theme, fonts, the [panel layout](settings-and-themes.md#layouts), proxy, and more. |
 
 You can resize the panels by dragging the dividers between them, and Rest Hippo
 remembers the positions.

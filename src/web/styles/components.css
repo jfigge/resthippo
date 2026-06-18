@@ -79,13 +79,17 @@
   display: none;
 }
 
-/* Surface tabs: [Requests | Favorites | Recents]. Hidden until a favorite
-   exists or the Recents tab is enabled. */
+/* Surface tabs: [Requests | Favorites | Recents]. Styled to match the request
+   tab strip (.req-tab-strip / .req-tab-btn): content-sized tabs (not elastic),
+   left-aligned, with the strip scrolling horizontally if a narrow nav can't fit
+   them. Hidden until a favorite exists or the Recents tab is enabled. */
 .tree-tabs {
   display: flex;
-  align-items: stretch;
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-mantle);
+  flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .tree-tabs[hidden] {
@@ -93,15 +97,11 @@
 }
 
 .tree-tab {
-  flex: 1;
-  padding: var(--space-2) var(--space-3);
-  border: none;
+  padding: var(--space-3) var(--space-4);
   border-bottom: 2px solid transparent;
-  background: transparent;
   color: var(--color-subtext);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
   transition:
     color var(--transition-fast),
     border-color var(--transition-fast);
@@ -5549,134 +5549,61 @@ input[type="checkbox"]:disabled {
   text-align: center;
 }
 
-/* ── Layout picker (.layout-picker__*) ────────────────────────────────────── */
-
-/* Trigger — styled like .req-method-select */
-.layout-picker-trigger {
+/* ── Layout picker (Settings → Appearance · .settings-layout-*) ───────────────
+   A row of selectable layout-arrangement icons inside the settings dialog. The
+   label sits left (.settings-label, flex:1) and these icons trail to the right.
+   The glyphs use fill="currentColor", so `color` alone tints them: the selected
+   option carries the accent, and hover highlights the icon under the cursor. */
+.settings-layout-picker {
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: var(--control-h-md);
-  padding: 0 6px;
+  gap: var(--space-2);
+}
+
+.settings-layout-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
   background: var(--color-surface-1);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
   color: var(--color-text);
   cursor: pointer;
-  flex-shrink: 0;
+  line-height: 0;
   transition:
     background-color var(--transition-fast),
-    border-color var(--transition-fast);
+    border-color var(--transition-fast),
+    color var(--transition-fast);
 }
 
-.layout-picker-trigger:hover {
-  background-color: var(--color-surface-2);
-  border-color: var(--color-accent);
-}
-
-.layout-picker-trigger:active {
-  background-color: var(--color-surface-2);
-}
-
-.layout-picker-icon {
-  display: flex;
-  align-items: center;
-  line-height: 0;
-}
-
-.layout-picker-icon svg {
+.settings-layout-option svg {
   width: 28px;
   height: 20px;
 }
 
-.layout-picker-chevron {
-  opacity: 0.45;
-  flex-shrink: 0;
-  width: 6px;
-  height: 4px;
-}
-
-/* Dropdown menu */
-.layout-picker-menu {
-  position: fixed;
-  z-index: 900;
-  min-width: 195px;
-  background: var(--color-surface-0);
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-menu);
-  padding: var(--space-2) 0;
-  user-select: none;
-  animation: ctxmenu-open 0.08s ease-out;
-}
-
-.layout-picker-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
-  cursor: pointer;
-  font-family: var(--font-ui);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
-}
-
-.layout-picker-item:hover {
+.settings-layout-option:hover {
   background-color: var(--color-surface-2);
+  border-color: var(--color-accent);
 }
 
-/* Keyboard focus inside the menu: highlight like hover, and pull the global
-   focus ring inward so it is not clipped by the menu's rounded edge. */
-.layout-picker-item:focus-visible {
-  background-color: var(--color-surface-2);
+.settings-layout-option:focus-visible {
   outline-offset: -2px;
 }
 
-.layout-picker-item--selected {
+.settings-layout-option--selected {
+  background-color: var(--color-surface-2);
+  border-color: var(--color-accent);
   color: var(--color-accent);
-}
-
-/* Checkmark column — always the same width so icons stay aligned */
-.layout-picker-item-check {
-  width: 14px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  color: var(--color-accent);
-}
-
-.layout-picker-item-check svg {
-  display: none;
-}
-
-.layout-picker-item--selected .layout-picker-item-check svg {
-  display: block;
-}
-
-.layout-picker-item-icon {
-  display: flex;
-  align-items: center;
-  line-height: 0;
-  flex-shrink: 0;
-}
-
-.layout-picker-item-icon svg {
-  width: 36px;
-  height: 25px;
-}
-
-.layout-picker-item-label {
-  font-size: var(--font-size-sm);
-  white-space: nowrap;
 }
 
 /* ── Environment & collection pickers (.env-picker-* / .coll-picker-*) ─────────
-   Twin pill triggers (icon + label) that open the environments / collections
-   editors. They must read as a matched pair, so the shared trigger / hover /
-   icon / label rules are grouped here — keep them grouped so the two never
-   visually drift. The .env-picker-trigger--active accent is env-only (a
-   collection is always active, so there's no inactive state to signal). */
+   Two trigger buttons that open the environments / collections editors. The
+   environment picker is an icon+label pill; the collection picker is icon-only
+   (its active collection name is the tooltip — see the square override below).
+   They share the trigger / hover / icon base so they read as a related cluster;
+   the .env-picker-trigger--active accent is env-only (a collection is always
+   active, so there's no inactive state to signal). */
 
 .env-picker-trigger,
 .coll-picker-trigger {
@@ -5699,6 +5626,14 @@ input[type="checkbox"]:disabled {
     border-color var(--transition-fast);
 }
 
+/* Collection picker — icon only; square the shared pill so it hugs the icon. */
+.coll-picker-trigger {
+  width: var(--control-h-md);
+  min-width: 0;
+  padding: 0;
+  justify-content: center;
+}
+
 .env-picker-trigger:hover,
 .coll-picker-trigger:hover {
   background-color: var(--color-surface-2);
@@ -5716,8 +5651,7 @@ input[type="checkbox"]:disabled {
   opacity: 0.6;
 }
 
-.env-picker-label,
-.coll-picker-label {
+.env-picker-label {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

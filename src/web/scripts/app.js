@@ -11,7 +11,6 @@
 
 "use strict";
 
-import { LayoutPicker } from "./components/layout-picker.js";
 import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
 import { applyCaptures } from "./components/captures.js";
@@ -431,14 +430,11 @@ function localizeChrome() {
   setAttrAll(".header-icon-panel", "aria-label", "header.actionsAria");
   setAttrAll("#app-main", "aria-label", "header.mainAria");
 
-  // Collections nav + its selector triggers
+  // Collections nav + its selector triggers. The trigger's title (tooltip) is
+  // owned by CollPicker#syncTrigger — it shows the active collection name — so
+  // only the action aria-label is set here.
   setAttrAll("#panel-nav", "aria-label", "header.collections");
   setText("#panel-nav .panel-title", "header.collectionPanelTitle");
-  setAttrAll(
-    "#btn-collection, #btn-collection-nav",
-    "title",
-    "header.collections",
-  );
   setAttrAll(
     "#btn-collection, #btn-collection-nav",
     "aria-label",
@@ -448,8 +444,6 @@ function localizeChrome() {
   // Toolbar triggers (header bar + nav-settings bar share these classes)
   setAttrAll(".env-picker-trigger", "title", "header.environmentTitle");
   setAttrAll(".env-picker-trigger", "aria-label", "header.environmentAria");
-  setAttrAll(".layout-picker-trigger", "title", "header.layoutAria");
-  setAttrAll(".layout-picker-trigger", "aria-label", "header.layoutAria");
   setAttrAll(
     "#btn-settings, #btn-settings-nav",
     "title",
@@ -759,7 +753,7 @@ function getAppMain() {
 /** Current pinned layout (1–4). Always set; default matches DEFAULT_SETTINGS. */
 let _currentLayout = 2;
 
-/** The floating layout+settings control group, relocated by placeRemoveHeaderControls(). */
+/** The floating settings control group, relocated by placeRemoveHeaderControls(). */
 let _ctrlGroup = null;
 
 /** The standalone environment selector, relocated by placeRemoveHeaderControls(). */
@@ -801,19 +795,17 @@ function applyLayout(layout) {
 }
 
 /**
- * Build the detached layout + settings control group element. The environment
- * selector is intentionally NOT part of this group: in "Remove headers" mode it
- * is placed independently in the tree-toolbar for every layout (see
- * buildEnvCtrl / placeRemoveHeaderControls), while this group follows the layout
- * into the response status bar / request tab strip / tree-toolbar.
+ * Build the detached settings control group element. The environment selector
+ * is intentionally NOT part of this group: in "Remove headers" mode it is
+ * placed independently in the tree-toolbar for every layout (see buildEnvCtrl /
+ * placeRemoveHeaderControls), while this group follows the layout into the
+ * response status bar / request tab strip / tree-toolbar.
  */
 function buildCtrlGroup() {
   const group = document.createElement("div");
   group.className = "header-ctrl-group";
   group.innerHTML = `
     <span class="ctrl-divider" aria-hidden="true"></span>
-    <button class="layout-picker-trigger" id="btn-layout-ctrl"
-        aria-haspopup="listbox" aria-label="${t("header.layoutAria")}" title="${t("header.layoutAria")}"></button>
     <button class="icon-btn header-icon-btn" id="btn-settings-ctrl"
         title="${t("header.settingsTitle")}" aria-label="${t("header.settingsAria")}">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
@@ -838,7 +830,7 @@ function buildCtrlGroup() {
 /**
  * Build the standalone environment selector. It is the primary env trigger and
  * is positioned by placeRemoveHeaderControls into the tree-toolbar's trailing
- * cluster. Unlike the layout+settings ctrl-group it is never bundled with them.
+ * cluster. Unlike the settings ctrl-group it is never bundled with it.
  */
 function buildEnvCtrl() {
   const btn = document.createElement("button");
@@ -852,8 +844,8 @@ function buildEnvCtrl() {
 
 /**
  * Arrange the relocatable chrome (environment selector, Collections selector,
- * and layout+settings ctrl-group) for the active layout and the "Remove
- * headers" setting.
+ * and settings ctrl-group) for the active layout and the "Remove headers"
+ * setting.
  *
  * The collection + environment selectors always live in the tree-toolbar's
  * right-aligned trailing cluster: [Collections] [Environment]. The Collections
@@ -862,16 +854,18 @@ function buildEnvCtrl() {
  * buttons stay at the left. (The nav panel-header is left empty and hidden — see
  * panels.css.)
  *
- * The layout+settings ctrl-group only relocates in Remove-headers mode, where
- * the static app-header that normally holds it is hidden; it then follows the
+ * The settings ctrl-group only relocates in Remove-headers mode, where the
+ * static app-header that normally holds it is hidden; it then follows the
  * layout:
- *   Side by side       (1) → response status bar
- *   Left/Top + stacked (2,3) → request tab strip
- *   All stacked        (4) → the tree-toolbar, right after the env selector,
- *                            extending the cluster to
- *                            [Collections][Environment][layout][settings].
- * The ctrl-group's own divider stays hidden inside the tree-toolbar, so All
- * stacked reads as one cluster.
+ *   Side by side          (1) → response status bar
+ *   Left/Top + stacked  (2,3) → request URL bar, at the far right after the Send
+ *                               group, with its leading divider acting as a
+ *                               separator between Send and the settings icon.
+ *   All stacked           (4) → the tree-toolbar, right after the env selector,
+ *                               extending the cluster to
+ *                               [Collections][Environment][settings].
+ * The ctrl-group's own divider shows in the status bar (1) and URL bar (2,3) but
+ * stays hidden inside the tree-toolbar (4), so All stacked reads as one cluster.
  */
 function placeRemoveHeaderControls(layout, removeHeaders) {
   const collBtn = document.getElementById("btn-collection");
@@ -888,15 +882,15 @@ function placeRemoveHeaderControls(layout, removeHeaders) {
     if (_envCtrl) toolbar.appendChild(_envCtrl);
   }
 
-  // The layout+settings ctrl-group only moves when the app-header is hidden;
+  // The settings ctrl-group only moves when the app-header is hidden;
   // otherwise it stays put in the static app-header.
   if (!removeHeaders) return;
 
-  // Layout + settings follow the active layout.
+  // The settings ctrl-group follows the active layout.
   let groupTarget;
   if (layout === 1) groupTarget = document.querySelector(".res-status-bar");
   else if (layout === 2 || layout === 3)
-    groupTarget = document.querySelector(".req-tab-strip");
+    groupTarget = document.querySelector(".req-url-bar");
   else groupTarget = toolbar; // All stacked → after the env selector
   groupTarget?.appendChild(_ctrlGroup);
 }
@@ -1078,12 +1072,6 @@ const envPicker = new EnvPicker({
 const collPicker = new CollPicker({
   onManage: () => collPopup.open(collPopupState()),
 });
-const layoutPicker = new LayoutPicker({
-  onSelect: (layout) => {
-    applyLayout(layout);
-    updateSettings({ layout });
-  },
-});
 let currentSettings = {};
 
 /**
@@ -1122,41 +1110,6 @@ const collPopupState = () => ({
   bulkEditor: currentSettings.varsBulkEditor ?? true,
 });
 
-/**
- * Native context menu for the collection title / collection buttons: rename the
- * active collection, or edit its variables. Reuses the CollectionsPopup (rename)
- * and VariablesPopup (variables) that the rest of the header wiring already drives.
- */
-async function _showCollContextMenu(x, y) {
-  const actions = {
-    rename: () => collPopup.openWithRename(collPopupState()),
-    variables: () => {
-      const activeColl = currentColls.collections.find(
-        (c) => c.id === currentColls.activeCollectionId,
-      );
-      if (!activeColl) return;
-      varsPopup.open({
-        scopeId: activeColl.id,
-        scopeName: activeColl.name,
-        variables: activeColl.variables ?? [],
-        bulkEditor: currentSettings.varsBulkEditor ?? true,
-      });
-    },
-  };
-
-  const clickedId = await window.hippo.ui.contextMenu.show({
-    items: [
-      { id: "rename", label: t("tree.menu.rename") },
-      { type: "separator" },
-      { id: "variables", label: t("tree.menu.variables") },
-    ],
-    x,
-    y,
-  });
-
-  if (clickedId) actions[clickedId]?.();
-}
-
 function initHeader() {
   // Brand mark (top-left) opens the native About window via the main process.
   document
@@ -1172,10 +1125,6 @@ function initHeader() {
     settingsPopup.open(currentSettings);
   });
 
-  // Layout picker — header bar + remove-headers bar
-  layoutPicker.bindTrigger(document.getElementById("btn-layout"));
-  layoutPicker.bindTrigger(document.getElementById("btn-layout-nav"));
-
   // Collection selector triggers (panel header + nav-settings bar) — bound to
   // collPicker, which renders the icon + active collection name and routes
   // clicks to onManage (open CollectionsPopup).
@@ -1188,24 +1137,9 @@ function initHeader() {
   // bound for safety.
   envPicker.bindTrigger(document.getElementById("btn-env-picker-nav"));
 
-  // Right-click on either collection selector → OS context menu
-  const _openCollCtxMenu = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    _showCollContextMenu(e.clientX, e.clientY);
-  };
-
-  document
-    .getElementById("btn-collection")
-    .addEventListener("contextmenu", _openCollCtxMenu);
-  document
-    .getElementById("btn-collection-nav")
-    .addEventListener("contextmenu", _openCollCtxMenu);
-
-  // Floating layout+settings ctrl-group — injected into the layout-appropriate
+  // Floating settings ctrl-group — injected into the layout-appropriate
   // container when "Remove headers" is active, replacing the fixed nav-settings-bar.
   _ctrlGroup = buildCtrlGroup();
-  layoutPicker.bindTrigger(_ctrlGroup.querySelector("#btn-layout-ctrl"));
   _ctrlGroup
     .querySelector("#btn-settings-ctrl")
     .addEventListener("click", () => settingsPopup.open(currentSettings));
@@ -3262,10 +3196,10 @@ function applySettings(settings) {
   if (settings.fontSize !== undefined && settingsPopup) {
     settingsPopup.load({ fontSize: settings.fontSize });
   }
-  // Panel layout — apply the pinned layout and sync the picker button state
+  // Panel layout — apply the pinned layout. The picker now lives in the
+  // settings popup, which keeps itself in sync via its own load()/open().
   if (settings.layout != null) {
     applyLayout(settings.layout);
-    layoutPicker.load(settings.layout);
   }
   // Splitter positions — restore saved pixel values into the grid variables,
   // clamping the nav width up to its minimum so older saved positions below the

@@ -417,7 +417,7 @@ body {
   .tree-node--active > .tree-node-row,
   .env-list-item--selected,
   .coll-list-item--selected,
-  .layout-picker-item--selected,
+  .settings-layout-option--selected,
   .theme-item--selected {
     outline: 2px solid Highlight;
     outline-offset: -2px;

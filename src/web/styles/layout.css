@@ -105,7 +105,8 @@
    when "Remove headers" is on (the environment selector is placed separately —
    always in the tree-toolbar; see app.js placeRemoveHeaderControls):
    Layout 1   → res-status-bar  (divider shown, group at trailing edge)
-   Layout 2/3 → req-tab-strip   (no divider, pushed right by margin-left:auto)
+   Layout 2/3 → req-url-bar     (divider shown, after the Send group at the far
+                                 right — the URL input's flex:1 pushes it there)
    Layout 4   → tree-toolbar    (after the env selector; its own divider stays
                                  hidden — the Collections button's margin-left:auto
                                  already opens the cluster) */
@@ -126,8 +127,11 @@
   flex-shrink: 0;
 }
 
-/* Show the group's divider only when it sits in the status bar (layout 1). */
-.res-status-bar .ctrl-divider {
+/* Show the group's divider when it sits in the status bar (layout 1) or the
+   request URL bar (layouts 2 and 3) — both place the group after sibling
+   content, so the divider reads as a separator before the settings icon. */
+.res-status-bar .ctrl-divider,
+.req-url-bar .ctrl-divider {
   display: block;
 }
 
@@ -135,11 +139,6 @@
    Collections button opens the cluster and carries the margin-left:auto that
    pushes the whole cluster to the trailing edge. */
 .tree-toolbar > #btn-collection {
-  margin-left: auto;
-}
-
-/* Push group to the trailing edge when inside a tab strip */
-.req-tab-strip .header-ctrl-group {
   margin-left: auto;
 }
 
