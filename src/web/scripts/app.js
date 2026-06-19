@@ -1618,7 +1618,8 @@ function installResponseHandlers() {
 
     // Post-response captures (Feature 03). Run on genuine sends only (never on a
     // history replay), independent of whether history recording is enabled. The
-    // 2xx gate and empty-rules short-circuit live inside _applyCapturesForNode.
+    // per-rule status gate and empty-rules short-circuit live inside
+    // _applyCapturesForNode / applyCaptures.
     if (!skipHistory && node?.captures?.length) {
       await _applyCapturesForNode(node, e.detail);
     }
@@ -2233,7 +2234,10 @@ function _refreshEditorVariableContext(nodeId) {
  * Run a request's capture rules against a freshly received response and write
  * the extracted values into their target variable scopes.
  *
- * Gated on a 2xx response (a failed login must not clobber a good token).
+ * Status gating is now PER RULE (each rule carries a response-code selector,
+ * defaulting to 2xx), so this runs for any response and lets `applyCaptures`
+ * decide which rules apply — e.g. capture a token on 2xx but an error body on
+ * 4xx, into different variables.
  * Persistence reuses the existing env / collection variable handlers — which
  * encrypt `secure` values, refresh the variables UI, and route write failures
  * into the Notifications.error sink — so this adds no new write path. Never
@@ -2249,7 +2253,6 @@ async function _applyCapturesForNode(node, detail) {
   const rules = node?.captures;
   if (!Array.isArray(rules) || rules.length === 0) return;
   const status = detail?.status ?? 0;
-  if (status < 200 || status >= 300) return; // 2xx-only
 
   const { writes, warnings } = applyCaptures(
     { status, headers: detail?.headers ?? {}, body: detail?.body ?? "" },

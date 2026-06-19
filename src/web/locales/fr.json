@@ -532,7 +532,20 @@
       "scopeAria": "Portée de la variable cible",
       "secretOn": "Secret (chiffré au repos)",
       "secretOff": "Marquer la variable capturée comme secrète",
-      "hint": "Après une réponse réussie (2xx), extrayez une valeur et écrivez-la dans une portée de variables pour que les requêtes suivantes puissent l'utiliser comme {{name}}."
+      "codes": "Codes",
+      "codesAria": "Déclencher sur ces codes de réponse",
+      "statusAny": "N’importe quel statut",
+      "statusAnyShort": "Tous",
+      "statusNone": "Aucun",
+      "statusG1xx": "Information",
+      "statusG2xx": "Succès",
+      "statusG3xx": "Redirection",
+      "statusG4xx": "Erreur client",
+      "statusG5xx": "Erreur serveur",
+      "statusAdd": "Ajouter un code",
+      "statusAddPlaceholder": "ex. 201",
+      "statusRemove": "Supprimer le code {code}",
+      "hint": "Après une réponse, extrayez une valeur et écrivez-la dans une portée de variables pour que les requêtes suivantes puissent l’utiliser comme {{name}}. Utilisez la colonne « Codes » pour choisir les codes de réponse qui déclenchent chaque règle — par exemple capturer un jeton sur 2xx, une erreur sur 4xx."
     },
     "curlPaste": {
       "title": "Remplacer la requête par cURL",

@@ -1,9 +1,10 @@
 /**
  * captures-editor.js — the Captures request tab (Feature 03).
  *
- * Post-response rules: after a successful (2xx) response, app.js extracts a
- * value (status / header / body dot-path) and writes it into the chosen
- * variable scope. This tab edits the rules; execution lives in app.js.
+ * Post-response rules: when a response matches a rule's response-code selector
+ * (groups / specific codes / "any"; default 2xx), app.js extracts a value
+ * (status / header / body dot-path) and writes it into the chosen variable
+ * scope. This tab edits the rules; execution lives in app.js + captures.js.
  *
  * Extracted from RequestEditor as a delegated sub-editor (same pattern as
  * GraphQLBodyEditor / RequestAuthEditor): it owns the rule list + its DOM and
@@ -20,12 +21,29 @@ import {
 import { wireDeleteConfirm } from "../../delete-confirm.js";
 import { icon } from "../../icons.js";
 import { t } from "../../i18n.js";
+import { PopupManager } from "../../popup-manager.js";
+import {
+  STATUS_GROUPS,
+  STATUS_ANY,
+  isCodeToken,
+  normalizeStatusMatch,
+} from "../status-match.js";
+
+/** i18n label key per status group token (the "Nxx" buckets). */
+const STATUS_GROUP_LABELKEY = {
+  "1xx": "request.captures.statusG1xx",
+  "2xx": "request.captures.statusG2xx",
+  "3xx": "request.captures.statusG3xx",
+  "4xx": "request.captures.statusG4xx",
+  "5xx": "request.captures.statusG5xx",
+};
 
 export class CapturesEditor {
   #onChange;
   #captures = [];
   #listEl = null;
   #deleteAllCleanup = null;
+  #statusMenu = null;
   #drag = new DragReorderController({
     getItems: () => this.#captures,
     render: () => this.#renderList(),
@@ -107,6 +125,7 @@ export class CapturesEditor {
       <span>${t("request.captures.pathName")}</span>
       <span>${t("request.captures.scope")}</span>
       <span>${t("request.captures.variable")}</span>
+      <span>${t("request.captures.codes")}</span>
       <span class="captures-col-secure">${t("request.captures.secret")}</span>
       <span class="params-col-delete"></span>`;
     wrap.appendChild(colHeaders);
@@ -238,6 +257,16 @@ export class CapturesEditor {
       this.#onChange?.();
     });
 
+    // Response-code selector — a dropdown trigger showing a short summary of the
+    // codes this rule fires on (groups + specific codes). Opening it builds the
+    // checklist menu (see #openStatusMenu).
+    const status = document.createElement("button");
+    status.type = "button";
+    status.className = "params-input captures-status";
+    const syncStatus = () => this.#applyStatusTrigger(status, rule);
+    syncStatus();
+    status.addEventListener("click", () => this.#openStatusMenu(status, rule));
+
     // Secret toggle — a padlock button matching the variable dialogs (open
     // padlock = plaintext, closed = encrypted at rest). A distinct control from
     // the enable checkbox so the two aren't confused.
@@ -276,6 +305,7 @@ export class CapturesEditor {
     row.appendChild(path);
     row.appendChild(scope);
     row.appendChild(name);
+    row.appendChild(status);
     row.appendChild(secure);
     row.appendChild(deleteBtn);
     return row;
@@ -294,6 +324,198 @@ export class CapturesEditor {
     }
     sel.value = value;
     return sel;
+  }
+
+  // ── Response-code selector ─────────────────────────────────────────────────
+
+  /** A short, column-friendly summary of a rule's status selector. */
+  #statusSummary(tokens) {
+    if (tokens.length === 0) return t("request.captures.statusNone");
+    if (tokens.includes(STATUS_ANY))
+      return t("request.captures.statusAnyShort");
+    if (tokens.length === 1) return tokens[0];
+    if (tokens.length === 2) return `${tokens[0]}, ${tokens[1]}`;
+    return `${tokens[0]} +${tokens.length - 1}`;
+  }
+
+  /** Paint a status trigger button from its rule's current selector. */
+  #applyStatusTrigger(btn, rule) {
+    const tokens = normalizeStatusMatch(rule.status);
+    const summary = this.#statusSummary(tokens);
+    btn.innerHTML = `<span class="captures-status-text">${summary}</span><span class="captures-status-caret" aria-hidden="true">${icon("chevronDown", { size: 12 })}</span>`;
+    const full = tokens.length
+      ? tokens.join(", ")
+      : t("request.captures.statusNone");
+    const label = `${t("request.captures.codesAria")}: ${full}`;
+    btn.title = label;
+    btn.setAttribute("aria-label", label);
+    if (tokens.length === 0) btn.classList.add("captures-status--empty");
+    else btn.classList.remove("captures-status--empty");
+  }
+
+  /** Open the checklist dropdown that edits a rule's status selector. */
+  #openStatusMenu(trigger, rule) {
+    // The page-covering mask normally prevents a second trigger click, but guard
+    // anyway so we never stack two menus on the single popup slot.
+    if (this.#statusMenu) return;
+
+    const menu = document.createElement("div");
+    menu.className = "captures-status-menu";
+    menu.setAttribute("role", "group");
+    menu.setAttribute("aria-label", t("request.captures.codesAria"));
+
+    // Mutate the rule, repaint the trigger + this menu, and notify the host.
+    const commit = (tokens, focusAdd = false) => {
+      rule.status = normalizeStatusMatch(tokens);
+      this.#applyStatusTrigger(trigger, rule);
+      this.#onChange?.();
+      renderMenu(focusAdd);
+    };
+
+    const renderMenu = (focusAdd = false) => {
+      const tokens = normalizeStatusMatch(rule.status);
+      const isAny = tokens.includes(STATUS_ANY);
+      const codes = tokens.filter((tok) => isCodeToken(tok));
+      menu.innerHTML = "";
+
+      // "Any status"
+      menu.appendChild(
+        this.#buildStatusOption(
+          t("request.captures.statusAny"),
+          null,
+          isAny,
+          false,
+          (on) => commit(on ? [STATUS_ANY] : []),
+        ),
+      );
+
+      const sep1 = document.createElement("div");
+      sep1.className = "captures-status-sep";
+      menu.appendChild(sep1);
+
+      // Group buckets (1xx–5xx) — disabled while "Any" is on.
+      for (const group of STATUS_GROUPS) {
+        const checked = tokens.includes(group.token);
+        menu.appendChild(
+          this.#buildStatusOption(
+            t(STATUS_GROUP_LABELKEY[group.token]),
+            group.token,
+            checked,
+            isAny,
+            (on) => {
+              const next = tokens.filter(
+                (tok) => tok !== group.token && tok !== STATUS_ANY,
+              );
+              if (on) next.push(group.token);
+              commit(next);
+            },
+          ),
+        );
+      }
+
+      const sep2 = document.createElement("div");
+      sep2.className = "captures-status-sep";
+      menu.appendChild(sep2);
+
+      // Specific-code chips.
+      if (codes.length) {
+        const chips = document.createElement("div");
+        chips.className = "captures-status-chips";
+        for (const code of codes) {
+          const chip = document.createElement("span");
+          chip.className = "captures-status-chip";
+          const text = document.createElement("span");
+          text.textContent = code;
+          const rm = document.createElement("button");
+          rm.type = "button";
+          rm.className = "captures-status-chip-remove";
+          rm.innerHTML = icon("close", { size: 10 });
+          const rmLabel = t("request.captures.statusRemove", { code });
+          rm.title = rmLabel;
+          rm.setAttribute("aria-label", rmLabel);
+          rm.addEventListener("click", () =>
+            commit(tokens.filter((tok) => tok !== code)),
+          );
+          chip.appendChild(text);
+          chip.appendChild(rm);
+          chips.appendChild(chip);
+        }
+        menu.appendChild(chips);
+      }
+
+      // Add-a-code row — disabled while "Any" is on.
+      const addRow = document.createElement("div");
+      addRow.className = "captures-status-add";
+      const addInput = document.createElement("input");
+      addInput.type = "text";
+      addInput.inputMode = "numeric";
+      addInput.maxLength = 3;
+      addInput.className = "params-input captures-status-add-input";
+      addInput.placeholder = t("request.captures.statusAddPlaceholder");
+      addInput.setAttribute("aria-label", t("request.captures.statusAdd"));
+      addInput.disabled = isAny;
+      const addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "icon-btn captures-status-add-btn";
+      addBtn.title = t("request.captures.statusAdd");
+      addBtn.setAttribute("aria-label", t("request.captures.statusAdd"));
+      addBtn.innerHTML = `<span class="icon">${icon("add", { size: 13 })}</span>`;
+      addBtn.disabled = isAny;
+      const addCode = () => {
+        const code = addInput.value.trim();
+        if (!isCodeToken(code)) return;
+        commit([...tokens.filter((tok) => tok !== STATUS_ANY), code], true);
+      };
+      addInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          addCode();
+        }
+      });
+      addBtn.addEventListener("click", addCode);
+      addRow.appendChild(addInput);
+      addRow.appendChild(addBtn);
+      menu.appendChild(addRow);
+
+      if (focusAdd && !isAny) addInput.focus();
+    };
+
+    renderMenu();
+
+    const rect = trigger.getBoundingClientRect();
+    PopupManager.openMenu(menu, rect.left, rect.bottom + 4);
+    this.#statusMenu = menu;
+    window.addEventListener(
+      "hippo:popup-closed",
+      () => {
+        this.#statusMenu = null;
+      },
+      { once: true },
+    );
+  }
+
+  /** A single checkbox row in the status dropdown. */
+  #buildStatusOption(label, code, checked, disabled, onToggle) {
+    const row = document.createElement("label");
+    row.className = "captures-status-opt";
+    if (disabled) row.classList.add("captures-status-opt--disabled");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = checked;
+    box.disabled = disabled;
+    box.addEventListener("change", () => onToggle(box.checked));
+    const text = document.createElement("span");
+    text.className = "captures-status-opt-label";
+    if (code) {
+      const codeEl = document.createElement("span");
+      codeEl.className = "captures-status-opt-code";
+      codeEl.textContent = code;
+      text.appendChild(codeEl);
+    }
+    text.appendChild(document.createTextNode(label));
+    row.appendChild(box);
+    row.appendChild(text);
+    return row;
   }
 
   #add() {
@@ -327,6 +549,8 @@ export class CapturesEditor {
         name: r.target?.name ?? "",
       },
       secure: !!r.secure,
+      // Response-code selector; absent → 2xx (preserves pre-feature behaviour).
+      status: normalizeStatusMatch(r.status),
     };
   }
 }

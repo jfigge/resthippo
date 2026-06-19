@@ -532,7 +532,20 @@
       "scopeAria": "Ámbito de la variable de destino",
       "secretOn": "Secreto (cifrado en reposo)",
       "secretOff": "Marcar la variable capturada como secreta",
-      "hint": "Tras una respuesta correcta (2xx), extrae un valor y escríbelo en un ámbito de variables para que las solicitudes posteriores puedan usarlo como {{name}}."
+      "codes": "Códigos",
+      "codesAria": "Activar con estos códigos de respuesta",
+      "statusAny": "Cualquier estado",
+      "statusAnyShort": "Cualquiera",
+      "statusNone": "Ninguno",
+      "statusG1xx": "Informativo",
+      "statusG2xx": "Éxito",
+      "statusG3xx": "Redirección",
+      "statusG4xx": "Error de cliente",
+      "statusG5xx": "Error de servidor",
+      "statusAdd": "Añadir código",
+      "statusAddPlaceholder": "p. ej. 201",
+      "statusRemove": "Quitar el código {code}",
+      "hint": "Tras una respuesta, extrae un valor y escríbelo en un ámbito de variables para que las solicitudes posteriores puedan usarlo como {{name}}. Usa la columna «Códigos» para elegir con qué códigos de respuesta se activa cada regla, p. ej. capturar un token con 2xx y un error con 4xx."
     },
     "curlPaste": {
       "title": "Reemplazar la petición desde cURL",

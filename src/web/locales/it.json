@@ -532,7 +532,20 @@
       "scopeAria": "Ambito della variabile di destinazione",
       "secretOn": "Segreto (cifrato a riposo)",
       "secretOff": "Contrassegna la variabile acquisita come segreta",
-      "hint": "Dopo una risposta riuscita (2xx), estrai un valore e scrivilo in un ambito di variabili così che le richieste successive possano usarlo come {{name}}."
+      "codes": "Codici",
+      "codesAria": "Attiva con questi codici di risposta",
+      "statusAny": "Qualsiasi stato",
+      "statusAnyShort": "Tutti",
+      "statusNone": "Nessuno",
+      "statusG1xx": "Informativo",
+      "statusG2xx": "Successo",
+      "statusG3xx": "Reindirizzamento",
+      "statusG4xx": "Errore client",
+      "statusG5xx": "Errore server",
+      "statusAdd": "Aggiungi codice",
+      "statusAddPlaceholder": "es. 201",
+      "statusRemove": "Rimuovi il codice {code}",
+      "hint": "Dopo una risposta, estrai un valore e scrivilo in un ambito di variabili così che le richieste successive possano usarlo come {{name}}. Usa la colonna «Codici» per scegliere su quali codici di risposta si attiva ogni regola, ad es. acquisire un token su 2xx e un errore su 4xx."
     },
     "curlPaste": {
       "title": "Sostituisci la richiesta da cURL",

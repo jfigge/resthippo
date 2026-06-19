@@ -529,7 +529,20 @@
       "scopeAria": "対象変数のスコープ",
       "secretOn": "シークレット（保存時に暗号化）",
       "secretOff": "キャプチャした変数をシークレットに設定",
-      "hint": "成功した (2xx) レスポンスの後に値を抽出して変数スコープに書き込むと、以降のリクエストで {{name}} として使用できます。"
+      "codes": "コード",
+      "codesAria": "これらのレスポンスコードで実行",
+      "statusAny": "任意のステータス",
+      "statusAnyShort": "すべて",
+      "statusNone": "なし",
+      "statusG1xx": "情報",
+      "statusG2xx": "成功",
+      "statusG3xx": "リダイレクト",
+      "statusG4xx": "クライアントエラー",
+      "statusG5xx": "サーバーエラー",
+      "statusAdd": "コードを追加",
+      "statusAddPlaceholder": "例: 201",
+      "statusRemove": "コード {code} を削除",
+      "hint": "レスポンスの後に値を抽出して変数スコープに書き込むと、以降のリクエストで {{name}} として使用できます。「コード」列で各ルールがどのレスポンスコードで実行されるかを選べます（例: 2xx でトークン、4xx でエラーを取得）。"
     },
     "curlPaste": {
       "title": "cURL でリクエストを置き換え",

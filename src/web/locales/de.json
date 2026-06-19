@@ -532,7 +532,20 @@
       "scopeAria": "Bereich der Zielvariablen",
       "secretOn": "Geheim (verschlüsselt gespeichert)",
       "secretOff": "Erfasste Variable als geheim markieren",
-      "hint": "Extrahiere nach einer erfolgreichen (2xx) Antwort einen Wert und schreibe ihn in einen Variablen-Scope, damit spätere Requests ihn als {{name}} verwenden können."
+      "codes": "Codes",
+      "codesAria": "Bei diesen Antwortcodes auslösen",
+      "statusAny": "Beliebiger Status",
+      "statusAnyShort": "Alle",
+      "statusNone": "Keine",
+      "statusG1xx": "Information",
+      "statusG2xx": "Erfolg",
+      "statusG3xx": "Umleitung",
+      "statusG4xx": "Client-Fehler",
+      "statusG5xx": "Serverfehler",
+      "statusAdd": "Code hinzufügen",
+      "statusAddPlaceholder": "z. B. 201",
+      "statusRemove": "Code {code} entfernen",
+      "hint": "Extrahiere nach einer Antwort einen Wert und schreibe ihn in einen Variablen-Scope, damit spätere Requests ihn als {{name}} verwenden können. Wähle in der Spalte „Codes“, bei welchen Antwortcodes jede Regel ausgelöst wird – z. B. ein Token bei 2xx, ein Fehler bei 4xx."
     },
     "curlPaste": {
       "title": "Anfrage aus cURL ersetzen",

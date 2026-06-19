@@ -102,7 +102,7 @@ const RULES = [
   // leading lowercase id arg (`mkTab("requests", "Requests")`), capital-start
   // keeps it to genuine labels.
   makeRe(
-    `(?:mkTab|buildToolbarToggle|#buildAuthPillField|#buildAuthFieldSelect|#buildAuthScopeField|#appendDetailSection|#buildCaptureSelect)\\([^)]*?`,
+    `(?:mkTab|buildToolbarToggle|#buildAuthPillField|#buildAuthFieldSelect|#buildAuthScopeField|#appendDetailSection|#buildCaptureSelect|#buildStatusOption)\\([^)]*?`,
     "A-Z",
   ),
 ];

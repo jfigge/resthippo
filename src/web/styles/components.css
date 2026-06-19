@@ -1633,12 +1633,13 @@ html.show-method-icons .req-method-menu-item-label::before {
 }
 
 /* Captures editor (Feature 03) — reuses the params grid scaffolding but with a
-   wider column set: handle | enabled | source | path | scope | name | secret | delete. */
+   wider column set: handle | enabled | source | path | scope | name | codes |
+   secret | delete. */
 .captures-header-row.params-header-row,
 .captures-row.params-row {
   grid-template-columns:
-    24px 28px minmax(78px, 0.7fr) minmax(110px, 1.3fr)
-    minmax(104px, 0.9fr) minmax(110px, 1.3fr) 56px 28px;
+    24px 28px minmax(74px, 0.65fr) minmax(104px, 1.2fr)
+    minmax(98px, 0.85fr) minmax(104px, 1.2fr) minmax(72px, 0.7fr) 56px 28px;
 }
 
 .captures-col-secure {
@@ -1652,6 +1653,140 @@ html.show-method-icons .req-method-menu-item-label::before {
 .captures-source,
 .captures-scope {
   cursor: pointer;
+}
+
+/* Response-code selector trigger — a select-like button showing the summary. */
+.captures-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+}
+
+.captures-status-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.captures-status-caret {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--color-overlay-1);
+}
+
+.captures-status--empty .captures-status-text {
+  color: var(--color-overlay-0);
+}
+
+/* The dropdown menu opened by the status trigger (mounted via openMenu). */
+.captures-status-menu {
+  position: fixed;
+  z-index: 900;
+  width: max-content;
+  min-width: 180px;
+  max-width: 260px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  padding: var(--space-2);
+  user-select: none;
+  animation: ctxmenu-open 0.08s ease-out;
+}
+
+.captures-status-opt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.captures-status-opt:hover {
+  background: var(--color-surface-2);
+}
+
+.captures-status-opt--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.captures-status-opt-label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.captures-status-opt-code {
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-1);
+}
+
+.captures-status-sep {
+  height: 1px;
+  background: var(--color-surface-2);
+  margin: var(--space-2) var(--space-1);
+}
+
+.captures-status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2) var(--space-2);
+}
+
+.captures-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-1) 2px var(--space-2);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text);
+}
+
+.captures-status-chip-remove {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-overlay-1);
+  cursor: pointer;
+}
+
+.captures-status-chip-remove:hover {
+  color: var(--color-text);
+}
+
+.captures-status-add {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2) 0;
+}
+
+.captures-status-add-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.captures-status-add-btn:disabled,
+.captures-status-add-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .captures-hint {

@@ -529,7 +529,20 @@
       "scopeAria": "目标变量作用域",
       "secretOn": "机密（静态加密）",
       "secretOff": "将捕获的变量标记为机密",
-      "hint": "在收到成功（2xx）响应后，提取一个值并写入变量作用域，以便后续请求可将其用作 {{name}}。"
+      "codes": "状态码",
+      "codesAria": "在这些响应码时触发",
+      "statusAny": "任意状态",
+      "statusAnyShort": "任意",
+      "statusNone": "无",
+      "statusG1xx": "信息",
+      "statusG2xx": "成功",
+      "statusG3xx": "重定向",
+      "statusG4xx": "客户端错误",
+      "statusG5xx": "服务器错误",
+      "statusAdd": "添加状态码",
+      "statusAddPlaceholder": "例如 201",
+      "statusRemove": "移除状态码 {code}",
+      "hint": "在收到响应后，提取一个值并写入变量作用域，以便后续请求可将其用作 {{name}}。使用“状态码”列选择每条规则在哪些响应码时触发——例如在 2xx 时捕获令牌，在 4xx 时捕获错误。"
     },
     "curlPaste": {
       "title": "用 cURL 替换请求",

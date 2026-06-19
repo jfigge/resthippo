@@ -532,7 +532,20 @@
       "scopeAria": "Target variable scope",
       "secretOn": "Secret (encrypted at rest)",
       "secretOff": "Mark captured variable secret",
-      "hint": "After a successful (2xx) response, extract a value and write it into a variable scope so later requests can use it as {{name}}."
+      "codes": "Codes",
+      "codesAria": "Fire on these response codes",
+      "statusAny": "Any status",
+      "statusAnyShort": "Any",
+      "statusNone": "None",
+      "statusG1xx": "Informational",
+      "statusG2xx": "Success",
+      "statusG3xx": "Redirection",
+      "statusG4xx": "Client Error",
+      "statusG5xx": "Server Error",
+      "statusAdd": "Add code",
+      "statusAddPlaceholder": "e.g. 201",
+      "statusRemove": "Remove code {code}",
+      "hint": "After a response, extract a value and write it into a variable scope so later requests can use it as {{name}}. Use the Codes column to pick which response codes each rule fires on — e.g. capture a token on 2xx, an error on 4xx."
     },
     "curlPaste": {
       "title": "Replace request from cURL",

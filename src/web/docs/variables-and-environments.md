@@ -96,11 +96,34 @@ Each capture rule has:
 | **Path / Name** | For Body, a dot-path like `.data.token`; for Header, the header name   |
 | **Scope**       | Where to write: **Environment**, **Collection**, or **Global**         |
 | **Variable**    | The variable name to write                                             |
+| **Codes**       | Which response codes the rule fires on (see below)                     |
 | **Secret**      | Mark the captured value secure (encrypted, masked)                     |
 
-Captures run after any successful (2xx) response. Rest Hippo shows a small toast
-confirming what was written (e.g. _Captured 1 variable → env.token_), and the
-response status bar shows a **captured** badge.
+For the **Body** source the same dot-path (`.data.token`, `.items.[0].id`)
+works whether the response is **JSON**, **YAML**, or **XML** — the body is
+parsed automatically and the path is walked over it. XML is addressed from its
+root element (e.g. `<auth><token>…</token></auth>` → `.auth.token`), and
+repeated tags become an indexable list (`.list.item.[0]`). A body that isn't one
+of those formats, or a path that finds nothing, is reported as a warning and
+captures nothing.
+
+### Choosing which response codes a rule fires on
+
+Each rule has its own **Codes** selector — click it to open a checklist where you
+can tick whole status **groups** (`1xx`–`5xx`), choose **Any status**, or type
+**specific codes** (e.g. `201`, `404`) that appear as removable chips. A rule
+runs only when the response status matches its selector, so a single request can
+capture different values into different variables depending on the outcome — for
+example capture the access token from a `2xx` body into `token`, but capture the
+error message from a `4xx` body into `lastError`.
+
+New rules default to **2xx**, so captures keep firing only on success unless you
+opt a rule into other codes. When a value can't be found (missing field, empty
+body) the rule is reported as a warning and never overwrites a good value with an
+empty one.
+
+Rest Hippo shows a small toast confirming what was written (e.g. _Captured 1
+variable → env.token_), and the response status bar shows a **captured** badge.
 
 ---
 

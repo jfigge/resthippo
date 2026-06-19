@@ -1,6 +1,8 @@
 "use strict";
 
-import { extractJsonPath } from "./json-path.js";
+import { queryDataPath } from "./json-path.js";
+import { normalizeStatusMatch, statusMatches } from "./status-match.js";
+import { parse as parseYaml } from "../vendor/yaml.js";
 
 /**
  * captures.js — Post-response capture evaluation (Feature 03).
@@ -8,16 +10,24 @@ import { extractJsonPath } from "./json-path.js";
  * `applyCaptures` is a PURE function: given a response and a request's capture
  * rules, it returns the variable writes to perform plus any rules that resolved
  * to nothing. It performs:
- *   - NO status gating — the caller decides when to run it (the interactive path
- *     and the future collection runner both gate on a 2xx response).
+ *   - Per-rule status gating — each rule carries a `status` selector (group /
+ *     exact codes / "any"); a rule is evaluated only when the response code
+ *     matches it. A rule whose status doesn't match is skipped silently (no
+ *     write, no warning) — it simply doesn't apply to this response. This is
+ *     what lets one request capture different values on success vs. error.
  *   - NO persistence — the caller routes each write to the appropriate variable
  *     scope store. Keeping this pure makes it trivially unit-testable.
  *
  * Capture rule shape:
- *   { id, enabled, source, path, target: { scope, name }, secure }
- *     source       ∈ "body" (jq dot-path) | "header" (name) | "status"
+ *   { id, enabled, source, path, target: { scope, name }, secure, status }
+ *     source       ∈ "body" | "header" (name) | "status"
+ *                    A "body" rule walks a dot-path (.a.b.[0]) over the parsed
+ *                    body; the body may be JSON, YAML, or XML — anything else is
+ *                    reported as "no value", never captured.
  *     target.scope ∈ "environment" | "collection" | "global"
  *     secure       — mark the written variable secret (encrypted at rest)
+ *     status       — string[] of selector tokens ("any" | "2xx" | "404" | …);
+ *                    an absent selector defaults to ["2xx"] (back-compat).
  *
  * Secret-safe: the returned `warnings` carry only names/scopes, never values, so
  * callers can surface them without leaking a `secure` capture's contents.
@@ -45,6 +55,9 @@ export function applyCaptures(response, rules) {
 
   for (const rule of rules) {
     if (!rule || rule.enabled === false) continue;
+
+    // Per-rule status gate: skip rules whose selector doesn't cover this code.
+    if (!statusMatches(status, normalizeStatusMatch(rule.status))) continue;
 
     const name = String(rule.target?.name ?? "").trim();
     if (!name) continue; // no destination — nothing to write
@@ -78,17 +91,105 @@ function _extract(rule, { status, headers, body }) {
     }
 
     default: {
-      // body — dot-path extraction over JSON; tolerate non-JSON and missing
-      // paths (both surface as a warning rather than a throw).
+      // body — dot-path extraction over a JSON, YAML, or XML body. A body in
+      // none of those formats (or a missing path) surfaces as a warning, never a
+      // throw.
       const path = String(rule.path ?? "").trim() || ".";
+      const data = _parseBody(body);
+      if (data === undefined) return undefined; // not JSON / YAML / XML
       try {
-        // extractJsonPath returns null for paths outside the simple subset and
-        // "" for an empty body / missing path; both count as "no value".
-        const extracted = extractJsonPath(body, path);
+        // queryDataPath returns null for paths outside the simple subset and ""
+        // for a missing path; both count as "no value".
+        const extracted = queryDataPath(data, path);
         return extracted === null || extracted === "" ? undefined : extracted;
       } catch {
         return undefined;
       }
     }
   }
+}
+
+/**
+ * Parse a response body into a value the dot-path can walk. Tries, in order:
+ *   1. strict JSON (fast and exact — preserves the original JSON behaviour),
+ *   2. XML, when the body opens with "<" (renderer-only; absent under bare node,
+ *      where step 3 covers it),
+ *   3. YAML (a JSON superset, so this also tolerates JSON-ish input).
+ * Returns `undefined` for an empty body or one that is none of those formats.
+ *
+ * @param {string} body
+ * @returns {*}
+ */
+function _parseBody(body) {
+  const text = typeof body === "string" ? body : "";
+  if (!text.trim()) return undefined;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    // not strict JSON — fall through
+  }
+
+  if (text.trim().startsWith("<") && typeof DOMParser !== "undefined") {
+    return _parseXml(text);
+  }
+
+  try {
+    return parseYaml(text);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Parse an XML body to the same shape the dot-path walks for JSON/YAML, rooted
+ * at the document element's tag (so `<user><id>1</id></user>` is addressed as
+ * `.user.id`). Returns `undefined` for malformed XML.
+ *
+ * @param {string} text
+ * @returns {object | undefined}
+ */
+function _parseXml(text) {
+  try {
+    const doc = new DOMParser().parseFromString(text, "application/xml");
+    // A parse failure yields a <parsererror> element rather than throwing.
+    if (doc.querySelector("parsererror")) return undefined;
+    const root = doc.documentElement;
+    if (!root) return undefined;
+    const out = Object.create(null);
+    out[root.tagName] = _xmlToValue(root);
+    return out;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Convert an XML element into a plain value:
+ *   - a leaf element → its trimmed text content,
+ *   - an element with child elements → an object keyed by child tag name,
+ *   - repeated child tags → an array, addressable as `.tag.[0]`.
+ * Attributes and namespaces are not represented — the simple dot-path subset
+ * (`.name`) can't address them. A null-prototype object avoids any chance of a
+ * crafted tag name (`__proto__`) polluting Object.prototype.
+ *
+ * @param {Element} el
+ * @returns {string | object}
+ */
+function _xmlToValue(el) {
+  const children = Array.from(el.children);
+  if (children.length === 0) return el.textContent.trim();
+
+  const obj = Object.create(null);
+  for (const child of children) {
+    const key = child.tagName;
+    const val = _xmlToValue(child);
+    if (key in obj) {
+      if (Array.isArray(obj[key])) obj[key].push(val);
+      else obj[key] = [obj[key], val];
+    } else {
+      obj[key] = val;
+    }
+  }
+  return obj;
 }
