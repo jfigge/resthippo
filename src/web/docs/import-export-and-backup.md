@@ -5,8 +5,11 @@
 Rest Hippo can exchange collections with other tools and back up your entire
 workspace. There are two separate features:
 
-- **Import / Export** moves _collections_ in and out using standard interchange
-  formats. Secrets are **redacted**.
+- **Import / Export** moves _collections_ in and out. The native **Rest Hippo
+  v1** format is a lossless, full-fidelity archive (secrets kept,
+  password-protected) that restores in place; the standard interchange formats
+  (Postman, Insomnia, OpenAPI, HAR) are for sharing with other tools and
+  **redact** secrets.
 - **Backup / Restore** snapshots your _whole workspace_ — collections,
   environments, and settings — with a choice of how to handle secrets.
 
@@ -19,21 +22,54 @@ everything at once:
 
 Choose a format:
 
-| Format           | Notes                                                           |
-| ---------------- | --------------------------------------------------------------- |
-| **Postman v2.1** | Postman collection. Re-imports into Postman and back into Rest Hippo. |
-| **Insomnia v4**  | Insomnia export. Re-imports into Insomnia and back into Rest Hippo.   |
-| **OpenAPI 3**    | A best-effort, lossy OpenAPI 3.0 description of the requests.   |
-| **HAR 1.2**      | Recorded request/response exchanges from recent runs.           |
+| Format            | Notes                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------ |
+| **Rest Hippo v1** | Native, lossless archive. Restores everything exactly — including environments. Re-imports only into Rest Hippo. |
+| **Postman v2.1**  | Postman collection. Re-imports into Postman and back into Rest Hippo.                                   |
+| **Insomnia v4**   | Insomnia export. Re-imports into Insomnia and back into Rest Hippo.                                     |
+| **OpenAPI 3**     | A best-effort, lossy OpenAPI 3.0 description of the requests.                                           |
+| **HAR 1.2**       | Recorded request/response exchanges from recent runs.                                                  |
 
-Secrets — passwords, tokens, and keys — are **redacted** in every export format,
-so exports are safe to share. Rest Hippo then opens a native save dialog.
+In the **interchange** formats (Postman, Insomnia, OpenAPI, HAR), secrets —
+passwords, tokens, and keys — are **redacted**, so those exports are safe to
+share. Rest Hippo then opens a native save dialog.
+
+### The native Rest Hippo format
+
+**Rest Hippo v1** is a full-fidelity archive meant for round-tripping your own
+work — moving a collection between machines, or snapshotting it before a big
+edit. Unlike the interchange formats, it keeps **everything** about the exported
+requests: method, URL, query and path params, headers, the full **Auth**
+configuration for every scheme, captures, scripts, notes, and bodies.
+
+- **Variables travel referenced-only.** The archive adds an _environments_
+  section (your environments and global variables) and the collection's own
+  variables — but only the ones the exported requests actually reference
+  (`{{name}}`, followed transitively). Anything unused is left out, so exporting a
+  single folder never drags in the rest of the collection's variables (or forces a
+  password for secrets it doesn't use). A folder's own variables always travel
+  inside that folder.
+- **Secrets are kept, not redacted.** If the exported set contains any secret it
+  actually uses (an auth credential or a referenced `secure` variable with a
+  value), Rest Hippo asks
+  you to choose a password and encrypts those values into the file with the same
+  scheme as a password-protected backup. With no secrets, there's no prompt and
+  the file is plain JSON. **Treat a password-protected archive like a credential
+  export** — anyone with the file _and_ the password can read its secrets.
+- **Import merges in place.** Re-importing restores into your active collection
+  rather than creating a duplicate: a folder that already exists (matched by id,
+  then name) is reused and its contents restored into it; a request that already
+  exists is **replaced** by the archived copy; anything new is created.
+  Environments and variables are matched the same way and only _added_ when
+  missing — an existing value is never overwritten. A password-protected archive
+  prompts for its password on import.
 
 ## Importing
 
 Open **File → Import Collection…** and pick a file. Rest Hippo recognizes the format
 automatically:
 
+- **Rest Hippo v1** native archives (`.json`) — merged in place (see above)
 - **Postman** collections (`.json`)
 - **Insomnia** exports (`.json` / `.yaml`)
 - **OpenAPI 3** / Swagger 2.0 specifications (`.json` / `.yaml`)

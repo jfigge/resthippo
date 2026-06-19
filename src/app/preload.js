@@ -517,6 +517,30 @@ contextBridge.exposeInMainWorld("hippo", {
   },
 
   /**
+   * Native "Rest Hippo v1" collection archive. The renderer builds the plaintext
+   * archive (it already holds the decrypted tree + environments); the main
+   * process owns the secret crypto and the file dialog.
+   */
+  collectionArchive: {
+    /**
+     * Save an archive. Call first with no password: if the archive carries
+     * secrets the result is `{ needsPassword: true }` (nothing written) so the
+     * renderer can prompt and call again with the password.
+     * @param {{ archive: object, password?: string, filename?: string }} opts
+     * @returns {Promise<{ ok?: boolean, canceled?: boolean, needsPassword?: boolean, error?: string }>}
+     */
+    save: (opts) => ipcRenderer.invoke("collection-archive:save", opts),
+    /**
+     * Decrypt a password-protected archive's secrets for import. Returns
+     * `{ ok:false, reason:"bad-password" }` on a wrong password so the renderer
+     * can re-prompt.
+     * @param {{ archive: object, password?: string }} opts
+     * @returns {Promise<{ ok: boolean, archive?: object, reason?: string, error?: string }>}
+     */
+    decrypt: (opts) => ipcRenderer.invoke("collection-archive:decrypt", opts),
+  },
+
+  /**
    * Whole-workspace backup. The main process owns the native file dialogs, all
    * encryption and every secret value; the renderer only collects the secret
    * mode and (for password mode) the plaintext password it passes back here.

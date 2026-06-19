@@ -22,6 +22,11 @@ import { t } from "../i18n.js";
 // module load, since the catalog isn't ready yet.
 const FORMATS = [
   {
+    value: "resthippo",
+    label: "Rest Hippo v1",
+    descKey: "export.format.resthippoDesc",
+  },
+  {
     value: "postman",
     label: "Postman v2.1",
     descKey: "export.format.postmanDesc",

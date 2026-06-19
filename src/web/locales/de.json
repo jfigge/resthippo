@@ -58,7 +58,14 @@
     "wsClosed": "WebSocket „{label}“ geschlossen.",
     "wsOpenFailed": "Socket konnte nicht geöffnet werden.",
     "wsSendFailed": "Senden fehlgeschlagen: {reason}",
-    "wsSendUnknownReason": "unbekannt"
+    "wsSendUnknownReason": "unbekannt",
+    "resthippoExported": "„{name}“ als Rest Hippo v1 exportiert.",
+    "resthippoWorkspaceExported": {
+      "one": "{count} Sammlung als Rest Hippo v1 exportiert.",
+      "other": "{count} Sammlungen als Rest Hippo v1 exportiert."
+    },
+    "resthippoSecuredSuffix": "Geheimnisse sind passwortgeschützt.",
+    "resthippoImported": "{created} Element(e) importiert, {replaced} ersetzt, {environments} Umgebung(en) hinzugefügt."
   },
   "vars": {
     "title": "Variablen-Editor",
@@ -190,7 +197,9 @@
     "certKeyFilter": "Private Schlüssel",
     "certPfxFilter": "PKCS#12 / PFX",
     "certCaFilter": "CA-Zertifikate",
-    "allFilesFilter": "Alle Dateien"
+    "allFilesFilter": "Alle Dateien",
+    "exportCollectionTitle": "Sammlung exportieren",
+    "resthippoArchiveFilter": "Rest-Hippo-Sammlung"
   },
   "layout": {
     "menuAria": "Layout-Optionen",
@@ -812,15 +821,16 @@
   "export": {
     "title": "Exportieren",
     "titleWorkspace": "Alle Sammlungen exportieren",
-    "introCollection": "Diese Sammlung in eine Austauschdatei exportieren. Geheimnisse — Passwörter, Token und Schlüssel — werden entfernt.",
-    "introWorkspace": "Alle Sammlungen in eine einzige Austauschdatei exportieren (nicht das verschlüsselte Backup). Geheimnisse — Passwörter, Token und Schlüssel — werden entfernt.",
+    "introCollection": "Diese Sammlung in eine Datei exportieren. Austauschformate entfernen Geheimnisse; das native Rest-Hippo-Format behält sie, durch ein Passwort geschützt.",
+    "introWorkspace": "Alle Sammlungen in eine einzige Datei exportieren (nicht das verschlüsselte Backup). Austauschformate entfernen Geheimnisse; das native Rest-Hippo-Format behält sie, durch ein Passwort geschützt.",
     "formatAria": "Exportformat",
     "submit": "Exportieren",
     "format": {
       "postmanDesc": "Postman-Sammlung. Reimportierbar in Postman und Rest Hippo.",
       "insomniaDesc": "Insomnia-Export. Reimportierbar in Insomnia und Rest Hippo.",
       "openapiDesc": "OpenAPI-3.0-Beschreibung der Anfragen (bestmöglich, verlustbehaftet).",
-      "harDesc": "Aufgezeichnete Austausche des letzten Laufs jeder Anfrage."
+      "harDesc": "Aufgezeichnete Austausche des letzten Laufs jeder Anfrage.",
+      "resthippoDesc": "Natives Rest-Hippo-Archiv. Originalgetreue Wiederherstellung samt Umgebungen. Lässt sich nur in Rest Hippo importieren."
     }
   },
   "backup": {
@@ -1132,5 +1142,12 @@
     "titleScope": "Variablen — {scope}",
     "secureTooltip": "Sicher (verschlüsselt gespeichert)",
     "markSecure": "Variable als sicher markieren"
+  },
+  "passwordPrompt": {
+    "exportTitle": "Export mit Passwort schützen",
+    "exportIntro": "Diese Sammlung enthält Geheimnisse (Passwörter, Tokens oder sichere Variablen). Wählen Sie ein Passwort, um sie zu verschlüsseln – Sie benötigen es zum Importieren des Archivs.",
+    "importTitle": "Passwort erforderlich",
+    "importIntro": "Die Geheimnisse dieses Archivs sind passwortgeschützt. Geben Sie das Passwort ein, um sie wiederherzustellen.",
+    "submitImport": "Importieren"
   }
 }

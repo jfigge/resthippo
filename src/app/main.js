@@ -22,6 +22,11 @@ const { spawn } = require("child_process");
 const { URL } = require("url");
 
 const { Stores } = require("./store/stores");
+const {
+  archiveHasSecrets,
+  encryptArchiveSecrets,
+  decryptArchiveSecrets,
+} = require("./store/collection-archive");
 const io = require("./store/io");
 const { createLogger } = require("./logger");
 const { buildReport } = require("./diagnostics");
@@ -1879,6 +1884,74 @@ ipcMain.handle(
         detail,
       });
       return { ok: false, error: detail };
+    }
+  },
+);
+
+// ─── Native collection archive (Rest Hippo v1) IPC ────────────────────────────
+// The renderer builds the plaintext archive (it already holds the decrypted tree
+// + environments); the main process owns only the secret crypto + file dialogs.
+//
+// Save is a two-step handshake so credentials are never written in the clear: the
+// renderer first calls with no password, and when the archive carries secrets the
+// handler returns `{ needsPassword: true }` (without touching the filesystem) so
+// the renderer can prompt, then call again with the password.
+ipcMain.handle(
+  "collection-archive:save",
+  async (_event, { archive, password, filename } = {}) => {
+    if (!archive || typeof archive !== "object") {
+      return { ok: false, error: "no archive" };
+    }
+    const hasSecrets = archiveHasSecrets(archive);
+    if (hasSecrets && !password) return { needsPassword: true };
+
+    const m = activeLabels();
+    const out = hasSecrets
+      ? encryptArchiveSecrets(archive, password)
+      : { ...archive, secretsMode: "none" };
+
+    const save = await dialog.showSaveDialog(_mainWin ?? undefined, {
+      title: m("dialog.exportCollectionTitle", "Export Collection"),
+      defaultPath: filename || "collection.resthippo.json",
+      filters: [
+        {
+          name: m("dialog.resthippoArchiveFilter", "Rest Hippo Collection"),
+          extensions: ["json"],
+        },
+      ],
+    });
+    if (save.canceled || !save.filePath) return { ok: false, canceled: true };
+
+    try {
+      await fs.promises.writeFile(
+        save.filePath,
+        JSON.stringify(out, null, 2),
+        "utf-8",
+      );
+      return { ok: true, secretsMode: out.secretsMode };
+    } catch (err) {
+      console.error("[main] collection archive save error:", err.message);
+      return { ok: false, error: err.message };
+    }
+  },
+);
+
+// Recover a password-protected archive's secrets for import. A wrong password is
+// reported (not thrown) so the renderer can keep its prompt open and re-ask.
+ipcMain.handle(
+  "collection-archive:decrypt",
+  async (_event, { archive, password } = {}) => {
+    if (!archive || typeof archive !== "object") {
+      return { ok: false, error: "no archive" };
+    }
+    try {
+      return { ok: true, archive: decryptArchiveSecrets(archive, password) };
+    } catch (err) {
+      if (err && err.code === "bad-password") {
+        return { ok: false, reason: "bad-password" };
+      }
+      console.error("[main] collection archive decrypt error:", err.message);
+      return { ok: false, error: err.message };
     }
   },
 );

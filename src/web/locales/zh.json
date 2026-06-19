@@ -56,7 +56,14 @@
     "wsClosed": "WebSocket“{label}”已关闭。",
     "wsOpenFailed": "无法打开套接字。",
     "wsSendFailed": "发送失败：{reason}",
-    "wsSendUnknownReason": "未知"
+    "wsSendUnknownReason": "未知",
+    "resthippoExported": "“{name}”已导出为 Rest Hippo v1。",
+    "resthippoWorkspaceExported": {
+      "one": "已将 {count} 个集合导出为 Rest Hippo v1。",
+      "other": "已将 {count} 个集合导出为 Rest Hippo v1。"
+    },
+    "resthippoSecuredSuffix": "机密已用密码保护。",
+    "resthippoImported": "已导入 {created} 项，替换 {replaced} 项，新增 {environments} 个环境。"
   },
   "vars": {
     "title": "变量编辑器",
@@ -188,7 +195,9 @@
     "certKeyFilter": "私钥",
     "certPfxFilter": "PKCS#12 / PFX",
     "certCaFilter": "CA 证书",
-    "allFilesFilter": "所有文件"
+    "allFilesFilter": "所有文件",
+    "exportCollectionTitle": "导出集合",
+    "resthippoArchiveFilter": "Rest Hippo 集合"
   },
   "layout": {
     "menuAria": "布局选项",
@@ -808,15 +817,16 @@
   "export": {
     "title": "导出",
     "titleWorkspace": "导出所有集合",
-    "introCollection": "将此集合导出为交换文件。机密信息（密码、令牌和密钥）将被隐去。",
-    "introWorkspace": "将所有集合导出为单个交换文件（不是加密备份）。机密信息（密码、令牌和密钥）将被隐去。",
+    "introCollection": "将此集合导出到文件。交换格式会隐去机密；Rest Hippo 原生格式则会保留它们，并用密码保护。",
+    "introWorkspace": "将所有集合导出到单个文件（非加密备份）。交换格式会隐去机密；Rest Hippo 原生格式则会保留它们，并用密码保护。",
     "formatAria": "导出格式",
     "submit": "导出",
     "format": {
       "postmanDesc": "Postman 集合。可重新导入到 Postman 和 Rest Hippo。",
       "insomniaDesc": "Insomnia 导出。可重新导入到 Insomnia 和 Rest Hippo。",
       "openapiDesc": "请求的 OpenAPI 3.0 描述（尽力而为，可能有损）。",
-      "harDesc": "每个请求最近一次运行所记录的交换。"
+      "harDesc": "每个请求最近一次运行所记录的交换。",
+      "resthippoDesc": "Rest Hippo 原生归档。完整还原，包含环境。仅可重新导入到 Rest Hippo。"
     }
   },
   "backup": {
@@ -1128,5 +1138,12 @@
     "titleScope": "变量 — {scope}",
     "secureTooltip": "安全（静态加密）",
     "markSecure": "将变量标记为安全"
+  },
+  "passwordPrompt": {
+    "exportTitle": "用密码保护导出",
+    "exportIntro": "此集合包含机密（密码、令牌或安全变量）。请设置一个密码以加密它们——导入归档时将需要该密码。",
+    "importTitle": "需要密码",
+    "importIntro": "此归档的机密已用密码保护。请输入密码以还原它们。",
+    "submitImport": "导入"
   }
 }

@@ -113,6 +113,7 @@ const RULES = [
 // excluded rather than left to sit in the debt baseline (and not given pointless
 // verbatim t() keys).
 const INTENTIONAL = new Set([
+  "Rest Hippo v1",
   "Postman v2.1",
   "Insomnia v4",
   "OpenAPI 3",

@@ -32,6 +32,7 @@ import {
   saveCollections,
   updateRequest,
   setActiveItems,
+  setActiveVariables,
   saveSettings,
   saveManifest,
   loadCollectionData,
@@ -78,7 +79,15 @@ import { exportToPostman } from "./export/postman.js";
 import { exportToInsomnia } from "./export/insomnia.js";
 import { exportToOpenApi } from "./export/openapi.js";
 import { exportToHar } from "./export/har.js";
+import { buildRestHippoArchive } from "./export/resthippo.js";
+import {
+  detectRestHippo,
+  mergeArchiveIntoTree,
+  mergeEnvironments,
+  mergeVariableList,
+} from "./import/resthippo.js";
 import { ExportModal } from "./components/export-modal.js";
+import { PasswordPrompt } from "./components/password-prompt.js";
 import { installMenuHandlers } from "./event-bus/menu-handlers.js";
 import { installSettingsHandlers } from "./event-bus/settings-handlers.js";
 import { installWsHandlers } from "./event-bus/ws-handlers.js";
@@ -3530,6 +3539,7 @@ function _countRequests(node) {
 // Per-format export descriptors: file-name suffix and human label. The Postman
 // suffix is the conventional ".postman_collection.json" Postman itself uses.
 const EXPORT_FORMATS = {
+  resthippo: { suffix: ".resthippo.json", label: "Rest Hippo v1" },
   postman: { suffix: ".postman_collection.json", label: "Postman v2.1" },
   insomnia: { suffix: ".insomnia.json", label: "Insomnia v4" },
   openapi: { suffix: ".openapi.json", label: "OpenAPI 3" },
@@ -3632,6 +3642,11 @@ function handleExport(collection) {
 async function runCollectionExport(collection, format) {
   if (!window.hippo?.export?.file?.save) return;
 
+  if (format === "resthippo") {
+    await runRestHippoCollectionExport(collection);
+    return;
+  }
+
   let variables = [];
   try {
     const data = await loadCollectionData(currentColls.activeCollectionId);
@@ -3668,6 +3683,11 @@ async function runCollectionExport(collection, format) {
  */
 async function runWorkspaceExport(format) {
   if (!window.hippo?.export?.file?.save) return;
+
+  if (format === "resthippo") {
+    await runRestHippoWorkspaceExport();
+    return;
+  }
 
   const children = [];
   const mergedVars = [];
@@ -3728,6 +3748,247 @@ async function runWorkspaceExport(format) {
   await _saveExport(filename, content, format, successMsg);
 }
 
+// ── Rest Hippo v1 (native, lossless) export/import ────────────────────────────
+
+/**
+ * Export one collection as a native Rest Hippo v1 archive: the folder/request
+ * subtree verbatim, the collection's own variables, and every environment filtered
+ * to the variables the collection references. Built from the live tree (current,
+ * full-fidelity). Secrets trigger a password prompt (see saveRestHippoArchive).
+ */
+async function runRestHippoCollectionExport(collection) {
+  let collectionVariables = [];
+  try {
+    const data = await loadCollectionData(currentColls.activeCollectionId);
+    collectionVariables = normalizeVariables(data.variables);
+  } catch {
+    /* non-fatal — export without collection variables */
+  }
+  const archive = buildRestHippoArchive({
+    items: [collection],
+    collectionVariables,
+    environments: currentEnvironments,
+    exportedAt: new Date().toISOString(),
+  });
+  const filename = `${_safeFileBase(collection.name)}.resthippo.json`;
+  await saveRestHippoArchive(
+    archive,
+    filename,
+    t("app.resthippoExported", { name: collection.name }),
+  );
+}
+
+/**
+ * Export the whole workspace as one Rest Hippo v1 archive — every collection's
+ * top-level nodes, collection variables merged by name (first wins), and the
+ * referenced environments.
+ */
+async function runRestHippoWorkspaceExport() {
+  const items = [];
+  const collectionVariables = [];
+  const seenVar = new Set();
+  let count = 0;
+
+  for (const coll of currentColls.collections ?? []) {
+    let data;
+    try {
+      data = await loadCollectionData(coll.id);
+    } catch {
+      continue;
+    }
+    const collItems =
+      coll.id === currentColls.activeCollectionId
+        ? (treeView?.getItems() ?? data.items ?? [])
+        : (data.items ?? []);
+    items.push(...collItems);
+    count += 1;
+    for (const v of normalizeVariables(data.variables)) {
+      if (seenVar.has(v.name)) continue;
+      seenVar.add(v.name);
+      collectionVariables.push(v);
+    }
+  }
+
+  const archive = buildRestHippoArchive({
+    items,
+    collectionVariables,
+    environments: currentEnvironments,
+    exportedAt: new Date().toISOString(),
+  });
+  await saveRestHippoArchive(
+    archive,
+    "resthippo-workspace.resthippo.json",
+    t("app.resthippoWorkspaceExported", { count }),
+  );
+}
+
+/**
+ * Drive the save of a Rest Hippo v1 archive. The main process reports
+ * `needsPassword` when the archive carries secrets; we then prompt (set + confirm)
+ * and re-save encrypted. No secrets → saved as plain JSON with no prompt.
+ */
+async function saveRestHippoArchive(archive, filename, plainMsg) {
+  const successMsg = (secure) =>
+    secure ? `${plainMsg} ${t("app.resthippoSecuredSuffix")}` : plainMsg;
+  const fail = (message) =>
+    Notifications.error(
+      t("app.exportFailed", { message: String(message ?? "") }),
+      {
+        title: t("app.exportTitle"),
+      },
+    );
+
+  let res;
+  try {
+    res = await window.hippo.collectionArchive.save({ archive, filename });
+  } catch (err) {
+    fail(err.message ?? err);
+    return;
+  }
+
+  if (res?.needsPassword) {
+    // The format picker (ExportModal) closes itself the moment this flow's
+    // onChoose resolves, and PopupManager only tracks one popup at a time — so
+    // opening the password prompt synchronously here would let that close() tear
+    // it straight back down. Defer to a macrotask so the prompt mounts AFTER the
+    // picker has closed.
+    setTimeout(() => {
+      PasswordPrompt.open({
+        variant: "create",
+        onSubmit: async (password) => {
+          let res2;
+          try {
+            res2 = await window.hippo.collectionArchive.save({
+              archive,
+              filename,
+              password,
+            });
+          } catch (err) {
+            fail(err.message ?? err);
+            return { ok: true }; // close the prompt; failure already surfaced
+          }
+          if (res2?.ok) Notifications.success(successMsg(true));
+          else if (!res2?.canceled) fail(res2?.error);
+          return { ok: true };
+        },
+      });
+    }, 0);
+    return;
+  }
+
+  if (res?.ok)
+    Notifications.success(successMsg(res.secretsMode === "password"));
+  else if (!res?.canceled) fail(res?.error);
+}
+
+/**
+ * Import a Rest Hippo v1 archive. Password-protected archives are decrypted in the
+ * main process behind a prompt (re-prompting on a wrong password); plaintext ones
+ * merge straight away.
+ */
+async function applyRestHippoImport(archive) {
+  if (archive.secretsMode === "password") {
+    PasswordPrompt.open({
+      variant: "enter",
+      onSubmit: async (password) => {
+        let res;
+        try {
+          res = await window.hippo.collectionArchive.decrypt({
+            archive,
+            password,
+          });
+        } catch (err) {
+          Notifications.error(
+            t("app.importFailed", { message: String(err.message ?? err) }),
+            { title: t("app.importTitle") },
+          );
+          return { ok: true };
+        }
+        if (res?.reason === "bad-password") return { ok: false }; // re-prompt
+        if (!res?.ok) {
+          Notifications.error(
+            t("app.importFailed", { message: res?.error ?? "" }),
+            { title: t("app.importTitle") },
+          );
+          return { ok: true };
+        }
+        await mergeRestHippoArchive(res.archive);
+        return { ok: true };
+      },
+    });
+    return;
+  }
+  await mergeRestHippoArchive(archive);
+}
+
+/**
+ * Merge a decrypted Rest Hippo v1 archive into the active collection + the
+ * workspace environments, then persist. Folders/requests match by id→name;
+ * environments and variables likewise (see import/resthippo.js for the rules).
+ */
+async function mergeRestHippoArchive(archive) {
+  const activeId = currentColls.activeCollectionId;
+
+  // 1. Tree merge into the active collection (live tree is authoritative).
+  const treeMerge = mergeArchiveIntoTree(
+    treeView?.getItems() ?? [],
+    archive.items ?? [],
+  );
+
+  // 2. Collection-level variables: add any the archive carries that are missing.
+  let collVars;
+  try {
+    const data = await loadCollectionData(activeId);
+    collVars = mergeVariableList(
+      data.variables,
+      archive.collectionVariables,
+    ).list;
+  } catch {
+    collVars = normalizeVariables(archive.collectionVariables);
+  }
+
+  if (treeView) treeView.setItems(treeMerge.items);
+  const saved = await saveCollectionData(activeId, treeMerge.items, collVars);
+  if (!saved) return false; // write-error sink already surfaced the failure
+  // saveCollectionData persists collVars but leaves the in-memory active-variable
+  // cache stale; sync it so a later full saveCollections() can't write the old
+  // snapshot back over the just-restored variables.
+  setActiveVariables(collVars);
+
+  // 3. Environments merge (global + named), then persist.
+  const envMerge = mergeEnvironments(currentEnvironments, archive.environments);
+  currentEnvironments = envMerge.environments;
+  await saveEnvironments(currentEnvironments);
+
+  // 4. Reflect the merged collection variables in memory. saveCollectionData
+  // only writes to disk, but the variable resolver and the collection variables
+  // editor (CollectionsPopup) read from currentColls — so without this the
+  // restored collection variables wouldn't appear until the next reload.
+  currentColls = {
+    ...currentColls,
+    collections: currentColls.collections.map((coll) =>
+      coll.id === activeId ? { ...coll, variables: collVars } : coll,
+    ),
+  };
+
+  // Refresh every surface that mirrors this state so the restore is visible now.
+  collPopup.update(collPopupState());
+  environmentsPopup.update(currentEnvironments);
+  envPicker.load(currentEnvironments);
+  // Rebuilds the live variable context and feeds the tree-view its merged
+  // variables from currentColls + the tree + currentEnvironments.
+  _refreshEditorVariableContext();
+
+  Notifications.success(
+    t("app.resthippoImported", {
+      created: treeMerge.created,
+      replaced: treeMerge.replaced,
+      environments: envMerge.createdEnvs,
+    }),
+  );
+  return true;
+}
+
 async function handleImport() {
   if (!window.hippo?.import?.file?.open) {
     Notifications.info(t("app.importDesktopOnly"));
@@ -3745,6 +4006,19 @@ async function handleImport() {
     return;
   }
   if (!file) return; // user cancelled the file dialog
+
+  // Native Rest Hippo v1 archives (JSON) take the identity-aware merge path; try
+  // to recognize one before handing off to the lossy interchange parsers.
+  let maybeArchive = null;
+  try {
+    maybeArchive = JSON.parse(file.content);
+  } catch {
+    maybeArchive = null;
+  }
+  if (detectRestHippo(maybeArchive)) {
+    await applyRestHippoImport(maybeArchive);
+    return;
+  }
 
   let parsed;
   try {

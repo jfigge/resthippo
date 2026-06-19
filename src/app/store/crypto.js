@@ -738,6 +738,10 @@ function importVariableSecrets(list, password) {
 module.exports = {
   DecryptError,
   PasswordError,
+  // The set of request sub-fields treated as secrets (parent/field pairs). Shared
+  // so other modules (e.g. the collection-archive exporter) can detect whether a
+  // request carries a secret without re-encoding the taxonomy.
+  REQUEST_SECRET_PATHS,
   _setSafeStorage,
   isPasswordEncrypted,
   encryptWithPassword,

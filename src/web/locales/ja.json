@@ -56,7 +56,14 @@
     "wsClosed": "WebSocket「{label}」が閉じられました。",
     "wsOpenFailed": "ソケットを開けませんでした。",
     "wsSendFailed": "送信に失敗しました: {reason}",
-    "wsSendUnknownReason": "不明"
+    "wsSendUnknownReason": "不明",
+    "resthippoExported": "「{name}」を Rest Hippo v1 としてエクスポートしました。",
+    "resthippoWorkspaceExported": {
+      "one": "{count} 個のコレクションを Rest Hippo v1 としてエクスポートしました。",
+      "other": "{count} 個のコレクションを Rest Hippo v1 としてエクスポートしました。"
+    },
+    "resthippoSecuredSuffix": "シークレットはパスワードで保護されています。",
+    "resthippoImported": "{created} 件をインポートし、{replaced} 件を置き換え、{environments} 個の環境を追加しました。"
   },
   "vars": {
     "title": "変数エディター",
@@ -188,7 +195,9 @@
     "certKeyFilter": "秘密鍵",
     "certPfxFilter": "PKCS#12 / PFX",
     "certCaFilter": "CA 証明書",
-    "allFilesFilter": "すべてのファイル"
+    "allFilesFilter": "すべてのファイル",
+    "exportCollectionTitle": "コレクションをエクスポート",
+    "resthippoArchiveFilter": "Rest Hippo コレクション"
   },
   "layout": {
     "menuAria": "レイアウトオプション",
@@ -808,15 +817,16 @@
   "export": {
     "title": "エクスポート",
     "titleWorkspace": "すべてのコレクションをエクスポート",
-    "introCollection": "このコレクションを交換用ファイルにエクスポートします。シークレット（パスワード、トークン、キー）は秘匿されます。",
-    "introWorkspace": "すべてのコレクションを単一の交換用ファイルにエクスポートします（暗号化バックアップではありません）。シークレット（パスワード、トークン、キー）は秘匿されます。",
+    "introCollection": "このコレクションをファイルにエクスポートします。交換形式ではシークレットは伏せられますが、ネイティブの Rest Hippo 形式ではパスワードで保護して保持します。",
+    "introWorkspace": "すべてのコレクションを1つのファイルにエクスポートします（暗号化バックアップではありません）。交換形式ではシークレットは伏せられますが、ネイティブの Rest Hippo 形式ではパスワードで保護して保持します。",
     "formatAria": "エクスポート形式",
     "submit": "エクスポート",
     "format": {
       "postmanDesc": "Postman コレクション。Postman と Rest Hippo に再インポートできます。",
       "insomniaDesc": "Insomnia エクスポート。Insomnia と Rest Hippo に再インポートできます。",
       "openapiDesc": "リクエストの OpenAPI 3.0 記述（ベストエフォート、一部欠落あり）。",
-      "harDesc": "各リクエストの直近の実行で記録された交換。"
+      "harDesc": "各リクエストの直近の実行で記録された交換。",
+      "resthippoDesc": "Rest Hippo ネイティブアーカイブ。環境を含め完全に復元します。Rest Hippo にのみ再インポートできます。"
     }
   },
   "backup": {
@@ -1128,5 +1138,12 @@
     "titleScope": "変数 — {scope}",
     "secureTooltip": "セキュア（保存時に暗号化）",
     "markSecure": "変数をセキュアにする"
+  },
+  "passwordPrompt": {
+    "exportTitle": "エクスポートをパスワードで保護",
+    "exportIntro": "このコレクションにはシークレット（パスワード、トークン、セキュア変数）が含まれています。暗号化するためのパスワードを設定してください。アーカイブのインポート時に必要になります。",
+    "importTitle": "パスワードが必要です",
+    "importIntro": "このアーカイブのシークレットはパスワードで保護されています。復元するにはパスワードを入力してください。",
+    "submitImport": "インポート"
   }
 }

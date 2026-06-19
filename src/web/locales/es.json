@@ -58,7 +58,14 @@
     "wsClosed": "WebSocket «{label}» cerrado.",
     "wsOpenFailed": "No se pudo abrir el socket.",
     "wsSendFailed": "Error al enviar: {reason}",
-    "wsSendUnknownReason": "desconocido"
+    "wsSendUnknownReason": "desconocido",
+    "resthippoExported": "«{name}» exportada como Rest Hippo v1.",
+    "resthippoWorkspaceExported": {
+      "one": "{count} colección exportada como Rest Hippo v1.",
+      "other": "{count} colecciones exportadas como Rest Hippo v1."
+    },
+    "resthippoSecuredSuffix": "Los secretos están protegidos con contraseña.",
+    "resthippoImported": "{created} elemento(s) importado(s), {replaced} reemplazado(s), {environments} entorno(s) añadido(s)."
   },
   "vars": {
     "title": "Editor de variables",
@@ -190,7 +197,9 @@
     "certKeyFilter": "Claves privadas",
     "certPfxFilter": "PKCS#12 / PFX",
     "certCaFilter": "Certificados CA",
-    "allFilesFilter": "Todos los archivos"
+    "allFilesFilter": "Todos los archivos",
+    "exportCollectionTitle": "Exportar colección",
+    "resthippoArchiveFilter": "Colección de Rest Hippo"
   },
   "layout": {
     "menuAria": "Opciones de disposición",
@@ -812,15 +821,16 @@
   "export": {
     "title": "Exportar",
     "titleWorkspace": "Exportar todas las colecciones",
-    "introCollection": "Exporta esta colección a un archivo de intercambio. Los secretos — contraseñas, tokens y claves — se ocultan.",
-    "introWorkspace": "Exporta todas las colecciones a un único archivo de intercambio (no la copia de seguridad cifrada). Los secretos — contraseñas, tokens y claves — se ocultan.",
+    "introCollection": "Exporta esta colección a un archivo. Los formatos de intercambio ocultan los secretos; el formato nativo de Rest Hippo los conserva, protegidos con una contraseña.",
+    "introWorkspace": "Exporta todas las colecciones a un solo archivo (no la copia de seguridad cifrada). Los formatos de intercambio ocultan los secretos; el formato nativo de Rest Hippo los conserva, protegidos con una contraseña.",
     "formatAria": "Formato de exportación",
     "submit": "Exportar",
     "format": {
       "postmanDesc": "Colección de Postman. Se reimporta en Postman y Rest Hippo.",
       "insomniaDesc": "Exportación de Insomnia. Se reimporta en Insomnia y Rest Hippo.",
       "openapiDesc": "Descripción OpenAPI 3.0 de las solicitudes (en la medida de lo posible, con pérdidas).",
-      "harDesc": "Intercambios registrados de la ejecución más reciente de cada solicitud."
+      "harDesc": "Intercambios registrados de la ejecución más reciente de cada solicitud.",
+      "resthippoDesc": "Archivo nativo de Rest Hippo. Restauración fiel, incluidos los entornos. Solo se reimporta en Rest Hippo."
     }
   },
   "backup": {
@@ -1132,5 +1142,12 @@
     "titleScope": "Variables — {scope}",
     "secureTooltip": "Seguro (cifrado en reposo)",
     "markSecure": "Marcar la variable como segura"
+  },
+  "passwordPrompt": {
+    "exportTitle": "Proteger la exportación con contraseña",
+    "exportIntro": "Esta colección contiene secretos (contraseñas, tokens o variables seguras). Elige una contraseña para cifrarlos; la necesitarás para importar el archivo.",
+    "importTitle": "Contraseña requerida",
+    "importIntro": "Los secretos de este archivo están protegidos con contraseña. Introduce la contraseña para restaurarlos.",
+    "submitImport": "Importar"
   }
 }

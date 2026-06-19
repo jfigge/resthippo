@@ -58,7 +58,14 @@
     "wsClosed": "WebSocket \"{label}\" closed.",
     "wsOpenFailed": "Failed to open socket.",
     "wsSendFailed": "Send failed: {reason}",
-    "wsSendUnknownReason": "unknown"
+    "wsSendUnknownReason": "unknown",
+    "resthippoExported": "\"{name}\" exported as Rest Hippo v1.",
+    "resthippoWorkspaceExported": {
+      "one": "{count} collection exported as Rest Hippo v1.",
+      "other": "{count} collections exported as Rest Hippo v1."
+    },
+    "resthippoSecuredSuffix": "Secrets are password-protected.",
+    "resthippoImported": "Imported {created} item(s), replaced {replaced}, added {environments} environment(s)."
   },
   "vars": {
     "title": "Variable Editor",
@@ -190,7 +197,9 @@
     "certKeyFilter": "Private Keys",
     "certPfxFilter": "PKCS#12 / PFX",
     "certCaFilter": "CA Certificates",
-    "allFilesFilter": "All Files"
+    "allFilesFilter": "All Files",
+    "exportCollectionTitle": "Export Collection",
+    "resthippoArchiveFilter": "Rest Hippo Collection"
   },
   "layout": {
     "menuAria": "Layout options",
@@ -812,15 +821,16 @@
   "export": {
     "title": "Export",
     "titleWorkspace": "Export All Collections",
-    "introCollection": "Export this collection to an interchange file. Secrets — passwords, tokens and keys — are redacted.",
-    "introWorkspace": "Export every collection to a single interchange file (not the encrypted backup). Secrets — passwords, tokens and keys — are redacted.",
+    "introCollection": "Export this collection to a file. Interchange formats redact secrets; the native Rest Hippo format keeps them, protected by a password.",
+    "introWorkspace": "Export every collection to a single file (not the encrypted backup). Interchange formats redact secrets; the native Rest Hippo format keeps them, protected by a password.",
     "formatAria": "Export format",
     "submit": "Export",
     "format": {
       "postmanDesc": "Postman collection. Re-imports into Postman and Rest Hippo.",
       "insomniaDesc": "Insomnia export. Re-imports into Insomnia and Rest Hippo.",
       "openapiDesc": "OpenAPI 3.0 description of the requests (best-effort, lossy).",
-      "harDesc": "Recorded exchanges from the most recent run of each request."
+      "harDesc": "Recorded exchanges from the most recent run of each request.",
+      "resthippoDesc": "Native Rest Hippo archive. Full-fidelity restore, including environments. Re-imports only into Rest Hippo."
     }
   },
   "backup": {
@@ -1132,5 +1142,12 @@
     "titleScope": "Variables — {scope}",
     "secureTooltip": "Secure (encrypted at rest)",
     "markSecure": "Mark variable secure"
+  },
+  "passwordPrompt": {
+    "exportTitle": "Password-Protect Export",
+    "exportIntro": "This collection contains secrets (passwords, tokens, or secure variables). Choose a password to encrypt them — you'll need it to import the archive.",
+    "importTitle": "Password Required",
+    "importIntro": "This archive's secrets are password-protected. Enter the password to restore them.",
+    "submitImport": "Import"
   }
 }

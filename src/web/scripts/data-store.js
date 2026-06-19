@@ -484,6 +484,20 @@ export function setActiveItems(items) {
 }
 
 /**
+ * Mirror updated collection-level variables into the in-memory active-collection
+ * cache, WITHOUT persisting (saveCollectionData writes the disk blob but does not
+ * touch this cache). Without this, a later full saveCollections() — which re-pairs
+ * the cached items with `_activeVariables` — would write a stale variable snapshot
+ * and clobber freshly-merged variables (e.g. just after a Rest Hippo v1 import).
+ * In-memory only; no persistence.
+ *
+ * @param {object} variables  canonical variable array (or legacy map)
+ */
+export function setActiveVariables(variables) {
+  _activeVariables = variables;
+}
+
+/**
  * Persist updated settings into the manifest.
  * @param {object} settings
  */

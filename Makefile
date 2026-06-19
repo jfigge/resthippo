@@ -189,7 +189,7 @@ test: test-js test-cookies test-auth test-net test-content-type test-ipc test-oa
 
 test-js:
 	@echo "Running JavaScript store tests..."
-	@node --test $(APP_DIR)/store/tests/stores.test.js $(APP_DIR)/store/tests/crypto.test.js $(APP_DIR)/store/tests/integration.test.js $(APP_DIR)/store/tests/migrations.test.js $(APP_DIR)/store/tests/io-locking.test.js $(APP_DIR)/store/tests/backup.test.js $(APP_DIR)/store/tests/synchronous-writes.test.js
+	@node --test $(APP_DIR)/store/tests/stores.test.js $(APP_DIR)/store/tests/crypto.test.js $(APP_DIR)/store/tests/integration.test.js $(APP_DIR)/store/tests/migrations.test.js $(APP_DIR)/store/tests/io-locking.test.js $(APP_DIR)/store/tests/backup.test.js $(APP_DIR)/store/tests/synchronous-writes.test.js $(APP_DIR)/store/tests/collection-archive.test.js
 	@echo "--------------------------------"
 
 test-cookies:
@@ -224,7 +224,7 @@ test-oauth:
 
 test-export:
 	@echo "Running export redaction tests..."
-	@node --test $(WEB_DIR)/scripts/export/tests/postman.test.js $(WEB_DIR)/scripts/export/tests/insomnia.test.js $(WEB_DIR)/scripts/export/tests/openapi.test.js $(WEB_DIR)/scripts/export/tests/har.test.js
+	@node --test $(WEB_DIR)/scripts/export/tests/postman.test.js $(WEB_DIR)/scripts/export/tests/insomnia.test.js $(WEB_DIR)/scripts/export/tests/openapi.test.js $(WEB_DIR)/scripts/export/tests/har.test.js $(WEB_DIR)/scripts/export/tests/resthippo.test.js
 	@echo "--------------------------------"
 
 test-components:
@@ -234,7 +234,7 @@ test-components:
 
 test-import:
 	@echo "Running import fixture tests..."
-	@node --test $(WEB_DIR)/scripts/import/tests/import.test.js
+	@node --test $(WEB_DIR)/scripts/import/tests/import.test.js $(WEB_DIR)/scripts/import/tests/resthippo.test.js
 	@echo "--------------------------------"
 
 test-data-store:
