@@ -6,6 +6,19 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <meta name="description" content="Rest Hippo — A fast, beautiful REST API client for macOS, Windows, and Linux. Variable interpolation, OAuth 2.0, request history, and more." />
   <title>Rest Hippo — REST API Client</title>
+  <link rel="canonical" href="https://resthippo.com/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Rest Hippo" />
+  <meta property="og:title" content="Rest Hippo — REST API Client" />
+  <meta property="og:description" content="A fast, beautiful REST API client for macOS, Windows, and Linux. Variable interpolation, OAuth 2.0, request history, and more — all offline." />
+  <meta property="og:url" content="https://resthippo.com/" />
+  <meta property="og:image" content="https://resthippo.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@RestHippo" />
+  <meta name="twitter:creator" content="@RestHippo" />
+  <meta name="twitter:title" content="Rest Hippo — REST API Client" />
+  <meta name="twitter:description" content="A fast, beautiful REST API client for macOS, Windows, and Linux — all offline." />
+  <meta name="twitter:image" content="https://resthippo.com/og-image.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -629,6 +642,7 @@
   <div class="nav-right">
     <a class="nav-link" href="#features">Features</a>
     <a class="nav-link" href="#downloads">Downloads</a>
+    <a class="nav-link" href="/docs/">Guide</a>
     <a class="btn btn-primary" href="#downloads">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
@@ -642,7 +656,7 @@
 <div class="hero">
   <div class="hero-badge">
     <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
-    v0.1.0 — Now Available
+    <span id="hero-version">v0.8.0</span> — Now Available
   </div>
   <h1>The REST API client<br>you actually <span class="accent">want to use</span></h1>
   <p class="hero-desc">
@@ -798,7 +812,7 @@
   <div class="section-inner">
     <p class="section-tag">Downloads</p>
     <h2 class="section-title">Available for every desktop</h2>
-    <p class="section-body">Version 0.1.0 — free to download and use. No account required.</p>
+    <p class="section-body">Version <span id="dl-version">0.8.0</span> — free to download and use. No account required.</p>
 
     <div class="os-grid">
 
@@ -816,56 +830,17 @@
             <div class="os-req">macOS 12 Monterey or later</div>
           </div>
         </div>
-        <div class="dl-list">
-          <div class="dl-sep">Apple Silicon (M1 / M2 / M3)</div>
-          <a class="dl-row" href="#">
+        <div class="dl-list" id="dl-list-mac" data-os="mac">
+          <a class="dl-row" href="https://github.com/jfigge/resthippo/releases/latest">
             <span class="dl-icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
             </span>
             <div class="dl-info">
-              <div class="dl-label">Disk Image</div>
-              <div class="dl-meta">resthippo-0.1.0-arm64.dmg</div>
+              <div class="dl-label">Download for macOS</div>
+              <div class="dl-meta">Latest release on GitHub</div>
             </div>
-            <span class="dl-arch">arm64</span>
-          </a>
-          <a class="dl-row" href="#">
-            <span class="dl-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-            </span>
-            <div class="dl-info">
-              <div class="dl-label">ZIP Archive</div>
-              <div class="dl-meta">resthippo-0.1.0-arm64-mac.zip</div>
-            </div>
-            <span class="dl-arch">arm64</span>
-          </a>
-          <div class="dl-sep">Intel</div>
-          <a class="dl-row" href="#">
-            <span class="dl-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-            </span>
-            <div class="dl-info">
-              <div class="dl-label">Disk Image</div>
-              <div class="dl-meta">resthippo-0.1.0-x64.dmg</div>
-            </div>
-            <span class="dl-arch">x64</span>
-          </a>
-          <a class="dl-row" href="#">
-            <span class="dl-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-            </span>
-            <div class="dl-info">
-              <div class="dl-label">ZIP Archive</div>
-              <div class="dl-meta">resthippo-0.1.0-x64-mac.zip</div>
-            </div>
-            <span class="dl-arch">x64</span>
           </a>
         </div>
       </div>
@@ -886,31 +861,17 @@
             <div class="os-req">Windows 10 / 11, 64-bit</div>
           </div>
         </div>
-        <div class="dl-list">
-          <div class="dl-sep">64-bit</div>
-          <a class="dl-row" href="#">
+        <div class="dl-list" id="dl-list-win" data-os="win">
+          <a class="dl-row" href="https://github.com/jfigge/resthippo/releases/latest">
             <span class="dl-icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
             </span>
             <div class="dl-info">
-              <div class="dl-label">Installer</div>
-              <div class="dl-meta">resthippo-0.1.0-x64-setup.exe</div>
+              <div class="dl-label">Download for Windows</div>
+              <div class="dl-meta">Latest release on GitHub</div>
             </div>
-            <span class="dl-arch">x64</span>
-          </a>
-          <a class="dl-row" href="#">
-            <span class="dl-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-            </span>
-            <div class="dl-info">
-              <div class="dl-label">Portable</div>
-              <div class="dl-meta">resthippo-0.1.0-x64-portable.exe &nbsp;·&nbsp; No install needed</div>
-            </div>
-            <span class="dl-arch">x64</span>
           </a>
         </div>
       </div>
@@ -936,35 +897,27 @@
             <div class="os-req">64-bit · glibc 2.28+</div>
           </div>
         </div>
-        <div class="dl-list">
-          <div class="dl-sep">64-bit</div>
-          <a class="dl-row" href="#">
+        <div class="dl-list" id="dl-list-linux" data-os="linux">
+          <a class="dl-row" href="https://github.com/jfigge/resthippo/releases/latest">
             <span class="dl-icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
             </span>
             <div class="dl-info">
-              <div class="dl-label">AppImage</div>
-              <div class="dl-meta">resthippo-0.1.0-x64.AppImage &nbsp;·&nbsp; Run anywhere</div>
+              <div class="dl-label">Download for Linux</div>
+              <div class="dl-meta">Latest release on GitHub</div>
             </div>
-            <span class="dl-arch">x64</span>
-          </a>
-          <a class="dl-row" href="#">
-            <span class="dl-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-            </span>
-            <div class="dl-info">
-              <div class="dl-label">Debian Package</div>
-              <div class="dl-meta">resthippo-0.1.0-amd64.deb &nbsp;·&nbsp; Ubuntu / Debian</div>
-            </div>
-            <span class="dl-arch">x64</span>
           </a>
         </div>
       </div>
 
+    </div>
+
+    <!-- Version history — populated by downloads.js; stays hidden until 2+ releases exist -->
+    <div id="version-history" class="version-history" hidden>
+      <p class="vh-head">All releases</p>
+      <div id="version-history-list" class="vh-list"></div>
     </div>
   </div>
 </section>
@@ -988,11 +941,21 @@
       </div>
       <span class="footer-name">Rest Hippo</span>
     </div>
-    <div class="ver-tag">v0.1.0</div>
+    <div class="ver-tag" id="footer-version">v0.8.0</div>
+    <p style="margin-bottom:14px">
+      <a href="/docs/" style="color:var(--accent);text-decoration:none">User Guide</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/jfigge/resthippo" style="color:var(--accent);text-decoration:none">GitHub</a>
+      &nbsp;·&nbsp;
+      <a href="https://x.com/RestHippo" style="color:var(--accent);text-decoration:none">@RestHippo</a>
+      &nbsp;·&nbsp;
+      <a href="mailto:resthippo411@gmail.com" style="color:var(--accent);text-decoration:none">Contact</a>
+    </p>
     <p>Copyright &copy; 2026 Jason Figge. Released under the MIT License.<br>
     Built with Electron &amp; Vanilla JS. No telemetry, no accounts, fully offline.</p>
   </div>
 </footer>
 
+<script src="downloads.js" defer></script>
 </body>
 </html>

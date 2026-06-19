@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Jason Figge
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /**
  * app.js — Application entry point
  *
@@ -1293,6 +1309,10 @@ function initEventBus() {
   //   request-error         { requestId, requestNode, request, name, message, hint, elapsed, consoleLog }
   //   response-received     { …response, requestId, requestNode, request, streaming?, streamId?, sse?, contentType? }
   //
+  // Request scripting (Feature 25)
+  //   script-result         { phase, writes, error, logs }   pre-script outcome (RequestEditor → app.js): persist writes + surface error
+  //   script-console        { requestId, lines }             after-response script console output (app.js → ResponseViewer): append to the Console pane
+  //
   // Live HTTP streaming (Feature 33)  (preload http:stream:* → app.js → ResponseViewer)
   //   stream-data           { streamId, kind, index, ts, event?|data?, totalBytes, count }
   //   stream-end            { streamId, ts, totalBytes, eventCount, elapsed, status, bodyRef, aborted, lastEvents }
@@ -1616,6 +1636,18 @@ function installResponseHandlers() {
       if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
     }
 
+    // After-response script (Feature 25). Runs on genuine sends only (never on a
+    // replay), before captures, so a script may read the response and write a
+    // variable a later request consumes — but only when the pane is enabled
+    // (default true when the flag is absent). Errors are surfaced, never dropped.
+    if (
+      !skipHistory &&
+      node?.afterResponseScript?.trim() &&
+      node.afterResponseScriptEnabled !== false
+    ) {
+      await _runAfterResponseScript(node, e.detail);
+    }
+
     // Post-response captures (Feature 03). Run on genuine sends only (never on a
     // history replay), independent of whether history recording is enabled. The
     // per-rule status gate and empty-rules short-circuit live inside
@@ -1623,6 +1655,17 @@ function installResponseHandlers() {
     if (!skipHistory && node?.captures?.length) {
       await _applyCapturesForNode(node, e.detail);
     }
+  });
+
+  // Pre-request script result (Feature 25). The editor runs the pre-request
+  // script during send (it owns variable resolution), then dispatches the
+  // outcome here so its variable writes persist through the same shared path as
+  // captures / the after-response script, and any error surfaces centrally.
+  window.addEventListener("hippo:script-result", async (e) => {
+    surfaceScriptResult(e.detail);
+    const writes = e.detail?.writes;
+    if (Array.isArray(writes) && writes.length)
+      await persistVariableWrites(writes);
   });
 
   // Record network-level failures (ENOTFOUND, ETIMEDOUT, etc.) in the timeline.
@@ -2228,6 +2271,104 @@ function _refreshEditorVariableContext(nodeId) {
   }
 }
 
+// ── Variable write-back (shared by captures + scripts) ───────────────────
+
+/**
+ * Persist a batch of variable writes (`{ scope, name, value, secure? }`) into
+ * the global / environment / collection scopes, reusing the env + collection
+ * save handlers (which encrypt `secure` values, refresh the variables UI and
+ * route failures to the error sink). One write path for post-response captures
+ * (Feature 03) and the pre-/after-request scripts (Feature 25).
+ *
+ * Folder-scope writes are not persisted — folder variables are read-only to both
+ * mechanisms. Returns the applied list (for a caller-built summary) plus any
+ * scope skipped because its target (active env / collection) was inactive, so
+ * the caller can phrase its own warning.
+ *
+ * @param {Array<{scope:string,name:string,value:string,secure?:boolean}>} writes
+ * @returns {Promise<{applied:Array<{scope,name}>, skipped:Array<{scope,names}>}>}
+ */
+async function persistVariableWrites(writes) {
+  const applied = [];
+  const skipped = [];
+  if (!Array.isArray(writes) || writes.length === 0)
+    return { applied, skipped };
+
+  // Group writes by scope so each scope is persisted once.
+  const byScope = { environment: [], collection: [], global: [] };
+  for (const w of writes) {
+    if (byScope[w.scope]) byScope[w.scope].push(w);
+  }
+  let envTouched = false;
+
+  // Global variables
+  if (byScope.global.length) {
+    const variables = _mergeCaptureWrites(
+      currentEnvironments.globalVariables,
+      byScope.global,
+    );
+    await handleEnvVarsSave({ id: null, variables });
+    byScope.global.forEach((w) =>
+      applied.push({ scope: "global", name: w.name }),
+    );
+    envTouched = true;
+  }
+
+  // Active environment
+  if (byScope.environment.length) {
+    const activeId = currentEnvironments.activeEnvironmentId;
+    const activeEnv = currentEnvironments.environments.find(
+      (e) => e.id === activeId,
+    );
+    if (!activeId || !activeEnv) {
+      skipped.push({
+        scope: "environment",
+        names: _captureNameList(byScope.environment),
+      });
+    } else {
+      const variables = _mergeCaptureWrites(
+        activeEnv.variables,
+        byScope.environment,
+      );
+      await handleEnvVarsSave({ id: activeId, variables });
+      byScope.environment.forEach((w) =>
+        applied.push({ scope: "env", name: w.name }),
+      );
+      envTouched = true;
+    }
+  }
+
+  // Active collection
+  if (byScope.collection.length) {
+    const activeCollId = currentColls.activeCollectionId;
+    const activeColl = currentColls.collections.find(
+      (c) => c.id === activeCollId,
+    );
+    if (!activeCollId || !activeColl) {
+      skipped.push({
+        scope: "collection",
+        names: _captureNameList(byScope.collection),
+      });
+    } else {
+      const variables = _mergeCaptureWrites(
+        activeColl.variables,
+        byScope.collection,
+      );
+      await handleVarsSave({ scopeId: activeCollId, variables });
+      byScope.collection.forEach((w) =>
+        applied.push({ scope: "coll", name: w.name }),
+      );
+    }
+  }
+
+  // Reflect new env/global values in any open popup + the picker.
+  if (envTouched) {
+    environmentsPopup.update(currentEnvironments);
+    envPicker.load(currentEnvironments);
+  }
+  return { applied, skipped };
+}
+
 // ── Post-response captures (Feature 03) ──────────────────────────────────
 
 /**
@@ -2259,83 +2400,22 @@ async function _applyCapturesForNode(node, detail) {
     rules,
   );
 
-  // Group writes by scope so each scope is persisted once.
-  const byScope = { environment: [], collection: [], global: [] };
-  for (const w of writes) {
-    if (byScope[w.scope]) byScope[w.scope].push(w);
-  }
+  // Persist via the shared write-back path (the same one the after-response
+  // script uses). It groups by scope, encrypts secure values and refreshes UI.
+  const { applied, skipped } = await persistVariableWrites(writes);
 
-  const applied = []; // { scope, name } — drives the success summary
-  let envTouched = false;
-
-  // Global variables
-  if (byScope.global.length) {
-    const variables = _mergeCaptureWrites(
-      currentEnvironments.globalVariables,
-      byScope.global,
+  // Surface any scope skipped because its target (active env / collection) was
+  // inactive — capture-specific copy, names only (never values).
+  for (const s of skipped) {
+    Notifications.warning(
+      t(
+        s.scope === "environment"
+          ? "app.captureSkippedEnv"
+          : "app.captureSkippedColl",
+        { names: s.names },
+      ),
+      { title: t("app.captureSkipped") },
     );
-    await handleEnvVarsSave({ id: null, variables });
-    byScope.global.forEach((w) =>
-      applied.push({ scope: "global", name: w.name }),
-    );
-    envTouched = true;
-  }
-
-  // Active environment
-  if (byScope.environment.length) {
-    const activeId = currentEnvironments.activeEnvironmentId;
-    const activeEnv = currentEnvironments.environments.find(
-      (e) => e.id === activeId,
-    );
-    if (!activeId || !activeEnv) {
-      Notifications.warning(
-        t("app.captureSkippedEnv", {
-          names: _captureNameList(byScope.environment),
-        }),
-        { title: t("app.captureSkipped") },
-      );
-    } else {
-      const variables = _mergeCaptureWrites(
-        activeEnv.variables,
-        byScope.environment,
-      );
-      await handleEnvVarsSave({ id: activeId, variables });
-      byScope.environment.forEach((w) =>
-        applied.push({ scope: "env", name: w.name }),
-      );
-      envTouched = true;
-    }
-  }
-
-  // Active collection
-  if (byScope.collection.length) {
-    const activeCollId = currentColls.activeCollectionId;
-    const activeColl = currentColls.collections.find(
-      (c) => c.id === activeCollId,
-    );
-    if (!activeCollId || !activeColl) {
-      Notifications.warning(
-        t("app.captureSkippedColl", {
-          names: _captureNameList(byScope.collection),
-        }),
-        { title: t("app.captureSkipped") },
-      );
-    } else {
-      const variables = _mergeCaptureWrites(
-        activeColl.variables,
-        byScope.collection,
-      );
-      await handleVarsSave({ scopeId: activeCollId, variables });
-      byScope.collection.forEach((w) =>
-        applied.push({ scope: "coll", name: w.name }),
-      );
-    }
-  }
-
-  // Reflect new env/global values in any open popup + the picker.
-  if (envTouched) {
-    environmentsPopup.update(currentEnvironments);
-    envPicker.load(currentEnvironments);
   }
 
   // Surface outcomes — names + scopes only, never values.
@@ -2363,6 +2443,108 @@ async function _applyCapturesForNode(node, detail) {
 /** Comma-join capture entry names for a message (names only — never values). */
 function _captureNameList(entries) {
   return entries.map((e) => e.name).join(", ");
+}
+
+// ── Request scripting (Feature 25) ───────────────────────────────────────
+
+/**
+ * Build the flat variable snapshot ({ global, environment, collection, folder }
+ * maps + env name) for a request node, mirroring the four resolver scopes — the
+ * read-side context handed to a script's `hippo.variables.get` / `environment`.
+ * Folder vars are flattened nearest-wins (the same precedence the resolver uses).
+ * @param {string} nodeId
+ */
+function _variableSnapshotForNode(nodeId) {
+  const activeColl = currentColls.collections.find(
+    (c) => c.id === currentColls.activeCollectionId,
+  );
+  const activeEnv = currentEnvironments.environments.find(
+    (e) => e.id === currentEnvironments.activeEnvironmentId,
+  );
+  const folder = {};
+  if (treeView && nodeId) {
+    // buildFolderChain is nearest-first; assign farthest → nearest so the
+    // nearest folder wins on a name clash.
+    const chain = buildFolderChain(treeView.getItems(), nodeId);
+    for (let i = chain.length - 1; i >= 0; i--) {
+      Object.assign(folder, varsArrayToMap(chain[i].variables));
+    }
+  }
+  return {
+    global: varsArrayToMap(currentEnvironments.globalVariables),
+    environment: varsArrayToMap(activeEnv?.variables),
+    collection: varsArrayToMap(activeColl?.variables),
+    folder,
+    envName: activeEnv?.name ?? "",
+  };
+}
+
+/**
+ * Run a request's after-response script: hand the sandbox the response + the
+ * variable snapshot, surface any error/logs, and persist its variable writes
+ * through the shared write-back path so a later request can consume them.
+ * @param {object} node    request node (carries `afterResponseScript`)
+ * @param {object} detail  hippo:response-received detail (status/headers/body)
+ */
+async function _runAfterResponseScript(node, detail) {
+  const code = (node?.afterResponseScript ?? "").trim();
+  if (!code) return;
+  const snap = _variableSnapshotForNode(node.id);
+  const res = await window.hippo.script.runPost({
+    code,
+    request: detail?.request ?? {},
+    response: {
+      status: detail?.status ?? 0,
+      headers: detail?.headers ?? {},
+      body: detail?.body ?? "",
+    },
+    environment: { name: snap.envName, variables: snap.environment },
+    variables: {
+      global: snap.global,
+      environment: snap.environment,
+      collection: snap.collection,
+      folder: snap.folder,
+    },
+  });
+  surfaceScriptResult(res);
+  if (res?.logs?.length) {
+    window.dispatchEvent(
+      new CustomEvent("hippo:script-console", {
+        detail: { requestId: node.id, lines: _formatScriptLogs(res.logs) },
+      }),
+    );
+  }
+  if (res?.varWrites?.length) await persistVariableWrites(res.varWrites);
+}
+
+/**
+ * Format sandbox console entries ({ level, text }) into response-Console lines,
+ * using the pane's prefix convention (`* ` info, `[error] ` error).
+ * @param {Array<{level:string,text:string}>} logs
+ * @returns {string[]}
+ */
+function _formatScriptLogs(logs) {
+  return (logs ?? []).map((l) =>
+    l?.level === "error"
+      ? `[error] [script] ${l.text ?? ""}`
+      : `* [script] ${l?.text ?? ""}`,
+  );
+}
+
+/**
+ * Surface a script run's outcome to the user. Errors become an error toast
+ * (never silently dropped — acceptance criterion). Console output display is
+ * wired into the response Console pane in a later step; for now logs ride along
+ * unshown. Returns nothing.
+ * @param {{error?:{message:string,line?:number}, logs?:Array}|null} res
+ */
+function surfaceScriptResult(res) {
+  if (!res || !res.error) return;
+  const { message, line } = res.error;
+  Notifications.error(
+    line ? t("script.errorWithLine", { message, line }) : message,
+    { title: t("script.errorTitle") },
+  );
 }
 
 /**

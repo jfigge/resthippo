@@ -379,7 +379,8 @@
       "message": "消息",
       "auth": "认证",
       "captures": "捕获",
-      "notes": "备注"
+      "notes": "备注",
+      "scripts": "脚本"
     },
     "method": {
       "aria": "HTTP 方法",
@@ -1198,5 +1199,15 @@
     "rename": "重命名请求或文件夹",
     "newWsRequest": "新建 WebSocket 请求",
     "delete": "删除请求或文件夹（需确认）"
+  },
+  "script": {
+    "errorTitle": "脚本错误",
+    "errorWithLine": "{message}（第 {line} 行）",
+    "preLabel": "请求前",
+    "postLabel": "响应后",
+    "prePlaceholder": "// 在发送请求之前运行\n// hippo.variables.set(\"environment\", \"token\", \"abc123\")",
+    "postPlaceholder": "// 在收到响应之后运行\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
+    "enabled": "启用",
+    "resizeAria": "调整脚本面板大小"
   }
 }

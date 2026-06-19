@@ -1,0 +1,75 @@
+name: Deploy Website
+
+# Builds the marketing/download site and publishes it to GitHub Pages
+# (resthippo.com). Runs when a GitHub Release is published (so a new version
+# shows up for download), on pushes to main that touch the site or the guide
+# source, and manually. Downloads link to GitHub Releases; versions.json and the
+# hosted user guide are generated here so the site always tracks the repo.
+#
+# Requires Pages → Source = "GitHub Actions" (the build job's configure-pages
+# step enables it on first run). Custom domain comes from website/CNAME.
+on:
+  release:
+    types: [published]
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - "src/web/docs/**"
+      - "scripts/build-versions.mjs"
+      - "scripts/build-docs.mjs"
+      - ".github/workflows/deploy-site.yml"
+  workflow_dispatch: {}
+
+# GITHUB_TOKEN scopes Pages needs; id-token lets deploy-pages attest the artifact.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never cancel an in-flight deploy; let queued runs wait their turn.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Generate versions.json from GitHub Releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/build-versions.mjs --repo "${{ github.repository }}" --out website/versions.json
+
+      - name: Build hosted user guide (Markdown → HTML)
+        run: |
+          npm install --no-save --no-audit --no-fund --prefix /tmp/docsdeps marked@18
+          MARKED_DIR=/tmp/docsdeps/node_modules node scripts/build-docs.mjs
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

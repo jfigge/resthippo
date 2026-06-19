@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Jason Figge
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // main.js — Electron main process for Rest Hippo
 "use strict";
 
@@ -33,6 +49,7 @@ const { buildReport } = require("./diagnostics");
 const { loadCatalog, label: i18nLabel } = require("./i18n");
 const { WebSocketHub } = require("./net/websocket");
 const { registerHttpEngine } = require("./net/http-engine");
+const { registerScripting } = require("./scripting/sandbox");
 
 const isDev = process.argv.includes("--dev");
 const isDebug = process.argv.includes("--hot-reload");
@@ -494,6 +511,14 @@ registerHttpEngine({
   getStores,
   safeCall,
 });
+
+// ─── Scripting IPC (Feature 25) ──────────────────────────────────────────────
+// Pre-request / after-response scripts run in a locked-down vm sandbox in the
+// main process (the renderer never executes arbitrary code). The sandbox is a
+// pure compute unit: it returns the mutated request, variable writes and console
+// output; the renderer persists variable writes through the existing capture
+// write-back path. See scripting/sandbox.js for the security model.
+registerScripting({ ipcMain, safeCall });
 
 // ─── WebSocket IPC (Feature 32) ──────────────────────────────────────────────
 // Owns every live ws://wss:// connection in the main process — the sandboxed

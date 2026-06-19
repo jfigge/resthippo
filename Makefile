@@ -176,6 +176,14 @@ fmt-check:
 		"app/**/*.js"
 	@echo "--------------------------------"
 
+# ─── License headers ──────────────────────────────────────────────────────────
+# Stamp the Apache 2.0 header onto any first-party src/ JS+CSS or build script
+# that is missing it (see CLAUDE.md → "License headers" for the scope).
+license-headers:
+	@echo "Stamping Apache 2.0 license headers..."
+	@node $(WORKSPACE)/scripts/license-header.mjs
+	@echo "--------------------------------"
+
 # ─── Linting ──────────────────────────────────────────────────────────────────
 lint:
 	@echo "Linting JavaScript..."
@@ -185,7 +193,15 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-cookies test-auth test-net test-content-type test-ipc test-oauth test-export test-components test-import test-data-store test-quick-access test-i18n test-diagnostics test-renderer-components test-renderer-e2e
+test: test-js test-cookies test-auth test-net test-scripting test-content-type test-ipc test-oauth test-export test-components test-import test-data-store test-quick-access test-i18n test-diagnostics test-renderer-components test-renderer-e2e test-license-headers
+
+# Guard: every first-party src/ JS+CSS file and build script must carry the
+# Apache 2.0 header. Run by `make test` (CI) and the pre-commit hook. Fix any
+# failure with `make license-headers`.
+test-license-headers:
+	@echo "Checking Apache 2.0 license headers (guard)..."
+	@node $(WORKSPACE)/scripts/license-header.mjs --check
+	@echo "--------------------------------"
 
 test-js:
 	@echo "Running JavaScript store tests..."
@@ -205,6 +221,11 @@ test-auth:
 test-net:
 	@echo "Running proxy / retry / websocket / timing / sse / http-engine tests..."
 	@node --test $(APP_DIR)/net/tests/proxy.test.js $(APP_DIR)/net/tests/retry.test.js $(APP_DIR)/net/tests/websocket.test.js $(APP_DIR)/net/tests/timing.test.js $(APP_DIR)/net/tests/sse.test.js $(APP_DIR)/net/tests/http-engine.test.js
+	@echo "--------------------------------"
+
+test-scripting:
+	@echo "Running sandboxed-scripting tests..."
+	@node --test $(APP_DIR)/scripting/tests/sandbox.test.js
 	@echo "--------------------------------"
 
 test-content-type:
@@ -229,7 +250,7 @@ test-export:
 
 test-components:
 	@echo "Running renderer component tests (variable resolution, request payload)..."
-	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js $(WEB_DIR)/scripts/components/tests/captures.test.js $(WEB_DIR)/scripts/components/tests/status-match.test.js $(WEB_DIR)/scripts/components/tests/captures-xml.test.js $(WEB_DIR)/scripts/components/tests/tree-model.test.js $(WEB_DIR)/scripts/components/tests/body-filter.test.js $(WEB_DIR)/scripts/components/code-gen/tests/code-gen.test.js
+	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js $(WEB_DIR)/scripts/components/tests/captures.test.js $(WEB_DIR)/scripts/components/tests/status-match.test.js $(WEB_DIR)/scripts/components/tests/captures-xml.test.js $(WEB_DIR)/scripts/components/tests/tree-model.test.js $(WEB_DIR)/scripts/components/tests/body-filter.test.js $(WEB_DIR)/scripts/components/tests/script-autocomplete.test.js $(WEB_DIR)/scripts/components/code-gen/tests/code-gen.test.js
 	@echo "--------------------------------"
 
 test-import:

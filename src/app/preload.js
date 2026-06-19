@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Jason Figge
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // preload.js — Runs in the renderer process before page content loads.
 // Exposes a narrow, safe API surface to the renderer via contextBridge.
 //
@@ -383,6 +399,27 @@ contextBridge.exposeInMainWorld("hippo", {
         return () => ipcRenderer.removeListener("http:stream:hint", listener);
       },
     },
+  },
+
+  /**
+   * Sandboxed scripting (Feature 25) — pre-request / after-response scripts run
+   * in a locked-down vm context in the main process; the renderer never executes
+   * arbitrary code. Each call is a pure round-trip: the renderer hands in a
+   * snapshot, main runs the script and returns the result envelope.
+   *
+   *   runPre({ code, request, environment, variables })
+   *     → { request, varWrites, logs, error }   (request = mutated outgoing req)
+   *   runPost({ code, request, response, environment, variables })
+   *     → { varWrites, logs, error }
+   *   validate(code)  → { error }   (compile-only; for live syntax squiggles)
+   *
+   * varWrites = [{ scope, name, value }] (scope: global|environment|collection);
+   * logs = [{ level, text }]; error = null | { name, message, line?, col? }.
+   */
+  script: {
+    runPre: (payload) => ipcRenderer.invoke("script:run-pre", payload),
+    runPost: (payload) => ipcRenderer.invoke("script:run-post", payload),
+    validate: (code) => ipcRenderer.invoke("script:validate", code),
   },
 
   /**
