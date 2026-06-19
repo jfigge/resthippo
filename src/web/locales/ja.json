@@ -383,8 +383,6 @@
     "url": {
       "aria": "リクエスト URL",
       "none": "URL なし",
-      "copy": "コピー",
-      "copied": "コピーしました！",
       "copyTitle": "URL をクリップボードにコピー",
       "previewAria": "クエリパラメーター付きのリクエスト URL",
       "previewPlaceholder": "上に URL を入力すると、ここにプレビューが表示されます"

@@ -2041,7 +2041,7 @@ export class RequestEditor {
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
     copyBtn.className = "params-url-preview-copy-btn";
-    copyBtn.textContent = t("request.url.copy");
+    copyBtn.innerHTML = icon("copy", { size: 15 });
     copyBtn.title = t("request.url.copyTitle");
     copyBtn.setAttribute("aria-label", t("request.url.copyTitle"));
     copyBtn.addEventListener("click", async () => {
@@ -2051,9 +2051,11 @@ export class RequestEditor {
       const text = await this.#buildPreviewUrl(false);
       if (!text) return;
       await navigator.clipboard.writeText(text);
-      copyBtn.textContent = t("request.url.copied");
+      copyBtn.innerHTML = icon("check", { size: 15 });
+      copyBtn.classList.add("params-url-preview-copy-btn--copied");
       setTimeout(() => {
-        copyBtn.textContent = t("request.url.copy");
+        copyBtn.innerHTML = icon("copy", { size: 15 });
+        copyBtn.classList.remove("params-url-preview-copy-btn--copied");
       }, 1500);
     });
 

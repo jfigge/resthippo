@@ -385,8 +385,6 @@
     "url": {
       "aria": "Anfrage-URL",
       "none": "Keine URL",
-      "copy": "Kopieren",
-      "copied": "Kopiert!",
       "copyTitle": "URL in die Zwischenablage kopieren",
       "previewAria": "Anfrage-URL mit Query-Parametern",
       "previewPlaceholder": "Geben Sie oben eine URL ein, um sie hier in der Vorschau zu sehen"

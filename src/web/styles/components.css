@@ -143,6 +143,20 @@
   color: var(--color-text);
 }
 
+/* The tree-toolbar's leading [+ collection] [+ request] buttons match the
+   trailing collection-picker icon (.coll-picker-trigger) and settings gear:
+   a --control-h-md square so the whole toolbar reads as one row of evenly
+   sized icon buttons. Scoped to the toolbar so other .icon-btn uses (popups,
+   cookies, …) keep their content-sized box. */
+.tree-toolbar .icon-btn {
+  width: var(--control-h-md);
+  height: var(--control-h-md);
+}
+
+.tree-toolbar .icon-btn:active {
+  background-color: var(--color-surface-2);
+}
+
 /* Tree list */
 .tree-list {
   flex: 1;
@@ -1454,15 +1468,14 @@ html.show-method-icons .req-method-menu-item-label::before {
 /* focus state intentionally omitted — pointer-events:none prevents focus */
 
 .params-url-preview-copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  width: var(--control-h-sm);
   height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-sm);
   color: var(--color-subtext);
-  white-space: nowrap;
-  width: auto;
   transition:
     background-color var(--transition-fast),
     color var(--transition-fast);
@@ -1471,6 +1484,10 @@ html.show-method-icons .req-method-menu-item-label::before {
 .params-url-preview-copy-btn:hover {
   background-color: var(--color-surface-1);
   color: var(--color-text);
+}
+
+.params-url-preview-copy-btn--copied {
+  color: var(--color-success) !important;
 }
 
 /* Toolbar */

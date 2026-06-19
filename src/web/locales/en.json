@@ -385,8 +385,6 @@
     "url": {
       "aria": "Request URL",
       "none": "No URL",
-      "copy": "Copy",
-      "copied": "Copied!",
       "copyTitle": "Copy URL to clipboard",
       "previewAria": "Request URL with query parameters",
       "previewPlaceholder": "Enter a URL above to preview it here"

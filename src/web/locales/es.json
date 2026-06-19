@@ -385,8 +385,6 @@
     "url": {
       "aria": "URL de la solicitud",
       "none": "Sin URL",
-      "copy": "Copiar",
-      "copied": "¡Copiado!",
       "copyTitle": "Copiar URL al portapapeles",
       "previewAria": "URL de la solicitud con parámetros de consulta",
       "previewPlaceholder": "Introduce una URL arriba para previsualizarla aquí"

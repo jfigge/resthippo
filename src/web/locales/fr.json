@@ -385,8 +385,6 @@
     "url": {
       "aria": "URL de la requête",
       "none": "Aucune URL",
-      "copy": "Copier",
-      "copied": "Copié !",
       "copyTitle": "Copier l'URL dans le presse-papiers",
       "previewAria": "URL de la requête avec les paramètres de requête",
       "previewPlaceholder": "Saisissez une URL ci-dessus pour la prévisualiser ici"

@@ -843,7 +843,10 @@ const AUTH_SCHEME_CASES = [
 test("round-trip: every auth scheme survives a Postman cycle (secrets redacted)", () => {
   for (const c of AUTH_SCHEME_CASES) {
     const exported = exportToPostman(collectionWithAuth(c.fields), []);
-    const req = findRequest(parsePostman(JSON.parse(exported)).collection, "Req");
+    const req = findRequest(
+      parsePostman(JSON.parse(exported)).collection,
+      "Req",
+    );
     assert.ok(req, `${c.name}: request missing after round-trip`);
     assert.equal(req.authEnabled, true, `${c.name}: authEnabled lost`);
     c.check(req);

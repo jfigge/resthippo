@@ -385,8 +385,6 @@
     "url": {
       "aria": "URL della richiesta",
       "none": "Nessun URL",
-      "copy": "Copia",
-      "copied": "Copiato!",
       "copyTitle": "Copia l'URL negli appunti",
       "previewAria": "URL della richiesta con i parametri di query",
       "previewPlaceholder": "Inserisci un URL sopra per visualizzarne l'anteprima qui"

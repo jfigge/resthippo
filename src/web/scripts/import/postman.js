@@ -223,7 +223,11 @@ function parseVariables(list) {
   const out = [];
   for (const v of list ?? []) {
     if (v.key)
-      out.push({ name: v.key, value: v.value ?? "", secure: v.type === "secret" });
+      out.push({
+        name: v.key,
+        value: v.value ?? "",
+        secure: v.type === "secret",
+      });
   }
   return out;
 }
