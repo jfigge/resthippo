@@ -104,6 +104,7 @@ import {
 } from "./import/resthippo.js";
 import { ExportModal } from "./components/export-modal.js";
 import { PasswordPrompt } from "./components/password-prompt.js";
+import { buildCustomThemeCss } from "./utils/theme-css.js";
 import { installMenuHandlers } from "./event-bus/menu-handlers.js";
 import { installSettingsHandlers } from "./event-bus/settings-handlers.js";
 import { installWsHandlers } from "./event-bus/ws-handlers.js";
@@ -3481,10 +3482,11 @@ function _applyCustomThemeVars(theme) {
     styleEl.id = "resthippo-custom-theme";
     document.head.appendChild(styleEl);
   }
-  const vars = Object.entries(theme.vars)
-    .map(([k, v]) => `  ${k}: ${v};`)
-    .join("\n");
-  styleEl.textContent = `:root[data-theme="custom"] {\n  color-scheme: ${theme.colorScheme};\n${vars}\n}`;
+  // Build the rule through a validating helper — a custom theme can arrive from
+  // an imported backup, and a raw value containing `}` would otherwise break out
+  // of the rule and inject arbitrary CSS app-wide. buildCustomThemeCss() drops
+  // any key/value that could escape and constrains color-scheme to light|dark.
+  styleEl.textContent = buildCustomThemeCss(theme);
 }
 
 function applySettings(settings) {

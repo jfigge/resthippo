@@ -119,6 +119,34 @@ describe("hippo.variables", () => {
     assert.notEqual(r.error, null);
     assert.match(r.error.message, /unknown scope/);
   });
+
+  it("get() returns undefined for an unset name, not an inherited prototype member", () => {
+    const r = post(
+      `hippo.variables.set("global", "a", String(hippo.variables.get("global", "toString")));
+       hippo.variables.set("global", "b", String(hippo.variables.get("global", "hasOwnProperty")));
+       hippo.variables.set("global", "c", String(hippo.variables.get("global", "constructor")));`,
+      { variables: { global: {} } },
+    );
+    assert.equal(r.error, null);
+    const byName = Object.fromEntries(
+      r.varWrites.map((w) => [w.name, w.value]),
+    );
+    assert.equal(byName.a, "undefined");
+    assert.equal(byName.b, "undefined");
+    assert.equal(byName.c, "undefined");
+  });
+
+  it("set() rejects prototype-polluting names (fail closed, no varWrite)", () => {
+    for (const name of ["__proto__", "constructor", "prototype"]) {
+      const r = post(
+        `hippo.variables.set("global", ${JSON.stringify(name)}, "x");`,
+        { variables: { global: {} } },
+      );
+      assert.notEqual(r.error, null, `${name} must be rejected`);
+      assert.match(r.error.message, /reserved variable name/);
+      assert.deepEqual(r.varWrites, []);
+    }
+  });
 });
 
 describe("hippo.response (after-response)", () => {

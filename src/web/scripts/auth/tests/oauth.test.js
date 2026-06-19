@@ -1073,5 +1073,107 @@ await test("resolveOAuth2Config: tolerates null config / non-function resolver",
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Authorization Code flow — PKCE on every client type (mocked popup + token)
+// ─────────────────────────────────────────────────────────────────────────────
+
+group("Authorization Code flow (PKCE for all clients)");
+
+import { authorizationCodeFlow } from "../flows/authorization-code.js";
+
+await test("a confidential client sends PKCE AND authenticates with its secret", async () => {
+  let capturedAuthUrl = null;
+  let capturedDesc = null;
+  window.hippo.oauth = {
+    openPopup: async (authUrl, redirectUri) => {
+      capturedAuthUrl = authUrl;
+      const state = new URL(authUrl).searchParams.get("state");
+      return { url: `${redirectUri}?code=AUTHCODE&state=${state}` };
+    },
+  };
+  _mockResponse = (desc) => {
+    capturedDesc = desc;
+    return {
+      status: 200,
+      statusText: "OK",
+      body: JSON.stringify({
+        access_token: "AT",
+        token_type: "Bearer",
+        expires_in: 3600,
+      }),
+    };
+  };
+
+  const result = await authorizationCodeFlow({
+    grantType: "authorization_code",
+    clientType: "confidential",
+    clientId: "cid",
+    clientSecret: "csecret",
+    authUrl: "https://idp.example.com/authorize",
+    accessTokenUrl: "https://idp.example.com/token",
+    redirectUri: "https://app.example.com/callback",
+    credentials: "header",
+  });
+  assert.equal(result.success, true);
+
+  // PKCE challenge is present on the authorization request for a CONFIDENTIAL
+  // client (previously only public clients got it).
+  const au = new URL(capturedAuthUrl);
+  assert.equal(au.searchParams.get("code_challenge_method"), "S256");
+  assert.ok(au.searchParams.get("code_challenge"), "code_challenge present");
+
+  // The verifier rides on the token request, AND the secret still authenticates
+  // (header mode → Basic auth) — PKCE is additive, not a replacement.
+  const tokenParams = new URLSearchParams(capturedDesc.body);
+  assert.ok(tokenParams.get("code_verifier"), "code_verifier present");
+  assert.equal(tokenParams.get("client_id"), "cid");
+  assert.match(
+    String(capturedDesc.headers?.Authorization || ""),
+    /^Basic /,
+    "confidential client still sends its secret",
+  );
+
+  window.hippo.oauth = undefined; // reset
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// id_token decode — reject unsigned tokens (alg:none)
+// ─────────────────────────────────────────────────────────────────────────────
+
+group("decodeIdTokenPayload (reject unsigned)");
+
+import { decodeIdTokenPayload } from "../utils/nonce.js";
+import { base64UrlEncode } from "../utils/base64url.js";
+
+function _b64url(obj) {
+  return base64UrlEncode(new TextEncoder().encode(JSON.stringify(obj)));
+}
+
+await test("decodes a signed token's payload", async () => {
+  const tok = `${_b64url({ alg: "RS256", typ: "JWT" })}.${_b64url({ sub: "u1", nonce: "abc" })}.c2ln`;
+  const payload = decodeIdTokenPayload(tok);
+  assert.equal(payload.sub, "u1");
+  assert.equal(payload.nonce, "abc");
+});
+
+await test("rejects an unsigned token (alg:none, missing alg, or no signature)", async () => {
+  const payload = { sub: "u1", nonce: "abc" };
+  const none = `${_b64url({ alg: "none" })}.${_b64url(payload)}.`;
+  const noAlg = `${_b64url({ typ: "JWT" })}.${_b64url(payload)}.c2ln`;
+  const emptySig = `${_b64url({ alg: "RS256" })}.${_b64url(payload)}.`;
+  const twoPart = `${_b64url({ alg: "RS256" })}.${_b64url(payload)}`;
+  assert.equal(decodeIdTokenPayload(none), null, "alg:none rejected");
+  assert.equal(decodeIdTokenPayload(noAlg), null, "missing alg rejected");
+  assert.equal(
+    decodeIdTokenPayload(emptySig),
+    null,
+    "empty signature rejected",
+  );
+  assert.equal(decodeIdTokenPayload(twoPart), null, "two-part token rejected");
+  assert.equal(decodeIdTokenPayload("not.a.jwt"), null, "garbage rejected");
+  assert.equal(decodeIdTokenPayload(""), null);
+  assert.equal(decodeIdTokenPayload(null), null);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 console.log("\n✓ All tests passed\n");

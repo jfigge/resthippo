@@ -64,19 +64,27 @@ export function discardNonce(nonce) {
 }
 
 /**
- * Decode the JWT payload (middle segment) of an id_token without verifying its
- * signature. Verification of the signature is the IdP's responsibility per the
- * implicit flow contract (the channel itself is the trust boundary); this
- * helper exists only to extract claims for client-side replay protection.
+ * Decode the JWT payload (middle segment) of an id_token, after rejecting an
+ * UNSIGNED token outright. We do not verify the signature here — that needs the
+ * IdP's JWKS and is out of scope for the (legacy) implicit flow — but an
+ * `alg: none` (or missing-alg / missing-signature) token can be forged by
+ * anyone, so we refuse to decode or trust it at all. This is the cheap floor
+ * beneath the nonce replay check; full verification would additionally check
+ * the signature, `iss`, `aud` and `exp`.
  *
  * @param {string} idToken
- * @returns {object|null} parsed payload, or null if the token cannot be decoded
+ * @returns {object|null} parsed payload, or null if the token is unsigned or
+ *   cannot be decoded
  */
 export function decodeIdTokenPayload(idToken) {
   if (!idToken || typeof idToken !== "string") return null;
   const parts = idToken.split(".");
-  if (parts.length < 2) return null;
+  // A signed JWT has three segments and a non-empty signature.
+  if (parts.length !== 3 || !parts[2]) return null;
   try {
+    const header = JSON.parse(base64UrlDecode(parts[0]));
+    const alg = typeof header.alg === "string" ? header.alg.toLowerCase() : "";
+    if (!alg || alg === "none") return null; // unsigned — never trust it
     return JSON.parse(base64UrlDecode(parts[1]));
   } catch {
     return null;

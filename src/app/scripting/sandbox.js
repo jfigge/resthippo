@@ -27,15 +27,22 @@
  *
  * ── Security model ──────────────────────────────────────────────────────────
  * Scripts run in a fresh `vm` context with three deliberate hardenings:
- *   1. No host objects are ever placed in the context. The only context inputs
- *      are two primitive strings (`__phase`, `__input` JSON); the `hippo` API is
- *      built by a trusted BOOTSTRAP script that runs *inside* the context, so
- *      every object/function the user's code can touch is context-native. This
- *      closes the classic `({}).constructor.constructor("return process")()`
- *      escape, because there is no host intrinsic to reach.
+ *   1. Only primitive strings cross into the context as inputs (`__phase`, the
+ *      `__input` JSON); the `hippo` API is built by a trusted BOOTSTRAP script
+ *      that runs *inside* the context, so the API surface handed to user code is
+ *      context-native. NOTE — this does NOT make the host realm unreachable:
+ *      Node makes the contextified global inherit (a proxy of) the HOST
+ *      Object.prototype, so `Object.getPrototypeOf(globalThis).constructor`
+ *      resolves to the host `Function` constructor. (Contextifying a
+ *      null-prototype object, or `setPrototypeOf(global, null)` from the host,
+ *      does NOT take — the vm global's prototype is managed by Node and cannot
+ *      be removed this way; verified empirically.) Reaching that *reference* is
+ *      harmless on its own — what stops the breakout is #2.
  *   2. `codeGeneration: { strings: false, wasm: false }` — `eval` and the
- *      `Function` constructor throw inside the context, neutralising the other
- *      common breakout and forbidding dynamic code-gen in user scripts.
+ *      `Function` constructor throw inside the context, so the reachable host
+ *      Function constructor can never COMPILE code. This is the load-bearing
+ *      barrier: `Function("return process")()` fails with EvalError. Treat this,
+ *      not #1, as what actually contains a hostile script.
  *   3. A wall-clock `timeout` bounds the synchronous run so an infinite loop
  *      can't wedge the main process. Scripts are synchronous-only (no `await`);
  *      there is no network/timer in scope, so there is nothing to await.
@@ -112,7 +119,11 @@ const BOOTSTRAP = `
         if (ALL_SCOPES.indexOf(scope) === -1)
           throw new Error("hippo.variables.get: unknown scope '" + scope + "'");
         var m = vars[scope];
-        return m ? m[name] : undefined;
+        // hasOwnProperty so an unset name returns undefined instead of leaking
+        // an inherited Object.prototype member (toString, constructor, …).
+        return m && Object.prototype.hasOwnProperty.call(m, name)
+          ? m[name]
+          : undefined;
       },
       set: function (scope, name, value) {
         if (scope === "folder")
@@ -121,6 +132,16 @@ const BOOTSTRAP = `
           );
         if (SET_SCOPES.indexOf(scope) === -1)
           throw new Error("hippo.variables.set: unknown scope '" + scope + "'");
+        // Reject prototype-polluting names so a write can't corrupt the scope
+        // map or be persisted as a bogus "__proto__"/"constructor" variable.
+        if (
+          name === "__proto__" ||
+          name === "constructor" ||
+          name === "prototype"
+        )
+          throw new Error(
+            "hippo.variables.set: reserved variable name '" + name + "'",
+          );
         var v = value == null ? "" : String(value);
         if (!vars[scope]) vars[scope] = {};
         vars[scope][name] = v;

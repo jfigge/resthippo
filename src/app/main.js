@@ -892,6 +892,38 @@ registerScripting({ ipcMain, safeCall });
 // Creates/manages a WebContentsView that overlays the response body pane and
 // loads the last request URL so the user sees a live browser preview.
 (function initHtmlPreviewIPC() {
+  /** @returns {boolean} true only for an http(s) URL — the sole previewable schemes. */
+  function _isHttpUrl(url) {
+    try {
+      const proto = new URL(url).protocol;
+      return proto === "http:" || proto === "https:";
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Lock the preview's web contents down to a passive viewer. The previewed page
+   * is untrusted (it is the response's own request URL — possibly from an
+   * imported collection or a redirect) and runs with scripting enabled, so:
+   *   • deny window.open / target=_blank so it can't spawn windows;
+   *   • deny every permission request (camera, geolocation, notifications, …);
+   *   • allow only http(s) navigation, blocking file:/javascript:/data: etc.
+   * It also runs in its own session partition (see _ensureView) so it cannot
+   * read the default session's cookies — notably the IdP cookies the OAuth popup
+   * sets there.
+   * @param {Electron.WebContents} wc
+   */
+  function _hardenPreviewView(wc) {
+    wc.setWindowOpenHandler(() => ({ action: "deny" }));
+    wc.session.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
+    const blockNonHttp = (e, url) => {
+      if (!_isHttpUrl(url)) e.preventDefault();
+    };
+    wc.on("will-navigate", blockNonHttp);
+    wc.on("will-redirect", blockNonHttp);
+  }
+
   /**
    * Ensure the WebContentsView exists and is attached to the main window.
    * @returns {WebContentsView|null}
@@ -906,8 +938,13 @@ registerScripting({ ipcMain, safeCall });
           contextIsolation: true,
           nodeIntegration: false,
           webSecurity: true,
+          // Ephemeral, non-default partition: previewed pages get a clean,
+          // isolated cookie store and cannot read the app's / OAuth popup's
+          // default-session cookies.
+          partition: "preview-html",
         },
       });
+      _hardenPreviewView(_htmlPreviewView.webContents);
     }
 
     if (!_htmlPreviewAdded) {
@@ -935,6 +972,14 @@ registerScripting({ ipcMain, safeCall });
    * Creates the view if it does not yet exist.
    */
   ipcMain.handle("preview:html:load-url", async (_event, url, bounds) => {
+    // Only ever load http(s) into the preview — never file:, javascript:, data:,
+    // chrome:, etc. The URL is the response's request URL, which can be
+    // attacker-influenced (imported collection, redirect target).
+    if (!_isHttpUrl(url)) {
+      console.warn("[htmlPreview] refused to load non-http(s) URL");
+      return;
+    }
+
     const view = _ensureView();
     if (!view) return;
 

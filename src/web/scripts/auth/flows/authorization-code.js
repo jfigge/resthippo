@@ -18,10 +18,10 @@
  * auth/flows/authorization-code.js
  *
  * OAuth 2.0 Authorization Code Grant — RFC 6749 §4.1
- * with optional PKCE extension (RFC 7636) for public clients.
+ * with PKCE (RFC 7636) on every flow — public AND confidential clients.
  *
  * Flow:
- *   1. Generate state (+ PKCE code_verifier / code_challenge for public clients)
+ *   1. Generate state + PKCE code_verifier / code_challenge (S256)
  *   2. Build authorization URL
  *   3. Open Electron popup and wait for the redirect callback
  *   4. Validate state (CSRF check)
@@ -49,11 +49,10 @@ import {
 import { applyClientAuth, requestToken } from "./token-request.js";
 
 /**
- * Execute the Authorization Code grant (confidential or public/PKCE client).
- *
- * Distinguishes client types via `config.clientType`:
- *   "confidential" — standard secret-based flow (no PKCE unless overridden)
- *   "public"       — always adds PKCE (S256)
+ * Sends PKCE (S256) on every flow. `config.clientType` only decides client
+ * authentication at the token endpoint:
+ *   "public"       — no secret; the code_verifier alone binds the code
+ *   "confidential" — authenticates with its secret AND sends the code_verifier
  *
  * @param {object} config - authOAuth2 state from the request editor
  * @returns {Promise<import('../types/oauth-types').OAuthResult>}
@@ -63,20 +62,20 @@ export async function authorizationCodeFlow(config) {
   // executor via validateOAuthConfig(); this flow assumes a valid config.
   const clientId = config.clientId.trim();
   const accessTokenUrl = config.accessTokenUrl.trim();
-  const isPkce = config.clientType === "public";
+  const isPublic = config.clientType === "public";
   const redirectUri = config.redirectUri?.trim() || DEFAULT_REDIRECT_URI;
 
   // ── CSRF state ────────────────────────────────────────────────────────────
   const state = generateState();
 
-  // ── PKCE material ─────────────────────────────────────────────────────────
-  let codeVerifier = null;
-  let codeChallenge = null;
-
-  if (isPkce) {
-    codeVerifier = generateCodeVerifier();
-    codeChallenge = await generateCodeChallenge(codeVerifier);
-  }
+  // ── PKCE material (S256) ──────────────────────────────────────────────────
+  // Sent for BOTH client types: OAuth 2.1 / BCP-212 recommend PKCE on every
+  // authorization-code flow as defence against code injection, and a server
+  // that doesn't support it ignores the unknown code_challenge / code_verifier
+  // params (RFC 6749 §3). A confidential client's secret still binds the code
+  // too — PKCE is additive, not a replacement.
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
 
   // ── Build authorization URL ───────────────────────────────────────────────
   const authParams = {
@@ -99,10 +98,8 @@ export async function authorizationCodeFlow(config) {
   if (config.responseMode?.trim())
     authParams.response_mode = config.responseMode.trim();
 
-  if (isPkce) {
-    authParams.code_challenge = codeChallenge;
-    authParams.code_challenge_method = "S256";
-  }
+  authParams.code_challenge = codeChallenge;
+  authParams.code_challenge_method = "S256";
 
   // Extra custom parameters
   mergeExtraParams(authParams, config.extraParams);
@@ -169,22 +166,21 @@ export async function authorizationCodeFlow(config) {
     client_id: clientId,
   };
 
-  if (isPkce) {
-    tokenParams.code_verifier = codeVerifier;
-  }
+  tokenParams.code_verifier = codeVerifier;
 
   if (config.scope?.trim()) tokenParams.scope = config.scope.trim();
 
   // Extra custom token params
   mergeExtraParams(tokenParams, config.extraTokenParams);
 
-  // Confidential clients authenticate with their secret; PKCE/public clients
-  // prove possession with the code_verifier alone (client_id is already in the
-  // token params above), so they skip client authentication entirely.
+  // A public client skips client authentication — it has no secret and proves
+  // possession with the code_verifier alone (client_id is already in the token
+  // params). A confidential client still authenticates with its secret (and the
+  // code_verifier rides along on top).
   const tokenHeaders = {};
   applyClientAuth(tokenParams, tokenHeaders, config, {
     sendEmptySecret: true,
-    skip: isPkce,
+    skip: isPublic,
   });
 
   return requestToken(accessTokenUrl, tokenParams, tokenHeaders, config);
