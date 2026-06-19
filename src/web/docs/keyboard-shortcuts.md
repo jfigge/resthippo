@@ -4,12 +4,42 @@
 
 > On macOS use <kbd>⌘</kbd> (Command); on Windows/Linux use <kbd>Ctrl</kbd>.
 
+## Global
+
+These work anywhere in the app. Press <kbd>⌘/Ctrl</kbd>+<kbd>K</kbd> at any time
+to pop up this same list inside Rest Hippo.
+
+| Shortcut                                          | Action                                                  |
+| ------------------------------------------------- | ------------------------------------------------------- |
+| <kbd>⌘/Ctrl</kbd>+<kbd>Enter</kbd>                | Send the request (or WebSocket message when connected)  |
+| <kbd>⌘/Ctrl</kbd>+<kbd>N</kbd>                    | New request                                             |
+| <kbd>⌥⌘</kbd>/<kbd>Ctrl+Alt</kbd>+<kbd>N</kbd>    | New WebSocket request                                   |
+| <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd>   | New collection (or folder when a node is selected)      |
+| <kbd>⌘/Ctrl</kbd>+<kbd>L</kbd>                    | Focus the URL bar                                       |
+| <kbd>⌥⌘</kbd>/<kbd>Ctrl+Alt</kbd>+<kbd>↑</kbd>    | Select the previous request                             |
+| <kbd>⌥⌘</kbd>/<kbd>Ctrl+Alt</kbd>+<kbd>↓</kbd>    | Select the next request                                 |
+| <kbd>⌘/Ctrl</kbd>+<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> | Switch to the Requests / Favorites / Recent tab   |
+| <kbd>⌘/Ctrl</kbd>+<kbd>\\</kbd>                   | Cycle through the panel layouts                         |
+| <kbd>⌘/Ctrl</kbd>+<kbd>,</kbd>                    | Open Settings                                           |
+| <kbd>⌘/Ctrl</kbd>+<kbd>K</kbd>                    | Open the keyboard-shortcuts cheat-sheet                 |
+| <kbd>⌘/Ctrl</kbd>+<kbd>/</kbd>                    | Open the User Guide                                     |
+| <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd>   | Import a collection                                     |
+
+The navigation keys (focus URL, next/previous request, switch tab) yield to text
+entry — they only fire when you aren't typing in a field. The application menus
+also list these accelerators next to their commands.
+
+> **There's no Save shortcut — you don't need one.** Every edit you make to a
+> request (its method, URL, params, headers, body, auth, …) is **saved
+> automatically** a moment after you stop typing. Your work is always persisted;
+> there is no unsaved state to lose.
+
 ## Sending requests
 
 | Shortcut                           | Action                                          |
 | ---------------------------------- | ----------------------------------------------- |
 | <kbd>Enter</kbd>                   | Send the request (while the URL bar is focused) |
-| <kbd>⌘/Ctrl</kbd>+<kbd>Enter</kbd> | Send a WebSocket message (while connected)      |
+| <kbd>⌘/Ctrl</kbd>+<kbd>Enter</kbd> | Send the request, or a WebSocket message when connected |
 
 ## Response viewer
 
@@ -56,6 +86,9 @@ move around entirely with the arrow keys — you don't tab through every row.
 | <kbd>Esc</kbd>                    | Hide the filter box and clear the filter                |
 | <kbd>Enter</kbd>                  | Open the request, or toggle the collection              |
 | <kbd>Space</kbd>                  | Select the row without opening / toggling               |
+| <kbd>⌘/Ctrl</kbd>+<kbd>D</kbd>    | Duplicate the focused request (requests only)           |
+| <kbd>F2</kbd>                     | Rename the focused request or folder                    |
+| <kbd>Del</kbd> / <kbd>⌫</kbd>     | Delete the focused request or folder (opens a confirm)  |
 
 The same <kbd>↑</kbd> / <kbd>↓</kbd> / <kbd>Home</kbd> / <kbd>End</kbd> keys move
 between entries in the collections and environments lists.

@@ -735,6 +735,13 @@ registerHttpEngine({
             resultId = item.id ?? null;
           },
         };
+        if (item.accelerator) {
+          // Display-only: advertise the shortcut next to the item. The renderer
+          // owns these keystrokes (focus-scoped), so the transient context menu
+          // must not register them as global accelerators.
+          entry.accelerator = String(item.accelerator);
+          entry.registerAccelerator = false;
+        }
         if (item.type === "checkbox" || item.type === "radio") {
           entry.type = item.type;
           entry.checked = !!item.checked;
@@ -2413,6 +2420,14 @@ function buildMenu() {
           label: m("menu.themeEditor", "Theme Editor…"),
           click: showThemeEditor,
         },
+        {
+          label: m("menu.settings", "Settings…"),
+          accelerator: "CmdOrCtrl+,",
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:open-settings");
+          },
+        },
         { type: "separator" },
         { role: "services" },
         { type: "separator" },
@@ -2426,6 +2441,31 @@ function buildMenu() {
     {
       label: m("menu.file", "File"),
       submenu: [
+        {
+          label: m("menu.newRequest", "New Request"),
+          accelerator: "CmdOrCtrl+N",
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:new-request");
+          },
+        },
+        {
+          label: m("menu.newCollection", "New Collection"),
+          accelerator: "CmdOrCtrl+Shift+N",
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:new-collection");
+          },
+        },
+        {
+          label: m("menu.newWsRequest", "New WebSocket Request"),
+          accelerator: "CmdOrCtrl+Alt+N",
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:new-ws-request");
+          },
+        },
+        { type: "separator" },
         {
           label: m("menu.importCollection", "Import Collection…"),
           // toolTip is macOS-only (silently ignored on Windows/Linux); the
@@ -2507,11 +2547,25 @@ function buildMenu() {
         { role: "forceReload" },
         { role: "toggleDevTools" },
         { type: "separator" },
+        {
+          label: m("menu.cycleLayout", "Cycle Layout"),
+          accelerator: "CmdOrCtrl+\\",
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:cycle-layout");
+          },
+        },
+        { type: "separator" },
         // Custom font-size zoom — delegates to the renderer's zoom handler so
         // the settings fontSize is adjusted (and persisted) instead of performing
-        // a Chromium visual zoom that bypasses the app theming system.
+        // a Chromium visual zoom that bypasses the app theming system. The
+        // accelerators are advertised only (registerAccelerator:false): the
+        // renderer owns the keystroke (it also handles wheel/pinch and lets the
+        // combo pass through inside text fields), so the menu must not bind it.
         {
           label: m("menu.fontIncrease", "Increase Font Size"),
+          accelerator: "CmdOrCtrl+Plus",
+          registerAccelerator: false,
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
               _mainWin.webContents.send("hippo:ui-font-change", "in");
@@ -2519,6 +2573,8 @@ function buildMenu() {
         },
         {
           label: m("menu.fontDecrease", "Decrease Font Size"),
+          accelerator: "CmdOrCtrl+-",
+          registerAccelerator: false,
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
               _mainWin.webContents.send("hippo:ui-font-change", "out");
@@ -2526,6 +2582,8 @@ function buildMenu() {
         },
         {
           label: m("menu.fontReset", "Reset Font Size"),
+          accelerator: "CmdOrCtrl+0",
+          registerAccelerator: false,
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
               _mainWin.webContents.send("hippo:ui-font-change", "reset");
@@ -2548,6 +2606,14 @@ function buildMenu() {
           label: m("menu.userGuide", "Rest Hippo User Guide"),
           accelerator: "CmdOrCtrl+/",
           click: showDocsWindow,
+        },
+        {
+          label: m("menu.keyboardShortcuts", "Keyboard Shortcuts"),
+          accelerator: "CmdOrCtrl+K",
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:keyboard-shortcuts");
+          },
         },
         {
           // Voluntary tip jar — opens the donation page in the browser. Passive:

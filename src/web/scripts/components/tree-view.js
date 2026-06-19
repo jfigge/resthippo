@@ -21,6 +21,7 @@ import { PopupManager } from "../popup-manager.js";
 import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
 import { t } from "../i18n.js";
+import { electronAccelerator } from "../keymap.js";
 import { escapeHtml } from "../utils/html.js";
 import { deepClone } from "../utils/clone.js";
 import {
@@ -245,6 +246,59 @@ export class TreeView {
         this.#hideFilter();
         return;
       }
+      // Cmd/Ctrl+D duplicates the focused row — only when it is a request (folders
+      // are skipped, matching the requested scope). No-op when focus is elsewhere
+      // in the tree (toolbar / filter input / a folder row).
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.altKey &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "d"
+      ) {
+        const reqLi = e.target
+          .closest?.(".tree-node-row")
+          ?.closest(".tree-node--request");
+        if (reqLi) {
+          e.preventDefault();
+          this.#duplicateNode(reqLi.dataset.id);
+        }
+        return;
+      }
+      // F2 begins an inline rename of the focused row (request or folder).
+      if (e.key === "F2") {
+        const li = e.target.closest?.(".tree-node-row")?.closest(".tree-node");
+        if (li?.dataset.id) {
+          e.preventDefault();
+          this.#renameNode(li.dataset.id);
+        }
+        return;
+      }
+      // Delete / Backspace on a focused row (request or folder) opens the context
+      // menu already armed to the "Confirm?" state for delete, so a single
+      // confirming click removes it (or dismiss to cancel). Backspace is included
+      // because it is the de-facto delete key on macOS laptops. No-op (and no
+      // preventDefault) when focus is not on a node row — e.g. the filter input,
+      // where Backspace must keep editing text.
+      if (e.key === "Delete" || e.key === "Backspace") {
+        const row = e.target.closest?.(".tree-node-row");
+        const li = row?.closest(".tree-node");
+        const node = li?.dataset.id
+          ? findNode(this.#items, li.dataset.id)
+          : null;
+        if (node) {
+          e.preventDefault();
+          const r = (row ?? li).getBoundingClientRect();
+          this.#setActiveRow(li);
+          this.#showContextMenu(
+            node,
+            findParentId(this.#items, node.id) ?? null,
+            Math.round(r.left + 8),
+            Math.round(r.bottom),
+            "delete",
+          );
+        }
+        return;
+      }
       const row = e.target.closest?.(".tree-node-row");
       if (row) this.#handleTreeKeydown(e, row);
     });
@@ -366,6 +420,74 @@ export class TreeView {
     const li = this.#el.querySelector(`[data-id="${CSS.escape(id)}"]`);
     if (li) li.scrollIntoView({ block: "nearest" });
     return ok;
+  }
+
+  // ── Public keyboard-shortcut entry points ────────────────────────────────
+
+  /**
+   * Create a new request, mirroring the toolbar [+] button. No-op when no
+   * collection exists yet (the toolbar button is disabled in that state).
+   * Driven by the ⌘/Ctrl+N shortcut / File-menu item.
+   */
+  newRequest() {
+    if (this.#btnNewRequest?.disabled) return;
+    this.#addRequest();
+  }
+
+  /**
+   * Create a new WebSocket request, mirroring the toolbar [+] secondary menu.
+   * No-op when no collection exists yet. Driven by ⌥⌘N / Ctrl+Alt+N.
+   */
+  newWebSocketRequest() {
+    if (this.#btnNewRequest?.disabled) return;
+    this.#addRequest({ protocol: "websocket" });
+  }
+
+  /**
+   * Create a new collection — or a nested folder when a node is selected —
+   * mirroring the toolbar's New Collection button. Driven by ⌘/Ctrl+Shift+N.
+   */
+  newCollection() {
+    this.#addCollection();
+  }
+
+  /**
+   * Activate one of the surface tabs by name, driven by the ⌘/Ctrl+1‒3
+   * shortcuts. Silently ignores a tab that is not currently available (no
+   * favorites yet, or Recents disabled in settings).
+   * @param {"requests"|"favorites"|"recents"} tab
+   */
+  activateTab(tab) {
+    if (tab === "favorites" && this.#favorites.length === 0) return;
+    if (tab === "recents" && !this.#showRecents) return;
+    this.#switchTab(tab);
+  }
+
+  /**
+   * Move the selection to the next (dir>0) or previous (dir<0) visible request
+   * row and open it, as if the user clicked it. Clamps at the ends (no wrap).
+   * No-op when there are no visible requests. Driven by ⌥⌘↓ / ⌥⌘↑.
+   * @param {1|-1} dir
+   */
+  selectAdjacent(dir) {
+    const rows = [...this.#el.querySelectorAll(".tree-node--request")].filter(
+      (li) => {
+        const row = li.querySelector(":scope > .tree-node-row");
+        return row && this.#isRowVisible(row);
+      },
+    );
+    if (!rows.length) return;
+    const cur = rows.findIndex((li) => li.dataset.id === this.#selectedId);
+    const next =
+      cur === -1
+        ? dir > 0
+          ? 0
+          : rows.length - 1
+        : Math.max(0, Math.min(rows.length - 1, cur + dir));
+    const li = rows[next];
+    if (!li) return;
+    if (li.dataset.id !== this.#selectedId) this.selectById(li.dataset.id);
+    li.scrollIntoView({ block: "nearest" });
   }
 
   // ── Toolbar ─────────────────────────────────────────────────────────────
@@ -751,8 +873,17 @@ export class TreeView {
    * @param {string|null} parentCollectionId
    * @param {number}      x  clientX of the contextmenu event
    * @param {number}      y  clientY of the contextmenu event
+   * @param {string|null} initialConfirmId  id pre-armed to its "Confirm?" state
+   *                       (e.g. "delete" when opened via the Del key), so the
+   *                       menu opens one click away from running that action.
    */
-  async #showContextMenu(node, parentCollectionId, x, y) {
+  async #showContextMenu(
+    node,
+    parentCollectionId,
+    x,
+    y,
+    initialConfirmId = null,
+  ) {
     // Action map keyed by id — callbacks can't be sent across IPC, so the
     // native menu returns an id and the dispatch happens here.
     const actions =
@@ -820,25 +951,66 @@ export class TreeView {
     const baseItems =
       node.type === "collection"
         ? [
-            { id: "add-request", label: t("tree.menu.addRequest") },
-            { id: "add-ws-request", label: t("tree.menu.addWsRequest") },
-            { id: "add-folder", label: t("tree.menu.addFolder") },
+            {
+              id: "add-request",
+              label: t("tree.menu.addRequest"),
+              accelerator: electronAccelerator("newRequest"),
+            },
+            {
+              id: "add-ws-request",
+              label: t("tree.menu.addWsRequest"),
+              accelerator: electronAccelerator("newWsRequest"),
+            },
+            {
+              id: "add-folder",
+              label: t("tree.menu.addFolder"),
+              accelerator: electronAccelerator("newCollection"),
+            },
             { type: "separator" },
-            { id: "rename", label: t("tree.menu.rename") },
+            {
+              id: "rename",
+              label: t("tree.menu.rename"),
+              accelerator: electronAccelerator("rename"),
+            },
             { type: "separator" },
-            { id: "duplicate", label: t("tree.menu.duplicate") },
+            {
+              id: "duplicate",
+              label: t("tree.menu.duplicate"),
+              accelerator: electronAccelerator("duplicate"),
+            },
             { id: "export-collection", label: t("tree.menu.export") },
             { type: "separator" },
             { id: "variables", label: t("tree.menu.variables") },
             { type: "separator" },
-            { id: "delete", label: t("tree.menu.delete"), danger: true },
+            {
+              id: "delete",
+              label: t("tree.menu.delete"),
+              danger: true,
+              accelerator: electronAccelerator("delete"),
+            },
           ]
         : [
-            { id: "add-request", label: t("tree.menu.addRequest") },
-            { id: "add-ws-request", label: t("tree.menu.addWsRequest") },
-            { id: "add-folder", label: t("tree.menu.addFolder") },
+            {
+              id: "add-request",
+              label: t("tree.menu.addRequest"),
+              accelerator: electronAccelerator("newRequest"),
+            },
+            {
+              id: "add-ws-request",
+              label: t("tree.menu.addWsRequest"),
+              accelerator: electronAccelerator("newWsRequest"),
+            },
+            {
+              id: "add-folder",
+              label: t("tree.menu.addFolder"),
+              accelerator: electronAccelerator("newCollection"),
+            },
             { type: "separator" },
-            { id: "rename", label: t("tree.menu.rename") },
+            {
+              id: "rename",
+              label: t("tree.menu.rename"),
+              accelerator: electronAccelerator("rename"),
+            },
             {
               id: "favorite",
               label: this.#favoriteIds.has(node.id)
@@ -846,7 +1018,11 @@ export class TreeView {
                 : t("tree.menu.favorite"),
             },
             { type: "separator" },
-            { id: "duplicate", label: t("tree.menu.duplicate") },
+            {
+              id: "duplicate",
+              label: t("tree.menu.duplicate"),
+              accelerator: electronAccelerator("duplicate"),
+            },
             // Code generation has no WebSocket equivalent, so omit it for ws.
             ...(node.protocol !== "websocket"
               ? [
@@ -866,26 +1042,40 @@ export class TreeView {
                 ]
               : []),
             { type: "separator" },
-            { id: "delete", label: t("tree.menu.delete"), danger: true },
+            {
+              id: "delete",
+              label: t("tree.menu.delete"),
+              danger: true,
+              accelerator: electronAccelerator("delete"),
+            },
           ];
 
     // Loop so a danger click can re-open the menu with the entry relabeled to
     // "Confirm?". A second click on that entry confirms; any other choice
-    // runs the chosen action; dismiss cancels.
-    let confirmingId = null;
+    // runs the chosen action; dismiss cancels. The menu may open already armed
+    // (initialConfirmId) — e.g. the Del key arms "delete" up front.
+    let confirmingId = initialConfirmId;
     while (true) {
       const items = baseItems.map((it) =>
         it.id === confirmingId
-          ? { ...it, label: t("tree.menu.confirm"), danger: false }
+          ? // Drop the key hint on the armed "Confirm?" entry — it only makes
+            // sense next to the resting "Delete" label.
+            {
+              ...it,
+              label: t("tree.menu.confirm"),
+              danger: false,
+              accelerator: undefined,
+            }
           : it,
       );
 
       const clickedId = await window.hippo.ui.contextMenu.show({
-        items: items.map(({ id, label, type, enabled }) => ({
+        items: items.map(({ id, label, type, enabled, accelerator }) => ({
           id,
           label,
           type,
           enabled,
+          accelerator,
         })),
         x,
         y,

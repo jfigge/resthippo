@@ -268,7 +268,13 @@
     "support": "Sostieni Rest Hippo…",
     "revealLogs": "Mostra log",
     "exportDiagnostics": "Esporta diagnostica…",
-    "importCurl": "Importa da cURL…"
+    "importCurl": "Importa da cURL…",
+    "newRequest": "Nuova richiesta",
+    "newCollection": "Nuova raccolta",
+    "settings": "Impostazioni…",
+    "cycleLayout": "Cambia layout",
+    "keyboardShortcuts": "Scorciatoie da tastiera",
+    "newWsRequest": "Nuova richiesta WebSocket"
   },
   "settings": {
     "title": "Impostazioni",
@@ -551,7 +557,8 @@
     "body": {
       "placeholder": "Inserisci qui il corpo {type}…",
       "plainText": "testo semplice"
-    }
+    },
+    "sendTitle": "Invia ({keys})"
   },
   "response": {
     "tab": {
@@ -1148,5 +1155,39 @@
     "importTitle": "Password richiesta",
     "importIntro": "I segreti di questo archivio sono protetti da password. Inserisci la password per ripristinarli.",
     "submitImport": "Importa"
+  },
+  "shortcuts": {
+    "title": "Scorciatoie da tastiera",
+    "group": {
+      "requests": "Richieste",
+      "navigation": "Navigazione",
+      "search": "Ricerca",
+      "view": "Visualizza",
+      "app": "Applicazione"
+    },
+    "send": "Invia la richiesta",
+    "newRequest": "Nuova richiesta",
+    "newCollection": "Nuova raccolta o cartella",
+    "focusUrl": "Attiva la barra dell’URL",
+    "prevRequest": "Richiesta precedente",
+    "nextRequest": "Richiesta successiva",
+    "tabRequests": "Mostra la scheda Richieste",
+    "tabFavorites": "Mostra la scheda Preferiti",
+    "tabRecents": "Mostra la scheda Recenti",
+    "find": "Cerca nella risposta o filtra la barra laterale",
+    "filter": "Filtra il corpo della risposta (JSON / YAML / XML)",
+    "selectBody": "Seleziona tutto il corpo della risposta",
+    "cycleLayout": "Cambia il layout dei pannelli",
+    "fontIn": "Aumenta la dimensione del carattere",
+    "fontOut": "Riduci la dimensione del carattere",
+    "fontReset": "Reimposta la dimensione del carattere",
+    "settings": "Apri Impostazioni",
+    "shortcuts": "Mostra le scorciatoie da tastiera",
+    "userGuide": "Apri la guida utente",
+    "import": "Importa una raccolta",
+    "duplicate": "Duplica la richiesta",
+    "rename": "Rinomina la richiesta o la cartella",
+    "newWsRequest": "Nuova richiesta WebSocket",
+    "delete": "Elimina la richiesta o la cartella (chiede conferma)"
   }
 }

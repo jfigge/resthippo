@@ -15,7 +15,7 @@ to OAuth 2.0, environments, GraphQL schema introspection, and encrypted backups.
 | Page                                                      | What's inside                                                                  |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | [Getting Started](getting-started.md)                     | Install, the three-panel layout, and sending your first request                |
-| [Collections & the Tree](collections.md)                  | Organizing requests into collections and folders; Favorites and Recents        |
+| [Collections & the Tree](collections.md)                  | Organizing requests into collections and folders; Favorites and Recent         |
 | [Building Requests](requests.md)                          | Methods, the URL bar, query params, headers, and body editors                  |
 | [Authentication](authentication.md)                       | API Key, Basic, Bearer, Digest, NTLM, AWS SigV4, and OAuth 2.0                 |
 | [Variables & Environments](variables-and-environments.md) | `{{variables}}`, environments, collection/folder scopes, and response captures |
@@ -31,7 +31,7 @@ to OAuth 2.0, environments, GraphQL schema introspection, and encrypted backups.
 Rest Hippo's window has three panels:
 
 - **Collections** (left) — your saved requests, organized into collections and
-  folders, plus the **Favorites** and **Recents** tabs. Its toolbar holds the
+  folders, plus the **Favorites** and **Recent** tabs. Its toolbar holds the
   **collection** and **environment** selectors.
 - **Request** (center) — where you set the method, URL, query parameters,
   headers, body, authentication, and post-response captures.

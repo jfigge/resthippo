@@ -268,7 +268,13 @@
     "support": "Soutenir Rest Hippo…",
     "revealLogs": "Afficher les journaux",
     "exportDiagnostics": "Exporter le diagnostic…",
-    "importCurl": "Importer depuis cURL…"
+    "importCurl": "Importer depuis cURL…",
+    "newRequest": "Nouvelle requête",
+    "newCollection": "Nouvelle collection",
+    "settings": "Réglages…",
+    "cycleLayout": "Changer la disposition",
+    "keyboardShortcuts": "Raccourcis clavier",
+    "newWsRequest": "Nouvelle requête WebSocket"
   },
   "settings": {
     "title": "Paramètres",
@@ -551,7 +557,8 @@
     "body": {
       "placeholder": "Saisissez le corps {type} ici…",
       "plainText": "texte brut"
-    }
+    },
+    "sendTitle": "Envoyer ({keys})"
   },
   "response": {
     "tab": {
@@ -1148,5 +1155,39 @@
     "importTitle": "Mot de passe requis",
     "importIntro": "Les secrets de cette archive sont protégés par mot de passe. Saisissez le mot de passe pour les restaurer.",
     "submitImport": "Importer"
+  },
+  "shortcuts": {
+    "title": "Raccourcis clavier",
+    "group": {
+      "requests": "Requêtes",
+      "navigation": "Navigation",
+      "search": "Recherche",
+      "view": "Affichage",
+      "app": "Application"
+    },
+    "send": "Envoyer la requête",
+    "newRequest": "Nouvelle requête",
+    "newCollection": "Nouvelle collection ou dossier",
+    "focusUrl": "Activer la barre d’URL",
+    "prevRequest": "Requête précédente",
+    "nextRequest": "Requête suivante",
+    "tabRequests": "Afficher l’onglet Requêtes",
+    "tabFavorites": "Afficher l’onglet Favoris",
+    "tabRecents": "Afficher l’onglet Récents",
+    "find": "Rechercher dans la réponse ou filtrer la barre latérale",
+    "filter": "Filtrer le corps de la réponse (JSON / YAML / XML)",
+    "selectBody": "Sélectionner tout le corps de la réponse",
+    "cycleLayout": "Changer la disposition des panneaux",
+    "fontIn": "Augmenter la taille de police",
+    "fontOut": "Réduire la taille de police",
+    "fontReset": "Réinitialiser la taille de police",
+    "settings": "Ouvrir les réglages",
+    "shortcuts": "Afficher les raccourcis clavier",
+    "userGuide": "Ouvrir le guide de l’utilisateur",
+    "import": "Importer une collection",
+    "duplicate": "Dupliquer la requête",
+    "rename": "Renommer la requête ou le dossier",
+    "newWsRequest": "Nouvelle requête WebSocket",
+    "delete": "Supprimer la requête ou le dossier (avec confirmation)"
   }
 }

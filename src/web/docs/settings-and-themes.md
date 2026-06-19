@@ -17,7 +17,7 @@ save step.
 | **UI font**          | The interface typeface — **Inter** (bundled) or a system font.                                         |
 | **Remove headers**   | Hides the top header bar and moves its controls into the collections panel, for a more compact window. |
 | **Method icons**     | Show HTTP method badges as compact icons instead of text.                                              |
-| **Show recents**     | Show or hide the [Recents](collections.md#favorites-and-recents) tab.                                  |
+| **Show recents**     | Show or hide the [Recent](collections.md#favorites-and-recent) tab.                                    |
 
 There's also a **code folding** toggle for the editors, and you can change the
 font size anywhere with <kbd>⌘/Ctrl</kbd>+<kbd>+</kbd> /

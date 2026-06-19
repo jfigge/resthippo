@@ -268,7 +268,13 @@
     "support": "Rest Hippo unterstützen…",
     "revealLogs": "Protokolle anzeigen",
     "exportDiagnostics": "Diagnose exportieren…",
-    "importCurl": "Aus cURL importieren…"
+    "importCurl": "Aus cURL importieren…",
+    "newRequest": "Neue Anfrage",
+    "newCollection": "Neue Sammlung",
+    "settings": "Einstellungen…",
+    "cycleLayout": "Layout wechseln",
+    "keyboardShortcuts": "Tastenkürzel",
+    "newWsRequest": "Neue WebSocket-Anfrage"
   },
   "settings": {
     "title": "Einstellungen",
@@ -551,7 +557,8 @@
     "body": {
       "placeholder": "Hier {type}-Inhalt eingeben…",
       "plainText": "Klartext"
-    }
+    },
+    "sendTitle": "Senden ({keys})"
   },
   "response": {
     "tab": {
@@ -1148,5 +1155,39 @@
     "importTitle": "Passwort erforderlich",
     "importIntro": "Die Geheimnisse dieses Archivs sind passwortgeschützt. Geben Sie das Passwort ein, um sie wiederherzustellen.",
     "submitImport": "Importieren"
+  },
+  "shortcuts": {
+    "title": "Tastenkürzel",
+    "group": {
+      "requests": "Anfragen",
+      "navigation": "Navigation",
+      "search": "Suche",
+      "view": "Ansicht",
+      "app": "Anwendung"
+    },
+    "send": "Anfrage senden",
+    "newRequest": "Neue Anfrage",
+    "newCollection": "Neue Sammlung oder Ordner",
+    "focusUrl": "URL-Leiste fokussieren",
+    "prevRequest": "Vorherige Anfrage",
+    "nextRequest": "Nächste Anfrage",
+    "tabRequests": "Tab „Anfragen“ anzeigen",
+    "tabFavorites": "Tab „Favoriten“ anzeigen",
+    "tabRecents": "Tab „Zuletzt verwendet“ anzeigen",
+    "find": "In Antwort suchen oder Seitenleiste filtern",
+    "filter": "Antworttext filtern (JSON / YAML / XML)",
+    "selectBody": "Gesamten Antworttext auswählen",
+    "cycleLayout": "Bereichslayout wechseln",
+    "fontIn": "Schrift vergrößern",
+    "fontOut": "Schrift verkleinern",
+    "fontReset": "Schriftgröße zurücksetzen",
+    "settings": "Einstellungen öffnen",
+    "shortcuts": "Tastenkürzel anzeigen",
+    "userGuide": "Benutzerhandbuch öffnen",
+    "import": "Sammlung importieren",
+    "duplicate": "Anfrage duplizieren",
+    "rename": "Anfrage oder Ordner umbenennen",
+    "newWsRequest": "Neue WebSocket-Anfrage",
+    "delete": "Anfrage oder Ordner löschen (mit Bestätigung)"
   }
 }

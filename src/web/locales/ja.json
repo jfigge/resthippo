@@ -266,7 +266,13 @@
     "support": "Rest Hippo を支援…",
     "revealLogs": "ログを表示",
     "exportDiagnostics": "診断情報をエクスポート…",
-    "importCurl": "cURL からインポート…"
+    "importCurl": "cURL からインポート…",
+    "newRequest": "新規リクエスト",
+    "newCollection": "新規コレクション",
+    "settings": "設定…",
+    "cycleLayout": "レイアウトを切り替え",
+    "keyboardShortcuts": "キーボードショートカット",
+    "newWsRequest": "新規 WebSocket リクエスト"
   },
   "settings": {
     "title": "設定",
@@ -548,7 +554,8 @@
     "body": {
       "placeholder": "ここに {type} の本文を入力…",
       "plainText": "プレーンテキスト"
-    }
+    },
+    "sendTitle": "送信 ({keys})"
   },
   "response": {
     "tab": {
@@ -1144,5 +1151,39 @@
     "importTitle": "パスワードが必要です",
     "importIntro": "このアーカイブのシークレットはパスワードで保護されています。復元するにはパスワードを入力してください。",
     "submitImport": "インポート"
+  },
+  "shortcuts": {
+    "title": "キーボードショートカット",
+    "group": {
+      "requests": "リクエスト",
+      "navigation": "ナビゲーション",
+      "search": "検索",
+      "view": "表示",
+      "app": "アプリケーション"
+    },
+    "send": "リクエストを送信",
+    "newRequest": "新規リクエスト",
+    "newCollection": "新規コレクションまたはフォルダー",
+    "focusUrl": "URLバーにフォーカス",
+    "prevRequest": "前のリクエスト",
+    "nextRequest": "次のリクエスト",
+    "tabRequests": "「リクエスト」タブを表示",
+    "tabFavorites": "「お気に入り」タブを表示",
+    "tabRecents": "「最近」タブを表示",
+    "find": "レスポンス内を検索、またはサイドバーを絞り込み",
+    "filter": "レスポンス本文を絞り込み (JSON / YAML / XML)",
+    "selectBody": "レスポンス本文全体を選択",
+    "cycleLayout": "パネルレイアウトを切り替え",
+    "fontIn": "フォントサイズを拡大",
+    "fontOut": "フォントサイズを縮小",
+    "fontReset": "フォントサイズをリセット",
+    "settings": "設定を開く",
+    "shortcuts": "キーボードショートカットを表示",
+    "userGuide": "ユーザーガイドを開く",
+    "import": "コレクションをインポート",
+    "duplicate": "リクエストを複製",
+    "rename": "リクエストまたはフォルダーの名前を変更",
+    "newWsRequest": "新規 WebSocket リクエスト",
+    "delete": "リクエストまたはフォルダーを削除（確認あり）"
   }
 }

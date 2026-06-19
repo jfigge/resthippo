@@ -47,6 +47,32 @@ ipcRenderer.on("menu:backup-import", () => {
   window.dispatchEvent(new CustomEvent("hippo:backup-import-requested"));
 });
 
+// Keyboard-shortcut / menu commands (Feature 47). Each fires from both the
+// menu accelerator and a menu click; app.js binds the matching command.
+ipcRenderer.on("menu:new-request", () => {
+  window.dispatchEvent(new CustomEvent("hippo:new-request"));
+});
+
+ipcRenderer.on("menu:new-collection", () => {
+  window.dispatchEvent(new CustomEvent("hippo:new-collection"));
+});
+
+ipcRenderer.on("menu:new-ws-request", () => {
+  window.dispatchEvent(new CustomEvent("hippo:new-ws-request"));
+});
+
+ipcRenderer.on("menu:open-settings", () => {
+  window.dispatchEvent(new CustomEvent("hippo:open-settings"));
+});
+
+ipcRenderer.on("menu:keyboard-shortcuts", () => {
+  window.dispatchEvent(new CustomEvent("hippo:keyboard-shortcuts"));
+});
+
+ipcRenderer.on("menu:cycle-layout", () => {
+  window.dispatchEvent(new CustomEvent("hippo:cycle-layout"));
+});
+
 ipcRenderer.on("theme:preview", (_event, themeData) => {
   window.dispatchEvent(
     new CustomEvent("hippo:theme-preview", { detail: themeData }),

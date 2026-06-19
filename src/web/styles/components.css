@@ -3944,6 +3944,76 @@ html.show-method-icons .req-method-menu-item-label::before {
   max-width: 640px;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   KEYBOARD SHORTCUTS CHEAT-SHEET
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.shortcuts-modal {
+  min-width: 460px;
+  max-width: 560px;
+}
+
+.shortcuts-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.shortcuts-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.shortcuts-group-title {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-subtext);
+}
+
+.shortcuts-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.shortcuts-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-surface-2);
+}
+
+.shortcuts-row:last-child {
+  border-bottom: none;
+}
+
+.shortcuts-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.shortcuts-keys {
+  flex: none;
+  padding: 2px var(--space-3);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-1);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
 .curl-import-textarea {
   width: 100%;
   min-height: 160px;

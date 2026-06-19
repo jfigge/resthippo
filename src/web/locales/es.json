@@ -268,7 +268,13 @@
     "support": "Apoyar a Rest Hippo…",
     "revealLogs": "Mostrar registros",
     "exportDiagnostics": "Exportar diagnóstico…",
-    "importCurl": "Importar desde cURL…"
+    "importCurl": "Importar desde cURL…",
+    "newRequest": "Nueva solicitud",
+    "newCollection": "Nueva colección",
+    "settings": "Configuración…",
+    "cycleLayout": "Cambiar diseño",
+    "keyboardShortcuts": "Atajos de teclado",
+    "newWsRequest": "Nueva solicitud WebSocket"
   },
   "settings": {
     "title": "Ajustes",
@@ -551,7 +557,8 @@
     "body": {
       "placeholder": "Escribe aquí el cuerpo {type}…",
       "plainText": "texto sin formato"
-    }
+    },
+    "sendTitle": "Enviar ({keys})"
   },
   "response": {
     "tab": {
@@ -1148,5 +1155,39 @@
     "importTitle": "Contraseña requerida",
     "importIntro": "Los secretos de este archivo están protegidos con contraseña. Introduce la contraseña para restaurarlos.",
     "submitImport": "Importar"
+  },
+  "shortcuts": {
+    "title": "Atajos de teclado",
+    "group": {
+      "requests": "Solicitudes",
+      "navigation": "Navegación",
+      "search": "Búsqueda",
+      "view": "Vista",
+      "app": "Aplicación"
+    },
+    "send": "Enviar la solicitud",
+    "newRequest": "Nueva solicitud",
+    "newCollection": "Nueva colección o carpeta",
+    "focusUrl": "Enfocar la barra de URL",
+    "prevRequest": "Solicitud anterior",
+    "nextRequest": "Solicitud siguiente",
+    "tabRequests": "Mostrar la pestaña Solicitudes",
+    "tabFavorites": "Mostrar la pestaña Favoritos",
+    "tabRecents": "Mostrar la pestaña Recientes",
+    "find": "Buscar en la respuesta o filtrar la barra lateral",
+    "filter": "Filtrar el cuerpo de la respuesta (JSON / YAML / XML)",
+    "selectBody": "Seleccionar todo el cuerpo de la respuesta",
+    "cycleLayout": "Cambiar el diseño de los paneles",
+    "fontIn": "Aumentar el tamaño de fuente",
+    "fontOut": "Reducir el tamaño de fuente",
+    "fontReset": "Restablecer el tamaño de fuente",
+    "settings": "Abrir Configuración",
+    "shortcuts": "Mostrar atajos de teclado",
+    "userGuide": "Abrir la guía del usuario",
+    "import": "Importar una colección",
+    "duplicate": "Duplicar la solicitud",
+    "rename": "Renombrar la solicitud o carpeta",
+    "newWsRequest": "Nueva solicitud WebSocket",
+    "delete": "Eliminar la solicitud o carpeta (pide confirmación)"
   }
 }

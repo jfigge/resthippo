@@ -266,7 +266,13 @@
     "support": "支持 Rest Hippo…",
     "revealLogs": "显示日志",
     "exportDiagnostics": "导出诊断信息…",
-    "importCurl": "从 cURL 导入…"
+    "importCurl": "从 cURL 导入…",
+    "newRequest": "新建请求",
+    "newCollection": "新建集合",
+    "settings": "设置…",
+    "cycleLayout": "切换布局",
+    "keyboardShortcuts": "键盘快捷键",
+    "newWsRequest": "新建 WebSocket 请求"
   },
   "settings": {
     "title": "设置",
@@ -548,7 +554,8 @@
     "body": {
       "placeholder": "在此输入 {type} 正文…",
       "plainText": "纯文本"
-    }
+    },
+    "sendTitle": "发送 ({keys})"
   },
   "response": {
     "tab": {
@@ -1144,5 +1151,39 @@
     "importTitle": "需要密码",
     "importIntro": "此归档的机密已用密码保护。请输入密码以还原它们。",
     "submitImport": "导入"
+  },
+  "shortcuts": {
+    "title": "键盘快捷键",
+    "group": {
+      "requests": "请求",
+      "navigation": "导航",
+      "search": "搜索",
+      "view": "视图",
+      "app": "应用程序"
+    },
+    "send": "发送请求",
+    "newRequest": "新建请求",
+    "newCollection": "新建集合或文件夹",
+    "focusUrl": "聚焦地址栏",
+    "prevRequest": "上一个请求",
+    "nextRequest": "下一个请求",
+    "tabRequests": "显示“请求”标签页",
+    "tabFavorites": "显示“收藏”标签页",
+    "tabRecents": "显示“最近”标签页",
+    "find": "在响应中查找，或筛选侧边栏",
+    "filter": "筛选响应正文 (JSON / YAML / XML)",
+    "selectBody": "选择整个响应正文",
+    "cycleLayout": "切换面板布局",
+    "fontIn": "增大字号",
+    "fontOut": "减小字号",
+    "fontReset": "重置字号",
+    "settings": "打开设置",
+    "shortcuts": "显示键盘快捷键",
+    "userGuide": "打开用户指南",
+    "import": "导入集合",
+    "duplicate": "复制请求",
+    "rename": "重命名请求或文件夹",
+    "newWsRequest": "新建 WebSocket 请求",
+    "delete": "删除请求或文件夹（需确认）"
   }
 }

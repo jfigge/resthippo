@@ -20,6 +20,7 @@ import { PopupManager } from "../popup-manager.js";
 import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
 import { t } from "../i18n.js";
+import { bindingDisplay } from "../keymap.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
 import { resolveOAuth2Config } from "../auth/utils/resolve-config.js";
 import {
@@ -611,6 +612,14 @@ export class RequestEditor {
     return this.#el;
   }
 
+  /**
+   * Move keyboard focus to the active URL editor (HTTP or WebSocket — whichever
+   * the current protocol rendered). Driven by the ⌘/Ctrl+L shortcut.
+   */
+  focusUrl() {
+    this.#urlPillEditor?.focus();
+  }
+
   /** True when the request currently loaded in the editor is in flight. */
   #currentRequestInFlight() {
     return this.#inFlightIds.has(this.#currentNodeId);
@@ -813,6 +822,7 @@ export class RequestEditor {
     sendBtn.dataset.method = this.#method.toLowerCase();
     sendBtn.textContent = t("request.send");
     sendBtn.setAttribute("aria-label", t("request.sendAria"));
+    sendBtn.title = t("request.sendTitle", { keys: bindingDisplay("send") });
     sendBtn.addEventListener("click", () => {
       if (this.#currentRequestInFlight()) {
         window.dispatchEvent(

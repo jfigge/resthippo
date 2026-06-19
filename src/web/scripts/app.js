@@ -93,6 +93,8 @@ import { installSettingsHandlers } from "./event-bus/settings-handlers.js";
 import { installWsHandlers } from "./event-bus/ws-handlers.js";
 import { installTimelineHandlers } from "./event-bus/timeline-handlers.js";
 import { PopupManager } from "./popup-manager.js";
+import { installKeymap } from "./keymap.js";
+import { KeyboardShortcuts } from "./components/keyboard-shortcuts.js";
 import * as i18n from "./i18n.js";
 import { t } from "./i18n.js";
 
@@ -411,6 +413,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initHeader();
   await initCollections();
   installZoomHandlers();
+  installKeyboardShortcuts();
 });
 
 // ─── Static chrome localization ────────────────────────────────────────────────
@@ -1328,6 +1331,11 @@ function initEventBus() {
   //   import-requested  ·  import-curl-requested  ·  export-all-requested  ·
   //   backup-export-requested  ·  backup-import-requested
   //                                  — all payload-less menu triggers
+  //
+  // Keyboard shortcuts / menu commands  (preload → app.js; Feature 47)
+  //   new-request  ·  new-collection  ·  new-ws-request  ·  open-settings  ·
+  //   keyboard-shortcuts  ·  cycle-layout
+  //                                  — payload-less; menu accelerator or click
   //
   // UI coordination             (broadcast; PopupManager / pickers)
   //   popup-opened          —
@@ -3099,6 +3107,84 @@ function installZoomHandlers() {
     else if (direction === "out") changeFontByStep(-1);
     else if (direction === "reset") resetFont();
   });
+}
+
+// ─── Keyboard shortcuts (Feature 47) ──────────────────────────────────────────
+/**
+ * Wire the application keyboard shortcuts. The keymap (keymap.js) is the single
+ * source of truth — here we bind it to app commands two ways:
+ *   • Renderer-owned shortcuts (focus URL, next/prev request, switch sidebar
+ *     tab) via installKeymap's capture-phase keydown listener.
+ *   • Menu-owned commands (save / new request / new collection / settings /
+ *     keyboard shortcuts / cycle layout) whose real menu accelerators and clicks
+ *     both arrive as hippo:* events from the application menu (see main.js /
+ *     preload.js). Each command is defined once and shared by both paths.
+ *
+ * Send (⌘/Ctrl+Enter) and font zoom keep their dedicated handlers in
+ * installZoomHandlers — Send must fire from inside the URL editor, and font zoom
+ * also owns wheel/pinch. The cheat-sheet lists those for discoverability.
+ */
+function installKeyboardShortcuts() {
+  // Track whether a popup/menu is up so the renderer-owned navigation shortcuts
+  // and the tree mutations don't act behind a modal. The mask coalesces nested
+  // opens into a single opened/closed pair, so a boolean is sufficient.
+  let popupVisible = false;
+  window.addEventListener("hippo:popup-opened", () => {
+    popupVisible = true;
+  });
+  window.addEventListener("hippo:popup-closed", () => {
+    popupVisible = false;
+  });
+
+  const switchTab = (tab) => treeView?.activateTab(tab);
+  const selectAdjacent = (dir) => treeView?.selectAdjacent(dir);
+
+  // Menu-owned commands — shared by the keystroke (real accelerator → preload
+  // event) and a menu click (same channel).
+  const newRequest = () => {
+    if (!popupVisible) treeView?.newRequest();
+  };
+  const newCollection = () => {
+    if (!popupVisible) treeView?.newCollection();
+  };
+  const newWsRequest = () => {
+    if (!popupVisible) treeView?.newWebSocketRequest();
+  };
+  // Popup-openers are gated while another modal is up: their accelerators fire
+  // natively regardless of app state, and PopupManager.open() would otherwise
+  // detach the live popup without running its cleanup.
+  const openSettings = () => {
+    if (!popupVisible) settingsPopup.open(currentSettings);
+  };
+  const openShortcuts = () => {
+    if (!popupVisible) KeyboardShortcuts.open();
+  };
+  const cycleLayout = () => {
+    if (popupVisible) return;
+    const next = (_currentLayout % 4) + 1; // 1→2→3→4→1
+    updateSettings({ layout: next });
+    applySettings(currentSettings);
+  };
+
+  // Renderer-owned shortcuts (capture-phase keydown), gated while a popup is up.
+  installKeymap(
+    {
+      focusUrl: () => requestEditor?.focusUrl(),
+      prevRequest: () => selectAdjacent(-1),
+      nextRequest: () => selectAdjacent(1),
+      tabRequests: () => switchTab("requests"),
+      tabFavorites: () => switchTab("favorites"),
+      tabRecents: () => switchTab("recents"),
+    },
+    { isBlocked: () => popupVisible },
+  );
+
+  window.addEventListener("hippo:new-request", newRequest);
+  window.addEventListener("hippo:new-collection", newCollection);
+  window.addEventListener("hippo:new-ws-request", newWsRequest);
+  window.addEventListener("hippo:open-settings", openSettings);
+  window.addEventListener("hippo:keyboard-shortcuts", openShortcuts);
+  window.addEventListener("hippo:cycle-layout", cycleLayout);
 }
 
 /** Reset the request editor to an empty request and clear the response/timeline. */

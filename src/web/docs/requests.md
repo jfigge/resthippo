@@ -6,6 +6,10 @@ The center panel is the request editor. At the top is the **request bar** — th
 method, the URL, and the **Send** button. Below it, a row of tabs lets you add
 query parameters, headers, a body, authentication, and post-response captures.
 
+> **Edits save automatically.** There is no Save button or shortcut — every change
+> you make is written to disk a moment after you stop typing, so your work is
+> always persisted and there's no unsaved state to lose.
+
 ## The request bar
 
 ### Method

@@ -268,7 +268,13 @@
     "support": "Support Rest Hippo…",
     "revealLogs": "Reveal Logs",
     "exportDiagnostics": "Export Diagnostics…",
-    "importCurl": "Import from cURL…"
+    "importCurl": "Import from cURL…",
+    "newRequest": "New Request",
+    "newCollection": "New Collection",
+    "settings": "Settings…",
+    "cycleLayout": "Cycle Layout",
+    "keyboardShortcuts": "Keyboard Shortcuts",
+    "newWsRequest": "New WebSocket Request"
   },
   "settings": {
     "title": "Settings",
@@ -298,7 +304,7 @@
       "useMethodIcons": "Use method icons",
       "useMethodIconsTitle": "Show an icon for each HTTP method instead of its name",
       "showRecents": "Show recently used tab",
-      "showRecentsTitle": "Show a Recents tab of recently used requests in the collections sidebar",
+      "showRecentsTitle": "Show a Recent tab of recently used requests in the collections sidebar",
       "showUrlPreview": "Show URL preview",
       "showUrlPreviewTitle": "Show the resolved URL preview bar above the Params editor",
       "removeHeadersOnTitle": "When headers are shown, the settings icon will move to the top right corner",
@@ -551,7 +557,8 @@
     "body": {
       "placeholder": "Enter {type} body here…",
       "plainText": "plain text"
-    }
+    },
+    "sendTitle": "Send ({keys})"
   },
   "response": {
     "tab": {
@@ -1148,5 +1155,39 @@
     "importTitle": "Password Required",
     "importIntro": "This archive's secrets are password-protected. Enter the password to restore them.",
     "submitImport": "Import"
+  },
+  "shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "group": {
+      "requests": "Requests",
+      "navigation": "Navigation",
+      "search": "Search",
+      "view": "View",
+      "app": "Application"
+    },
+    "send": "Send the request",
+    "newRequest": "New request",
+    "newCollection": "New collection or folder",
+    "focusUrl": "Focus the URL bar",
+    "prevRequest": "Previous request",
+    "nextRequest": "Next request",
+    "tabRequests": "Show the Requests tab",
+    "tabFavorites": "Show the Favorites tab",
+    "tabRecents": "Show the Recent tab",
+    "find": "Find in response, or filter the sidebar",
+    "filter": "Filter the response body (JSON / YAML / XML)",
+    "selectBody": "Select the entire response body",
+    "cycleLayout": "Cycle the panel layout",
+    "fontIn": "Increase font size",
+    "fontOut": "Decrease font size",
+    "fontReset": "Reset font size",
+    "settings": "Open Settings",
+    "shortcuts": "Show keyboard shortcuts",
+    "userGuide": "Open the User Guide",
+    "import": "Import a collection",
+    "duplicate": "Duplicate the request",
+    "rename": "Rename the request or folder",
+    "newWsRequest": "New WebSocket request",
+    "delete": "Delete the request or folder (asks to confirm)"
   }
 }

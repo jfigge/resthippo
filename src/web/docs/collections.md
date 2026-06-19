@@ -61,7 +61,7 @@ actions:
 | ------------------------------------------------------------ | -------------------- | -------------------------------------------------------------- |
 | **Add Request** / **Add WebSocket Request** / **Add Folder** | folders              | Create a child item                                            |
 | **Rename**                                                   | both                 | Edit the name inline                                           |
-| **Favorite** / **Unfavorite**                                | requests             | Toggle the [Favorites](#favorites-and-recents) star            |
+| **Favorite** / **Unfavorite**                                | requests             | Toggle the [Favorites](#favorites-and-recent) star             |
 | **Duplicate**                                                | both                 | Copy the item (and its contents)                               |
 | **Generate code…**                                           | requests             | Preview the request as cURL, JavaScript `fetch`, Python `requests`, Go, or HTTPie, then copy |
 | **Copy as cURL**                                             | requests             | Copy an equivalent `curl` command straight to the clipboard    |
@@ -70,7 +70,7 @@ actions:
 | **Clear Run History**                                        | requests             | Discard the request's saved [timeline](responses.md#timeline)  |
 | **Delete**                                                   | both                 | Remove the item (asks to confirm)                              |
 
-## Favorites and Recents
+## Favorites and Recent
 
 Two extra tabs sit above the tree and span **all** your collections:
 
@@ -79,12 +79,12 @@ its right-click menu, then drag to reorder them.
 
 ![The Favorites tab](images/tree-favorites.png)
 
-**Recents** — the requests you've used most recently, newest first. This list is
+**Recent** — the requests you've used most recently, newest first. This list is
 maintained automatically.
 
-![The Recents tab](images/tree-recents.png)
+![The Recent tab](images/tree-recents.png)
 
-> Prefer not to see Recents? Turn off **Show recents** in
+> Prefer not to see the Recent tab? Turn off **Show recents** in
 > [Settings → Appearance](settings-and-themes.md#appearance).
 
 ## Cookies
