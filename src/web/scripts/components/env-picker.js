@@ -112,7 +112,7 @@ export class EnvPicker {
       idByKey.set(key, entry.id);
       return {
         id: key,
-        label: entry.name.toUpperCase(),
+        label: String(entry.name ?? "").toUpperCase(),
         type: "checkbox",
         checked: entry.id === activeId,
       };
@@ -129,6 +129,8 @@ export class EnvPicker {
         x: r.left,
         y: r.bottom + 4,
       });
+    } catch {
+      return; // IPC failure — leave the active environment unchanged
     } finally {
       this.#open = false;
     }

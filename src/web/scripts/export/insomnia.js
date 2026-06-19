@@ -139,6 +139,8 @@ function exportAuth(node) {
       disabled: false,
       username: auth.username,
       password: "",
+      domain: auth.domain,
+      workstation: auth.workstation,
     };
   }
   if (auth.type === "aws-iam") {

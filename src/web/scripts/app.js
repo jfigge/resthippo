@@ -3101,12 +3101,7 @@ function installZoomHandlers() {
   });
 }
 
-/**
- * Dispatch hippo:timeline-update with the history entries for the given request ID.
- * @param {string|null}  requestId
- * @param {boolean}      [isRequestSwitch] – true when triggered by a request selection;
- *                                           the response-viewer uses this to update the body tab.
- */
+/** Reset the request editor to an empty request and clear the response/timeline. */
 function _clearRequestEditor() {
   // Tear down any live WebSocket and restore the normal Response viewer.
   _closeWsConn();
@@ -3126,6 +3121,12 @@ function _clearRequestEditor() {
   _dispatchTimelineUpdate(null, true);
 }
 
+/**
+ * Dispatch hippo:timeline-update with the history entries for the given request ID.
+ * @param {string|null}  requestId
+ * @param {boolean}      [isRequestSwitch] – true when triggered by a request selection;
+ *                                           the response-viewer uses this to update the body tab.
+ */
 function _dispatchTimelineUpdate(requestId, isRequestSwitch = false) {
   const entries = requestId ? (_requestHistory.get(requestId) ?? []) : [];
   window.dispatchEvent(

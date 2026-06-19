@@ -338,14 +338,19 @@ export class TimelineView {
       btn.innerHTML = SVG_COPY;
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        navigator.clipboard.writeText(copyText).then(() => {
-          btn.innerHTML = SVG_CHECK;
-          btn.classList.add("timeline-detail-copy-btn--copied");
-          setTimeout(() => {
-            btn.innerHTML = SVG_COPY;
-            btn.classList.remove("timeline-detail-copy-btn--copied");
-          }, 1500);
-        });
+        navigator.clipboard
+          .writeText(copyText)
+          .then(() => {
+            btn.innerHTML = SVG_CHECK;
+            btn.classList.add("timeline-detail-copy-btn--copied");
+            setTimeout(() => {
+              btn.innerHTML = SVG_COPY;
+              btn.classList.remove("timeline-detail-copy-btn--copied");
+            }, 1500);
+          })
+          .catch(() => {
+            /* clipboard denied — leave the copy icon as-is */
+          });
       });
       row.appendChild(btn);
     }

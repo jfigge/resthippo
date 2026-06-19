@@ -10,13 +10,6 @@
 const { readJSON, writeJSON, ensureDir, validateID, remove } = require("./io");
 const { encryptSettings, decryptSettings } = require("./crypto");
 
-/** Default manifest returned on first run (no file yet). */
-const DEFAULT_MANIFEST = Object.freeze({
-  collections: [],
-  activeCollectionId: null,
-  settings: {},
-});
-
 class CollectionStore {
   /**
    * @param {import('./paths').Paths}       paths
@@ -37,7 +30,13 @@ class CollectionStore {
    */
   getManifest() {
     const data = readJSON(this._paths.manifestPath());
-    const manifest = data ?? { ...DEFAULT_MANIFEST };
+    // Build a fresh default (not a shallow spread of the frozen template, whose
+    // nested `collections`/`settings` would be shared frozen references).
+    const manifest = data ?? {
+      collections: [],
+      activeCollectionId: null,
+      settings: {},
+    };
     if (manifest.settings)
       manifest.settings = decryptSettings(manifest.settings);
     return manifest;

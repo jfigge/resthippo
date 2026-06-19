@@ -298,7 +298,9 @@ export async function resolveStringAsync(template, context) {
       }
 
       const { found, value } = resolveVariable(content, context);
-      return found ? String(value ?? "") : `{{${content}}}`;
+      // On miss, re-emit the original token verbatim (untrimmed) so user text
+      // like `{{ name }}` is preserved, matching the function-call branch above.
+      return found ? String(value ?? "") : `{{${token.content}}}`;
     }),
   );
 

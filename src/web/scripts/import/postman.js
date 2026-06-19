@@ -66,6 +66,57 @@ function parseAuth(auth) {
     const byKey = _kvArray(auth.bearer);
     return buildAuth({ type: "bearer", token: byKey.token });
   }
+  if (type === "apikey") {
+    const byKey = _kvArray(auth.apikey);
+    return buildAuth({
+      type: "apikey",
+      name: byKey.key,
+      value: byKey.value,
+      addTo: byKey.in === "query" ? "query" : "header",
+    });
+  }
+  if (type === "digest") {
+    const byKey = _kvArray(auth.digest);
+    return buildAuth({
+      type: "digest",
+      username: byKey.username,
+      password: byKey.password,
+    });
+  }
+  if (type === "ntlm") {
+    const byKey = _kvArray(auth.ntlm);
+    return buildAuth({
+      type: "ntlm",
+      username: byKey.username,
+      password: byKey.password,
+      domain: byKey.domain,
+      workstation: byKey.workstation,
+    });
+  }
+  // Postman names AWS SigV4 "awsv4".
+  if (type === "awsv4") {
+    const byKey = _kvArray(auth.awsv4);
+    return buildAuth({
+      type: "aws-iam",
+      accessKeyId: byKey.accessKey,
+      secretAccessKey: byKey.secretKey,
+      sessionToken: byKey.sessionToken,
+      region: byKey.region,
+      service: byKey.service,
+    });
+  }
+  if (type === "oauth1") {
+    const byKey = _kvArray(auth.oauth1);
+    return buildAuth({
+      type: "oauth1",
+      consumerKey: byKey.consumerKey,
+      consumerSecret: byKey.consumerSecret,
+      token: byKey.token,
+      tokenSecret: byKey.tokenSecret,
+      signatureMethod: byKey.signatureMethod,
+      realm: byKey.realm,
+    });
+  }
   if (type === "oauth2") {
     const byKey = _kvArray(auth.oauth2);
     return buildAuth({
@@ -167,13 +218,24 @@ function parsePathVars(url) {
   }));
 }
 
+/** Map a Postman `variable` array to the canonical { name, value, secure } shape. */
+function parseVariables(list) {
+  const out = [];
+  for (const v of list ?? []) {
+    if (v.key)
+      out.push({ name: v.key, value: v.value ?? "", secure: v.type === "secret" });
+  }
+  return out;
+}
+
 function parseItem(item, warnings) {
   if (Array.isArray(item.item)) {
     return {
       id: crypto.randomUUID(),
       type: "collection",
       name: item.name ?? "Folder",
-      variables: [],
+      // Folder-scoped variables survive the round-trip (export writes them too).
+      variables: parseVariables(item.variable),
       children: item.item.map((it) => parseItem(it, warnings)).filter(Boolean),
     };
   }
@@ -214,18 +276,8 @@ export function parsePostman(data) {
   const root = data.collection ?? data;
   const info = root.info ?? {};
   const items = root.item ?? [];
-  const variables = [];
   const warnings = [];
-
-  for (const v of root.variable ?? []) {
-    if (v.key) {
-      variables.push({
-        name: v.key,
-        value: v.value ?? "",
-        secure: v.type === "secret",
-      });
-    }
-  }
+  const variables = parseVariables(root.variable);
 
   return {
     collection: {

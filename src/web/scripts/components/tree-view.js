@@ -2067,6 +2067,12 @@ export class TreeView {
         li.style.display = "none";
       });
 
+      // Defensive: drop any handler left over from a prior drag whose `dragend`
+      // was never delivered (can happen when a drag ends outside the window), so
+      // the document `dragover` listener can't accumulate across drags.
+      if (this.#docDragOverHandler) {
+        document.removeEventListener("dragover", this.#docDragOverHandler);
+      }
       // Monitor the drag position relative to the treeview via document dragover
       this.#docDragOverHandler = (ev) => {
         if (!this.#dragId) return;

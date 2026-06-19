@@ -51,6 +51,24 @@ const OAUTH2_ADVANCED_KEYS = new Set([
   "requestedTokenType",
 ]);
 
+// Enum-valued OAuth2 keys → their allowed value set. The bulk-text editor must
+// constrain these so a typo (e.g. `grantType: garbage`) can't desync the select
+// from the model (the select silently falls back to its first option while the
+// model holds an invalid value).
+const OAUTH2_ENUM_VALUES = {
+  grantType: new Set([
+    "authorization_code",
+    "client_credentials",
+    "password",
+    "implicit",
+    "device_code",
+    "token_exchange",
+  ]),
+  clientType: new Set(["confidential", "public"]),
+  credentials: new Set(["header", "body"]),
+  responseType: new Set(["access_token", "id_token", "both"]),
+};
+
 // RFC 8693 §3 standard token-type identifiers, for the Token Exchange grant's
 // subject/actor/requested token-type selects. Values are the literal URNs; the
 // labels are resolved through t() at render time (never at module top-level).
@@ -798,7 +816,12 @@ export class RequestAuthEditor {
           }
           break;
         case "oauth2":
-          this.#authOAuth2[key] = v;
+          // Constrain enum-valued keys so the bulk editor can't desync a select.
+          if (key in OAUTH2_ENUM_VALUES) {
+            if (OAUTH2_ENUM_VALUES[key].has(v)) this.#authOAuth2[key] = v;
+          } else {
+            this.#authOAuth2[key] = v;
+          }
           break;
       }
     }

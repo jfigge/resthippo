@@ -49,6 +49,16 @@ function baseName(p) {
   return (p ?? "").split(/[\\/]/).pop() ?? "";
 }
 
+/**
+ * True if `headers` already carries a Content-Type under any casing. User
+ * header rows preserve their typed casing (e.g. `content-type`), so a
+ * case-sensitive `headers["Content-Type"]` check would miss it and append a
+ * second, conflicting Content-Type.
+ */
+function hasContentType(headers) {
+  return Object.keys(headers).some((k) => k.toLowerCase() === "content-type");
+}
+
 // ── Path parameters ──────────────────────────────────────────────────────────
 // Path tokens are `:name` (only when preceded by "/", so URL scheme, ports, and
 // userinfo are excluded) or `{name}` (single braces). `{{var}}` variable pills
@@ -278,7 +288,7 @@ export async function buildRequestPayload(spec, rv) {
       case "text":
         if ((spec.bodyText ?? "").trim()) {
           body = await rv(spec.bodyText);
-          if (!headers["Content-Type"])
+          if (!hasContentType(headers))
             headers["Content-Type"] = BODY_CONTENT_TYPES[spec.bodyType];
         }
         break;
@@ -302,7 +312,7 @@ export async function buildRequestPayload(spec, rv) {
           const operationName = extractOperationName(query);
           if (operationName) payload.operationName = operationName;
           body = JSON.stringify(payload);
-          if (!headers["Content-Type"])
+          if (!hasContentType(headers))
             headers["Content-Type"] = "application/json";
         }
         break;
@@ -315,7 +325,7 @@ export async function buildRequestPayload(spec, rv) {
           sp.append(await rv(r.name), await rv(r.value));
         }
         body = sp.toString();
-        if (!headers["Content-Type"])
+        if (!hasContentType(headers))
           headers["Content-Type"] = "application/x-www-form-urlencoded";
         break;
       }
@@ -361,7 +371,7 @@ export async function buildRequestPayload(spec, rv) {
             ).join("\r\n");
             body = `${parts}\r\n--${boundary}--`;
           }
-          if (!headers["Content-Type"])
+          if (!hasContentType(headers))
             headers["Content-Type"] =
               `multipart/form-data; boundary=${boundary}`;
         }
@@ -372,7 +382,7 @@ export async function buildRequestPayload(spec, rv) {
           // Electron exposes the real filesystem path via File.path.
           // In a plain browser context this will be undefined/empty.
           bodyFilePath = spec.bodyFile.path ?? "";
-          if (!headers["Content-Type"])
+          if (!hasContentType(headers))
             headers["Content-Type"] =
               spec.bodyFile.type || "application/octet-stream";
         }

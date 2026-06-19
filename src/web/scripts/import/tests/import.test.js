@@ -721,6 +721,148 @@ test("round-trip: Rest Hippo → Insomnia v4 export → import preserves structu
   );
 });
 
+// ── Round-trip: every auth scheme survives Postman & Insomnia cycles ──────────
+
+/** A single-request collection carrying the given canonical auth fields. */
+function collectionWithAuth(authFields) {
+  return {
+    id: "c1",
+    type: "collection",
+    name: "Auth RT",
+    variables: [],
+    children: [
+      {
+        type: "request",
+        name: "Req",
+        method: "GET",
+        url: "https://api.example.com/x",
+        headers: [],
+        params: [],
+        bodyType: "no-body",
+        authEnabled: true,
+        ...authFields,
+      },
+    ],
+  };
+}
+
+// One case per non-trivial scheme. `check` asserts the identifiers survive and
+// the secrets come back blank (redacted on export by design). basic/bearer/oauth2
+// are already covered by the dedicated round-trip tests above.
+const AUTH_SCHEME_CASES = [
+  {
+    name: "apikey",
+    fields: {
+      authType: "apikey",
+      authApiKey: { name: "X-API-Key", value: "s3cr3t", addTo: "query" },
+    },
+    check: (a) => {
+      assert.equal(a.authType, "apikey");
+      assert.equal(a.authApiKey.name, "X-API-Key");
+      assert.equal(a.authApiKey.addTo, "query");
+      assert.equal(a.authApiKey.value, "");
+    },
+  },
+  {
+    name: "digest",
+    fields: {
+      authType: "digest",
+      authDigest: { username: "alice", password: "hunter2" },
+    },
+    check: (a) => {
+      assert.equal(a.authType, "digest");
+      assert.equal(a.authDigest.username, "alice");
+      assert.equal(a.authDigest.password, "");
+    },
+  },
+  {
+    name: "ntlm",
+    fields: {
+      authType: "ntlm",
+      authNtlm: {
+        username: "alice",
+        password: "p",
+        domain: "CORP",
+        workstation: "WS1",
+      },
+    },
+    check: (a) => {
+      assert.equal(a.authType, "ntlm");
+      assert.equal(a.authNtlm.username, "alice");
+      assert.equal(a.authNtlm.domain, "CORP");
+      assert.equal(a.authNtlm.workstation, "WS1");
+      assert.equal(a.authNtlm.password, "");
+    },
+  },
+  {
+    name: "aws-iam",
+    fields: {
+      authType: "aws-iam",
+      authAwsIam: {
+        accessKeyId: "AKID",
+        secretAccessKey: "SK",
+        region: "us-east-1",
+        service: "s3",
+        sessionToken: "ST",
+      },
+    },
+    check: (a) => {
+      assert.equal(a.authType, "aws-iam");
+      assert.equal(a.authAwsIam.accessKeyId, "AKID");
+      assert.equal(a.authAwsIam.region, "us-east-1");
+      assert.equal(a.authAwsIam.service, "s3");
+      assert.equal(a.authAwsIam.secretAccessKey, "");
+      assert.equal(a.authAwsIam.sessionToken, "");
+    },
+  },
+  {
+    name: "oauth1",
+    fields: {
+      authType: "oauth1",
+      authOAuth1: {
+        consumerKey: "ck",
+        consumerSecret: "cs",
+        token: "tk",
+        tokenSecret: "ts",
+        signatureMethod: "HMAC-SHA256",
+        realm: "r",
+      },
+    },
+    check: (a) => {
+      assert.equal(a.authType, "oauth1");
+      assert.equal(a.authOAuth1.consumerKey, "ck");
+      assert.equal(a.authOAuth1.signatureMethod, "HMAC-SHA256");
+      assert.equal(a.authOAuth1.realm, "r");
+      assert.equal(a.authOAuth1.consumerSecret, "");
+      assert.equal(a.authOAuth1.token, "");
+      assert.equal(a.authOAuth1.tokenSecret, "");
+    },
+  },
+];
+
+test("round-trip: every auth scheme survives a Postman cycle (secrets redacted)", () => {
+  for (const c of AUTH_SCHEME_CASES) {
+    const exported = exportToPostman(collectionWithAuth(c.fields), []);
+    const req = findRequest(parsePostman(JSON.parse(exported)).collection, "Req");
+    assert.ok(req, `${c.name}: request missing after round-trip`);
+    assert.equal(req.authEnabled, true, `${c.name}: authEnabled lost`);
+    c.check(req);
+  }
+});
+
+test("round-trip: every auth scheme survives an Insomnia cycle (secrets redacted)", () => {
+  for (const c of AUTH_SCHEME_CASES) {
+    const exported = exportToInsomnia(collectionWithAuth(c.fields), []);
+    const req = findRequest(
+      parseInsomnia(JSON.parse(exported)).collection,
+      "Req",
+    );
+    assert.ok(req, `${c.name}: request missing after round-trip`);
+    assert.equal(req.authEnabled, true, `${c.name}: authEnabled lost`);
+    c.check(req);
+  }
+});
+
 // ── Round-trip: GraphQL body (Feature 34) ────────────────────────────────────
 
 test("round-trip: GraphQL body survives a Rest Hippo → Postman → Rest Hippo cycle", () => {
@@ -867,6 +1009,101 @@ test("shape.buildAuth: neutral descriptor → canonical Rest Hippo auth fields",
     authType: "bearer",
     authBearer: { token: "t" },
   });
+
+  assert.deepEqual(
+    buildAuth({ type: "apikey", name: "X-Key", value: "v", addTo: "query" }),
+    {
+      authEnabled: true,
+      authType: "apikey",
+      authApiKey: { name: "X-Key", value: "v", addTo: "query" },
+    },
+  );
+  // apikey addTo normalizes anything but "query" to "header".
+  assert.equal(
+    buildAuth({ type: "apikey", addTo: "weird" }).authApiKey.addTo,
+    "header",
+  );
+
+  assert.deepEqual(
+    buildAuth({ type: "digest", username: "u", password: "p" }),
+    {
+      authEnabled: true,
+      authType: "digest",
+      authDigest: { username: "u", password: "p" },
+    },
+  );
+
+  assert.deepEqual(
+    buildAuth({
+      type: "ntlm",
+      username: "u",
+      password: "p",
+      domain: "CORP",
+      workstation: "WS1",
+    }),
+    {
+      authEnabled: true,
+      authType: "ntlm",
+      authNtlm: {
+        username: "u",
+        password: "p",
+        domain: "CORP",
+        workstation: "WS1",
+      },
+    },
+  );
+
+  assert.deepEqual(
+    buildAuth({
+      type: "aws-iam",
+      accessKeyId: "AK",
+      secretAccessKey: "SK",
+      region: "us-east-1",
+      service: "s3",
+      sessionToken: "ST",
+    }),
+    {
+      authEnabled: true,
+      authType: "aws-iam",
+      authAwsIam: {
+        accessKeyId: "AK",
+        secretAccessKey: "SK",
+        region: "us-east-1",
+        service: "s3",
+        sessionToken: "ST",
+      },
+    },
+  );
+
+  assert.deepEqual(
+    buildAuth({
+      type: "oauth1",
+      consumerKey: "ck",
+      consumerSecret: "cs",
+      token: "tk",
+      tokenSecret: "ts",
+      signatureMethod: "HMAC-SHA256",
+      realm: "r",
+    }),
+    {
+      authEnabled: true,
+      authType: "oauth1",
+      authOAuth1: {
+        consumerKey: "ck",
+        consumerSecret: "cs",
+        token: "tk",
+        tokenSecret: "ts",
+        signatureMethod: "HMAC-SHA256",
+        realm: "r",
+      },
+    },
+  );
+  // An unsupported oauth1 signature method falls back to HMAC-SHA1.
+  assert.equal(
+    buildAuth({ type: "oauth1", signatureMethod: "RSA-SHA1" }).authOAuth1
+      .signatureMethod,
+    "HMAC-SHA1",
+  );
 
   // oauth2 fills Rest Hippo defaults for omitted fields (notably grantType).
   assert.deepEqual(buildAuth({ type: "oauth2", clientId: "cid" }), {

@@ -68,9 +68,9 @@ function commonOrigin(requests) {
 }
 
 /**
- * Reduce a request URL to an OpenAPI path: drop the query, convert `{{var}}` to
- * `{var}`, strip the server origin (the chosen one, or any concrete origin), and
- * guarantee a leading slash.
+ * Reduce a request URL to an OpenAPI path: drop the query, convert `{{var}}` and
+ * `:name` path tokens to `{var}`, strip the server origin (the chosen one, or any
+ * concrete origin), and guarantee a leading slash.
  */
 function toOpenApiPath(rawUrl, serverOrigin) {
   let url = String(rawUrl ?? "").trim();
@@ -86,6 +86,9 @@ function toOpenApiPath(rawUrl, serverOrigin) {
   }
   if (!url) url = "/";
   if (!url.startsWith("/")) url = `/${url}`;
+  // Convert the app's other path-param style (`/:name`) to OpenAPI `{name}` —
+  // done after the origin is stripped so a scheme's `://` is never touched.
+  url = url.replace(/\/:([A-Za-z_]\w*)/g, "/{$1}");
   return url;
 }
 

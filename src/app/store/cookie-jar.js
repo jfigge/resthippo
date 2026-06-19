@@ -88,8 +88,9 @@ function parseSetCookie(line) {
         cookie.path = attrVal.startsWith("/") ? attrVal : null;
         break;
       case "max-age": {
-        const n = parseInt(attrVal, 10);
-        if (!Number.isNaN(n)) cookie.maxAge = n;
+        // RFC-6265 §5.2.2: ignore the attribute entirely unless the value is a
+        // valid integer (parseInt would accept "5abc" → 5).
+        if (/^-?\d+$/.test(attrVal)) cookie.maxAge = parseInt(attrVal, 10);
         break;
       }
       case "expires":

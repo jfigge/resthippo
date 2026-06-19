@@ -1,6 +1,27 @@
 "use strict";
 
-import { buildAuth, noBody, rawBody, graphqlBody, formBody } from "./shape.js";
+import {
+  buildAuth,
+  noBody,
+  rawBody,
+  graphqlBody,
+  formBody,
+  splitUrlQuery,
+} from "./shape.js";
+
+// Insomnia keeps the query string both on the URL and in `parameters`. Strip the
+// query off the URL (buildRequestPayload re-appends params at send time) and
+// prefer the explicit `parameters` list, falling back to the URL-parsed query
+// when it's absent — otherwise the query would be sent twice.
+function parseUrlAndParams(rawUrl, parameters) {
+  const { base, params: urlParams } = splitUrlQuery(rawUrl ?? "");
+  const explicit = (parameters ?? []).map((p) => ({
+    enabled: !p.disabled,
+    name: p.name ?? "",
+    value: p.value ?? "",
+  }));
+  return { url: base, params: explicit.length ? explicit : urlParams };
+}
 
 // Map Insomnia's auth representation onto the neutral descriptor consumed by the
 // shared `buildAuth`. Insomnia stores each scheme's fields as direct properties
@@ -23,6 +44,53 @@ function parseAuth(auth) {
   }
   if (type === "bearer") {
     return buildAuth({ type: "bearer", token: auth.token });
+  }
+  if (type === "apikey") {
+    return buildAuth({
+      type: "apikey",
+      name: auth.key,
+      value: auth.value,
+      addTo: auth.addTo === "queryParams" ? "query" : "header",
+    });
+  }
+  if (type === "digest") {
+    return buildAuth({
+      type: "digest",
+      username: auth.username,
+      password: auth.password,
+    });
+  }
+  if (type === "ntlm") {
+    return buildAuth({
+      type: "ntlm",
+      username: auth.username,
+      password: auth.password,
+      domain: auth.domain,
+      workstation: auth.workstation,
+    });
+  }
+  // Insomnia names AWS SigV4 "iam".
+  if (type === "iam") {
+    return buildAuth({
+      type: "aws-iam",
+      accessKeyId: auth.accessKeyId,
+      secretAccessKey: auth.secretAccessKey,
+      sessionToken: auth.sessionToken,
+      region: auth.region,
+      service: auth.service,
+    });
+  }
+  if (type === "oauth1") {
+    return buildAuth({
+      type: "oauth1",
+      consumerKey: auth.consumerKey,
+      consumerSecret: auth.consumerSecret,
+      // Insomnia names the token "tokenKey"; accept "token" too for safety.
+      token: auth.tokenKey ?? auth.token,
+      tokenSecret: auth.tokenSecret,
+      signatureMethod: auth.signatureMethod,
+      realm: auth.realm,
+    });
   }
   if (type === "oauth2") {
     return buildAuth({
@@ -56,7 +124,7 @@ function parseBody(body) {
   if (mime.includes("json")) return rawBody("json", body.text);
   if (mime.includes("xml")) return rawBody("xml", body.text);
   if (mime.includes("yaml")) return rawBody("yaml", body.text);
-  if (mime === "application/x-www-form-urlencoded") {
+  if (mime.includes("x-www-form-urlencoded")) {
     return formBody(
       "form-urlencoded",
       (body.params ?? []).map((p) => ({
@@ -66,7 +134,7 @@ function parseBody(body) {
       })),
     );
   }
-  if (mime === "multipart/form-data") {
+  if (mime.includes("multipart/form-data")) {
     return formBody(
       "form-data",
       (body.params ?? []).map((p) =>
@@ -137,22 +205,19 @@ export function parseInsomniaV5(data) {
     }
 
     if (item.method) {
+      const { url, params } = parseUrlAndParams(item.url, item.parameters);
       return {
         id: crypto.randomUUID(),
         type: "request",
         name: item.name ?? "Request",
         method: (item.method ?? "GET").toUpperCase(),
-        url: item.url ?? "",
+        url,
         headers: (item.headers ?? []).map((h) => ({
           enabled: !h.disabled,
           name: h.name ?? "",
           value: h.value ?? "",
         })),
-        params: (item.parameters ?? []).map((p) => ({
-          enabled: !p.disabled,
-          name: p.name ?? "",
-          value: p.value ?? "",
-        })),
+        params,
         notes: item.meta?.description ?? "",
         ...parseBody(item.body),
         ...parseAuth(item.authentication),
@@ -237,22 +302,22 @@ export function parseInsomnia(data) {
 
   function buildNode(resource) {
     if (resource._type === "request") {
+      const { url, params } = parseUrlAndParams(
+        resource.url,
+        resource.parameters,
+      );
       return {
         id: crypto.randomUUID(),
         type: "request",
         name: resource.name ?? "Request",
         method: (resource.method ?? "GET").toUpperCase(),
-        url: resource.url ?? "",
+        url,
         headers: (resource.headers ?? []).map((h) => ({
           enabled: !h.disabled,
           name: h.name ?? "",
           value: h.value ?? "",
         })),
-        params: (resource.parameters ?? []).map((p) => ({
-          enabled: !p.disabled,
-          name: p.name ?? "",
-          value: p.value ?? "",
-        })),
+        params,
         notes: resource.description ?? "",
         ...parseBody(resource.body),
         ...parseAuth(resource.authentication),

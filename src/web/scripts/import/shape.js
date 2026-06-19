@@ -18,17 +18,31 @@
  * in the per-format adapters; everything below is what they have in common.
  */
 
+/** OAuth 1.0a signature methods Rest Hippo supports; others fall back to HMAC-SHA1. */
+const OAUTH1_SIG_METHODS = new Set(["HMAC-SHA1", "HMAC-SHA256", "PLAINTEXT"]);
+
 /**
  * Build the canonical Rest Hippo auth fields from a neutral, format-agnostic auth
  * descriptor. Returns the no-auth shape for a null/typeless/unsupported
  * descriptor, so callers can pass `null` for "no auth" and let unsupported
  * schemes fall through harmlessly.
  *
+ * This is the import-side mirror of `export/redact.js`'s `redactedAuth`: it
+ * accepts the same neutral descriptor (plus the secret fields a third-party
+ * file may carry — Rest Hippo's own exports blank them but keep the structure).
+ *
  * Descriptor:
  *   null
- *   | { type: "basic",  username?, password? }
- *   | { type: "bearer", token? }
- *   | { type: "oauth2", grantType?, clientId?, clientSecret?,
+ *   | { type: "basic",   username?, password? }
+ *   | { type: "bearer",  token? }
+ *   | { type: "apikey",  name?, value?, addTo? }
+ *   | { type: "digest",  username?, password? }
+ *   | { type: "ntlm",    username?, password?, domain?, workstation? }
+ *   | { type: "aws-iam", accessKeyId?, secretAccessKey?, region?, service?,
+ *       sessionToken? }
+ *   | { type: "oauth1",  consumerKey?, consumerSecret?, token?, tokenSecret?,
+ *       signatureMethod?, realm? }
+ *   | { type: "oauth2",  grantType?, clientId?, clientSecret?,
  *       accessTokenUrl?, authUrl?, scope? }
  *
  * @param {object|null} d
@@ -52,6 +66,68 @@ export function buildAuth(d) {
       authEnabled: true,
       authType: "bearer",
       authBearer: { token: d.token ?? "" },
+    };
+  }
+  if (d.type === "apikey") {
+    return {
+      authEnabled: true,
+      authType: "apikey",
+      authApiKey: {
+        name: d.name ?? "",
+        value: d.value ?? "",
+        addTo: d.addTo === "query" ? "query" : "header",
+      },
+    };
+  }
+  if (d.type === "digest") {
+    return {
+      authEnabled: true,
+      authType: "digest",
+      authDigest: {
+        username: d.username ?? "",
+        password: d.password ?? "",
+      },
+    };
+  }
+  if (d.type === "ntlm") {
+    return {
+      authEnabled: true,
+      authType: "ntlm",
+      authNtlm: {
+        username: d.username ?? "",
+        password: d.password ?? "",
+        domain: d.domain ?? "",
+        workstation: d.workstation ?? "",
+      },
+    };
+  }
+  if (d.type === "aws-iam") {
+    return {
+      authEnabled: true,
+      authType: "aws-iam",
+      authAwsIam: {
+        accessKeyId: d.accessKeyId ?? "",
+        secretAccessKey: d.secretAccessKey ?? "",
+        region: d.region ?? "",
+        service: d.service ?? "",
+        sessionToken: d.sessionToken ?? "",
+      },
+    };
+  }
+  if (d.type === "oauth1") {
+    return {
+      authEnabled: true,
+      authType: "oauth1",
+      authOAuth1: {
+        consumerKey: d.consumerKey ?? "",
+        consumerSecret: d.consumerSecret ?? "",
+        token: d.token ?? "",
+        tokenSecret: d.tokenSecret ?? "",
+        signatureMethod: OAUTH1_SIG_METHODS.has(d.signatureMethod)
+          ? d.signatureMethod
+          : "HMAC-SHA1",
+        realm: d.realm ?? "",
+      },
     };
   }
   if (d.type === "oauth2") {
