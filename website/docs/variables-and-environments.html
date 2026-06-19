@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Variables &amp; Environments · Rest Hippo Guide</title>
+  <meta name="description" content="Variables &amp; Environments — the Rest Hippo user guide." />
+  <link rel="canonical" href="https://resthippo.com/docs/variables-and-environments.html" />
+  <style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#1e1e2e;--mantle:#181825;--crust:#11111b;--surface-0:#313244;--surface-1:#45475a;--overlay-0:#6c7086;--text:#cdd6f4;--subtext:#a6adc8;--accent:#89b4fa;--green:#a6e3a1}
+html{scroll-behavior:smooth}
+body{font-family:"Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.65}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:"Cascadia Code","JetBrains Mono","Fira Code",monospace;font-size:.88em;background:var(--surface-0);padding:1px 6px;border-radius:4px;color:var(--text)}
+pre{background:var(--crust);border:1px solid var(--surface-0);border-radius:10px;padding:14px 16px;overflow:auto;margin:16px 0}
+pre code{background:none;padding:0}
+kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px solid var(--surface-1);border-bottom-width:2px;border-radius:5px;padding:1px 6px}
+.topbar{position:sticky;top:0;z-index:10;height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--mantle);border-bottom:1px solid var(--surface-0)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--accent);font-size:1.1rem}
+.brand:hover{text-decoration:none}
+.topbar .back{color:var(--subtext);font-size:.85rem}
+.layout{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:260px 1fr;gap:40px;padding:32px 24px 80px}
+.sidebar{position:sticky;top:90px;align-self:start;max-height:calc(100vh - 110px);overflow:auto}
+.sidebar-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--overlay-0);padding:0 12px 8px}
+.doc-nav-link{display:block;padding:7px 12px;border-radius:7px;color:var(--subtext);font-size:.9rem;margin-bottom:2px}
+.doc-nav-link:hover{background:var(--surface-0);color:var(--text);text-decoration:none}
+.doc-nav-link--active{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);font-weight:600}
+.content{min-width:0;max-width:760px}
+.content h1{font-size:2.1rem;font-weight:800;letter-spacing:-1px;margin:0 0 20px;line-height:1.2}
+.content h2{font-size:1.45rem;font-weight:700;margin:36px 0 12px;padding-top:12px;border-top:1px solid var(--surface-0)}
+.content h3{font-size:1.12rem;font-weight:700;margin:26px 0 10px}
+.content p,.content ul,.content ol,.content blockquote,.content table{margin:0 0 16px}
+.content ul,.content ol{padding-left:24px}
+.content li{margin:4px 0}
+.content img{max-width:100%;height:auto;border:1px solid var(--surface-0);border-radius:10px;margin:8px 0}
+.content blockquote{border-left:3px solid var(--accent);background:var(--mantle);padding:10px 16px;border-radius:0 8px 8px 0;color:var(--subtext)}
+.content blockquote p:last-child{margin:0}
+.content table{border-collapse:collapse;width:100%;font-size:.9rem;display:block;overflow:auto}
+.content th,.content td{border:1px solid var(--surface-0);padding:8px 12px;text-align:left}
+.content th{background:var(--mantle)}
+.content hr{border:none;border-top:1px solid var(--surface-0);margin:28px 0}
+@media(max-width:820px){.layout{grid-template-columns:1fr;gap:20px}.sidebar{position:static;max-height:none;border-bottom:1px solid var(--surface-0);padding-bottom:16px}}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><svg width="24" height="24" viewBox="0 0 512 512" role="img" aria-label="Rest Hippo"><rect width="512" height="512" rx="114" fill="#6C5CE7"/><circle cx="170" cy="146" r="40" fill="#fff"/><circle cx="342" cy="146" r="40" fill="#fff"/><rect x="144" y="140" width="224" height="190" rx="74" fill="#fff"/><rect x="118" y="260" width="276" height="150" rx="74" fill="#fff"/><circle cx="201" cy="198" r="17" fill="#6C5CE7"/><circle cx="311" cy="198" r="17" fill="#6C5CE7"/><ellipse cx="210" cy="330" rx="14" ry="20" fill="#6C5CE7"/><ellipse cx="302" cy="330" rx="14" ry="20" fill="#6C5CE7"/></svg><span>Rest Hippo</span></a>
+    <a class="back" href="/">← Back to site</a>
+  </header>
+  <div class="layout">
+    <nav class="sidebar">
+      <div class="sidebar-title">User Guide</div>
+        <a class="doc-nav-link" href="index.html">Overview</a>
+        <a class="doc-nav-link" href="getting-started.html">Getting Started</a>
+        <a class="doc-nav-link" href="collections.html">Collections &amp; the Tree</a>
+        <a class="doc-nav-link" href="requests.html">Building Requests</a>
+        <a class="doc-nav-link" href="authentication.html">Authentication</a>
+        <a class="doc-nav-link doc-nav-link--active" href="variables-and-environments.html">Variables &amp; Environments</a>
+        <a class="doc-nav-link" href="graphql.html">GraphQL</a>
+        <a class="doc-nav-link" href="websocket.html">WebSockets</a>
+        <a class="doc-nav-link" href="responses.html">Reading Responses</a>
+        <a class="doc-nav-link" href="import-export-and-backup.html">Import, Export &amp; Backup</a>
+        <a class="doc-nav-link" href="settings-and-themes.html">Settings &amp; Themes</a>
+        <a class="doc-nav-link" href="keyboard-shortcuts.html">Keyboard Shortcuts</a>
+    </nav>
+    <main class="content">
+<h1>Variables &amp; Environments</h1>
+<p><a href="index.html">← Back to contents</a></p>
+<p>Variables let you write a request once and reuse it across hosts, users, and
+runs. Anywhere you can type — the URL, params, headers, body, or auth fields —
+you can insert a variable with double-brace syntax: <code>{{name}}</code>.</p>
+<h2 id="using-variables">Using variables</h2>
+<p>Type <code>{{</code> in any field to open the <strong>typeahead</strong>, which lists the variables
+available in the current scope. Pick one and Rest Hippo inserts it as a highlighted
+<strong>pill</strong>:</p>
+<p><img src="images/variable-typeahead.png" alt="The variable typeahead"></p>
+<p>At send time, every <code>{{name}}</code> is replaced with its resolved value. With
+<a href="requests.html#url"><strong>Show URL preview</strong></a> on, you can see the resolved URL before
+you send.</p>
+<h2 id="scopes">Scopes</h2>
+<p>A variable can be defined at four levels. When the same name exists in more than
+one, the <strong>most specific scope wins</strong>:</p>
+<pre><code>Folder  ▸  Collection  ▸  Environment  ▸  Global
+(most specific)                        (most general)
+</code></pre>
+<ul>
+<li><strong>Global</strong> — available everywhere, in every collection.</li>
+<li><strong>Environment</strong> — defined in the active environment (see below). Switching
+environments swaps these values.</li>
+<li><strong>Collection</strong> — defined on a collection, shared by every request in it.</li>
+<li><strong>Folder</strong> — defined on a folder, scoped to the requests inside it.</li>
+</ul>
+<p>So a <code>baseUrl</code> set in your <strong>Local</strong> environment overrides a global <code>baseUrl</code>,
+and a folder-level override beats them both.</p>
+<h3 id="collection-variables">Collection variables</h3>
+<p>Open the <a href="collections.html#collections">Collections manager</a> and use the
+<strong>Variables</strong> tab to edit a collection&#39;s variables:</p>
+<p><img src="images/collection-variables.png" alt="Collection variables"></p>
+<p>Folder variables work the same way — right-click a folder and choose
+<strong>Variables</strong>.</p>
+<h2 id="environments">Environments</h2>
+<p>An <strong>environment</strong> is a named set of variables you can switch between — the
+classic use is one environment per deployment (Local, Staging, Production), each
+with its own <code>baseUrl</code>, credentials, and IDs.</p>
+<p>Click the <strong>environment picker</strong> in the collections toolbar (it shows the active
+environment, e.g. <code>LOCAL</code>) to open a quick-switch menu. It lists <strong>Global</strong>
+followed by every named environment, with a check beside the active one — pick
+one to <strong>make it active</strong> instantly (all <code>{{variables}}</code> resolve against it).
+Choose <strong>Manage…</strong> at the bottom to open the full environments editor:</p>
+<p><img src="images/environments-popup.png" alt="The environments editor"></p>
+<ul>
+<li><strong>Global</strong> is always first; its variables are available everywhere.</li>
+<li>Below it are your named environments. Click one to <strong>make it active</strong> — a
+check marks the active environment, and all <code>{{variables}}</code> resolve against it.</li>
+<li><strong>+</strong> adds an environment; drag to reorder; double-click to rename; the trash
+icon deletes.</li>
+<li>The <strong>Variables</strong> tab on the right edits the selected environment&#39;s variables
+as a key/value grid (or as plain text via <strong>Bulk editor</strong>). Changes save
+automatically.</li>
+</ul>
+<h3 id="secure-variables">Secure variables</h3>
+<p>Mark a variable <strong>secure</strong> (the lock icon) to <strong>encrypt it at rest</strong> and mask it
+in the UI. Revealed secrets re-mask themselves automatically after a short time.
+Use secure variables for tokens and passwords you reference from
+<a href="authentication.html">auth fields</a>.</p>
+<h2 id="captures">Captures</h2>
+<p>Captures close the loop: after a request succeeds, pull a value <strong>out</strong> of the
+response and write it into a variable that later requests can use. A login
+request can capture the returned token; the next request sends it as a Bearer
+token — no copy-paste.</p>
+<p>Configure them on the <strong>Captures</strong> tab of the request:</p>
+<p><img src="images/captures-tab.png" alt="The Captures tab"></p>
+<p>Each capture rule has:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Source</strong></td>
+<td>Where to read from: the <strong>Body</strong>, a <strong>Header</strong>, or the <strong>Status</strong> code</td>
+</tr>
+<tr>
+<td><strong>Path / Name</strong></td>
+<td>For Body, a dot-path like <code>.data.token</code>; for Header, the header name</td>
+</tr>
+<tr>
+<td><strong>Scope</strong></td>
+<td>Where to write: <strong>Environment</strong>, <strong>Collection</strong>, or <strong>Global</strong></td>
+</tr>
+<tr>
+<td><strong>Variable</strong></td>
+<td>The variable name to write</td>
+</tr>
+<tr>
+<td><strong>Codes</strong></td>
+<td>Which response codes the rule fires on (see below)</td>
+</tr>
+<tr>
+<td><strong>Secret</strong></td>
+<td>Mark the captured value secure (encrypted, masked)</td>
+</tr>
+</tbody></table>
+<p>For the <strong>Body</strong> source the same dot-path (<code>.data.token</code>, <code>.items.[0].id</code>)
+works whether the response is <strong>JSON</strong>, <strong>YAML</strong>, or <strong>XML</strong> — the body is
+parsed automatically and the path is walked over it. XML is addressed from its
+root element (e.g. <code>&lt;auth&gt;&lt;token&gt;…&lt;/token&gt;&lt;/auth&gt;</code> → <code>.auth.token</code>), and
+repeated tags become an indexable list (<code>.list.item.[0]</code>). A body that isn&#39;t one
+of those formats, or a path that finds nothing, is reported as a warning and
+captures nothing.</p>
+<h3 id="choosing-which-response-codes-a-rule-fires-on">Choosing which response codes a rule fires on</h3>
+<p>Each rule has its own <strong>Codes</strong> selector — click it to open a checklist where you
+can tick whole status <strong>groups</strong> (<code>1xx</code>–<code>5xx</code>), choose <strong>Any status</strong>, or type
+<strong>specific codes</strong> (e.g. <code>201</code>, <code>404</code>) that appear as removable chips. A rule
+runs only when the response status matches its selector, so a single request can
+capture different values into different variables depending on the outcome — for
+example capture the access token from a <code>2xx</code> body into <code>token</code>, but capture the
+error message from a <code>4xx</code> body into <code>lastError</code>.</p>
+<p>New rules default to <strong>2xx</strong>, so captures keep firing only on success unless you
+opt a rule into other codes. When a value can&#39;t be found (missing field, empty
+body) the rule is reported as a warning and never overwrites a good value with an
+empty one.</p>
+<p>Rest Hippo shows a small toast confirming what was written (e.g. <em>Captured 1
+variable → env.token</em>), and the response status bar shows a <strong>captured</strong> badge.</p>
+<hr>
+<p>Next: <a href="graphql.html">GraphQL →</a></p>
+
+    </main>
+  </div>
+</body>
+</html>

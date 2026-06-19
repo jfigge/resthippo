@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Authentication · Rest Hippo Guide</title>
+  <meta name="description" content="Authentication — the Rest Hippo user guide." />
+  <link rel="canonical" href="https://resthippo.com/docs/authentication.html" />
+  <style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#1e1e2e;--mantle:#181825;--crust:#11111b;--surface-0:#313244;--surface-1:#45475a;--overlay-0:#6c7086;--text:#cdd6f4;--subtext:#a6adc8;--accent:#89b4fa;--green:#a6e3a1}
+html{scroll-behavior:smooth}
+body{font-family:"Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.65}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:"Cascadia Code","JetBrains Mono","Fira Code",monospace;font-size:.88em;background:var(--surface-0);padding:1px 6px;border-radius:4px;color:var(--text)}
+pre{background:var(--crust);border:1px solid var(--surface-0);border-radius:10px;padding:14px 16px;overflow:auto;margin:16px 0}
+pre code{background:none;padding:0}
+kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px solid var(--surface-1);border-bottom-width:2px;border-radius:5px;padding:1px 6px}
+.topbar{position:sticky;top:0;z-index:10;height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--mantle);border-bottom:1px solid var(--surface-0)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--accent);font-size:1.1rem}
+.brand:hover{text-decoration:none}
+.topbar .back{color:var(--subtext);font-size:.85rem}
+.layout{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:260px 1fr;gap:40px;padding:32px 24px 80px}
+.sidebar{position:sticky;top:90px;align-self:start;max-height:calc(100vh - 110px);overflow:auto}
+.sidebar-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--overlay-0);padding:0 12px 8px}
+.doc-nav-link{display:block;padding:7px 12px;border-radius:7px;color:var(--subtext);font-size:.9rem;margin-bottom:2px}
+.doc-nav-link:hover{background:var(--surface-0);color:var(--text);text-decoration:none}
+.doc-nav-link--active{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);font-weight:600}
+.content{min-width:0;max-width:760px}
+.content h1{font-size:2.1rem;font-weight:800;letter-spacing:-1px;margin:0 0 20px;line-height:1.2}
+.content h2{font-size:1.45rem;font-weight:700;margin:36px 0 12px;padding-top:12px;border-top:1px solid var(--surface-0)}
+.content h3{font-size:1.12rem;font-weight:700;margin:26px 0 10px}
+.content p,.content ul,.content ol,.content blockquote,.content table{margin:0 0 16px}
+.content ul,.content ol{padding-left:24px}
+.content li{margin:4px 0}
+.content img{max-width:100%;height:auto;border:1px solid var(--surface-0);border-radius:10px;margin:8px 0}
+.content blockquote{border-left:3px solid var(--accent);background:var(--mantle);padding:10px 16px;border-radius:0 8px 8px 0;color:var(--subtext)}
+.content blockquote p:last-child{margin:0}
+.content table{border-collapse:collapse;width:100%;font-size:.9rem;display:block;overflow:auto}
+.content th,.content td{border:1px solid var(--surface-0);padding:8px 12px;text-align:left}
+.content th{background:var(--mantle)}
+.content hr{border:none;border-top:1px solid var(--surface-0);margin:28px 0}
+@media(max-width:820px){.layout{grid-template-columns:1fr;gap:20px}.sidebar{position:static;max-height:none;border-bottom:1px solid var(--surface-0);padding-bottom:16px}}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><svg width="24" height="24" viewBox="0 0 512 512" role="img" aria-label="Rest Hippo"><rect width="512" height="512" rx="114" fill="#6C5CE7"/><circle cx="170" cy="146" r="40" fill="#fff"/><circle cx="342" cy="146" r="40" fill="#fff"/><rect x="144" y="140" width="224" height="190" rx="74" fill="#fff"/><rect x="118" y="260" width="276" height="150" rx="74" fill="#fff"/><circle cx="201" cy="198" r="17" fill="#6C5CE7"/><circle cx="311" cy="198" r="17" fill="#6C5CE7"/><ellipse cx="210" cy="330" rx="14" ry="20" fill="#6C5CE7"/><ellipse cx="302" cy="330" rx="14" ry="20" fill="#6C5CE7"/></svg><span>Rest Hippo</span></a>
+    <a class="back" href="/">← Back to site</a>
+  </header>
+  <div class="layout">
+    <nav class="sidebar">
+      <div class="sidebar-title">User Guide</div>
+        <a class="doc-nav-link" href="index.html">Overview</a>
+        <a class="doc-nav-link" href="getting-started.html">Getting Started</a>
+        <a class="doc-nav-link" href="collections.html">Collections &amp; the Tree</a>
+        <a class="doc-nav-link" href="requests.html">Building Requests</a>
+        <a class="doc-nav-link doc-nav-link--active" href="authentication.html">Authentication</a>
+        <a class="doc-nav-link" href="variables-and-environments.html">Variables &amp; Environments</a>
+        <a class="doc-nav-link" href="graphql.html">GraphQL</a>
+        <a class="doc-nav-link" href="websocket.html">WebSockets</a>
+        <a class="doc-nav-link" href="responses.html">Reading Responses</a>
+        <a class="doc-nav-link" href="import-export-and-backup.html">Import, Export &amp; Backup</a>
+        <a class="doc-nav-link" href="settings-and-themes.html">Settings &amp; Themes</a>
+        <a class="doc-nav-link" href="keyboard-shortcuts.html">Keyboard Shortcuts</a>
+    </nav>
+    <main class="content">
+<h1>Authentication</h1>
+<p><a href="index.html">← Back to contents</a></p>
+<p>The <strong>Auth</strong> tab attaches credentials to a request. Pick a type from the
+dropdown and fill in the fields — Rest Hippo applies the right header (or query
+parameter) automatically when you send. Use the <strong>Enabled</strong> toggle to turn auth
+on or off without losing the settings.</p>
+<p><img src="images/auth-bearer.png" alt="Bearer token authentication"></p>
+<p>Every secret field (passwords, tokens, client secrets, keys) is <strong>masked</strong> with
+a reveal toggle and is <strong>encrypted at rest</strong>, so credentials never sit in plain
+text on disk. All fields accept <a href="variables-and-environments.html"><code>{{variables}}</code></a>,
+so you can keep secrets in a secure environment variable and reference them here.</p>
+<h2 id="types-at-a-glance">Types at a glance</h2>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>What it sends</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>None</strong></td>
+<td>No credentials</td>
+</tr>
+<tr>
+<td><strong>API Key</strong></td>
+<td>A key as a header or query parameter</td>
+</tr>
+<tr>
+<td><strong>Basic</strong></td>
+<td><code>Authorization: Basic …</code> (username:password, base64-encoded)</td>
+</tr>
+<tr>
+<td><strong>Bearer Token</strong></td>
+<td><code>Authorization: Bearer &lt;token&gt;</code></td>
+</tr>
+<tr>
+<td><strong>Digest</strong></td>
+<td>RFC 2617/7616 challenge-response (handles the 401 round-trip)</td>
+</tr>
+<tr>
+<td><strong>NTLM</strong></td>
+<td>Microsoft NTLM handshake (username, password, domain, workstation)</td>
+</tr>
+<tr>
+<td><strong>AWS IAM</strong></td>
+<td>AWS Signature V4 signing (access key, secret, region, service)</td>
+</tr>
+<tr>
+<td><strong>OAuth 1.0</strong></td>
+<td>OAuth 1.0a request signing (<code>Authorization: OAuth …</code>)</td>
+</tr>
+<tr>
+<td><strong>OAuth 2.0</strong></td>
+<td>A full OAuth 2.0 / OIDC flow (see below)</td>
+</tr>
+</tbody></table>
+<h3 id="api-key">API Key</h3>
+<p>Enter a <strong>key name</strong> and <strong>value</strong>, and choose whether to add it to the
+<strong>Header</strong> or the <strong>Query Param</strong>. Rest Hippo suggests common key names as you type.</p>
+<h3 id="basic">Basic</h3>
+<p>Enter a <strong>username</strong> and <strong>password</strong>. Rest Hippo base64-encodes them into the
+<code>Authorization</code> header.</p>
+<h3 id="bearer-token">Bearer Token</h3>
+<p>Enter a <strong>token</strong>. Rest Hippo sends <code>Authorization: Bearer &lt;token&gt;</code>. The tip line under
+the field shows exactly what will be sent.</p>
+<h3 id="digest-amp-ntlm">Digest &amp; NTLM</h3>
+<p>For <strong>Digest</strong>, supply a username and password; Rest Hippo performs the
+challenge-response handshake (including the initial 401) for you. <strong>NTLM</strong> adds
+optional <strong>domain</strong> and <strong>workstation</strong> fields for the multi-leg Windows
+handshake.</p>
+<h3 id="aws-iam-sigv4">AWS IAM (SigV4)</h3>
+<p>Sign requests with <strong>Signature Version 4</strong>: enter your <strong>Access Key ID</strong>,
+<strong>Secret Access Key</strong>, <strong>Region</strong>, and <strong>Service</strong> (Rest Hippo can infer the service
+from the host), plus an optional <strong>Session Token</strong>. The signature, date, and
+signed-headers are computed at send time.</p>
+<h3 id="oauth-10a">OAuth 1.0a</h3>
+<p>For legacy APIs that still use <strong>OAuth 1.0a</strong>, enter your <strong>Consumer Key</strong> and
+<strong>Consumer Secret</strong>, and (for an access token) the <strong>Token</strong> and <strong>Token
+Secret</strong>. Choose a <strong>Signature Method</strong> — <strong>HMAC-SHA1</strong> (the most common),
+<strong>HMAC-SHA256</strong>, or <strong>PLAINTEXT</strong> — and optionally a <strong>Realm</strong>. Rest Hippo signs the
+request at send time, computing the signature over the method, URL, and
+parameters and adding the <code>Authorization: OAuth …</code> header; the <code>oauth_nonce</code> and
+<code>oauth_timestamp</code> are generated automatically for each request.</p>
+<h2 id="oauth-20">OAuth 2.0</h2>
+<p>The OAuth 2.0 type supports the full set of grant types and OIDC discovery:</p>
+<p><img src="images/auth-oauth2.png" alt="OAuth 2.0 configuration"></p>
+<ol>
+<li><strong>Grant Type</strong> — choose Authorization Code, Implicit, Client Credentials,
+Resource Owner Password, <strong>Device Authorization</strong>, or <strong>Token Exchange</strong>.</li>
+<li>Fill in <strong>Client ID</strong>, <strong>Client Secret</strong> (for confidential clients), the
+<strong>Authorization URL</strong> and <strong>Access Token URL</strong>, and the <strong>Scope</strong> (with
+autocomplete for common scopes like <code>openid</code>, <code>profile</code>, <code>email</code>).</li>
+<li>Click <strong>Get Token</strong>. For browser-based flows (Authorization Code, Implicit),
+Rest Hippo opens a popup window for you to log in, intercepts the redirect, and
+exchanges the code for an access token. The token is then attached to your
+request.</li>
+</ol>
+<p><strong>Device Authorization</strong> (RFC 8628) — for input-constrained or headless
+clients. Provide the <strong>Device Authorization URL</strong>, <strong>Access Token URL</strong>, and
+<strong>Client ID</strong>, then click <strong>Get Token</strong>: Rest Hippo shows a <strong>user code</strong> and a
+<strong>verification URL</strong> to open on another device, and polls in the background until
+you approve (handling the standard <code>authorization_pending</code> / <code>slow_down</code>
+back-off) or the code expires.</p>
+<p><strong>Token Exchange</strong> (RFC 8693) — swap one token for another. Provide the
+<strong>Subject Token</strong> and its <strong>Subject Token Type</strong>, and optionally an <strong>Actor
+Token</strong> (for delegation), <strong>Requested Token Type</strong>, <strong>Audience</strong>, and
+<strong>Resource</strong>. The exchanged token is cached like any other grant.</p>
+<p><strong>OIDC Discovery</strong> — click <strong>Discover</strong> to fetch a provider&#39;s
+<code>.well-known/openid-configuration</code> and auto-populate the authorization and token
+URLs and the available scopes.</p>
+<p><strong>Advanced</strong> — expand the <strong>Advanced</strong> section for fine control over
+<strong>Response Type</strong>, <strong>State</strong>, where credentials go (<code>header</code> vs <code>body</code>),
+<strong>Audience</strong>, <strong>Resource</strong>, <strong>Origin</strong>, and a custom <strong>Header Prefix</strong>.</p>
+<blockquote>
+<p>Authorization Code flows use <strong>PKCE</strong> by default for public clients, so you can
+authenticate against modern providers without embedding a client secret.</p>
+</blockquote>
+<hr>
+<p>Next: <a href="variables-and-environments.html">Variables &amp; Environments →</a></p>
+
+    </main>
+  </div>
+</body>
+</html>

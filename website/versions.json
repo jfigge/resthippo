@@ -1,0 +1,97 @@
+{
+  "repo": "jfigge/resthippo",
+  "generatedAt": "2026-06-19T16:37:36.378Z",
+  "latest": "0.8.0",
+  "releases": [
+    {
+      "version": "0.8.0",
+      "tag": "v0.8.0",
+      "name": "v0.8.0",
+      "publishedAt": "2026-06-09T05:41:37Z",
+      "prerelease": false,
+      "url": "https://github.com/jfigge/resthippo/releases/tag/v0.8.0",
+      "assets": [
+        {
+          "name": "wurl-0.8.0-arm64-mac.zip",
+          "size": 112779182,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.8.0/wurl-0.8.0-arm64-mac.zip",
+          "platform": "mac",
+          "arch": "arm64",
+          "kind": "zip",
+          "label": "ZIP Archive",
+          "primary": false
+        },
+        {
+          "name": "wurl-0.8.0-arm64.dmg",
+          "size": 116704466,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.8.0/wurl-0.8.0-arm64.dmg",
+          "platform": "mac",
+          "arch": "arm64",
+          "kind": "dmg",
+          "label": "Disk Image",
+          "primary": true
+        },
+        {
+          "name": "wurl-0.8.0-mac.zip",
+          "size": 118003116,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.8.0/wurl-0.8.0-mac.zip",
+          "platform": "mac",
+          "arch": "x64",
+          "kind": "zip",
+          "label": "ZIP Archive",
+          "primary": false
+        },
+        {
+          "name": "wurl-0.8.0.AppImage",
+          "size": 122513912,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.8.0/wurl-0.8.0.AppImage",
+          "platform": "linux",
+          "arch": "x64",
+          "kind": "appimage",
+          "label": "AppImage",
+          "primary": true
+        },
+        {
+          "name": "wurl-0.8.0.dmg",
+          "size": 121969083,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.8.0/wurl-0.8.0.dmg",
+          "platform": "mac",
+          "arch": "x64",
+          "kind": "dmg",
+          "label": "Disk Image",
+          "primary": true
+        },
+        {
+          "name": "wurl.0.8.0.exe",
+          "size": 100814328,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.8.0/wurl.0.8.0.exe",
+          "platform": "win",
+          "arch": "x64",
+          "kind": "portable",
+          "label": "Portable",
+          "primary": true
+        },
+        {
+          "name": "wurl.Setup.0.8.0.exe",
+          "size": 100975622,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.8.0/wurl.Setup.0.8.0.exe",
+          "platform": "win",
+          "arch": "x64",
+          "kind": "setup",
+          "label": "Installer",
+          "primary": true
+        },
+        {
+          "name": "wurl_0.8.0_amd64.deb",
+          "size": 95552044,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.8.0/wurl_0.8.0_amd64.deb",
+          "platform": "linux",
+          "arch": "x64",
+          "kind": "deb",
+          "label": "Debian Package",
+          "primary": true
+        }
+      ]
+    }
+  ]
+}

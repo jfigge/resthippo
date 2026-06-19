@@ -1736,8 +1736,8 @@ html.show-method-icons .req-method-menu-item-label::before {
 .captures-header-row.params-header-row,
 .captures-row.params-row {
   grid-template-columns:
-    24px 28px minmax(74px, 0.65fr) minmax(104px, 1.2fr)
-    minmax(98px, 0.85fr) minmax(104px, 1.2fr) minmax(72px, 0.7fr) 56px 28px;
+    20px 20px minmax(74px, 0.65fr) minmax(104px, 1.2fr)
+    minmax(120px, 0.85fr) minmax(104px, 1.2fr) minmax(72px, 0.7fr) 20px 20px;
 }
 
 .captures-col-secure {

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://resthippo.com/</loc></url>
+  <url><loc>https://resthippo.com/docs/index.html</loc></url>
+  <url><loc>https://resthippo.com/docs/getting-started.html</loc></url>
+  <url><loc>https://resthippo.com/docs/collections.html</loc></url>
+  <url><loc>https://resthippo.com/docs/requests.html</loc></url>
+  <url><loc>https://resthippo.com/docs/authentication.html</loc></url>
+  <url><loc>https://resthippo.com/docs/variables-and-environments.html</loc></url>
+  <url><loc>https://resthippo.com/docs/graphql.html</loc></url>
+  <url><loc>https://resthippo.com/docs/websocket.html</loc></url>
+  <url><loc>https://resthippo.com/docs/responses.html</loc></url>
+  <url><loc>https://resthippo.com/docs/import-export-and-backup.html</loc></url>
+  <url><loc>https://resthippo.com/docs/settings-and-themes.html</loc></url>
+  <url><loc>https://resthippo.com/docs/keyboard-shortcuts.html</loc></url>
+</urlset>

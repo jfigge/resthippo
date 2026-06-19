@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Keyboard Shortcuts · Rest Hippo Guide</title>
+  <meta name="description" content="Keyboard Shortcuts — the Rest Hippo user guide." />
+  <link rel="canonical" href="https://resthippo.com/docs/keyboard-shortcuts.html" />
+  <style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#1e1e2e;--mantle:#181825;--crust:#11111b;--surface-0:#313244;--surface-1:#45475a;--overlay-0:#6c7086;--text:#cdd6f4;--subtext:#a6adc8;--accent:#89b4fa;--green:#a6e3a1}
+html{scroll-behavior:smooth}
+body{font-family:"Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.65}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:"Cascadia Code","JetBrains Mono","Fira Code",monospace;font-size:.88em;background:var(--surface-0);padding:1px 6px;border-radius:4px;color:var(--text)}
+pre{background:var(--crust);border:1px solid var(--surface-0);border-radius:10px;padding:14px 16px;overflow:auto;margin:16px 0}
+pre code{background:none;padding:0}
+kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px solid var(--surface-1);border-bottom-width:2px;border-radius:5px;padding:1px 6px}
+.topbar{position:sticky;top:0;z-index:10;height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--mantle);border-bottom:1px solid var(--surface-0)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--accent);font-size:1.1rem}
+.brand:hover{text-decoration:none}
+.topbar .back{color:var(--subtext);font-size:.85rem}
+.layout{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:260px 1fr;gap:40px;padding:32px 24px 80px}
+.sidebar{position:sticky;top:90px;align-self:start;max-height:calc(100vh - 110px);overflow:auto}
+.sidebar-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--overlay-0);padding:0 12px 8px}
+.doc-nav-link{display:block;padding:7px 12px;border-radius:7px;color:var(--subtext);font-size:.9rem;margin-bottom:2px}
+.doc-nav-link:hover{background:var(--surface-0);color:var(--text);text-decoration:none}
+.doc-nav-link--active{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);font-weight:600}
+.content{min-width:0;max-width:760px}
+.content h1{font-size:2.1rem;font-weight:800;letter-spacing:-1px;margin:0 0 20px;line-height:1.2}
+.content h2{font-size:1.45rem;font-weight:700;margin:36px 0 12px;padding-top:12px;border-top:1px solid var(--surface-0)}
+.content h3{font-size:1.12rem;font-weight:700;margin:26px 0 10px}
+.content p,.content ul,.content ol,.content blockquote,.content table{margin:0 0 16px}
+.content ul,.content ol{padding-left:24px}
+.content li{margin:4px 0}
+.content img{max-width:100%;height:auto;border:1px solid var(--surface-0);border-radius:10px;margin:8px 0}
+.content blockquote{border-left:3px solid var(--accent);background:var(--mantle);padding:10px 16px;border-radius:0 8px 8px 0;color:var(--subtext)}
+.content blockquote p:last-child{margin:0}
+.content table{border-collapse:collapse;width:100%;font-size:.9rem;display:block;overflow:auto}
+.content th,.content td{border:1px solid var(--surface-0);padding:8px 12px;text-align:left}
+.content th{background:var(--mantle)}
+.content hr{border:none;border-top:1px solid var(--surface-0);margin:28px 0}
+@media(max-width:820px){.layout{grid-template-columns:1fr;gap:20px}.sidebar{position:static;max-height:none;border-bottom:1px solid var(--surface-0);padding-bottom:16px}}
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><svg width="24" height="24" viewBox="0 0 512 512" role="img" aria-label="Rest Hippo"><rect width="512" height="512" rx="114" fill="#6C5CE7"/><circle cx="170" cy="146" r="40" fill="#fff"/><circle cx="342" cy="146" r="40" fill="#fff"/><rect x="144" y="140" width="224" height="190" rx="74" fill="#fff"/><rect x="118" y="260" width="276" height="150" rx="74" fill="#fff"/><circle cx="201" cy="198" r="17" fill="#6C5CE7"/><circle cx="311" cy="198" r="17" fill="#6C5CE7"/><ellipse cx="210" cy="330" rx="14" ry="20" fill="#6C5CE7"/><ellipse cx="302" cy="330" rx="14" ry="20" fill="#6C5CE7"/></svg><span>Rest Hippo</span></a>
+    <a class="back" href="/">← Back to site</a>
+  </header>
+  <div class="layout">
+    <nav class="sidebar">
+      <div class="sidebar-title">User Guide</div>
+        <a class="doc-nav-link" href="index.html">Overview</a>
+        <a class="doc-nav-link" href="getting-started.html">Getting Started</a>
+        <a class="doc-nav-link" href="collections.html">Collections &amp; the Tree</a>
+        <a class="doc-nav-link" href="requests.html">Building Requests</a>
+        <a class="doc-nav-link" href="authentication.html">Authentication</a>
+        <a class="doc-nav-link" href="variables-and-environments.html">Variables &amp; Environments</a>
+        <a class="doc-nav-link" href="graphql.html">GraphQL</a>
+        <a class="doc-nav-link" href="websocket.html">WebSockets</a>
+        <a class="doc-nav-link" href="responses.html">Reading Responses</a>
+        <a class="doc-nav-link" href="import-export-and-backup.html">Import, Export &amp; Backup</a>
+        <a class="doc-nav-link" href="settings-and-themes.html">Settings &amp; Themes</a>
+        <a class="doc-nav-link doc-nav-link--active" href="keyboard-shortcuts.html">Keyboard Shortcuts</a>
+    </nav>
+    <main class="content">
+<h1>Keyboard Shortcuts</h1>
+<p><a href="index.html">← Back to contents</a></p>
+<blockquote>
+<p>On macOS use <kbd>⌘</kbd> (Command); on Windows/Linux use <kbd>Ctrl</kbd>.</p>
+</blockquote>
+<h2 id="global">Global</h2>
+<p>These work anywhere in the app. Press <kbd>⌘/Ctrl</kbd>+<kbd>K</kbd> at any time
+to pop up this same list inside Rest Hippo.</p>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>Enter</kbd></td>
+<td>Send the request (or WebSocket message when connected)</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>N</kbd></td>
+<td>New request</td>
+</tr>
+<tr>
+<td><kbd>⌥⌘</kbd>/<kbd>Ctrl+Alt</kbd>+<kbd>N</kbd></td>
+<td>New WebSocket request</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd></td>
+<td>New collection (or folder when a node is selected)</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>L</kbd></td>
+<td>Focus the URL bar</td>
+</tr>
+<tr>
+<td><kbd>⌥⌘</kbd>/<kbd>Ctrl+Alt</kbd>+<kbd>↑</kbd></td>
+<td>Select the previous request</td>
+</tr>
+<tr>
+<td><kbd>⌥⌘</kbd>/<kbd>Ctrl+Alt</kbd>+<kbd>↓</kbd></td>
+<td>Select the next request</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd></td>
+<td>Switch to the Requests / Favorites / Recent tab</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>\</kbd></td>
+<td>Cycle through the panel layouts</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>,</kbd></td>
+<td>Open Settings</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>K</kbd></td>
+<td>Open the keyboard-shortcuts cheat-sheet</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>/</kbd></td>
+<td>Open the User Guide</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd></td>
+<td>Import a collection</td>
+</tr>
+</tbody></table>
+<p>The navigation keys (focus URL, next/previous request, switch tab) yield to text
+entry — they only fire when you aren&#39;t typing in a field. The application menus
+also list these accelerators next to their commands.</p>
+<blockquote>
+<p><strong>There&#39;s no Save shortcut — you don&#39;t need one.</strong> Every edit you make to a
+request (its method, URL, params, headers, body, auth, …) is <strong>saved
+automatically</strong> a moment after you stop typing. Your work is always persisted;
+there is no unsaved state to lose.</p>
+</blockquote>
+<h2 id="sending-requests">Sending requests</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><kbd>Enter</kbd></td>
+<td>Send the request (while the URL bar is focused)</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>Enter</kbd></td>
+<td>Send the request, or a WebSocket message when connected</td>
+</tr>
+</tbody></table>
+<h2 id="response-viewer">Response viewer</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>F</kbd></td>
+<td>Open the find-in-response bar</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td>
+<td>Open the filter bar (JSON / YAML / XML)</td>
+</tr>
+<tr>
+<td><kbd>Enter</kbd></td>
+<td>Next match (in the find bar)</td>
+</tr>
+<tr>
+<td><kbd>Shift</kbd>+<kbd>Enter</kbd></td>
+<td>Previous match (in the find bar)</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>A</kbd></td>
+<td>Select the entire response body</td>
+</tr>
+<tr>
+<td><kbd>Esc</kbd></td>
+<td>Close the find or filter bar</td>
+</tr>
+</tbody></table>
+<h2 id="editors-amp-typeahead">Editors &amp; typeahead</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>{{</code></td>
+<td>Open the variable typeahead</td>
+</tr>
+<tr>
+<td><kbd>↑</kbd> / <kbd>↓</kbd></td>
+<td>Move through autocomplete suggestions</td>
+</tr>
+<tr>
+<td><kbd>Enter</kbd> / <kbd>Tab</kbd></td>
+<td>Accept the highlighted suggestion</td>
+</tr>
+<tr>
+<td><kbd>Esc</kbd></td>
+<td>Dismiss suggestions</td>
+</tr>
+</tbody></table>
+<h2 id="appearance">Appearance</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>+</kbd></td>
+<td>Increase font size</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>-</kbd></td>
+<td>Decrease font size</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>0</kbd></td>
+<td>Reset font size</td>
+</tr>
+</tbody></table>
+<h2 id="navigating-the-request-tree">Navigating the request tree</h2>
+<p>The collections tree is a single keyboard stop: <kbd>Tab</kbd> into it once, then
+move around entirely with the arrow keys — you don&#39;t tab through every row.</p>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><kbd>Tab</kbd></td>
+<td>Move focus into the tree (lands on the selected request)</td>
+</tr>
+<tr>
+<td><kbd>↑</kbd> / <kbd>↓</kbd></td>
+<td>Move to the previous / next visible row</td>
+</tr>
+<tr>
+<td><kbd>→</kbd></td>
+<td>Expand a collapsed collection, or step into an open one</td>
+</tr>
+<tr>
+<td><kbd>←</kbd></td>
+<td>Collapse an open collection, or jump to its parent</td>
+</tr>
+<tr>
+<td><kbd>Home</kbd> / <kbd>End</kbd></td>
+<td>Jump to the first / last visible row</td>
+</tr>
+<tr>
+<td><em>Type a name</em></td>
+<td>Type-ahead: jump to the next row that starts with it</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>F</kbd></td>
+<td>Reveal the filter box above the list</td>
+</tr>
+<tr>
+<td><kbd>Esc</kbd></td>
+<td>Hide the filter box and clear the filter</td>
+</tr>
+<tr>
+<td><kbd>Enter</kbd></td>
+<td>Open the request, or toggle the collection</td>
+</tr>
+<tr>
+<td><kbd>Space</kbd></td>
+<td>Select the row without opening / toggling</td>
+</tr>
+<tr>
+<td><kbd>⌘/Ctrl</kbd>+<kbd>D</kbd></td>
+<td>Duplicate the focused request (requests only)</td>
+</tr>
+<tr>
+<td><kbd>F2</kbd></td>
+<td>Rename the focused request or folder</td>
+</tr>
+<tr>
+<td><kbd>Del</kbd> / <kbd>⌫</kbd></td>
+<td>Delete the focused request or folder (opens a confirm)</td>
+</tr>
+</tbody></table>
+<p>The same <kbd>↑</kbd> / <kbd>↓</kbd> / <kbd>Home</kbd> / <kbd>End</kbd> keys move
+between entries in the collections and environments lists.</p>
+<h2 id="pickers-amp-menus">Pickers &amp; menus</h2>
+<p>The layout picker (and other dropdown menus) are fully keyboard-operable:</p>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><kbd>Enter</kbd> / <kbd>Space</kbd> / <kbd>↓</kbd></td>
+<td>Open the menu</td>
+</tr>
+<tr>
+<td><kbd>↑</kbd> / <kbd>↓</kbd></td>
+<td>Move between options</td>
+</tr>
+<tr>
+<td><kbd>Home</kbd> / <kbd>End</kbd></td>
+<td>First / last option</td>
+</tr>
+<tr>
+<td><kbd>Enter</kbd> / <kbd>Space</kbd></td>
+<td>Apply the highlighted option</td>
+</tr>
+<tr>
+<td><kbd>Esc</kbd></td>
+<td>Close without changing</td>
+</tr>
+</tbody></table>
+<h2 id="tree-amp-dialogs">Tree &amp; dialogs</h2>
+<table>
+<thead>
+<tr>
+<th>Shortcut</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><kbd>Enter</kbd></td>
+<td>Confirm an inline rename</td>
+</tr>
+<tr>
+<td><kbd>Esc</kbd></td>
+<td>Cancel a rename / close the current popup or dialog</td>
+</tr>
+<tr>
+<td>Double-click</td>
+<td>Rename a request, folder, collection, or environment</td>
+</tr>
+</tbody></table>
+<h2 id="accessibility">Accessibility</h2>
+<p>Rest Hippo respects your operating system&#39;s accessibility preferences automatically —
+there&#39;s nothing to turn on in the app:</p>
+<ul>
+<li><strong>Reduce motion</strong> — when your OS asks apps to minimize motion, Rest Hippo drops the
+slide-in, scale, and pulse animations on toasts, menus, and indicators
+(loading spinners keep turning, since the motion is the &quot;in progress&quot; signal).</li>
+<li><strong>Increased contrast / High Contrast</strong> — muted secondary text is strengthened,
+and the focus ring and the current-selection outline stay visible (including in
+Windows High Contrast / forced-colors mode).</li>
+</ul>
+<p>Every interactive control is reachable by keyboard and shows a focus ring when
+focused that way. Icon-only buttons carry text labels for screen readers, and
+status messages (errors, saves) are announced as they appear.</p>
+<hr>
+<p><a href="index.html">← Back to contents</a></p>
+
+    </main>
+  </div>
+</body>
+</html>
