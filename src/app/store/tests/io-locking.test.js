@@ -151,3 +151,91 @@ test("exists reflects presence of files and directories", () => {
   assert.strictEqual(io.exists(file), true);
   assert.strictEqual(io.exists(dir), true);
 });
+
+// ── Atomic write: content + durability ──────────────────────────────────────────
+
+test("atomicWrite writes exact content and leaves no temp file behind", () => {
+  const dir = tmpDir();
+  const file = path.join(dir, "doc.json");
+
+  io.atomicWrite(file, '{"a":1}');
+
+  assert.strictEqual(fs.readFileSync(file, "utf8"), '{"a":1}');
+  const leftovers = fs.readdirSync(dir).filter((n) => io.isTempFileName(n));
+  assert.deepStrictEqual(
+    leftovers,
+    [],
+    "no orphan temp file after a clean write",
+  );
+});
+
+test("atomicWrite fsyncs the temp file and the parent directory before returning", () => {
+  const dir = tmpDir();
+  const file = path.join(dir, "doc.json");
+
+  const realFsync = fs.fsyncSync;
+  const realOpen = fs.openSync;
+  let fsyncs = 0;
+  let dirOpenedForFsync = false;
+  fs.fsyncSync = (fd) => {
+    fsyncs += 1;
+    return realFsync(fd);
+  };
+  fs.openSync = (p, ...rest) => {
+    // The directory-fsync path opens the parent dir; record the attempt even on
+    // platforms where the subsequent openSync/fsync is rejected and swallowed.
+    if (path.resolve(p) === path.resolve(dir)) dirOpenedForFsync = true;
+    return realOpen(p, ...rest);
+  };
+  try {
+    io.atomicWrite(file, "durable");
+  } finally {
+    fs.fsyncSync = realFsync;
+    fs.openSync = realOpen;
+  }
+
+  assert.strictEqual(fs.readFileSync(file, "utf8"), "durable");
+  assert.ok(
+    fsyncs >= 1,
+    "temp file contents must be fsync'd before the rename",
+  );
+  assert.ok(dirOpenedForFsync, "parent directory must be opened for an fsync");
+});
+
+// ── move (rename) ────────────────────────────────────────────────────────────────
+
+test("move renames a file, preserving its content", () => {
+  const dir = tmpDir();
+  const src = path.join(dir, "a.json");
+  const dest = path.join(dir, "b.json");
+  fs.writeFileSync(src, "payload");
+
+  io.move(src, dest);
+
+  assert.strictEqual(fs.existsSync(src), false);
+  assert.strictEqual(fs.readFileSync(dest, "utf8"), "payload");
+});
+
+test("move renames a directory tree", () => {
+  const dir = tmpDir();
+  const src = path.join(dir, "from");
+  const dest = path.join(dir, "to");
+  fs.mkdirSync(path.join(src, "nested"), { recursive: true });
+  fs.writeFileSync(path.join(src, "nested", "f.json"), "x");
+
+  io.move(src, dest);
+
+  assert.strictEqual(fs.existsSync(src), false);
+  assert.strictEqual(
+    fs.readFileSync(path.join(dest, "nested", "f.json"), "utf8"),
+    "x",
+  );
+});
+
+test("move propagates ENOENT on a missing source (unlike remove)", () => {
+  const dir = tmpDir();
+  assert.throws(
+    () => io.move(path.join(dir, "missing"), path.join(dir, "dest")),
+    { code: "ENOENT" },
+  );
+});

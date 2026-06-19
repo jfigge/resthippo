@@ -44,6 +44,7 @@ const http = require("http");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
+const zlib = require("zlib");
 
 const ntlm = require("../../auth/ntlm");
 
@@ -209,6 +210,119 @@ test("POST forwards the body and custom request headers", async () => {
       assert.equal(got.method, "POST");
       assert.equal(got.got, '{"a":1}');
       assert.equal(got.xtest, "abc");
+    },
+  );
+});
+
+// ── Response decompression (Content-Encoding) ───────────────────────────────────
+
+test("gzip response body is decompressed and decoded as text, not base64", async () => {
+  const payload = JSON.stringify({ message: "hello gzip", items: [1, 2, 3] });
+  await withServer(
+    (req, res) => {
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Content-Encoding": "gzip",
+      });
+      res.end(zlib.gzipSync(payload));
+    },
+    async (base) => {
+      const r = await run({ method: "GET", url: `${base}/x` });
+      assert.equal(r.status, 200);
+      assert.equal(r.encoding, "utf8", "must decode as text, not base64");
+      assert.equal(r.body, payload);
+      // size reflects the decompressed body the user actually sees.
+      assert.equal(r.size, Buffer.byteLength(payload));
+    },
+  );
+});
+
+test("brotli (br) response body is decompressed", async () => {
+  const payload = "the quick brown hippo jumps over the lazy dog";
+  await withServer(
+    (req, res) => {
+      res.writeHead(200, {
+        "Content-Type": "text/plain",
+        "Content-Encoding": "br",
+      });
+      res.end(zlib.brotliCompressSync(payload));
+    },
+    async (base) => {
+      const r = await run({ method: "GET", url: `${base}/x` });
+      assert.equal(r.body, payload);
+      assert.equal(r.encoding, "utf8");
+    },
+  );
+});
+
+test("deflate (zlib) response body is decompressed", async () => {
+  const payload = "deflated payload ".repeat(4);
+  await withServer(
+    (req, res) => {
+      res.writeHead(200, {
+        "Content-Type": "text/plain",
+        "Content-Encoding": "deflate",
+      });
+      res.end(zlib.deflateSync(payload));
+    },
+    async (base) => {
+      const r = await run({ method: "GET", url: `${base}/x` });
+      assert.equal(r.body, payload);
+    },
+  );
+});
+
+test("an unsupported Content-Encoding passes the body through untouched", async () => {
+  const payload = "plain identity body";
+  await withServer(
+    (req, res) => {
+      res.writeHead(200, {
+        "Content-Type": "text/plain",
+        "Content-Encoding": "identity",
+      });
+      res.end(payload);
+    },
+    async (base) => {
+      const r = await run({ method: "GET", url: `${base}/x` });
+      assert.equal(r.body, payload);
+    },
+  );
+});
+
+test("a corrupt gzip body surfaces a stream error instead of garbage", async () => {
+  await withServer(
+    (req, res) => {
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Content-Encoding": "gzip",
+      });
+      res.end(Buffer.from("this is not valid gzip data"));
+    },
+    async (base) => {
+      const r = await run({ method: "GET", url: `${base}/x` });
+      assert.ok(r.error, "a corrupt compressed body must surface an error");
+    },
+  );
+});
+
+// ── Response charset ────────────────────────────────────────────────────────────
+
+test("decodes a text body per the Content-Type charset (not always UTF-8)", async () => {
+  const latin1 = Buffer.from([0x63, 0x61, 0x66, 0xe9]); // "café" in ISO-8859-1
+  await withServer(
+    (req, res) => {
+      res.writeHead(200, { "Content-Type": "text/plain; charset=iso-8859-1" });
+      res.end(latin1);
+    },
+    async (base) => {
+      const r = await run({ method: "GET", url: `${base}/x` });
+      assert.equal(r.status, 200);
+      assert.equal(
+        r.body,
+        "café",
+        "0xE9 decodes as ISO-8859-1 'é', not mojibake",
+      );
+      assert.equal(r.encoding, "utf8");
     },
   );
 });

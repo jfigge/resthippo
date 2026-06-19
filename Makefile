@@ -280,7 +280,7 @@ test-diagnostics:
 
 test-renderer-components:
 	@echo "Running renderer component render tests (editor + viewer + notifications + pill editors, jsdom)..."
-	@node --test $(WEB_DIR)/scripts/tests/request-editor.test.js $(WEB_DIR)/scripts/tests/response-viewer.test.js $(WEB_DIR)/scripts/tests/notifications.test.js $(WEB_DIR)/scripts/tests/pill-editors.test.js $(WEB_DIR)/scripts/tests/tree-view.test.js
+	@node --test $(WEB_DIR)/scripts/tests/request-editor.test.js $(WEB_DIR)/scripts/tests/response-viewer.test.js $(WEB_DIR)/scripts/tests/notifications.test.js $(WEB_DIR)/scripts/tests/pill-editors.test.js $(WEB_DIR)/scripts/tests/tree-view.test.js $(WEB_DIR)/scripts/tests/popup-manager.test.js
 	@echo "--------------------------------"
 
 test-renderer-e2e:

@@ -36,12 +36,17 @@ const http = require("http");
 const https = require("https");
 const tls = require("tls");
 const fs = require("fs");
+const zlib = require("zlib");
 const { Readable } = require("stream");
 const { StringDecoder } = require("string_decoder");
 const { URL } = require("url");
 
 const io = require("../store/io");
-const { isBinaryContentType, looksBinary } = require("../http-content-type");
+const {
+  isBinaryContentType,
+  looksBinary,
+  decodeText,
+} = require("../http-content-type");
 const aws4 = require("aws4");
 const {
   withProxyCredentials,
@@ -56,7 +61,13 @@ const {
 } = require("./tls");
 const { normalizeRetry, retryReason, backoffDelay } = require("./retry");
 const { computeTiming, formatTiming } = require("./timing");
-const { SseParser, LineBuffer, isEventStream, isNdjson } = require("./sse");
+const {
+  SseParser,
+  LineBuffer,
+  isEventStream,
+  isNdjson,
+  MAX_STREAM_ITEM_BYTES,
+} = require("./sse");
 const {
   parseChallenge,
   selectDigestChallenge,
@@ -87,6 +98,32 @@ const CREDENTIAL_HEADERS = new Set([
 /** Mask a credential header value for the verbose console; pass others through. */
 function redactHeader(name, value) {
   return CREDENTIAL_HEADERS.has(name.toLowerCase()) ? "<redacted>" : value;
+}
+
+/**
+ * A zlib transform that reverses a response's Content-Encoding, or null when the
+ * body is not compressed (identity / absent / an encoding we don't handle, which
+ * is passed through untouched). Node's raw http/https — unlike fetch/undici —
+ * never auto-decompresses, so without this a gzip'd JSON/HTML body reaches the
+ * renderer as high-entropy bytes that looksBinary() flags as binary and base64s
+ * into an unreadable blob. gzip and br cover essentially every real server;
+ * deflate uses the zlib-wrapped form (raw, header-less deflate is not detected).
+ *
+ * @param {string} encoding  response content-encoding header value, lowercased
+ * @returns {import('stream').Transform | null}
+ */
+function createDecompressor(encoding) {
+  switch (encoding) {
+    case "gzip":
+    case "x-gzip":
+      return zlib.createGunzip();
+    case "br":
+      return zlib.createBrotliDecompress();
+    case "deflate":
+      return zlib.createInflate();
+    default:
+      return null;
+  }
 }
 
 /**
@@ -1013,6 +1050,18 @@ function registerHttpEngine({
               : str;
           };
 
+          // Bound what crosses IPC live to the renderer. The parser already caps
+          // its own buffers, so this is a final defensive cap (and the only one
+          // that bounds an NDJSON line, which the parser may surface up to one
+          // socket-chunk over the limit). An SSE event already carries its own
+          // `truncated` flag from the parser; {...item} forwards it for free.
+          const capStreamItem = (s) => {
+            const str = String(s ?? "");
+            return str.length > MAX_STREAM_ITEM_BYTES
+              ? str.slice(0, MAX_STREAM_ITEM_BYTES)
+              : str;
+          };
+
           let index = 0;
           const emitItem = (item) => {
             entry.events += 1;
@@ -1022,7 +1071,9 @@ function registerHttpEngine({
               kind: sse ? "event" : "line",
               index: index++,
               ts,
-              ...(sse ? { event: item } : { data: item }),
+              ...(sse
+                ? { event: { ...item, data: capStreamItem(item.data) } }
+                : { data: capStreamItem(item) }),
               totalBytes: entry.bytes,
               count: entry.events,
             });
@@ -1170,6 +1221,28 @@ function registerHttpEngine({
         let spillPath = null;
         let spillError = null;
 
+        // Reverse any Content-Encoding so everything below (preview, spill,
+        // looksBinary, the UTF-8/base64 decode) operates on the real payload
+        // rather than compressed bytes. The original Content-Encoding/-Length
+        // headers are left intact so the viewer still shows what the server sent.
+        const contentEncoding = String(res.headers["content-encoding"] || "")
+          .trim()
+          .toLowerCase();
+        const decompressor = createDecompressor(contentEncoding);
+        const bodyStream = decompressor || res;
+        if (decompressor) {
+          consoleLog.push(`* Decompressing ${contentEncoding} response body`);
+          // .pipe() does not forward errors, so bind the two streams for mutual
+          // teardown: a socket error destroys the decompressor, and a decode
+          // error (corrupt body) destroys the socket. Without the second leg the
+          // loser of that race can emit an unhandled 'error' on a later tick and
+          // crash the process. The failure is surfaced once, via bodyStream's
+          // "error" handler below; res.destroy() with no arg closes it cleanly.
+          res.on("error", (err) => decompressor.destroy(err));
+          decompressor.on("error", () => res.destroy());
+          res.pipe(decompressor);
+        }
+
         const appendPreview = (chunk) => {
           if (previewLen >= RESPONSE_PREVIEW_BYTES) return;
           const remaining = RESPONSE_PREVIEW_BYTES - previewLen;
@@ -1179,16 +1252,16 @@ function registerHttpEngine({
           previewLen += slice.length;
         };
 
-        res.on("data", (chunk) => {
+        bodyStream.on("data", (chunk) => {
           total += chunk.length;
           appendPreview(chunk);
 
           if (spillStream) {
-            // Pause the socket when the write buffer fills, resume on drain —
+            // Pause the source when the write buffer fills, resume on drain —
             // keeps memory bounded regardless of how fast the peer sends.
             if (!spillStream.write(chunk)) {
-              res.pause();
-              spillStream.once("drain", () => res.resume());
+              bodyStream.pause();
+              spillStream.once("drain", () => bodyStream.resume());
             }
             return;
           }
@@ -1211,7 +1284,7 @@ function registerHttpEngine({
           }
         });
 
-        res.on("end", () => {
+        bodyStream.on("end", () => {
           t.end = Date.now();
           const elapsed = Date.now() - startTime;
 
@@ -1250,7 +1323,8 @@ function registerHttpEngine({
           const respContentType = res.headers["content-type"] || "";
 
           if (!spillStream) {
-            // Small response — fully in memory. Text crosses IPC as UTF-8; binary
+            // Small response — fully in memory. Text is decoded per the
+            // Content-Type charset, then crosses IPC as a (UTF-8) string; binary
             // is carried as base64 so non-text bytes survive intact.
             const rawBody = Buffer.concat(memChunks);
             const binary =
@@ -1260,7 +1334,7 @@ function registerHttpEngine({
               ...base,
               body: binary
                 ? rawBody.toString("base64")
-                : rawBody.toString("utf8"),
+                : decodeText(rawBody, respContentType),
               encoding: binary ? "base64" : "utf8",
               size: total,
             });
@@ -1277,7 +1351,7 @@ function registerHttpEngine({
             (!respContentType && looksBinary(previewBuf));
           const previewBody = binary
             ? previewBuf.toString("base64")
-            : previewBuf.toString("utf8");
+            : decodeText(previewBuf, respContentType);
           const previewEncoding = binary ? "base64" : "utf8";
           spillStream.end(() => {
             if (spillError) {
@@ -1317,7 +1391,10 @@ function registerHttpEngine({
           });
         });
 
-        res.on("error", (err) => {
+        // Errors from the source socket OR the decompressor (e.g. a corrupt gzip
+        // body) land here; when decompressing, res errors are forwarded above via
+        // decompressor.destroy() so this single handler covers both.
+        bodyStream.on("error", (err) => {
           const elapsed = Date.now() - startTime;
           consoleLog.push(`* Stream error: ${err.message}`);
           if (spillStream) {
@@ -1620,7 +1697,9 @@ function registerHttpEngine({
     try {
       const buf = await fs.promises.readFile(entry.path);
       return {
-        body: entry.isBinary ? buf.toString("base64") : buf.toString("utf8"),
+        body: entry.isBinary
+          ? buf.toString("base64")
+          : decodeText(buf, entry.contentType),
         encoding: entry.isBinary ? "base64" : "utf8",
         size: entry.size,
         contentType: entry.contentType,

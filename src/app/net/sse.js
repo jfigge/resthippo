@@ -36,6 +36,15 @@
 
 "use strict";
 
+// Defensive upper bound on the size of a SINGLE streamed item — one SSE event's
+// accumulated `data`, or one NDJSON/log line. A buggy or hostile stream that
+// never emits a blank line / newline would otherwise grow the parser's buffer
+// (and the payload forwarded over IPC to the renderer) without limit. Items
+// past this are truncated; the cap is generous (real SSE/NDJSON items are
+// KB-scale) so it only ever trips on pathological input. Measured in string
+// length — a loose, conservative proxy for the UTF-8 byte size.
+const MAX_STREAM_ITEM_BYTES = 5 * 1024 * 1024;
+
 /** True when a Content-Type names an SSE stream (parameters after `;` ignored). */
 function isEventStream(contentType) {
   return /^\s*text\/event-stream\b/i.test(String(contentType || ""));
@@ -52,13 +61,15 @@ function isNdjson(contentType) {
 }
 
 class SseParser {
-  constructor() {
+  constructor(maxItemBytes = MAX_STREAM_ITEM_BYTES) {
     this._buf = ""; // partial line after the last terminator, awaiting more
     this._pendingCR = false; // last chunk ended on CR — swallow a leading LF next
     this._data = ""; // accumulated `data:` lines for the in-progress event
     this._eventType = ""; // current `event:` type (defaults to "message")
     this._lastId = ""; // last seen `id:` — persists across events per the spec
     this._retry = undefined; // `retry:` reconnection time seen in this event, if any
+    this._max = maxItemBytes; // per-event/per-line size cap (string length)
+    this._truncated = false; // the in-progress event hit the cap
   }
 
   /**
@@ -101,6 +112,13 @@ class SseParser {
       }
     }
     this._buf = this._buf.slice(start);
+    // Bound the in-progress (unterminated) line so a newline-less stream can't
+    // grow memory without limit: keep the leading bytes, drop the rest. Once a
+    // terminator arrives the line is processed as a truncated value.
+    if (this._buf.length > this._max) {
+      this._buf = this._buf.slice(0, this._max);
+      this._truncated = true;
+    }
     return events;
   }
 
@@ -115,6 +133,7 @@ class SseParser {
     this._data = "";
     this._eventType = "";
     this._retry = undefined;
+    this._truncated = false;
     return [];
   }
 
@@ -142,7 +161,16 @@ class SseParser {
         this._eventType = value;
         break;
       case "data":
-        this._data += value + "\n";
+        // Cap the accumulated data so one event can't grow without limit.
+        if (this._data.length < this._max) {
+          this._data += value + "\n";
+          if (this._data.length > this._max) {
+            this._data = this._data.slice(0, this._max);
+            this._truncated = true;
+          }
+        } else {
+          this._truncated = true;
+        }
         break;
       case "id":
         // A NUL in the id is a hard error per the spec — ignore the field.
@@ -162,6 +190,7 @@ class SseParser {
     if (this._data === "") {
       this._eventType = "";
       this._retry = undefined;
+      this._truncated = false;
       return;
     }
     // The accumulation appends a trailing "\n" per data line; strip the last.
@@ -174,12 +203,14 @@ class SseParser {
       id: this._lastId,
     };
     if (this._retry !== undefined) ev.retry = this._retry;
+    if (this._truncated) ev.truncated = true;
     events.push(ev);
 
-    // lastId persists; event type, data and retry reset for the next event.
+    // lastId persists; event type, data, retry and the truncation flag reset.
     this._data = "";
     this._eventType = "";
     this._retry = undefined;
+    this._truncated = false;
   }
 }
 
@@ -188,8 +219,9 @@ class SseParser {
  * Surfaces each complete line; a CR before the LF is trimmed.
  */
 class LineBuffer {
-  constructor() {
+  constructor(maxLineBytes = MAX_STREAM_ITEM_BYTES) {
     this._buf = "";
+    this._max = maxLineBytes;
   }
 
   /** Feed a decoded chunk; return the complete lines it produced. */
@@ -203,6 +235,11 @@ class LineBuffer {
       lines.push(line);
       this._buf = this._buf.slice(idx + 1);
     }
+    // Bound an unterminated line so a newline-less stream can't grow without
+    // limit: keep the leading bytes and drop the rest until the next newline.
+    if (this._buf.length > this._max) {
+      this._buf = this._buf.slice(0, this._max);
+    }
     return lines;
   }
 
@@ -215,4 +252,10 @@ class LineBuffer {
   }
 }
 
-module.exports = { SseParser, LineBuffer, isEventStream, isNdjson };
+module.exports = {
+  SseParser,
+  LineBuffer,
+  isEventStream,
+  isNdjson,
+  MAX_STREAM_ITEM_BYTES,
+};

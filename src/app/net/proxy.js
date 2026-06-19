@@ -162,6 +162,16 @@ function hostBypassesProxy(host, port, bypass) {
  * The agent modules are required lazily so the pure helpers above remain
  * dependency-free for isolated unit testing.
  *
+ * Per-request TLS material for the TARGET (custom `ca`, `rejectUnauthorized`,
+ * and the mTLS `cert`/`key`/`pfx`) is intentionally NOT passed to the agent
+ * constructor here: the caller sets it on the request `options`, and agent-base
+ * spreads `{...options}` into the agent's `connect()`, which https-proxy-agent
+ * (and socks-proxy-agent) then forward into the target `tls.connect()`. So the
+ * options reach the target handshake through the proxy on their own — verified
+ * end-to-end (rejectUnauthorized override, custom CA, and client-cert
+ * presentation all work through a CONNECT tunnel). Duplicating them on the
+ * constructor would be redundant; do not "fix" this by adding them here.
+ *
  * @param {string}  effectiveProxyUrl  proxy URL with any credentials merged in
  * @param {boolean} isSecure           whether the target is https:// or wss://
  * @returns {import('http').Agent}

@@ -52,6 +52,7 @@ import {
   configurationError,
   fromTokenErrorResponse,
 } from "../types/oauth-errors.js";
+import { utf8ToBase64 } from "../../utils/base64.js";
 
 /**
  * Build an HTTP Basic `Authorization` credential (RFC 6749 §2.3.1): the
@@ -63,7 +64,7 @@ import {
  * @returns {string} e.g. "Basic Zm9vOmJhcg=="
  */
 export function basicAuthHeader(clientId, clientSecret = "") {
-  return `Basic ${btoa(`${clientId}:${clientSecret}`)}`;
+  return `Basic ${utf8ToBase64(`${clientId}:${clientSecret}`)}`;
 }
 
 /**

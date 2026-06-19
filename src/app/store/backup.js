@@ -205,10 +205,95 @@ class BackupStore {
       : [];
 
     if (mode === "replace") {
-      io.remove(this._paths.collectionsDir());
-      io.remove(this._paths.environmentsDir());
+      // A replace wipes the existing workspace, so refuse a structurally
+      // degenerate envelope that would delete everything and restore nothing.
+      const hasContent =
+        (envelope.manifest && typeof envelope.manifest === "object") ||
+        (envelope.environments && typeof envelope.environments === "object") ||
+        collections.length > 0;
+      if (!hasContent) {
+        throw _invalidBackup(
+          "replace backup has no manifest, environments, or collections to restore",
+        );
+      }
     }
 
+    // In replace mode the existing collections/ and environments/ trees are
+    // moved ASIDE (not deleted) before the writes below, so a failure partway
+    // through rolls back to the original workspace instead of destroying it.
+    const staged = mode === "replace" ? this._stageReplace() : null;
+    try {
+      const result = this._writeImport(envelope, collections, mode);
+      staged?.commit();
+      return result;
+    } catch (err) {
+      staged?.restore();
+      this._resolver.invalidate();
+      throw err;
+    }
+  }
+
+  /**
+   * Move the existing collections/ and environments/ directories aside so a
+   * replace-mode restore can roll back to them if a later write throws. Returns
+   * a handle: `commit()` drops the originals (restore succeeded); `restore()`
+   * discards the half-written new data and moves the originals back.
+   *
+   * Aside directories left by a previously-interrupted restore are cleared
+   * first, so a crash mid-restore never blocks the next attempt.
+   *
+   * @returns {{ commit: () => void, restore: () => void }}
+   */
+  _stageReplace() {
+    const collDir = this._paths.collectionsDir();
+    const envDir = this._paths.environmentsDir();
+    const collBak = `${collDir}.restore-bak`;
+    const envBak = `${envDir}.restore-bak`;
+
+    io.remove(collBak);
+    io.remove(envBak);
+
+    const moved = [];
+    if (io.exists(collDir)) {
+      io.move(collDir, collBak);
+      moved.push([collDir, collBak]);
+    }
+    if (io.exists(envDir)) {
+      io.move(envDir, envBak);
+      moved.push([envDir, envBak]);
+    }
+
+    return {
+      commit() {
+        io.remove(collBak);
+        io.remove(envBak);
+      },
+      restore() {
+        // Drop whatever partial new state was written, then swap the originals
+        // back. Best-effort on the move-back: at worst the `.restore-bak` copy
+        // is left in place for manual recovery rather than silently lost.
+        io.remove(collDir);
+        io.remove(envDir);
+        for (const [orig, bak] of moved) {
+          try {
+            io.move(bak, orig);
+          } catch {
+            /* leave the aside copy for manual recovery */
+          }
+        }
+      },
+    };
+  }
+
+  /**
+   * Write a validated envelope's manifest, environments, and per-collection
+   * files to disk. Extracted from {@link importAll} so the replace-mode
+   * rollback in importAll can wrap it: any throw here leaves importAll to
+   * restore the staged originals.
+   *
+   * @returns {{ collections: number, requests: number, mode: string }}
+   */
+  _writeImport(envelope, collections, mode) {
     // ── Name-based ID mapping (merge mode only) ───────────────────────────────
     // In merge mode, a backup collection that does not match any existing
     // collection by ID but DOES match one by name should be merged into that

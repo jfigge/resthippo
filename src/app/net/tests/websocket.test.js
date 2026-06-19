@@ -164,6 +164,47 @@ describe("WebSocketHub", () => {
     await once(server, "close");
   });
 
+  it("rejects an inbound message larger than the payload cap (no unbounded buffering)", async () => {
+    // Server sends one frame just over the client's 16 MB maxPayload.
+    const server = new WebSocketServer({ port: 0 });
+    server.on("connection", (socket) => {
+      socket.on("error", () => {}); // ignore send-side errors when the client bails
+      socket.send(Buffer.alloc(17 * 1024 * 1024, 0x61));
+    });
+    await once(server, "listening");
+    const port = server.address().port;
+
+    const hub = new WebSocketHub();
+    const statuses = [];
+    const messages = [];
+    try {
+      hub.open(
+        "big",
+        { url: `ws://127.0.0.1:${port}` },
+        {
+          onStatus: (s) => statuses.push(s),
+          onMessage: (m) => messages.push(m),
+        },
+      );
+
+      // The oversized frame surfaces an error and tears the socket down; it is
+      // never delivered as a message (the whole point — no unbounded buffering).
+      // The close code is abnormal (1006) rather than a clean 1009, and varies
+      // by ws version, so we assert the behaviour, not the code.
+      await waitUntil(() => statuses.some((s) => s.state === "closed"));
+      assert.equal(messages.length, 0, "oversized message is never delivered");
+      assert.ok(
+        statuses.some((s) => s.state === "error"),
+        "an error is surfaced for the oversized frame",
+      );
+      assert.equal(hub.size, 0, "registry empties — no leaked entry");
+    } finally {
+      hub.closeAll();
+      server.close();
+      await once(server, "close").catch(() => {});
+    }
+  });
+
   it("send on a not-yet-open connection reports not-open", async () => {
     const { server, port } = await startEchoServer();
     const hub = new WebSocketHub();

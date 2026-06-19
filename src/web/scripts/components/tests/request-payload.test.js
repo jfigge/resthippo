@@ -129,6 +129,25 @@ test("basic auth: builds a base64 Authorization header", async () => {
   assert.equal(headers["Authorization"], `Basic ${btoa("alice:hunter2")}`);
 });
 
+test("basic auth: non-ASCII credentials are UTF-8 base64-encoded (no btoa crash)", async () => {
+  const { headers } = await buildRequestPayload(
+    {
+      method: "GET",
+      urlBase: "https://x",
+      authEnabled: true,
+      authType: "basic",
+      authBasic: { username: "tëst", password: "пароль🦛" },
+    },
+    identity,
+  );
+  const value = headers["Authorization"];
+  assert.ok(value.startsWith("Basic "));
+  // Decodes back to the original credential as UTF-8 — a Latin-1-only btoa
+  // would have thrown InvalidCharacterError on these code points.
+  const bytes = Uint8Array.from(atob(value.slice(6)), (c) => c.charCodeAt(0));
+  assert.equal(new TextDecoder().decode(bytes), "tëst:пароль🦛");
+});
+
 test("basic auth: omitted entirely when username and password are both blank", async () => {
   const { headers } = await buildRequestPayload(
     {

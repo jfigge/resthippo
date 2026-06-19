@@ -1886,6 +1886,10 @@ function installTreeQuickAccessHandlers() {
       deleteRequest(id);
       _requestHistory.delete(id);
       _historyLoaded.delete(id);
+      // Drop any debounced edit for this request — the timer reads the map at
+      // fire time, so a stale patch would otherwise trigger a doomed
+      // updateRequest() and a spurious full-save fallback after the delete.
+      _pendingRequestPatches.delete(id);
     }
     // Drop the deleted requests from favorites / recents so they don't dangle.
     pruneQuickAccess(new Set(e.detail.ids));
@@ -1952,6 +1956,11 @@ function installTreeQuickAccessHandlers() {
  * @param {string} id
  */
 async function activateCollection(id) {
+  // Drain any debounced per-request edits while the current collection is still
+  // active, so they land in the right collection and no stale timer fires after
+  // the switch (see _flushRequestEdits).
+  await _flushRequestEdits();
+
   // Persist the current collection's items before switching
   if (treeView)
     await saveCollectionData(
@@ -2006,6 +2015,9 @@ async function handleCollAdd({ name }) {
   // Save empty items for the new collection
   await saveCollectionData(newColl.id, []);
 
+  // Drain debounced edits before switching away (see _flushRequestEdits).
+  await _flushRequestEdits();
+
   // Switch to the new collection
   if (treeView)
     await saveCollectionData(
@@ -2054,6 +2066,9 @@ async function handleCollDelete({ id }) {
 
   // If we're deleting the active collection, switch to the first remaining one
   if (id === activeId) {
+    // The pending edits belong to the collection being deleted — discard them
+    // so a stale timer can't fire against the collection we switch to.
+    _discardRequestEdits();
     activeId = collections[0].id;
     const { items, variables } = await loadCollectionData(activeId);
     setActiveCollection(activeId);
@@ -2601,6 +2616,37 @@ async function _persistRequestEdits(patches) {
       return;
     }
   }
+}
+
+/**
+ * Synchronously drain any debounced request edits NOW, cancelling the pending
+ * timer. Call this before anything that changes which collection/tree is active
+ * (a collection switch) so the edits persist against the collection they were
+ * made in — otherwise the timer fires after the switch, when treeView.getItems()
+ * and the active collection have already moved on, and the saveCollections()
+ * fallback in _persistRequestEdits() would target the wrong collection.
+ *
+ * @returns {Promise<void>}
+ */
+async function _flushRequestEdits() {
+  clearTimeout(_requestSaveTimer);
+  _requestSaveTimer = null;
+  if (_pendingRequestPatches.size === 0) return;
+  const patches = [..._pendingRequestPatches];
+  _pendingRequestPatches.clear();
+  await _persistRequestEdits(patches);
+}
+
+/**
+ * Drop any debounced request edits WITHOUT persisting them, cancelling the timer.
+ * Used when the collection they belong to is being deleted: the edits' request
+ * files are about to be reclaimed, so flushing them would be wasted work and a
+ * stale timer would otherwise fire against the next active collection.
+ */
+function _discardRequestEdits() {
+  clearTimeout(_requestSaveTimer);
+  _requestSaveTimer = null;
+  _pendingRequestPatches.clear();
 }
 
 // Request-editor field mutations (debounced per-request persistence), cURL

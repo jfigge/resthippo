@@ -48,6 +48,43 @@ function baseType(ct) {
 }
 
 /**
+ * Extract the `charset` parameter from a Content-Type, lowercased, or "" when
+ * absent. Surrounding quotes are stripped: `text/html; charset="UTF-8"` → "utf-8".
+ * @param {string} ct  raw Content-Type header value
+ * @returns {string} the charset label, lowercased, or "" when none
+ */
+function charsetOf(ct) {
+  const m = /;\s*charset\s*=\s*"?([^";]+)"?/i.exec(String(ct ?? ""));
+  return m ? m[1].trim().toLowerCase() : "";
+}
+
+/**
+ * Decode a text response body to a string, honouring the Content-Type's
+ * `charset`. UTF-8 (or an absent charset) uses the native Buffer path; any other
+ * label — iso-8859-1, windows-1252, shift_jis, euc-jp, euc-kr, gbk, gb18030,
+ * big5, utf-16… — is decoded via TextDecoder, which implements the WHATWG
+ * Encoding set. An unknown/unsupported label falls back to UTF-8 rather than
+ * throwing, so a bogus charset never breaks a response.
+ *
+ * @param {Buffer} buf            the raw (already-decompressed) body bytes
+ * @param {string} contentType    raw Content-Type header value
+ * @returns {string}
+ */
+function decodeText(buf, contentType) {
+  const charset = charsetOf(contentType);
+  if (!charset || charset === "utf-8" || charset === "utf8") {
+    return buf.toString("utf8");
+  }
+  try {
+    return new TextDecoder(charset).decode(buf);
+  } catch {
+    // Unrecognised label (TextDecoder throws a RangeError) — don't break the
+    // response; fall back to UTF-8.
+    return buf.toString("utf8");
+  }
+}
+
+/**
  * Decide whether a Content-Type denotes a binary (non-text) body.
  *
  * Text = the `text/*` tree, any type containing json/xml/yaml/javascript/
@@ -132,4 +169,6 @@ module.exports = {
   isBinaryContentType,
   looksBinary,
   binaryExtensionFor,
+  charsetOf,
+  decodeText,
 };

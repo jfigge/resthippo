@@ -92,7 +92,44 @@ function isTempFileName(name) {
 // ── Atomic write ──────────────────────────────────────────────────────────────
 
 /**
- * Atomically write `data` to `filePath` using a temp-then-rename strategy.
+ * Best-effort fsync of a directory so a rename into it survives a crash.
+ *
+ * Silently ignores platforms that disallow opening or fsyncing a directory
+ * (notably Windows, where opening a directory throws EISDIR/EPERM). On POSIX
+ * this is what makes a freshly-renamed file's *name* durable, not just its
+ * contents.
+ *
+ * @param {string} dir
+ */
+function fsyncDir(dir) {
+  let dirFd;
+  try {
+    dirFd = fs.openSync(dir, "r");
+    fs.fsyncSync(dirFd);
+  } catch {
+    /* directory fsync unsupported / not permitted — best effort */
+  } finally {
+    if (dirFd !== undefined) {
+      try {
+        fs.closeSync(dirFd);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+/**
+ * Atomically and durably write `data` to `filePath` using a
+ * write-temp → fsync → rename → fsync-dir strategy.
+ *
+ * The fsync of the temp file flushes its bytes to the platter before the
+ * rename, and the directory fsync persists the rename itself — without these a
+ * crash or power-loss shortly after the rename can leave a zero-length or
+ * truncated file (the rename's metadata reaches disk while the data blocks do
+ * not). `fs.writeFileSync` alone only guarantees the bytes reached the OS page
+ * cache, not durable storage.
+ *
  * @param {string} filePath
  * @param {string|Buffer} data
  */
@@ -102,8 +139,17 @@ function atomicWrite(filePath, data) {
   const tmpKey = path.resolve(tmpPath);
   activeTempPaths.add(tmpKey);
   try {
-    fs.writeFileSync(tmpPath, data, "utf8");
+    // Open an fd so the contents can be fsync'd before the rename;
+    // writeFileSync(path, …) would close the fd internally with no flush.
+    const fd = fs.openSync(tmpPath, "w");
+    try {
+      fs.writeFileSync(fd, data, "utf8");
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
     fs.renameSync(tmpPath, filePath);
+    fsyncDir(path.dirname(filePath));
   } catch (err) {
     try {
       fs.unlinkSync(tmpPath);
@@ -197,6 +243,20 @@ function listDir(dir, opts) {
  */
 function exists(targetPath) {
   return fs.existsSync(targetPath);
+}
+
+/**
+ * Rename (move) `src` to `dest` on the same filesystem.
+ *
+ * Unlike {@link remove}, this propagates errors: callers that move data aside
+ * for a rollback need to know whether the move actually happened. A missing
+ * `src` throws ENOENT, so guard optional sources with {@link exists}.
+ *
+ * @param {string} src
+ * @param {string} dest
+ */
+function move(src, dest) {
+  fs.renameSync(src, dest);
 }
 
 // ── Orphan temp-file GC ─────────────────────────────────────────────────────────
@@ -324,6 +384,7 @@ module.exports = {
   remove,
   listDir,
   exists,
+  move,
   gcOrphanTempFiles,
   isTempFileName,
   newTempPath,

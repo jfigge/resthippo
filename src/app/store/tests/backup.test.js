@@ -361,6 +361,88 @@ describe("BackupStore.importAll", () => {
     }
   });
 
+  test("replace mode rejects a degenerate envelope without touching existing data", () => {
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      seedWorkspace(dest);
+
+      // No manifest, environments, or collections — restoring this would wipe
+      // the workspace and put nothing back, so it must be refused up front.
+      assert.throws(
+        () =>
+          dest
+            .backupStore()
+            .importAll({ kind: BACKUP_KIND }, { mode: "replace" }),
+        { code: "INVALID_BACKUP" },
+      );
+
+      // The existing workspace is untouched.
+      assert.ok(fs.existsSync(path.join(destDir, "collections", "coll-1")));
+      const blob = dest.collectionsStore().getCollections("coll-1");
+      assert.ok(findRequest(blob.collections, "req-1"), "request survives");
+      assert.equal(
+        dest.environmentStore().getEnvironments().environments[0].name,
+        "Dev",
+      );
+    } finally {
+      rmTmpDir(destDir);
+    }
+  });
+
+  test("replace mode rolls back existing data when a restore write fails", () => {
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      seedWorkspace(dest);
+
+      // Structurally valid (has a manifest, so it clears the degeneracy guard
+      // and staging begins) but a collection carries a path-traversing id that
+      // validateID rejects partway through the restore writes.
+      const malformed = {
+        kind: BACKUP_KIND,
+        manifest: { version: 2, collections: [], settings: { theme: "latte" } },
+        environments: { version: 1, environments: [] },
+        collections: [
+          { id: "../escape", metadata: { id: "../escape", variables: [] } },
+        ],
+      };
+
+      assert.throws(
+        () => dest.backupStore().importAll(malformed, { mode: "replace" }),
+        { code: "INVALID_ID" },
+      );
+
+      // The original workspace was restored, not left half-overwritten with the
+      // partial new manifest/environments the loop had already written.
+      assert.ok(fs.existsSync(path.join(destDir, "collections", "coll-1")));
+      const blob = dest.collectionsStore().getCollections("coll-1");
+      assert.ok(
+        findRequest(blob.collections, "req-1"),
+        "request survives rollback",
+      );
+      const manifest = dest.collectionStore().getManifest();
+      assert.equal(manifest.activeCollectionId, "coll-1");
+      assert.equal(manifest.settings.proxyUrl, "http://proxy.secret");
+      assert.equal(
+        dest.environmentStore().getEnvironments().environments[0].name,
+        "Dev",
+      );
+
+      // No staging directory is left behind after a clean rollback.
+      assert.equal(
+        fs.existsSync(path.join(destDir, "collections.restore-bak")),
+        false,
+      );
+      assert.equal(
+        fs.existsSync(path.join(destDir, "environments.restore-bak")),
+        false,
+      );
+    } finally {
+      rmTmpDir(destDir);
+    }
+  });
+
   test("merge mode matches collections by name when IDs differ", () => {
     // The most common cross-machine scenario: source and destination both have
     // a collection with the same name but different UUIDs.  After merge the

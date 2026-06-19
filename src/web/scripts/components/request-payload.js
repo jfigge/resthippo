@@ -39,6 +39,7 @@
 "use strict";
 
 import { extractOperationName } from "./graphql-schema.js";
+import { utf8ToBase64 } from "../utils/base64.js";
 
 /** Body-type → Content-Type for the text-ish body kinds. */
 export const BODY_CONTENT_TYPES = {
@@ -212,7 +213,8 @@ export async function buildRequestPayload(spec, rv) {
         const username = await rv(spec.authBasic?.username ?? "");
         const password = await rv(spec.authBasic?.password ?? "");
         if (username || password) {
-          headers["Authorization"] = `Basic ${btoa(`${username}:${password}`)}`;
+          headers["Authorization"] =
+            `Basic ${utf8ToBase64(`${username}:${password}`)}`;
         }
         break;
       }

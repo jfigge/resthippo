@@ -38,6 +38,15 @@ const {
   makeProxyAgent,
 } = require("./proxy");
 
+// Largest inbound WebSocket message we accept. The `ws` library defaults to
+// 100 MB; a hostile peer could send that (or fragments summing to it) repeatedly,
+// and each message is buffered whole and base64-inflated (~1.33×) before being
+// cloned to the renderer. Cap it well below the default so an abusive frame
+// closes the connection (RFC 6455 1009 "message too big") instead of growing
+// main/renderer memory. Generous for a debugging console (real messages are
+// KB-scale); raise it if a legitimate use needs larger frames.
+const MAX_WS_MESSAGE_BYTES = 16 * 1024 * 1024;
+
 /** Monotonic-ish timestamp for frame ordering; ms since epoch is plenty. */
 function now() {
   return Date.now();
@@ -142,6 +151,7 @@ class WebSocketHub {
       headers,
       handshakeTimeout: timeout,
       rejectUnauthorized: verifySsl !== false,
+      maxPayload: MAX_WS_MESSAGE_BYTES,
     };
     if (proxy) {
       if (hostBypassesProxy(parsed.hostname, port, proxyBypass)) {

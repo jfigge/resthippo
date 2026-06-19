@@ -525,6 +525,20 @@ await test("header mode (default): client_id in body, Basic header only when a s
   assert.equal(noSecret.headers["Authorization"], undefined);
 });
 
+await test("header mode: non-ASCII client secret is UTF-8 base64-encoded (no btoa crash)", async () => {
+  const ctx = { params: {}, headers: {} };
+  applyClientAuth(ctx.params, ctx.headers, {
+    clientId: "cid",
+    clientSecret: "sëcret🦛",
+  });
+  const value = ctx.headers["Authorization"];
+  assert.ok(value.startsWith("Basic "));
+  // Decodes back to the original credential as UTF-8 — proving it neither threw
+  // nor was mangled by a Latin-1-only btoa.
+  const bytes = Uint8Array.from(atob(value.slice(6)), (c) => c.charCodeAt(0));
+  assert.equal(new TextDecoder().decode(bytes), "cid:sëcret🦛");
+});
+
 await test("body mode: secret omitted when empty unless sendEmptySecret is set", async () => {
   const omit = { params: {}, headers: {} };
   applyClientAuth(omit.params, omit.headers, {

@@ -24,6 +24,7 @@ import {
   applyPathParams,
 } from "../request-payload.js";
 import { extractOperationName } from "../graphql-schema.js";
+import { utf8ToBase64 } from "../../utils/base64.js";
 
 /**
  * code-gen/request-model.js — normalize a request tree node into a flat,
@@ -117,7 +118,8 @@ export function buildRequestModel(node, context) {
         const username = rv(node.authBasic?.username ?? "");
         const password = rv(node.authBasic?.password ?? "");
         if (username || password) {
-          headers["Authorization"] = `Basic ${btoa(`${username}:${password}`)}`;
+          headers["Authorization"] =
+            `Basic ${utf8ToBase64(`${username}:${password}`)}`;
         }
         break;
       }

@@ -191,6 +191,13 @@ function _onMaskClick(e) {
  *   innerHTML: string,     Full inner HTML of the dialog
  *   focusSel:  string,     querySelector string for the element to receive initial focus
  *   escKeys?:  string[],   Key values that trigger dismissal — default ["Escape"]
+ *   onDismiss?: () => void, Invoked when the dialog is dismissed WITHOUT pressing
+ *                           a button — i.e. via Escape or an outside (mask) click.
+ *                           Pass the caller's cancel handler here so those paths
+ *                           settle the same as the Cancel button; otherwise an
+ *                           awaiting caller (a Promise resolved only by the
+ *                           buttons) hangs forever. Omit for dialogs that have no
+ *                           cancel action.
  * }} opts
  * @returns {{ dlg: HTMLElement, dismiss: (afterFn?: () => void) => void }}
  */
@@ -201,6 +208,7 @@ function _showOneShotDialog({
   innerHTML,
   focusSel,
   escKeys = ["Escape"],
+  onDismiss,
 }) {
   _ensureMask();
 
@@ -238,8 +246,9 @@ function _showOneShotDialog({
     if (typeof afterFn === "function") afterFn();
   }
 
-  // Register as the active popup so mask clicks delegate correctly
-  _activePopup = { element: dlg, onMaskClick: () => dismiss() };
+  // Register as the active popup so mask clicks delegate correctly. An outside
+  // click routes through onDismiss (the cancel path) just like Escape below.
+  _activePopup = { element: dlg, onMaskClick: () => dismiss(onDismiss) };
   _showMask();
 
   // Animate in and focus the primary button
@@ -247,9 +256,11 @@ function _showOneShotDialog({
   const focusEl = dlg.querySelector(focusSel);
   if (focusEl) requestAnimationFrame(() => focusEl.focus());
 
-  // Keyboard dismissal — removed inside dismiss() so it never leaks
+  // Keyboard dismissal — removed inside dismiss() so it never leaks. Escape
+  // routes through onDismiss so a confirm()'s onCancel fires (and any awaiting
+  // caller settles) instead of the dialog vanishing with no callback.
   function onKey(e) {
-    if (escKeys.includes(e.key)) dismiss();
+    if (escKeys.includes(e.key)) dismiss(onDismiss);
   }
   document.addEventListener("keydown", onKey);
 
@@ -376,6 +387,9 @@ export const PopupManager = {
       `,
       focusSel: "[data-action='cancel']",
       escKeys: ["Escape"],
+      // Escape / outside-click are treated as Cancel so an awaiting caller
+      // (e.g. _askKeepWsAlive) always settles rather than hanging.
+      onDismiss: onCancel,
     });
 
     dlg
