@@ -48,6 +48,7 @@ import {
   isFunctionCall,
   parseFunctionCall,
   buildFunctionToken,
+  parseFnArgs,
 } from "./variable-resolver.js";
 import { makeVariablePill, makeFunctionPill } from "./pill-builders.js";
 import { PillPickerController } from "./pill-picker-controller.js";
@@ -900,7 +901,7 @@ export class PillCodeEditor {
     return pill.dataset.function !== undefined
       ? buildFunctionToken(
           pill.dataset.function,
-          JSON.parse(pill.dataset.fnArgs ?? "[]"),
+          parseFnArgs(pill.dataset.fnArgs),
         )
       : `{{${pill.dataset.variable}}}`;
   }

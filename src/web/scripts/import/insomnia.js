@@ -23,6 +23,7 @@ import {
   graphqlBody,
   formBody,
   splitUrlQuery,
+  objRows,
 } from "./shape.js";
 
 // Insomnia keeps the query string both on the URL and in `parameters`. Strip the
@@ -31,7 +32,7 @@ import {
 // when it's absent — otherwise the query would be sent twice.
 function parseUrlAndParams(rawUrl, parameters) {
   const { base, params: urlParams } = splitUrlQuery(rawUrl ?? "");
-  const explicit = (parameters ?? []).map((p) => ({
+  const explicit = objRows(parameters).map((p) => ({
     enabled: !p.disabled,
     name: p.name ?? "",
     value: p.value ?? "",
@@ -143,7 +144,7 @@ function parseBody(body) {
   if (mime.includes("x-www-form-urlencoded")) {
     return formBody(
       "form-urlencoded",
-      (body.params ?? []).map((p) => ({
+      objRows(body.params).map((p) => ({
         enabled: !p.disabled,
         name: p.name,
         value: p.value,
@@ -153,7 +154,7 @@ function parseBody(body) {
   if (mime.includes("multipart/form-data")) {
     return formBody(
       "form-data",
-      (body.params ?? []).map((p) =>
+      objRows(body.params).map((p) =>
         p.type === "file"
           ? { enabled: !p.disabled, name: p.name, file: { path: p.fileName } }
           : { enabled: !p.disabled, name: p.name, value: p.value },
@@ -210,13 +211,14 @@ export function parseInsomniaV5(data) {
   // array. Non-HTTP items (WebSocket, gRPC, Socket.IO) lack both `children`
   // and `method` and are skipped.
   function buildNode(item) {
+    if (!item || typeof item !== "object") return null;
     if (Array.isArray(item.children)) {
       return {
         id: crypto.randomUUID(),
         type: "collection",
         name: item.name ?? "Folder",
         variables: [],
-        children: item.children.map(buildNode).filter(Boolean),
+        children: objRows(item.children).map(buildNode).filter(Boolean),
       };
     }
 
@@ -228,7 +230,7 @@ export function parseInsomniaV5(data) {
         name: item.name ?? "Request",
         method: (item.method ?? "GET").toUpperCase(),
         url,
-        headers: (item.headers ?? []).map((h) => ({
+        headers: objRows(item.headers).map((h) => ({
           enabled: !h.disabled,
           name: h.name ?? "",
           value: h.value ?? "",
@@ -249,7 +251,7 @@ export function parseInsomniaV5(data) {
       type: "collection",
       name: data.name ?? "Imported Collection",
       variables: [],
-      children: (data.collection ?? []).map(buildNode).filter(Boolean),
+      children: objRows(data.collection).map(buildNode).filter(Boolean),
     },
     variables,
     warnings,
@@ -267,7 +269,7 @@ export function parseInsomniaV5(data) {
  *   conversions (e.g. dropped sub-environments); see `parseImport`.
  */
 export function parseInsomnia(data) {
-  const resources = data.resources ?? [];
+  const resources = objRows(data.resources);
   const warnings = [];
 
   const workspace = resources.find((r) => r._type === "workspace") ?? {};
@@ -328,7 +330,7 @@ export function parseInsomnia(data) {
         name: resource.name ?? "Request",
         method: (resource.method ?? "GET").toUpperCase(),
         url,
-        headers: (resource.headers ?? []).map((h) => ({
+        headers: objRows(resource.headers).map((h) => ({
           enabled: !h.disabled,
           name: h.name ?? "",
           value: h.value ?? "",

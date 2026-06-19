@@ -317,7 +317,12 @@
       "dblclickExecute": "Anfragen per Doppelklick ausführen",
       "verifySsl": "SSL-Zertifikate überprüfen",
       "streamNdjson": "NDJSON-Antworten live streamen",
-      "streamNdjsonTitle": "Wenn eine application/x-ndjson-Antwort empfangen wird, diese live (Zeile für Zeile) verarbeiten, statt den gesamten Inhalt zu puffern"
+      "streamNdjsonTitle": "Wenn eine application/x-ndjson-Antwort empfangen wird, diese live (Zeile für Zeile) verarbeiten, statt den gesamten Inhalt zu puffern",
+      "showCapturesTab": "Tab Erfassungen anzeigen",
+      "showCapturesTabTitle": "Wenn deaktiviert, wird der Tab Erfassungen ausgeblendet und Erfassungsregeln werden nach einer Antwort nicht ausgeführt",
+      "showScriptsTab": "Tab Skripte anzeigen",
+      "showScriptsTabTitle": "Wenn deaktiviert, wird der Tab Skripte ausgeblendet und Pre-Request- und After-Response-Skripte werden nicht ausgeführt",
+      "showNotesTab": "Tab Notizen anzeigen"
     },
     "proxy": {
       "enable": "Proxy aktivieren",

@@ -24,6 +24,7 @@ import {
   graphqlBody,
   formBody,
   splitUrlQuery,
+  objRows,
 } from "./shape.js";
 
 /** Assemble Postman's string- or object-form URL into a single URL string. */
@@ -52,7 +53,7 @@ function parseQueryFromUrl(url) {
   // Postman's structured form carries an explicit `query` array that preserves
   // each param's disabled flag — authoritative when present.
   if (typeof url === "object" && Array.isArray(url.query) && url.query.length) {
-    return url.query.map((q) => ({
+    return objRows(url.query).map((q) => ({
       enabled: !q.disabled,
       name: q.key ?? "",
       value: q.value ?? "",
@@ -149,8 +150,7 @@ function parseAuth(auth) {
 }
 
 function _kvArray(arr) {
-  if (!Array.isArray(arr)) return {};
-  return Object.fromEntries(arr.map((i) => [i.key, i.value ?? ""]));
+  return Object.fromEntries(objRows(arr).map((i) => [i.key, i.value ?? ""]));
 }
 
 // Map Postman's `mode`-tagged body onto the shared canonical body builders.
@@ -174,7 +174,7 @@ function parseBody(body, warnings) {
     case "urlencoded":
       return formBody(
         "form-urlencoded",
-        (body.urlencoded ?? []).map((r) => ({
+        objRows(body.urlencoded).map((r) => ({
           enabled: !r.disabled,
           name: r.key,
           value: r.value,
@@ -183,7 +183,7 @@ function parseBody(body, warnings) {
     case "formdata":
       return formBody(
         "form-data",
-        (body.formdata ?? []).map((r) => {
+        objRows(body.formdata).map((r) => {
           if (r.type === "file") {
             // Postman's `src` is a path string, or an array of paths for a
             // multi-file field. Rest Hippo is one file per row, so we take the first
@@ -225,9 +225,8 @@ function _descriptionText(desc) {
 
 /** Read Postman's url.variable (path variables) into Rest Hippo path params. */
 function parsePathVars(url) {
-  if (!url || typeof url !== "object" || !Array.isArray(url.variable))
-    return [];
-  return url.variable.map((v) => ({
+  if (!url || typeof url !== "object") return [];
+  return objRows(url.variable).map((v) => ({
     id: crypto.randomUUID(),
     name: v.key ?? "",
     value: v.value ?? "",
@@ -237,7 +236,7 @@ function parsePathVars(url) {
 /** Map a Postman `variable` array to the canonical { name, value, secure } shape. */
 function parseVariables(list) {
   const out = [];
-  for (const v of list ?? []) {
+  for (const v of objRows(list)) {
     if (v.key)
       out.push({
         name: v.key,
@@ -249,6 +248,7 @@ function parseVariables(list) {
 }
 
 function parseItem(item, warnings) {
+  if (!item || typeof item !== "object") return null;
   if (Array.isArray(item.item)) {
     return {
       id: crypto.randomUUID(),
@@ -269,7 +269,7 @@ function parseItem(item, warnings) {
     url: parseUrl(req.url),
     params: parseQueryFromUrl(req.url),
     pathParams: parsePathVars(req.url),
-    headers: (req.header ?? []).map((h) => ({
+    headers: objRows(req.header).map((h) => ({
       enabled: !h.disabled,
       name: h.key ?? "",
       value: h.value ?? "",
@@ -295,7 +295,7 @@ export function parsePostman(data) {
   // Support both top-level and wrapped ({ collection: { ... } }) formats
   const root = data.collection ?? data;
   const info = root.info ?? {};
-  const items = root.item ?? [];
+  const items = Array.isArray(root.item) ? root.item : [];
   const warnings = [];
   const variables = parseVariables(root.variable);
 

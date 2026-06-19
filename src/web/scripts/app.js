@@ -1484,17 +1484,20 @@ function installSelectionHandlers() {
       _dispatchTimelineUpdate(null, true);
       await _loadRequestHistory(id);
       _historyLoaded.add(id);
-      // Populate response cache from the latest timeline entry now that history is loaded.
+      // Guard against a second selection arriving while we were loading: only
+      // the request we actually settled on should populate the (name-keyed)
+      // response cache — otherwise a slow load for the previously-selected
+      // request overwrites the cache for the one now showing (a desync when two
+      // requests share a name).
       const loadedEntries = _requestHistory.get(id) ?? [];
       const loadedLatest = loadedEntries[0];
-      const selName = node?.name;
-      if (selName) {
-        _responseCache[selName] = loadedLatest?.response?.body ?? "";
-        _responseHeaders[selName] = loadedLatest?.response?.headers ?? {};
-        _responseStatus[selName] = loadedLatest?.response?.status ?? 0;
-      }
-      // Guard against a second selection arriving while we were loading.
       if (_selectedNode?.id === id) {
+        const selName = node?.name;
+        if (selName) {
+          _responseCache[selName] = loadedLatest?.response?.body ?? "";
+          _responseHeaders[selName] = loadedLatest?.response?.headers ?? {};
+          _responseStatus[selName] = loadedLatest?.response?.status ?? 0;
+        }
         _refreshEditorVariableContext(id);
         _dispatchTimelineUpdate(id, true);
       }
@@ -1644,7 +1647,8 @@ function installResponseHandlers() {
     if (
       !skipHistory &&
       node?.afterResponseScript?.trim() &&
-      node.afterResponseScriptEnabled !== false
+      node.afterResponseScriptEnabled !== false &&
+      currentSettings.showScriptsTab
     ) {
       await _runAfterResponseScript(node, e.detail);
     }
@@ -1653,7 +1657,11 @@ function installResponseHandlers() {
     // history replay), independent of whether history recording is enabled. The
     // per-rule status gate and empty-rules short-circuit live inside
     // _applyCapturesForNode / applyCaptures.
-    if (!skipHistory && node?.captures?.length) {
+    if (
+      !skipHistory &&
+      node?.captures?.length &&
+      currentSettings.showCapturesTab
+    ) {
       await _applyCapturesForNode(node, e.detail);
     }
   });

@@ -293,6 +293,33 @@ export class SettingsPopup {
                 type="checkbox"
               />
             </div>
+
+            <div class="settings-row settings-row--toggle" title="${t("settings.request.showCapturesTabTitle")}">
+              <label class="settings-label" for="setting-show-captures-tab">${t("settings.request.showCapturesTab")}</label>
+              <input
+                class="settings-toggle"
+                id="setting-show-captures-tab"
+                type="checkbox"
+              />
+            </div>
+
+            <div class="settings-row settings-row--toggle" title="${t("settings.request.showScriptsTabTitle")}">
+              <label class="settings-label" for="setting-show-scripts-tab">${t("settings.request.showScriptsTab")}</label>
+              <input
+                class="settings-toggle"
+                id="setting-show-scripts-tab"
+                type="checkbox"
+              />
+            </div>
+
+            <div class="settings-row settings-row--toggle">
+              <label class="settings-label" for="setting-show-notes-tab">${t("settings.request.showNotesTab")}</label>
+              <input
+                class="settings-toggle"
+                id="setting-show-notes-tab"
+                type="checkbox"
+              />
+            </div>
           </section>
 
           <!-- Proxy ────────────────────────────────────────────────────── -->
@@ -717,6 +744,11 @@ export class SettingsPopup {
         .checked,
       verifySsl: this.#el.querySelector("#setting-verify-ssl").checked,
       streamNdjson: this.#el.querySelector("#setting-stream-ndjson").checked,
+      showCapturesTab: this.#el.querySelector("#setting-show-captures-tab")
+        .checked,
+      showScriptsTab: this.#el.querySelector("#setting-show-scripts-tab")
+        .checked,
+      showNotesTab: this.#el.querySelector("#setting-show-notes-tab").checked,
       pickerDebounceMs:
         parseInt(
           this.#el.querySelector("#setting-picker-debounce").value,
@@ -1090,6 +1122,18 @@ export class SettingsPopup {
     if (settings.streamNdjson !== undefined) {
       this.#el.querySelector("#setting-stream-ndjson").checked =
         settings.streamNdjson;
+    }
+    if (settings.showCapturesTab !== undefined) {
+      this.#el.querySelector("#setting-show-captures-tab").checked =
+        settings.showCapturesTab;
+    }
+    if (settings.showScriptsTab !== undefined) {
+      this.#el.querySelector("#setting-show-scripts-tab").checked =
+        settings.showScriptsTab;
+    }
+    if (settings.showNotesTab !== undefined) {
+      this.#el.querySelector("#setting-show-notes-tab").checked =
+        settings.showNotesTab;
     }
     if (settings.pickerDebounceMs !== undefined) {
       this.#el.querySelector("#setting-picker-debounce").value = String(

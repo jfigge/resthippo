@@ -898,6 +898,11 @@ html.show-method-icons .req-method-menu-item-label::before {
   border-bottom-color: var(--color-accent);
 }
 
+/* Hidden via a global Settings → Request toggle (Captures / Scripts / Notes). */
+.req-tab-btn--hidden {
+  display: none;
+}
+
 /* Tab content */
 .req-tab-content {
   flex: 1;

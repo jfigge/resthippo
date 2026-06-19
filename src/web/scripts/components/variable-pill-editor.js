@@ -48,6 +48,7 @@ import {
   isFunctionCall,
   parseFunctionCall,
   buildFunctionToken,
+  parseFnArgs,
 } from "./variable-resolver.js";
 import { makeVariablePill, makeFunctionPill } from "./pill-builders.js";
 import { PillPickerController } from "./pill-picker-controller.js";
@@ -713,7 +714,7 @@ export class VariablePillEditor {
           child.dataset.function !== undefined
             ? buildFunctionToken(
                 child.dataset.function,
-                JSON.parse(child.dataset.fnArgs ?? "[]"),
+                parseFnArgs(child.dataset.fnArgs),
               )
             : `{{${child.dataset.variable}}}`;
       } else {
@@ -1115,7 +1116,7 @@ export class VariablePillEditor {
           node.dataset.function !== undefined
             ? buildFunctionToken(
                 node.dataset.function,
-                JSON.parse(node.dataset.fnArgs ?? "[]"),
+                parseFnArgs(node.dataset.fnArgs),
               )
             : `{{${node.dataset.variable}}}`;
         if (rem < serialized.length) {

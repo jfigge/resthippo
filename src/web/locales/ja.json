@@ -315,7 +315,12 @@
       "dblclickExecute": "ダブルクリックでリクエストを実行",
       "verifySsl": "SSL 証明書を検証",
       "streamNdjson": "NDJSON レスポンスをライブストリーミング",
-      "streamNdjsonTitle": "application/x-ndjson レスポンスを受信したときに、本文全体をバッファリングせず、ライブで（1 行ずつ）処理します"
+      "streamNdjsonTitle": "application/x-ndjson レスポンスを受信したときに、本文全体をバッファリングせず、ライブで（1 行ずつ）処理します",
+      "showCapturesTab": "キャプチャタブを表示",
+      "showCapturesTabTitle": "オフにすると、キャプチャタブが非表示になり、レスポンス後にキャプチャルールが実行されません",
+      "showScriptsTab": "スクリプトタブを表示",
+      "showScriptsTabTitle": "オフにすると、スクリプトタブが非表示になり、リクエスト前およびレスポンス後のスクリプトが実行されません",
+      "showNotesTab": "メモタブを表示"
     },
     "proxy": {
       "enable": "プロキシを有効にする",

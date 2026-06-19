@@ -805,25 +805,39 @@ function registerHttpEngine({
           }
           res.resume(); // drain the redirect body
 
+          let crossOrigin = false;
+          try {
+            crossOrigin = new URL(redirectUrl).origin !== parsed.origin;
+          } catch {
+            // Unparseable redirect URL — treat as same-origin; the next leg's own
+            // URL parse will surface the error.
+          }
+
           // Cross-origin redirect: drop credential-bearing request headers so a
           // redirect to another host can't replay the user's Authorization /
           // Cookie (mirrors browsers / curl). The cookie jar is re-applied per
           // host on the next leg, so only a user-set header is at risk here.
           let redirectHeaders = headers;
-          try {
-            if (new URL(redirectUrl).origin !== parsed.origin) {
-              redirectHeaders = Object.fromEntries(
-                Object.entries(headers).filter(
-                  ([k]) => !CREDENTIAL_HEADERS.has(k.toLowerCase()),
-                ),
-              );
-              consoleLog.push(
-                "* Crossing origins — dropping Authorization/Cookie for the redirect",
-              );
-            }
-          } catch {
-            // Unparseable redirect URL — leave headers as-is; the next leg's own
-            // URL parse will surface the error.
+          if (crossOrigin) {
+            redirectHeaders = Object.fromEntries(
+              Object.entries(headers).filter(
+                ([k]) => !CREDENTIAL_HEADERS.has(k.toLowerCase()),
+              ),
+            );
+            consoleLog.push(
+              "* Crossing origins — dropping Authorization/Cookie for the redirect",
+            );
+          }
+
+          // A 307/308 preserves the method AND body. On a cross-origin redirect
+          // we drop that body too — mirroring the credential-header stripping —
+          // so a hostile redirect can't replay a sensitive POST/PUT body to an
+          // attacker-controlled host. (GET redirects never carry a body.)
+          const keepBody = newMethod !== "GET" && !crossOrigin;
+          if (newMethod !== "GET" && crossOrigin) {
+            consoleLog.push(
+              "* Crossing origins — dropping the request body for the redirect",
+            );
           }
 
           doRequest(
@@ -832,9 +846,9 @@ function registerHttpEngine({
               headers: redirectHeaders,
               method: newMethod,
               url: redirectUrl,
-              body: newMethod === "GET" ? null : body,
-              bodyFilePath: newMethod === "GET" ? null : bodyFilePath,
-              multipart: newMethod === "GET" ? null : multipart,
+              body: keepBody ? body : null,
+              bodyFilePath: keepBody ? bodyFilePath : null,
+              multipart: keepBody ? multipart : null,
             },
             consoleLog,
             startTime,

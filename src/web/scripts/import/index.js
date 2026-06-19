@@ -34,8 +34,12 @@ export { parseCurl } from "./curl.js";
 function detectFormat(data) {
   if (!data || typeof data !== "object") return null;
 
-  // Postman — top-level or wrapped in { collection: { info: { schema } } }
-  const schema = data.info?.schema ?? data.collection?.info?.schema ?? "";
+  // Postman — top-level or wrapped in { collection: { info: { schema } } }.
+  // Coerce to string: a malformed file may carry a non-string `schema`, and
+  // `.includes` on a number/object would throw out of the format sniff.
+  const schema = String(
+    data.info?.schema ?? data.collection?.info?.schema ?? "",
+  );
   if (schema.includes("getpostman.com")) return "postman";
 
   // Insomnia v3 / v4

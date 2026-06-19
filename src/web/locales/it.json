@@ -317,7 +317,12 @@
       "dblclickExecute": "Doppio clic sulle richieste per eseguirle",
       "verifySsl": "Verifica i certificati SSL",
       "streamNdjson": "Trasmetti le risposte NDJSON in tempo reale",
-      "streamNdjsonTitle": "Quando viene ricevuta una risposta application/x-ndjson, consumarla in tempo reale (riga per riga) invece di bufferizzare l'intero corpo"
+      "streamNdjsonTitle": "Quando viene ricevuta una risposta application/x-ndjson, consumarla in tempo reale (riga per riga) invece di bufferizzare l'intero corpo",
+      "showCapturesTab": "Mostra la scheda Acquisizioni",
+      "showCapturesTabTitle": "Quando disattivato, la scheda Acquisizioni è nascosta e le regole di acquisizione non vengono eseguite dopo una risposta",
+      "showScriptsTab": "Mostra la scheda Script",
+      "showScriptsTabTitle": "Quando disattivato, la scheda Script è nascosta e gli script di pre-richiesta e post-risposta non vengono eseguiti",
+      "showNotesTab": "Mostra la scheda Note"
     },
     "proxy": {
       "enable": "Abilita proxy",

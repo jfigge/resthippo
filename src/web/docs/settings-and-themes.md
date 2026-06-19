@@ -34,6 +34,9 @@ font size anywhere with <kbd>⌘/Ctrl</kbd>+<kbd>+</kbd> /
 | **Follow redirects**                 | Automatically follow 3xx redirects.                                            |
 | **Double-click requests to execute** | Double-clicking a request in the tree loads _and_ sends it.                    |
 | **Verify SSL certificates**          | Reject invalid/self-signed certificates. Turn off to test against dev servers. |
+| **Show Captures tab**                | Show the **Captures** tab on the request editor. When off, the tab is hidden _and_ capture rules are not run after a response. Off by default. |
+| **Show Scripts tab**                 | Show the **Scripts** tab on the request editor. When off, the tab is hidden _and_ pre-request / after-response scripts are not executed. Off by default. |
+| **Show Notes tab**                   | Show the **Notes** tab on the request editor. On by default.                   |
 
 ## Proxy
 

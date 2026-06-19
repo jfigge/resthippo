@@ -462,6 +462,14 @@ export class RequestEditor {
   #method = "GET";
   #url = "";
   #activeTab = "params";
+  // Global request-tab visibility (Settings → Request). Each gates its tab's
+  // button via #applyTabVisibility(); Captures/Scripts additionally gate their
+  // logic (captures execution lives in app.js; the pre-request script gate is
+  // in #sendRequest). Defaults match DEFAULT_SETTINGS so renders before
+  // applySettings() runs are already correct.
+  #showCapturesTab = false;
+  #showScriptsTab = false;
+  #showNotesTab = true;
   #currentNodeId = null;
   /** Pre-request / after-response script source (Feature 25). */
   #preRequestScript = "";
@@ -1291,6 +1299,38 @@ export class RequestEditor {
 
     this.#el.appendChild(content);
     this.#tabContent = content;
+    this.#applyTabVisibility();
+  }
+
+  /**
+   * Hide/show the gated request tabs (Captures, Scripts, Notes) per the global
+   * Settings → Request toggles. Only the three gated tab buttons are touched —
+   * Params/Headers/Body/Auth/Message always show; their panes stay built but are
+   * unreachable while hidden. If the active tab is hidden, fall back to the first
+   * visible tab so the editor never shows a blank content area.
+   */
+  #applyTabVisibility() {
+    if (!this.#tabStrip) return;
+    const visible = {
+      captures: this.#showCapturesTab,
+      scripts: this.#showScriptsTab,
+      notes: this.#showNotesTab,
+    };
+    this.#tabStrip.querySelectorAll(".req-tab-btn").forEach((btn) => {
+      const id = btn.dataset.tab;
+      if (id in visible) {
+        btn.classList.toggle("req-tab-btn--hidden", !visible[id]);
+      }
+    });
+    const activeBtn = this.#tabStrip.querySelector(
+      `.req-tab-btn[data-tab="${this.#activeTab}"]`,
+    );
+    if (activeBtn && activeBtn.classList.contains("req-tab-btn--hidden")) {
+      const firstVisible = [
+        ...this.#tabStrip.querySelectorAll(".req-tab-btn"),
+      ].find((b) => !b.classList.contains("req-tab-btn--hidden"));
+      if (firstVisible) this.#switchTab(firstVisible.dataset.tab);
+    }
   }
 
   #buildTabPane(tabId) {
@@ -2583,7 +2623,11 @@ export class RequestEditor {
     let scriptedHeaderRows = this.#headers;
     let scriptedBodyText = null; // null → use the editor's body
     const preScriptCode = (this.#preRequestScript ?? "").trim();
-    if (preScriptCode && this.#preRequestScriptEnabled !== false) {
+    if (
+      preScriptCode &&
+      this.#preRequestScriptEnabled !== false &&
+      this.#showScriptsTab
+    ) {
       let pre;
       if (force && this.#preScriptCache?.id === requestId) {
         pre = this.#preScriptCache.result;
@@ -2957,6 +3001,15 @@ export class RequestEditor {
       this.#bodyEditor.setRemoveHeaders(this.#removeHeaders);
       this.#graphql.setRemoveHeaders(this.#removeHeaders);
     }
+    // Request-tab visibility (Settings → Request). Update the flags and reflect
+    // them onto the tab strip live; Captures/Scripts also gate execution.
+    if (settings.showCapturesTab != null)
+      this.#showCapturesTab = !!settings.showCapturesTab;
+    if (settings.showScriptsTab != null)
+      this.#showScriptsTab = !!settings.showScriptsTab;
+    if (settings.showNotesTab != null)
+      this.#showNotesTab = !!settings.showNotesTab;
+    this.#applyTabVisibility();
     // PillCodeEditor view preferences (folding keeps the legacy `editorFolding`
     // key). Update the shared state and apply live to every on-screen editor
     // (body text, GraphQL Query/Variables, WebSocket message) without a rebuild.

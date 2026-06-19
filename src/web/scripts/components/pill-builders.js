@@ -43,6 +43,7 @@ import {
   resolveVariable,
   parseFunctionCall,
   buildFunctionToken,
+  parseFnArgs,
 } from "./variable-resolver.js";
 import { PillEditorPopup } from "./pill-editor-popup.js";
 import { registry } from "./function-registry.js";
@@ -146,7 +147,7 @@ export function makeFunctionPill(name, rawArgs, opts) {
       type: "function",
       funcName: span.dataset.function,
       funcDef: registry[span.dataset.function],
-      rawArgs: JSON.parse(span.dataset.fnArgs ?? "[]"),
+      rawArgs: parseFnArgs(span.dataset.fnArgs),
       getContext,
       getItems,
       getPreview: async (args) => {

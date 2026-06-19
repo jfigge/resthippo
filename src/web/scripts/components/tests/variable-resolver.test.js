@@ -46,6 +46,7 @@ import {
   parseFunctionCall,
   buildFunctionToken,
   buildFolderChain,
+  parseFnArgs,
 } from "../variable-resolver.js";
 
 // ── Scope precedence ─────────────────────────────────────────────────────────
@@ -394,4 +395,32 @@ test("buildFolderChain returns ancestors nearest-first, excluding the node", () 
 
 test("buildFolderChain returns [] for an unknown node", () => {
   assert.deepEqual(buildFolderChain([{ id: "a" }], "missing"), []);
+});
+
+// ── parseFnArgs: a corrupt data-fn-args must not throw (it bricks save/send) ───
+
+test("parseFnArgs: parses a valid JSON array", () => {
+  assert.deepEqual(parseFnArgs('["a","b"]'), ["a", "b"]);
+  assert.deepEqual(parseFnArgs("[]"), []);
+});
+
+test("parseFnArgs: returns [] for a missing attribute", () => {
+  assert.deepEqual(parseFnArgs(undefined), []);
+  assert.deepEqual(parseFnArgs(null), []);
+});
+
+test("parseFnArgs: returns [] for corrupt JSON instead of throwing", () => {
+  // The bug: an unguarded JSON.parse here throws out of serializeEditor /
+  // getValue, making the request unsaveable and unsendable.
+  assert.doesNotThrow(() => parseFnArgs("not json"));
+  assert.deepEqual(parseFnArgs("not json"), []);
+  assert.deepEqual(parseFnArgs("{"), []);
+  assert.deepEqual(parseFnArgs('"oops'), []);
+});
+
+test("parseFnArgs: returns [] for valid JSON that isn't an array", () => {
+  assert.deepEqual(parseFnArgs("{}"), []);
+  assert.deepEqual(parseFnArgs("5"), []);
+  assert.deepEqual(parseFnArgs('"str"'), []);
+  assert.deepEqual(parseFnArgs("null"), []);
 });

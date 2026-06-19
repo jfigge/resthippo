@@ -317,7 +317,12 @@
       "dblclickExecute": "Double-cliquer sur les requêtes pour les exécuter",
       "verifySsl": "Vérifier les certificats SSL",
       "streamNdjson": "Diffuser les réponses NDJSON en direct",
-      "streamNdjsonTitle": "Lorsqu'une réponse application/x-ndjson est reçue, la consommer en direct (ligne par ligne) au lieu de mettre tout le corps en mémoire tampon"
+      "streamNdjsonTitle": "Lorsqu'une réponse application/x-ndjson est reçue, la consommer en direct (ligne par ligne) au lieu de mettre tout le corps en mémoire tampon",
+      "showCapturesTab": "Afficher l'onglet Captures",
+      "showCapturesTabTitle": "Lorsque désactivé, l'onglet Captures est masqué et les règles de capture ne sont pas exécutées après une réponse",
+      "showScriptsTab": "Afficher l'onglet Scripts",
+      "showScriptsTabTitle": "Lorsque désactivé, l'onglet Scripts est masqué et les scripts de pré-requête et post-réponse ne sont pas exécutés",
+      "showNotesTab": "Afficher l'onglet Notes"
     },
     "proxy": {
       "enable": "Activer le proxy",

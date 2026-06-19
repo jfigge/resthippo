@@ -78,6 +78,14 @@ const DEFAULT_SETTINGS = {
   // line) instead of buffering the whole body (Feature 33). Off by default so a
   // finite NDJSON document keeps the rich buffered viewer; live feeds opt in.
   streamNdjson: false,
+  // Request-editor tab visibility. Each toggle both hides its tab and gates its
+  // logic: Captures off → tab hidden AND capture rules don't run after a
+  // response; Scripts off → tab hidden AND pre-request/after-response scripts
+  // don't execute. Notes off → tab hidden (no execution side effects). Captures
+  // and Scripts default off (opt-in power features); Notes defaults on.
+  showCapturesTab: false,
+  showScriptsTab: false,
+  showNotesTab: true,
   proxyEnabled: false,
   proxyUrl: "",
   // Separate proxy credentials (encrypted at rest) and a NO_PROXY-style bypass

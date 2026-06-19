@@ -1636,3 +1636,123 @@ test("har: all importers (incl. har/curl) return a warnings array", () => {
   assert.ok(Array.isArray(parseHar({ log: { entries: [] } }).warnings));
   assert.ok(Array.isArray(parseCurl("curl https://a.test").warnings));
 });
+
+// ── Robustness: malformed-but-parseable input must not throw ──────────────────
+// The per-format sub-parsers promise "never throws on malformed-but-parseable
+// input — produce a best-effort collection". These pin that against null array
+// elements and wrong-typed list fields, which previously crashed with TypeErrors.
+
+test("postman: tolerates null items, non-array headers, and null rows", () => {
+  const schema = "https://schema.getpostman.com/json/collection/v2.1.0/";
+  const data = {
+    info: { schema, name: "C" },
+    variable: [null, { key: "k", value: "v" }],
+    item: [
+      null,
+      {
+        name: "R",
+        request: {
+          method: "GET",
+          url: {
+            raw: "http://x/?a=1",
+            query: [null, { key: "a", value: "1" }],
+          },
+          header: [null, { key: "H", value: "1" }],
+        },
+      },
+      { name: "F", item: [null] }, // folder with a null child
+    ],
+  };
+  let out;
+  assert.doesNotThrow(() => {
+    out = parsePostman(data);
+  });
+  // The one real request survives; nulls are dropped.
+  const reqs = [];
+  const walk = (n) => {
+    if (!n) return;
+    if (n.type === "request") reqs.push(n);
+    (n.children ?? []).forEach(walk);
+  };
+  walk(out.collection);
+  assert.equal(reqs.length, 1);
+  assert.equal(reqs[0].headers.length, 1);
+});
+
+test("postman: a non-array header field does not throw", () => {
+  const schema = "https://schema.getpostman.com/json/collection/v2.1.0/";
+  assert.doesNotThrow(() =>
+    parsePostman({
+      info: { schema, name: "C" },
+      item: [
+        {
+          name: "R",
+          request: { method: "GET", url: "http://x", header: "oops" },
+        },
+      ],
+    }),
+  );
+});
+
+test("insomnia v3/v4: tolerates null resources and null header rows", () => {
+  assert.doesNotThrow(() =>
+    parseInsomnia({
+      _type: "export",
+      __export_format: 4,
+      resources: [
+        null,
+        { _type: "workspace", _id: "w", name: "W" },
+        {
+          _type: "request",
+          _id: "r",
+          parentId: "w",
+          name: "R",
+          method: "GET",
+          url: "http://x",
+          headers: [null],
+        },
+      ],
+    }),
+  );
+});
+
+test("insomnia v5: tolerates null children and headers", () => {
+  assert.doesNotThrow(() =>
+    parseInsomniaV5({
+      type: "collection.insomnia.rest/5.0",
+      name: "C",
+      collection: [
+        null,
+        { name: "R", method: "GET", url: "http://x", headers: [null] },
+      ],
+    }),
+  );
+});
+
+test("har: tolerates null header / queryString elements and a non-array entries", () => {
+  assert.doesNotThrow(() =>
+    parseHar({
+      log: {
+        entries: [
+          {
+            request: {
+              method: "GET",
+              url: "http://x",
+              headers: [null],
+              queryString: [null],
+            },
+          },
+        ],
+      },
+    }),
+  );
+  assert.doesNotThrow(() => parseHar({ log: { entries: "not-an-array" } }));
+});
+
+test("parseImport: a non-string Postman schema is unrecognized, not a crash", () => {
+  // detectFormat must coerce schema before .includes — a number must surface the
+  // normal 'Unrecognized format' error, never a TypeError.
+  assert.throws(() => parseImport(JSON.stringify({ info: { schema: 123 } })), {
+    message: /Unrecognized format/,
+  });
+});

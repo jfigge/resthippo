@@ -38,6 +38,21 @@
 const OAUTH1_SIG_METHODS = new Set(["HMAC-SHA1", "HMAC-SHA256", "PLAINTEXT"]);
 
 /**
+ * Coerce a value to an array of plain objects. A malformed-but-parseable import
+ * may carry a non-array where a list is expected, or null elements inside it —
+ * filtering here keeps every per-format parser to its "never throws on
+ * malformed-but-parseable input" contract (only `parseImport` itself throws).
+ *
+ * @param {*} arr
+ * @returns {object[]}
+ */
+export function objRows(arr) {
+  return Array.isArray(arr)
+    ? arr.filter((x) => x && typeof x === "object")
+    : [];
+}
+
+/**
  * Build the canonical Rest Hippo auth fields from a neutral, format-agnostic auth
  * descriptor. Returns the no-auth shape for a null/typeless/unsupported
  * descriptor, so callers can pass `null` for "no auth" and let unsupported

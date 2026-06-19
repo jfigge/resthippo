@@ -117,6 +117,26 @@ export function buildFunctionToken(name, rawArgs = []) {
 }
 
 /**
+ * Safely parse a function pill's `data-fn-args` attribute. It is normally JSON
+ * written by makeFunctionPill, but a corrupted import or a manual DOM tamper can
+ * leave it malformed — and an unguarded JSON.parse there throws out of the
+ * universal serializeEditor() / getValue() read path, making the request
+ * unsaveable and unsendable (one bad pill would brick the editor). Falls back to
+ * an empty arg list rather than throwing.
+ *
+ * @param {string|undefined|null} raw  the data-fn-args attribute value
+ * @returns {Array} parsed args, or [] when absent / corrupt / non-array
+ */
+export function parseFnArgs(raw) {
+  try {
+    const parsed = JSON.parse(raw ?? "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Resolve a variable name against the provided context.
  * Priority order (highest → lowest): folder chain → collection → environment → global.
  *
@@ -274,7 +294,7 @@ export function serializeEditor(el) {
       if (child.dataset && child.dataset.variable !== undefined) {
         out += `{{${child.dataset.variable}}}`;
       } else if (child.dataset && child.dataset.function !== undefined) {
-        const rawArgs = JSON.parse(child.dataset.fnArgs ?? "[]");
+        const rawArgs = parseFnArgs(child.dataset.fnArgs);
         out += buildFunctionToken(child.dataset.function, rawArgs);
       } else if (child.tagName !== "BR") {
         out += serializeEditor(child);

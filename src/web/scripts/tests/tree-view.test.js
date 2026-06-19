@@ -277,6 +277,23 @@ test("updateNode with { silent:true } does not fire collections-changed", () => 
   );
 });
 
+test("updateNode patches the name into the visible label and the model", () => {
+  const tv = mount(TREE());
+  tv.updateNode("r1", { name: "Renamed Request" });
+  assert.equal(
+    rowOf(tv, "r1").querySelector(".tree-node-label").textContent,
+    "Renamed Request",
+  );
+  assert.equal(tv.getItems()[0].children[0].name, "Renamed Request");
+});
+
+test("updateNode keeps the searchable data-url attribute in step", () => {
+  const tv = mount(TREE());
+  tv.updateNode("r1", { url: "https://EXAMPLE.com/New" });
+  assert.equal(li(tv, "r1").dataset.url, "https://example.com/new");
+  assert.equal(tv.getItems()[0].children[0].url, "https://EXAMPLE.com/New");
+});
+
 // ── Context-menu mutations (rename / delete / duplicate) ────────────────────
 
 async function contextAction(tv, id, choice) {

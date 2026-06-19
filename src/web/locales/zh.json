@@ -315,7 +315,12 @@
       "dblclickExecute": "双击请求以执行",
       "verifySsl": "验证 SSL 证书",
       "streamNdjson": "实时流式传输 NDJSON 响应",
-      "streamNdjsonTitle": "当收到 application/x-ndjson 响应时，逐行实时处理，而不是缓冲整个响应正文"
+      "streamNdjsonTitle": "当收到 application/x-ndjson 响应时，逐行实时处理，而不是缓冲整个响应正文",
+      "showCapturesTab": "显示捕获选项卡",
+      "showCapturesTabTitle": "关闭时，隐藏捕获选项卡，并且在收到响应后不运行捕获规则",
+      "showScriptsTab": "显示脚本选项卡",
+      "showScriptsTabTitle": "关闭时，隐藏脚本选项卡，并且不执行请求前和响应后脚本",
+      "showNotesTab": "显示备注选项卡"
     },
     "proxy": {
       "enable": "启用代理",

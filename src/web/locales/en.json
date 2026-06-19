@@ -317,7 +317,12 @@
       "dblclickExecute": "Double-click requests to execute",
       "verifySsl": "Verify SSL certificates",
       "streamNdjson": "Stream NDJSON responses live",
-      "streamNdjsonTitle": "When an application/x-ndjson response is received, consume it live (line by line) instead of buffering the whole body"
+      "streamNdjsonTitle": "When an application/x-ndjson response is received, consume it live (line by line) instead of buffering the whole body",
+      "showCapturesTab": "Show Captures tab",
+      "showCapturesTabTitle": "When off, the Captures tab is hidden and capture rules are not run after a response",
+      "showScriptsTab": "Show Scripts tab",
+      "showScriptsTabTitle": "When off, the Scripts tab is hidden and pre-request and after-response scripts are not executed",
+      "showNotesTab": "Show Notes tab"
     },
     "proxy": {
       "enable": "Enable proxy",

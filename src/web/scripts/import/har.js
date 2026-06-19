@@ -24,6 +24,7 @@ import {
   authFromHeaderValue,
   splitUrlQuery,
   parseUrlencodedRows,
+  objRows,
 } from "./shape.js";
 
 /**
@@ -70,7 +71,7 @@ function bodyFromPostData(postData, warnings) {
     if (mime.includes("multipart/form-data")) {
       return formBody(
         "form-data",
-        postData.params.map((p) => {
+        objRows(postData.params).map((p) => {
           if (p.fileName != null) {
             warnings.push(
               `Form field "${p.name ?? ""}" references a file ("${p.fileName}"); re-attach it before sending.`,
@@ -87,7 +88,7 @@ function bodyFromPostData(postData, warnings) {
     }
     return formBody(
       "form-urlencoded",
-      postData.params.map((p) => ({
+      objRows(postData.params).map((p) => ({
         enabled: true,
         name: p.name ?? "",
         value: p.value ?? "",
@@ -116,7 +117,7 @@ function buildRequest(req, warnings) {
   // parsing the URL when a capture omits it.
   const params =
     Array.isArray(req.queryString) && req.queryString.length
-      ? req.queryString.map((q) => ({
+      ? objRows(req.queryString).map((q) => ({
           enabled: true,
           name: q.name ?? "",
           value: q.value ?? "",
@@ -125,7 +126,7 @@ function buildRequest(req, warnings) {
 
   let auth = buildAuth(null);
   const headers = [];
-  for (const h of req.headers ?? []) {
+  for (const h of objRows(req.headers)) {
     const name = h.name ?? "";
     if (!name || name.startsWith(":")) continue; // drop HTTP/2 pseudo-headers
     if (name.toLowerCase() === "authorization") {
@@ -162,7 +163,7 @@ function buildRequest(req, warnings) {
  */
 export function parseHar(data) {
   const warnings = [];
-  const entries = data?.log?.entries ?? [];
+  const entries = objRows(data?.log?.entries);
 
   // One folder per host, preserving first-seen order.
   const folders = new Map();

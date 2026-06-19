@@ -2483,6 +2483,11 @@ export class TreeView {
     const li = this.#el.querySelector(`[data-id="${CSS.escape(id)}"]`);
 
     if (li) {
+      if (fields.name != null) {
+        // textContent is XSS-safe; request rows render the name in .tree-node-label.
+        const labelEl = li.querySelector(".tree-node-label");
+        if (labelEl) labelEl.textContent = fields.name;
+      }
       if (fields.method != null) {
         const badge = li.querySelector(".tree-node-method");
         if (badge) {
@@ -2498,9 +2503,10 @@ export class TreeView {
         }
       }
       if (fields.url != null) {
+        // Keep the searchable data-url attribute in step. Request rows show a
+        // method badge + label (no .tree-node-url element), so there is no URL
+        // text node to update here.
         li.dataset.url = fields.url.toLowerCase();
-        const urlEl = li.querySelector(".tree-node-url");
-        if (urlEl) urlEl.textContent = fields.url;
       }
     } else {
       // Node not visible (e.g. inside a collapsed collection) — full re-render.

@@ -470,6 +470,44 @@ test("a cross-origin redirect drops the Authorization and Cookie headers", async
   );
 });
 
+test("a cross-origin 307 redirect preserves the method but drops the request body", async () => {
+  let bMethod = "unset";
+  let bBody = "unset";
+  await withServer(
+    (req, res) => {
+      // Destination origin (different port → different origin).
+      bMethod = req.method;
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        bBody = body;
+        res.writeHead(200, {});
+        res.end("arrived");
+      });
+    },
+    async (baseB) => {
+      await withServer(
+        (req, res) => {
+          res.writeHead(307, { Location: `${baseB}/end` });
+          res.end();
+        },
+        async (baseA) => {
+          const r = await run({
+            method: "POST",
+            url: `${baseA}/start`,
+            headers: { "Content-Type": "text/plain" },
+            body: "sensitive-payload",
+          });
+          assert.equal(r.body, "arrived");
+          // 307 keeps the method; the body must NOT be replayed to another host.
+          assert.equal(bMethod, "POST");
+          assert.equal(bBody, "", "body is not replayed cross-origin");
+        },
+      );
+    },
+  );
+});
+
 test("a same-origin redirect keeps the Authorization header", async () => {
   let endAuth = "unset";
   await withServer(
