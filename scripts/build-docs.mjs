@@ -55,6 +55,7 @@ const PAGES = [
   { slug: "graphql", title: "GraphQL" },
   { slug: "websocket", title: "WebSockets" },
   { slug: "responses", title: "Reading Responses" },
+  { slug: "scripting", title: "Scripts" },
   { slug: "import-export-and-backup", title: "Import, Export & Backup" },
   { slug: "settings-and-themes", title: "Settings & Themes" },
   { slug: "keyboard-shortcuts", title: "Keyboard Shortcuts" },
@@ -101,7 +102,7 @@ const LOGO_SVG = `<svg width="24" height="24" viewBox="0 0 512 512" role="img" a
 
 const STYLE = `
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#1e1e2e;--mantle:#181825;--crust:#11111b;--surface-0:#313244;--surface-1:#45475a;--overlay-0:#6c7086;--text:#cdd6f4;--subtext:#a6adc8;--accent:#89b4fa;--green:#a6e3a1}
+:root{--bg:#1c1c1c;--mantle:#161616;--crust:#101010;--surface-0:#2a2a2a;--surface-1:#383838;--overlay-0:#686868;--text:#e8e8e8;--subtext:#b0b0b0;--accent:#d0d0d0;--green:#80c080}
 html{scroll-behavior:smooth}
 body{font-family:"Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.65}
 a{color:var(--accent);text-decoration:none}
