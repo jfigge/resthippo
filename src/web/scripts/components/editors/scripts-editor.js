@@ -122,6 +122,13 @@ export class ScriptsEditor {
 
   /** Build (or rebuild) the Scripts tab-pane element. */
   build() {
+    // A rebuild (protocol switch / layout change) disposes the previous pane
+    // editors; cancel any pending debounced validation so it can't fire
+    // setErrors() on a now-disposed editor.
+    clearTimeout(this.#preTimer);
+    clearTimeout(this.#postTimer);
+    this.#preTimer = this.#postTimer = null;
+
     const container = document.createElement("div");
     container.className = "params-editor scripts-editor";
     this.#container = container;

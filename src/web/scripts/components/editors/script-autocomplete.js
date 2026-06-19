@@ -114,6 +114,9 @@ const _ac = new AutocompleteDropdown(
   "hdr-autocomplete script-autocomplete",
   "Script suggestions",
 );
+// The editor that opened the currently-visible dropdown — so a sibling pane's
+// keydown can't drive (or insert from) a dropdown anchored to the other pane.
+let _owner = null;
 let _anchor = null;
 function _anchorAt({ left, top, height }) {
   if (!_anchor) {
@@ -159,6 +162,7 @@ export function wireScriptAutocomplete(editor) {
     const res = suggestHippo(editor.getValue(), pos);
     const coords = res ? editor.caretCoords() : null;
     if (!res || !coords) return _ac.hide();
+    _owner = editor;
     _ac.show(_anchorAt(coords), res.items, (label) => apply(editor, label), {
       minWidth: 220,
       renderItem: (item, entry) => {
@@ -188,7 +192,7 @@ export function wireScriptAutocomplete(editor) {
   editor.element.addEventListener(
     "keydown",
     (e) => {
-      if (!_ac.visible || editor.isPickerOpen()) return;
+      if (!_ac.visible || _owner !== editor || editor.isPickerOpen()) return;
       if (e.key === "ArrowDown") {
         e.preventDefault();
         _ac.navigate(1);

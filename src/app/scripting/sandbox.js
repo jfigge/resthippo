@@ -40,6 +40,18 @@
  *      can't wedge the main process. Scripts are synchronous-only (no `await`);
  *      there is no network/timer in scope, so there is nothing to await.
  *
+ *   Also: the protocol globals the bootstrap installs (`hippo`, `__out`,
+ *   `__phase`) are defined non-writable, so a user script can't reassign them to
+ *   corrupt or drop its own result.
+ *
+ * KNOWN LIMITATION — the `timeout` only interrupts SYNCHRONOUS execution. A
+ * deliberately-detached async loop (`(async()=>{ while(true) await 0 })()`) keeps
+ * running on the main event loop after the call returns and is NOT bounded.
+ * `microtaskMode:"afterEvaluate"` would bound it but forcing the timeout to
+ * interrupt a microtask corrupts Node's async_hooks (crash risk), so it is NOT
+ * used. The real fix is the worker_threads isolate below; scripts are documented
+ * synchronous-only and this only bites a script that intentionally goes async.
+ *
  * Node's `vm` is not a hardened security boundary against a determined attacker
  * sharing the host process; for that, a `worker_threads` isolate is the planned
  * follow-up. For the v1 threat model — the user's own scripts (or those in a
@@ -174,8 +186,12 @@ const BOOTSTRAP = `
   }
 
   Object.freeze(hippo);
-  globalThis.hippo = hippo;
-  globalThis.__out = out;
+  // Lock the protocol globals so a user script can't reassign them to corrupt
+  // its own result (the API still mutates \`out\`'s contents — only the bindings
+  // are frozen). \`__result\` is written last by the epilogue, so it needs no lock.
+  Object.defineProperty(globalThis, "hippo", { value: hippo, enumerable: true });
+  Object.defineProperty(globalThis, "__out", { value: out });
+  Object.defineProperty(globalThis, "__phase", { value: __phase });
 })();
 `;
 

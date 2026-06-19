@@ -224,10 +224,38 @@ describe("sandbox denial (acceptance criterion)", () => {
     assert.equal(r.varWrites[0].value, "blocked:EvalError");
   });
 
-  it("terminates an infinite loop via the wall-clock timeout", () => {
+  it("terminates a (synchronous) infinite loop via the wall-clock timeout", () => {
     const r = pre(`while (true) {}`);
     assert.notEqual(r.error, null);
     assert.match(r.error.message, /timed out/i);
+  });
+  // NOTE: a *detached async* loop (`(async()=>{while(true)await 0})()`) is NOT
+  // bounded by the timeout — vm only interrupts synchronous code, and forcing it
+  // to interrupt a microtask corrupts Node's async_hooks. The real fix is the
+  // worker_threads isolate (see the security-model note in sandbox.js); scripts
+  // are documented synchronous-only.
+});
+
+describe("result-protocol hardening", () => {
+  it("ignores a script reassigning globalThis.__out (writes preserved)", () => {
+    const a = pre(
+      `globalThis.__out = null; hippo.variables.set("global", "a", "1");`,
+    );
+    assert.equal(a.error, null);
+    assert.deepEqual(a.varWrites, [{ scope: "global", name: "a", value: "1" }]);
+
+    const b = pre(
+      `globalThis.__out = {}; hippo.variables.set("global", "b", "2");`,
+    );
+    assert.deepEqual(b.varWrites, [{ scope: "global", name: "b", value: "2" }]);
+  });
+
+  it("ignores a script reassigning globalThis.hippo", () => {
+    const r = pre(
+      `globalThis.hippo = null; hippo.variables.set("global", "ok", "1");`,
+    );
+    assert.equal(r.error, null);
+    assert.equal(r.varWrites[0]?.value, "1");
   });
 });
 
