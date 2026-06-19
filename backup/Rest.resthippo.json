@@ -1,0 +1,2894 @@
+{
+  "format": "resthippo",
+  "formatVersion": 1,
+  "kind": "resthippo-collection",
+  "exportedAt": "2026-06-19T03:22:45.621Z",
+  "app": {
+    "name": "Rest Hippo"
+  },
+  "secretsMode": "password",
+  "collectionVariables": [
+    {
+      "name": "Username",
+      "value": "Bob",
+      "secure": false
+    },
+    {
+      "name": "Password",
+      "value": "encp:v2:AAM0ULG1iYNdRscSVighJ5ibj2QOaI54Kg5ZLG22Chp8n3643VPj+TuhK2HwZDW8PgxNQ70o",
+      "secure": true
+    },
+    {
+      "name": "client_secret",
+      "value": "encp:v2:AAM0UFePJmHLN0v9nEIAHGC9dWu3k46FVYaiZhWpWSwrR+WHzCjY7emX4AbIFld2S1F0UKCvYs5u/zA4ENaVzjkd0tufX4/Vlg==",
+      "secure": true
+    }
+  ],
+  "items": [
+    {
+      "id": "b97d7ea5-85aa-441c-9ff4-7946df28b308",
+      "type": "collection",
+      "name": "Rest",
+      "variables": [],
+      "children": [
+        {
+          "id": "05aee167-71d6-4f1a-91b6-b60d94bb8346",
+          "type": "collection",
+          "name": "External",
+          "variables": [],
+          "children": [
+            {
+              "id": "460d7630-c8c3-453f-a6ac-c394b69964d7",
+              "type": "request",
+              "name": "Google",
+              "url": "https://google.com",
+              "method": "GET",
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "2baced25-9d2d-43cf-911f-1fbdd18a2052",
+              "type": "request",
+              "name": "Health",
+              "url": "{{baseUrl}}/health",
+              "method": "GET",
+              "captures": [],
+              "schemaVersion": 2,
+              "pathParams": []
+            },
+            {
+              "id": "1ec640ac-9e22-4e9d-9ed9-8a3dc092c728",
+              "type": "request",
+              "name": "Swagger",
+              "url": "{{baseUrl}}/swagger",
+              "method": "GET",
+              "captures": [],
+              "schemaVersion": 2,
+              "pathParams": []
+            }
+          ]
+        },
+        {
+          "id": "4874d153-ee4b-443d-b782-ce19753bfda1",
+          "type": "collection",
+          "name": "Authentication",
+          "variables": [],
+          "children": [
+            {
+              "id": "cc06038c-0979-4e42-add6-830bafd721a4",
+              "type": "request",
+              "name": "type",
+              "url": "{{mockUrl}}/auth",
+              "method": "GET",
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "d9c2d176-e21d-4fe7-b587-0f326c05f384",
+              "type": "request",
+              "name": "Basic",
+              "url": "{{mockUrl}}/auth/{{requestName()}}",
+              "method": "GET",
+              "authEnabled": true,
+              "authType": "basic",
+              "authBasic": {
+                "username": "Bob",
+                "password": "encp:v2:AAM0UNW8mlMDD110bAUUyuU/+SGMS9HtTI8lqNpKKAT/QbOobMQLPMV0POt4jcixzqbNwUczvY5rqPmm"
+              },
+              "authBearer": {
+                "token": ""
+              },
+              "authApiKey": {
+                "name": "",
+                "value": "",
+                "addTo": "header"
+              },
+              "authDigest": {
+                "username": "",
+                "password": ""
+              },
+              "authNtlm": {
+                "username": "",
+                "password": "",
+                "domain": "",
+                "workstation": ""
+              },
+              "authOAuth2": {
+                "grantType": "client_credentials",
+                "clientType": "confidential",
+                "clientId": "",
+                "clientSecret": "",
+                "accessTokenUrl": "",
+                "authUrl": "",
+                "scope": "",
+                "state": "",
+                "credentials": "header",
+                "headerPrefix": "",
+                "audience": "",
+                "resource": "",
+                "origin": "",
+                "redirectUri": "",
+                "responseType": "access_token",
+                "username": "",
+                "password": "",
+                "deviceAuthorizationUrl": "",
+                "subjectToken": "",
+                "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "actorToken": "",
+                "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "requestedTokenType": "",
+                "discoveredIssuer": "",
+                "discoveredScopes": null
+              },
+              "authAwsIam": {
+                "accessKeyId": "",
+                "secretAccessKey": "",
+                "region": "",
+                "service": "",
+                "sessionToken": ""
+              },
+              "authOAuth1": {
+                "consumerKey": "",
+                "consumerSecret": "",
+                "token": "",
+                "tokenSecret": "",
+                "signatureMethod": "HMAC-SHA1",
+                "realm": ""
+              },
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "e96836ac-9409-403a-b762-7523bd22229b",
+              "type": "request",
+              "name": "Bearer",
+              "url": "{{mockUrl}}/auth/{{requestName()}}",
+              "method": "GET",
+              "authEnabled": true,
+              "authType": "bearer",
+              "authBasic": {
+                "username": "Bob",
+                "password": "encp:v2:AAM0UATWrZvtQduP7A7n9a1LWiPE305IVYZYTwpAayAtS+huHhUJBgwpr/suQsrC1PgkbxNNoWuJc8Ug"
+              },
+              "authBearer": {
+                "token": "encp:v2:AAM0UBHVCMzUTOTGb6JYDmJen68I7fVq03EMUEllc62/70TNOVuSdVX3+V09ZYKvjIKKCs8="
+              },
+              "authApiKey": {
+                "name": "",
+                "value": "",
+                "addTo": "header"
+              },
+              "authDigest": {
+                "username": "",
+                "password": ""
+              },
+              "authNtlm": {
+                "username": "",
+                "password": "",
+                "domain": "",
+                "workstation": ""
+              },
+              "authOAuth2": {
+                "grantType": "client_credentials",
+                "clientType": "confidential",
+                "clientId": "",
+                "clientSecret": "",
+                "accessTokenUrl": "",
+                "authUrl": "",
+                "scope": "",
+                "state": "",
+                "credentials": "header",
+                "headerPrefix": "",
+                "audience": "",
+                "resource": "",
+                "origin": "",
+                "redirectUri": "",
+                "responseType": "access_token",
+                "username": "",
+                "password": "",
+                "deviceAuthorizationUrl": "",
+                "subjectToken": "",
+                "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "actorToken": "",
+                "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "requestedTokenType": "",
+                "discoveredIssuer": "",
+                "discoveredScopes": null
+              },
+              "authAwsIam": {
+                "accessKeyId": "",
+                "secretAccessKey": "",
+                "region": "",
+                "service": "",
+                "sessionToken": ""
+              },
+              "authOAuth1": {
+                "consumerKey": "",
+                "consumerSecret": "",
+                "token": "",
+                "tokenSecret": "",
+                "signatureMethod": "HMAC-SHA1",
+                "realm": ""
+              },
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "dea18e92-ce83-463c-923e-53ad8d54cded",
+              "type": "request",
+              "name": "API Key - Header",
+              "url": "{{mockUrl}}/auth/apikey",
+              "method": "GET",
+              "authEnabled": true,
+              "authType": "apikey",
+              "authBasic": {
+                "username": "Bob",
+                "password": "encp:v2:AAM0ULmy36NVMU6yEW07H2+ytzDJocArHBPzENYnh5SOEnPJvD/O5TiqsWoFodLRQKf5wn8BQsl+gBCK"
+              },
+              "authBearer": {
+                "token": "encp:v2:AAM0UBPLZQ3xI30/ADVKHf3vv7bIHumy47a7w8DucfVuKOkr4B2zV0fWgaSCL29l6DnKPvY="
+              },
+              "authApiKey": {
+                "name": "X-API-Key",
+                "value": "encp:v2:AAM0UNUwvHy3qKjHRB2NW79A4pH1363ygMnyF7osweSnTWzDbTj8ZVlDYzBfwcEFQws8vuVvGw==",
+                "addTo": "header"
+              },
+              "authDigest": {
+                "username": "",
+                "password": ""
+              },
+              "authNtlm": {
+                "username": "",
+                "password": "",
+                "domain": "",
+                "workstation": ""
+              },
+              "authOAuth2": {
+                "grantType": "client_credentials",
+                "clientType": "confidential",
+                "clientId": "",
+                "clientSecret": "",
+                "accessTokenUrl": "",
+                "authUrl": "",
+                "scope": "",
+                "state": "",
+                "credentials": "header",
+                "headerPrefix": "",
+                "audience": "",
+                "resource": "",
+                "origin": "",
+                "redirectUri": "",
+                "responseType": "access_token",
+                "username": "",
+                "password": "",
+                "deviceAuthorizationUrl": "",
+                "subjectToken": "",
+                "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "actorToken": "",
+                "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "requestedTokenType": "",
+                "discoveredIssuer": "",
+                "discoveredScopes": null
+              },
+              "authAwsIam": {
+                "accessKeyId": "",
+                "secretAccessKey": "",
+                "region": "",
+                "service": "",
+                "sessionToken": ""
+              },
+              "authOAuth1": {
+                "consumerKey": "",
+                "consumerSecret": "",
+                "token": "",
+                "tokenSecret": "",
+                "signatureMethod": "HMAC-SHA1",
+                "realm": ""
+              },
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "90afd2b2-cae4-4168-99d6-3b8ccbca0da7",
+              "type": "request",
+              "name": "API Key - Query Param",
+              "url": "{{mockUrl}}/auth/apikey",
+              "method": "GET",
+              "authEnabled": true,
+              "authType": "apikey",
+              "authBasic": {
+                "username": "Bob",
+                "password": "encp:v2:AAM0UN/iB7/J2fL4MHs1yf15RnGR8IbW5Ewminr0PoedWHLRNEy00L6bmq/SBfgDyUfIfhkU/Zni8lRV"
+              },
+              "authBearer": {
+                "token": "encp:v2:AAM0UCp8izC0U1r2LEkZ9HwNC7U+4ZuHcRvaiZf1djzp3hcb6oVzKzvC7wNVwEsE3k3F6ks="
+              },
+              "authApiKey": {
+                "name": "apikey",
+                "value": "encp:v2:AAM0UEotLGDmYKT4SqzwZypceBEDQ7so2sMTnDTZWDTnby4RYSosmFIh3+U77Uu6CDxxXJAgFw==",
+                "addTo": "query"
+              },
+              "authDigest": {
+                "username": "",
+                "password": ""
+              },
+              "authNtlm": {
+                "username": "",
+                "password": "",
+                "domain": "",
+                "workstation": ""
+              },
+              "authOAuth2": {
+                "grantType": "client_credentials",
+                "clientType": "confidential",
+                "clientId": "",
+                "clientSecret": "",
+                "accessTokenUrl": "",
+                "authUrl": "",
+                "scope": "",
+                "state": "",
+                "credentials": "header",
+                "headerPrefix": "",
+                "audience": "",
+                "resource": "",
+                "origin": "",
+                "redirectUri": "",
+                "responseType": "access_token",
+                "username": "",
+                "password": "",
+                "deviceAuthorizationUrl": "",
+                "subjectToken": "",
+                "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "actorToken": "",
+                "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "requestedTokenType": "",
+                "discoveredIssuer": "",
+                "discoveredScopes": null
+              },
+              "authAwsIam": {
+                "accessKeyId": "",
+                "secretAccessKey": "",
+                "region": "",
+                "service": "",
+                "sessionToken": ""
+              },
+              "authOAuth1": {
+                "consumerKey": "",
+                "consumerSecret": "",
+                "token": "",
+                "tokenSecret": "",
+                "signatureMethod": "HMAC-SHA1",
+                "realm": ""
+              },
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "7665ccc5-aa1a-40c2-9839-04265b1a88c0",
+              "type": "request",
+              "name": "Digest",
+              "url": "{{mockUrl}}/auth/{{requestName()}}",
+              "method": "GET",
+              "authEnabled": true,
+              "authType": "digest",
+              "authBasic": {
+                "username": "Bob",
+                "password": "encp:v2:AAM0UElsChKzWAB0T6gT8aaVshhaLw5Wd36ymiUzZGlQkO12aIaZkwY4ee4yRKZYJFH8dk/33t7wgCgx"
+              },
+              "authBearer": {
+                "token": "encp:v2:AAM0UKPtobYWIpQKrO+wfL6jF/kP+bxgPGA0Bf9LdZoPvrlPZY+9RGit0fBVx0X0WNBkabs="
+              },
+              "authApiKey": {
+                "name": "X-API-Key",
+                "value": "encp:v2:AAM0UNDKgTn6jcAUQsA2mONZ6wGfwCtvwQQVyud4gtE6i/SFNpaS5ZSPCGpkglKieTcNbMdwnw==",
+                "addTo": "query"
+              },
+              "authDigest": {
+                "username": "{{Username}}",
+                "password": "encp:v2:AAM0UFhqP5pCn4yYBZDeJT0a3TL4WI8pcfWkJkFgykSxk0pex2lZ9BvyuCRM5T6olx/KPZrckzqa3iF8"
+              },
+              "authNtlm": {
+                "username": "",
+                "password": "",
+                "domain": "",
+                "workstation": ""
+              },
+              "authOAuth2": {
+                "grantType": "client_credentials",
+                "clientType": "confidential",
+                "clientId": "",
+                "clientSecret": "",
+                "accessTokenUrl": "",
+                "authUrl": "",
+                "scope": "",
+                "state": "",
+                "credentials": "header",
+                "headerPrefix": "",
+                "audience": "",
+                "resource": "",
+                "origin": "",
+                "redirectUri": "",
+                "responseType": "access_token",
+                "username": "",
+                "password": "",
+                "deviceAuthorizationUrl": "",
+                "subjectToken": "",
+                "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "actorToken": "",
+                "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "requestedTokenType": "",
+                "discoveredIssuer": "",
+                "discoveredScopes": null
+              },
+              "authAwsIam": {
+                "accessKeyId": "",
+                "secretAccessKey": "",
+                "region": "",
+                "service": "",
+                "sessionToken": ""
+              },
+              "authOAuth1": {
+                "consumerKey": "",
+                "consumerSecret": "",
+                "token": "",
+                "tokenSecret": "",
+                "signatureMethod": "HMAC-SHA1",
+                "realm": ""
+              },
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "4eaaa8e7-0b77-411b-884b-0960893f6d82",
+              "type": "request",
+              "name": "ntlm",
+              "url": "{{mockUrl}}/auth/{{requestName()}}",
+              "method": "GET",
+              "authEnabled": true,
+              "authType": "ntlm",
+              "authBasic": {
+                "username": "Bob",
+                "password": "encp:v2:AAM0UDqXSDzlghx6N/IjCxNx20noo+sI6TPumqPQhLKtsSA6hW87qCB0pP0zqqACQwi83PmEv+ObV2Rt"
+              },
+              "authBearer": {
+                "token": "encp:v2:AAM0UKfmOC4hceSwhlJIhdRSwMzrewMxVb5YsuFg+Jo6Bu2nxVjzBFYg+xIKPlvguIRN8bU="
+              },
+              "authApiKey": {
+                "name": "X-API-Key",
+                "value": "encp:v2:AAM0UGLpxpVGEgBzkInezKNhkXrz4ZnlXlYgPqtQyO8iQ17nAXlMasRTCJ+ftUEyIkEVGASnpA==",
+                "addTo": "query"
+              },
+              "authDigest": {
+                "username": "{{Username}}",
+                "password": "encp:v2:AAM0UOCMMo5mwuub6WPkqUPChol5YUsUHyGxhYHEaOuk3UVQmPxXYR1K2IVX3BoHePzlgk8CzB3SMOcu"
+              },
+              "authNtlm": {
+                "username": "{{Username}}",
+                "password": "encp:v2:AAM0UAeLh91FkCzxTbe7oQX8vflT4DzyiZC/gwrnDEfNxlWU8xPwToPQENDQwyWef/M4zVnwWwNauZxl",
+                "domain": "sso",
+                "workstation": "workstation"
+              },
+              "authOAuth2": {
+                "grantType": "client_credentials",
+                "clientType": "confidential",
+                "clientId": "",
+                "clientSecret": "",
+                "accessTokenUrl": "",
+                "authUrl": "",
+                "scope": "",
+                "state": "",
+                "credentials": "header",
+                "headerPrefix": "",
+                "audience": "",
+                "resource": "",
+                "origin": "",
+                "redirectUri": "",
+                "responseType": "access_token",
+                "username": "",
+                "password": "",
+                "deviceAuthorizationUrl": "",
+                "subjectToken": "",
+                "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "actorToken": "",
+                "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "requestedTokenType": "",
+                "discoveredIssuer": "",
+                "discoveredScopes": null
+              },
+              "authAwsIam": {
+                "accessKeyId": "",
+                "secretAccessKey": "",
+                "region": "",
+                "service": "",
+                "sessionToken": ""
+              },
+              "authOAuth1": {
+                "consumerKey": "",
+                "consumerSecret": "",
+                "token": "",
+                "tokenSecret": "",
+                "signatureMethod": "HMAC-SHA1",
+                "realm": ""
+              },
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "8975cfca-5367-4ae2-9afd-dd153ec299d3",
+              "type": "collection",
+              "name": "OAuth 2.0",
+              "variables": [],
+              "children": [
+                {
+                  "id": "4f4b8ac1-de57-410c-930a-36df438263fc",
+                  "type": "request",
+                  "name": "Authorization Code - Client - Header",
+                  "url": "{{mockUrl}}/auth/bearer",
+                  "method": "GET",
+                  "authEnabled": true,
+                  "authType": "oauth2",
+                  "authBasic": {
+                    "username": "Bob",
+                    "password": "encp:v2:AAM0UOd8hkRroOj+hl4DFlrquI1+YGCpJvy2MXfNxJwe9xM9Zcs9s0ffKgI7EzJxCSw4B8MNBGCn0wAB"
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0UHZKXHCu7P2FovavfMpmYlEsDAZGAsA7bZyz6AFwmCcO3uK3A/bdV3onb+CYbpx80J8="
+                  },
+                  "authApiKey": {
+                    "name": "X-API-Key",
+                    "value": "encp:v2:AAM0UCyvObjFb/0hXPk2HhqKgmNr8yN8O9dVoH1SgXh3zdMlqzL1Gnz1efXYjoKfkqohtbLb6A==",
+                    "addTo": "query"
+                  },
+                  "authDigest": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UK/ivHEbJefXEhUKV6pJVntALUnKLCqdqLuz9QgS9d2sR1ZJ2iUxnI+PELfed4FPmlRwcu0W78uP"
+                  },
+                  "authNtlm": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UP7M/f6m75bdPWsl9Lwn4YDq6o+Lda1Hi2zrS5jJbiU8JHtusXBpQ5aeinX9mTjGZc0JqLo4f8NE",
+                    "domain": "sso",
+                    "workstation": "workstation"
+                  },
+                  "authOAuth2": {
+                    "grantType": "authorization_code",
+                    "clientType": "confidential",
+                    "clientId": "oauth-code-client",
+                    "clientSecret": "encp:v2:AAM0UD0EWWQVLAzuaUsH0XdK9/NCHxIW+PSx0B7cWjl3fbXWzEpvTqk5RdGp5GX9kRJ4eJz5AcA7idMx+Layaxc=",
+                    "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+                    "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+                    "scope": "openid",
+                    "state": "",
+                    "credentials": "header",
+                    "headerPrefix": "",
+                    "audience": "",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "http://localhost:3000/callback",
+                    "responseType": "access_token",
+                    "username": "",
+                    "password": "",
+                    "deviceAuthorizationUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth/device",
+                    "subjectToken": "",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+                    "discoveredScopes": [
+                      "openid",
+                      "address",
+                      "phone",
+                      "web-origins",
+                      "service_account",
+                      "organization",
+                      "microprofile-jwt",
+                      "acr",
+                      "email",
+                      "basic",
+                      "roles",
+                      "profile",
+                      "offline_access"
+                    ]
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "pathParams": [],
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "e24a75e7-6acd-4c7c-acbf-52c4fb637ec9",
+                  "type": "request",
+                  "name": "Authorization Code - Client - Body",
+                  "url": "{{mockUrl}}/auth/bearer",
+                  "method": "GET",
+                  "authEnabled": true,
+                  "authType": "oauth2",
+                  "authBasic": {
+                    "username": "Bob",
+                    "password": "encp:v2:AAM0UIgtSmcDq4iSotSvaTgjWsHWkoy88pllzCYw8o6TN89kEiDqr8KuzPyQQBvKWyZ8NluGqaCactvn"
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0UBdIqDINKUjxItFOxKVeMgsu94CT4vBOTsxZdukdemrMRkXUxoRdzMVVB/Gp+/gTktI="
+                  },
+                  "authApiKey": {
+                    "name": "X-API-Key",
+                    "value": "encp:v2:AAM0UEyGH21nkPkoEkCr/cHoYd64Dy+b8rmDsVipr2F47F+9snZkMeRzfzgTI5bQM4Hey5cjng==",
+                    "addTo": "query"
+                  },
+                  "authDigest": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UAbtJ13cuRAx3HQnCFAXnDb0IsklZJpBfyg8Ug3aPt4VTErRmZp0pPiptRalQ0uMiYrgzoeNd5Ti"
+                  },
+                  "authNtlm": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UIq6HWqUEirG3MqjkBBUw6Hc+SilD25Zfjqr6hYo22hfrhTBChikFd8XsSnmHsezI/uZ6pA49rcy",
+                    "domain": "sso",
+                    "workstation": "workstation"
+                  },
+                  "authOAuth2": {
+                    "grantType": "authorization_code",
+                    "clientType": "confidential",
+                    "clientId": "oauth-code-client",
+                    "clientSecret": "encp:v2:AAM0UInHEEZ11w3d60TE8UfjSErWGoSDcBLoP7heuRmNh7Wpr4mchX84hXhrMp0vReqWyrXKBjwbucJRgaP6JUI=",
+                    "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+                    "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+                    "scope": "openid",
+                    "state": "",
+                    "credentials": "body",
+                    "headerPrefix": "",
+                    "audience": "",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "http://localhost:3000/callback",
+                    "responseType": "access_token",
+                    "username": "",
+                    "password": "",
+                    "deviceAuthorizationUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth/device",
+                    "subjectToken": "",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+                    "discoveredScopes": [
+                      "openid",
+                      "address",
+                      "phone",
+                      "web-origins",
+                      "service_account",
+                      "organization",
+                      "microprofile-jwt",
+                      "acr",
+                      "email",
+                      "basic",
+                      "roles",
+                      "profile",
+                      "offline_access"
+                    ]
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "pathParams": [],
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "6c912a93-4180-42b0-9472-81e34be36b1a",
+                  "type": "request",
+                  "name": "Authorization Code - PKCE - Header",
+                  "url": "{{mockUrl}}/auth/bearer",
+                  "method": "GET",
+                  "authEnabled": true,
+                  "authType": "oauth2",
+                  "authBasic": {
+                    "username": "Bob",
+                    "password": "encp:v2:AAM0UP8i4pXzB3/y943zhL51c7W4YjeLzoS/JLwPUnX9QrjNY2GdgKqV4nnHbAREwTBAh+YpjZef1E23"
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0UDr/xO9ahOfTlSAA4mK4D134gpxqecM3M1o7lN0TJfIPKayS36jpybCZMpO18PnpLYA="
+                  },
+                  "authApiKey": {
+                    "name": "X-API-Key",
+                    "value": "encp:v2:AAM0UE1c2KToFln1cpYvxVZTai3ppBizqPNLPBIj5dEXs+dFt0SyHGi+qPjIzNPdv9vEcNoxAQ==",
+                    "addTo": "query"
+                  },
+                  "authDigest": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UFJEwWgMyTxDqSBhb+kpV/JQhsNKbu1gN4VD7TvA+zEwN7XB3kvz4OO2eB6yvoSVsyyGODOgp31v"
+                  },
+                  "authNtlm": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UDB4xtBTsC/b0SHbDFgIxLPGF7O9DnvhBiWzLUVK3Hoxsbp/IVm5kQcvWv7ym5sBCmUmabfjuCGl",
+                    "domain": "sso",
+                    "workstation": "workstation"
+                  },
+                  "authOAuth2": {
+                    "grantType": "authorization_code",
+                    "clientType": "public",
+                    "clientId": "oauth-pkce-client",
+                    "clientSecret": "encp:v2:AAM0UDPz/pdEFaHtv75Y+G4ROU+qyDjUIU4qG9BkqivWZ9HOh62dP+wOMEhOkYgzdBg5GfD9iWguJ1moxjwcDS0=",
+                    "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+                    "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+                    "scope": "openid",
+                    "state": "",
+                    "credentials": "header",
+                    "headerPrefix": "",
+                    "audience": "",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "http://localhost:3001/callback",
+                    "responseType": "access_token",
+                    "username": "",
+                    "password": "",
+                    "deviceAuthorizationUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth/device",
+                    "subjectToken": "",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+                    "discoveredScopes": [
+                      "openid",
+                      "address",
+                      "phone",
+                      "web-origins",
+                      "service_account",
+                      "organization",
+                      "microprofile-jwt",
+                      "acr",
+                      "email",
+                      "basic",
+                      "roles",
+                      "profile",
+                      "offline_access"
+                    ]
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "pathParams": [],
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "eaf6582c-cca7-4111-8dd0-b697e4f9e96b",
+                  "type": "request",
+                  "name": "Authorization Code - PKCE - Body",
+                  "url": "{{mockUrl}}/auth/bearer",
+                  "method": "GET",
+                  "authEnabled": true,
+                  "authType": "oauth2",
+                  "authBasic": {
+                    "username": "Bob",
+                    "password": "encp:v2:AAM0UOjV/VLDgnjVK3f4XP/WZkJdtqti2b8lhmWPLL9R/rk060MQjiYUEF/hg8fJ1ThmsZKm79lB1kjH"
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0UEBSq4nFoOgWSVxJwBqBh7mYmooeABnpLSwrOX/vFoBdcmweorZezDNB7WQd6ulMg50="
+                  },
+                  "authApiKey": {
+                    "name": "X-API-Key",
+                    "value": "encp:v2:AAM0UFRt1OCMstnqXrTXeC4sI11GA7eEM7jMLa6IlJ3tSyNeqqEAl/w76HHRaLTIMz/hFnf3qg==",
+                    "addTo": "query"
+                  },
+                  "authDigest": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UC429t9m8iJnaLMNBLww+jhb5ZVCfhlrdxOHHhX+7NB883scrSdzm8dWtPFT78LEl9wj7eEz9QgK"
+                  },
+                  "authNtlm": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UNTsEpznoIbIienhpVevLPAN86zvi1C2WoN0onO6+fLk6HbEE5lpGe89RBp9G1SJ1e0IVzU1Njnl",
+                    "domain": "sso",
+                    "workstation": "workstation"
+                  },
+                  "authOAuth2": {
+                    "grantType": "authorization_code",
+                    "clientType": "public",
+                    "clientId": "oauth-pkce-client",
+                    "clientSecret": "encp:v2:AAM0UC7NtJuAO54lzwcWefbbEZns1XWh9X7dzHm2XCGBzQqc8X/kiy+Yq0KKi4mL+Iyoind/bbRVqAcd6ffOuVQ=",
+                    "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+                    "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+                    "scope": "openid",
+                    "state": "",
+                    "credentials": "body",
+                    "headerPrefix": "",
+                    "audience": "",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "http://localhost:3001/callback",
+                    "responseType": "access_token",
+                    "username": "",
+                    "password": "",
+                    "deviceAuthorizationUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth/device",
+                    "subjectToken": "",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+                    "discoveredScopes": [
+                      "openid",
+                      "address",
+                      "phone",
+                      "web-origins",
+                      "service_account",
+                      "organization",
+                      "microprofile-jwt",
+                      "acr",
+                      "email",
+                      "basic",
+                      "roles",
+                      "profile",
+                      "offline_access"
+                    ]
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "pathParams": [],
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "843c012a-6e33-4e4d-959b-30706358b8d6",
+                  "type": "request",
+                  "name": "Client Credentials - Header",
+                  "url": "{{mockUrl}}/auth/bearer",
+                  "method": "GET",
+                  "authEnabled": true,
+                  "authType": "oauth2",
+                  "authBasic": {
+                    "username": "Bob",
+                    "password": "encp:v2:AAM0UNRLPeMp/NrcdIjI5KErg1KJpq0n+eZKwqbbPB0cAj/8KdyF4AwJTKwzfWpAydr4aGjYU03dF2bn"
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0UO4qsvxT7ErJ/GlIL4Va4i6q2Vyr0DezPjEBgWiktwK6wtFSnCx51RTGpePV21jMJbI="
+                  },
+                  "authApiKey": {
+                    "name": "X-API-Key",
+                    "value": "encp:v2:AAM0UKKRdqV/IykbS6+IN9EMZG3os+GjxtRtuDHW2rjWLsGhIxvChcslLUCVQVBa3S03mK0rlg==",
+                    "addTo": "query"
+                  },
+                  "authDigest": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UJnvZH1gjYha68D/BKnzVK880KaJumF1ksN4RuFUalT/W3Fj6PozHCxZmYrHldXD/cjp1sd5AFWh"
+                  },
+                  "authNtlm": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UCPp9eNuwbt8o9PiO4x7L5Eiy4bySeBqnRTjWHoN7HZ5SuF2RKNqJO/5UZRuHz6Jbg//EMmHB+75",
+                    "domain": "sso",
+                    "workstation": "workstation"
+                  },
+                  "authOAuth2": {
+                    "grantType": "client_credentials",
+                    "clientType": "public",
+                    "clientId": "client-credentials-client",
+                    "clientSecret": "encp:v2:AAM0UJvuJ0GDcqVpoTzVBXxm4/QkkHt/d4s0osSZNr0Jayc8u6K/viw4Do5oN3+LUHXtahJZCHHrj0o9GPGuwio=",
+                    "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+                    "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+                    "scope": "openid",
+                    "state": "",
+                    "credentials": "header",
+                    "headerPrefix": "",
+                    "audience": "token-exchange-client",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "http://localhost:3000/callback",
+                    "responseType": "access_token",
+                    "username": "",
+                    "password": "",
+                    "deviceAuthorizationUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth/device",
+                    "subjectToken": "",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+                    "discoveredScopes": [
+                      "openid",
+                      "address",
+                      "phone",
+                      "web-origins",
+                      "service_account",
+                      "organization",
+                      "microprofile-jwt",
+                      "acr",
+                      "email",
+                      "basic",
+                      "roles",
+                      "profile",
+                      "offline_access"
+                    ]
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "pathParams": [],
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "ee500e37-23db-4cdb-8b41-8cb69d4854fa",
+                  "type": "request",
+                  "name": "Client Credentials - Body",
+                  "url": "{{mockUrl}}/auth/bearer",
+                  "method": "GET",
+                  "authEnabled": true,
+                  "authType": "oauth2",
+                  "authBasic": {
+                    "username": "Bob",
+                    "password": "encp:v2:AAM0UIHi7b/pC1M3fkq7IRObtYJf8khWdD8APsr5TMCXQwYoZNRxGWkDdO5hgP5aLu8IwRFdM7lBSq1/"
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0UMzLrsE1F7By/xsxnlzFveytW1E5+6XlMc8g0+iSC4q/wDpKO6D48yELc1+vT7mrbw0="
+                  },
+                  "authApiKey": {
+                    "name": "X-API-Key",
+                    "value": "encp:v2:AAM0UJhnVwRvDjxGbGgxJ5h1MmXP1WxkaASvcJLyJs+IkZUj3gf5IsUC4piilKO0p2TySWsCNg==",
+                    "addTo": "query"
+                  },
+                  "authDigest": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UL1nGGnwHKtGkYsiWc1guMKy0BUYcQ0l07qmeG+QKpbreZpjrKI9qKmQwdhGAwXBXlzcaTwN70+u"
+                  },
+                  "authNtlm": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UCm9VT54lR1eO/zbP7Ujs1aEbtHmmL5et6MvhrZlBFl/jOF0GTOjkrSnbTpZ/tzf7sZK/MInsYhP",
+                    "domain": "sso",
+                    "workstation": "workstation"
+                  },
+                  "authOAuth2": {
+                    "grantType": "client_credentials",
+                    "clientType": "public",
+                    "clientId": "client-credentials-client",
+                    "clientSecret": "encp:v2:AAM0UBAvvpvroS10KLWW3XCdg8ZC0HoqEKzFm1vgiTpPhe+8+o/mgFsycjjHceCWEXKFKx82OO3vhZoipnUMiBg=",
+                    "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+                    "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+                    "scope": "openid",
+                    "state": "",
+                    "credentials": "body",
+                    "headerPrefix": "",
+                    "audience": "token-exchange-client",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "http://localhost:3000/callback",
+                    "responseType": "access_token",
+                    "username": "",
+                    "password": "",
+                    "deviceAuthorizationUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth/device",
+                    "subjectToken": "",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+                    "discoveredScopes": [
+                      "openid",
+                      "address",
+                      "phone",
+                      "web-origins",
+                      "service_account",
+                      "organization",
+                      "microprofile-jwt",
+                      "acr",
+                      "email",
+                      "basic",
+                      "roles",
+                      "profile",
+                      "offline_access"
+                    ]
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "pathParams": [],
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "1e177469-938f-4d6c-9095-57fbf50904f2",
+                  "type": "request",
+                  "name": "Resource Owner Password - Header",
+                  "url": "{{mockUrl}}/auth/bearer",
+                  "method": "GET",
+                  "authEnabled": true,
+                  "authType": "oauth2",
+                  "authBasic": {
+                    "username": "Bob",
+                    "password": "encp:v2:AAM0UKyDWrBlzCWrhzajeq83RquGevzcI3R9Xfb61iAC3DnBCQf7PAtu9DkwuiHZOI2rvoVIJoX4qGU9"
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0UMom3SzxKHGgL6b8T/p7sQO27Z95FwzGBJz1LdItn7R2SB7axADVHOwk+YJg6a1A27s="
+                  },
+                  "authApiKey": {
+                    "name": "X-API-Key",
+                    "value": "encp:v2:AAM0UG0orhpkLiVSnEvMCtffvpnjtIS8ae79UR1cqdgkXwEt1rsOsgTVdcSUXPeEh/a3+B95SA==",
+                    "addTo": "query"
+                  },
+                  "authDigest": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UB2OZkb8dm22VqwqKdTn2myG/HFr0WkMvv6URNcDghKSgCJtI/2HERz1zOOiijo41UpiiB0x5lzV"
+                  },
+                  "authNtlm": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UMtKrqcHxIXz6aO+tOHAW7N4sDkWZafvmKDhz8uhabUC5Y+OkrO+Sj43DGuNtdLFTCnj7tW5zYgX",
+                    "domain": "sso",
+                    "workstation": "workstation"
+                  },
+                  "authOAuth2": {
+                    "grantType": "password",
+                    "clientType": "public",
+                    "clientId": "password-grant-client",
+                    "clientSecret": "encp:v2:AAM0UDStmsT5pxeWERRRhw7Jp1K8LPQWOOJ7Y/nCT3X0drXdkhLThp+zpsOr4jkkKCY7iIFSXeNQJntXuEt8ddE=",
+                    "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+                    "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+                    "scope": "openid",
+                    "state": "",
+                    "credentials": "header",
+                    "headerPrefix": "",
+                    "audience": "",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "http://localhost:3000/callback",
+                    "responseType": "access_token",
+                    "username": "encp:v2:AAM0ULLjVD6CAGKRssF+VWlaQEZlVy7arMfv3iO68y5yFkR2SqY9gVZw34btjJqYgD6fUWVMcicbLTgR",
+                    "password": "encp:v2:AAM0UL25wHQSb2WsoH0qpfXrtdMMles3DY4p2NtCSQjyLaMqtR39KpYYjHtOMVcnfCBICcO0vi7zK0Nr",
+                    "deviceAuthorizationUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth/device",
+                    "subjectToken": "",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+                    "discoveredScopes": [
+                      "openid",
+                      "address",
+                      "phone",
+                      "web-origins",
+                      "service_account",
+                      "organization",
+                      "microprofile-jwt",
+                      "acr",
+                      "email",
+                      "basic",
+                      "roles",
+                      "profile",
+                      "offline_access"
+                    ]
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "pathParams": [],
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "49b09b3b-a9e7-4da4-b2d6-86a142e9cb42",
+                  "type": "request",
+                  "name": "Resource Owner Password - Body",
+                  "url": "{{mockUrl}}/auth/bearer",
+                  "method": "GET",
+                  "authEnabled": true,
+                  "authType": "oauth2",
+                  "authBasic": {
+                    "username": "Bob",
+                    "password": "encp:v2:AAM0UHIAENHC94ELZqKFykZN9czUIzhyCdzfDTpVKspp9LKiEbbLFxW05cRGCtFRLPRRsVucgMN8FBxD"
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0UN+/TiEqrKp5mNs6/dfQceGdLMihgf3xyl4RrKl6YMGXPfAJoSMnAMO5m1yH9mZpqwQ="
+                  },
+                  "authApiKey": {
+                    "name": "X-API-Key",
+                    "value": "encp:v2:AAM0UAll8K/SGiab4wHQbIHvGW+aiVorxvc4/jWV0stoBd7308D4VCxEvy+mnsY+SRGPXboGpA==",
+                    "addTo": "query"
+                  },
+                  "authDigest": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UM8xYKSM+qFshGfQR3KSgeRQbeuuMNicydRxIUVU4QlSAq4pSP2MAYo17olijfnXqR0H684WrMfe"
+                  },
+                  "authNtlm": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UOXG/sRh/lCXOSz3PsR2f2N6w68rB/+lqn542BJMAXoSB2Oz6FdUS3N2fz2aAgmwM08OEzK1rqxE",
+                    "domain": "sso",
+                    "workstation": "workstation"
+                  },
+                  "authOAuth2": {
+                    "grantType": "password",
+                    "clientType": "public",
+                    "clientId": "password-grant-client",
+                    "clientSecret": "encp:v2:AAM0UAsx9ZAUCjgt+fXhVDpzdFaxyw8RQ1D2eW3gUuXjryaaLZMDNH9eHrw3LApTK09bJU4H5ceQMZjvqcbzkD0=",
+                    "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+                    "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+                    "scope": "openid",
+                    "state": "",
+                    "credentials": "body",
+                    "headerPrefix": "",
+                    "audience": "",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "http://localhost:3000/callback",
+                    "responseType": "access_token",
+                    "username": "encp:v2:AAM0UNF0KeLfx9g8lfPqL7/ggcllPjEnf7douuokk/l5syBcvN8M774H6n8HiygtyP4TBx6bLmVAyWAT",
+                    "password": "encp:v2:AAM0UB3fc7fEn939JLfimFvZRfYLgp1p1LeGuS+aFqLRFAfkRr7L2LVLvn6jbvVUTXFjdsYfubairkw1",
+                    "deviceAuthorizationUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth/device",
+                    "subjectToken": "",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+                    "discoveredScopes": [
+                      "openid",
+                      "address",
+                      "phone",
+                      "web-origins",
+                      "service_account",
+                      "organization",
+                      "microprofile-jwt",
+                      "acr",
+                      "email",
+                      "basic",
+                      "roles",
+                      "profile",
+                      "offline_access"
+                    ]
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "pathParams": [],
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "40bdff41-7221-4188-8b1f-8c83ea28265b",
+                  "type": "request",
+                  "name": "Implicit - Access Token",
+                  "url": "{{mockUrl}}/auth/bearer",
+                  "method": "GET",
+                  "authEnabled": true,
+                  "authType": "oauth2",
+                  "authBasic": {
+                    "username": "Bob",
+                    "password": "encp:v2:AAM0UKKTUJtbtB6wSRcfI6d79t4P0+lWEfE9SP+nzjBEiZKQIJQmDFAFgnzJMFaNiBajzsPZQz1LaGyD"
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0ULbFwVo1+FqbbgG+iwYqdE3mTFUdo+jcPH2y7bniAYOqkGwnWsWkh3iHrntpZ5JzHKE="
+                  },
+                  "authApiKey": {
+                    "name": "X-API-Key",
+                    "value": "encp:v2:AAM0UCX9i7vjLSwHzAid5DGv/WqChR8taTYfei0MReDIX2FB5uwJSY260JHDBb/II7IxN+G4Yg==",
+                    "addTo": "query"
+                  },
+                  "authDigest": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UIvjP3RYYEne8bFDusPSicOHXO+JJt0S3VxiAhPxYlix+mlsEHTVtBwkRg7yndrVPWY270Q2tz1Q"
+                  },
+                  "authNtlm": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UBhOHZ9FqCcWjBklcV3vAaF4HXtd/+e7caebB0mtFE9iPoPXeZ+ORrYjW98AbRq3vxLttk5LCpNN",
+                    "domain": "sso",
+                    "workstation": "workstation"
+                  },
+                  "authOAuth2": {
+                    "grantType": "implicit",
+                    "clientType": "public",
+                    "clientId": "implicit-client",
+                    "clientSecret": "encp:v2:AAM0UFVAuUg1j1jTxqVAlPLUy16pnP8zReFoA/Fz9sf9wN9imrxQzpt1XpmxqDDhnx+/ThFfvE7GDcQ31MgIxvc=",
+                    "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+                    "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+                    "scope": "openid",
+                    "state": "",
+                    "credentials": "body",
+                    "headerPrefix": "",
+                    "audience": "",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "http://localhost:3002/callback",
+                    "responseType": "access_token",
+                    "username": "encp:v2:AAM0UHVHd2sHTFU+llPtaazw/xAj8wDZ2cgLfgW4itM/tl66wuo4N/DILvyPqin3ZLN4KqUygqPl72pS",
+                    "password": "encp:v2:AAM0UPWoJ1CDxElmfW9sCtU+KL4nQqChFWaqONyJD5l1zD2/fTa0fiKj1Wc7++ja05DLRR6WkTN2ON2U",
+                    "deviceAuthorizationUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth/device",
+                    "subjectToken": "",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+                    "discoveredScopes": [
+                      "openid",
+                      "address",
+                      "phone",
+                      "web-origins",
+                      "service_account",
+                      "organization",
+                      "microprofile-jwt",
+                      "acr",
+                      "email",
+                      "basic",
+                      "roles",
+                      "profile",
+                      "offline_access"
+                    ]
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "pathParams": [],
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "b0e36b46-340d-4cec-a71e-d61241b17422",
+                  "type": "request",
+                  "name": "Implicit - Id Token",
+                  "url": "{{mockUrl}}/auth/bearer",
+                  "method": "GET",
+                  "authEnabled": true,
+                  "authType": "oauth2",
+                  "authBasic": {
+                    "username": "Bob",
+                    "password": "encp:v2:AAM0UDtfsinXAZce4RgVbs/2fsjs5V0cerqxI7FVj4K40T48BsilmT4a50BOMko0SZzmb8phd0kletQ/"
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0UA/p1FNQqcYVWSbWkjJV7YFCgB/tAiPbvUupeXbbz9pDB0z1g5XM3kQH3Ma5l6oC1qM="
+                  },
+                  "authApiKey": {
+                    "name": "X-API-Key",
+                    "value": "encp:v2:AAM0UD8XfcWEEC9kzTh7CCJBOoqu8tMYmZXWktXDaKjBn9jbu6nL8MKilB828MXgS1q0L3Pk6Q==",
+                    "addTo": "query"
+                  },
+                  "authDigest": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UEMPO7sMIhvZ59Z4rYV0NSm13Ht7m7pKvLjHysu0Hzvf4iT9ptXAKQ70awadTNrwAMZuDSn84VzG"
+                  },
+                  "authNtlm": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UOHP9rIVj9dbO7kdjdjIU8sbhgqHrVCIVMqtjjN5u4QnuMRXOPNLkraWMndciQww7wQoc4JKwDDx",
+                    "domain": "sso",
+                    "workstation": "workstation"
+                  },
+                  "authOAuth2": {
+                    "grantType": "implicit",
+                    "clientType": "public",
+                    "clientId": "implicit-client",
+                    "clientSecret": "encp:v2:AAM0UIOk4N6UxlM/aHg/t46WeujP05n4i4xg130QrDmzBlj4e2+M00mpbcjOfB0yRyGdW94u3I+4RB0k3E7wtnc=",
+                    "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+                    "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+                    "scope": "openid",
+                    "state": "",
+                    "credentials": "body",
+                    "headerPrefix": "",
+                    "audience": "",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "http://localhost:3002/callback",
+                    "responseType": "id_token",
+                    "username": "encp:v2:AAM0UOqLPeooCi5B6dsOHunKTpDzD4LGrLoGnCLur3pn8OzVFl8cYKzYZbIS631O+bGNFur0/NlN9sss",
+                    "password": "encp:v2:AAM0UDCzCep+sVbMsbpsX7/0KoB/BQU/j3LIMtY+SO1vczTBueWjwitEEygSInfhPZtrMOubICD+F/Zk",
+                    "deviceAuthorizationUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth/device",
+                    "subjectToken": "",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+                    "discoveredScopes": [
+                      "openid",
+                      "address",
+                      "phone",
+                      "web-origins",
+                      "service_account",
+                      "organization",
+                      "microprofile-jwt",
+                      "acr",
+                      "email",
+                      "basic",
+                      "roles",
+                      "profile",
+                      "offline_access"
+                    ]
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "pathParams": [],
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "bd0775e6-aeb9-47d5-b3b4-732d88eeb97d",
+                  "type": "request",
+                  "name": "Implicit - Both",
+                  "url": "{{mockUrl}}/auth/bearer",
+                  "method": "GET",
+                  "authEnabled": true,
+                  "authType": "oauth2",
+                  "authBasic": {
+                    "username": "Bob",
+                    "password": "encp:v2:AAM0UJ7ieEDwFo3Z/7MnVwrvBbsSMM4FWPieOAc9fjIZOt3AHkI+V12pMQHcJ//vwUUqhWvRR2+So6KW"
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0UGytsxrXPWRMaCFU+cWNOOeLD5VxQy2zjMP6C2N0oYSyw6CQ3Kg2SFPHOOht7oSZUYc="
+                  },
+                  "authApiKey": {
+                    "name": "X-API-Key",
+                    "value": "encp:v2:AAM0UKBRRumKaPlPYKjE6f06IJQFeHKrj1WviX4HrJ95M6S8WulPmlQBvn9bOwtGcVZNrcAXDg==",
+                    "addTo": "query"
+                  },
+                  "authDigest": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UJZklxFtDNA7Pa9ybBeiJyEOIaBvvqt4A++KTrmSsF/CPhAlQ44vhvqlUbW0tw2rgUsQIzXUC4Sy"
+                  },
+                  "authNtlm": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UGp/0jmuxrxZ+Iwr3E3MQ0SgXD8BjSnnRRG4BHJU7GbJQRTOLxyF/6RZxViwwrLnJt/2t5vviF/n",
+                    "domain": "sso",
+                    "workstation": "workstation"
+                  },
+                  "authOAuth2": {
+                    "grantType": "implicit",
+                    "clientType": "public",
+                    "clientId": "implicit-client",
+                    "clientSecret": "encp:v2:AAM0UJ7E9AriULGdAa4G4SvE1JHxOHIDWgBEzd4aQOXyzNhPdbk8oXUBUWbTp+bzbUxX3jEcH11Jb19mnvxScWI=",
+                    "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+                    "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+                    "scope": "openid",
+                    "state": "",
+                    "credentials": "body",
+                    "headerPrefix": "",
+                    "audience": "",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "http://localhost:3002/callback",
+                    "responseType": "both",
+                    "username": "encp:v2:AAM0UBhLAR5HUCHPlMHm3l+xI6+vEQhj+Saer6XpvuqPSsoMcvcLS49RHlRzMbC5wgH+jPdK1pgktyAv",
+                    "password": "encp:v2:AAM0UBTHI8j4nEaaBTsd/d1H1bmc5/ogwP98rHxsfHDt21QUQQcveMXDDg9CX7yFduKuH1IDQdNyaj28",
+                    "deviceAuthorizationUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth/device",
+                    "subjectToken": "",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+                    "discoveredScopes": [
+                      "openid",
+                      "address",
+                      "phone",
+                      "web-origins",
+                      "service_account",
+                      "organization",
+                      "microprofile-jwt",
+                      "acr",
+                      "email",
+                      "basic",
+                      "roles",
+                      "profile",
+                      "offline_access"
+                    ]
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "pathParams": [],
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "82b7b171-235f-47fd-bff4-3b00eed88133",
+                  "type": "request",
+                  "name": "Device Authorization",
+                  "url": "{{mockUrl}}/auth/bearer",
+                  "method": "GET",
+                  "authEnabled": true,
+                  "authType": "oauth2",
+                  "authBasic": {
+                    "username": "Bob",
+                    "password": "encp:v2:AAM0UEj+OYrhPO+NR3WEqmyu+L2PawEX6kyLe5UVd6CWacgG2C1MC4umAJep2HUWkMrA65HEBttgVDZq"
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0UHxARvIuAD92mPAeLrQ8PwwmZKouNSixMh57dVRzVAhvQNvn4paEw7epl333q59xcNQ="
+                  },
+                  "authApiKey": {
+                    "name": "X-API-Key",
+                    "value": "encp:v2:AAM0ULjidIQFoE/sub6yQTU6gU89qeGRMVOH+OBDqek4lqKMuqEA8Yfyc8DTeED84njjIfPR6g==",
+                    "addTo": "query"
+                  },
+                  "authDigest": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UEmGPi7UvqJp2usNBogXpl1qjim6M+rs4KgOnwrV6awdikc9Yoe98HTh9wacunM7boN+dpxcRzi4"
+                  },
+                  "authNtlm": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UIFmpM10O8GQSYTHD2wKHD/HmqBz+NxdJFrM9nLdLvDatMUHuweIOvwYna/Et5SdGtO9upv/ez+n",
+                    "domain": "sso",
+                    "workstation": "workstation"
+                  },
+                  "authOAuth2": {
+                    "grantType": "device_code",
+                    "clientType": "public",
+                    "clientId": "device-code-client",
+                    "clientSecret": "",
+                    "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+                    "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+                    "scope": "openid",
+                    "state": "",
+                    "credentials": "body",
+                    "headerPrefix": "",
+                    "audience": "",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "http://localhost:3002/callback",
+                    "responseType": "both",
+                    "username": "encp:v2:AAM0UDbfZAhDBd3U6kVuNgawRwYyj+QiGeEPD6+hdbICST9TWumkcCsqVVIvSOMSx/6o3CPY5a/DqyxH",
+                    "password": "encp:v2:AAM0UFJAx7PlNEe9U3XCXv2VnUTqTvugzvPYT7VSIU2R4Z3fRYtLiGd1ieJI3c5m7D3hZE7pdgUWxyJ5",
+                    "deviceAuthorizationUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth/device",
+                    "subjectToken": "",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+                    "discoveredScopes": [
+                      "openid",
+                      "address",
+                      "phone",
+                      "web-origins",
+                      "service_account",
+                      "organization",
+                      "microprofile-jwt",
+                      "acr",
+                      "email",
+                      "basic",
+                      "roles",
+                      "profile",
+                      "offline_access"
+                    ]
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "pathParams": [],
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "97f78132-67cb-4b87-9ec5-0dd6f4a83b48",
+                  "type": "request",
+                  "name": "Token Exchange",
+                  "url": "{{mockUrl}}/auth/bearer",
+                  "method": "GET",
+                  "authEnabled": true,
+                  "authType": "oauth2",
+                  "authBasic": {
+                    "username": "Bob",
+                    "password": "encp:v2:AAM0UNkv4y/etNetAO7TLnGZ2XkMaoZcqwklFnFHCReg7K+bXcmDPO3SEjszVYCoLUoQmzFs0IOYUuM4"
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0UMf/e+8fYeNpMLjRziYXaDT16KdZYUqisht5Y+DUI5P+8s/lhe55CSaI2XaJz73neL4="
+                  },
+                  "authApiKey": {
+                    "name": "X-API-Key",
+                    "value": "encp:v2:AAM0UMjSfBKjo/erFNHjvhrcqX9riV09sgMjdYKlTpwein7YtLR+tKpJhhz633LsLddpK/Eo8w==",
+                    "addTo": "query"
+                  },
+                  "authDigest": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UG7Me0+6p+Oc+oOZyaH+YCpQo2rc8KM64P9GgKkQ4b6OMyMJ8dID54r8ELIKw4iZavfGrBDb3Ayx"
+                  },
+                  "authNtlm": {
+                    "username": "{{Username}}",
+                    "password": "encp:v2:AAM0UGcSV+XCbLwSZp7ZdzNPqcCdYbw6MPlRxxczcX/2pp81f+22+402CyCWWPfaYk4IVr7FeQjutGa6",
+                    "domain": "sso",
+                    "workstation": "workstation"
+                  },
+                  "authOAuth2": {
+                    "grantType": "token_exchange",
+                    "clientType": "public",
+                    "clientId": "token-exchange-client",
+                    "clientSecret": "encp:v2:AAM0UJQJejz9BKSP40Hs5a5EVfxeE1Xw56ip/1p/TKnYp7njIGvAdSbZvDNGvZMBiaN9WkIzVN3LPuRWxm9fvKU=",
+                    "accessTokenUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/token",
+                    "authUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth",
+                    "scope": "openid",
+                    "state": "",
+                    "credentials": "body",
+                    "headerPrefix": "",
+                    "audience": "",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "http://localhost:3002/callback",
+                    "responseType": "both",
+                    "username": "encp:v2:AAM0ULBLKPbaIrg1iUkpVwJyd5E/xtTxphXLbStacodpcELXgYZH7xgTk+zOJI+9G09LgxVx5VKg1ds8",
+                    "password": "encp:v2:AAM0UBgDziFch04pus+lpGqsQBI42jcVwNF02jdkZrXHZr9bbDlvJBr1ZyUX1dVgEjdZ9RjOcgv8ZYvQ",
+                    "deviceAuthorizationUrl": "http://localhost:8090/realms/demo-realm/protocol/openid-connect/auth/device",
+                    "subjectToken": "encp:v2:AAM0UHeT6byAEuciH0tCYwwuHof8AcRu3IdKTr2DDmmuaYSVhep8H0nhbtI2MQk0rcE0HLmmljMhUG5nqmuWt6+mWrAhAUYmEFZk1JjtEjBVMsCC1du4OeO5S7878v5yiqih1gELWIljcq90bpmyUNEdgep96NKt82wlgcMbUb2in7kRQhfHl92isHIDqj/4PbkY9Y6onhZh0EOOh7QyWKATOBudCR1Cv/ZXWIuJxLNXE+tHtud4K4ief59YMpBgReurqP7gVXwrV0ua6nbwIXy2wG6YhfCEnl3nZKfMysHkXSOsu8dnjDYx/jQNHa36ZV9gKYbVDhyhlOC5XxisyMhcFPxVhdz2zuF7zMIsT9pC8if5TeoU0kqbp7lOGZQ3ZDl1yD5GMde4iOCZZJ7l1KOpO3vx+2YI7YCEG54+rck01K6ugYrDJI97801fco16qTHtAZyq5UAzfpUJZkGqA7yzpUUJe3mDlGc51jfuIEgiol/r3hqu2BbnQPxrC0KEbl6Y1oryRxmVcd7BnV1N8k0/Qu4VvoDienJe8KuLwOQ5Oq5a6ly+xTem3RvIz/JdAoYur87u9RSmckdaDjvhapf5onCOJpSo3z87O7ZEI+Ivkmo2HVowzAiK3UHTVPImi4F6plpHHRuxT79eAHvL38MGW8c7Eal93kdHSRCooiCihy7Gor6beeKz/jLLv150SYx3Ca1WLKks2P6C9E3KjTt7sYghCki7iZHK5mGgLkMci6gARTTnvbVyWGeJAd/lKNQ77LkMJvL+xL0P9vFh0UmbEv6hSJMZ54CL3Q89Qv245lib/2VmwJkdei9nlPlDXxVyzzgaxrRPJuS2/DyRnHi6lLRHEGL3nd9BDSQoQo+DqSISeAdLi3EDJdLMW8c6M+Yh00sqiiTIQDl39h2WJ+ZRnBZy7KuHo7i80HdjpWU0UhK5CQAdc2U2MSD7jASTifXylncqtD242/YSjA+aHXyedyL8eusNbZXS7Mrmq+FMZI48VE7D5EqiBGIlClj/qCLNd59FFsysKPG3LjuPQJTPZ0vJfEHsgBwqwWjBKoLGAD2P7iIsxZGCb/1fH3oYjpjb6bguG6fVrPR15KYyKK7HwMfgEQ0+/ReQe9UYLR8INabRceRybkvSBmwxMd8fstlYE032vekDB4yO9TTBrq5gLgVh62g9Qw1PfVvaaETPJiLwkPL0f8noNZzVQ7Iq8gLDYyiYOp0H9Y3f88/rPaoiZ2H7gq+rIv+IC/Ghj6FVg+cICuACh1IRhz+ivpsJ/70tME9l0Anr40MbD/sqe//iZVJ776KriuP7rwVFpzcSP6aYeoHwkKJ9ugGqUQHM1YDyzyfDZAoTLJrWrmU1YpRaPJ5V6FFWt1Xxuw27V41pEZOuFtQa1XIkqBJWlTpn7Iy3rJTLs/gc1WXd+zeh9avQXCicyYqOaNbrXNROTQwVk5jnw3BiFOUSvQQCiZ8d02dBtGjnDdqFh/KlmmQqrPVBRUr55l5ehR0g93cwnPBi/faA1XMG4M9EaL/5+BBD1N26MnM8Ce6GZOWt1Kil1jwTyHefDFVTEQJW2sVPLPkib8PmjqklswR7rkrDWKXeoxhFVt6Sbl2yQ3sNdRD4mUfk0lmgyFV+1EvajlaXtKy3vFVBxy4SRJkmny03CnRY28ghLC30t/7k294ilOF1Qnc2I2KtX8zVL8EvsRemnmKN0Ib+m6KO67kfbtcH6wKHhwCGa5uLduAnoyhkGH9H15PrQlykQq87zvWjsXvvm/unUS+m7xU2U7D67FJJurqtGIzbjNW6Pv9eJCqZ2xXrwpnNEQrTGeKk49WKyeAIQfNXByA110yEub7mzRZaxy5nTQgS3pIx1bHTCxsPwAdweyHR4IrNHIo6RuCg",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "http://localhost:8090/realms/demo-realm",
+                    "discoveredScopes": [
+                      "openid",
+                      "address",
+                      "phone",
+                      "web-origins",
+                      "service_account",
+                      "organization",
+                      "microprofile-jwt",
+                      "acr",
+                      "email",
+                      "basic",
+                      "roles",
+                      "profile",
+                      "offline_access"
+                    ]
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "pathParams": [],
+                  "captures": [],
+                  "schemaVersion": 2
+                }
+              ]
+            },
+            {
+              "id": "e195e516-1ef1-4400-b2b4-6e237b462a8c",
+              "type": "request",
+              "name": "OAuth 1.0",
+              "url": "{{mockUrl}}/auth/oauth1",
+              "method": "GET",
+              "authEnabled": true,
+              "authType": "oauth1",
+              "authBasic": {
+                "username": "Bob",
+                "password": "encp:v2:AAM0UGsfSBQ0/lbKgkUgOkDIVeFJdu99IwX92x83RvWEevUFCkE2ka0Rounx4okN50GoEjwyDcg2jN+Y"
+              },
+              "authBearer": {
+                "token": "encp:v2:AAM0UPjx7rQEXVA28rMAQbp8dfpfHAbzTL4yvM3Ym5YeMGb0mOjfXhIG+YxYEmAmM0xSb28="
+              },
+              "authApiKey": {
+                "name": "X-API-Key",
+                "value": "encp:v2:AAM0UBXCySBCx9/qi6hStJJY2ofTillUuyZCQR0XVQMNTG6EpZmCNYh4Ow/COYgZXv/u3Mry3w==",
+                "addTo": "query"
+              },
+              "authDigest": {
+                "username": "{{Username}}",
+                "password": "encp:v2:AAM0UL3yhryZVbsA8cMV0wVvkN/7IuqMzV6g3T8lcg7blTT5qFBETWxEcK2RbgaDmONa0uWnfi9uZ63l"
+              },
+              "authNtlm": {
+                "username": "{{Username}}",
+                "password": "encp:v2:AAM0UBw9iL8rEqNNL4AgTvqYAyttCWGPrS7hq9z0CAaDNHpao3Ewz5zyrxRXPqbhcffuXifBkvUMYwzD",
+                "domain": "sso",
+                "workstation": "workstation"
+              },
+              "authOAuth2": {
+                "grantType": "client_credentials",
+                "clientType": "confidential",
+                "clientId": "",
+                "clientSecret": "",
+                "accessTokenUrl": "",
+                "authUrl": "",
+                "scope": "",
+                "state": "",
+                "credentials": "header",
+                "headerPrefix": "",
+                "audience": "",
+                "resource": "",
+                "origin": "",
+                "redirectUri": "",
+                "responseType": "access_token",
+                "username": "",
+                "password": "",
+                "deviceAuthorizationUrl": "",
+                "subjectToken": "",
+                "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "actorToken": "",
+                "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                "requestedTokenType": "",
+                "discoveredIssuer": "",
+                "discoveredScopes": null
+              },
+              "authAwsIam": {
+                "accessKeyId": "",
+                "secretAccessKey": "",
+                "region": "",
+                "service": "",
+                "sessionToken": ""
+              },
+              "authOAuth1": {
+                "consumerKey": "demo-consumer-key",
+                "consumerSecret": "encp:v2:AAM0UMpk74dTNdVvD+ZEkuWS04f2qMvF9IukH5aaG5HVhxPeUPfJZXSyrmfbEBHIqYHmJZf/7xiPrdjGOGn+i4nrV8k=",
+                "token": "encp:v2:AAM0UOBJQ/3nhzkvgiCzLS4iK1uYdyX4/BNu1u7gvsPnJo0zp+zIIJi2lZ+WJ48JPpKCKQbyZRH4zyYpkMQLAdY=",
+                "tokenSecret": "encp:v2:AAM0UOzXPPBsBE09AWRAgeeID/z7J6cyGtaU6e8xhv7bfVNaxRf7QFpehRfnp7MLUGfbUG8FxJO5xOXEkx0QILk=",
+                "signatureMethod": "HMAC-SHA1",
+                "realm": "realm"
+              },
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            }
+          ]
+        },
+        {
+          "id": "d63c2a11-df9d-4f93-ba5f-dd85ca578343",
+          "type": "collection",
+          "name": "Variables",
+          "children": [
+            {
+              "id": "008156ca-681c-4a4b-be8b-bc56e0e393db",
+              "type": "collection",
+              "name": "Parent",
+              "children": [
+                {
+                  "id": "53364d55-148a-489e-81c5-22d1182884c3",
+                  "type": "request",
+                  "name": "Echo",
+                  "url": "{{mockUrl}}/echo/{{Folder}}",
+                  "method": "POST",
+                  "pathParams": [],
+                  "params": [
+                    {
+                      "id": "8a64ed9d-1f0e-4ce8-8d73-1dba048a7c4a",
+                      "name": "Folder",
+                      "value": "{{Folder}}",
+                      "enabled": true
+                    }
+                  ],
+                  "headers": [
+                    {
+                      "id": "30158452-bdea-4027-a154-0e82d6616a96",
+                      "name": "X-Folder",
+                      "value": "{{Folder}}",
+                      "enabled": true
+                    }
+                  ],
+                  "authEnabled": true,
+                  "authType": "bearer",
+                  "authBasic": {
+                    "username": "",
+                    "password": ""
+                  },
+                  "authBearer": {
+                    "token": "encp:v2:AAM0UPnd0V36JJVreA5l8X2Iwk5awZGEroDRk/2GQzdeFrys2+n+WkVXISxCAsWdRhUJvPcCtzcpbw=="
+                  },
+                  "authApiKey": {
+                    "name": "",
+                    "value": "",
+                    "addTo": "header"
+                  },
+                  "authDigest": {
+                    "username": "",
+                    "password": ""
+                  },
+                  "authNtlm": {
+                    "username": "",
+                    "password": "",
+                    "domain": "",
+                    "workstation": ""
+                  },
+                  "authOAuth2": {
+                    "grantType": "client_credentials",
+                    "clientType": "confidential",
+                    "clientId": "",
+                    "clientSecret": "",
+                    "accessTokenUrl": "",
+                    "authUrl": "",
+                    "scope": "",
+                    "state": "",
+                    "credentials": "header",
+                    "headerPrefix": "",
+                    "audience": "",
+                    "resource": "",
+                    "origin": "",
+                    "redirectUri": "",
+                    "responseType": "access_token",
+                    "username": "",
+                    "password": "",
+                    "deviceAuthorizationUrl": "",
+                    "subjectToken": "",
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "actorToken": "",
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "requestedTokenType": "",
+                    "discoveredIssuer": "",
+                    "discoveredScopes": null
+                  },
+                  "authAwsIam": {
+                    "accessKeyId": "",
+                    "secretAccessKey": "",
+                    "region": "",
+                    "service": "",
+                    "sessionToken": ""
+                  },
+                  "authOAuth1": {
+                    "consumerKey": "",
+                    "consumerSecret": "",
+                    "token": "",
+                    "tokenSecret": "",
+                    "signatureMethod": "HMAC-SHA1",
+                    "realm": ""
+                  },
+                  "bodyType": "text",
+                  "bodyFormRows": [],
+                  "bodyText": "{{Folder}}",
+                  "bodyFilePath": "",
+                  "bodyGraphql": {
+                    "query": "",
+                    "variables": ""
+                  }
+                },
+                {
+                  "id": "2edfc019-80c6-482a-9fa3-ec7e35eec65d",
+                  "type": "collection",
+                  "name": "Child",
+                  "children": [
+                    {
+                      "id": "0cb396e1-254f-4715-b45f-5239e71efea1",
+                      "type": "request",
+                      "name": "Echo",
+                      "url": "{{mockUrl}}/echo/{{Folder}}",
+                      "method": "POST",
+                      "pathParams": [],
+                      "params": [
+                        {
+                          "id": "482cc9fd-6d5f-4845-931e-4c9e324587c4",
+                          "name": "Folder",
+                          "value": "{{Folder}}",
+                          "enabled": true
+                        }
+                      ],
+                      "headers": [
+                        {
+                          "id": "d3e767dd-4c6e-4446-8375-805d247e727d",
+                          "name": "X-Folder",
+                          "value": "{{Folder}}",
+                          "enabled": true
+                        }
+                      ],
+                      "authEnabled": true,
+                      "authType": "bearer",
+                      "authBasic": {
+                        "username": "",
+                        "password": ""
+                      },
+                      "authBearer": {
+                        "token": "encp:v2:AAM0UEaIUKzyW0s8Xby/zkb3yNrtaQQe10yCK1hH1V6AOSm9aBPMZtWXAvP9rPatKQQYHlh4ik/RLA=="
+                      },
+                      "authApiKey": {
+                        "name": "",
+                        "value": "",
+                        "addTo": "header"
+                      },
+                      "authDigest": {
+                        "username": "",
+                        "password": ""
+                      },
+                      "authNtlm": {
+                        "username": "",
+                        "password": "",
+                        "domain": "",
+                        "workstation": ""
+                      },
+                      "authOAuth2": {
+                        "grantType": "client_credentials",
+                        "clientType": "confidential",
+                        "clientId": "",
+                        "clientSecret": "",
+                        "accessTokenUrl": "",
+                        "authUrl": "",
+                        "scope": "",
+                        "state": "",
+                        "credentials": "header",
+                        "headerPrefix": "",
+                        "audience": "",
+                        "resource": "",
+                        "origin": "",
+                        "redirectUri": "",
+                        "responseType": "access_token",
+                        "username": "",
+                        "password": "",
+                        "deviceAuthorizationUrl": "",
+                        "subjectToken": "",
+                        "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                        "actorToken": "",
+                        "actorTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                        "requestedTokenType": "",
+                        "discoveredIssuer": "",
+                        "discoveredScopes": null
+                      },
+                      "authAwsIam": {
+                        "accessKeyId": "",
+                        "secretAccessKey": "",
+                        "region": "",
+                        "service": "",
+                        "sessionToken": ""
+                      },
+                      "authOAuth1": {
+                        "consumerKey": "",
+                        "consumerSecret": "",
+                        "token": "",
+                        "tokenSecret": "",
+                        "signatureMethod": "HMAC-SHA1",
+                        "realm": ""
+                      },
+                      "bodyType": "text",
+                      "bodyFormRows": [],
+                      "bodyText": "{{Folder}}",
+                      "bodyFilePath": "",
+                      "bodyGraphql": {
+                        "query": "",
+                        "variables": ""
+                      }
+                    }
+                  ],
+                  "variables": [
+                    {
+                      "name": "Folder",
+                      "value": "Child",
+                      "secure": false
+                    }
+                  ]
+                }
+              ],
+              "variables": [
+                {
+                  "name": "Folder",
+                  "value": "Parent",
+                  "secure": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b6c664c6-d560-475e-a75f-c491cd92c16b",
+          "type": "collection",
+          "name": "Method",
+          "variables": [],
+          "children": [
+            {
+              "id": "47d8c7a5-3074-4397-a409-a67b962f86cc",
+              "type": "request",
+              "name": "GET",
+              "url": "{{mockUrl}}/echo",
+              "method": "GET",
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "bfbb5cb7-89f8-4584-8725-1fbf7e20649e",
+              "type": "request",
+              "name": "POST",
+              "url": "{{mockUrl}}/echo",
+              "method": "POST",
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "ff2234f2-876e-4e8a-bf83-589f21d51312",
+              "type": "request",
+              "name": "PUT",
+              "url": "{{mockUrl}}/echo",
+              "method": "PUT",
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "13bc041b-0d17-4993-b196-aa7bb0d85459",
+              "type": "request",
+              "name": "PATCH",
+              "url": "{{mockUrl}}/echo",
+              "method": "PATCH",
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "39c239ca-ac01-41a1-b782-7f7ce643ab86",
+              "type": "request",
+              "name": "DELETE",
+              "url": "{{mockUrl}}/echo",
+              "method": "DELETE",
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "6f405e31-177c-4873-ba6f-2bcf36a35425",
+              "type": "request",
+              "name": "HEAD",
+              "url": "{{mockUrl}}/echo",
+              "method": "HEAD",
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "5caea457-067e-401f-a442-bbea2bf3d11f",
+              "type": "request",
+              "name": "OPTION",
+              "url": "{{mockUrl}}/echo",
+              "method": "OPTIONS",
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "945837f3-9d7a-4b47-bbdd-00b6750ef6a8",
+              "type": "request",
+              "name": "BANANA",
+              "url": "{{mockUrl}}/echo",
+              "method": "BANANA",
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "16e7c61c-7856-4df8-8a1f-2631021747af",
+              "type": "request",
+              "name": "TANGO",
+              "url": "{{mockUrl}}/echo",
+              "method": "TANGO",
+              "captures": [],
+              "schemaVersion": 2
+            }
+          ]
+        },
+        {
+          "id": "46a3b5b1-1093-4817-80e2-f7207624019e",
+          "type": "collection",
+          "name": "Mimes",
+          "variables": [],
+          "children": [
+            {
+              "id": "263b2daa-e745-4263-b715-16157291d4fd",
+              "type": "request",
+              "name": "mimes",
+              "url": "{{mockUrl}}/mimes",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "700a4159-3dbe-4450-bf1c-ac2834092486",
+              "type": "request",
+              "name": "application/json",
+              "url": "{{mockUrl}}/mimes/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "25e1afbb-31cd-480d-958b-4cd5dbbda3ac",
+              "type": "request",
+              "name": "application/vnd.api+json",
+              "url": "{{mockUrl}}/mimes/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "594e6f02-90ad-4362-86be-a2431485207a",
+              "type": "request",
+              "name": "application/yaml",
+              "url": "{{mockUrl}}/mimes/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "6c0aad87-4238-43eb-8bf6-6a04acbde7f1",
+              "type": "request",
+              "name": "application/x-yaml",
+              "url": "{{mockUrl}}/mimes/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "75ed47d8-2e47-4f09-b96f-683d12e3c03e",
+              "type": "request",
+              "name": "application/xml",
+              "url": "{{mockUrl}}/mimes/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "9e046307-d7a3-4789-882f-71fa1af3da25",
+              "type": "request",
+              "name": "application/xhtml+xml",
+              "url": "{{mockUrl}}/mimes/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "a41b1004-fc82-41b3-945c-9fe85b8c941a",
+              "type": "request",
+              "name": "text/html",
+              "url": "{{mockUrl}}/mimes/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "5400e2a9-d5f1-4fb3-b0bc-29a251a1c86b",
+              "type": "request",
+              "name": "text/css",
+              "url": "{{mockUrl}}/mimes/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "587e5707-2796-4a27-abf8-ce916f11f659",
+              "type": "request",
+              "name": "text/javascript",
+              "url": "{{mockUrl}}/mimes/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "9b114613-564d-40d0-b054-24e6b9c195f0",
+              "type": "request",
+              "name": "application/ecmascript",
+              "url": "{{mockUrl}}/mimes/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "cf1d6535-fe75-4d8f-9ac5-0ac653a0066c",
+              "type": "request",
+              "name": "text/markdown",
+              "url": "{{mockUrl}}/mimes/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "70658c02-b1e4-4ef9-a323-9b37dc90ba7d",
+              "type": "collection",
+              "name": "Binaries",
+              "variables": [],
+              "children": [
+                {
+                  "id": "a6780b5f-9491-4ad2-83ae-94b8d25942f0",
+                  "type": "request",
+                  "name": "binary",
+                  "url": "{{mockUrl}}/binary",
+                  "method": "GET",
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "f322a02a-c97f-4db9-9186-c132329c5edc",
+                  "type": "request",
+                  "name": "png",
+                  "url": "{{mockUrl}}/binary/{{requestName()}}",
+                  "method": "GET",
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "6870f0a7-9b66-4987-bdbc-e3ca774baa4f",
+                  "type": "request",
+                  "name": "jpeg",
+                  "url": "{{mockUrl}}/binary/{{requestName()}}",
+                  "method": "GET",
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "98f3f3fd-4d62-45b4-9e04-6bce7435219f",
+                  "type": "request",
+                  "name": "gif",
+                  "url": "{{mockUrl}}/binary/{{requestName()}}",
+                  "method": "GET",
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "088111b9-0df3-4e1c-be22-37ec76f46f9d",
+                  "type": "request",
+                  "name": "pdf",
+                  "url": "{{mockUrl}}/binary/{{requestName()}}",
+                  "method": "GET",
+                  "captures": [],
+                  "schemaVersion": 2
+                },
+                {
+                  "id": "07b7e7e0-8585-4e10-963c-23db0e104b4c",
+                  "type": "request",
+                  "name": "octet-stream",
+                  "url": "{{mockUrl}}/binary/{{requestName()}}",
+                  "method": "GET",
+                  "captures": [],
+                  "schemaVersion": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6223f8dd-1ad5-4c73-a8bb-6471496704fe",
+          "type": "collection",
+          "name": "Status",
+          "variables": [],
+          "children": [
+            {
+              "id": "4cbca782-9dd6-4668-bde6-cf9cdf18ad0f",
+              "type": "request",
+              "name": "status",
+              "url": "{{mockUrl}}/status",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "13290682-508f-4740-b091-8c841c0dc278",
+              "type": "request",
+              "name": "100",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "a593c35f-fd50-4e4d-9879-bec639f01dad",
+              "type": "request",
+              "name": "200",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "95657166-e192-47a6-81a6-790f3425a413",
+              "type": "request",
+              "name": "201",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "5ec6fd24-ae01-4964-874d-d18a9584e882",
+              "type": "request",
+              "name": "202",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "8878c081-0b80-4efe-994d-e056ba5fe166",
+              "type": "request",
+              "name": "204",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "b0b1b5f5-d66b-4b6f-8280-13b864622396",
+              "type": "request",
+              "name": "301",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "0616f3bc-07b2-490d-8521-0720e1982a30",
+              "type": "request",
+              "name": "400",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "1f04c864-cdbe-4dfb-b47d-1ee7e0b5d862",
+              "type": "request",
+              "name": "401",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "161f30f0-4a52-40c4-9dbd-c5a32f193644",
+              "type": "request",
+              "name": "402",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "8905a858-a9d4-4a59-8801-800e79dceeda",
+              "type": "request",
+              "name": "403",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "0dfd4d3f-7042-42ca-9df5-82b51ae46f1d",
+              "type": "request",
+              "name": "404",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "9a0967e6-1837-43f4-8a0f-e6a05608007a",
+              "type": "request",
+              "name": "500",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "291088b2-f8ce-4777-bdbd-3ddc45f7558e",
+              "type": "request",
+              "name": "501",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "5e2d383d-f1f6-4b10-8d8f-abe4694d96ff",
+              "type": "request",
+              "name": "502",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "1f6e6caf-d60a-4124-857e-117217c55b16",
+              "type": "request",
+              "name": "503",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "cfe1ddbd-7ac9-469f-99c8-533cddf58cb4",
+              "type": "request",
+              "name": "504",
+              "url": "{{mockUrl}}/status/{{requestName()}}",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            }
+          ]
+        },
+        {
+          "id": "bb58e34f-f2a6-4030-a060-e31846f7ccca",
+          "type": "collection",
+          "name": "GraphQL",
+          "variables": [],
+          "children": [
+            {
+              "id": "0f1c81d7-e7f8-4bcd-aee3-d5c388039fca",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Query — list users",
+              "method": "POST",
+              "url": "{{mockUrl}}/graphql",
+              "bodyType": "graphql",
+              "bodyGraphql": {
+                "query": "query ListUsers {\n  users(role: ADMIN, active: true) {\n    id\n    name\n    email\n    role\n    active\n  }\n}",
+                "variables": "{}"
+              },
+              "notes": "Plain query with inline enum (role) + boolean (active) arguments; returns a list of User objects. Exercises the GraphQL body editor and a successful data response.",
+              "bodyFormRows": [],
+              "bodyText": "",
+              "bodyFilePath": ""
+            },
+            {
+              "id": "31db31d5-44de-4503-b1f6-f1b11d19f00f",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Query with variables — get user",
+              "method": "POST",
+              "url": "{{mockUrl}}/graphql",
+              "bodyType": "graphql",
+              "bodyGraphql": {
+                "query": "query GetUser($id: ID!) {\n  user(id: $id) {\n    id\n    name\n    email\n    role\n  }\n}",
+                "variables": "{\n  \"id\": \"2\"\n}"
+              },
+              "notes": "Named operation with a typed ($id: ID!) variable supplied in the Variables pane. Verifies variable substitution into the query."
+            },
+            {
+              "id": "b7c69849-1d5f-4828-b63b-c7c1ec2ec7c6",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Mutation — create user",
+              "method": "POST",
+              "url": "{{mockUrl}}/graphql",
+              "bodyType": "graphql",
+              "bodyGraphql": {
+                "query": "mutation CreateUser($name: String!, $role: Role) {\n  createUser(name: $name, role: $role) {\n    id\n    name\n    email\n    role\n    active\n  }\n}",
+                "variables": "{\n  \"name\": \"Carol\",\n  \"role\": \"USER\"\n}"
+              },
+              "notes": "Mutation operation with variables. Confirms the editor sends mutations and round-trips the created object."
+            },
+            {
+              "id": "c2d96cd0-128d-48de-80a7-b12b7cc78b46",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Introspection — fetch schema",
+              "method": "POST",
+              "url": "{{mockUrl}}/graphql",
+              "bodyType": "graphql",
+              "bodyGraphql": {
+                "query": "query IntrospectionQuery {\n  __schema {\n    queryType { name }\n    mutationType { name }\n    types {\n      kind\n      name\n    }\n  }\n}",
+                "variables": "{}"
+              },
+              "notes": "Introspection query (__schema). The mock returns its canned schema — the same data the editor's 'Fetch schema' button uses to power autocomplete/validation.",
+              "bodyFormRows": [],
+              "bodyText": "",
+              "bodyFilePath": ""
+            },
+            {
+              "id": "fea52aca-4626-4473-93a0-394f1e55b70a",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Error — unknown field",
+              "method": "POST",
+              "url": "{{mockUrl}}/graphql",
+              "bodyType": "graphql",
+              "bodyGraphql": {
+                "query": "query BadQuery {\n  unknownField {\n    id\n  }\n}",
+                "variables": "{}"
+              },
+              "notes": "Queries a field that does not exist. The mock replies HTTP 200 with a GraphQL `errors` array (GraphQL convention) so the editor's error rendering can be exercised."
+            }
+          ]
+        },
+        {
+          "id": "facd986b-3a35-4eb4-9a0f-d5fb69c758ef",
+          "type": "collection",
+          "name": "WS",
+          "variables": [],
+          "children": [
+            {
+              "id": "048b4100-95af-40c2-b68d-8eb1eef3e66f",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Echo (text)",
+              "method": "GET",
+              "url": "ws://localhost:8888/ws/echo",
+              "protocol": "websocket",
+              "wsMessage": "Hello, Rest Hippo!",
+              "wsMessageFormat": "text",
+              "wsSubprotocols": "",
+              "bodyType": "no-body",
+              "notes": "Connect, then Send the text message — the server echoes every frame straight back. Basic text round-trip."
+            },
+            {
+              "id": "9b77af4d-a6ce-4948-8d87-caccfe6919dd",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Echo (JSON)",
+              "method": "GET",
+              "url": "ws://localhost:8888/ws/echo",
+              "protocol": "websocket",
+              "wsMessage": "{ \"type\": \"ping\", \"seq\": 1 }",
+              "wsMessageFormat": "json",
+              "wsSubprotocols": "",
+              "bodyType": "no-body",
+              "notes": "Same echo endpoint with the composer in JSON mode — verifies JSON-formatted outbound messages are sent and echoed."
+            },
+            {
+              "id": "6e3bfe87-53c7-4d4b-91b4-5e4b80f841c0",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Time feed (server push)",
+              "method": "GET",
+              "url": "ws://localhost:8888/ws/time",
+              "protocol": "websocket",
+              "wsMessage": "",
+              "wsMessageFormat": "text",
+              "wsSubprotocols": "",
+              "bodyType": "no-body",
+              "notes": "Server-initiated frames: pushes a timestamped JSON frame once per second with no client message required. Exercises received-without-send traffic."
+            },
+            {
+              "id": "9e9c2287-5225-4852-a85b-8160e09ff6eb",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Subprotocols",
+              "method": "GET",
+              "url": "ws://localhost:8888/ws/echo",
+              "protocol": "websocket",
+              "wsMessage": "Hello over a negotiated subprotocol",
+              "wsMessageFormat": "text",
+              "wsSubprotocols": "chat, superchat",
+              "bodyType": "no-body",
+              "notes": "Offers Sec-WebSocket-Protocol values in the handshake; the server accepts the first (chat). Confirms subprotocol negotiation appears in the console."
+            },
+            {
+              "id": "5da919f0-498a-4d76-a1db-84db4d630d0a",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Reject (handshake failure)",
+              "method": "GET",
+              "url": "ws://localhost:8888/ws/reject",
+              "protocol": "websocket",
+              "wsMessage": "",
+              "wsMessageFormat": "text",
+              "wsSubprotocols": "",
+              "bodyType": "no-body",
+              "notes": "The server refuses the upgrade with HTTP 401. Verifies the console surfaces a failed handshake as an error rather than an open socket."
+            }
+          ]
+        },
+        {
+          "id": "397463c9-f302-4765-bc52-2f6c208c5073",
+          "type": "collection",
+          "name": "Volume",
+          "variables": [],
+          "children": [
+            {
+              "id": "95105ca9-d719-4423-89ba-75964821b77b",
+              "type": "request",
+              "name": "volume",
+              "url": "{{mockUrl}}/volume",
+              "method": "GET",
+              "pathParams": [],
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "0f438ade-1f21-44f3-8116-113b558f8f5c",
+              "type": "request",
+              "name": "small",
+              "url": "{{mockUrl}}/volume/{{requestName()}}",
+              "method": "GET",
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "048a1f04-08d6-4465-a43d-30d8770a259e",
+              "type": "request",
+              "name": "medium",
+              "url": "{{mockUrl}}/volume/{{requestName()}}",
+              "method": "GET",
+              "captures": [],
+              "schemaVersion": 2
+            },
+            {
+              "id": "92fef681-daea-4a61-958c-e772858f3ffa",
+              "type": "request",
+              "name": "large",
+              "url": "{{mockUrl}}/volume/{{requestName()}}",
+              "method": "GET",
+              "captures": [],
+              "schemaVersion": 2
+            }
+          ]
+        },
+        {
+          "id": "891048ef-7b8f-4ba8-94ce-023872e7c784",
+          "type": "collection",
+          "name": "SSE",
+          "variables": [],
+          "children": [
+            {
+              "id": "8a75dd44-82fb-4f54-9963-b0b059437a19",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Events (named + id)",
+              "method": "GET",
+              "url": "{{mockUrl}}/sse/events?count=8&interval=400",
+              "bodyType": "no-body",
+              "notes": "Structured Server-Sent Events: each frame carries `event: tick`, an incrementing `id:` and a JSON `data:` payload. text/event-stream auto-streams live on Send. Tune count/interval in the query string."
+            },
+            {
+              "id": "4bb0c360-0572-4a51-af68-faaf584caa50",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Counter (bare data)",
+              "method": "GET",
+              "url": "{{mockUrl}}/sse/counter?count=15&interval=300",
+              "bodyType": "no-body",
+              "notes": "Untagged default ('message') events whose data is just a bare number — exercises the viewer's no-event-name path."
+            },
+            {
+              "id": "eb5eb65a-af34-4d24-8245-256825e3c146",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "LLM token stream",
+              "method": "GET",
+              "url": "{{mockUrl}}/sse/llm?interval=80",
+              "bodyType": "no-body",
+              "notes": "OpenAI-style chat.completion.chunk deltas, one token at a time, terminated by `data: [DONE]`. Demonstrates incremental token rendering."
+            },
+            {
+              "id": "b8cd5e6e-31dc-4594-b523-1e1ae4aeb408",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Infinite stream (use Stop)",
+              "method": "GET",
+              "url": "{{mockUrl}}/sse/infinite?interval=1000",
+              "bodyType": "no-body",
+              "notes": "Never-ending tick stream with `:` keep-alive comments. Use the Stop button to end it; also tests the bounded in-memory log and save-while-running."
+            },
+            {
+              "id": "f6d51889-69ca-4237-bb64-0685e5fd6558",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "NDJSON (needs Stream toggle)",
+              "method": "GET",
+              "url": "{{mockUrl}}/ndjson?count=20&interval=250",
+              "bodyType": "no-body",
+              "notes": "Newline-delimited JSON (application/x-ndjson). This does NOT auto-stream — enable Settings → Request → 'Stream NDJSON responses live' first, otherwise it buffers and returns whole."
+            },
+            {
+              "id": "258a4add-4432-41a2-b4e3-15a66c108a79",
+              "type": "request",
+              "schemaVersion": 2,
+              "captures": [],
+              "name": "Stream index (not a stream)",
+              "method": "GET",
+              "url": "{{mockUrl}}/sse",
+              "bodyType": "no-body",
+              "notes": "Control case: a plain JSON index describing the streaming endpoints. Returns buffered (no text/event-stream), confirming non-stream responses are unaffected."
+            }
+          ]
+        },
+        {
+          "id": "cd3b5af1-898c-4e77-8d3a-1253afb581ff",
+          "type": "collection",
+          "name": "Delay",
+          "variables": [],
+          "children": [
+            {
+              "id": "ef516a36-361f-4009-97ed-b7bdd86029e3",
+              "type": "request",
+              "name": "5",
+              "url": "{{mockUrl}}/delay",
+              "method": "GET",
+              "captures": [],
+              "schemaVersion": 2,
+              "params": [
+                {
+                  "id": "823b2e83-839f-438a-8989-bb47d2d1c049",
+                  "name": "seconds",
+                  "value": "{{requestName()}}",
+                  "enabled": true
+                }
+              ]
+            },
+            {
+              "id": "9da0bd1f-9aa3-43c7-aa7e-bf89f55ff2c3",
+              "type": "request",
+              "name": "10",
+              "url": "{{mockUrl}}/delay",
+              "method": "GET",
+              "captures": [],
+              "schemaVersion": 2,
+              "params": [
+                {
+                  "id": "5337cd51-6358-4075-9664-db83c97f6021",
+                  "name": "seconds",
+                  "value": "{{requestName()}}",
+                  "enabled": true
+                }
+              ]
+            },
+            {
+              "id": "25ef2e5f-7320-4292-b52d-42ceaed5f609",
+              "type": "request",
+              "name": "35",
+              "url": "{{mockUrl}}/delay",
+              "method": "GET",
+              "captures": [],
+              "schemaVersion": 2,
+              "params": [
+                {
+                  "id": "9beacd07-6647-4fb3-9911-0e10c7eabcfc",
+                  "name": "seconds",
+                  "value": "{{requestName()}}",
+                  "enabled": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "environments": {
+    "globalVariables": [
+      {
+        "name": "mockUrl",
+        "value": "http://localhost:8888",
+        "secure": false
+      }
+    ],
+    "environments": [
+      {
+        "id": "b0000000-0000-4000-8000-000000000001",
+        "name": "Local",
+        "variables": [
+          {
+            "name": "baseUrl",
+            "value": "http://localhost:8888",
+            "secure": false
+          }
+        ]
+      },
+      {
+        "id": "d23f3270-d92c-442b-b2e5-84434f3c7194",
+        "name": "DEV",
+        "variables": [
+          {
+            "name": "baseUrl",
+            "value": "https://dev.global-network-service.qateradatacloud.com/",
+            "secure": false
+          }
+        ]
+      },
+      {
+        "id": "21e1a5aa-5b4f-4b70-8c4c-344ce38efced",
+        "name": "QA",
+        "variables": [
+          {
+            "name": "baseUrl",
+            "value": "https://rc.preprod.global-network-service.qateradatacloud.com/",
+            "secure": false
+          }
+        ]
+      },
+      {
+        "id": "b0000000-0000-4000-8000-000000000002",
+        "name": "Production",
+        "variables": [
+          {
+            "name": "baseUrl",
+            "value": "https://api.example.com",
+            "secure": false
+          }
+        ]
+      }
+    ]
+  }
+}
