@@ -379,7 +379,8 @@
       "message": "メッセージ",
       "auth": "認証",
       "captures": "キャプチャ",
-      "notes": "メモ"
+      "notes": "メモ",
+      "scripts": "スクリプト"
     },
     "method": {
       "aria": "HTTP メソッド",
@@ -1198,5 +1199,15 @@
     "rename": "リクエストまたはフォルダーの名前を変更",
     "newWsRequest": "新規 WebSocket リクエスト",
     "delete": "リクエストまたはフォルダーを削除（確認あり）"
+  },
+  "script": {
+    "errorTitle": "スクリプトエラー",
+    "errorWithLine": "{message}（{line} 行目）",
+    "preLabel": "リクエスト前",
+    "postLabel": "レスポンス後",
+    "prePlaceholder": "// リクエスト送信前に実行されます\n// hippo.variables.set(\"environment\", \"token\", \"abc123\")",
+    "postPlaceholder": "// レスポンス受信後に実行されます\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
+    "enabled": "有効",
+    "resizeAria": "スクリプトペインのサイズを変更"
   }
 }

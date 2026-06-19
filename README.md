@@ -281,6 +281,22 @@ make help           # List all available targets
 make clean          # Remove build/ and dist/ directories
 ```
 
+## Contributing
+
+Contributions are welcome! Rest Hippo uses the
+[Developer Certificate of Origin](DCO) (DCO): every commit must be signed off
+with `git commit -s`, certifying you wrote the patch or have the right to submit
+it under the project's license. New source files should carry the standard
+Apache 2.0 header. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full
+workflow.
+
 ## License
 
-Copyright © 2026
+Copyright © 2026 Jason Figge.
+
+Licensed under the [Apache License, Version 2.0](LICENSE). You may obtain a copy
+of the License in the [`LICENSE`](LICENSE) file or at
+<http://www.apache.org/licenses/LICENSE-2.0>. Unless required by applicable law
+or agreed to in writing, software distributed under the License is distributed
+on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND. See
+[`NOTICE`](NOTICE) for attribution details.

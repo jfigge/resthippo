@@ -381,7 +381,8 @@
       "message": "Nachricht",
       "auth": "Authentifizierung",
       "captures": "Erfassungen",
-      "notes": "Notizen"
+      "notes": "Notizen",
+      "scripts": "Skripte"
     },
     "method": {
       "aria": "HTTP-Methode",
@@ -1202,5 +1203,15 @@
     "rename": "Anfrage oder Ordner umbenennen",
     "newWsRequest": "Neue WebSocket-Anfrage",
     "delete": "Anfrage oder Ordner löschen (mit Bestätigung)"
+  },
+  "script": {
+    "errorTitle": "Skriptfehler",
+    "errorWithLine": "{message} (Zeile {line})",
+    "preLabel": "Vor Anfrage",
+    "postLabel": "Nach Antwort",
+    "prePlaceholder": "// Wird vor dem Senden der Anfrage ausgeführt\n// hippo.variables.set(\"environment\", \"token\", \"abc123\")",
+    "postPlaceholder": "// Wird ausgeführt, nachdem die Antwort eingetroffen ist\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
+    "enabled": "Aktiviert",
+    "resizeAria": "Skriptbereiche anpassen"
   }
 }

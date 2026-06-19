@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Jason Figge
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /* components.css — Styles for TreeView, RequestEditor, and ResponseViewer */
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1027,6 +1043,63 @@ html.show-method-icons .req-method-menu-item-label::before {
   background: var(--color-surface-1);
   border-bottom: 1px solid var(--color-surface-2);
 }
+
+/* Scripts tab (Feature 25) — two stacked JS code panes (pre / post), each a
+   labelled PillCodeEditor. Mirrors the GraphQL pane header treatment. */
+.scripts-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.scripts-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.scripts-pane-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-5);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-overlay-0);
+  background: var(--color-surface-1);
+  border-bottom: 1px solid var(--color-surface-2);
+}
+/* Per-pane enable toggle (right of the header). Lowercase + lighter weight so it
+   reads as a control, not part of the uppercase pane title. */
+.scripts-enable {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-normal);
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  user-select: none;
+}
+.scripts-enable-checkbox {
+  cursor: pointer;
+  margin: 0;
+}
+/* The splitter between the two script panes; reuses the shared --v chrome. */
+.scripts-splitter {
+  margin: var(--space-1) 0;
+}
+/* A disabled pane's script won't run — dim its editor content (the header +
+   Enabled toggle stay fully visible). The editor stays editable. */
+.scripts-pane .pce--embedded {
+  transition: opacity var(--transition-fast);
+}
+.scripts-pane--disabled .pce--embedded {
+  opacity: 0.45;
+}
 /* GraphQL introspection status icon in the body type bar — sits between the
    layout toggle and the "Fetch schema" button. Empty until a fetch runs, then a
    green tick on success or a red X on failure. The glyph inherits `color` via
@@ -1302,6 +1375,31 @@ html.show-method-icons .req-method-menu-item-label::before {
 }
 .gql-autocomplete .hdr-autocomplete-item:hover .gql-ac-detail,
 .gql-autocomplete .hdr-autocomplete-item--active .gql-ac-detail {
+  color: inherit;
+}
+
+/* hippo.* script autocomplete: member name + muted signature hint. Same chrome
+   as the GraphQL dropdown; only the item layout differs (Feature 25). */
+.script-autocomplete {
+  max-height: 240px;
+  min-width: 220px;
+}
+.script-autocomplete .hdr-autocomplete-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.script-ac-name {
+  font-family: var(--font-mono), monospace;
+}
+.script-ac-detail {
+  font-family: var(--font-mono), monospace;
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+}
+.script-autocomplete .hdr-autocomplete-item:hover .script-ac-detail,
+.script-autocomplete .hdr-autocomplete-item--active .script-ac-detail {
   color: inherit;
 }
 

@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Jason Figge
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /**
  * request-editor.js — Request definition panel component
  */
@@ -36,6 +52,7 @@ import { GraphQLBodyEditor } from "./graphql-body-editor.js";
 import { RequestAuthEditor } from "./request-auth-editor.js";
 import { NotesEditor } from "./editors/notes-editor.js";
 import { CapturesEditor } from "./editors/captures-editor.js";
+import { ScriptsEditor } from "./editors/scripts-editor.js";
 import { BodyEditor } from "./editors/body-editor.js";
 import {
   DragReorderController,
@@ -314,6 +331,7 @@ const TABS = [
   { id: "body", labelKey: "request.tab.body" },
   { id: "auth", labelKey: "request.tab.auth" },
   { id: "captures", labelKey: "request.tab.captures" },
+  { id: "scripts", labelKey: "request.tab.scripts" },
   { id: "notes", labelKey: "request.tab.notes" },
 ];
 
@@ -362,6 +380,82 @@ function _extractResponseFunctionRefs(templates) {
 // machinery used by params, headers, and the body-form rows) now lives in
 // ./kv-editor-shared.js and is imported above.
 
+// ── Pre-request scripting helpers (Feature 25) ───────────────────────────
+// Pure adapters between the editor's internal request shape (KV rows, scoped
+// variable maps) and the flat { method, url, headers, body } / scope-map view
+// the sandboxed `hippo.*` API exposes. Kept module-level so they stay testable.
+
+/** Enabled, named KV rows → a plain `{ name: value }` object (last wins). */
+function headerRowsToObject(rows) {
+  const out = {};
+  for (const r of rows ?? []) {
+    if (r && r.enabled !== false && (r.name ?? "").trim() !== "")
+      out[r.name] = r.value ?? "";
+  }
+  return out;
+}
+
+/**
+ * Apply a script's mutated headers object back onto the editor's KV rows:
+ * upsert by case-insensitive name, append unseen names. Operates on a copy —
+ * the editor's own `#headers` is never mutated by a send. (Header deletion from
+ * a script is not supported in v1.)
+ */
+function applyHeaderPatch(rows, patchObj) {
+  const next = (rows ?? []).map((r) => ({ ...r }));
+  for (const [name, value] of Object.entries(patchObj ?? {})) {
+    const i = next.findIndex(
+      (r) => (r.name ?? "").toLowerCase() === name.toLowerCase(),
+    );
+    if (i >= 0) {
+      next[i].value = value == null ? "" : String(value);
+      next[i].enabled = true;
+    } else {
+      next.push({
+        id: crypto.randomUUID(),
+        name,
+        value: value == null ? "" : String(value),
+        enabled: true,
+      });
+    }
+  }
+  return next;
+}
+
+/** Flatten a resolver folder chain to one map, nearest-folder-wins. */
+function flattenFolderChain(folderChain) {
+  const out = {};
+  const chain = Array.isArray(folderChain) ? folderChain : [];
+  for (let i = chain.length - 1; i >= 0; i--) {
+    Object.assign(out, chain[i]?.variables ?? {});
+  }
+  return out;
+}
+
+/**
+ * Return a shallow-cloned variable context with the script's writes merged into
+ * the matching scope maps, so a {{var}} a pre-request script set resolves for
+ * the current send. The editor's live context is left untouched.
+ */
+function augmentVariableContext(ctx, writes) {
+  if (!ctx || !Array.isArray(writes) || writes.length === 0) return ctx;
+  const next = {
+    ...ctx,
+    globalVariables: { ...(ctx.globalVariables ?? {}) },
+    environmentVariables: { ...(ctx.environmentVariables ?? {}) },
+    collectionVariables: { ...(ctx.collectionVariables ?? {}) },
+  };
+  const target = {
+    global: next.globalVariables,
+    environment: next.environmentVariables,
+    collection: next.collectionVariables,
+  };
+  for (const w of writes) {
+    if (target[w.scope]) target[w.scope][w.name] = w.value;
+  }
+  return next;
+}
+
 export class RequestEditor {
   /** @type {HTMLElement} */
   #el;
@@ -369,6 +463,17 @@ export class RequestEditor {
   #url = "";
   #activeTab = "params";
   #currentNodeId = null;
+  /** Pre-request / after-response script source (Feature 25). */
+  #preRequestScript = "";
+  #afterResponseScript = "";
+  /** Whether the pre-request script runs (the send path reads this gate). */
+  #preRequestScriptEnabled = true;
+  /**
+   * Caches the pre-request script result for a single send so a "Send anyway"
+   * retry (which re-enters #sendRequest with force=true) does not run the
+   * script twice. Keyed by the request id; cleared after dispatch and on load.
+   */
+  #preScriptCache = null;
 
   // Structural element refs, cached after the #render* builders run.
   #methodSel = null; // method-selector trigger button
@@ -418,6 +523,14 @@ export class RequestEditor {
   // that owns the rule list + its DOM.
   #capturesEditor = new CapturesEditor({
     onChange: () => this.#dispatchCapturesUpdated(),
+  });
+
+  // Scripts tab (Feature 25) — pre-request / after-response JS panes, delegated
+  // to a sub-editor that owns the two sources. It builds its code panes through
+  // the shared factory so they register for disposal + view-setting sync.
+  #scriptsEditor = new ScriptsEditor({
+    makeCodeEditor: (opts) => this.#makeCodeEditor(opts),
+    onChange: () => this.#dispatchScriptsUpdated(),
   });
 
   // GraphQL body (Feature 34) — the Query + Variables composer, schema fetch,
@@ -1187,6 +1300,7 @@ export class RequestEditor {
     if (tabId === "message") return this.#buildMessageEditor();
     if (tabId === "auth") return this.#auth.element;
     if (tabId === "captures") return this.#capturesEditor.build();
+    if (tabId === "scripts") return this.#scriptsEditor.build();
     if (tabId === "notes") return this.#notesEditor.build();
     return document.createElement("div");
   }
@@ -1211,6 +1325,37 @@ export class RequestEditor {
         detail: {
           id: this.#currentNodeId,
           captures: this.#capturesEditor.getValue(),
+        },
+        bubbles: true,
+      }),
+    );
+  }
+
+  #dispatchScriptsUpdated() {
+    // Mirror the edited source + enable gate onto the instance fields the send
+    // path reads (#sendRequest runs #preRequestScript before resolution), then
+    // persist scripts, their per-pane enabled flags and the splitter ratio.
+    const {
+      preRequestScript,
+      afterResponseScript,
+      preRequestScriptEnabled,
+      afterResponseScriptEnabled,
+      scriptSplit,
+    } = this.#scriptsEditor.getValue();
+    this.#preRequestScript = preRequestScript;
+    this.#afterResponseScript = afterResponseScript;
+    this.#preRequestScriptEnabled = preRequestScriptEnabled;
+    this.#preScriptCache = null; // source changed — never reuse a stale run
+    if (!this.#currentNodeId) return;
+    window.dispatchEvent(
+      new CustomEvent("hippo:request-updated", {
+        detail: {
+          id: this.#currentNodeId,
+          preRequestScript,
+          afterResponseScript,
+          preRequestScriptEnabled,
+          afterResponseScriptEnabled,
+          scriptSplit,
         },
         bubbles: true,
       }),
@@ -2309,6 +2454,10 @@ export class RequestEditor {
     this.#tabContent.querySelectorAll(".req-tab-pane").forEach((pane) => {
       pane.hidden = pane.id !== `req-tab-${tabId}`;
     });
+    // The Scripts editors validate on load while their tab is still hidden,
+    // where zero-size rects suppress squiggle rendering; now that the pane has
+    // layout, re-render any markers so a stored syntax error shows immediately.
+    if (tabId === "scripts") this.#scriptsEditor.onShown();
   }
 
   /**
@@ -2422,11 +2571,43 @@ export class RequestEditor {
       this.#headers = this.#textToHeaderRows(this.#headersBulkEl.value);
     this.#bodyEditor.flushBulk();
 
+    // ── Pre-request script (Feature 25) ───────────────────────────────────
+    // Runs before resolution (so a variable the script sets is usable by this
+    // request) and before the pre-flight check (so a script-provided value
+    // isn't flagged as missing). Method/url/headers/body mutations apply to THIS
+    // send only — the editor's own fields stay untouched. The result is cached
+    // for one send so a "Send anyway" retry doesn't run the script twice.
+    let ctx = this.#variableContext;
+    let scriptedMethod = this.#method;
+    let scriptedRawUrl = rawUrl;
+    let scriptedHeaderRows = this.#headers;
+    let scriptedBodyText = null; // null → use the editor's body
+    const preScriptCode = (this.#preRequestScript ?? "").trim();
+    if (preScriptCode && this.#preRequestScriptEnabled !== false) {
+      let pre;
+      if (force && this.#preScriptCache?.id === requestId) {
+        pre = this.#preScriptCache.result;
+      } else {
+        pre = await this.#runPreRequestScript(preScriptCode, rawUrl, ctx);
+        this.#preScriptCache = { id: requestId, result: pre };
+      }
+      if (pre.aborted) {
+        this.#preScriptCache = null;
+        return; // error surfaced; never send a half-prepared request
+      }
+      ctx = pre.ctx;
+      if (pre.patch) {
+        if (pre.patch.method) scriptedMethod = pre.patch.method;
+        if (pre.patch.url != null) scriptedRawUrl = pre.patch.url;
+        scriptedHeaderRows = pre.patch.headerRows;
+        if (pre.patch.bodyText != null) scriptedBodyText = pre.patch.bodyText;
+      }
+    }
+
     // ── Variable resolver helper ──────────────────────────────────────────
-    // Resolve {{varName}} tokens using the current variable context so that
-    // the actual HTTP request (and cURL output) use concrete values, not
+    // Resolve {{varName}} tokens using the (possibly script-augmented) context
+    // so the actual HTTP request (and cURL output) use concrete values, not
     // template placeholders.
-    const ctx = this.#variableContext;
     const rv = (s) => resolveStringAsync(s, ctx);
 
     // ── Variable pre-flight check ─────────────────────────────────────────
@@ -2480,16 +2661,16 @@ export class RequestEditor {
       oauth1,
     } = await buildRequestPayload(
       {
-        method: this.#method,
+        method: scriptedMethod,
         // Substitute path params before percent-encoding (so `{id}` survives).
         urlBase: encodeBaseUrl(
           applyPathParams(
-            await rv(rawUrl),
+            await rv(scriptedRawUrl),
             await resolvePathParamValues(this.#pathParams, rv),
           ),
         ),
         params: this.#params,
-        headers: this.#headers,
+        headers: scriptedHeaderRows,
         authEnabled: authModel.authEnabled,
         authType: authModel.authType,
         authBasic: authModel.authBasic,
@@ -2500,7 +2681,7 @@ export class RequestEditor {
         authAwsIam: authModel.authAwsIam,
         authOAuth1: authModel.authOAuth1,
         bodyType: bodyVals.bodyType,
-        bodyText: bodyVals.bodyText,
+        bodyText: scriptedBodyText ?? bodyVals.bodyText,
         bodyFormRows: bodyVals.bodyFormRows,
         bodyFile: bodyVals.bodyFile,
         bodyGraphql: this.#graphql.getValue(),
@@ -2582,7 +2763,7 @@ export class RequestEditor {
       new CustomEvent("hippo:send-request", {
         detail: {
           requestId,
-          method: this.#method,
+          method: scriptedMethod,
           url: finalUrl,
           headers,
           body,
@@ -2596,6 +2777,78 @@ export class RequestEditor {
         bubbles: true,
       }),
     );
+
+    // This send is committed — drop the cached pre-script result so the next
+    // send (or a later "Send anyway") runs the script fresh.
+    this.#preScriptCache = null;
+  }
+
+  /**
+   * Run the pre-request script in the main-process sandbox. Surfaces its result
+   * (variable writes + any error) via the global `hippo:script-result` event —
+   * app.js persists the writes and shows errors — and returns the augmented
+   * variable context plus an ephemeral request patch for this one send. Never
+   * throws: an error yields `{ aborted: true }` so the caller cancels the send.
+   *
+   * @param {string} code    pre-request script source (already trimmed/non-empty)
+   * @param {string} rawUrl  raw URL with {{templates}} intact
+   * @param {object} ctx     current variable context
+   * @returns {Promise<{ctx:object, patch:object|null, aborted:boolean}>}
+   */
+  async #runPreRequestScript(code, rawUrl, ctx) {
+    let res;
+    try {
+      res = await window.hippo.script.runPre({
+        code,
+        request: {
+          method: this.#method,
+          url: rawUrl,
+          headers: headerRowsToObject(this.#headers),
+          body: this.#bodyEditor.getValue().bodyText ?? "",
+        },
+        environment: {
+          name: ctx?.activeEnvironmentName ?? "",
+          variables: ctx?.environmentVariables ?? {},
+        },
+        variables: {
+          global: ctx?.globalVariables ?? {},
+          environment: ctx?.environmentVariables ?? {},
+          collection: ctx?.collectionVariables ?? {},
+          folder: flattenFolderChain(ctx?.folderChain),
+        },
+      });
+    } catch (err) {
+      res = {
+        error: { name: "InternalError", message: String(err?.message ?? err) },
+      };
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("hippo:script-result", {
+        detail: {
+          phase: "pre",
+          writes: res?.varWrites ?? [],
+          error: res?.error ?? null,
+          logs: res?.logs ?? [],
+        },
+      }),
+    );
+
+    if (res?.error) return { ctx, patch: null, aborted: true };
+
+    const patch = res?.request
+      ? {
+          method: res.request.method,
+          url: res.request.url,
+          headerRows: applyHeaderPatch(this.#headers, res.request.headers),
+          bodyText: res.request.body,
+        }
+      : null;
+    return {
+      ctx: augmentVariableContext(ctx, res?.varWrites),
+      patch,
+      aborted: false,
+    };
   }
 
   /**
@@ -2851,6 +3104,21 @@ export class RequestEditor {
 
     // Captures (Feature 03)
     this.#capturesEditor.setValue(node.captures);
+
+    // Scripts (Feature 25) — round-trip the persisted source, per-pane enable
+    // flags and splitter ratio onto the Scripts tab and the instance mirror the
+    // send path reads. Drop any stale pre-script cache from the previous request.
+    this.#preRequestScript = node.preRequestScript ?? "";
+    this.#afterResponseScript = node.afterResponseScript ?? "";
+    this.#preRequestScriptEnabled = node.preRequestScriptEnabled !== false;
+    this.#preScriptCache = null;
+    this.#scriptsEditor.setValue({
+      preRequestScript: this.#preRequestScript,
+      afterResponseScript: this.#afterResponseScript,
+      preRequestScriptEnabled: node.preRequestScriptEnabled,
+      afterResponseScriptEnabled: node.afterResponseScriptEnabled,
+      scriptSplit: node.scriptSplit,
+    });
   }
 
   /**

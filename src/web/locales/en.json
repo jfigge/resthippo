@@ -381,7 +381,8 @@
       "message": "Message",
       "auth": "Auth",
       "captures": "Captures",
-      "notes": "Notes"
+      "notes": "Notes",
+      "scripts": "Scripts"
     },
     "method": {
       "aria": "HTTP Method",
@@ -1202,5 +1203,15 @@
     "rename": "Rename the request or folder",
     "newWsRequest": "New WebSocket request",
     "delete": "Delete the request or folder (asks to confirm)"
+  },
+  "script": {
+    "errorTitle": "Script error",
+    "errorWithLine": "{message} (line {line})",
+    "preLabel": "Pre-request",
+    "postLabel": "After-response",
+    "prePlaceholder": "// Runs before the request is sent\n// hippo.variables.set(\"environment\", \"token\", \"abc123\")",
+    "postPlaceholder": "// Runs after the response arrives\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
+    "enabled": "Enabled",
+    "resizeAria": "Resize the script panes"
   }
 }

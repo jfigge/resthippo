@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Jason Figge
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /**
  * response-viewer.js — HTTP response display component
  *
@@ -368,6 +384,7 @@ export class ResponseViewer {
   // Concurrent-request routing
   #selectedRequestId = null; // id of the selected request — lifecycle events for others are ignored
   #inFlightStarts = new Map(); // request id → send time (epoch ms), for all in-flight requests
+  #consoleLines = []; // the console pane's current lines, so script logs can append (Feature 25)
   #loadingTimer = null; // setInterval handle for the live elapsed readout while loading
 
   // Live streaming (Feature 33). The body of an SSE / chunked stream is appended
@@ -433,6 +450,18 @@ export class ResponseViewer {
       const rid = e.detail?.requestId;
       if (rid != null) this.#inFlightStarts.delete(rid);
       if (isSelected(rid)) this.#showResponse(e.detail);
+    });
+    // After-response script console output (Feature 25): append to the verbose
+    // log of the request currently shown, leaving the HTTP lines intact.
+    window.addEventListener("hippo:script-console", (e) => {
+      const lines = e.detail?.lines;
+      if (
+        !isSelected(e.detail?.requestId) ||
+        !Array.isArray(lines) ||
+        !lines.length
+      )
+        return;
+      this.#renderConsole([...this.#consoleLines, ...lines]);
     });
     window.addEventListener("hippo:request-loading", (e) => {
       const rid = e.detail?.requestId;
@@ -2214,6 +2243,9 @@ export class ResponseViewer {
    * @param {string[]} lines
    */
   #renderConsole(lines) {
+    // Retain the current lines so an after-response script's console output can
+    // append to (not replace) the HTTP verbose log (Feature 25).
+    this.#consoleLines = Array.isArray(lines) ? [...lines] : [];
     const pane = this.#tabContent.querySelector("#res-tab-console");
     if (!pane) return;
     pane.innerHTML = "";

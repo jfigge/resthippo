@@ -1,3 +1,19 @@
+/*
+ * Copyright 2026 Jason Figge
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 /**
  * tests/ipc-parity.test.js
  *
@@ -47,9 +63,16 @@ function channelsFor(source, fnPattern) {
 
 // The main-process IPC surface is split across main.js and the modules it
 // delegates registration to — the HTTP engine (http:execute / http:body:* /
-// http:stream:*) registers its handlers from net/http-engine.js. Scan both as
-// one source so the parity + push-topology checks see the whole surface.
-const mainProcessSource = read("main.js") + "\n" + read("net/http-engine.js");
+// http:stream:*) registers its handlers from net/http-engine.js, and the
+// scripting sandbox (script:run-pre / script:run-post / script:validate) from
+// scripting/sandbox.js. Scan them as one source so the parity + push-topology
+// checks see the whole surface.
+const mainProcessSource =
+  read("main.js") +
+  "\n" +
+  read("net/http-engine.js") +
+  "\n" +
+  read("scripting/sandbox.js");
 
 const handlers = channelsFor(mainProcessSource, "ipcMain\\.handle");
 const invokes = [

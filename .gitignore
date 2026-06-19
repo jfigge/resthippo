@@ -56,3 +56,11 @@ CLAUDE.md
 # Full-resolution PNGs from the .docs-build pipeline. The copies bundled under
 # src/web/docs/images are downscaled 50%; these originals stay local.
 docs-originals/
+
+# ── Website build artifacts ───────────────────────────────────────────────────
+# Generated at deploy time (and in the Deploy Website workflow); never hand-edited.
+#   versions.json     ← scripts/build-versions.mjs (GitHub Releases API)
+#   docs/, sitemap.xml ← scripts/build-docs.mjs (renders src/web/docs/*.md)
+website/versions.json
+website/docs/
+website/sitemap.xml
