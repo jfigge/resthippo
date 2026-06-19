@@ -209,7 +209,8 @@
     }
   },
   "env": {
-    "global": "全局"
+    "global": "全局",
+    "manage": "管理…"
   },
   "kv": {
     "bulkEditor": "批量编辑器",

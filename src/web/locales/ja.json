@@ -209,7 +209,8 @@
     }
   },
   "env": {
-    "global": "グローバル"
+    "global": "グローバル",
+    "manage": "管理…"
   },
   "kv": {
     "bulkEditor": "一括エディター",

@@ -847,7 +847,7 @@ function buildEnvCtrl() {
   btn.id = "btn-env-picker-ctrl";
   btn.title = t("header.environmentTitle");
   btn.setAttribute("aria-label", t("header.environmentAria"));
-  btn.setAttribute("aria-haspopup", "dialog");
+  btn.setAttribute("aria-haspopup", "menu");
   return btn;
 }
 
@@ -1070,6 +1070,9 @@ const settingsPopup = new SettingsPopup();
 // there — declared here only so initHeader() and applySettings() can reach them.
 let collPopup, varsPopup, environmentsPopup;
 const envPicker = new EnvPicker({
+  // Selecting an entry in the picker menu activates it (id null = Global);
+  // "Manage…" opens the full environments editor.
+  onActivate: (id) => handleEnvActivate({ id }),
   onManage: () =>
     environmentsPopup.open(currentEnvironments, {
       bulkEditor: currentSettings.varsBulkEditor ?? true,

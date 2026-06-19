@@ -211,7 +211,8 @@
     }
   },
   "env": {
-    "global": "Global"
+    "global": "Global",
+    "manage": "Gérer…"
   },
   "kv": {
     "bulkEditor": "Éditeur en bloc",

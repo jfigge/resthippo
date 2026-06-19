@@ -5002,6 +5002,8 @@ html.show-method-icons .req-method-menu-item-label::before {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  /* Environment names always read upper-case, matching the picker trigger/menu. */
+  text-transform: var(--env-picker-uppercase, uppercase);
 }
 
 .env-list-item--active .env-list-item-name {
@@ -5662,11 +5664,13 @@ input[type="checkbox"]:disabled {
 
 /* ── Environment & collection pickers (.env-picker-* / .coll-picker-*) ─────────
    Two trigger buttons that open the environments / collections editors. The
-   environment picker is an icon+label pill; the collection picker is icon-only
-   (its active collection name is the tooltip — see the square override below).
-   They share the trigger / hover / icon base so they read as a related cluster;
-   the .env-picker-trigger--active accent is env-only (a collection is always
-   active, so there's no inactive state to signal). */
+   environment picker is an icon+label pill; the collection picker is an
+   icon-only ghost button matching the .icon-btn settings gear (its active
+   collection name is the tooltip — see the ghost override below). They start
+   from a shared trigger base, then the collection picker overrides the pill
+   chrome to the borderless ghost style; the .env-picker-trigger--active accent
+   is env-only (a collection is always active, so there's no inactive state to
+   signal). */
 
 .env-picker-trigger,
 .coll-picker-trigger {
@@ -5689,18 +5693,31 @@ input[type="checkbox"]:disabled {
     border-color var(--transition-fast);
 }
 
-/* Collection picker — icon only; square the shared pill so it hugs the icon. */
+/* Collection picker — an icon-only ghost button styled like the .icon-btn gear
+   in the header / response status bar: no border or fill until hover. Overrides
+   the shared pill chrome above; the env picker keeps the labelled pill. */
 .coll-picker-trigger {
   width: var(--control-h-md);
   min-width: 0;
   padding: 0;
   justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-subtext);
 }
 
-.env-picker-trigger:hover,
-.coll-picker-trigger:hover {
+.env-picker-trigger:hover {
   background-color: var(--color-surface-2);
   border-color: var(--color-accent);
+}
+
+.coll-picker-trigger:hover {
+  background-color: var(--color-surface-1);
+  color: var(--color-text);
+}
+
+.coll-picker-trigger:active {
+  background-color: var(--color-surface-2);
 }
 
 .env-picker-trigger--active {
@@ -5711,6 +5728,11 @@ input[type="checkbox"]:disabled {
 .coll-picker-icon {
   flex-shrink: 0;
   line-height: 0;
+}
+
+/* The env globe stays dimmed; the collection icon reads at full strength like
+   the settings gear it now mirrors. */
+.env-picker-globe {
   opacity: 0.6;
 }
 

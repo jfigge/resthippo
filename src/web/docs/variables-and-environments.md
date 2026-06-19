@@ -54,7 +54,10 @@ classic use is one environment per deployment (Local, Staging, Production), each
 with its own `baseUrl`, credentials, and IDs.
 
 Click the **environment picker** in the collections toolbar (it shows the active
-environment, e.g. `LOCAL`) to open the environments editor:
+environment, e.g. `LOCAL`) to open a quick-switch menu. It lists **Global**
+followed by every named environment, with a check beside the active one — pick
+one to **make it active** instantly (all `{{variables}}` resolve against it).
+Choose **Manage…** at the bottom to open the full environments editor:
 
 ![The environments editor](images/environments-popup.png)
 
