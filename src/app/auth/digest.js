@@ -148,7 +148,11 @@ function buildAuthorization({
   const isSess = /-sess$/i.test(algorithm || "");
   const { realm, nonce, opaque } = challenge;
   const cnonceVal = cnonce || crypto.randomBytes(16).toString("hex");
-  const ncVal = String(nc).padStart(8, "0");
+  // RFC 7616 §3.4.1: nc is 8 *hex* digits (LHEX), not decimal — e.g. nc=255 is
+  // "000000ff". The same value feeds the response hash, so a decimal rendering
+  // would corrupt the digest for any nc > 9.
+  const ncNum = Number.isInteger(nc) && nc > 0 ? nc : 1;
+  const ncVal = ncNum.toString(16).padStart(8, "0");
 
   // qop negotiation: prefer "auth"; fall back to "auth-int"; else legacy 2069.
   let qop = null;

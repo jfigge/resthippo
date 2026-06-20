@@ -181,6 +181,28 @@ test("buildAuthorization: qop=auth-int hashes the entity body into HA2", () => {
   assert.equal(field(header, "qop"), "auth-int");
 });
 
+test("buildAuthorization: nc is rendered as 8 hex digits (RFC 7616 LHEX), not decimal", () => {
+  const challenge = parseChallenge(
+    'Digest realm="r", algorithm=MD5, qop="auth", nonce="N"',
+  );
+  const cnonce = "C";
+  const header = buildAuthorization({
+    method: "GET",
+    uri: "/x",
+    username: "u",
+    password: "p",
+    challenge,
+    cnonce,
+    nc: 255,
+  });
+  // 255 → "000000ff" (hex), not "00000255" (decimal).
+  assert.equal(field(header, "nc"), "000000ff");
+  const ha1 = md5("u:r:p");
+  const ha2 = md5("GET:/x");
+  const expected = md5(`${ha1}:N:000000ff:${cnonce}:auth:${ha2}`);
+  assert.equal(field(header, "response"), expected);
+});
+
 test("buildAuthorization: legacy RFC 2069 (no qop) omits qop/nc/cnonce", () => {
   const challenge = parseChallenge('Digest realm="r", nonce="N"');
   const header = buildAuthorization({

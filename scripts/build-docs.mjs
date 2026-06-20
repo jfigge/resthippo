@@ -20,7 +20,14 @@
 // Markdown drives the in-app guide (DocsViewer), so the website never drifts.
 //
 //   node scripts/build-docs.mjs
-import { readFileSync, writeFileSync, rmSync, mkdirSync, cpSync, existsSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  rmSync,
+  mkdirSync,
+  cpSync,
+  existsSync,
+} from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -33,13 +40,16 @@ const SITE_URL = "https://resthippo.com";
 // resolve it by file path. Locally it's a src/ devDependency; CI installs it to
 // a temp prefix and points us at it via MARKED_DIR (see deploy-site.yml).
 const MARKED_CANDIDATES = [
-  process.env.MARKED_DIR && resolve(process.env.MARKED_DIR, "marked/lib/marked.esm.js"),
+  process.env.MARKED_DIR &&
+    resolve(process.env.MARKED_DIR, "marked/lib/marked.esm.js"),
   resolve(ROOT, "src/node_modules/marked/lib/marked.esm.js"),
   resolve(ROOT, "node_modules/marked/lib/marked.esm.js"),
 ].filter(Boolean);
 const markedPath = MARKED_CANDIDATES.find(existsSync);
 if (!markedPath) {
-  console.error("marked not found. Tried:\n  " + MARKED_CANDIDATES.join("\n  "));
+  console.error(
+    "marked not found. Tried:\n  " + MARKED_CANDIDATES.join("\n  "),
+  );
   process.exit(1);
 }
 const { marked } = await import(pathToFileURL(markedPath).href);
@@ -61,20 +71,39 @@ const PAGES = [
   { slug: "keyboard-shortcuts", title: "Keyboard Shortcuts" },
 ];
 
-const outFile = (p) => (p.slug === "overview" ? "index.html" : `${p.slug}.html`);
+const outFile = (p) =>
+  p.slug === "overview" ? "index.html" : `${p.slug}.html`;
 
+// Decode the HTML entities marked emits in heading text, so the slug is built
+// from the *raw* characters (e.g. "Sandbox &amp; limits" → "Sandbox & limits")
+// rather than the escaped form (which would leak a literal "amp" into the id).
+function decodeEntities(s) {
+  return s
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&amp;/g, "&"); // last, so the others aren't double-decoded
+}
+
+// Match GitHub's heading slugger so author-written #fragment links resolve:
+// strip tags, decode entities, lowercase, drop punctuation, and turn each
+// whitespace char into a single hyphen. Note: consecutive hyphens are NOT
+// collapsed — "Sandbox & limits" → "sandbox--limits", exactly as GitHub does.
 function slugifyHeading(text) {
-  return text
-    .replace(/<[^>]+>/g, "")
+  return decodeEntities(text.replace(/<[^>]+>/g, ""))
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
+    .replace(/\s/g, "-");
 }
 
 function esc(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 // Rewrite a Markdown-relative href for the static site.
@@ -82,7 +111,8 @@ function rewriteHref(href) {
   if (/^(https?:|mailto:|#)/.test(href)) return href;
   const [path, anchor] = href.split("#");
   const frag = anchor ? `#${anchor}` : "";
-  if (path === "../README.md") return "https://github.com/jfigge/resthippo#readme";
+  if (path === "../README.md")
+    return "https://github.com/jfigge/resthippo#readme";
   const base = path.replace(/^\.\//, "");
   if (/README\.md$/i.test(base)) return `index.html${frag}`;
   if (/\.md$/i.test(base)) return `${base.replace(/\.md$/i, ".html")}${frag}`;
@@ -92,9 +122,16 @@ function rewriteHref(href) {
 function renderBody(md) {
   let html = marked.parse(md, { gfm: true });
   // Heading anchors (h2–h6) so cross-page #fragment links resolve.
-  html = html.replace(/<h([2-6])>([\s\S]*?)<\/h\1>/g, (_m, lvl, inner) => `<h${lvl} id="${slugifyHeading(inner)}">${inner}</h${lvl}>`);
+  html = html.replace(
+    /<h([2-6])>([\s\S]*?)<\/h\1>/g,
+    (_m, lvl, inner) =>
+      `<h${lvl} id="${slugifyHeading(inner)}">${inner}</h${lvl}>`,
+  );
   // Rewrite .md links to .html (and README → index, project README → GitHub).
-  html = html.replace(/href="([^"]+)"/g, (_m, href) => `href="${esc(rewriteHref(href))}"`);
+  html = html.replace(
+    /href="([^"]+)"/g,
+    (_m, href) => `href="${esc(rewriteHref(href))}"`,
+  );
   return html;
 }
 
@@ -140,7 +177,8 @@ kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px so
 
 function page({ title, slug, body }) {
   const nav = PAGES.map((p) => {
-    const cls = p.slug === slug ? "doc-nav-link doc-nav-link--active" : "doc-nav-link";
+    const cls =
+      p.slug === slug ? "doc-nav-link doc-nav-link--active" : "doc-nav-link";
     return `        <a class="${cls}" href="${outFile(p)}">${esc(p.title)}</a>`;
   }).join("\n");
   return `<!DOCTYPE html>
@@ -184,7 +222,10 @@ for (const p of PAGES) {
     continue;
   }
   const body = renderBody(readFileSync(mdPath, "utf8"));
-  writeFileSync(resolve(OUT, outFile(p)), page({ title: p.title, slug: p.slug, body }));
+  writeFileSync(
+    resolve(OUT, outFile(p)),
+    page({ title: p.title, slug: p.slug, body }),
+  );
 }
 
 if (existsSync(resolve(SRC, "images"))) {
@@ -192,11 +233,16 @@ if (existsSync(resolve(SRC, "images"))) {
 }
 
 // Sitemap: homepage + every guide page.
-const urls = [`${SITE_URL}/`, ...PAGES.map((p) => `${SITE_URL}/docs/${outFile(p)}`)];
+const urls = [
+  `${SITE_URL}/`,
+  ...PAGES.map((p) => `${SITE_URL}/docs/${outFile(p)}`),
+];
 const sitemap =
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
   urls.map((u) => `  <url><loc>${u}</loc></url>`).join("\n") +
   `\n</urlset>\n`;
 writeFileSync(resolve(ROOT, "website/sitemap.xml"), sitemap);
 
-console.log(`Built ${PAGES.length} guide pages → website/docs/, copied images, wrote website/sitemap.xml`);
+console.log(
+  `Built ${PAGES.length} guide pages → website/docs/, copied images, wrote website/sitemap.xml`,
+);

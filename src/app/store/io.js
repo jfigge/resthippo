@@ -181,22 +181,61 @@ function writeJSON(filePath, obj) {
 }
 
 /**
+ * Move a corrupt/unparseable JSON file aside so a single damaged document can't
+ * brick the whole workspace load, while preserving its bytes for manual
+ * recovery. Best-effort: if the rename itself fails (e.g. permissions), we still
+ * degrade to "missing" rather than throw.
+ *
+ * @param {string} filePath The corrupt file.
+ * @param {Error}  parseErr The JSON.parse failure, for the log line.
+ */
+function quarantineCorruptFile(filePath, parseErr) {
+  const dest = `${filePath}.corrupt-${Date.now()}`;
+  try {
+    fs.renameSync(filePath, dest);
+    console.warn(
+      `[store] Corrupt JSON at ${filePath} (${parseErr.message}); quarantined to ${dest} and treating as empty.`,
+    );
+  } catch (renameErr) {
+    console.warn(
+      `[store] Corrupt JSON at ${filePath} (${parseErr.message}); could not quarantine (${renameErr.message}); treating as empty.`,
+    );
+  }
+}
+
+/**
  * Read and parse JSON from `filePath`.
  *
  * Object documents are run forward through any pending schema migrations and
  * stamped with the current schema version in memory (the upgraded form is
  * persisted lazily on the next save, not eagerly rewritten here).
- * Returns `null` silently if the file does not exist.
+ *
+ * Returns `null` silently if the file does not exist. A file whose contents are
+ * not valid JSON (truncated by a crash, hand-edited, disk corruption) is
+ * quarantined aside (see {@link quarantineCorruptFile}) and likewise reported as
+ * `null`, so one bad document degrades gracefully instead of failing the entire
+ * load. Other read errors (EACCES, EISDIR) and migration failures still throw.
  * @param {string} filePath
  * @returns {*}
  */
 function readJSON(filePath) {
+  let raw;
   try {
-    return migrate(JSON.parse(fs.readFileSync(filePath, "utf8")));
+    raw = fs.readFileSync(filePath, "utf8");
   } catch (err) {
     if (err.code === "ENOENT") return null;
     throw err;
   }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    // Parse failure ⇒ the file is corrupt. Quarantine + degrade to "missing".
+    // (A migration bug is different — let migrate() throw so it surfaces.)
+    quarantineCorruptFile(filePath, err);
+    return null;
+  }
+  return migrate(parsed);
 }
 
 // ── Filesystem helpers ──────────────────────────────────────────────────────────

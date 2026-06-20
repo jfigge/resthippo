@@ -239,3 +239,82 @@ test("move propagates ENOENT on a missing source (unlike remove)", () => {
     { code: "ENOENT" },
   );
 });
+
+// ── readJSON: missing / valid / corrupt recovery ──────────────────────────────
+
+test("readJSON returns null for a missing file", () => {
+  const dir = tmpDir();
+  assert.strictEqual(io.readJSON(path.join(dir, "absent.json")), null);
+});
+
+test("readJSON parses a valid document", () => {
+  const dir = tmpDir();
+  const file = path.join(dir, "doc.json");
+  fs.writeFileSync(file, '{"a":1,"b":"two"}');
+
+  const out = io.readJSON(file);
+  assert.strictEqual(out.a, 1);
+  assert.strictEqual(out.b, "two");
+});
+
+test("readJSON quarantines a corrupt file and degrades to null instead of throwing", () => {
+  const dir = tmpDir();
+  const file = path.join(dir, "manifest.json");
+  fs.writeFileSync(file, '{"a":1,'); // truncated — invalid JSON
+
+  const realWarn = console.warn;
+  let warned = 0;
+  console.warn = () => {
+    warned += 1;
+  };
+  let out;
+  try {
+    out = io.readJSON(file);
+  } finally {
+    console.warn = realWarn;
+  }
+
+  // Degrades to "missing" rather than throwing, and logs the recovery.
+  assert.strictEqual(out, null);
+  assert.ok(warned >= 1, "a corrupt read should be reported");
+
+  // The original is moved aside (not deleted) so the bytes survive for recovery,
+  // and the live path no longer holds the corrupt file.
+  assert.strictEqual(fs.existsSync(file), false);
+  const quarantined = fs
+    .readdirSync(dir)
+    .filter((n) => n.startsWith("manifest.json.corrupt-"));
+  assert.strictEqual(
+    quarantined.length,
+    1,
+    "corrupt file is quarantined aside",
+  );
+  assert.strictEqual(
+    fs.readFileSync(path.join(dir, quarantined[0]), "utf8"),
+    '{"a":1,',
+    "quarantined bytes are preserved verbatim",
+  );
+});
+
+test("readJSON degrades to null even when the corrupt file cannot be quarantined", () => {
+  const dir = tmpDir();
+  const file = path.join(dir, "broken.json");
+  fs.writeFileSync(file, "}not json{");
+
+  const realRename = fs.renameSync;
+  const realWarn = console.warn;
+  fs.renameSync = () => {
+    const err = new Error("EACCES: rename blocked");
+    err.code = "EACCES";
+    throw err;
+  };
+  console.warn = () => {};
+  let out;
+  try {
+    out = io.readJSON(file);
+  } finally {
+    fs.renameSync = realRename;
+    console.warn = realWarn;
+  }
+  assert.strictEqual(out, null);
+});

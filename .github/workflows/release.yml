@@ -31,7 +31,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write # needed to create the GitHub Release and upload assets
+  contents: read # build job only reads; the release job elevates to write below
 
 concurrency:
   group: release-${{ github.ref }}
@@ -59,12 +59,12 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           fetch-depth: 0 # full history so `git describe --tags` resolves VERSION
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -74,7 +74,7 @@ jobs:
       # `make dist-win` recipe runs unchanged (see ci.yml for the rationale).
       - name: Set up MSYS2 (Windows)
         if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
         with:
           msystem: UCRT64
           install: make rsync
@@ -106,7 +106,7 @@ jobs:
         run: make ${{ matrix.target }}
 
       - name: Upload installers
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: installers-${{ matrix.os }}
           path: |
@@ -136,12 +136,12 @@ jobs:
       contents: write
     steps:
       - name: Download all installers
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           path: artifacts
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: artifacts/**/*
           draft: false
