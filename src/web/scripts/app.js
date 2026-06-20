@@ -352,6 +352,42 @@ async function _loadRequestHistory(requestId) {
   }
 }
 
+/**
+ * Record one history entry for a request. Ensures the request's history is
+ * loaded, prepends the in-memory `memEntry`, persists the lightweight `meta` +
+ * heavyweight `payload` to storage (fire-and-forget), then purges anything
+ * beyond `_maxHistory` from both memory and storage. Returns the in-memory
+ * entries list (newest first) so callers can read the new latest entry.
+ *
+ * Shared by the success / error / stream / direct-execute recording paths so the
+ * load → prepend → persist → purge sequence lives in exactly one place.
+ *
+ * @param {string} nodeId   request node id
+ * @param {object} memEntry full in-memory entry ({ id, requestNode, requestUrl, response, timestamp })
+ * @param {object} meta     lightweight metadata persisted to the history index
+ * @param {object} payload  heavyweight payload persisted to the history blob
+ * @returns {Promise<Array>} the in-memory entries list (newest first)
+ */
+async function _recordHistoryEntry(nodeId, memEntry, meta, payload) {
+  // Ensure history is loaded from storage before prepending the new entry, so
+  // the in-memory list is complete and purging works correctly.
+  if (!_historyLoaded.has(nodeId)) {
+    await _loadRequestHistory(nodeId);
+    _historyLoaded.add(nodeId);
+  }
+  const entries = _requestHistory.get(nodeId) ?? [];
+  entries.unshift(memEntry);
+  // Persist to storage (fire-and-forget).
+  addHistory(nodeId, meta, payload);
+  // Purge entries beyond the limit from both memory and storage.
+  while (entries.length > _maxHistory) {
+    const old = entries.pop();
+    if (old?.id) deleteHistory(nodeId, old.id);
+  }
+  _requestHistory.set(nodeId, entries);
+  return entries;
+}
+
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
   // Resolve the active locale and load its catalog BEFORE any component renders,
@@ -1665,25 +1701,15 @@ function installResponseHandlers() {
         testResults,
       };
 
-      // Ensure history is loaded from storage before prepending the new entry,
-      // so the in-memory list is complete and purging works correctly.
-      if (!_historyLoaded.has(node.id)) {
-        await _loadRequestHistory(node.id);
-        _historyLoaded.add(node.id);
-      }
-
-      const entries = _requestHistory.get(node.id) ?? [];
-      entries.unshift({
-        id: histId,
-        requestNode: reqNode,
-        requestUrl: reqUrl,
-        response: resp,
-        timestamp: nowMs,
-      });
-
-      // Persist to storage (fire-and-forget).
-      addHistory(
+      const entries = await _recordHistoryEntry(
         node.id,
+        {
+          id: histId,
+          requestNode: reqNode,
+          requestUrl: reqUrl,
+          response: resp,
+          timestamp: nowMs,
+        },
         {
           id: histId,
           timestamp: nowMs,
@@ -1712,14 +1738,6 @@ function installResponseHandlers() {
           testResults: resp.testResults,
         },
       );
-
-      // Purge entries beyond the limit from both memory and storage.
-      while (entries.length > _maxHistory) {
-        const old = entries.pop();
-        if (old?.id) deleteHistory(node.id, old.id);
-      }
-
-      _requestHistory.set(node.id, entries);
       const latest = entries[0];
       _responseCache[name] = latest?.response?.body ?? "";
       _responseHeaders[name] = latest?.response?.headers ?? {};
@@ -1795,22 +1813,15 @@ function installResponseHandlers() {
       consoleLog: e.detail.consoleLog ?? [],
     };
 
-    if (!_historyLoaded.has(node.id)) {
-      await _loadRequestHistory(node.id);
-      _historyLoaded.add(node.id);
-    }
-
-    const entries = _requestHistory.get(node.id) ?? [];
-    entries.unshift({
-      id: histId,
-      requestNode: reqNode,
-      requestUrl: reqUrl,
-      response: resp,
-      timestamp: nowMs,
-    });
-
-    addHistory(
+    const entries = await _recordHistoryEntry(
       node.id,
+      {
+        id: histId,
+        requestNode: reqNode,
+        requestUrl: reqUrl,
+        response: resp,
+        timestamp: nowMs,
+      },
       {
         id: histId,
         timestamp: nowMs,
@@ -1830,13 +1841,6 @@ function installResponseHandlers() {
         consoleLog: resp.consoleLog,
       },
     );
-
-    while (entries.length > _maxHistory) {
-      const old = entries.pop();
-      if (old?.id) deleteHistory(node.id, old.id);
-    }
-
-    _requestHistory.set(node.id, entries);
     const errLatest = entries[0];
     const errName = node?.name;
     if (errName) {
@@ -1902,21 +1906,15 @@ function installStreamHandlers() {
       streamSummary: summary,
     };
 
-    if (!_historyLoaded.has(node.id)) {
-      await _loadRequestHistory(node.id);
-      _historyLoaded.add(node.id);
-    }
-    const entries = _requestHistory.get(node.id) ?? [];
-    entries.unshift({
-      id: histId,
-      requestNode: reqNode,
-      requestUrl: pending.requestUrl,
-      response: resp,
-      timestamp: sentAt,
-    });
-
-    addHistory(
+    await _recordHistoryEntry(
       node.id,
+      {
+        id: histId,
+        requestNode: reqNode,
+        requestUrl: pending.requestUrl,
+        response: resp,
+        timestamp: sentAt,
+      },
       {
         id: histId,
         timestamp: sentAt,
@@ -1935,12 +1933,6 @@ function installStreamHandlers() {
         streamSummary: summary,
       },
     );
-
-    while (entries.length > _maxHistory) {
-      const old = entries.pop();
-      if (old?.id) deleteHistory(node.id, old.id);
-    }
-    _requestHistory.set(node.id, entries);
     // Repaint the timeline only when it is showing this request (a background
     // stream must not steal the pane from whatever the user is now viewing).
     if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
@@ -3783,20 +3775,15 @@ async function _executeRequestNode(node, ctx) {
       };
       const reqNode = _buildSnapshot(node);
 
-      if (!_historyLoaded.has(node.id)) {
-        await _loadRequestHistory(node.id);
-        _historyLoaded.add(node.id);
-      }
-      const entries = _requestHistory.get(node.id) ?? [];
-      entries.unshift({
-        id: histId,
-        requestNode: reqNode,
-        requestUrl: finalUrl,
-        response: resp,
-        timestamp: nowMs,
-      });
-      addHistory(
+      await _recordHistoryEntry(
         node.id,
+        {
+          id: histId,
+          requestNode: reqNode,
+          requestUrl: finalUrl,
+          response: resp,
+          timestamp: nowMs,
+        },
         {
           id: histId,
           timestamp: nowMs,
@@ -3817,11 +3804,6 @@ async function _executeRequestNode(node, ctx) {
           fullSize: resp.fullSize,
         },
       );
-      while (entries.length > _maxHistory) {
-        const old = entries.pop();
-        if (old?.id) deleteHistory(node.id, old.id);
-      }
-      _requestHistory.set(node.id, entries);
     }
 
     if (result.error && result.status === 0) {

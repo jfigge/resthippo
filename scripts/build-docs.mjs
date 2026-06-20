@@ -185,11 +185,22 @@ function page({ title, slug, body }) {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>${esc(title)} · Rest Hippo Guide</title>
   <meta name="description" content="${esc(title)} — the Rest Hippo user guide." />
   <link rel="canonical" href="${SITE_URL}/docs/${outFile({ slug })}" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Rest Hippo" />
+  <meta property="og:title" content="${esc(title)} · Rest Hippo Guide" />
+  <meta property="og:description" content="${esc(title)} — the Rest Hippo user guide." />
+  <meta property="og:url" content="${SITE_URL}/docs/${outFile({ slug })}" />
+  <meta property="og:image" content="${SITE_URL}/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${esc(title)} · Rest Hippo Guide" />
+  <meta name="twitter:description" content="${esc(title)} — the Rest Hippo user guide." />
+  <meta name="twitter:image" content="${SITE_URL}/og-image.png" />
   <style>${STYLE}</style>
 </head>
 <body>

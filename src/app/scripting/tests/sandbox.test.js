@@ -27,7 +27,11 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 
-const { runScript, validateScript } = require("../sandbox.js");
+const {
+  runScript,
+  runScriptIsolated,
+  validateScript,
+} = require("../sandbox.js");
 
 const pre = (code, ctx = {}) => runScript({ phase: "pre", code, ...ctx });
 const post = (code, ctx = {}) => runScript({ phase: "post", code, ...ctx });
@@ -493,6 +497,62 @@ describe("no-code assertions grid (Feature 29)", () => {
     assert.deepEqual(
       r.tests.map((t) => t.passed),
       [true, true],
+    );
+  });
+});
+
+describe("runScriptIsolated (worker_threads isolate)", () => {
+  it("runs a normal script off-thread with the same result as in-process", async () => {
+    const code = `hippo.console.log("hi");
+       hippo.variables.set("global", "k", "v");`;
+    const r = await runScriptIsolated({ phase: "pre", code, request: {} });
+    assert.equal(r.error, null);
+    assert.deepEqual(r.varWrites, [{ scope: "global", name: "k", value: "v" }]);
+    assert.deepEqual(r.logs, [{ level: "log", text: "hi" }]);
+  });
+
+  it("bounds a synchronous infinite loop and fails closed", async () => {
+    const r = await runScriptIsolated({
+      phase: "pre",
+      code: "while (true) {}",
+      request: {},
+    });
+    assert.notEqual(r.error, null);
+    assert.equal(r.request, null); // no mutation survives a timed-out run
+  });
+
+  it("contains a detached async loop in the worker — the host stays responsive", async () => {
+    const code = "(async () => { while (true) { await 0; } })();";
+    const r = await runScriptIsolated({ phase: "pre", code, request: {} });
+    // The synchronous part completed and the call returned a normal result…
+    assert.equal(r.error, null);
+    // …and a host-thread macrotask timer still fires promptly, because the
+    // runaway microtask loop lives (and is terminated) in the worker rather than
+    // starving this thread — the exact DoS the isolate fixes.
+    const start = Date.now();
+    await new Promise((res) => setTimeout(res, 50));
+    assert.ok(Date.now() - start < 1500, "host timer should not be starved");
+  });
+
+  it("evaluates the no-code assertion grid through the isolate (post phase)", async () => {
+    const r = await runScriptIsolated({
+      phase: "post",
+      code: "",
+      assertions: [
+        {
+          enabled: true,
+          source: "status",
+          matcher: "equals",
+          expected: "200",
+          label: "ok",
+        },
+      ],
+      response: { status: 200, headers: {}, body: "" },
+    });
+    assert.equal(r.error, null);
+    assert.deepEqual(
+      r.tests.map((t) => t.passed),
+      [true],
     );
   });
 });

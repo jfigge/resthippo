@@ -51,27 +51,31 @@
  *   `__phase`) are defined non-writable, so a user script can't reassign them to
  *   corrupt or drop its own result.
  *
- * KNOWN LIMITATION — the `timeout` only interrupts SYNCHRONOUS execution. A
- * deliberately-detached async loop (`(async()=>{ while(true) await 0 })()`) keeps
- * running on the main event loop after the call returns and is NOT bounded.
- * `microtaskMode:"afterEvaluate"` would bound it but forcing the timeout to
- * interrupt a microtask corrupts Node's async_hooks (crash risk), so it is NOT
- * used. The real fix is the worker_threads isolate below; scripts are documented
- * synchronous-only and this only bites a script that intentionally goes async.
+ * ASYNC-DoS containment — the in-vm `timeout` only interrupts SYNCHRONOUS
+ * execution. A deliberately-detached async loop (`(async()=>{ while(true) await
+ * 0 })()`) keeps running after the call returns and is NOT bounded by it
+ * (`microtaskMode:"afterEvaluate"` would, but interrupting a microtask corrupts
+ * Node's async_hooks — crash risk — so it is NOT used). The fix is
+ * `runScriptIsolated()` below: it runs the very same `runScript()` inside a
+ * `worker_threads` isolate and terminates the worker after every run, so a
+ * runaway async loop wedges only that throwaway thread, never the main process.
+ * The IPC handlers use the isolate; `runScript()` remains the in-process
+ * primitive (used by the worker and by unit tests).
  *
  * Node's `vm` is not a hardened security boundary against a determined attacker
- * sharing the host process; for that, a `worker_threads` isolate is the planned
- * follow-up. For the v1 threat model — the user's own scripts (or those in a
- * shared collection) must not *casually or accidentally* reach fs/network/
- * `process`/`require` — the three measures above are sufficient and verified by
- * the sandbox-denial tests.
+ * sharing the host process; the worker isolate raises that bar but the v1 threat
+ * model is unchanged — the user's own scripts (or those in a shared collection)
+ * must not *casually or accidentally* reach fs/network/`process`/`require`, which
+ * the three measures above enforce and the sandbox-denial tests verify.
  *
- * Loadable under plain node (only `require("vm")`), so it is unit-tested
- * directly; main.js injects Electron's ipcMain via registerScripting().
+ * Loadable under plain node (`vm` + `worker_threads` core modules), so it is
+ * unit-tested directly; main.js injects Electron's ipcMain via registerScripting().
  */
 "use strict";
 
 const vm = require("vm");
+const path = require("path");
+const { Worker } = require("worker_threads");
 
 /** Filename tagged on the user's compiled script — used to locate error lines. */
 const SCRIPT_FILENAME = "hippo-script.js";
@@ -79,6 +83,15 @@ const SCRIPT_FILENAME = "hippo-script.js";
 const SCRIPT_TIMEOUT_MS = 1000;
 /** Cap for the trusted bootstrap/epilogue stages (fast; guarded for safety). */
 const STAGE_TIMEOUT_MS = 2000;
+/**
+ * Absolute wall-clock backstop (ms) for an *isolated* run, covering work the
+ * in-vm timeout can't interrupt (a detached async loop). Comfortably above
+ * SCRIPT_TIMEOUT_MS so a normal slow-but-finishing script trips the in-vm
+ * timeout first and only genuinely runaway async work reaches this backstop.
+ */
+const HARD_TIMEOUT_MS = SCRIPT_TIMEOUT_MS + 1500;
+/** Resolved path to the worker entry that runs runScript() off the main thread. */
+const WORKER_PATH = path.join(__dirname, "sandbox-worker.js");
 
 /** Scopes readable by hippo.variables.get. */
 const ALL_SCOPES = ["global", "environment", "collection", "folder"];
@@ -647,6 +660,87 @@ function runScript({
   }
 }
 
+/** Fail-closed result envelope (no request mutation, no var writes). */
+function failClosedResult(phase, error) {
+  return {
+    request: phase === "pre" ? null : undefined,
+    varWrites: [],
+    logs: [],
+    tests: [],
+    error,
+  };
+}
+
+/**
+ * Run a script in a worker_threads isolate so a detached async loop — which the
+ * in-vm wall-clock timeout in runScript() cannot interrupt — wedges only the
+ * worker, not the main process. The worker is terminated after every run (so a
+ * runaway microtask loop dies with it) and on a hard-timeout backstop.
+ *
+ * Always resolves (never rejects) with the same envelope as runScript(); on any
+ * worker failure it fails closed. If a worker cannot be spawned at all it falls
+ * back to an in-process runScript() so the feature degrades rather than breaks.
+ *
+ * @param {object} opts  same shape as runScript()
+ * @param {object} [cfg]
+ * @param {number} [cfg.hardTimeoutMs]  override the wall-clock backstop (tests)
+ * @returns {Promise<object>} runScript-shaped result
+ */
+function runScriptIsolated(
+  opts = {},
+  { hardTimeoutMs = HARD_TIMEOUT_MS } = {},
+) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let worker = null;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (worker) worker.terminate().catch(() => {});
+      resolve(result);
+    };
+    const timer = setTimeout(() => {
+      finish(
+        failClosedResult(opts.phase, {
+          name: "TimeoutError",
+          message: `script exceeded ${hardTimeoutMs}ms`,
+        }),
+      );
+    }, hardTimeoutMs);
+
+    try {
+      worker = new Worker(WORKER_PATH);
+    } catch {
+      // Couldn't spawn an isolate — degrade to an in-process run (still bounds
+      // synchronous loops via the in-vm timeout; only the async-DoS edge case is
+      // unprotected) rather than failing the feature outright.
+      finish(runScript(opts));
+      return;
+    }
+    worker.once("message", (msg) => finish(msg && msg.result));
+    worker.once("error", () => {
+      // The worker itself crashed (e.g. failed to load) — user-script errors are
+      // caught inside the worker and posted as normal results, so reaching here
+      // means the isolate is unavailable. Degrade to an in-process run rather
+      // than failing the script (still bounds synchronous loops).
+      finish(runScript(opts));
+    });
+    worker.once("exit", (code) => {
+      // Only meaningful if the worker died before posting a result; a normal
+      // run is already settled (and our own terminate() exits non-zero).
+      if (code !== 0)
+        finish(
+          failClosedResult(opts.phase, {
+            name: "InternalError",
+            message: `script worker exited (${code})`,
+          }),
+        );
+    });
+    worker.postMessage({ jobId: 1, payload: opts });
+  });
+}
+
 /**
  * Register the scripting IPC surface. Mirrors the result-or-error envelope
  * convention (a structured `error` field rather than a thrown reject); see the
@@ -665,10 +759,12 @@ function registerScripting({ ipcMain, safeCall }) {
     error: { name: "InternalError", message: "script execution failed" },
   });
 
+  // Run user scripts in the worker isolate (async) so a detached async loop
+  // can't wedge the main process; runScript stays the in-process primitive.
   ipcMain.handle("script:run-pre", (_event, payload = {}) =>
     safeCall(
       "script:run-pre",
-      () => runScript({ ...payload, phase: "pre" }),
+      () => runScriptIsolated({ ...payload, phase: "pre" }),
       failClosed(true),
     ),
   );
@@ -676,7 +772,7 @@ function registerScripting({ ipcMain, safeCall }) {
   ipcMain.handle("script:run-post", (_event, payload = {}) =>
     safeCall(
       "script:run-post",
-      () => runScript({ ...payload, phase: "post" }),
+      () => runScriptIsolated({ ...payload, phase: "post" }),
       failClosed(false),
     ),
   );
@@ -688,10 +784,12 @@ function registerScripting({ ipcMain, safeCall }) {
 
 module.exports = {
   runScript,
+  runScriptIsolated,
   validateScript,
   registerScripting,
   // exported for tests
   SCRIPT_TIMEOUT_MS,
+  HARD_TIMEOUT_MS,
   ALL_SCOPES,
   SET_SCOPES,
 };

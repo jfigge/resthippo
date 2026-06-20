@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <!-- GitHub Pages can't set response headers, so the CSP rides in a meta tag.
+       No inline/executable scripts on this page (downloads.js is the only script,
+       same-origin); inline styles need 'unsafe-inline' for style-src only. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <meta name="description" content="Rest Hippo — A fast, beautiful REST API client for macOS, Windows, and Linux. Variable interpolation, OAuth 2.0, request history, and more." />
@@ -19,6 +23,22 @@
   <meta name="twitter:title" content="Rest Hippo — REST API Client" />
   <meta name="twitter:description" content="A fast, beautiful REST API client for macOS, Windows, and Linux — all offline." />
   <meta name="twitter:image" content="https://resthippo.com/og-image.png" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Rest Hippo",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Windows, Linux",
+    "description": "A fast, beautiful REST API client for macOS, Windows, and Linux. Variable interpolation, OAuth 2.0, request history, and more — all offline.",
+    "url": "https://resthippo.com/",
+    "downloadUrl": "https://github.com/jfigge/resthippo/releases/latest",
+    "image": "https://resthippo.com/og-image.png",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Person", "name": "Jason Figge" },
+    "license": "https://www.apache.org/licenses/LICENSE-2.0"
+  }
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -656,7 +676,7 @@
 <div class="hero">
   <div class="hero-badge">
     <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
-    <span id="hero-version">v0.8.0</span> — Now Available
+    <span id="hero-version">v0.9.0</span> — Now Available
   </div>
   <h1>The REST API client<br>you actually <span class="accent">want to use</span></h1>
   <p class="hero-desc">
@@ -842,7 +862,7 @@
   <div class="section-inner">
     <p class="section-tag">Downloads</p>
     <h2 class="section-title">Available for every desktop</h2>
-    <p class="section-body">Version <span id="dl-version">0.8.0</span> — free to download and use. No account required.</p>
+    <p class="section-body">Version <span id="dl-version">0.9.0</span> — free to download and use. No account required.</p>
 
     <div class="os-grid">
 
@@ -971,7 +991,7 @@
       </div>
       <span class="footer-name">Rest Hippo</span>
     </div>
-    <div class="ver-tag" id="footer-version">v0.8.0</div>
+    <div class="ver-tag" id="footer-version">v0.9.0</div>
     <p style="margin-bottom:14px">
       <a href="/docs/" style="color:var(--accent);text-decoration:none">User Guide</a>
       &nbsp;·&nbsp;
