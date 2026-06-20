@@ -296,6 +296,7 @@
       "themeDark": "Dunkel",
       "themeLight": "Hell",
       "themeCustom": "Benutzerdefiniert",
+      "themeEditor": "Theme-Editor…",
       "fontSize": "Editor-Schriftgröße",
       "fontFamily": "UI-Schriftart",
       "fontFamilySystem": "Systemstandard",

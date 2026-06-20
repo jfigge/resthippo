@@ -217,6 +217,26 @@ function requestBody(node) {
 }
 
 /**
+ * Find-or-register a security scheme by content: if an identical scheme is
+ * already registered, reuse its name; otherwise register it under `baseName`,
+ * disambiguating with a numeric suffix when the base name is already taken by a
+ * *different* scheme. This keeps the common single-scheme case stable
+ * (`apiKeyAuth`) while giving two API keys with different header/query names
+ * (or two OAuth2 configs with different URLs) distinct, non-colliding schemes.
+ */
+function registerScheme(schemes, baseName, scheme) {
+  const serialized = JSON.stringify(scheme);
+  for (const [name, existing] of Object.entries(schemes)) {
+    if (JSON.stringify(existing) === serialized) return name;
+  }
+  let name = baseName;
+  let n = 2;
+  while (schemes[name]) name = `${baseName}${n++}`;
+  schemes[name] = scheme;
+  return name;
+}
+
+/**
  * Derive an OpenAPI security scheme from a request's auth, registering it in
  * `schemes` under a stable name and returning that name (or null). No secret
  * value is ever placed in the scheme.
@@ -234,12 +254,13 @@ function securityScheme(node, schemes) {
     return "bearerAuth";
   }
   if (auth.type === "apikey") {
-    schemes.apiKeyAuth ??= {
+    // Keyed by (in, name): a second API key with a different location/name must
+    // get its own scheme rather than silently reusing the first one's.
+    return registerScheme(schemes, "apiKeyAuth", {
       type: "apiKey",
       in: auth.addTo === "query" ? "query" : "header",
       name: auth.name || "X-API-Key",
-    };
-    return "apiKeyAuth";
+    });
   }
   if (auth.type === "digest") {
     schemes.digestAuth ??= { type: "http", scheme: "digest" };
@@ -263,25 +284,23 @@ function securityScheme(node, schemes) {
     return "awsAuth";
   }
   if (auth.type === "oauth2") {
-    if (!schemes.oauth2Auth) {
-      const flows = {};
-      const scopes = {};
-      if (auth.grantType === "authorization_code") {
-        flows.authorizationCode = {
-          authorizationUrl: auth.authUrl,
-          tokenUrl: auth.accessTokenUrl,
-          scopes,
-        };
-      } else if (auth.grantType === "implicit") {
-        flows.implicit = { authorizationUrl: auth.authUrl, scopes };
-      } else if (auth.grantType === "password") {
-        flows.password = { tokenUrl: auth.accessTokenUrl, scopes };
-      } else {
-        flows.clientCredentials = { tokenUrl: auth.accessTokenUrl, scopes };
-      }
-      schemes.oauth2Auth = { type: "oauth2", flows };
+    const flows = {};
+    const scopes = {};
+    if (auth.grantType === "authorization_code") {
+      flows.authorizationCode = {
+        authorizationUrl: auth.authUrl,
+        tokenUrl: auth.accessTokenUrl,
+        scopes,
+      };
+    } else if (auth.grantType === "implicit") {
+      flows.implicit = { authorizationUrl: auth.authUrl, scopes };
+    } else if (auth.grantType === "password") {
+      flows.password = { tokenUrl: auth.accessTokenUrl, scopes };
+    } else {
+      flows.clientCredentials = { tokenUrl: auth.accessTokenUrl, scopes };
     }
-    return "oauth2Auth";
+    // Two OAuth2 configs with different URLs/flows get distinct schemes.
+    return registerScheme(schemes, "oauth2Auth", { type: "oauth2", flows });
   }
   return null;
 }

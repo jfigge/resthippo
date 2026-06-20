@@ -711,6 +711,48 @@ await test("client credentials flow: sends credentials in body when configured",
 // Resource Owner Password flow (mocked)
 // ─���───────────────────────────────────────────────────────────────────────────
 
+group("Concurrent acquisition coalescing");
+
+await test("concurrent acquireToken calls for one config make a single token request", async () => {
+  let calls = 0;
+  _mockResponse = () => {
+    calls += 1;
+    return {
+      status: 200,
+      statusText: "OK",
+      body: JSON.stringify({
+        access_token: "shared-tok",
+        token_type: "Bearer",
+        expires_in: 3600,
+      }),
+    };
+  };
+  const config = {
+    grantType: "client_credentials",
+    clientId: "cid",
+    clientSecret: "csecret",
+    accessTokenUrl: "https://token.example.com",
+    credentials: "header",
+  };
+  oauthExecutor.clearToken(config);
+
+  const [a, b, c] = await Promise.all([
+    oauthExecutor.acquireToken(config),
+    oauthExecutor.acquireToken(config),
+    oauthExecutor.acquireToken(config),
+  ]);
+
+  assert.equal(a.success, true);
+  assert.equal(b.accessToken, "shared-tok");
+  assert.equal(c.accessToken, "shared-tok");
+  assert.equal(
+    calls,
+    1,
+    "three concurrent acquisitions should coalesce into one token request",
+  );
+  oauthExecutor.clearToken(config);
+});
+
 group("Resource Owner Password flow (mocked)");
 
 import { passwordFlow } from "../flows/password.js";

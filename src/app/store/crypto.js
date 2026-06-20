@@ -104,8 +104,24 @@ function isEncrypted(value) {
  * @param {string} plaintext
  * @returns {string}
  */
+let _warnedUnavailable = false;
+
 function encryptString(plaintext) {
-  if (!plaintext || !isAvailable() || isEncrypted(plaintext)) return plaintext;
+  if (!plaintext || isEncrypted(plaintext)) return plaintext;
+  if (!isAvailable()) {
+    // SECURITY: the OS keystore is unavailable, so this secret is about to be
+    // written to disk as cleartext (no "enc:" prefix). Surface that once per
+    // process so a silent plaintext-at-rest downgrade doesn't go unnoticed —
+    // e.g. Linux without a Secret Service / libsecret provider running.
+    if (!_warnedUnavailable) {
+      _warnedUnavailable = true;
+      console.warn(
+        "[crypto] OS keystore unavailable — secrets are being stored UNENCRYPTED " +
+          "on disk. On Linux, ensure a Secret Service provider (e.g. gnome-keyring) is running.",
+      );
+    }
+    return plaintext;
+  }
   const buf = _safeStorage.encryptString(plaintext);
   return PREFIX + buf.toString("base64");
 }

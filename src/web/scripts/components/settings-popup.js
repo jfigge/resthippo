@@ -166,6 +166,8 @@ export class SettingsPopup {
                   <option value="latte">Latte</option>
                   <option value="grey-light">Grey</option>
                 </optgroup>
+                <option disabled>──────────</option>
+                <option value="__theme-editor__">${t("settings.appearance.themeEditor")}</option>
               </select>
             </div>
 

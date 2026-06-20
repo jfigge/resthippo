@@ -16,6 +16,26 @@
     return bytes || bytes === 0 ? (bytes / 1048576).toFixed(1) + " MB" : "";
   }
 
+  // versions.json is generated in trusted CI, but never navigate to a URL it
+  // didn't expect: constrain every download/link href to a GitHub-owned https
+  // host, falling back to the releases page if anything looks off (a tampered
+  // manifest, a javascript: URL, an unexpected host).
+  function safeUrl(u) {
+    try {
+      var p = new URL(u, location.href);
+      if (p.protocol !== "https:") return RELEASES_URL;
+      var h = p.hostname.toLowerCase();
+      var ok =
+        h === "github.com" ||
+        h === "objects.githubusercontent.com" ||
+        h.endsWith(".github.com") ||
+        h.endsWith(".githubusercontent.com");
+      return ok ? p.href : RELEASES_URL;
+    } catch (e) {
+      return RELEASES_URL;
+    }
+  }
+
   function el(html) {
     var t = document.createElement("template");
     t.innerHTML = html.trim();
@@ -48,7 +68,7 @@
         DL_ICON +
         '</span><div class="dl-info"><div class="dl-label"></div><div class="dl-meta"></div></div><span class="dl-arch"></span></a>'
     );
-    a.href = asset.url;
+    a.href = safeUrl(asset.url);
     a.querySelector(".dl-label").textContent = asset.label;
     a.querySelector(".dl-meta").textContent = asset.name + (asset.size ? " · " + mb(asset.size) : "");
     a.querySelector(".dl-arch").textContent = asset.arch;
@@ -106,7 +126,7 @@
       var a = el(
         '<a class="vh-row"><span class="vh-ver"></span><span class="vh-date"></span><span class="vh-link">View release →</span></a>'
       );
-      a.href = r.url;
+      a.href = safeUrl(r.url);
       a.querySelector(".vh-ver").textContent = "v" + r.version + (r.prerelease ? " · pre-release" : "");
       a.querySelector(".vh-date").textContent = fmtDate(r.publishedAt);
       listEl.appendChild(a);

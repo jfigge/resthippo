@@ -296,6 +296,7 @@
       "themeDark": "Scuro",
       "themeLight": "Chiaro",
       "themeCustom": "Personalizzato",
+      "themeEditor": "Editor di temi…",
       "fontSize": "Dimensione carattere editor",
       "fontFamily": "Carattere interfaccia",
       "fontFamilySystem": "Predefinito di sistema",

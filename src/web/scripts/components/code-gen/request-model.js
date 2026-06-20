@@ -203,7 +203,11 @@ export function buildRequestModel(node, context) {
             try {
               payload.variables = JSON.parse(varsText);
             } catch {
-              // Invalid variables JSON — omit rather than emit a malformed field.
+              // Invalid variables JSON — omit rather than emit a malformed
+              // field, but flag that the snippet differs from what would be sent.
+              notes.push(
+                "GraphQL variables are not valid JSON and were omitted from this snippet.",
+              );
             }
           }
           const operationName = extractOperationName(query);

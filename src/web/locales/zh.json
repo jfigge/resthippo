@@ -294,6 +294,7 @@
       "themeDark": "深色",
       "themeLight": "浅色",
       "themeCustom": "自定义",
+      "themeEditor": "主题编辑器…",
       "fontSize": "编辑器字体大小",
       "fontFamily": "界面字体",
       "fontFamilySystem": "系统默认",
