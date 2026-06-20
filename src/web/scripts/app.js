@@ -30,6 +30,7 @@
 import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
 import { applyCaptures } from "./components/captures.js";
+import { assertionLabel } from "./components/editors/tests-editor.js";
 import {
   buildRequestPayload,
   applyPathParams,
@@ -332,6 +333,9 @@ async function _loadRequestHistory(requestId) {
             // Streaming-run record (Feature 33): a compact summary stands in for
             // the (never-buffered) body. Present only on streamed runs.
             streamSummary: payload?.streamSummary ?? null,
+            // Test assertions (Feature 29) — restored so a replayed run shows
+            // its Tests tab. Pre-feature entries lack the field → empty.
+            testResults: payload?.testResults ?? [],
           },
           timestamp: meta.timestamp ?? Date.now(),
         };
@@ -1314,6 +1318,9 @@ function initEventBus() {
   //   script-result         { phase, writes, error, logs }   pre-script outcome (RequestEditor → app.js): persist writes + surface error
   //   script-console        { requestId, lines }             after-response script console output (app.js → ResponseViewer): append to the Console pane
   //
+  // Test assertions (Feature 29)
+  //   test-results          { requestId, results, summary }  after-response assertions (app.js → ResponseViewer): fill the Tests tab + status badge
+  //
   // Live HTTP streaming (Feature 33)  (preload http:stream:* → app.js → ResponseViewer)
   //   stream-data           { streamId, kind, index, ts, event?|data?, totalBytes, count }
   //   stream-end            { streamId, ts, totalBytes, eventCount, elapsed, status, bodyRef, aborted, lastEvents }
@@ -1593,6 +1600,37 @@ function installResponseHandlers() {
       return;
     }
 
+    // Test assertions (Feature 29). Run the after-response sandbox — scripted
+    // hippo.test() AND the no-code grid, a SINGLE execution path — on genuine
+    // sends only, BEFORE building the history entry so the results persist with
+    // the run. All gating (Scripts/Tests settings, per-pane enable, empty rows)
+    // lives inside the helper, which returns `{name, passed, message}[]`.
+    let testResults = [];
+    if (!skipHistory) {
+      testResults = await _runAfterResponseScript(node, e.detail);
+    }
+    const testSummary = testResults.length
+      ? {
+          total: testResults.length,
+          passed: testResults.filter((t) => t.passed).length,
+          failed: testResults.filter((t) => !t.passed).length,
+        }
+      : null;
+    // Push the results to the response viewer (Tests tab + status badge). The
+    // viewer rendered the response off the same hippo:response-received event a
+    // moment ago with no tests; this fills them in once the sandbox returns.
+    if (testResults.length && node?.id) {
+      window.dispatchEvent(
+        new CustomEvent("hippo:test-results", {
+          detail: {
+            requestId: node.id,
+            results: testResults,
+            summary: testSummary,
+          },
+        }),
+      );
+    }
+
     // Record in per-request history only for real (non-replay) executions.
     // When replaying a historical entry, do NOT push to history and do NOT
     // re-render the timeline (which would clear the user's current selection).
@@ -1620,6 +1658,9 @@ function installResponseHandlers() {
         truncated: e.detail.truncated ?? false,
         fullSize: e.detail.fullSize ?? e.detail.size ?? 0,
         bodyRef: e.detail.bodyRef ?? null,
+        // Test assertions (Feature 29) computed above — kept on the in-memory
+        // entry so a Timeline replay re-renders the Tests tab.
+        testResults,
       };
 
       // Ensure history is loaded from storage before prepending the new entry,
@@ -1650,6 +1691,10 @@ function installResponseHandlers() {
           size: resp.size,
           requestUrl: reqUrl,
           requestNode: reqNode,
+          // Compact test summary (Feature 29) on the lightweight metadata entry
+          // so the Timeline can show a per-run pass/fail badge without loading
+          // the full response payload. Null when no assertions ran.
+          testSummary,
         },
         {
           headers: resp.headers,
@@ -1661,6 +1706,8 @@ function installResponseHandlers() {
           // reloaded large response is correctly flagged as a stored preview.
           truncated: resp.truncated,
           fullSize: resp.fullSize,
+          // Full per-assertion results (Feature 29) for the Tests tab on replay.
+          testResults: resp.testResults,
         },
       );
 
@@ -1680,19 +1727,6 @@ function installResponseHandlers() {
       _refreshEditorVariableContext(_selectedNode?.id);
       // Only repaint the timeline pane when it is showing this request.
       if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
-    }
-
-    // After-response script (Feature 25). Runs on genuine sends only (never on a
-    // replay), before captures, so a script may read the response and write a
-    // variable a later request consumes — but only when the pane is enabled
-    // (default true when the flag is absent). Errors are surfaced, never dropped.
-    if (
-      !skipHistory &&
-      node?.afterResponseScript?.trim() &&
-      node.afterResponseScriptEnabled !== false &&
-      currentSettings.showScriptsTab
-    ) {
-      await _runAfterResponseScript(node, e.detail);
     }
 
     // Post-response captures (Feature 03). Run on genuine sends only (never on a
@@ -2546,21 +2580,43 @@ function _variableSnapshotForNode(nodeId) {
 }
 
 /**
- * Run a request's after-response script: hand the sandbox the response + the
- * variable snapshot, surface any error/logs, and persist its variable writes
- * through the shared write-back path so a later request can consume them.
- * @param {object} node    request node (carries `afterResponseScript`)
- * @param {object} detail  hippo:response-received detail (status/headers/body)
+ * Run a request's after-response sandbox: the scripted after-response code AND
+ * the no-code assertions grid (Feature 29) in a SINGLE sandbox call. Hands the
+ * sandbox the response (incl. elapsed time), assertions and variable snapshot,
+ * surfaces any error/logs, persists variable writes through the shared write-back
+ * path, and returns the collected test results.
+ *
+ * Each source is gated by its own Settings toggle + per-pane enable: the script
+ * runs only when Scripts is on and the after-response pane is enabled; assertions
+ * run only when the Tests tab is on. When neither contributes, the sandbox is not
+ * invoked and an empty result set is returned.
+ *
+ * @param {object} node    request node (carries `afterResponseScript`/`assertions`)
+ * @param {object} detail  hippo:response-received detail (status/headers/body/elapsed)
+ * @returns {Promise<Array<{name:string,passed:boolean,message:string}>>}
  */
 async function _runAfterResponseScript(node, detail) {
-  const code = (node?.afterResponseScript ?? "").trim();
-  if (!code) return;
+  const code =
+    currentSettings.showScriptsTab &&
+    node?.afterResponseScriptEnabled !== false &&
+    (node?.afterResponseScript ?? "").trim()
+      ? node.afterResponseScript
+      : "";
+  // Attach a localized display label to each row here (the sandbox stays
+  // language-agnostic); the sandbox skips disabled rows itself.
+  const assertions =
+    currentSettings.showTestsTab && Array.isArray(node?.assertions)
+      ? node.assertions.map((a) => ({ ...a, label: assertionLabel(a) }))
+      : [];
+  if (!code && assertions.length === 0) return [];
+
   const snap = _variableSnapshotForNode(node.id);
   const res = await window.hippo.script.runPost({
     code,
     request: detail?.request ?? {},
     response: {
       status: detail?.status ?? 0,
+      time: detail?.elapsed ?? 0,
       headers: detail?.headers ?? {},
       body: detail?.body ?? "",
     },
@@ -2571,6 +2627,7 @@ async function _runAfterResponseScript(node, detail) {
       collection: snap.collection,
       folder: snap.folder,
     },
+    assertions,
   });
   surfaceScriptResult(res);
   if (res?.logs?.length) {
@@ -2581,6 +2638,7 @@ async function _runAfterResponseScript(node, detail) {
     );
   }
   if (res?.varWrites?.length) await persistVariableWrites(res.varWrites);
+  return Array.isArray(res?.tests) ? res.tests : [];
 }
 
 /**

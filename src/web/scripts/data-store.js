@@ -85,6 +85,9 @@ const DEFAULT_SETTINGS = {
   // and Scripts default off (opt-in power features); Notes defaults on.
   showCapturesTab: false,
   showScriptsTab: false,
+  // Tests tab (Feature 29): off → tab hidden AND no-code assertions don't run
+  // after a response. Opt-in power feature, like Captures/Scripts.
+  showTestsTab: false,
   showNotesTab: true,
   proxyEnabled: false,
   proxyUrl: "",

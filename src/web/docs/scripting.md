@@ -46,10 +46,12 @@ small and deliberately sandboxed (see [Sandbox & limits](#sandbox--limits)).
 | `hippo.variables.get(scope, name)` | `scope`: `"global"` \| `"environment"` \| `"collection"` \| `"folder"` · `name`: string | `string \| undefined` | both | Reads a variable from a specific scope. |
 | `hippo.variables.set(scope, name, value)` | `scope`: `"global"` \| `"environment"` \| `"collection"` · `name`: string · `value`: string | `void` | both | Writes a variable; the value is saved for later requests. `"folder"` is **read-only** — `set` throws. |
 | `hippo.request.method` · `.url` · `.headers` · `.body` | — | string · string · object · string | both | **Mutable in the pre-request script** (changes the outgoing request); a read-only snapshot in the after-response script. In the pre-request pane these still contain `{{templates}}` — they are substituted after your script runs. |
-| `hippo.response.status` · `.headers` · `.body` | — | number · object · string | **after-response only** | Reading these in a pre-request script throws — the response doesn't exist yet. |
+| `hippo.response.status` · `.time` · `.headers` · `.body` | — | number · number (ms) · object · string | **after-response only** | Reading these in a pre-request script throws — the response doesn't exist yet. `.time` is the elapsed response time in milliseconds. |
 | `hippo.response.json()` | — | parsed value | after-response only | Parses the response body as JSON; throws if the body isn't valid JSON. |
 | `hippo.environment` | — | `{ name, variables }` | both | The active environment (read-only). |
 | `hippo.console.log` / `.info` / `.warn` / `.error` | `...args`: any | `void` | both | Logs to the response **Console** tab (see [Console output](#console-output)). |
+| `hippo.test(name, fn)` | `name`: string · `fn`: function | `void` | after-response | Runs `fn` as a named test; if it throws, the test fails (see [Test assertions](#test-assertions)). |
+| `hippo.expect(value)` | `value`: any | matcher | after-response | Returns a matcher with `.toBe` / `.toEqual` / `.toContain` / `.toBeLessThan` / `.toBeGreaterThan` / `.toMatch` / `.toBeTruthy` / `.toBeFalsy` (and `.not`), each throwing on mismatch. |
 
 > **Scopes** follow the same precedence as everywhere else in Rest Hippo:
 > folder → collection → environment → global. `get` can read any of the four;
@@ -82,6 +84,41 @@ if (hippo.response.status === 200) {
 A following request can now use `{{userId}}` in its URL, headers, or body. (For
 simple field extraction without writing code, see also
 [Captures](variables-and-environments.md#captures).)
+
+## Test assertions
+
+An after-response script can also **validate** the response, turning a request
+into an API check. Use `hippo.test(name, fn)` to declare a named test and
+`hippo.expect(value)` for the comparison — if the matcher (or anything inside the
+test) throws, the test is marked failed; otherwise it passes. Results appear on
+the response **[Tests](responses.md#tests)** tab with a pass/fail badge in the
+status bar.
+
+```js
+hippo.test("status is 200", () => {
+  hippo.expect(hippo.response.status).toBe(200);
+});
+
+hippo.test("responds quickly", () => {
+  hippo.expect(hippo.response.time).toBeLessThan(500);
+});
+
+hippo.test("returns the right user", () => {
+  const body = hippo.response.json();
+  hippo.expect(body.id).toBe(42);
+  hippo.expect(body.roles).toContain("admin");
+});
+```
+
+Matchers: `toBe` (strict equality), `toEqual` (deep equality), `toContain`
+(substring / array member), `toBeLessThan` / `toBeGreaterThan`, `toMatch` (regex),
+`toBeTruthy` / `toBeFalsy`. Prefix any with `.not` to invert it, e.g.
+`hippo.expect(hippo.response.status).not.toBe(500)`.
+
+> Prefer not to write code? The no-code **[Tests](requests.md#tests)** tab lets
+> you build the same checks from a grid of source → matcher → expected rows. Grid
+> assertions and scripted `hippo.test()` calls run together and share the one
+> Tests tab.
 
 ## Console output
 

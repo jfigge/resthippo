@@ -99,6 +99,30 @@ Two more tabs round out the request:
 There's also a **Notes** tab for free-form Markdown notes attached to the
 request.
 
+## Tests
+
+The **Tests** tab attaches **assertions** that validate the response after every
+send — a no-code way to turn a request into an API smoke test. (Enable it under
+**Settings → Request → Show Tests tab**; it's off by default.)
+
+Each row is one check:
+
+- **Source** — what to look at: the **Status** code, the **Response time** (ms), a
+  **Header**, the raw **Body**, or a **JSON body** value (give a path like
+  `$.data.id` in the **Header / Path** column).
+- **Matcher** — how to compare: **equals**, **does not equal**, **contains**,
+  **does not contain**, **exists**, **does not exist**, **is less than**, **is
+  greater than**, or **matches** (regular expression).
+- **Expected** — the value to compare against (ignored for exists / does not
+  exist).
+
+Rows have the familiar enabled toggle, drag-to-reorder, and delete controls.
+Results show on the response **[Tests](responses.md#tests)** tab with a pass/fail
+badge, and are saved with each run so the **Timeline** shows whether a past run
+passed. For checks that need logic, write
+[`hippo.test()` assertions](scripting.md#test-assertions) on the Scripts tab —
+they run alongside the grid and share the same Tests tab.
+
 ---
 
 Next: [Authentication →](authentication.md)

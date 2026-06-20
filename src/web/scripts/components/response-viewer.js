@@ -52,6 +52,7 @@ const TABS = [
   { id: "headers", labelKey: "response.tab.headers" },
   { id: "cookies", labelKey: "response.tab.cookies" },
   { id: "console", labelKey: "response.tab.console" },
+  { id: "tests", labelKey: "response.tab.tests" }, // shown only when a run has assertions
   { id: "timeline", labelKey: "response.tab.timeline" },
 ];
 
@@ -385,6 +386,7 @@ export class ResponseViewer {
   #selectedRequestId = null; // id of the selected request — lifecycle events for others are ignored
   #inFlightStarts = new Map(); // request id → send time (epoch ms), for all in-flight requests
   #consoleLines = []; // the console pane's current lines, so script logs can append (Feature 25)
+  #testResults = []; // the Tests pane's current assertion results (Feature 29)
   #loadingTimer = null; // setInterval handle for the live elapsed readout while loading
 
   // Live streaming (Feature 33). The body of an SSE / chunked stream is appended
@@ -505,6 +507,17 @@ export class ResponseViewer {
     window.addEventListener("hippo:captures-applied", (e) =>
       this.#showCapturedBadge(e.detail?.count ?? 0),
     );
+
+    // Test assertions (Feature 29): fill the Tests tab + status badge once the
+    // after-response sandbox returns. The response itself was rendered a moment
+    // ago off hippo:response-received with no tests; this completes it.
+    window.addEventListener("hippo:test-results", (e) => {
+      if (!isSelected(e.detail?.requestId)) return;
+      this.#applyTestResults(
+        e.detail?.results ?? [],
+        e.detail?.summary ?? null,
+      );
+    });
 
     // Update the timeline tab whenever history changes.
     // When isRequestSwitch is true the dispatch comes after the history load
@@ -705,6 +718,7 @@ export class ResponseViewer {
     bar.innerHTML = `
       <span class="res-status-badge" aria-label="${t("response.status.httpStatusAria")}"></span>
       <span class="res-status-text"></span>
+      <span class="res-tests-badge" title="${t("response.status.testsTitle")}" hidden></span>
       <span class="res-captured-badge" title="${t("response.status.capturedTitle")}" hidden></span>
       <span class="res-meta">
         <span class="res-time"  title="${t("response.status.elapsedTitle")}"></span>
@@ -829,7 +843,9 @@ export class ResponseViewer {
         });
       } else {
         btn.textContent = t(tab.labelKey);
-        if (tab.id === "preview") btn.hidden = true;
+        // Preview (HTML only) and Tests (only when a run has assertions) start
+        // hidden; #setPreviewTabVisible / #setTestsTabVisible reveal them.
+        if (tab.id === "preview" || tab.id === "tests") btn.hidden = true;
       }
 
       btn.addEventListener("click", () => this.#switchTab(tab.id));
@@ -873,6 +889,10 @@ export class ResponseViewer {
     // Initial empty state in console pane
     const consolePane = content.querySelector("#res-tab-console");
     consolePane.appendChild(this.#consolePlaceholder());
+
+    // Initial empty state in tests pane (Feature 29)
+    const testsPane = content.querySelector("#res-tab-tests");
+    if (testsPane) testsPane.appendChild(this.#testsPlaceholder());
 
     this.#el.appendChild(content);
     this.#tabContent = content;
@@ -921,6 +941,13 @@ export class ResponseViewer {
     return this.#placeholder({
       icon: "🖥️",
       text: t("response.placeholder.consoleEmpty"),
+    });
+  }
+
+  #testsPlaceholder() {
+    return this.#placeholder({
+      icon: "✓",
+      text: t("response.placeholder.testsEmpty"),
     });
   }
 
@@ -1976,8 +2003,9 @@ export class ResponseViewer {
 
     bodyPane.appendChild(placeholder);
 
-    // Clear console pane on each new request
+    // Clear console + tests panes on each new request
     this.#renderConsole([]);
+    this.#applyTestResults([]);
   }
 
   /** Stop the live elapsed readout (idempotent). */
@@ -1995,6 +2023,7 @@ export class ResponseViewer {
     this.#teardownBinaryEphemera();
     this.#stream.teardownStream({ abort: true });
     this.#setPreviewTabVisible(false);
+    this.#applyTestResults([]);
     this.#search.clearHighlights();
     const hasStatus = detail?.status && detail.status > 0;
     const statusCode = hasStatus ? String(detail.status) : "ERR";
@@ -2053,6 +2082,7 @@ export class ResponseViewer {
     const cookiesPane = this.#tabContent.querySelector("#res-tab-cookies");
     if (cookiesPane) cookiesPane.innerHTML = "";
     this.#renderConsole([]);
+    this.#applyTestResults([]);
   }
 
   /**
@@ -2096,6 +2126,9 @@ export class ResponseViewer {
       // A recorded streaming run (Feature 33) carries a compact summary in place
       // of a body; #renderBodyPane renders it instead of the (empty) body.
       streamSummary = null,
+      // Test assertions (Feature 29) — present on a Timeline replay; absent on a
+      // live send (the hippo:test-results event fills them in shortly after).
+      testResults = [],
     } = response;
 
     // A fresh response starts in its default view; drop any binary overlay/blob
@@ -2123,6 +2156,7 @@ export class ResponseViewer {
       fullSize,
       encoding,
       streamSummary,
+      testResults,
     };
 
     // Sync method colour from the request that produced this response.
@@ -2157,6 +2191,11 @@ export class ResponseViewer {
 
     // ── Console pane ───────────────────────────────────────────────────────
     this.#renderConsole(consoleLog);
+
+    // ── Tests pane (Feature 29) ──────────────────────────────────────────────
+    // Replay carries results on the response; a live send arrives empty here and
+    // is completed by the hippo:test-results event a moment later.
+    this.#applyTestResults(testResults);
   }
 
   /** Fill the Headers tab with a key/value table (shared by the static + stream renders). */
@@ -2282,6 +2321,135 @@ export class ResponseViewer {
     pane.appendChild(pre);
   }
 
+  // ── Tests pane (Feature 29) ─────────────────────────────────────────────────
+
+  /**
+   * Apply a set of assertion results to the Tests tab + status badge and reveal
+   * the tab. Shared by the live (hippo:test-results) and replay (#showResponse)
+   * paths. An empty set hides the tab/badge and resets to the placeholder.
+   * @param {Array<{name:string,passed:boolean,message:string}>} results
+   * @param {{total:number,passed:number,failed:number}|null} [summary]
+   */
+  #applyTestResults(results, summary = null) {
+    const list = Array.isArray(results) ? results : [];
+    const sum =
+      summary ??
+      (list.length
+        ? {
+            total: list.length,
+            passed: list.filter((r) => r.passed).length,
+            failed: list.filter((r) => !r.passed).length,
+          }
+        : null);
+    this.#renderTests(list);
+    this.#showTestsBadge(sum);
+    this.#setTestsTabVisible(list.length > 0);
+  }
+
+  /**
+   * Render the assertion results into the Tests pane: a summary line plus one row
+   * per assertion with a pass/fail glyph, name, and failure message.
+   * @param {Array<{name:string,passed:boolean,message:string}>} results
+   */
+  #renderTests(results) {
+    this.#testResults = Array.isArray(results) ? [...results] : [];
+    const pane = this.#tabContent.querySelector("#res-tab-tests");
+    if (!pane) return;
+    pane.innerHTML = "";
+
+    if (!this.#testResults.length) {
+      pane.appendChild(this.#testsPlaceholder());
+      return;
+    }
+
+    const passed = this.#testResults.filter((r) => r.passed).length;
+    const failed = this.#testResults.length - passed;
+
+    const summary = document.createElement("div");
+    summary.className = "res-tests-summary";
+    summary.classList.add(
+      failed > 0 ? "res-tests-summary--fail" : "res-tests-summary--pass",
+    );
+    summary.textContent = t("response.tests.summary", {
+      passed,
+      failed,
+      total: this.#testResults.length,
+    });
+    pane.appendChild(summary);
+
+    const listEl = document.createElement("div");
+    listEl.className = "res-tests-list";
+    this.#testResults.forEach((r) => {
+      const row = document.createElement("div");
+      row.className = `res-tests-row ${
+        r.passed ? "res-tests-row--pass" : "res-tests-row--fail"
+      }`;
+
+      const glyph = document.createElement("span");
+      glyph.className = "res-tests-glyph";
+      glyph.setAttribute("aria-hidden", "true");
+      glyph.textContent = r.passed ? "✓" : "✗";
+
+      const label = document.createElement("span");
+      label.className = "res-tests-name";
+      label.textContent = r.name || "";
+
+      const status = document.createElement("span");
+      status.className = "res-tests-status";
+      status.textContent = r.passed
+        ? t("response.tests.passed")
+        : t("response.tests.failed");
+
+      row.appendChild(glyph);
+      row.appendChild(label);
+      row.appendChild(status);
+
+      // Failure detail (the matcher message) on its own line when present.
+      if (!r.passed && r.message) {
+        const msg = document.createElement("div");
+        msg.className = "res-tests-message";
+        msg.textContent = r.message;
+        row.appendChild(msg);
+      }
+
+      listEl.appendChild(row);
+    });
+    pane.appendChild(listEl);
+  }
+
+  /** Show the pass/fail summary badge in the status bar (green pass / red fail). */
+  #showTestsBadge(summary) {
+    const badge = this.#statusBar?.querySelector(".res-tests-badge");
+    if (!badge) return;
+    if (!summary || !summary.total) {
+      this.#hideTestsBadge();
+      return;
+    }
+    const pass = summary.failed === 0;
+    badge.textContent = `${pass ? "✓" : "✗"} ${summary.passed}/${summary.total}`;
+    badge.classList.toggle("res-tests--pass", pass);
+    badge.classList.toggle("res-tests--fail", !pass);
+    badge.hidden = false;
+  }
+
+  #hideTestsBadge() {
+    const badge = this.#statusBar?.querySelector(".res-tests-badge");
+    if (badge) {
+      badge.hidden = true;
+      badge.textContent = "";
+      badge.classList.remove("res-tests--pass", "res-tests--fail");
+    }
+  }
+
+  /** Show/hide the Tests tab button; fall back to Body if it was active + hidden. */
+  #setTestsTabVisible(visible) {
+    const btn = this.#tabStrip?.querySelector('[data-tab="tests"]');
+    if (btn) btn.hidden = !visible;
+    if (!visible && this.#activeTab === "tests") {
+      this.#switchTab("body");
+    }
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   #setStatus(code, text, time, size) {
@@ -2293,6 +2461,10 @@ export class ResponseViewer {
     // response; the next hippo:captures-applied (fired after the response is
     // shown) re-shows it if this response captured anything.
     this.#hideCapturedBadge();
+    // Likewise clear the test marker — #showResponse re-applies it from the
+    // response's own results (replay) and the hippo:test-results event re-shows
+    // it on a live send.
+    this.#hideTestsBadge();
   }
 
   /** Show the post-response captured-variable marker (count only — never values). */

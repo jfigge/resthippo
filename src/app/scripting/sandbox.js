@@ -92,7 +92,7 @@ const BOOTSTRAP = `
 "use strict";
 (function () {
   var ctx = JSON.parse(__input);
-  var out = { varWrites: [], logs: [] };
+  var out = { varWrites: [], logs: [], tests: [] };
   var vars = ctx.variables || {};
   var SET_SCOPES = ${JSON.stringify(SET_SCOPES)};
   var ALL_SCOPES = ${JSON.stringify(ALL_SCOPES)};
@@ -111,6 +111,151 @@ const BOOTSTRAP = `
   }
   function log(level, args) {
     out.logs.push({ level: level, text: fmt(args) });
+  }
+
+  // ── Assertion engine (Feature 29) ─────────────────────────────────────────
+  // A single matcher engine backs BOTH the scripted hippo.expect(...) helper and
+  // the no-code assertions grid, so there is one set of comparison semantics and
+  // one execution path. applyMatcher throws a descriptive Error on failure, which
+  // hippo.test() (and the grid loop) catches to record a pass/fail result.
+  function jstr(v) {
+    if (typeof v === "string") return v;
+    try {
+      return JSON.stringify(v);
+    } catch (e) {
+      return String(v);
+    }
+  }
+  function deepEqual(a, b) {
+    if (a === b) return true;
+    if (typeof a !== typeof b) return false;
+    if (a && b && typeof a === "object") {
+      if (Array.isArray(a) !== Array.isArray(b)) return false;
+      var ka = Object.keys(a);
+      var kb = Object.keys(b);
+      if (ka.length !== kb.length) return false;
+      for (var i = 0; i < ka.length; i++) {
+        if (!Object.prototype.hasOwnProperty.call(b, ka[i])) return false;
+        if (!deepEqual(a[ka[i]], b[ka[i]])) return false;
+      }
+      return true;
+    }
+    return false;
+  }
+  function testMatcher(actual, matcher, expected) {
+    switch (matcher) {
+      case "eq":
+        return actual === expected;
+      case "deepEq":
+        return deepEqual(actual, expected);
+      case "contains":
+        if (actual == null) return false;
+        if (Array.isArray(actual)) return actual.indexOf(expected) !== -1;
+        return String(actual).indexOf(String(expected)) !== -1;
+      case "exists":
+        return actual !== undefined && actual !== null;
+      case "lt":
+        return Number(actual) < Number(expected);
+      case "gt":
+        return Number(actual) > Number(expected);
+      case "matches":
+        return new RegExp(expected).test(String(actual));
+      case "truthy":
+        return !!actual;
+      case "falsy":
+        return !actual;
+      default:
+        throw new Error("unknown matcher '" + matcher + "'");
+    }
+  }
+  function matcherMessage(actual, matcher, expected, negate) {
+    var n = negate ? " not" : "";
+    switch (matcher) {
+      case "eq":
+        return "expected " + jstr(actual) + " to" + n + " equal " + jstr(expected);
+      case "deepEq":
+        return (
+          "expected " + jstr(actual) + " to" + n + " deeply equal " + jstr(expected)
+        );
+      case "contains":
+        return "expected " + jstr(actual) + " to" + n + " contain " + jstr(expected);
+      case "exists":
+        return "expected value to" + n + " exist";
+      case "lt":
+        return (
+          "expected " + jstr(actual) + " to" + n + " be less than " + jstr(expected)
+        );
+      case "gt":
+        return (
+          "expected " +
+          jstr(actual) +
+          " to" +
+          n +
+          " be greater than " +
+          jstr(expected)
+        );
+      case "matches":
+        return "expected " + jstr(actual) + " to" + n + " match " + jstr(expected);
+      case "truthy":
+        return "expected " + jstr(actual) + " to" + n + " be truthy";
+      case "falsy":
+        return "expected " + jstr(actual) + " to" + n + " be falsy";
+      default:
+        return "assertion failed";
+    }
+  }
+  function applyMatcher(actual, matcher, expected, negate) {
+    var ok = testMatcher(actual, matcher, expected);
+    if (negate) ok = !ok;
+    if (!ok) throw new Error(matcherMessage(actual, matcher, expected, negate));
+  }
+  // Map a grid matcher token to the (engine key, negate) it compiles to.
+  function gridMatcher(m) {
+    switch (m) {
+      case "equals":
+        return { key: "eq", negate: false };
+      case "notEquals":
+        return { key: "eq", negate: true };
+      case "contains":
+        return { key: "contains", negate: false };
+      case "notContains":
+        return { key: "contains", negate: true };
+      case "exists":
+        return { key: "exists", negate: false };
+      case "notExists":
+        return { key: "exists", negate: true };
+      case "lessThan":
+        return { key: "lt", negate: false };
+      case "greaterThan":
+        return { key: "gt", negate: false };
+      case "matches":
+        return { key: "matches", negate: false };
+      default:
+        throw new Error("unknown matcher '" + m + "'");
+    }
+  }
+  // Minimal JSON-path resolver ($.a.b[0].c / a.b[0] / ['k']) — the renderer's jq
+  // engine lives in the sandboxed renderer and can't be required here.
+  function resolvePath(root, path) {
+    var p = String(path == null ? "" : path).trim();
+    if (p.charAt(0) === "$") p = p.slice(1);
+    if (p && p.charAt(0) !== "." && p.charAt(0) !== "[") p = "." + p;
+    var re = /\\.([^.\\[\\]]+)|\\[(\\d+)\\]|\\['([^']*)'\\]|\\["([^"]*)"\\]/g;
+    var cur = root;
+    var m;
+    while ((m = re.exec(p)) !== null) {
+      if (cur == null) return undefined;
+      var key =
+        m[1] != null
+          ? m[1]
+          : m[2] != null
+            ? Number(m[2])
+            : m[3] != null
+              ? m[3]
+              : m[4];
+      cur = cur[key];
+    }
+    return cur;
   }
 
   var hippo = {
@@ -168,6 +313,67 @@ const BOOTSTRAP = `
         Object.assign({}, ctx.environment ? ctx.environment.variables : null),
       ),
     }),
+    // Feature 29 — scripted assertions. hippo.test(name, fn) records a pass/fail
+    // result; hippo.expect(value).toX(...) throws on mismatch (caught by test()).
+    test: function (name, fn) {
+      var nm = name == null ? "" : String(name);
+      if (typeof fn !== "function") {
+        out.tests.push({
+          name: nm,
+          passed: false,
+          message: "test body is not a function",
+        });
+        return;
+      }
+      try {
+        fn();
+        out.tests.push({ name: nm, passed: true, message: "" });
+      } catch (e) {
+        out.tests.push({
+          name: nm,
+          passed: false,
+          message: (e && e.message) || String(e),
+        });
+      }
+    },
+    expect: function (value) {
+      function build(negate) {
+        return {
+          toBe: function (x) {
+            applyMatcher(value, "eq", x, negate);
+          },
+          toEqual: function (x) {
+            applyMatcher(value, "deepEq", x, negate);
+          },
+          toContain: function (x) {
+            applyMatcher(value, "contains", x, negate);
+          },
+          toBeLessThan: function (x) {
+            applyMatcher(value, "lt", x, negate);
+          },
+          toBeGreaterThan: function (x) {
+            applyMatcher(value, "gt", x, negate);
+          },
+          toMatch: function (x) {
+            applyMatcher(value, "matches", x, negate);
+          },
+          toBeTruthy: function () {
+            applyMatcher(value, "truthy", null, negate);
+          },
+          toBeFalsy: function () {
+            applyMatcher(value, "falsy", null, negate);
+          },
+        };
+      }
+      var api = build(false);
+      Object.defineProperty(api, "not", {
+        enumerable: true,
+        get: function () {
+          return build(true);
+        },
+      });
+      return api;
+    },
   };
 
   var reqSrc = ctx.request || {};
@@ -198,6 +404,7 @@ const BOOTSTRAP = `
     var resSrc = ctx.response || {};
     hippo.response = Object.freeze({
       status: resSrc.status,
+      time: resSrc.time,
       headers: Object.freeze(Object.assign({}, resSrc.headers)),
       body: resSrc.body,
       json: function () {
@@ -207,6 +414,77 @@ const BOOTSTRAP = `
   }
 
   Object.freeze(hippo);
+
+  // No-code assertions grid (Feature 29). Each enabled row resolves a value from
+  // the response and runs it through the SAME matcher engine hippo.expect uses,
+  // recording a pass/fail into out.tests. Post phase only — there is no response
+  // to assert against in a pre-request script.
+  if (__phase !== "pre" && Array.isArray(ctx.assertions)) {
+    var resForGrid = ctx.response || {};
+    var hdrLower = {};
+    var rawHdr = resForGrid.headers || {};
+    for (var hk in rawHdr) {
+      if (Object.prototype.hasOwnProperty.call(rawHdr, hk))
+        hdrLower[String(hk).toLowerCase()] = rawHdr[hk];
+    }
+    for (var ai = 0; ai < ctx.assertions.length; ai++) {
+      var a = ctx.assertions[ai] || {};
+      if (a.enabled === false) continue;
+      var label =
+        a.label == null || a.label === ""
+          ? "assertion " + (ai + 1)
+          : String(a.label);
+      try {
+        var actual;
+        switch (a.source) {
+          case "status":
+            actual = resForGrid.status;
+            break;
+          case "responseTime":
+            actual = resForGrid.time;
+            break;
+          case "header":
+            actual = hdrLower[String(a.name || "").toLowerCase()];
+            break;
+          case "body":
+            actual = resForGrid.body;
+            break;
+          case "json":
+            var parsed;
+            try {
+              parsed = JSON.parse(resForGrid.body);
+            } catch (pe) {
+              throw new Error("response body is not valid JSON");
+            }
+            actual = resolvePath(parsed, a.name);
+            break;
+          default:
+            throw new Error("unknown assertion source '" + a.source + "'");
+        }
+        var spec = gridMatcher(a.matcher);
+        var expected = a.expected;
+        var numericSource =
+          a.source === "status" || a.source === "responseTime";
+        if (spec.key === "lt" || spec.key === "gt") {
+          expected = Number(expected);
+        } else if (spec.key === "eq") {
+          if (numericSource || typeof actual === "number") expected = Number(expected);
+          else if (typeof actual === "boolean")
+            expected = String(expected) === "true";
+          else if (typeof actual === "string") expected = String(expected);
+        }
+        applyMatcher(actual, spec.key, expected, spec.negate);
+        out.tests.push({ name: label, passed: true, message: "" });
+      } catch (e) {
+        out.tests.push({
+          name: label,
+          passed: false,
+          message: (e && e.message) || String(e),
+        });
+      }
+    }
+  }
+
   // Lock the protocol globals so a user script can't reassign them to corrupt
   // its own result (the API still mutates \`out\`'s contents — only the bindings
   // are frozen). \`__result\` is written last by the epilogue, so it needs no lock.
@@ -295,7 +573,15 @@ function validateScript(code) {
  *   emitted before the throw are kept so the user can debug, and `error`
  *   carries the location.
  */
-function runScript({ phase, code, request, response, environment, variables }) {
+function runScript({
+  phase,
+  code,
+  request,
+  response,
+  environment,
+  variables,
+  assertions,
+}) {
   const isPre = phase === "pre";
   const sandbox = {
     __phase: isPre ? "pre" : "post",
@@ -304,6 +590,7 @@ function runScript({ phase, code, request, response, environment, variables }) {
       response: response || {},
       environment: environment || {},
       variables: variables || {},
+      assertions: Array.isArray(assertions) ? assertions : [],
     }),
   };
   vm.createContext(sandbox, {
@@ -330,21 +617,33 @@ function runScript({ phase, code, request, response, environment, variables }) {
       request: isPre ? out.request || null : null,
       varWrites: Array.isArray(out.varWrites) ? out.varWrites : [],
       logs: Array.isArray(out.logs) ? out.logs : [],
+      tests: Array.isArray(out.tests) ? out.tests : [],
       error: null,
     };
   } catch (err) {
-    // Recover any console output emitted before the throw (best effort). The
-    // partial is a context-realm object, so round-trip it through JSON to
-    // re-home it in the host realm (else its prototype is a foreign Object).
+    // Recover any console output / test results emitted before the throw (best
+    // effort). The partial is a context-realm object, so round-trip it through
+    // JSON to re-home it in the host realm (else its prototype is a foreign
+    // Object). Keeping tests means a script that throws AFTER some assertions
+    // still surfaces those results alongside the engine error.
     let logs = [];
+    let tests = [];
     try {
       const partial = sandbox.__out;
       if (partial && Array.isArray(partial.logs))
         logs = JSON.parse(JSON.stringify(partial.logs));
+      if (partial && Array.isArray(partial.tests))
+        tests = JSON.parse(JSON.stringify(partial.tests));
     } catch {
-      /* context unreadable — leave logs empty */
+      /* context unreadable — leave logs/tests empty */
     }
-    return { request: null, varWrites: [], logs, error: describeError(err) };
+    return {
+      request: null,
+      varWrites: [],
+      logs,
+      tests,
+      error: describeError(err),
+    };
   }
 }
 
@@ -362,6 +661,7 @@ function registerScripting({ ipcMain, safeCall }) {
     request: isPre ? null : undefined,
     varWrites: [],
     logs: [],
+    tests: [],
     error: { name: "InternalError", message: "script execution failed" },
   });
 

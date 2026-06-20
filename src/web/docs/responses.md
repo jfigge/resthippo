@@ -4,12 +4,14 @@
 
 When a request returns, the right panel fills in. The **status bar** at the top
 shows the status code and text, the elapsed time, and the response size — plus a
-**captured** badge if any [captures](variables-and-environments.md#captures) ran.
+**captured** badge if any [captures](variables-and-environments.md#captures) ran,
+and a green/red **test** badge if any [assertions](#tests) ran.
 
 ![A JSON response](images/overview.png)
 
 Below the status bar, a row of tabs organizes the response: **Body**,
-**Preview**, **Headers**, **Cookies**, **Console**, and **Timeline**.
+**Preview**, **Headers**, **Cookies**, **Console**, **Tests**, and **Timeline**.
+The **Tests** tab appears only when the run has assertions.
 
 ## Body
 
@@ -91,13 +93,37 @@ name, value, domain, path, and the `Secure` / `HttpOnly` / `SameSite` / `Expires
 attributes. If the collection has [cookie sending](collections.md#cookies)
 enabled, these cookies are stored and reused on later requests.
 
+## Tests
+
+The **Tests** tab shows the result of any **assertions** attached to the request —
+a quick way to turn a request into an API check. Each assertion appears with a
+**✓ pass** or **✗ fail** marker, its name, and (on failure) the reason it failed;
+a summary line at the top counts how many passed and failed. The status bar also
+shows a compact pass/fail badge, green when everything passed and red when
+anything failed, so you can tell at a glance without switching tabs.
+
+There are two ways to author assertions, and both run after the response arrives
+and feed the same Tests tab:
+
+- **No-code grid** — the **[Tests](requests.md#tests)** request tab (enable it
+  under **Settings → Request → Show Tests tab**). Add a row per check: pick a
+  **source** (status, response time, a header, the body, or a JSON-path value), a
+  **matcher** (equals, contains, exists, less than, matches, …), and an
+  **expected** value.
+- **Scripted** — `hippo.test()` in the after-response pane of the
+  **[Scripts](scripting.md#test-assertions)** tab, for checks that need logic.
+
+Results are saved with the run, so reopening a past entry in the **Timeline**
+shows whether that run passed.
+
 ## Timeline
 
 The **Timeline** tab keeps a short history of the request's recent runs. Each
-entry records the status, timing, and a snapshot of what was sent — method, URL,
-parameters, headers, and auth — so you can compare runs and reopen an earlier
-response. [Streaming runs](#streaming-responses) appear here too, recorded as a
-summary (duration, event/byte counts, and the last events) rather than a body:
+entry records the status, timing, a pass/fail count for any assertions that ran,
+and a snapshot of what was sent — method, URL, parameters, headers, and auth — so
+you can compare runs and reopen an earlier response. [Streaming
+runs](#streaming-responses) appear here too, recorded as a summary (duration,
+event/byte counts, and the last events) rather than a body:
 
 ![The response timeline](images/response-timeline.png)
 

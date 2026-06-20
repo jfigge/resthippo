@@ -324,6 +324,8 @@
       "showCapturesTabTitle": "Cuando está desactivado, la pestaña Capturas se oculta y las reglas de captura no se ejecutan tras una respuesta",
       "showScriptsTab": "Mostrar la pestaña Scripts",
       "showScriptsTabTitle": "Cuando está desactivado, la pestaña Scripts se oculta y los scripts de pre-solicitud y posrespuesta no se ejecutan",
+      "showTestsTab": "Mostrar la pestaña Pruebas",
+      "showTestsTabTitle": "Cuando está desactivado, la pestaña Pruebas se oculta y las aserciones sin código no se ejecutan tras una respuesta",
       "showNotesTab": "Mostrar la pestaña Notas"
     },
     "proxy": {
@@ -393,7 +395,8 @@
       "auth": "Autenticación",
       "captures": "Capturas",
       "notes": "Notas",
-      "scripts": "Scripts"
+      "scripts": "Scripts",
+      "tests": "Pruebas"
     },
     "method": {
       "aria": "Método HTTP",
@@ -559,6 +562,38 @@
       "statusRemove": "Quitar el código {code}",
       "hint": "Tras una respuesta, extrae un valor y escríbelo en un ámbito de variables para que las solicitudes posteriores puedan usarlo como {{name}}. Usa la columna «Códigos» para elegir con qué códigos de respuesta se activa cada regla, p. ej. capturar un token con 2xx y un error con 4xx."
     },
+    "tests": {
+      "source": "Origen",
+      "target": "Encabezado / Ruta",
+      "matcher": "Comparador",
+      "expected": "Esperado",
+      "add": "Añadir aserción",
+      "delete": "Eliminar aserción",
+      "deleteAll": "Eliminar todas las aserciones",
+      "enable": "Activar aserción",
+      "disable": "Desactivar aserción",
+      "empty": "Sin aserciones — haz clic en  +  para añadir una.",
+      "sourceAria": "Origen de la aserción",
+      "targetAria": "Nombre de encabezado o ruta JSON",
+      "matcherAria": "Comparador de la aserción",
+      "expectedAria": "Valor esperado",
+      "expectedPlaceholder": "Valor esperado",
+      "sourceStatus": "Estado",
+      "sourceTime": "Tiempo de respuesta",
+      "sourceHeader": "Encabezado",
+      "sourceBody": "Cuerpo",
+      "sourceJson": "Cuerpo JSON",
+      "matcherEquals": "es igual a",
+      "matcherNotEquals": "no es igual a",
+      "matcherContains": "contiene",
+      "matcherNotContains": "no contiene",
+      "matcherExists": "existe",
+      "matcherNotExists": "no existe",
+      "matcherLessThan": "es menor que",
+      "matcherGreaterThan": "es mayor que",
+      "matcherMatches": "coincide con",
+      "hint": "Tras una respuesta, cada aserción comprueba un valor (estado, tiempo de respuesta, un encabezado, el cuerpo o un valor de ruta JSON) frente a un comparador. Los resultados se muestran en la pestaña Pruebas de la respuesta. Para aserciones con scripts, usa hippo.test() en la pestaña Scripts."
+    },
     "curlPaste": {
       "title": "Reemplazar la petición desde cURL",
       "confirm": "¿Reemplazar esta petición con el comando cURL pegado? Se sobrescribirán su método, URL, parámetros, cabeceras, cuerpo y autenticación.",
@@ -594,6 +629,7 @@
       "headers": "Encabezados",
       "cookies": "Cookies",
       "console": "Consola",
+      "tests": "Pruebas",
       "timeline": "Cronología"
     },
     "cookies": {
@@ -605,8 +641,14 @@
     "status": {
       "httpStatusAria": "Estado HTTP",
       "capturedTitle": "Variables capturadas de esta respuesta",
+      "testsTitle": "Resultados de las pruebas",
       "elapsedTitle": "Tiempo transcurrido",
       "sizeTitle": "Tamaño de la respuesta"
+    },
+    "tests": {
+      "summary": "{passed} superadas · {failed} fallidas",
+      "passed": "Superada",
+      "failed": "Fallida"
     },
     "find": {
       "label": "Buscar",
@@ -665,6 +707,7 @@
       "sending": "Enviando solicitud…",
       "loadingPreview": "Cargando vista previa…",
       "consoleEmpty": "La salida detallada de cada solicitud aparecerá aquí",
+      "testsEmpty": "No se ejecutaron aserciones para esta solicitud",
       "historyEmpty": "Aún no hay historial — envía una solicitud para registrar una entrada",
       "pdfDesktop": "La vista previa de PDF está disponible en la app de escritorio — usa «Guardar en archivo»."
     },

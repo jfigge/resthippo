@@ -52,6 +52,12 @@ const MIGRATIONS = [
     doc && doc.type === "request" && !Array.isArray(doc.captures)
       ? { ...doc, captures: [] }
       : doc,
+  // v2 → v3: seed request documents with an empty `assertions` array (Feature
+  // 29 — no-code test assertions). Same type-guard as the captures migration.
+  (doc) =>
+    doc && doc.type === "request" && !Array.isArray(doc.assertions)
+      ? { ...doc, assertions: [] }
+      : doc,
 ];
 
 /** The version every freshly written / migrated document is stamped with. */

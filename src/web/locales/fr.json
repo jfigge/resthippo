@@ -324,6 +324,8 @@
       "showCapturesTabTitle": "Lorsque désactivé, l'onglet Captures est masqué et les règles de capture ne sont pas exécutées après une réponse",
       "showScriptsTab": "Afficher l'onglet Scripts",
       "showScriptsTabTitle": "Lorsque désactivé, l'onglet Scripts est masqué et les scripts de pré-requête et post-réponse ne sont pas exécutés",
+      "showTestsTab": "Afficher l'onglet Tests",
+      "showTestsTabTitle": "Lorsque désactivé, l'onglet Tests est masqué et les assertions sans code ne sont pas exécutées après une réponse",
       "showNotesTab": "Afficher l'onglet Notes"
     },
     "proxy": {
@@ -393,7 +395,8 @@
       "auth": "Authentification",
       "captures": "Captures",
       "notes": "Notes",
-      "scripts": "Scripts"
+      "scripts": "Scripts",
+      "tests": "Tests"
     },
     "method": {
       "aria": "Méthode HTTP",
@@ -559,6 +562,38 @@
       "statusRemove": "Supprimer le code {code}",
       "hint": "Après une réponse, extrayez une valeur et écrivez-la dans une portée de variables pour que les requêtes suivantes puissent l’utiliser comme {{name}}. Utilisez la colonne « Codes » pour choisir les codes de réponse qui déclenchent chaque règle — par exemple capturer un jeton sur 2xx, une erreur sur 4xx."
     },
+    "tests": {
+      "source": "Source",
+      "target": "En-tête / Chemin",
+      "matcher": "Comparateur",
+      "expected": "Attendu",
+      "add": "Ajouter une assertion",
+      "delete": "Supprimer l'assertion",
+      "deleteAll": "Supprimer toutes les assertions",
+      "enable": "Activer l'assertion",
+      "disable": "Désactiver l'assertion",
+      "empty": "Aucune assertion — cliquez sur  +  pour en ajouter une.",
+      "sourceAria": "Source de l'assertion",
+      "targetAria": "Nom d'en-tête ou chemin JSON",
+      "matcherAria": "Comparateur d'assertion",
+      "expectedAria": "Valeur attendue",
+      "expectedPlaceholder": "Valeur attendue",
+      "sourceStatus": "Statut",
+      "sourceTime": "Temps de réponse",
+      "sourceHeader": "En-tête",
+      "sourceBody": "Corps",
+      "sourceJson": "Corps JSON",
+      "matcherEquals": "est égal à",
+      "matcherNotEquals": "n'est pas égal à",
+      "matcherContains": "contient",
+      "matcherNotContains": "ne contient pas",
+      "matcherExists": "existe",
+      "matcherNotExists": "n'existe pas",
+      "matcherLessThan": "est inférieur à",
+      "matcherGreaterThan": "est supérieur à",
+      "matcherMatches": "correspond à",
+      "hint": "Après une réponse, chaque assertion compare une valeur (statut, temps de réponse, un en-tête, le corps ou une valeur de chemin JSON) à un comparateur. Les résultats s'affichent dans l'onglet Tests de la réponse. Pour des assertions scriptées, utilisez hippo.test() dans l'onglet Scripts."
+    },
     "curlPaste": {
       "title": "Remplacer la requête par cURL",
       "confirm": "Remplacer cette requête par la commande cURL collée ? Sa méthode, son URL, ses paramètres, ses en-têtes, son corps et son authentification seront écrasés.",
@@ -594,6 +629,7 @@
       "headers": "En-têtes",
       "cookies": "Cookies",
       "console": "Console",
+      "tests": "Tests",
       "timeline": "Chronologie"
     },
     "cookies": {
@@ -605,8 +641,14 @@
     "status": {
       "httpStatusAria": "Statut HTTP",
       "capturedTitle": "Variables capturées de cette réponse",
+      "testsTitle": "Résultats des tests",
       "elapsedTitle": "Temps écoulé",
       "sizeTitle": "Taille de la réponse"
+    },
+    "tests": {
+      "summary": "{passed} réussi(s) · {failed} échoué(s)",
+      "passed": "Réussi",
+      "failed": "Échoué"
     },
     "find": {
       "label": "Rechercher",
@@ -665,6 +707,7 @@
       "sending": "Envoi de la requête…",
       "loadingPreview": "Chargement de l'aperçu…",
       "consoleEmpty": "La sortie détaillée de chaque requête apparaîtra ici",
+      "testsEmpty": "Aucune assertion n'a été exécutée pour cette requête",
       "historyEmpty": "Pas encore d'historique — envoyez une requête pour enregistrer une entrée",
       "pdfDesktop": "L'aperçu PDF est disponible dans l'application de bureau — utilisez « Enregistrer dans un fichier »."
     },

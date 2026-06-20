@@ -324,6 +324,8 @@
       "showCapturesTabTitle": "When off, the Captures tab is hidden and capture rules are not run after a response",
       "showScriptsTab": "Show Scripts tab",
       "showScriptsTabTitle": "When off, the Scripts tab is hidden and pre-request and after-response scripts are not executed",
+      "showTestsTab": "Show Tests tab",
+      "showTestsTabTitle": "When off, the Tests tab is hidden and no-code assertions are not run after a response",
       "showNotesTab": "Show Notes tab"
     },
     "proxy": {
@@ -393,7 +395,8 @@
       "auth": "Auth",
       "captures": "Captures",
       "notes": "Notes",
-      "scripts": "Scripts"
+      "scripts": "Scripts",
+      "tests": "Tests"
     },
     "method": {
       "aria": "HTTP Method",
@@ -559,6 +562,38 @@
       "statusRemove": "Remove code {code}",
       "hint": "After a response, extract a value and write it into a variable scope so later requests can use it as {{name}}. Use the Codes column to pick which response codes each rule fires on — e.g. capture a token on 2xx, an error on 4xx."
     },
+    "tests": {
+      "source": "Source",
+      "target": "Header / Path",
+      "matcher": "Matcher",
+      "expected": "Expected",
+      "add": "Add assertion",
+      "delete": "Delete assertion",
+      "deleteAll": "Delete all assertions",
+      "enable": "Enable assertion",
+      "disable": "Disable assertion",
+      "empty": "No assertions — click  +  to add one.",
+      "sourceAria": "Assertion source",
+      "targetAria": "Header name or JSON path",
+      "matcherAria": "Assertion matcher",
+      "expectedAria": "Expected value",
+      "expectedPlaceholder": "Expected value",
+      "sourceStatus": "Status",
+      "sourceTime": "Response time",
+      "sourceHeader": "Header",
+      "sourceBody": "Body",
+      "sourceJson": "JSON body",
+      "matcherEquals": "equals",
+      "matcherNotEquals": "does not equal",
+      "matcherContains": "contains",
+      "matcherNotContains": "does not contain",
+      "matcherExists": "exists",
+      "matcherNotExists": "does not exist",
+      "matcherLessThan": "is less than",
+      "matcherGreaterThan": "is greater than",
+      "matcherMatches": "matches",
+      "hint": "After a response, each assertion checks a value (status, response time, a header, the body, or a JSON-path value) against a matcher. Results show on the response Tests tab. For scripted assertions, use hippo.test() on the Scripts tab."
+    },
     "curlPaste": {
       "title": "Replace request from cURL",
       "confirm": "Replace this request with the pasted cURL command? Its method, URL, parameters, headers, body and authentication will be overwritten.",
@@ -594,6 +629,7 @@
       "headers": "Headers",
       "cookies": "Cookies",
       "console": "Console",
+      "tests": "Tests",
       "timeline": "Timeline"
     },
     "cookies": {
@@ -605,8 +641,14 @@
     "status": {
       "httpStatusAria": "HTTP status",
       "capturedTitle": "Variables captured from this response",
+      "testsTitle": "Test results",
       "elapsedTitle": "Elapsed time",
       "sizeTitle": "Response size"
+    },
+    "tests": {
+      "summary": "{passed} passed · {failed} failed",
+      "passed": "Passed",
+      "failed": "Failed"
     },
     "find": {
       "label": "Find",
@@ -665,6 +707,7 @@
       "sending": "Sending request…",
       "loadingPreview": "Loading preview…",
       "consoleEmpty": "Verbose output from each request will appear here",
+      "testsEmpty": "No assertions ran for this request",
       "historyEmpty": "No history yet — send a request to record an entry",
       "pdfDesktop": "PDF preview is available in the desktop app — use Save to file."
     },

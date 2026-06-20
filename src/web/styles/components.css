@@ -1758,6 +1758,20 @@ html.show-method-icons .req-method-menu-item-label::before {
   cursor: pointer;
 }
 
+/* Tests editor (Feature 29) — no-code assertions grid. Reuses the params grid
+   scaffolding: handle | enabled | source | target | matcher | expected | delete. */
+.tests-header-row.params-header-row,
+.tests-row.params-row {
+  grid-template-columns:
+    20px 20px minmax(88px, 0.8fr) minmax(104px, 1.1fr)
+    minmax(104px, 0.9fr) minmax(104px, 1.1fr) 20px;
+}
+
+.tests-source,
+.tests-matcher {
+  cursor: pointer;
+}
+
 /* Response-code selector trigger — a select-like button showing the summary. */
 .captures-status {
   display: flex;
@@ -2835,6 +2849,96 @@ html.show-method-icons .req-method-menu-item-label::before {
   display: none;
 }
 
+/* Test-assertions summary badge (Feature 29) — green when all pass, red on any
+   failure. Mirrors the captured-badge pill. */
+.res-tests-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-surface-1);
+  white-space: nowrap;
+}
+
+.res-tests-badge.res-tests--pass {
+  color: var(--color-success);
+}
+
+.res-tests-badge.res-tests--fail {
+  color: var(--color-error);
+}
+
+.res-tests-badge[hidden] {
+  display: none;
+}
+
+/* Tests pane (Feature 29) — per-assertion pass/fail list + summary line. */
+.res-tests-summary {
+  padding: var(--space-2) var(--space-3);
+  font-weight: var(--font-weight-semibold);
+  border-bottom: 1px solid var(--color-surface-1);
+}
+
+.res-tests-summary--pass {
+  color: var(--color-success);
+}
+
+.res-tests-summary--fail {
+  color: var(--color-error);
+}
+
+.res-tests-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.res-tests-row {
+  display: grid;
+  grid-template-columns: 18px 1fr max-content;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-surface-0);
+}
+
+.res-tests-glyph {
+  font-weight: var(--font-weight-bold);
+  justify-self: center;
+}
+
+.res-tests-row--pass .res-tests-glyph,
+.res-tests-row--pass .res-tests-status {
+  color: var(--color-success);
+}
+
+.res-tests-row--fail .res-tests-glyph,
+.res-tests-row--fail .res-tests-status {
+  color: var(--color-error);
+}
+
+.res-tests-name {
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.res-tests-status {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* The failure detail spans the full row, under the name. */
+.res-tests-message {
+  grid-column: 2 / -1;
+  margin-top: var(--space-1);
+  color: var(--color-subtext);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  word-break: break-word;
+}
+
 /* Tab strip */
 .res-tab-strip {
   display: flex;
@@ -3890,6 +3994,15 @@ html.show-method-icons .req-method-menu-item-label::before {
   color: var(--color-overlay-0);
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+/* Per-run test-assertions indicator (Feature 29) in the timeline row. */
+.timeline-tests--pass {
+  color: var(--color-success);
+}
+
+.timeline-tests--fail {
+  color: var(--color-error);
 }
 
 /* ── Timeline detail panel (.timeline-detail) ─────────────────────────────── */

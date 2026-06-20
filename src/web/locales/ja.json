@@ -322,6 +322,8 @@
       "showCapturesTabTitle": "オフにすると、キャプチャタブが非表示になり、レスポンス後にキャプチャルールが実行されません",
       "showScriptsTab": "スクリプトタブを表示",
       "showScriptsTabTitle": "オフにすると、スクリプトタブが非表示になり、リクエスト前およびレスポンス後のスクリプトが実行されません",
+      "showTestsTab": "テストタブを表示",
+      "showTestsTabTitle": "オフにすると、テストタブが非表示になり、レスポンス後にノーコードのアサーションが実行されません",
       "showNotesTab": "メモタブを表示"
     },
     "proxy": {
@@ -391,7 +393,8 @@
       "auth": "認証",
       "captures": "キャプチャ",
       "notes": "メモ",
-      "scripts": "スクリプト"
+      "scripts": "スクリプト",
+      "tests": "テスト"
     },
     "method": {
       "aria": "HTTP メソッド",
@@ -556,6 +559,38 @@
       "statusRemove": "コード {code} を削除",
       "hint": "レスポンスの後に値を抽出して変数スコープに書き込むと、以降のリクエストで {{name}} として使用できます。「コード」列で各ルールがどのレスポンスコードで実行されるかを選べます（例: 2xx でトークン、4xx でエラーを取得）。"
     },
+    "tests": {
+      "source": "ソース",
+      "target": "ヘッダー / パス",
+      "matcher": "マッチャー",
+      "expected": "期待値",
+      "add": "アサーションを追加",
+      "delete": "アサーションを削除",
+      "deleteAll": "すべてのアサーションを削除",
+      "enable": "アサーションを有効化",
+      "disable": "アサーションを無効化",
+      "empty": "アサーションがありません —  +  をクリックして追加します。",
+      "sourceAria": "アサーションのソース",
+      "targetAria": "ヘッダー名または JSON パス",
+      "matcherAria": "アサーションのマッチャー",
+      "expectedAria": "期待値",
+      "expectedPlaceholder": "期待値",
+      "sourceStatus": "ステータス",
+      "sourceTime": "レスポンス時間",
+      "sourceHeader": "ヘッダー",
+      "sourceBody": "ボディ",
+      "sourceJson": "JSON ボディ",
+      "matcherEquals": "等しい",
+      "matcherNotEquals": "等しくない",
+      "matcherContains": "含む",
+      "matcherNotContains": "含まない",
+      "matcherExists": "存在する",
+      "matcherNotExists": "存在しない",
+      "matcherLessThan": "より小さい",
+      "matcherGreaterThan": "より大きい",
+      "matcherMatches": "一致する",
+      "hint": "レスポンスの後、各アサーションは値（ステータス、レスポンス時間、ヘッダー、ボディ、または JSON パスの値）をマッチャーと照合します。結果はレスポンスのテストタブに表示されます。スクリプトによるアサーションには、スクリプトタブで hippo.test() を使用してください。"
+    },
     "curlPaste": {
       "title": "cURL でリクエストを置き換え",
       "confirm": "貼り付けた cURL コマンドでこのリクエストを置き換えますか？メソッド、URL、パラメータ、ヘッダー、ボディ、認証が上書きされます。",
@@ -591,6 +626,7 @@
       "headers": "ヘッダー",
       "cookies": "Cookie",
       "console": "コンソール",
+      "tests": "テスト",
       "timeline": "タイムライン"
     },
     "cookies": {
@@ -602,8 +638,14 @@
     "status": {
       "httpStatusAria": "HTTP ステータス",
       "capturedTitle": "このレスポンスから取得した変数",
+      "testsTitle": "テスト結果",
       "elapsedTitle": "経過時間",
       "sizeTitle": "レスポンスサイズ"
+    },
+    "tests": {
+      "summary": "{passed} 件成功 · {failed} 件失敗",
+      "passed": "成功",
+      "failed": "失敗"
     },
     "find": {
       "label": "検索",
@@ -662,6 +704,7 @@
       "sending": "リクエストを送信中…",
       "loadingPreview": "プレビューを読み込み中…",
       "consoleEmpty": "各リクエストの詳細な出力がここに表示されます",
+      "testsEmpty": "このリクエストではアサーションが実行されませんでした",
       "historyEmpty": "履歴はまだありません — リクエストを送信するとエントリが記録されます",
       "pdfDesktop": "PDF プレビューはデスクトップアプリで利用できます — 「ファイルに保存」を使用してください。"
     },

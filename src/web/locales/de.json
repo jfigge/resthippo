@@ -324,6 +324,8 @@
       "showCapturesTabTitle": "Wenn deaktiviert, wird der Tab Erfassungen ausgeblendet und Erfassungsregeln werden nach einer Antwort nicht ausgeführt",
       "showScriptsTab": "Tab Skripte anzeigen",
       "showScriptsTabTitle": "Wenn deaktiviert, wird der Tab Skripte ausgeblendet und Pre-Request- und After-Response-Skripte werden nicht ausgeführt",
+      "showTestsTab": "Tab Tests anzeigen",
+      "showTestsTabTitle": "Wenn deaktiviert, wird der Tab Tests ausgeblendet und No-Code-Assertions werden nach einer Antwort nicht ausgeführt",
       "showNotesTab": "Tab Notizen anzeigen"
     },
     "proxy": {
@@ -393,7 +395,8 @@
       "auth": "Authentifizierung",
       "captures": "Erfassungen",
       "notes": "Notizen",
-      "scripts": "Skripte"
+      "scripts": "Skripte",
+      "tests": "Tests"
     },
     "method": {
       "aria": "HTTP-Methode",
@@ -559,6 +562,38 @@
       "statusRemove": "Code {code} entfernen",
       "hint": "Extrahiere nach einer Antwort einen Wert und schreibe ihn in einen Variablen-Scope, damit spätere Requests ihn als {{name}} verwenden können. Wähle in der Spalte „Codes“, bei welchen Antwortcodes jede Regel ausgelöst wird – z. B. ein Token bei 2xx, ein Fehler bei 4xx."
     },
+    "tests": {
+      "source": "Quelle",
+      "target": "Header / Pfad",
+      "matcher": "Vergleich",
+      "expected": "Erwartet",
+      "add": "Assertion hinzufügen",
+      "delete": "Assertion löschen",
+      "deleteAll": "Alle Assertions löschen",
+      "enable": "Assertion aktivieren",
+      "disable": "Assertion deaktivieren",
+      "empty": "Keine Assertions — klicken Sie auf  +,  um eine hinzuzufügen.",
+      "sourceAria": "Assertion-Quelle",
+      "targetAria": "Header-Name oder JSON-Pfad",
+      "matcherAria": "Assertion-Vergleich",
+      "expectedAria": "Erwarteter Wert",
+      "expectedPlaceholder": "Erwarteter Wert",
+      "sourceStatus": "Status",
+      "sourceTime": "Antwortzeit",
+      "sourceHeader": "Header",
+      "sourceBody": "Body",
+      "sourceJson": "JSON-Body",
+      "matcherEquals": "ist gleich",
+      "matcherNotEquals": "ist ungleich",
+      "matcherContains": "enthält",
+      "matcherNotContains": "enthält nicht",
+      "matcherExists": "existiert",
+      "matcherNotExists": "existiert nicht",
+      "matcherLessThan": "ist kleiner als",
+      "matcherGreaterThan": "ist größer als",
+      "matcherMatches": "entspricht",
+      "hint": "Nach einer Antwort prüft jede Assertion einen Wert (Status, Antwortzeit, einen Header, den Body oder einen JSON-Pfad-Wert) gegen einen Vergleich. Die Ergebnisse erscheinen im Antwort-Tab Tests. Für skriptbasierte Assertions verwenden Sie hippo.test() im Tab Skripte."
+    },
     "curlPaste": {
       "title": "Anfrage aus cURL ersetzen",
       "confirm": "Diese Anfrage durch den eingefügten cURL-Befehl ersetzen? Methode, URL, Parameter, Header, Body und Authentifizierung werden überschrieben.",
@@ -594,6 +629,7 @@
       "headers": "Header",
       "cookies": "Cookies",
       "console": "Konsole",
+      "tests": "Tests",
       "timeline": "Zeitachse"
     },
     "cookies": {
@@ -605,8 +641,14 @@
     "status": {
       "httpStatusAria": "HTTP-Status",
       "capturedTitle": "Aus dieser Antwort erfasste Variablen",
+      "testsTitle": "Testergebnisse",
       "elapsedTitle": "Verstrichene Zeit",
       "sizeTitle": "Antwortgröße"
+    },
+    "tests": {
+      "summary": "{passed} bestanden · {failed} fehlgeschlagen",
+      "passed": "Bestanden",
+      "failed": "Fehlgeschlagen"
     },
     "find": {
       "label": "Suchen",
@@ -665,6 +707,7 @@
       "sending": "Anfrage wird gesendet…",
       "loadingPreview": "Vorschau wird geladen…",
       "consoleEmpty": "Ausführliche Ausgabe jeder Anfrage wird hier angezeigt",
+      "testsEmpty": "Für diese Anfrage wurden keine Assertions ausgeführt",
       "historyEmpty": "Noch kein Verlauf — senden Sie eine Anfrage, um einen Eintrag aufzuzeichnen",
       "pdfDesktop": "Die PDF-Vorschau ist in der Desktop-App verfügbar — verwenden Sie „In Datei speichern“."
     },

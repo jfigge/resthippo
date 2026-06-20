@@ -81,6 +81,9 @@ const PATCHABLE_FIELDS = [
   // Post-response capture rules (Feature 03): extract values from a successful
   // response and write them into a variable scope. See components/captures.js.
   "captures",
+  // No-code test assertions (Feature 29): declarative pass/fail checks run in the
+  // after-response sandbox. See components/editors/tests-editor.js.
+  "assertions",
 ];
 
 class RequestStore {

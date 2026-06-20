@@ -332,6 +332,15 @@ export class SettingsPopup {
               />
             </div>
 
+            <div class="settings-row settings-row--toggle" title="${t("settings.request.showTestsTabTitle")}">
+              <label class="settings-label" for="setting-show-tests-tab">${t("settings.request.showTestsTab")}</label>
+              <input
+                class="settings-toggle"
+                id="setting-show-tests-tab"
+                type="checkbox"
+              />
+            </div>
+
             <div class="settings-row settings-row--toggle">
               <label class="settings-label" for="setting-show-notes-tab">${t("settings.request.showNotesTab")}</label>
               <input
@@ -853,6 +862,7 @@ export class SettingsPopup {
         .checked,
       showScriptsTab: this.#el.querySelector("#setting-show-scripts-tab")
         .checked,
+      showTestsTab: this.#el.querySelector("#setting-show-tests-tab").checked,
       showNotesTab: this.#el.querySelector("#setting-show-notes-tab").checked,
       pickerDebounceMs:
         parseInt(
@@ -1240,6 +1250,10 @@ export class SettingsPopup {
     if (settings.showScriptsTab !== undefined) {
       this.#el.querySelector("#setting-show-scripts-tab").checked =
         settings.showScriptsTab;
+    }
+    if (settings.showTestsTab !== undefined) {
+      this.#el.querySelector("#setting-show-tests-tab").checked =
+        settings.showTestsTab;
     }
     if (settings.showNotesTab !== undefined) {
       this.#el.querySelector("#setting-show-notes-tab").checked =

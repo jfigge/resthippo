@@ -324,6 +324,8 @@
       "showCapturesTabTitle": "Quando disattivato, la scheda Acquisizioni è nascosta e le regole di acquisizione non vengono eseguite dopo una risposta",
       "showScriptsTab": "Mostra la scheda Script",
       "showScriptsTabTitle": "Quando disattivato, la scheda Script è nascosta e gli script di pre-richiesta e post-risposta non vengono eseguiti",
+      "showTestsTab": "Mostra la scheda Test",
+      "showTestsTabTitle": "Quando disattivato, la scheda Test è nascosta e le asserzioni senza codice non vengono eseguite dopo una risposta",
       "showNotesTab": "Mostra la scheda Note"
     },
     "proxy": {
@@ -393,7 +395,8 @@
       "auth": "Autenticazione",
       "captures": "Acquisizioni",
       "notes": "Note",
-      "scripts": "Script"
+      "scripts": "Script",
+      "tests": "Test"
     },
     "method": {
       "aria": "Metodo HTTP",
@@ -559,6 +562,38 @@
       "statusRemove": "Rimuovi il codice {code}",
       "hint": "Dopo una risposta, estrai un valore e scrivilo in un ambito di variabili così che le richieste successive possano usarlo come {{name}}. Usa la colonna «Codici» per scegliere su quali codici di risposta si attiva ogni regola, ad es. acquisire un token su 2xx e un errore su 4xx."
     },
+    "tests": {
+      "source": "Origine",
+      "target": "Intestazione / Percorso",
+      "matcher": "Operatore",
+      "expected": "Atteso",
+      "add": "Aggiungi asserzione",
+      "delete": "Elimina asserzione",
+      "deleteAll": "Elimina tutte le asserzioni",
+      "enable": "Abilita asserzione",
+      "disable": "Disabilita asserzione",
+      "empty": "Nessuna asserzione — fai clic su  +  per aggiungerne una.",
+      "sourceAria": "Origine dell'asserzione",
+      "targetAria": "Nome dell'intestazione o percorso JSON",
+      "matcherAria": "Operatore dell'asserzione",
+      "expectedAria": "Valore atteso",
+      "expectedPlaceholder": "Valore atteso",
+      "sourceStatus": "Stato",
+      "sourceTime": "Tempo di risposta",
+      "sourceHeader": "Intestazione",
+      "sourceBody": "Corpo",
+      "sourceJson": "Corpo JSON",
+      "matcherEquals": "è uguale a",
+      "matcherNotEquals": "è diverso da",
+      "matcherContains": "contiene",
+      "matcherNotContains": "non contiene",
+      "matcherExists": "esiste",
+      "matcherNotExists": "non esiste",
+      "matcherLessThan": "è minore di",
+      "matcherGreaterThan": "è maggiore di",
+      "matcherMatches": "corrisponde a",
+      "hint": "Dopo una risposta, ogni asserzione confronta un valore (stato, tempo di risposta, un'intestazione, il corpo o un valore di percorso JSON) con un operatore. I risultati vengono mostrati nella scheda Test della risposta. Per le asserzioni con script, usa hippo.test() nella scheda Script."
+    },
     "curlPaste": {
       "title": "Sostituisci la richiesta da cURL",
       "confirm": "Sostituire questa richiesta con il comando cURL incollato? Metodo, URL, parametri, intestazioni, corpo e autenticazione verranno sovrascritti.",
@@ -594,6 +629,7 @@
       "headers": "Intestazioni",
       "cookies": "Cookie",
       "console": "Console",
+      "tests": "Test",
       "timeline": "Cronologia"
     },
     "cookies": {
@@ -605,8 +641,14 @@
     "status": {
       "httpStatusAria": "Stato HTTP",
       "capturedTitle": "Variabili acquisite da questa risposta",
+      "testsTitle": "Risultati dei test",
       "elapsedTitle": "Tempo trascorso",
       "sizeTitle": "Dimensione della risposta"
+    },
+    "tests": {
+      "summary": "{passed} superati · {failed} falliti",
+      "passed": "Superati",
+      "failed": "Falliti"
     },
     "find": {
       "label": "Trova",
@@ -665,6 +707,7 @@
       "sending": "Invio della richiesta…",
       "loadingPreview": "Caricamento anteprima…",
       "consoleEmpty": "L'output dettagliato di ogni richiesta apparirà qui",
+      "testsEmpty": "Nessuna asserzione eseguita per questa richiesta",
       "historyEmpty": "Nessuna cronologia ancora — invia una richiesta per registrare una voce",
       "pdfDesktop": "L'anteprima PDF è disponibile nell'app desktop — usa «Salva su file»."
     },

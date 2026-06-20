@@ -165,6 +165,25 @@ export class TimelineView {
     sizeEl.className = "timeline-size";
     sizeEl.textContent = size ? this.#formatSize(size) : "";
 
+    // Test-assertions indicator (Feature 29) — derived from the run's persisted
+    // results; shows whether this past run passed. Omitted when no tests ran.
+    const testResults = entry.response?.testResults ?? [];
+    if (testResults.length) {
+      const passed = testResults.filter((r) => r.passed).length;
+      const failed = testResults.length - passed;
+      const tests = document.createElement("span");
+      tests.className = `timeline-tests ${
+        failed > 0 ? "timeline-tests--fail" : "timeline-tests--pass"
+      }`;
+      tests.textContent = `${failed > 0 ? "✗" : "✓"} ${passed}/${testResults.length}`;
+      tests.title = t("response.tests.summary", {
+        passed,
+        failed,
+        total: testResults.length,
+      });
+      meta.appendChild(tests);
+    }
+
     meta.appendChild(time);
     meta.appendChild(sizeEl);
     record.appendChild(badge);

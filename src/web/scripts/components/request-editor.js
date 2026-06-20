@@ -53,6 +53,7 @@ import { RequestAuthEditor } from "./request-auth-editor.js";
 import { NotesEditor } from "./editors/notes-editor.js";
 import { CapturesEditor } from "./editors/captures-editor.js";
 import { ScriptsEditor } from "./editors/scripts-editor.js";
+import { TestsEditor } from "./editors/tests-editor.js";
 import { BodyEditor } from "./editors/body-editor.js";
 import {
   DragReorderController,
@@ -332,6 +333,7 @@ const TABS = [
   { id: "auth", labelKey: "request.tab.auth" },
   { id: "captures", labelKey: "request.tab.captures" },
   { id: "scripts", labelKey: "request.tab.scripts" },
+  { id: "tests", labelKey: "request.tab.tests" },
   { id: "notes", labelKey: "request.tab.notes" },
 ];
 
@@ -343,6 +345,7 @@ const WS_TABS = [
   { id: "message", labelKey: "request.tab.message" },
   { id: "auth", labelKey: "request.tab.auth" },
   { id: "captures", labelKey: "request.tab.captures" },
+  { id: "tests", labelKey: "request.tab.tests" },
   { id: "notes", labelKey: "request.tab.notes" },
 ];
 
@@ -469,6 +472,7 @@ export class RequestEditor {
   // applySettings() runs are already correct.
   #showCapturesTab = false;
   #showScriptsTab = false;
+  #showTestsTab = false;
   #showNotesTab = true;
   #currentNodeId = null;
   /** Pre-request / after-response script source (Feature 25). */
@@ -539,6 +543,13 @@ export class RequestEditor {
   #scriptsEditor = new ScriptsEditor({
     makeCodeEditor: (opts) => this.#makeCodeEditor(opts),
     onChange: () => this.#dispatchScriptsUpdated(),
+  });
+
+  // Tests tab (Feature 29) — no-code assertions grid, delegated to a sub-editor
+  // that owns the row list + its DOM. Execution lives in the after-response
+  // sandbox (app.js hands these rows to script:run-post).
+  #testsEditor = new TestsEditor({
+    onChange: () => this.#dispatchTestsUpdated(),
   });
 
   // GraphQL body (Feature 34) — the Query + Variables composer, schema fetch,
@@ -1314,6 +1325,7 @@ export class RequestEditor {
     const visible = {
       captures: this.#showCapturesTab,
       scripts: this.#showScriptsTab,
+      tests: this.#showTestsTab,
       notes: this.#showNotesTab,
     };
     this.#tabStrip.querySelectorAll(".req-tab-btn").forEach((btn) => {
@@ -1341,6 +1353,7 @@ export class RequestEditor {
     if (tabId === "auth") return this.#auth.element;
     if (tabId === "captures") return this.#capturesEditor.build();
     if (tabId === "scripts") return this.#scriptsEditor.build();
+    if (tabId === "tests") return this.#testsEditor.build();
     if (tabId === "notes") return this.#notesEditor.build();
     return document.createElement("div");
   }
@@ -1365,6 +1378,19 @@ export class RequestEditor {
         detail: {
           id: this.#currentNodeId,
           captures: this.#capturesEditor.getValue(),
+        },
+        bubbles: true,
+      }),
+    );
+  }
+
+  #dispatchTestsUpdated() {
+    if (!this.#currentNodeId) return;
+    window.dispatchEvent(
+      new CustomEvent("hippo:request-updated", {
+        detail: {
+          id: this.#currentNodeId,
+          assertions: this.#testsEditor.getValue(),
         },
         bubbles: true,
       }),
@@ -3007,6 +3033,8 @@ export class RequestEditor {
       this.#showCapturesTab = !!settings.showCapturesTab;
     if (settings.showScriptsTab != null)
       this.#showScriptsTab = !!settings.showScriptsTab;
+    if (settings.showTestsTab != null)
+      this.#showTestsTab = !!settings.showTestsTab;
     if (settings.showNotesTab != null)
       this.#showNotesTab = !!settings.showNotesTab;
     this.#applyTabVisibility();
@@ -3064,6 +3092,7 @@ export class RequestEditor {
     this.#headersDeleteAllCleanup?.();
     this.#bodyEditor.cancelPendingDeleteAll();
     this.#capturesEditor.cancelPendingDeleteAll();
+    this.#testsEditor.cancelPendingDeleteAll();
 
     // Protocol — rebuild the url bar + tabs when switching between HTTP and
     // WebSocket so the right controls (method vs WS, Body vs Message) render.
@@ -3157,6 +3186,9 @@ export class RequestEditor {
 
     // Captures (Feature 03)
     this.#capturesEditor.setValue(node.captures);
+
+    // Tests (Feature 29) — no-code assertions grid.
+    this.#testsEditor.setValue(node.assertions);
 
     // Scripts (Feature 25) — round-trip the persisted source, per-pane enable
     // flags and splitter ratio onto the Scripts tab and the instance mirror the

@@ -322,6 +322,8 @@
       "showCapturesTabTitle": "关闭时，隐藏捕获选项卡，并且在收到响应后不运行捕获规则",
       "showScriptsTab": "显示脚本选项卡",
       "showScriptsTabTitle": "关闭时，隐藏脚本选项卡，并且不执行请求前和响应后脚本",
+      "showTestsTab": "显示测试选项卡",
+      "showTestsTabTitle": "关闭时，隐藏测试选项卡，并且在收到响应后不运行无代码断言",
       "showNotesTab": "显示备注选项卡"
     },
     "proxy": {
@@ -391,7 +393,8 @@
       "auth": "认证",
       "captures": "捕获",
       "notes": "备注",
-      "scripts": "脚本"
+      "scripts": "脚本",
+      "tests": "测试"
     },
     "method": {
       "aria": "HTTP 方法",
@@ -556,6 +559,38 @@
       "statusRemove": "移除状态码 {code}",
       "hint": "在收到响应后，提取一个值并写入变量作用域，以便后续请求可将其用作 {{name}}。使用“状态码”列选择每条规则在哪些响应码时触发——例如在 2xx 时捕获令牌，在 4xx 时捕获错误。"
     },
+    "tests": {
+      "source": "来源",
+      "target": "标头 / 路径",
+      "matcher": "匹配器",
+      "expected": "期望值",
+      "add": "添加断言",
+      "delete": "删除断言",
+      "deleteAll": "删除所有断言",
+      "enable": "启用断言",
+      "disable": "禁用断言",
+      "empty": "暂无断言——点击  +  添加。",
+      "sourceAria": "断言来源",
+      "targetAria": "标头名称或 JSON 路径",
+      "matcherAria": "断言匹配器",
+      "expectedAria": "期望值",
+      "expectedPlaceholder": "期望值",
+      "sourceStatus": "状态",
+      "sourceTime": "响应时间",
+      "sourceHeader": "标头",
+      "sourceBody": "正文",
+      "sourceJson": "JSON 正文",
+      "matcherEquals": "等于",
+      "matcherNotEquals": "不等于",
+      "matcherContains": "包含",
+      "matcherNotContains": "不包含",
+      "matcherExists": "存在",
+      "matcherNotExists": "不存在",
+      "matcherLessThan": "小于",
+      "matcherGreaterThan": "大于",
+      "matcherMatches": "匹配",
+      "hint": "在收到响应后，每条断言会将某个值（状态、响应时间、某个标头、正文或 JSON 路径的值）与匹配器进行比较。结果显示在响应的测试选项卡中。如需脚本化断言，请在脚本选项卡中使用 hippo.test()。"
+    },
     "curlPaste": {
       "title": "用 cURL 替换请求",
       "confirm": "用粘贴的 cURL 命令替换此请求？其方法、URL、参数、请求头、请求体和认证都将被覆盖。",
@@ -591,6 +626,7 @@
       "headers": "标头",
       "cookies": "Cookie",
       "console": "控制台",
+      "tests": "测试",
       "timeline": "时间线"
     },
     "cookies": {
@@ -602,8 +638,14 @@
     "status": {
       "httpStatusAria": "HTTP 状态",
       "capturedTitle": "从此响应捕获的变量",
+      "testsTitle": "测试结果",
       "elapsedTitle": "耗时",
       "sizeTitle": "响应大小"
+    },
+    "tests": {
+      "summary": "{passed} 通过 · {failed} 失败",
+      "passed": "通过",
+      "failed": "失败"
     },
     "find": {
       "label": "查找",
@@ -662,6 +704,7 @@
       "sending": "正在发送请求…",
       "loadingPreview": "正在加载预览…",
       "consoleEmpty": "每个请求的详细输出将显示在此处",
+      "testsEmpty": "此请求未运行任何断言",
       "historyEmpty": "暂无历史记录——发送请求以记录一个条目",
       "pdfDesktop": "PDF 预览在桌面应用中可用——请使用“保存到文件”。"
     },

@@ -314,3 +314,185 @@ describe("runtime error location", () => {
     assert.equal(r.error.line, 3);
   });
 });
+
+describe("hippo.test / hippo.expect (Feature 29)", () => {
+  it("records a passing and a failing test with messages", () => {
+    const r = post(
+      `hippo.test("ok", () => { hippo.expect(hippo.response.status).toBe(200); });
+       hippo.test("bad", () => { hippo.expect(hippo.response.status).toBe(404); });`,
+      { response: { status: 200, headers: {}, body: "" } },
+    );
+    assert.equal(r.error, null);
+    assert.deepEqual(
+      r.tests.map((t) => [t.name, t.passed]),
+      [
+        ["ok", true],
+        ["bad", false],
+      ],
+    );
+    assert.match(r.tests[1].message, /200 to equal 404/);
+  });
+
+  it("supports the matcher set and .not negation", () => {
+    const r = post(
+      `hippo.test("contain", () => hippo.expect(hippo.response.body).toContain('"a"'));
+       hippo.test("lt", () => hippo.expect(hippo.response.time).toBeLessThan(1000));
+       hippo.test("match", () => hippo.expect("abc123").toMatch("[0-9]+"));
+       hippo.test("deep", () => hippo.expect(hippo.response.json()).toEqual({ a: 1 }));
+       hippo.test("not", () => hippo.expect(hippo.response.status).not.toBe(500));
+       hippo.test("truthy", () => hippo.expect(hippo.response.body).toBeTruthy());`,
+      { response: { status: 200, time: 12, headers: {}, body: '{"a":1}' } },
+    );
+    assert.equal(r.error, null);
+    assert.ok(
+      r.tests.every((t) => t.passed),
+      JSON.stringify(r.tests),
+    );
+  });
+
+  it("records a non-function test body as failed without throwing", () => {
+    const r = post(`hippo.test("nofn", 5);`, {
+      response: { status: 200, headers: {}, body: "" },
+    });
+    assert.equal(r.error, null);
+    assert.equal(r.tests[0].passed, false);
+  });
+
+  it("exposes hippo.response.time", () => {
+    const r = post(`hippo.variables.set("global", "t", hippo.response.time);`, {
+      response: { status: 200, time: 37, headers: {}, body: "" },
+    });
+    assert.equal(r.varWrites[0].value, "37");
+  });
+
+  it("keeps tests recorded before a later throw, alongside the error", () => {
+    const r = post(
+      `hippo.test("first", () => hippo.expect(1).toBe(1));
+       throw new Error("stop");`,
+      { response: { status: 200, headers: {}, body: "" } },
+    );
+    assert.notEqual(r.error, null);
+    assert.equal(r.tests.length, 1);
+    assert.equal(r.tests[0].passed, true);
+  });
+});
+
+describe("no-code assertions grid (Feature 29)", () => {
+  const grid = (assertions, response) =>
+    runScript({ phase: "post", code: "", response, assertions });
+
+  it("evaluates status / responseTime / header / body / json sources", () => {
+    const r = grid(
+      [
+        {
+          source: "status",
+          matcher: "equals",
+          expected: "200",
+          label: "status",
+        },
+        {
+          source: "responseTime",
+          matcher: "lessThan",
+          expected: "500",
+          label: "time",
+        },
+        {
+          source: "header",
+          name: "Content-Type",
+          matcher: "contains",
+          expected: "json",
+          label: "ct",
+        },
+        {
+          source: "body",
+          matcher: "contains",
+          expected: "hello",
+          label: "body",
+        },
+        {
+          source: "json",
+          name: "$.data.id",
+          matcher: "equals",
+          expected: "7",
+          label: "json",
+        },
+      ],
+      {
+        status: 200,
+        time: 25,
+        headers: { "content-type": "application/json" },
+        body: '{"data":{"id":7},"msg":"hello"}',
+      },
+    );
+    assert.equal(r.error, null);
+    assert.deepEqual(
+      r.tests.map((t) => t.passed),
+      [true, true, true, true, true],
+    );
+  });
+
+  it("records failures and skips disabled rows", () => {
+    const r = grid(
+      [
+        { source: "status", matcher: "equals", expected: "404", label: "s" },
+        {
+          source: "status",
+          matcher: "equals",
+          expected: "200",
+          label: "skip",
+          enabled: false,
+        },
+      ],
+      { status: 200, headers: {}, body: "" },
+    );
+    assert.equal(r.tests.length, 1);
+    assert.equal(r.tests[0].passed, false);
+  });
+
+  it("fails a json assertion when the body is not JSON", () => {
+    const r = grid(
+      [
+        {
+          source: "json",
+          name: "$.id",
+          matcher: "exists",
+          expected: "",
+          label: "j",
+        },
+      ],
+      { status: 200, headers: {}, body: "not json" },
+    );
+    assert.equal(r.tests[0].passed, false);
+    assert.match(r.tests[0].message, /not valid JSON/);
+  });
+
+  it("resolves array indices and bracket keys in JSON paths", () => {
+    const r = grid(
+      [
+        {
+          source: "json",
+          name: "items[1].id",
+          matcher: "equals",
+          expected: "b",
+          label: "idx",
+        },
+        {
+          source: "json",
+          name: "$['x']['y']",
+          matcher: "equals",
+          expected: "9",
+          label: "brk",
+        },
+      ],
+      {
+        status: 200,
+        headers: {},
+        body: '{"items":[{"id":"a"},{"id":"b"}],"x":{"y":9}}',
+      },
+    );
+    assert.deepEqual(
+      r.tests.map((t) => t.passed),
+      [true, true],
+    );
+  });
+});
