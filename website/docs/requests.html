@@ -179,6 +179,28 @@ response into variables for later requests.</li>
 </ul>
 <p>There&#39;s also a <strong>Notes</strong> tab for free-form Markdown notes attached to the
 request.</p>
+<h2 id="tests">Tests</h2>
+<p>The <strong>Tests</strong> tab attaches <strong>assertions</strong> that validate the response after every
+send — a no-code way to turn a request into an API smoke test. (Enable it under
+<strong>Settings → Request → Show Tests tab</strong>; it&#39;s off by default.)</p>
+<p><img src="images/tests-tab.png" alt="The Tests tab"></p>
+<p>Each row is one check:</p>
+<ul>
+<li><strong>Source</strong> — what to look at: the <strong>Status</strong> code, the <strong>Response time</strong> (ms), a
+<strong>Header</strong>, the raw <strong>Body</strong>, or a <strong>JSON body</strong> value (give a path like
+<code>$.data.id</code> in the <strong>Header / Path</strong> column).</li>
+<li><strong>Matcher</strong> — how to compare: <strong>equals</strong>, <strong>does not equal</strong>, <strong>contains</strong>,
+<strong>does not contain</strong>, <strong>exists</strong>, <strong>does not exist</strong>, <strong>is less than</strong>, <strong>is
+greater than</strong>, or <strong>matches</strong> (regular expression).</li>
+<li><strong>Expected</strong> — the value to compare against (ignored for exists / does not
+exist).</li>
+</ul>
+<p>Rows have the familiar enabled toggle, drag-to-reorder, and delete controls.
+Results show on the response <strong><a href="responses.html#tests">Tests</a></strong> tab with a pass/fail
+badge, and are saved with each run so the <strong>Timeline</strong> shows whether a past run
+passed. For checks that need logic, write
+<a href="scripting.html#test-assertions"><code>hippo.test()</code> assertions</a> on the Scripts tab —
+they run alongside the grid and share the same Tests tab.</p>
 <hr>
 <p>Next: <a href="authentication.html">Authentication →</a></p>
 

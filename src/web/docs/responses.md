@@ -102,6 +102,8 @@ a summary line at the top counts how many passed and failed. The status bar also
 shows a compact pass/fail badge, green when everything passed and red when
 anything failed, so you can tell at a glance without switching tabs.
 
+![Test results](images/response-tests.png)
+
 There are two ways to author assertions, and both run after the response arrives
 and feed the same Tests tab:
 

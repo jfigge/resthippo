@@ -105,6 +105,8 @@ The **Tests** tab attaches **assertions** that validate the response after every
 send — a no-code way to turn a request into an API smoke test. (Enable it under
 **Settings → Request → Show Tests tab**; it's off by default.)
 
+![The Tests tab](images/tests-tab.png)
+
 Each row is one check:
 
 - **Source** — what to look at: the **Status** code, the **Response time** (ms), a

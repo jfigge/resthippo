@@ -72,10 +72,12 @@ kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px so
 <p><a href="index.html">← Back to contents</a></p>
 <p>When a request returns, the right panel fills in. The <strong>status bar</strong> at the top
 shows the status code and text, the elapsed time, and the response size — plus a
-<strong>captured</strong> badge if any <a href="variables-and-environments.html#captures">captures</a> ran.</p>
+<strong>captured</strong> badge if any <a href="variables-and-environments.html#captures">captures</a> ran,
+and a green/red <strong>test</strong> badge if any <a href="#tests">assertions</a> ran.</p>
 <p><img src="images/overview.png" alt="A JSON response"></p>
 <p>Below the status bar, a row of tabs organizes the response: <strong>Body</strong>,
-<strong>Preview</strong>, <strong>Headers</strong>, <strong>Cookies</strong>, <strong>Console</strong>, and <strong>Timeline</strong>.</p>
+<strong>Preview</strong>, <strong>Headers</strong>, <strong>Cookies</strong>, <strong>Console</strong>, <strong>Tests</strong>, and <strong>Timeline</strong>.
+The <strong>Tests</strong> tab appears only when the run has assertions.</p>
 <h2 id="body">Body</h2>
 <p>The <strong>Body</strong> tab renders the response according to its content type. By default
 it&#39;s <strong>Styled</strong> — pretty-printed and syntax-highlighted:</p>
@@ -148,12 +150,34 @@ past stream even though its full payload isn&#39;t kept.</p>
 name, value, domain, path, and the <code>Secure</code> / <code>HttpOnly</code> / <code>SameSite</code> / <code>Expires</code>
 attributes. If the collection has <a href="collections.html#cookies">cookie sending</a>
 enabled, these cookies are stored and reused on later requests.</p>
+<h2 id="tests">Tests</h2>
+<p>The <strong>Tests</strong> tab shows the result of any <strong>assertions</strong> attached to the request —
+a quick way to turn a request into an API check. Each assertion appears with a
+<strong>✓ pass</strong> or <strong>✗ fail</strong> marker, its name, and (on failure) the reason it failed;
+a summary line at the top counts how many passed and failed. The status bar also
+shows a compact pass/fail badge, green when everything passed and red when
+anything failed, so you can tell at a glance without switching tabs.</p>
+<p><img src="images/response-tests.png" alt="Test results"></p>
+<p>There are two ways to author assertions, and both run after the response arrives
+and feed the same Tests tab:</p>
+<ul>
+<li><strong>No-code grid</strong> — the <strong><a href="requests.html#tests">Tests</a></strong> request tab (enable it
+under <strong>Settings → Request → Show Tests tab</strong>). Add a row per check: pick a
+<strong>source</strong> (status, response time, a header, the body, or a JSON-path value), a
+<strong>matcher</strong> (equals, contains, exists, less than, matches, …), and an
+<strong>expected</strong> value.</li>
+<li><strong>Scripted</strong> — <code>hippo.test()</code> in the after-response pane of the
+<strong><a href="scripting.html#test-assertions">Scripts</a></strong> tab, for checks that need logic.</li>
+</ul>
+<p>Results are saved with the run, so reopening a past entry in the <strong>Timeline</strong>
+shows whether that run passed.</p>
 <h2 id="timeline">Timeline</h2>
 <p>The <strong>Timeline</strong> tab keeps a short history of the request&#39;s recent runs. Each
-entry records the status, timing, and a snapshot of what was sent — method, URL,
-parameters, headers, and auth — so you can compare runs and reopen an earlier
-response. <a href="#streaming-responses">Streaming runs</a> appear here too, recorded as a
-summary (duration, event/byte counts, and the last events) rather than a body:</p>
+entry records the status, timing, a pass/fail count for any assertions that ran,
+and a snapshot of what was sent — method, URL, parameters, headers, and auth — so
+you can compare runs and reopen an earlier response. <a href="#streaming-responses">Streaming
+runs</a> appear here too, recorded as a summary (duration,
+event/byte counts, and the last events) rather than a body:</p>
 <p><img src="images/response-timeline.png" alt="The response timeline"></p>
 <p>How many runs are kept is configurable in
 <a href="settings-and-themes.html#history">Settings → History</a>.</p>
