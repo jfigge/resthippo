@@ -274,7 +274,8 @@
     "settings": "Configuración…",
     "cycleLayout": "Cambiar diseño",
     "keyboardShortcuts": "Atajos de teclado",
-    "newWsRequest": "Nueva solicitud WebSocket"
+    "newWsRequest": "Nueva solicitud WebSocket",
+    "checkUpdates": "Buscar actualizaciones…"
   },
   "settings": {
     "title": "Ajustes",
@@ -287,7 +288,8 @@
       "proxy": "Proxy",
       "retries": "Reintentos",
       "history": "Historial",
-      "certificates": "Certificados"
+      "certificates": "Certificados",
+      "about": "Acerca de"
     },
     "appearance": {
       "theme": "Tema",
@@ -371,6 +373,10 @@
       "insecureHeading": "Omitir la verificación para hosts",
       "insecureHelp": "Hosts separados por comas o saltos de línea cuyo certificado TLS no se verifica. Úselo solo para hosts autofirmados de confianza; es preferible una CA personalizada arriba.",
       "insecurePlaceholder": "internal.example.com, *.test"
+    },
+    "about": {
+      "checkButton": "Buscar actualizaciones",
+      "version": "Rest Hippo {version}"
     }
   },
   "request": {
@@ -1218,5 +1224,17 @@
     "postPlaceholder": "// Se ejecuta cuando llega la respuesta\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
     "enabled": "Habilitado",
     "resizeAria": "Redimensionar los paneles de scripts"
+  },
+  "updater": {
+    "available": "Actualización disponible",
+    "downloadingMsg": "Descargando {version} en segundo plano…",
+    "ready": "Actualización lista",
+    "readyMsg": "Se ha descargado la versión {version}.",
+    "restart": "Reiniciar",
+    "upToDate": "Estás al día.",
+    "checking": "Buscando actualizaciones…",
+    "failed": "Error al buscar actualizaciones",
+    "failedMsg": "No se pudieron buscar actualizaciones. Inténtalo de nuevo más tarde.",
+    "devBuild": "Las actualizaciones solo están disponibles en versiones instaladas."
   }
 }

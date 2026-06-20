@@ -9,6 +9,11 @@ Download the installer for your platform, run it, and launch Rest Hippo — ther
 nothing else to set up. Your data lives in a local folder under your user
 profile, so requests, environments, and settings persist between sessions.
 
+Rest Hippo keeps itself current: it checks for new releases after launch (and on
+demand via **Help → Check for Updates…**), downloads them in the background, and
+asks before restarting to install. See
+[Settings → About & updates](settings-and-themes.md#about--updates).
+
 > Building from source? See the project [README](../README.md) — `make install`
 > then `make debug` runs Rest Hippo with hot-reload.
 

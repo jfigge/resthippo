@@ -85,6 +85,16 @@ what to retry on — **connection errors**, **timeouts**, and/or a list of
 Set how many runs each request keeps in its
 [**Timeline**](responses.md#timeline) (1–10).
 
+## About & updates
+
+The **About** panel shows the installed version and a **Check for Updates**
+button. Rest Hippo also checks automatically shortly after launch.
+
+When a newer release is found it downloads in the background; once it's ready a
+notification offers to **Restart** and install it — Rest Hippo never restarts on
+its own. You can also trigger a check any time from **Help → Check for
+Updates…**. Updates are signed, so they install without security prompts.
+
 ## Layouts
 
 The **layout picker** in **Appearance → Layout** rearranges the three panels

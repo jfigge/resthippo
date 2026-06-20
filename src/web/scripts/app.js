@@ -1361,6 +1361,14 @@ function initEventBus() {
   // UI coordination             (broadcast; PopupManager / pickers)
   //   popup-opened          —
   //   popup-closed          —
+  //
+  // Auto-update (Feature 36)    (main updater → preload → app.js / Settings)
+  //   updater-checking      { manual }
+  //   updater-available     { version, manual }            found → downloading in background
+  //   updater-not-available { manual, reason? }            only toasted on a manual check
+  //   updater-progress      { percent, transferred, total, bytesPerSecond }
+  //   updater-downloaded    { version }                    ready → "Restart to install"
+  //   updater-error         { message, manual }            only toasted on a manual check
   // ────────────────────────────────────────────────────────────────────────────
 
   // Construct the parent-owned editor popups, wiring each to the handlers below.
@@ -1407,6 +1415,40 @@ function initEventBus() {
   installTreeQuickAccessHandlers();
   installFolderVarsHandler();
   installRequestEditSendHandlers();
+  installUpdaterHandlers();
+}
+
+// Auto-update toasts (Feature 36). Discrete toasts only (no live percentage):
+// an info toast when an update is found and downloading, a success toast with a
+// "Restart" action when it's ready, and — only for an explicit user check — an
+// "up to date" toast or an error toast. A silent startup check never nags. The
+// Settings → About panel owns the inline status line.
+function installUpdaterHandlers() {
+  window.addEventListener("hippo:updater-available", (e) => {
+    const version = e.detail?.version || "";
+    Notifications.info(t("updater.downloadingMsg", { version }), {
+      title: t("updater.available"),
+    });
+  });
+  window.addEventListener("hippo:updater-downloaded", (e) => {
+    const version = e.detail?.version || "";
+    Notifications.success(t("updater.readyMsg", { version }), {
+      title: t("updater.ready"),
+      actionLabel: t("updater.restart"),
+      onAction: () => window.hippo?.updater?.install?.(),
+    });
+  });
+  window.addEventListener("hippo:updater-not-available", (e) => {
+    // Dev/unpacked builds report their own status in Settings; don't toast.
+    if (e.detail?.manual && e.detail?.reason !== "dev-build")
+      Notifications.success(t("updater.upToDate"));
+  });
+  window.addEventListener("hippo:updater-error", (e) => {
+    if (e.detail?.manual)
+      Notifications.error(t("updater.failedMsg"), {
+        title: t("updater.failed"),
+      });
+  });
 }
 
 // When a request is selected in the tree, load it into the editor.

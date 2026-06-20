@@ -107,6 +107,30 @@ ipcRenderer.on("theme:editor:apply", (_event, themeId) => {
   );
 });
 
+// Auto-update (Feature 36): the main-process updater pushes each lifecycle event
+// on an `updater:*` channel; mirror each into a `hippo:updater-*` DOM event so
+// app.js (toasts) and the Settings → About panel (status line) can react.
+ipcRenderer.on("updater:checking", (_event, detail) => {
+  window.dispatchEvent(new CustomEvent("hippo:updater-checking", { detail }));
+});
+ipcRenderer.on("updater:available", (_event, detail) => {
+  window.dispatchEvent(new CustomEvent("hippo:updater-available", { detail }));
+});
+ipcRenderer.on("updater:not-available", (_event, detail) => {
+  window.dispatchEvent(
+    new CustomEvent("hippo:updater-not-available", { detail }),
+  );
+});
+ipcRenderer.on("updater:progress", (_event, detail) => {
+  window.dispatchEvent(new CustomEvent("hippo:updater-progress", { detail }));
+});
+ipcRenderer.on("updater:downloaded", (_event, detail) => {
+  window.dispatchEvent(new CustomEvent("hippo:updater-downloaded", { detail }));
+});
+ipcRenderer.on("updater:error", (_event, detail) => {
+  window.dispatchEvent(new CustomEvent("hippo:updater-error", { detail }));
+});
+
 contextBridge.exposeInMainWorld("hippo", {
   /**
    * Explicit sentinel that the renderer uses to detect the Electron environment.
@@ -683,5 +707,24 @@ contextBridge.exposeInMainWorld("hippo", {
    */
   diagnostics: {
     reportError: (info) => ipcRenderer.invoke("diagnostics:error:report", info),
+  },
+
+  /**
+   * Auto-update (Feature 36). `check()` runs an on-demand update check;
+   * `install()` quits and installs an already-downloaded update (user-confirmed,
+   * wired to the "Restart" toast action / Settings button). Update lifecycle is
+   * delivered via the `hippo:updater-*` DOM events dispatched above, not here.
+   */
+  updater: {
+    check: () => ipcRenderer.invoke("updater:check"),
+    install: () => ipcRenderer.invoke("updater:install"),
+  },
+
+  /**
+   * Read-only app / build metadata for the Settings → About panel (version,
+   * build, engine versions). Mirrors the native About dialog's header.
+   */
+  app: {
+    info: () => ipcRenderer.invoke("app:info:get"),
   },
 });

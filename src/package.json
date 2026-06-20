@@ -44,6 +44,11 @@
     "productName": "Rest Hippo",
     "copyright": "Copyright © 2026",
     "icon": "web/resthippo-logo.png",
+    "publish": {
+      "provider": "github",
+      "owner": "jfigge",
+      "repo": "resthippo"
+    },
     "directories": {
       "output": "dist"
     },
@@ -119,6 +124,7 @@
   },
   "dependencies": {
     "aws4": "^1.13.2",
+    "electron-updater": "^6.8.9",
     "http-proxy-agent": "^7.0.0",
     "https-proxy-agent": "^9.0.0",
     "socks-proxy-agent": "^8.0.5",

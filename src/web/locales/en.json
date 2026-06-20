@@ -274,7 +274,8 @@
     "settings": "Settings…",
     "cycleLayout": "Cycle Layout",
     "keyboardShortcuts": "Keyboard Shortcuts",
-    "newWsRequest": "New WebSocket Request"
+    "newWsRequest": "New WebSocket Request",
+    "checkUpdates": "Check for Updates…"
   },
   "settings": {
     "title": "Settings",
@@ -287,7 +288,8 @@
       "proxy": "Proxy",
       "retries": "Retries",
       "history": "History",
-      "certificates": "Certificates"
+      "certificates": "Certificates",
+      "about": "About"
     },
     "appearance": {
       "theme": "Theme",
@@ -371,6 +373,10 @@
       "insecureHeading": "Skip verification for hosts",
       "insecureHelp": "Comma- or newline-separated hosts whose TLS certificate is not verified. Use only for trusted self-signed hosts; prefer a custom CA above.",
       "insecurePlaceholder": "internal.example.com, *.test"
+    },
+    "about": {
+      "checkButton": "Check for Updates",
+      "version": "Rest Hippo {version}"
     }
   },
   "request": {
@@ -1218,5 +1224,17 @@
     "postPlaceholder": "// Runs after the response arrives\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
     "enabled": "Enabled",
     "resizeAria": "Resize the script panes"
+  },
+  "updater": {
+    "available": "Update available",
+    "downloadingMsg": "Downloading {version} in the background…",
+    "ready": "Update ready",
+    "readyMsg": "Version {version} has been downloaded.",
+    "restart": "Restart",
+    "upToDate": "You're up to date.",
+    "checking": "Checking for updates…",
+    "failed": "Update check failed",
+    "failedMsg": "Could not check for updates. Please try again later.",
+    "devBuild": "Updates are only available in installed builds."
   }
 }

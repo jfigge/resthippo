@@ -50,6 +50,7 @@ const { loadCatalog, label: i18nLabel } = require("./i18n");
 const { WebSocketHub } = require("./net/websocket");
 const { registerHttpEngine } = require("./net/http-engine");
 const { registerScripting } = require("./scripting/sandbox");
+const updater = require("./updater");
 
 const isDev = process.argv.includes("--dev");
 const isDebug = process.argv.includes("--hot-reload");
@@ -2477,6 +2478,23 @@ function showRejectionDialog(err) {
   });
 })();
 
+// ─── Auto-update (Feature 36) ─────────────────────────────────────────────────
+// The updater itself lives in updater.js; here we expose the on-demand check /
+// install to the renderer (the Help menu calls checkForUpdates directly in main)
+// and a read-only app-info accessor for the Settings → About version display.
+// initUpdater() + the debounced startup check run from app.whenReady() below.
+(function initUpdaterIPC() {
+  ipcMain.handle("updater:check", () => {
+    updater.checkForUpdates({ manual: true });
+    return null;
+  });
+  ipcMain.handle("updater:install", () => {
+    updater.quitAndInstall();
+    return null;
+  });
+  ipcMain.handle("app:info:get", () => collectAppInfo());
+})();
+
 // ─── Application menu ─────────────────────────────────────────────────────────
 function buildMenu() {
   const m = activeLabels();
@@ -2686,6 +2704,12 @@ function buildMenu() {
           },
         },
         {
+          // On-demand update check (Feature 36). Triggered directly in main —
+          // the updater pushes its result to the renderer for the toast / status.
+          label: m("menu.checkUpdates", "Check for Updates…"),
+          click: () => updater.checkForUpdates({ manual: true }),
+        },
+        {
           // Voluntary tip jar — opens the donation page in the browser. Passive:
           // no accelerator, no badge, never nags (Feature 53).
           label: m("menu.support", "Support Rest Hippo…"),
@@ -2760,6 +2784,11 @@ app.whenReady().then(async () => {
   const savedState = loadWindowState();
   const win = createWindow(savedState);
   if (isDebug) startHotReload(win);
+
+  // Auto-update (Feature 36): wire the updater to the live window, then run a
+  // debounced startup check so it never blocks launch. No-op in dev/unpacked.
+  updater.initUpdater(() => _mainWin, logger);
+  setTimeout(() => updater.checkForUpdates({ manual: false }), 10000);
 
   // macOS: re-open a window when the dock icon is clicked with no open windows.
   app.on("activate", () => {

@@ -272,7 +272,8 @@
     "settings": "设置…",
     "cycleLayout": "切换布局",
     "keyboardShortcuts": "键盘快捷键",
-    "newWsRequest": "新建 WebSocket 请求"
+    "newWsRequest": "新建 WebSocket 请求",
+    "checkUpdates": "检查更新…"
   },
   "settings": {
     "title": "设置",
@@ -285,7 +286,8 @@
       "proxy": "代理",
       "retries": "重试",
       "history": "历史记录",
-      "certificates": "证书"
+      "certificates": "证书",
+      "about": "关于"
     },
     "appearance": {
       "theme": "主题",
@@ -369,6 +371,10 @@
       "insecureHeading": "跳过主机的验证",
       "insecureHelp": "以逗号或换行分隔、其 TLS 证书不被验证的主机。仅用于受信任的自签名主机；建议优先使用上方的自定义 CA。",
       "insecurePlaceholder": "internal.example.com, *.test"
+    },
+    "about": {
+      "checkButton": "检查更新",
+      "version": "Rest Hippo {version}"
     }
   },
   "request": {
@@ -1214,5 +1220,17 @@
     "postPlaceholder": "// 在收到响应之后运行\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
     "enabled": "启用",
     "resizeAria": "调整脚本面板大小"
+  },
+  "updater": {
+    "available": "有可用更新",
+    "downloadingMsg": "正在后台下载 {version}…",
+    "ready": "更新已就绪",
+    "readyMsg": "已下载版本 {version}。",
+    "restart": "重启",
+    "upToDate": "已是最新版本。",
+    "checking": "正在检查更新…",
+    "failed": "检查更新失败",
+    "failedMsg": "无法检查更新。请稍后重试。",
+    "devBuild": "仅安装版本支持更新。"
   }
 }

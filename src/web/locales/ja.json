@@ -272,7 +272,8 @@
     "settings": "設定…",
     "cycleLayout": "レイアウトを切り替え",
     "keyboardShortcuts": "キーボードショートカット",
-    "newWsRequest": "新規 WebSocket リクエスト"
+    "newWsRequest": "新規 WebSocket リクエスト",
+    "checkUpdates": "アップデートを確認…"
   },
   "settings": {
     "title": "設定",
@@ -285,7 +286,8 @@
       "proxy": "プロキシ",
       "retries": "再試行",
       "history": "履歴",
-      "certificates": "証明書"
+      "certificates": "証明書",
+      "about": "情報"
     },
     "appearance": {
       "theme": "テーマ",
@@ -369,6 +371,10 @@
       "insecureHeading": "ホストの検証をスキップ",
       "insecureHelp": "TLS 証明書を検証しないホストをカンマまたは改行で区切って指定します。信頼できる自己署名ホストにのみ使用し、できるだけ上のカスタム CA を使用してください。",
       "insecurePlaceholder": "internal.example.com, *.test"
+    },
+    "about": {
+      "checkButton": "アップデートを確認",
+      "version": "Rest Hippo {version}"
     }
   },
   "request": {
@@ -1214,5 +1220,17 @@
     "postPlaceholder": "// レスポンス受信後に実行されます\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
     "enabled": "有効",
     "resizeAria": "スクリプトペインのサイズを変更"
+  },
+  "updater": {
+    "available": "アップデートが利用可能です",
+    "downloadingMsg": "{version} をバックグラウンドでダウンロードしています…",
+    "ready": "アップデートの準備が完了しました",
+    "readyMsg": "バージョン {version} をダウンロードしました。",
+    "restart": "再起動",
+    "upToDate": "最新の状態です。",
+    "checking": "アップデートを確認しています…",
+    "failed": "アップデートの確認に失敗しました",
+    "failedMsg": "アップデートを確認できませんでした。しばらくしてからもう一度お試しください。",
+    "devBuild": "アップデートはインストール済みのビルドでのみ利用できます。"
   }
 }

@@ -115,6 +115,8 @@ jobs:
             build/src/dist/*.AppImage
             build/src/dist/*.deb
             build/src/dist/*.exe
+            build/src/dist/latest*.yml
+            build/src/dist/*.blockmap
           if-no-files-found: error
           # These artifacts are only a hand-off to the `release` job within the
           # same run (which attaches them to the GitHub Release — Release assets

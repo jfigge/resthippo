@@ -63,16 +63,19 @@ function channelsFor(source, fnPattern) {
 
 // The main-process IPC surface is split across main.js and the modules it
 // delegates registration to — the HTTP engine (http:execute / http:body:* /
-// http:stream:*) registers its handlers from net/http-engine.js, and the
-// scripting sandbox (script:run-pre / script:run-post / script:validate) from
-// scripting/sandbox.js. Scan them as one source so the parity + push-topology
-// checks see the whole surface.
+// http:stream:*) registers its handlers from net/http-engine.js, the scripting
+// sandbox (script:run-pre / script:run-post / script:validate) from
+// scripting/sandbox.js, and the auto-updater (the updater:* push channels) from
+// updater.js. Scan them as one source so the parity + push-topology checks see
+// the whole surface.
 const mainProcessSource =
   read("main.js") +
   "\n" +
   read("net/http-engine.js") +
   "\n" +
-  read("scripting/sandbox.js");
+  read("scripting/sandbox.js") +
+  "\n" +
+  read("updater.js");
 
 const handlers = channelsFor(mainProcessSource, "ipcMain\\.handle");
 const invokes = [
@@ -81,15 +84,18 @@ const invokes = [
   ...channelsFor(read("preload-docs.js"), "ipcRenderer\\.invoke"),
 ];
 
-// Push channels (main → renderer). main pushes two ways: directly via
-// `webContents.send("channel", …)` (channel is the first string arg) and via the
+// Push channels (main → renderer). main pushes three ways: directly via
+// `webContents.send("channel", …)` (channel is the first string arg), via the
 // `sendTo(sender, "channel", …)` wrapper (channel is the SECOND arg, used for the
-// http:stream:* and ws:* streams). Capture both forms.
+// http:stream:* and ws:* streams), and via updater.js's
+// `pushUpdaterEvent("channel", …)` wrapper (channel is the first arg, used for the
+// updater:* events). Capture all three forms.
 function sendChannels(source) {
   const out = [];
   const patterns = [
     /webContents\.send\(\s*["']([^"']+)["']/g, // webContents.send("x", …)
     /sendTo\([^,]+,\s*["']([^"']+)["']/g, // sendTo(sender, "x", …)
+    /pushUpdaterEvent\(\s*["']([^"']+)["']/g, // pushUpdaterEvent("x", …)
   ];
   for (const re of patterns) {
     let match;

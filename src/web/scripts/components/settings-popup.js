@@ -60,7 +60,26 @@ export class SettingsPopup {
 
   #onPopupClosed = () => {
     document.removeEventListener("keydown", this.#onKeyDown);
+    this.#unwireUpdaterStatus();
   };
+
+  // Auto-update status-line handlers (Feature 36). Stable references so they can
+  // be attached on open() and detached on close — the inline status only tracks
+  // updater events while the About panel is reachable; the app-wide toasts in
+  // app.js are the always-on surface.
+  #onUpdaterChecking = () => this.#setUpdateStatus(t("updater.checking"));
+  #onUpdaterAvailable = (e) =>
+    this.#setUpdateStatus(
+      t("updater.downloadingMsg", { version: e.detail?.version || "" }),
+    );
+  #onUpdaterNotAvailable = (e) =>
+    this.#setUpdateStatus(
+      e.detail?.reason === "dev-build"
+        ? t("updater.devBuild")
+        : t("updater.upToDate"),
+    );
+  #onUpdaterDownloaded = () => this.#setUpdateStatus(t("updater.ready"));
+  #onUpdaterError = () => this.#setUpdateStatus(t("updater.failed"));
 
   constructor() {
     // DOM is built lazily on first use (#ensureBuilt), not here. This singleton
@@ -119,6 +138,7 @@ export class SettingsPopup {
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="certificates">${t("settings.nav.certificates")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="retries">${t("settings.nav.retries")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="history">${t("settings.nav.history")}</button>
+          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="about">${t("settings.nav.about")}</button>
         </nav>
 
         <!-- Right-hand stack of single-column panels; only the active one shows -->
@@ -496,6 +516,20 @@ export class SettingsPopup {
               </select>
             </div>
           </section>
+
+          <!-- About ──────────────────────────────────────────────────────── -->
+          <!-- Version + on-demand update check (Feature 36). The version line is
+               filled at open() from window.hippo.app.info(); the status line
+               reflects hippo:updater-* events while the popup is open. -->
+          <section class="settings-panel" role="tabpanel" data-panel="about" hidden>
+            <div class="settings-row">
+              <span class="settings-label" id="setting-about-version"></span>
+            </div>
+            <div class="settings-row">
+              <button class="btn popup-btn" id="setting-check-updates" type="button">${t("settings.about.checkButton")}</button>
+              <span class="settings-label" id="setting-about-status" role="status" aria-live="polite"></span>
+            </div>
+          </section>
         </div>
       </div>
 
@@ -514,6 +548,15 @@ export class SettingsPopup {
     this.#el.querySelectorAll(".settings-nav-item").forEach((item) => {
       item.addEventListener("click", () => this.#showPanel(item.dataset.panel));
     });
+
+    // About panel: on-demand update check (Feature 36). The updater pushes its
+    // result back via hippo:updater-* events, which the status line reflects.
+    this.#el
+      .querySelector("#setting-check-updates")
+      ?.addEventListener("click", () => {
+        this.#setUpdateStatus(t("updater.checking"));
+        window.hippo?.updater?.check?.();
+      });
 
     // Auto-save on every user interaction — no explicit Save needed.
     // Use "input" for text/number inputs (fires on every keystroke) and
@@ -655,6 +698,68 @@ export class SettingsPopup {
       const active = panel.dataset.panel === name;
       panel.hidden = !active;
     });
+  }
+
+  // ── About panel / auto-update (Feature 36) ───────────────────────────────────
+
+  /** Set the inline update-status line text (no-op if the panel isn't built). */
+  #setUpdateStatus(text) {
+    const el = this.#el?.querySelector("#setting-about-status");
+    if (el) el.textContent = text;
+  }
+
+  /** Attach the updater status-line listeners (open lifecycle). */
+  #wireUpdaterStatus() {
+    window.addEventListener("hippo:updater-checking", this.#onUpdaterChecking);
+    window.addEventListener(
+      "hippo:updater-available",
+      this.#onUpdaterAvailable,
+    );
+    window.addEventListener(
+      "hippo:updater-not-available",
+      this.#onUpdaterNotAvailable,
+    );
+    window.addEventListener(
+      "hippo:updater-downloaded",
+      this.#onUpdaterDownloaded,
+    );
+    window.addEventListener("hippo:updater-error", this.#onUpdaterError);
+  }
+
+  /** Detach the updater status-line listeners (close lifecycle). */
+  #unwireUpdaterStatus() {
+    window.removeEventListener(
+      "hippo:updater-checking",
+      this.#onUpdaterChecking,
+    );
+    window.removeEventListener(
+      "hippo:updater-available",
+      this.#onUpdaterAvailable,
+    );
+    window.removeEventListener(
+      "hippo:updater-not-available",
+      this.#onUpdaterNotAvailable,
+    );
+    window.removeEventListener(
+      "hippo:updater-downloaded",
+      this.#onUpdaterDownloaded,
+    );
+    window.removeEventListener("hippo:updater-error", this.#onUpdaterError);
+  }
+
+  /** Fill the About version line from the main process (app / build metadata). */
+  async #loadAppInfo() {
+    const versionEl = this.#el?.querySelector("#setting-about-version");
+    if (!versionEl) return;
+    try {
+      const info = await window.hippo?.app?.info?.();
+      if (info?.version)
+        versionEl.textContent = t("settings.about.version", {
+          version: info.version,
+        });
+    } catch {
+      /* leave the version line blank if the metadata can't be read */
+    }
   }
 
   /**
@@ -1010,6 +1115,11 @@ export class SettingsPopup {
     this.refreshThemeList(settings.customThemes ?? []);
     this.#applyValues(settings);
     this.#showPanel("appearance");
+    // About panel (Feature 36): refresh the version line and clear any stale
+    // status from a previous open, then track updater events while open.
+    this.#setUpdateStatus("");
+    this.#loadAppInfo();
+    this.#wireUpdaterStatus();
     PopupManager.open(this);
     // Scope the Escape handler to the open lifecycle. PopupManager.close()
     // dispatches "hippo:popup-closed" via _hideMask(), which fires for every
