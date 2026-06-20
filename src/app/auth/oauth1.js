@@ -188,6 +188,16 @@ function buildAuthorizationHeader({
   if (!consumerKey) return null;
 
   const sigMethod = String(signatureMethod || "HMAC-SHA1").toUpperCase();
+  // PLAINTEXT transmits the signing key (consumer + token secrets) verbatim in
+  // the Authorization header, so it is only safe over TLS (RFC 5849 §3.4.4).
+  // Refuse to sign a cleartext request rather than leak the secrets — the caller
+  // surfaces this as a request error instead of sending them in the clear.
+  if (sigMethod === "PLAINTEXT" && new URL(url).protocol !== "https:") {
+    throw new Error(
+      "OAuth 1.0a PLAINTEXT signing requires an https:// URL — it would send " +
+        "the consumer/token secrets in the clear over http://.",
+    );
+  }
   const oauthParams = {
     oauth_consumer_key: consumerKey,
     oauth_nonce: nonce || crypto.randomBytes(16).toString("hex"),

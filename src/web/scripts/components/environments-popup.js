@@ -46,8 +46,14 @@
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
 import { deepClone } from "../utils/clone.js";
-import { wireDeleteConfirm } from "../delete-confirm.js";
 import { normalizeVariables } from "./variable-shape.js";
+import {
+  variablesToText,
+  textToVariables,
+  variablesToRows,
+  rowsToVariables,
+  buildVariableRow,
+} from "./variable-editor-shared.js";
 import { t } from "../i18n.js";
 
 // ── SVG icons ─────────────────────────────────────────────────────────────────
@@ -747,9 +753,9 @@ export class EnvironmentsPopup {
     clearTimeout(this.#saveTimer);
 
     if (this.#isBulkMode) {
-      this.#el.querySelector(".env-textarea").value = this.#varsToText(vars);
+      this.#el.querySelector(".env-textarea").value = variablesToText(vars);
     } else {
-      this.#rows = this.#varsToRows(vars);
+      this.#rows = variablesToRows(vars);
       this.#renderRows();
     }
     this.#applyMode();
@@ -780,12 +786,12 @@ export class EnvironmentsPopup {
   #handleBulkToggle() {
     const nowBulk = this.#el.querySelector(".env-bulk-toggle").checked;
     if (nowBulk && !this.#isBulkMode) {
-      this.#el.querySelector(".env-textarea").value = this.#varsToText(
-        this.#rowsToArray(),
+      this.#el.querySelector(".env-textarea").value = variablesToText(
+        rowsToVariables(this.#rows),
       );
     } else if (!nowBulk && this.#isBulkMode) {
-      this.#rows = this.#varsToRows(
-        this.#textToVars(this.#el.querySelector(".env-textarea").value),
+      this.#rows = variablesToRows(
+        textToVariables(this.#el.querySelector(".env-textarea").value),
       );
     }
     this.#isBulkMode = nowBulk;
@@ -801,54 +807,6 @@ export class EnvironmentsPopup {
     this.#onBulkEditorChange?.({ bulkEditor: nowBulk });
   }
 
-  // ── Conversion helpers ─────────────────────────────────────────────────────
-
-  // Secure variables round-trip through the bulk editor as a "$ "
-  // (dollar + space) line prefix.
-  #varsToText(vars) {
-    return vars
-      .map((v) => `${v.secure ? "$ " : ""}${v.name}=${v.value}`)
-      .join("\n");
-  }
-
-  #textToVars(text) {
-    const out = [];
-    for (const line of text.split("\n")) {
-      let trimmed = line.trim();
-      if (!trimmed) continue;
-      let secure = false;
-      if (trimmed.startsWith("$ ")) {
-        secure = true;
-        trimmed = trimmed.slice(1).trim();
-      }
-      const eqIdx = trimmed.indexOf("=");
-      if (eqIdx === -1) continue;
-      const key = trimmed.slice(0, eqIdx).trim();
-      const val = trimmed.slice(eqIdx + 1);
-      if (key) out.push({ name: key, value: val, secure });
-    }
-    return out;
-  }
-
-  #varsToRows(vars) {
-    return vars.map((v) => ({
-      id: crypto.randomUUID(),
-      name: v.name,
-      value: v.value,
-      secure: !!v.secure,
-    }));
-  }
-
-  #rowsToArray() {
-    const out = [];
-    for (const r of this.#rows) {
-      if (r.name.trim()) {
-        out.push({ name: r.name, value: r.value, secure: !!r.secure });
-      }
-    }
-    return out;
-  }
-
   // ── KV row rendering ───────────────────────────────────────────────────────
 
   #renderRows() {
@@ -861,128 +819,22 @@ export class EnvironmentsPopup {
       kvList.appendChild(empty);
       return;
     }
-    this.#rows.forEach((row) => kvList.appendChild(this.#buildRow(row)));
-  }
-
-  #buildRow(row) {
-    const el = document.createElement("div");
-    el.className = "env-kv-row params-row";
-    el.dataset.id = row.id;
-
-    const nameIn = document.createElement("input");
-    nameIn.type = "text";
-    nameIn.className = "params-input params-name";
-    nameIn.placeholder = t("kv.name");
-    nameIn.value = row.name;
-    nameIn.setAttribute("aria-label", t("vars.name"));
-    nameIn.setAttribute("autocomplete", "off");
-    nameIn.addEventListener("input", () => {
-      row.name = nameIn.value;
-      this.#saveFromRows();
-    });
-    nameIn.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        this.#addRow();
-      }
-    });
-
-    const valWrap = document.createElement("div");
-    valWrap.className = "params-value-wrap";
-
-    const valIn = document.createElement("input");
-    valIn.type = "text";
-    valIn.className = "params-input params-value";
-    valIn.placeholder = t("kv.value");
-    valIn.value = row.value;
-    valIn.setAttribute("aria-label", t("vars.value"));
-    valIn.addEventListener("input", () => {
-      row.value = valIn.value;
-      this.#saveFromRows();
-    });
-    valIn.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        this.#addRow();
-      }
-    });
-
-    // Inline reveal (eye) toggle — only shown for secure rows.
-    const reveal = document.createElement("button");
-    reveal.type = "button";
-    reveal.className = "icon-btn params-reveal-btn";
-    reveal.setAttribute("tabindex", "-1");
-
-    let revealed = false;
-    let revealTimer = null;
-    const applyMask = () => {
-      const masked = !!row.secure && !revealed;
-      valIn.classList.toggle("params-value--masked", masked);
-      reveal.style.display = row.secure ? "" : "none";
-      reveal.innerHTML = icon(revealed ? "eyeOff" : "eye", { size: 14 });
-      const action = revealed ? t("common.hideValue") : t("common.revealValue");
-      reveal.title = action;
-      reveal.setAttribute("aria-label", action);
-      reveal.setAttribute("aria-pressed", String(revealed));
-    };
-    reveal.addEventListener("click", () => {
-      revealed = !revealed;
-      clearTimeout(revealTimer);
-      if (revealed) {
-        revealTimer = setTimeout(() => {
-          revealed = false;
-          applyMask();
-        }, EnvironmentsPopup.#REVEAL_MS);
-      }
-      applyMask();
-    });
-
-    valWrap.appendChild(valIn);
-    valWrap.appendChild(reveal);
-
-    // Per-row secure (lock) toggle — encrypts the value at rest.
-    const secure = document.createElement("button");
-    secure.type = "button";
-    secure.className = "icon-btn params-secure-btn";
-    const applySecure = () => {
-      secure.classList.toggle("params-secure-btn--active", !!row.secure);
-      secure.innerHTML = icon(row.secure ? "lock" : "lockOpen", { size: 14 });
-      const label = row.secure
-        ? t("variables.secureTooltip")
-        : t("variables.markSecure");
-      secure.title = label;
-      secure.setAttribute("aria-label", label);
-      secure.setAttribute("aria-pressed", String(!!row.secure));
-    };
-    secure.addEventListener("click", () => {
-      row.secure = !row.secure;
-      if (!row.secure) {
-        revealed = false;
-        clearTimeout(revealTimer);
-      }
-      applySecure();
-      applyMask();
-      this.#saveFromRows();
-    });
-
-    const del = document.createElement("button");
-    del.className = "icon-btn params-delete-btn";
-    del.title = t("vars.delete");
-    del.setAttribute("aria-label", t("vars.delete"));
-    wireDeleteConfirm(del, () => {
-      this.#rows = this.#rows.filter((r) => r.id !== row.id);
-      this.#renderRows();
-      this.#saveFromRows();
-    });
-
-    el.appendChild(nameIn);
-    el.appendChild(valWrap);
-    el.appendChild(secure);
-    el.appendChild(del);
-
-    applySecure();
-    applyMask();
-    return el;
+    this.#rows.forEach((row) =>
+      kvList.appendChild(
+        buildVariableRow({
+          row,
+          rowClass: "env-kv-row params-row",
+          revealMs: EnvironmentsPopup.#REVEAL_MS,
+          onChange: () => this.#saveFromRows(),
+          onEnter: () => this.#addRow(),
+          onDelete: () => {
+            this.#rows = this.#rows.filter((r) => r.id !== row.id);
+            this.#renderRows();
+            this.#saveFromRows();
+          },
+        }),
+      ),
+    );
   }
 
   #addRow() {
@@ -1008,12 +860,12 @@ export class EnvironmentsPopup {
 
   #saveFromBulk() {
     this.#dispatchVarsSave(
-      this.#textToVars(this.#el.querySelector(".env-textarea").value),
+      textToVariables(this.#el.querySelector(".env-textarea").value),
     );
   }
 
   #saveFromRows() {
-    this.#dispatchVarsSave(this.#rowsToArray());
+    this.#dispatchVarsSave(rowsToVariables(this.#rows));
   }
 
   #flushEditorSave() {

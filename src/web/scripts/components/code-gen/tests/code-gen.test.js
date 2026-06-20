@@ -32,6 +32,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { buildRequestModel, generateCode, TARGETS } from "../index.js";
+import { shellSingleQuote } from "../util.js";
 
 // Empty resolver context — no env / folder variables. resolveString returns
 // strings with no {{tokens}} unchanged, so request fields pass through verbatim.
@@ -339,4 +340,115 @@ test("notes render as the target's line comment ahead of the snippet", () => {
 test("an unknown target id falls back to cURL", () => {
   const code = generateCode("nope", buildRequestModel(GET_NODE, CTX));
   assert.match(code, /^curl --request GET/);
+});
+
+// ── Escaping / injection safety ──────────────────────────────────────────────
+//
+// A request carrying shell- or string-significant bytes (quotes, newlines,
+// $(), backticks) in its headers/body/path must produce output where those
+// bytes are inert — never a command injection or a broken literal. These tie
+// each generator to its escaping helper so a regression in either surfaces.
+
+// single + double quotes, command substitution and backticks in one value.
+const EVIL = 'a\'b "c" $(whoami) `id`';
+
+test("cURL: header values are shell-single-quoted, neutralising $()/backticks", () => {
+  const node = {
+    type: "request",
+    method: "POST",
+    url: "https://x.test/p",
+    headers: [{ enabled: true, name: "X-Evil", value: EVIL }],
+    bodyType: "json",
+    bodyText: "{}",
+  };
+  const code = generateCode("curl", buildRequestModel(node, CTX));
+  assert.ok(
+    code.includes(`--header ${shellSingleQuote(`X-Evil: ${EVIL}`)}`),
+    code,
+  );
+  // The single quote is broken out via '\'' — so $() and `` stay literal.
+  assert.ok(code.includes("'\\''"), code);
+});
+
+test("cURL: raw body and a file-body path are shell-escaped", () => {
+  const raw = generateCode(
+    "curl",
+    buildRequestModel(
+      {
+        type: "request",
+        method: "POST",
+        url: "https://x.test",
+        bodyType: "json",
+        bodyText: EVIL,
+      },
+      CTX,
+    ),
+  );
+  assert.ok(raw.includes(`--data ${shellSingleQuote(EVIL)}`), raw);
+
+  const filePath = "/tmp/o'brien.bin";
+  const fileCode = generateCode(
+    "curl",
+    buildRequestModel(
+      {
+        type: "request",
+        method: "POST",
+        url: "https://x.test",
+        bodyType: "file",
+        bodyFilePath: filePath,
+      },
+      CTX,
+    ),
+  );
+  // The `@` stays inside the quoted token; the embedded quote is escaped.
+  assert.ok(
+    fileCode.includes(`--data-binary ${shellSingleQuote(`@${filePath}`)}`),
+    fileCode,
+  );
+});
+
+test("HTTPie: header and raw body are shell-single-quoted", () => {
+  const node = {
+    type: "request",
+    method: "POST",
+    url: "https://x.test/p",
+    headers: [{ enabled: true, name: "X-Evil", value: EVIL }],
+    bodyType: "json",
+    bodyText: EVIL,
+  };
+  const code = generateCode("httpie", buildRequestModel(node, CTX));
+  assert.ok(code.includes(`printf %s ${shellSingleQuote(EVIL)}`), code);
+  assert.ok(code.includes(shellSingleQuote(`X-Evil:${EVIL}`)), code);
+});
+
+test("fetch & Python: a body with quotes/newlines is JSON-string-escaped", () => {
+  const bodyText = 'a"b\nc';
+  const node = {
+    type: "request",
+    method: "POST",
+    url: "https://x.test",
+    bodyType: "json",
+    bodyText,
+  };
+  const fetchCode = generateCode("fetch", buildRequestModel(node, CTX));
+  const pyCode = generateCode("python", buildRequestModel(node, CTX));
+  // No raw newline/quote break-out — both reuse JSON.stringify escaping.
+  assert.ok(fetchCode.includes(`body: ${JSON.stringify(bodyText)}`), fetchCode);
+  assert.ok(pyCode.includes(JSON.stringify(bodyText)), pyCode);
+});
+
+test("Go: a body containing a backtick can't use a raw string and is escaped", () => {
+  // A newline alone would prefer a `…` raw literal; the backtick forbids it, so
+  // it must fall back to a double-quoted (escaped) literal instead.
+  const bodyText = "line1\n`cmd`\nline2";
+  const node = {
+    type: "request",
+    method: "POST",
+    url: "https://x.test",
+    bodyType: "json",
+    bodyText,
+  };
+  const code = generateCode("go", buildRequestModel(node, CTX));
+  assert.ok(code.includes(JSON.stringify(bodyText)), code);
+  assert.doesNotMatch(code, /NewReader\(`/);
 });

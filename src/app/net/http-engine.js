@@ -606,31 +606,49 @@ function registerHttpEngine({
       // x-www-form-urlencoded body the body params are part of the signature
       // base string (RFC 5849 §3.4.1.3), so they are parsed back out and passed.
       if (oauth1?.consumerKey) {
-        let bodyParams = [];
-        const ctKey = Object.keys(reqHeaders).find(
-          (k) => k.toLowerCase() === "content-type",
-        );
-        const ct = ctKey ? String(reqHeaders[ctKey]).toLowerCase() : "";
-        if (
-          ct.includes("application/x-www-form-urlencoded") &&
-          bodyBuffer &&
-          bodyBuffer.length
-        ) {
-          bodyParams = [
-            ...new URLSearchParams(bodyBuffer.toString("utf8")).entries(),
-          ];
+        let oauthHeader;
+        try {
+          let bodyParams = [];
+          const ctKey = Object.keys(reqHeaders).find(
+            (k) => k.toLowerCase() === "content-type",
+          );
+          const ct = ctKey ? String(reqHeaders[ctKey]).toLowerCase() : "";
+          if (
+            ct.includes("application/x-www-form-urlencoded") &&
+            bodyBuffer &&
+            bodyBuffer.length
+          ) {
+            bodyParams = [
+              ...new URLSearchParams(bodyBuffer.toString("utf8")).entries(),
+            ];
+          }
+          oauthHeader = buildOAuth1Header({
+            method: effectiveMethod,
+            url: parsed.href,
+            consumerKey: oauth1.consumerKey,
+            consumerSecret: oauth1.consumerSecret || "",
+            token: oauth1.token || "",
+            tokenSecret: oauth1.tokenSecret || "",
+            signatureMethod: oauth1.signatureMethod || "HMAC-SHA1",
+            realm: oauth1.realm || undefined,
+            bodyParams,
+          });
+        } catch (e) {
+          // e.g. PLAINTEXT over http:// — refuse rather than leak the secrets.
+          consoleLog.push(`* OAuth 1.0a signing error: ${e.message}`);
+          resolve({
+            status: 0,
+            statusText: "",
+            headers: {},
+            cookies: [],
+            body: "",
+            elapsed: Date.now() - startTime,
+            size: 0,
+            consoleLog,
+            error: { name: e.name || "Error", message: e.message },
+          });
+          return;
         }
-        const oauthHeader = buildOAuth1Header({
-          method: effectiveMethod,
-          url: parsed.href,
-          consumerKey: oauth1.consumerKey,
-          consumerSecret: oauth1.consumerSecret || "",
-          token: oauth1.token || "",
-          tokenSecret: oauth1.tokenSecret || "",
-          signatureMethod: oauth1.signatureMethod || "HMAC-SHA1",
-          realm: oauth1.realm || undefined,
-          bodyParams,
-        });
         if (oauthHeader) reqHeaders["Authorization"] = oauthHeader;
       }
 

@@ -39,8 +39,14 @@
 
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
-import { wireDeleteConfirm } from "../delete-confirm.js";
 import { normalizeVariables } from "./variable-shape.js";
+import {
+  variablesToText,
+  textToVariables,
+  variablesToRows,
+  rowsToVariables,
+  buildVariableRow,
+} from "./variable-editor-shared.js";
 import { t } from "../i18n.js";
 
 export class VariablesPopup {
@@ -127,10 +133,10 @@ export class VariablesPopup {
     this.#bulkToggleEl.checked = this.#isBulkMode;
 
     if (this.#isBulkMode) {
-      this.#textareaEl.value = this.#varsToText(vars);
+      this.#textareaEl.value = variablesToText(vars);
       this.#applyMode();
     } else {
-      this.#rows = this.#varsToRows(vars);
+      this.#rows = variablesToRows(vars);
       this.#applyMode();
       this.#renderRows();
     }
@@ -246,10 +252,10 @@ export class VariablesPopup {
 
     if (nowBulk && !this.#isBulkMode) {
       // Table → Bulk: serialise rows to text
-      this.#textareaEl.value = this.#varsToText(this.#rowsToArray());
+      this.#textareaEl.value = variablesToText(rowsToVariables(this.#rows));
     } else if (!nowBulk && this.#isBulkMode) {
       // Bulk → Table: parse text to rows
-      this.#rows = this.#varsToRows(this.#textToVars(this.#textareaEl.value));
+      this.#rows = variablesToRows(textToVariables(this.#textareaEl.value));
     }
 
     this.#isBulkMode = nowBulk;
@@ -265,68 +271,6 @@ export class VariablesPopup {
     this.#onBulkEditorChange?.({ bulkEditor: nowBulk });
   }
 
-  // ── Conversion helpers ──────────────────────────────────────────────────────
-
-  /**
-   * Convert a canonical variables array to multi-line  name=value  text.
-   * Secure variables are prefixed with "$ " (dollar + space) so the bulk
-   * editor round-trips the secure flag.
-   * @param {{name:string,value:string,secure:boolean}[]} vars
-   * @returns {string}
-   */
-  #varsToText(vars) {
-    return vars
-      .map((v) => `${v.secure ? "$ " : ""}${v.name}=${v.value}`)
-      .join("\n");
-  }
-
-  /**
-   * Parse multi-line  name=value  text into a canonical variables array.
-   * A leading "$ " (dollar + space) marks the variable secure. Lines without
-   * '=' are silently ignored.
-   * @param {string} text
-   * @returns {{name:string,value:string,secure:boolean}[]}
-   */
-  #textToVars(text) {
-    const out = [];
-    for (const line of text.split("\n")) {
-      let trimmed = line.trim();
-      if (!trimmed) continue;
-      let secure = false;
-      if (trimmed.startsWith("$ ")) {
-        secure = true;
-        trimmed = trimmed.slice(1).trim();
-      }
-      const eqIdx = trimmed.indexOf("=");
-      if (eqIdx === -1) continue;
-      const key = trimmed.slice(0, eqIdx).trim();
-      const val = trimmed.slice(eqIdx + 1);
-      if (key) out.push({ name: key, value: val, secure });
-    }
-    return out;
-  }
-
-  /** Convert a canonical variables array to an editor rows array. */
-  #varsToRows(vars) {
-    return vars.map((v) => ({
-      id: crypto.randomUUID(),
-      name: v.name,
-      value: v.value,
-      secure: !!v.secure,
-    }));
-  }
-
-  /** Serialise the editor rows back to a canonical variables array. */
-  #rowsToArray() {
-    const out = [];
-    for (const r of this.#rows) {
-      if (r.name.trim()) {
-        out.push({ name: r.name, value: r.value, secure: !!r.secure });
-      }
-    }
-    return out;
-  }
-
   // ── KV row rendering ────────────────────────────────────────────────────────
 
   #renderRows() {
@@ -339,129 +283,21 @@ export class VariablesPopup {
       return;
     }
     this.#rows.forEach((row) =>
-      this.#kvListEl.appendChild(this.#buildRow(row)),
+      this.#kvListEl.appendChild(
+        buildVariableRow({
+          row,
+          rowClass: "vars-kv-row params-row",
+          revealMs: VariablesPopup.#REVEAL_MS,
+          onChange: () => this.#saveFromRows(),
+          onEnter: () => this.#addRow(),
+          onDelete: () => {
+            this.#rows = this.#rows.filter((r) => r.id !== row.id);
+            this.#renderRows();
+            this.#saveFromRows();
+          },
+        }),
+      ),
     );
-  }
-
-  #buildRow(row) {
-    const el = document.createElement("div");
-    el.className = "vars-kv-row params-row";
-    el.dataset.id = row.id;
-
-    const nameIn = document.createElement("input");
-    nameIn.type = "text";
-    nameIn.className = "params-input params-name";
-    nameIn.placeholder = t("kv.name");
-    nameIn.value = row.name;
-    nameIn.setAttribute("aria-label", t("vars.name"));
-    nameIn.setAttribute("autocomplete", "off");
-    nameIn.addEventListener("input", () => {
-      row.name = nameIn.value;
-      this.#saveFromRows();
-    });
-    nameIn.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        this.#addRow();
-      }
-    });
-
-    const valWrap = document.createElement("div");
-    valWrap.className = "params-value-wrap";
-
-    const valIn = document.createElement("input");
-    valIn.type = "text";
-    valIn.className = "params-input params-value";
-    valIn.placeholder = t("kv.value");
-    valIn.value = row.value;
-    valIn.setAttribute("aria-label", t("vars.value"));
-    valIn.addEventListener("input", () => {
-      row.value = valIn.value;
-      this.#saveFromRows();
-    });
-    valIn.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        this.#addRow();
-      }
-    });
-
-    // Inline reveal (eye) toggle — only shown for secure rows.
-    const reveal = document.createElement("button");
-    reveal.type = "button";
-    reveal.className = "icon-btn params-reveal-btn";
-    reveal.setAttribute("tabindex", "-1");
-
-    let revealed = false;
-    let revealTimer = null;
-    const applyMask = () => {
-      const masked = !!row.secure && !revealed;
-      valIn.classList.toggle("params-value--masked", masked);
-      reveal.style.display = row.secure ? "" : "none";
-      reveal.innerHTML = icon(revealed ? "eyeOff" : "eye", { size: 14 });
-      const action = revealed ? t("common.hideValue") : t("common.revealValue");
-      reveal.title = action;
-      reveal.setAttribute("aria-label", action);
-      reveal.setAttribute("aria-pressed", String(revealed));
-    };
-    reveal.addEventListener("click", () => {
-      revealed = !revealed;
-      clearTimeout(revealTimer);
-      if (revealed) {
-        revealTimer = setTimeout(() => {
-          revealed = false;
-          applyMask();
-        }, VariablesPopup.#REVEAL_MS);
-      }
-      applyMask();
-    });
-
-    valWrap.appendChild(valIn);
-    valWrap.appendChild(reveal);
-
-    // Per-row secure (lock) toggle — encrypts the value at rest.
-    const secure = document.createElement("button");
-    secure.type = "button";
-    secure.className = "icon-btn params-secure-btn";
-    const applySecure = () => {
-      secure.classList.toggle("params-secure-btn--active", !!row.secure);
-      secure.innerHTML = icon(row.secure ? "lock" : "lockOpen", { size: 14 });
-      const label = row.secure
-        ? "Secure (encrypted at rest)"
-        : "Mark variable secure";
-      secure.title = label;
-      secure.setAttribute("aria-label", label);
-      secure.setAttribute("aria-pressed", String(!!row.secure));
-    };
-    secure.addEventListener("click", () => {
-      row.secure = !row.secure;
-      if (!row.secure) {
-        revealed = false;
-        clearTimeout(revealTimer);
-      }
-      applySecure();
-      applyMask();
-      this.#saveFromRows();
-    });
-
-    const del = document.createElement("button");
-    del.className = "icon-btn params-delete-btn";
-    del.title = t("vars.delete");
-    del.setAttribute("aria-label", t("vars.delete"));
-    wireDeleteConfirm(del, () => {
-      this.#rows = this.#rows.filter((r) => r.id !== row.id);
-      this.#renderRows();
-      this.#saveFromRows();
-    });
-
-    el.appendChild(nameIn);
-    el.appendChild(valWrap);
-    el.appendChild(secure);
-    el.appendChild(del);
-
-    applySecure();
-    applyMask();
-    return el;
   }
 
   #addRow() {
@@ -485,12 +321,12 @@ export class VariablesPopup {
 
   #saveFromBulk() {
     if (!this.#scopeId) return;
-    this.#dispatchSave(this.#textToVars(this.#textareaEl.value));
+    this.#dispatchSave(textToVariables(this.#textareaEl.value));
   }
 
   #saveFromRows() {
     if (!this.#scopeId) return;
-    this.#dispatchSave(this.#rowsToArray());
+    this.#dispatchSave(rowsToVariables(this.#rows));
   }
 
   #dispatchSave(variables) {

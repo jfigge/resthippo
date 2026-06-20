@@ -125,6 +125,8 @@ function computeFoldEnds(lines) {
 /** Flatten Prism HTML into per-line arrays of {ch, cls}, splitting on newlines. */
 function highlightToLineChars(html) {
   const tmp = document.createElement("div");
+  // Safe: `html` is Prism highlighter output only (token <span>s wrapping
+  // text-escaped content), never user-authored markup — so no XSS vector.
   tmp.innerHTML = html;
   const lines = [[]];
   const walk = (node, cls) => {

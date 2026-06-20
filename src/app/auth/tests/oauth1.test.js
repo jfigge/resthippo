@@ -181,6 +181,53 @@ test("PLAINTEXT signature is the signing key itself", () => {
   assert.equal(headerParam(header, "oauth_signature_method"), "PLAINTEXT");
 });
 
+test("PLAINTEXT over http:// is refused (would leak secrets in the clear)", () => {
+  assert.throws(
+    () =>
+      buildAuthorizationHeader({
+        method: "GET",
+        url: "http://example.com/resource",
+        consumerKey: "ck",
+        consumerSecret: "cs",
+        tokenSecret: "ts",
+        signatureMethod: "PLAINTEXT",
+        nonce: "n",
+        timestamp: "1",
+      }),
+    /PLAINTEXT signing requires an https/i,
+  );
+});
+
+test("PLAINTEXT over https:// is allowed", () => {
+  assert.doesNotThrow(() =>
+    buildAuthorizationHeader({
+      method: "GET",
+      url: "https://example.com/resource",
+      consumerKey: "ck",
+      consumerSecret: "cs",
+      tokenSecret: "ts",
+      signatureMethod: "PLAINTEXT",
+      nonce: "n",
+      timestamp: "1",
+    }),
+  );
+});
+
+test("HMAC methods are unaffected by the PLAINTEXT transport guard over http://", () => {
+  // Signed methods don't expose the secret, so http:// stays allowed for them.
+  assert.doesNotThrow(() =>
+    buildAuthorizationHeader({
+      method: "GET",
+      url: "http://example.com/resource",
+      consumerKey: "ck",
+      consumerSecret: "cs",
+      signatureMethod: "HMAC-SHA1",
+      nonce: "n",
+      timestamp: "1",
+    }),
+  );
+});
+
 // ── realm + missing consumer key ──────────────────────────────────────────────
 
 test("realm is included in the header but excluded from the signature base", () => {

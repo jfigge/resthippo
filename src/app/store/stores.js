@@ -79,6 +79,16 @@ class Stores {
     this._environmentStore = new EnvironmentStore(this._paths);
     this._cookieStore = new CookieStore(this._paths);
     this._backupStore = new BackupStore(this._paths, this._resolver);
+
+    // Reclaim any response payload written without its history entry (a crash
+    // between HistoryStore.addHistory's two writes leaves one stranded and
+    // invisible to every list/get/delete path). Best-effort — never block
+    // startup on a sweep error.
+    try {
+      this._historyStore.pruneOrphanResponses();
+    } catch {
+      // ignore — orphan cleanup is non-critical
+    }
   }
 
   /** Manifest store — GET/PUT global collections + settings. */

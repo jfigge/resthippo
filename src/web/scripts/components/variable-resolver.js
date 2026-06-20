@@ -308,6 +308,12 @@ export function serializeEditor(el) {
  * Async version of resolveString that also evaluates function calls.
  * Function handlers may return Promises (backend-delegated functions).
  *
+ * Single-pass by design: each `{{token}}` is resolved exactly once and the
+ * resolved output is NOT re-scanned, so a value that itself contains `{{…}}`
+ * is emitted verbatim rather than expanded. This both matches user expectation
+ * (variables hold literal values, not nested templates) and makes circular
+ * references impossible — there is no recursion to loop.
+ *
  * @param {string} template
  * @param {object | null} context
  * @returns {Promise<string>}

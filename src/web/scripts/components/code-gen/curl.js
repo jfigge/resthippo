@@ -62,7 +62,9 @@ export const curl = {
         cmd += ` \\\n  --data ${pair}`;
       }
     } else if (b.kind === "file") {
-      cmd += ` \\\n  --data-binary '@${b.path.replace(/'/g, "'\\''")}'`;
+      // `@<path>` tells curl to read the body from the file; the `@` sits inside
+      // the single-quoted token, so shell-quote the whole `@path` string.
+      cmd += ` \\\n  --data-binary ${sq(`@${b.path}`)}`;
     } else if (b.kind === "raw") {
       cmd += ` \\\n  --data ${sq(b.text)}`;
     }

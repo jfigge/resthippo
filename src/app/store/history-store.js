@@ -288,6 +288,50 @@ class HistoryStore {
       }
     }
   }
+
+  // ── Prune orphaned responses ────────────────────────────────────────────────
+
+  /**
+   * Remove orphaned response payloads — response files with no matching history
+   * entry. `addHistory` writes the response *before* its entry, so a crash
+   * between those two writes leaves a response file that no `listHistory` or
+   * `getHistoryResponse` can ever reach (and which `deleteHistory`/`clearHistory`
+   * therefore never reclaim). Swept once at startup so the response tree cannot
+   * accumulate invisible payloads across crashed writes. Best-effort: skips
+   * missing directories.
+   *
+   * @returns {number}  Count of orphaned response files removed.
+   */
+  pruneOrphanResponses() {
+    let removed = 0;
+    const collectionsDir = this._paths.collectionsDir();
+    if (!exists(collectionsDir)) return 0;
+
+    const collIds = listDir(collectionsDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+
+    for (const collId of collIds) {
+      const responsesBase = path.join(
+        this._paths.collectionDir(collId),
+        "responses",
+      );
+      if (!exists(responsesBase)) continue;
+      for (const entry of listDir(responsesBase, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const reqId = entry.name;
+        for (const file of listDir(this._paths.responsesDir(collId, reqId))) {
+          if (!file.endsWith(".json")) continue;
+          const histId = file.slice(0, -5);
+          if (!exists(this._paths.historyEntryPath(collId, reqId, histId))) {
+            remove(this._paths.responsePath(collId, reqId, histId));
+            removed++;
+          }
+        }
+      }
+    }
+    return removed;
+  }
 }
 
 module.exports = { HistoryStore };

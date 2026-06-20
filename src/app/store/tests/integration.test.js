@@ -38,6 +38,7 @@ const { Stores } = require("../stores");
 const { Paths } = require("../paths");
 const { Resolver } = require("../resolver");
 const { validateID } = require("../io");
+const io = require("../io");
 const { _setSafeStorage, isEncrypted } = require("../crypto");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -95,7 +96,7 @@ function makeStores(tmpDir) {
 }
 
 // =============================================================================
-// EnvironmentStore — completely untested in the existing suite
+// EnvironmentStore — defaults, round-trip, secure-at-rest, clobber guard
 // =============================================================================
 
 describe("EnvironmentStore — first-run defaults", () => {
@@ -524,6 +525,47 @@ describe("History — add, list, retrieve response, delete", () => {
     assert.doesNotThrow(() =>
       stores.history.deleteHistory(REQ, "ghost-hist-id"),
     );
+  });
+
+  test("pruneOrphanResponses removes a response whose history entry is gone", () => {
+    const entry = stores.history.addHistory(
+      REQ,
+      makeHistoryEntry(),
+      makeResponse(),
+    );
+    // Simulate a crash between addHistory's response write and entry write by
+    // removing just the entry, leaving an orphaned (unreachable) response file.
+    const paths = stores.ss.paths();
+    io.remove(paths.historyEntryPath(COL, REQ, entry.id));
+    assert.ok(io.exists(paths.responsePath(COL, REQ, entry.id)));
+
+    const removed = stores.history.pruneOrphanResponses();
+    assert.equal(removed, 1);
+    assert.ok(!io.exists(paths.responsePath(COL, REQ, entry.id)));
+  });
+
+  test("pruneOrphanResponses keeps responses that still have an entry", () => {
+    const entry = stores.history.addHistory(
+      REQ,
+      makeHistoryEntry(),
+      makeResponse(),
+    );
+    assert.equal(stores.history.pruneOrphanResponses(), 0);
+    assert.doesNotThrow(() => stores.history.getHistoryResponse(REQ, entry.id));
+  });
+
+  test("Stores constructor prunes orphaned responses on startup", () => {
+    const entry = stores.history.addHistory(
+      REQ,
+      makeHistoryEntry(),
+      makeResponse(),
+    );
+    const paths = stores.ss.paths();
+    io.remove(paths.historyEntryPath(COL, REQ, entry.id));
+
+    // A fresh Stores over the same dir should sweep the orphan during init.
+    makeStores(tmpDir);
+    assert.ok(!io.exists(paths.responsePath(COL, REQ, entry.id)));
   });
 
   test("history entries survive across Stores instances", () => {
@@ -1825,6 +1867,49 @@ describe("Secure variables — at-rest encryption (reversible mock)", () => {
     assert.equal(
       loaded.globalVariables.find((v) => v.name === "apiKey").value,
       "s3cr3t",
+    );
+  });
+
+  test("clobber guard also protects a per-named-environment secure value", () => {
+    // Establish recoverable ciphertext for a variable inside a named environment.
+    stores.environments.saveEnvironments({
+      version: 1,
+      globalVariables: [],
+      activeEnvironmentId: "env-1",
+      environments: [
+        {
+          id: "env-1",
+          name: "Prod",
+          variables: [{ name: "token", value: "tok-123", secure: true }],
+        },
+      ],
+    });
+
+    // Renderer echoes back a blank decrypt-failed value for that named-env var.
+    stores.environments.saveEnvironments({
+      version: 1,
+      globalVariables: [],
+      activeEnvironmentId: "env-1",
+      environments: [
+        {
+          id: "env-1",
+          name: "Prod",
+          variables: [
+            {
+              name: "token",
+              value: "",
+              secure: true,
+              decryptError: "decrypt-failed",
+            },
+          ],
+        },
+      ],
+    });
+
+    const loaded = stores.environments.getEnvironments();
+    assert.equal(
+      loaded.environments[0].variables.find((v) => v.name === "token").value,
+      "tok-123",
     );
   });
 
