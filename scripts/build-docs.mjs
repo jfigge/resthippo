@@ -191,8 +191,12 @@ if (existsSync(resolve(SRC, "images"))) {
   cpSync(resolve(SRC, "images"), resolve(OUT, "images"), { recursive: true });
 }
 
-// Sitemap: homepage + every guide page.
-const urls = [`${SITE_URL}/`, ...PAGES.map((p) => `${SITE_URL}/docs/${outFile(p)}`)];
+// Sitemap: homepage + feature-requests page + every guide page.
+const urls = [
+  `${SITE_URL}/`,
+  `${SITE_URL}/features.html`,
+  ...PAGES.map((p) => `${SITE_URL}/docs/${outFile(p)}`),
+];
 const sitemap =
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
   urls.map((u) => `  <url><loc>${u}</loc></url>`).join("\n") +
