@@ -117,6 +117,7 @@ import { installKeymap } from "./keymap.js";
 import { KeyboardShortcuts } from "./components/keyboard-shortcuts.js";
 import * as i18n from "./i18n.js";
 import { t } from "./i18n.js";
+import { reportCliResult } from "./cli-command.js";
 
 // ─── Renderer crash mirroring ───────────────────────────────────────────────────
 // Forward uncaught renderer errors and unhandled promise rejections to the main
@@ -486,6 +487,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   await initCollections();
   installZoomHandlers(buildBusContext());
   installKeyboardShortcuts();
+  maybeOfferCliCommand();
 });
 
 // ─── Static chrome localization ────────────────────────────────────────────────
@@ -3261,6 +3263,39 @@ async function initCollections() {
   if (!savedId || !treeView.selectById(savedId)) {
     _clearRequestEditor();
   }
+}
+
+/**
+ * First-run offer to install the `hippo` shell command (the VS Code "Install
+ * 'code' command in PATH" equivalent). Shown once — when the launcher is
+ * installable (packaged build on a supported OS), not yet installed, and the
+ * user hasn't been asked before. Either answer sets `cliPromptSeen` so it never
+ * asks again; Settings → Command Line stays the way to install/remove later.
+ */
+async function maybeOfferCliCommand() {
+  if (currentSettings.cliPromptSeen) return;
+  let status;
+  try {
+    status = await window.hippo?.cli?.status?.();
+  } catch {
+    return; // launcher not reachable (e.g. plain browser dev server) — skip
+  }
+  if (!status?.available || status.installed) return;
+  PopupManager.confirm({
+    title: t("settings.cli.promptTitle"),
+    message: t("settings.cli.promptMessage"),
+    confirmLabel: t("settings.cli.installButton"),
+    confirmClass: "btn--primary",
+    onConfirm: async () => {
+      updateSettings({ cliPromptSeen: true });
+      try {
+        reportCliResult(await window.hippo.cli.install());
+      } catch {
+        reportCliResult(null); // surfaces the generic failure toast
+      }
+    },
+    onCancel: () => updateSettings({ cliPromptSeen: true }),
+  });
 }
 
 /**

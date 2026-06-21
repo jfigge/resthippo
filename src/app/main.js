@@ -53,6 +53,7 @@ const { WebSocketHub } = require("./net/websocket");
 const { registerHttpEngine } = require("./net/http-engine");
 const { registerScripting } = require("./scripting/sandbox");
 const updater = require("./updater");
+const cliLauncher = require("./cli-launcher");
 
 const isDev = process.argv.includes("--dev");
 const isDebug = process.argv.includes("--hot-reload");
@@ -2617,6 +2618,16 @@ function showRejectionDialog(err) {
     return null;
   });
   ipcMain.handle("app:info:get", () => collectAppInfo());
+})();
+
+// ─── CLI launcher ─────────────────────────────────────────────────────────────
+// Install / remove the `hippo` shell command (the VS Code "Install 'code' command
+// in PATH" equivalent). The per-platform mechanics live in cli-launcher.js; these
+// handlers are thin pass-throughs whose return shapes the renderer maps to toasts.
+(function initCliIPC() {
+  ipcMain.handle("cli:status", () => cliLauncher.status());
+  ipcMain.handle("cli:install", () => cliLauncher.install());
+  ipcMain.handle("cli:uninstall", () => cliLauncher.uninstall());
 })();
 
 // ─── Application menu ─────────────────────────────────────────────────────────

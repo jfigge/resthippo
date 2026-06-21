@@ -294,7 +294,8 @@
       "retries": "再試行",
       "certificates": "証明書",
       "about": "情報",
-      "security": "セキュリティ"
+      "security": "セキュリティ",
+      "cli": "コマンドライン"
     },
     "appearance": {
       "theme": "テーマ",
@@ -418,6 +419,21 @@
         "lockedSwitch": "先にシークレットのロックを解除してから、保存方法を切り替えてください。",
         "generic": "問題が発生しました。もう一度お試しください。"
       }
+    },
+    "cli": {
+      "desc": "ターミナルから Rest Hippo を起動できるように、<code>hippo</code> コマンドを PATH に追加します。",
+      "installButton": "インストール",
+      "removeButton": "削除",
+      "installed": "hippo コマンドはインストール済みです。",
+      "notInstalled": "hippo コマンドはインストールされていません。",
+      "unavailable": "コマンドラインランチャーはインストール済みのアプリでのみ利用できます。",
+      "installedToast": "インストールしました — ターミナルで hippo と入力すると Rest Hippo が起動します。",
+      "installedPathNote": "{dir} にインストールしましたが、まだ PATH に含まれていません。hippo コマンドを使うには PATH に追加してください。",
+      "removedToast": "hippo コマンドを削除しました。",
+      "errorPermission": "hippo コマンドを書き込めませんでした — アクセスが拒否されました。",
+      "errorGeneric": "hippo コマンドを更新できませんでした。",
+      "promptTitle": "hippo コマンドをインストールしますか？",
+      "promptMessage": "ターミナルで hippo と入力して Rest Hippo を起動できるようにしますか？この設定は後から「設定 → コマンドライン」で変更できます。"
     }
   },
   "request": {

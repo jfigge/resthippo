@@ -297,7 +297,8 @@
       "retries": "Wiederholungen",
       "certificates": "Zertifikate",
       "about": "Über",
-      "security": "Sicherheit"
+      "security": "Sicherheit",
+      "cli": "Befehlszeile"
     },
     "appearance": {
       "theme": "Design",
@@ -421,6 +422,21 @@
         "lockedSwitch": "Entsperren Sie zuerst Ihre Geheimnisse, dann wechseln Sie die Speichermethode.",
         "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
       }
+    },
+    "cli": {
+      "desc": "Fügen Sie den Befehl <code>hippo</code> zu Ihrem PATH hinzu, um Rest Hippo über ein Terminal zu starten.",
+      "installButton": "Installieren",
+      "removeButton": "Entfernen",
+      "installed": "Der Befehl hippo ist installiert.",
+      "notInstalled": "Der Befehl hippo ist nicht installiert.",
+      "unavailable": "Der Befehlszeilen-Starter ist nur in der installierten App verfügbar.",
+      "installedToast": "Installiert – geben Sie hippo in einem Terminal ein, um Rest Hippo zu starten.",
+      "installedPathNote": "Installiert unter {dir}, aber noch nicht in Ihrem PATH. Fügen Sie es hinzu, um den Befehl hippo zu verwenden.",
+      "removedToast": "Der Befehl hippo wurde entfernt.",
+      "errorPermission": "Der Befehl hippo konnte nicht geschrieben werden – Zugriff verweigert.",
+      "errorGeneric": "Der Befehl hippo konnte nicht aktualisiert werden.",
+      "promptTitle": "Befehl hippo installieren?",
+      "promptMessage": "Möchten Sie hippo in ein Terminal eingeben, um Rest Hippo zu starten? Sie können dies jederzeit unter Einstellungen → Befehlszeile ändern."
     }
   },
   "request": {

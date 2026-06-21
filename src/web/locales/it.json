@@ -297,7 +297,8 @@
       "retries": "Nuovi tentativi",
       "certificates": "Certificati",
       "about": "Informazioni",
-      "security": "Sicurezza"
+      "security": "Sicurezza",
+      "cli": "Riga di comando"
     },
     "appearance": {
       "theme": "Tema",
@@ -421,6 +422,21 @@
         "lockedSwitch": "Sblocca prima i tuoi segreti, poi cambia metodo di archiviazione.",
         "generic": "Qualcosa è andato storto. Riprova."
       }
+    },
+    "cli": {
+      "desc": "Aggiungi il comando <code>hippo</code> al tuo PATH per avviare Rest Hippo da un terminale.",
+      "installButton": "Installa",
+      "removeButton": "Rimuovi",
+      "installed": "Il comando hippo è installato.",
+      "notInstalled": "Il comando hippo non è installato.",
+      "unavailable": "L'avvio da riga di comando è disponibile solo nell'app installata.",
+      "installedToast": "Installato — digita hippo in un terminale per avviare Rest Hippo.",
+      "installedPathNote": "Installato in {dir}, ma non è ancora nel tuo PATH. Aggiungilo per usare il comando hippo.",
+      "removedToast": "Il comando hippo è stato rimosso.",
+      "errorPermission": "Impossibile scrivere il comando hippo — autorizzazione negata.",
+      "errorGeneric": "Impossibile aggiornare il comando hippo.",
+      "promptTitle": "Installare il comando hippo?",
+      "promptMessage": "Vuoi digitare hippo in un terminale per avviare Rest Hippo? Puoi cambiarlo in qualsiasi momento in Impostazioni → Riga di comando."
     }
   },
   "request": {

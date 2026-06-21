@@ -37,6 +37,7 @@ import { icon } from "../icons.js";
 import { wrapSecretField } from "./secret-field.js";
 import { LAYOUT_ICONS } from "./layout-icons.js";
 import { t, LOCALE_OPTIONS } from "../i18n.js";
+import { reportCliResult } from "../cli-command.js";
 
 export class SettingsPopup {
   /** @type {HTMLElement} */
@@ -48,6 +49,11 @@ export class SettingsPopup {
   // Live secret-storage backend state ({ mode, locked, available, hasPassword }),
   // fetched from main on open / when the Security panel is shown.
   #securityState = null;
+
+  // Live CLI-launcher state ({ available, installed, ... }), fetched from main on
+  // open / when the Command Line panel is shown. Cached so the action button's
+  // click handler knows whether to install or remove without re-probing first.
+  #cliStatus = null;
 
   // Stable handler references so we can attach on open() and detach on close.
   // A one-shot document-level keydown was previously registered in the
@@ -142,6 +148,7 @@ export class SettingsPopup {
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="certificates">${t("settings.nav.certificates")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="security">${t("settings.nav.security")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="retries">${t("settings.nav.retries")}</button>
+          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="cli">${t("settings.nav.cli")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="about">${t("settings.nav.about")}</button>
         </nav>
 
@@ -572,6 +579,18 @@ export class SettingsPopup {
             </div>
           </section>
 
+          <!-- Command Line ───────────────────────────────────────────────── -->
+          <!-- Install / remove the hippo shell command. The desc + button label
+               + status line are filled at open() from window.hippo.cli.status();
+               the button installs or removes depending on the current state. -->
+          <section class="settings-panel" role="tabpanel" data-panel="cli" hidden>
+            <p class="settings-help" id="setting-cli-desc">${t("settings.cli.desc")}</p>
+            <div class="settings-row">
+              <button class="btn popup-btn" id="setting-cli-action" type="button"></button>
+              <span class="settings-label" id="setting-cli-status" role="status" aria-live="polite"></span>
+            </div>
+          </section>
+
           <!-- About ──────────────────────────────────────────────────────── -->
           <!-- Version + on-demand update check (Feature 36). The version line is
                filled at open() from window.hippo.app.info(); the status line
@@ -612,6 +631,13 @@ export class SettingsPopup {
         this.#setUpdateStatus(t("updater.checking"));
         window.hippo?.updater?.check?.();
       });
+
+    // Command Line panel: install / remove the `hippo` shell command. The button
+    // toggles between Install and Remove based on the live state cached by
+    // #loadCliStatus(); after either action we re-probe to refresh the panel.
+    this.#el
+      .querySelector("#setting-cli-action")
+      ?.addEventListener("click", () => this.#onCliAction());
 
     // Auto-save on every user interaction — no explicit Save needed.
     // Use "input" for text/number inputs (fires on every keystroke) and
@@ -760,6 +786,8 @@ export class SettingsPopup {
     });
     // Refresh the live backend state each time the Security panel is revealed.
     if (name === "security") this.#loadSecurityState();
+    // Re-probe the CLI launcher each time the Command Line panel is revealed.
+    if (name === "cli") this.#loadCliStatus();
   }
 
   // ── Security panel (secret-storage backend) ─────────────────────────────────
@@ -1040,6 +1068,55 @@ export class SettingsPopup {
         });
     } catch {
       /* leave the version line blank if the metadata can't be read */
+    }
+  }
+
+  // ── Command Line panel (hippo CLI launcher) ──────────────────────────────────
+
+  /**
+   * Probe the CLI launcher and render the panel: the button toggles between
+   * Install and Remove, and is disabled (with an explanatory status line) on a
+   * dev build or an unsupported OS, where installation isn't possible.
+   */
+  async #loadCliStatus() {
+    const btn = this.#el?.querySelector("#setting-cli-action");
+    const statusEl = this.#el?.querySelector("#setting-cli-status");
+    if (!btn || !statusEl) return;
+    let s = null;
+    try {
+      s = await window.hippo?.cli?.status?.();
+    } catch {
+      /* leave s null → treated as unavailable below */
+    }
+    this.#cliStatus = s;
+    if (!s?.available) {
+      btn.disabled = true;
+      btn.textContent = t("settings.cli.installButton");
+      statusEl.textContent = t("settings.cli.unavailable");
+      return;
+    }
+    btn.disabled = false;
+    btn.textContent = s.installed
+      ? t("settings.cli.removeButton")
+      : t("settings.cli.installButton");
+    statusEl.textContent = s.installed
+      ? t("settings.cli.installed")
+      : t("settings.cli.notInstalled");
+  }
+
+  /** Install or remove the `hippo` command, then refresh the panel. */
+  async #onCliAction() {
+    const btn = this.#el?.querySelector("#setting-cli-action");
+    if (!btn || btn.disabled) return;
+    const removing = !!this.#cliStatus?.installed;
+    btn.disabled = true;
+    try {
+      const result = removing
+        ? await window.hippo?.cli?.uninstall?.()
+        : await window.hippo?.cli?.install?.();
+      reportCliResult(result, { uninstall: removing });
+    } finally {
+      await this.#loadCliStatus();
     }
   }
 
@@ -1402,6 +1479,7 @@ export class SettingsPopup {
     this.#setUpdateStatus("");
     this.#loadAppInfo();
     this.#loadSecurityState();
+    this.#loadCliStatus();
     this.#wireUpdaterStatus();
     PopupManager.open(this);
     // Scope the Escape handler to the open lifecycle. PopupManager.close()

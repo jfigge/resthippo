@@ -757,4 +757,20 @@ contextBridge.exposeInMainWorld("hippo", {
   app: {
     info: () => ipcRenderer.invoke("app:info:get"),
   },
+
+  /**
+   * Command-line launcher — install / remove the `hippo` shell command so the
+   * app can be started from a terminal (the VS Code "Install 'code' command in
+   * PATH" equivalent). `status()` reports availability + whether it's installed;
+   * `install()`/`uninstall()` return `{ ok, reason?, path?, onPath? }`. See
+   * src/app/cli-launcher.js.
+   */
+  cli: {
+    /** @returns {Promise<{ available: boolean, installed: boolean, platform: string, target: string|null }>} */
+    status: () => ipcRenderer.invoke("cli:status"),
+    /** @returns {Promise<{ ok: boolean, reason?: string, path?: string, onPath?: boolean }>} */
+    install: () => ipcRenderer.invoke("cli:install"),
+    /** @returns {Promise<{ ok: boolean, reason?: string, removed?: boolean }>} */
+    uninstall: () => ipcRenderer.invoke("cli:uninstall"),
+  },
 });

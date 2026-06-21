@@ -297,7 +297,8 @@
       "retries": "Nouvelles tentatives",
       "certificates": "Certificats",
       "about": "À propos",
-      "security": "Sécurité"
+      "security": "Sécurité",
+      "cli": "Ligne de commande"
     },
     "appearance": {
       "theme": "Thème",
@@ -421,6 +422,21 @@
         "lockedSwitch": "Déverrouillez d'abord vos secrets, puis changez de méthode de stockage.",
         "generic": "Une erreur s'est produite. Veuillez réessayer."
       }
+    },
+    "cli": {
+      "desc": "Ajoutez la commande <code>hippo</code> à votre PATH pour lancer Rest Hippo depuis un terminal.",
+      "installButton": "Installer",
+      "removeButton": "Supprimer",
+      "installed": "La commande hippo est installée.",
+      "notInstalled": "La commande hippo n'est pas installée.",
+      "unavailable": "Le lanceur en ligne de commande n'est disponible que dans l'application installée.",
+      "installedToast": "Installée — tapez hippo dans un terminal pour lancer Rest Hippo.",
+      "installedPathNote": "Installée dans {dir}, mais pas encore dans votre PATH. Ajoutez-le pour utiliser la commande hippo.",
+      "removedToast": "La commande hippo a été supprimée.",
+      "errorPermission": "Impossible d'écrire la commande hippo — autorisation refusée.",
+      "errorGeneric": "Impossible de mettre à jour la commande hippo.",
+      "promptTitle": "Installer la commande hippo ?",
+      "promptMessage": "Voulez-vous taper hippo dans un terminal pour lancer Rest Hippo ? Vous pouvez modifier ce choix à tout moment dans Paramètres → Ligne de commande."
     }
   },
   "request": {

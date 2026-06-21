@@ -297,7 +297,8 @@
       "retries": "Retries",
       "certificates": "Certificates",
       "about": "About",
-      "security": "Security"
+      "security": "Security",
+      "cli": "Command Line"
     },
     "appearance": {
       "theme": "Theme",
@@ -421,6 +422,21 @@
         "lockedSwitch": "Unlock your secrets first, then switch storage method.",
         "generic": "Something went wrong. Please try again."
       }
+    },
+    "cli": {
+      "desc": "Add the <code>hippo</code> command to your PATH so you can launch Rest Hippo from a terminal.",
+      "installButton": "Install",
+      "removeButton": "Remove",
+      "installed": "The hippo command is installed.",
+      "notInstalled": "The hippo command is not installed.",
+      "unavailable": "The command-line launcher is only available in the installed app.",
+      "installedToast": "Installed — type hippo in a terminal to launch Rest Hippo.",
+      "installedPathNote": "Installed to {dir}, but it isn't on your PATH yet. Add it to use the hippo command.",
+      "removedToast": "The hippo command was removed.",
+      "errorPermission": "Couldn't write the hippo command — permission denied.",
+      "errorGeneric": "Couldn't update the hippo command.",
+      "promptTitle": "Install the hippo command?",
+      "promptMessage": "Would you like to type hippo in a terminal to launch Rest Hippo? You can change this anytime in Settings → Command Line."
     }
   },
   "request": {

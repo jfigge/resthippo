@@ -294,7 +294,8 @@
       "retries": "重试",
       "certificates": "证书",
       "about": "关于",
-      "security": "安全"
+      "security": "安全",
+      "cli": "命令行"
     },
     "appearance": {
       "theme": "主题",
@@ -418,6 +419,21 @@
         "lockedSwitch": "请先解锁机密，再切换存储方式。",
         "generic": "出了点问题，请重试。"
       }
+    },
+    "cli": {
+      "desc": "将 <code>hippo</code> 命令添加到 PATH，以便从终端启动 Rest Hippo。",
+      "installButton": "安装",
+      "removeButton": "移除",
+      "installed": "hippo 命令已安装。",
+      "notInstalled": "hippo 命令尚未安装。",
+      "unavailable": "命令行启动器仅在已安装的应用中可用。",
+      "installedToast": "已安装 — 在终端中输入 hippo 即可启动 Rest Hippo。",
+      "installedPathNote": "已安装到 {dir}，但尚未加入 PATH。请将其添加到 PATH 以使用 hippo 命令。",
+      "removedToast": "已移除 hippo 命令。",
+      "errorPermission": "无法写入 hippo 命令 — 权限被拒绝。",
+      "errorGeneric": "无法更新 hippo 命令。",
+      "promptTitle": "安装 hippo 命令？",
+      "promptMessage": "是否希望在终端中输入 hippo 来启动 Rest Hippo？你可以随时在“设置 → 命令行”中更改。"
     }
   },
   "request": {

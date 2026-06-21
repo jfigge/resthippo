@@ -14,6 +14,10 @@ demand via **Help → Check for Updates…**), downloads them in the background,
 asks before restarting to install. See
 [Settings → About & updates](settings-and-themes.md#about--updates).
 
+On first launch Rest Hippo offers to install a `hippo` command so you can start
+it from a terminal; you can also set this up later from
+[Settings → Command Line](settings-and-themes.md#command-line).
+
 > Building from source? See the project [README](../README.md) — `make install`
 > then `make debug` runs Rest Hippo with hot-reload.
 

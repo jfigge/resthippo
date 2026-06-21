@@ -116,6 +116,27 @@ what to retry on — **connection errors**, **timeouts**, and/or a list of
 Set how many runs each request keeps in its
 [**Timeline**](responses.md#timeline) (1–10).
 
+## Command Line
+
+The **Command Line** panel installs a `hippo` command so you can launch Rest
+Hippo from a terminal — the equivalent of VS Code's "Install `code` command in
+PATH". Click **Install** and afterwards typing `hippo` in any terminal opens Rest
+Hippo (or focuses it if it's already running); click **Remove** to undo it.
+
+The first time you start a freshly installed copy, Rest Hippo also offers to set
+this up for you — you can decline and install it later from here.
+
+How it works per platform:
+
+- **macOS / Linux** — a small launcher script is written to `/usr/local/bin`
+  when that's writable, otherwise to `~/.local/bin`. If the fallback location
+  isn't already on your `PATH`, Rest Hippo tells you so you can add it.
+- **Windows** — a `hippo.cmd` shim is created and its folder is added to your
+  per-user `PATH`. Open a **new** terminal afterwards to pick up the change.
+
+> The command is only available in the installed app — it's disabled when running
+> a development build, since there's no packaged executable to point at.
+
 ## About & updates
 
 The **About** panel shows the installed version and a **Check for Updates**
