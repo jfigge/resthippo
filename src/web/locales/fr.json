@@ -73,7 +73,21 @@
         "one": "{count} requête exécutée dans « {name} » — aucun test défini.",
         "other": "{count} requêtes exécutées dans « {name} » — aucun test défini."
       }
-    }
+    },
+    "exportedAs": "« {name} » exporté au format {format}.",
+    "exportedAsHarEmpty": "« {name} » exporté au format HAR — aucun historique d'exécution pour l'instant, l'archive est donc vide.",
+    "workspaceExportedAs": {
+      "one": "{count} collection exportée au format {format}.",
+      "other": "{count} collections exportées au format {format}."
+    },
+    "workspaceExportedAsHarEmpty": "Espace de travail exporté au format HAR — aucun historique d'exécution pour l'instant, l'archive est donc vide.",
+    "importedRequests": {
+      "one": "« {name} » importée avec {count} requête.",
+      "other": "« {name} » importée avec {count} requêtes."
+    },
+    "importErrNotJsonYaml": "Le fichier n'est pas un JSON ou un YAML valide.",
+    "importErrUnrecognized": "Format non reconnu. Pris en charge : Postman v2.x, Insomnia v3/v4/v5, OpenAPI 3.x, Swagger 2.0, HAR 1.2.",
+    "importErrCurlNoUrl": "Aucune URL trouvée dans la commande cURL."
   },
   "vars": {
     "title": "Éditeur de variables",
@@ -553,7 +567,15 @@
       "errorCount": {
         "one": "{count} erreur :",
         "other": "{count} erreurs :"
-      }
+      },
+      "errExecuteUnavailable": "Le moteur HTTP n'est pas disponible — recompilez l'application pour activer l'introspection du schéma.",
+      "errExecuteApi": "L'API d'exécution a renvoyé HTTP {status}.",
+      "errNetwork": "Erreur réseau pendant l'introspection.",
+      "errHttp": "Échec de l'introspection : HTTP {status}.",
+      "errNotJson": "La réponse d'introspection n'était pas un JSON valide.",
+      "errGraphql": "Erreur GraphQL : {message}.",
+      "errGraphqlRejected": "L'introspection GraphQL a été rejetée par le serveur.",
+      "errNoSchema": "La réponse d'introspection ne contenait aucun schéma."
     },
     "headers": {
       "empty": "Aucun en-tête — cliquez sur  +  pour en ajouter un.",

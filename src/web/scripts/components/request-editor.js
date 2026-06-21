@@ -2821,12 +2821,23 @@ export class RequestEditor {
 
         // Keep local auth state in sync (token display + expiry badge). Pass
         // the id_token too so an implicit "both" response shows its token tabs.
-        this.#auth.applyAcquiredToken({
-          accessToken: _oauthResult.accessToken,
-          idToken: _oauthResult.idToken,
-          refreshToken: _oauthResult.refreshToken,
-          expiresAt: _oauthResult.expiresAt,
-        });
+        //
+        // The bearer header was already injected into this send's own `headers`
+        // above, so the request fires correctly regardless. But `applyAcquiredToken`
+        // mutates and *persists* the single, shared auth editor's model under the
+        // currently-loaded request — so only sync it when this request is still the
+        // one on screen. The OAuth popup/token call is async: the user may have
+        // selected a different request while it was in flight (this request stays in
+        // `#inFlightIds`, so that guard alone doesn't catch it), and writing A's
+        // token into B's visible panel would corrupt and save it under B.
+        if (this.#currentNodeId === requestId) {
+          this.#auth.applyAcquiredToken({
+            accessToken: _oauthResult.accessToken,
+            idToken: _oauthResult.idToken,
+            refreshToken: _oauthResult.refreshToken,
+            expiresAt: _oauthResult.expiresAt,
+          });
+        }
       }
     }
 

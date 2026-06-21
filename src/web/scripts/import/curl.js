@@ -391,7 +391,11 @@ export function parseCurl(text) {
   }
   const rawUrl = urls[0] ?? "";
   if (!rawUrl) {
-    throw new Error("No URL found in the cURL command.");
+    // English `.message` is the log/fallback; `.i18nKey` lets the UI catch site
+    // localize it (this module stays free of `t()` by convention).
+    throw Object.assign(new Error("No URL found in the cURL command."), {
+      i18nKey: "app.importErrCurlNoUrl",
+    });
   }
 
   // Method default: explicit -X wins; -I → HEAD; a body → POST; else GET.

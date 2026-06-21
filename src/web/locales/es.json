@@ -73,7 +73,21 @@
         "one": "Se ejecutó {count} solicitud en «{name}»: no hay pruebas definidas.",
         "other": "Se ejecutaron {count} solicitudes en «{name}»: no hay pruebas definidas."
       }
-    }
+    },
+    "exportedAs": "«{name}» exportada como {format}.",
+    "exportedAsHarEmpty": "«{name}» exportada como HAR: aún no hay historial de ejecución, por lo que el archivo está vacío.",
+    "workspaceExportedAs": {
+      "one": "{count} colección exportada como {format}.",
+      "other": "{count} colecciones exportadas como {format}."
+    },
+    "workspaceExportedAsHarEmpty": "Espacio de trabajo exportado como HAR: aún no hay historial de ejecución, por lo que el archivo está vacío.",
+    "importedRequests": {
+      "one": "«{name}» importada con {count} solicitud.",
+      "other": "«{name}» importada con {count} solicitudes."
+    },
+    "importErrNotJsonYaml": "El archivo no es JSON ni YAML válido.",
+    "importErrUnrecognized": "Formato no reconocido. Compatibles: Postman v2.x, Insomnia v3/v4/v5, OpenAPI 3.x, Swagger 2.0, HAR 1.2.",
+    "importErrCurlNoUrl": "No se encontró ninguna URL en el comando cURL."
   },
   "vars": {
     "title": "Editor de variables",
@@ -553,7 +567,15 @@
       "errorCount": {
         "one": "{count} error:",
         "other": "{count} errores:"
-      }
+      },
+      "errExecuteUnavailable": "El motor HTTP no está disponible: vuelve a compilar la aplicación para habilitar la introspección del esquema.",
+      "errExecuteApi": "La API de ejecución devolvió HTTP {status}.",
+      "errNetwork": "Error de red durante la introspección.",
+      "errHttp": "La introspección falló: HTTP {status}.",
+      "errNotJson": "La respuesta de introspección no era JSON válido.",
+      "errGraphql": "Error de GraphQL: {message}.",
+      "errGraphqlRejected": "El servidor rechazó la introspección de GraphQL.",
+      "errNoSchema": "La respuesta de introspección no contenía ningún esquema."
     },
     "headers": {
       "empty": "Sin encabezados — haz clic en  +  para añadir uno.",

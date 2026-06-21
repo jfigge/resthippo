@@ -2856,7 +2856,7 @@ function installRequestEditSendHandlers() {
       parsed = parseCurl(text);
     } catch (err) {
       Notifications.error(
-        t("request.curlPaste.failed", { message: String(err.message ?? err) }),
+        t("request.curlPaste.failed", { message: _importErrorText(err) }),
         { title: t("request.curlPaste.title") },
       );
       return;
@@ -4302,6 +4302,16 @@ function _safeFileBase(name) {
   return (name ?? "collection").replace(/[^a-z0-9_-]/gi, "_");
 }
 
+/**
+ * Resolve a parser-thrown import error to display text. The lossy import
+ * sub-parsers (`import/*`) stay free of `t()` by convention, so they attach a
+ * stable `i18nKey` to the Error; resolve it here, falling back to the English
+ * `.message` for native/un-keyed errors.
+ */
+function _importErrorText(err) {
+  return err?.i18nKey ? t(err.i18nKey) : String(err?.message ?? err);
+}
+
 /** Serialize a collection node to the chosen non-HAR interchange format. */
 function _serializeCollection(collection, variables, format) {
   switch (format) {
@@ -4405,12 +4415,15 @@ async function runCollectionExport(collection, format) {
   const filename = `${_safeFileBase(collection.name)}${meta.suffix}`;
 
   let content;
-  let successMsg = `"${collection.name}" exported as ${meta.label}.`;
+  let successMsg = t("app.exportedAs", {
+    name: collection.name,
+    format: meta.label,
+  });
   if (format === "har") {
     const history = await _gatherHistory(collection);
     content = exportToHar(collection, history);
     if (history.size === 0) {
-      successMsg = `"${collection.name}" exported as HAR — no run history yet, so the archive is empty.`;
+      successMsg = t("app.exportedAsHarEmpty", { name: collection.name });
     }
   } else {
     content = _serializeCollection(collection, variables, format);
@@ -4474,16 +4487,14 @@ async function runWorkspaceExport(format) {
   const meta = EXPORT_FORMATS[format] ?? EXPORT_FORMATS.postman;
   const filename = `resthippo-workspace${meta.suffix}`;
   const count = children.length;
-  const plural = count !== 1 ? "s" : "";
 
   let content;
-  let successMsg = `${count} collection${plural} exported as ${meta.label}.`;
+  let successMsg = t("app.workspaceExportedAs", { count, format: meta.label });
   if (format === "har") {
     const history = await _gatherHistory(root);
     content = exportToHar(root, history);
     if (history.size === 0) {
-      successMsg =
-        "Workspace exported as HAR — no run history yet, so the archive is empty.";
+      successMsg = t("app.workspaceExportedAsHarEmpty");
     }
   } else {
     content = _serializeCollection(root, mergedVars, format);
@@ -4769,7 +4780,7 @@ async function handleImport() {
     parsed = parseImport(file.content);
   } catch (err) {
     Notifications.error(
-      t("app.importFailed", { message: String(err.message ?? err) }),
+      t("app.importFailed", { message: _importErrorText(err) }),
       { title: t("app.importTitle") },
     );
     return;
@@ -4789,7 +4800,7 @@ async function handleCurlImport(text) {
     parsed = parseCurl(text);
   } catch (err) {
     Notifications.error(
-      t("app.importFailed", { message: String(err.message ?? err) }),
+      t("app.importFailed", { message: _importErrorText(err) }),
       { title: t("app.importTitle") },
     );
     return false;
@@ -4853,7 +4864,7 @@ async function applyImportedCollection(parsed) {
   if (!saved) return false;
 
   const count = _countRequests(collection);
-  const base = `"${collection.name}" imported with ${count} request${count !== 1 ? "s" : ""}.`;
+  const base = t("app.importedRequests", { count, name: collection.name });
   // Importers may report non-fatal issues (e.g. remote $refs that could not be
   // resolved without network access). When present, surface them as a persistent
   // warning the user must dismiss — not buried in a success toast that auto-hides.

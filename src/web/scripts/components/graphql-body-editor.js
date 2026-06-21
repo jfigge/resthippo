@@ -675,6 +675,12 @@ export class GraphQLBodyEditor {
       this.#schema = null;
       this.#introspection = null;
       this.#revalidateQuery?.();
+      // executeIntrospection() attaches an i18nKey (+ params) to localize the
+      // reason; un-keyed errors (e.g. a transport message or the parse-failed
+      // throw above) fall back to their already-localized/English `.message`.
+      const reason =
+        (err?.i18nKey ? t(err.i18nKey, err.i18nParams) : err?.message) ??
+        t("request.graphql.fetchSchemaFailed");
       if (statusBadge) {
         statusBadge.dataset.state = "error";
         statusBadge.innerHTML = icon("close", { size: 14 });
@@ -682,15 +688,11 @@ export class GraphQLBodyEditor {
           "aria-label",
           t("request.graphql.fetchFailed"),
         );
-        statusBadge.title =
-          err?.message ?? t("request.graphql.fetchSchemaFailed");
+        statusBadge.title = reason;
       }
-      Notifications.error(
-        err?.message ?? t("request.graphql.fetchSchemaFailed"),
-        {
-          title: t("request.graphql.introspectionFailed"),
-        },
-      );
+      Notifications.error(reason, {
+        title: t("request.graphql.introspectionFailed"),
+      });
     } finally {
       this.#fetching = false;
       if (btn) btn.disabled = false;

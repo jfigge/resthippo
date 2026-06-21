@@ -100,7 +100,11 @@ export function parseImport(content) {
     try {
       data = parseYaml(content);
     } catch {
-      throw new Error("File is not valid JSON or YAML.");
+      // English `.message` is the log/fallback; `.i18nKey` lets the UI catch
+      // site localize it (this module stays free of `t()` by convention).
+      throw Object.assign(new Error("File is not valid JSON or YAML."), {
+        i18nKey: "app.importErrNotJsonYaml",
+      });
     }
   }
 
@@ -117,8 +121,11 @@ export function parseImport(content) {
     case "har":
       return parseHar(data);
     default:
-      throw new Error(
-        "Unrecognized format. Supported: Postman v2.x, Insomnia v3/v4/v5, OpenAPI 3.x, Swagger 2.0, HAR 1.2.",
+      throw Object.assign(
+        new Error(
+          "Unrecognized format. Supported: Postman v2.x, Insomnia v3/v4/v5, OpenAPI 3.x, Swagger 2.0, HAR 1.2.",
+        ),
+        { i18nKey: "app.importErrUnrecognized" },
       );
   }
 }

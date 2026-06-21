@@ -33,6 +33,20 @@
 "use strict";
 
 /**
+ * Build an introspection failure Error. This module touches no UI and keeps the
+ * `t()` seam out, so the English text becomes the Error's `.message` (used for
+ * logs / fallback) while `i18nKey` (+ optional `i18nParams`) lets the calling UI
+ * localize it at the catch site.
+ *
+ * @param {string} message  English fallback
+ * @param {string} i18nKey  dotted catalog key
+ * @param {object} [i18nParams]  interpolation params for the key
+ */
+function introspectionError(message, i18nKey, i18nParams) {
+  return Object.assign(new Error(message), { i18nKey, i18nParams });
+}
+
+/**
  * Execute the introspection POST and return the parsed introspection envelope
  * (`{ data: { __schema } }`). Throws on any failure.
  *
@@ -62,8 +76,9 @@ export async function executeIntrospection({
   let result;
   if (window.hippo?.isElectron === true) {
     if (typeof window.hippo?.http?.execute !== "function") {
-      throw new Error(
+      throw introspectionError(
         "window.hippo.http.execute is not available — rebuild the app with the latest preload.js.",
+        "request.graphql.errExecuteUnavailable",
       );
     }
     result = await window.hippo.http.execute(desc);
@@ -73,20 +88,31 @@ export async function executeIntrospection({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(desc),
     });
-    if (!res.ok) throw new Error(`Execute API returned HTTP ${res.status}.`);
+    if (!res.ok)
+      throw introspectionError(
+        `Execute API returned HTTP ${res.status}.`,
+        "request.graphql.errExecuteApi",
+        { status: res.status },
+      );
     result = await res.json();
   }
 
-  // Network-level failure — no HTTP response was received.
+  // Network-level failure — no HTTP response was received. A real transport
+  // message (from the engine) is more useful than the generic key, so prefer it.
   if (result?.error && (result.status ?? 0) === 0) {
-    throw new Error(
+    throw introspectionError(
       result.error.message || "Network error during introspection.",
+      result.error.message ? undefined : "request.graphql.errNetwork",
     );
   }
 
   const status = result?.status ?? 0;
   if (status < 200 || status >= 300) {
-    throw new Error(`Introspection failed: HTTP ${status}.`);
+    throw introspectionError(
+      `Introspection failed: HTTP ${status}.`,
+      "request.graphql.errHttp",
+      { status },
+    );
   }
 
   const rawBody = typeof result?.body === "string" ? result.body : "";
@@ -94,7 +120,10 @@ export async function executeIntrospection({
   try {
     json = JSON.parse(rawBody);
   } catch {
-    throw new Error("Introspection response was not valid JSON.");
+    throw introspectionError(
+      "Introspection response was not valid JSON.",
+      "request.graphql.errNotJson",
+    );
   }
 
   if (Array.isArray(json?.errors) && json.errors.length) {
@@ -102,11 +131,18 @@ export async function executeIntrospection({
       .map((e) => e?.message)
       .filter(Boolean)
       .join("; ");
-    throw new Error(`GraphQL error: ${msg || "introspection rejected"}.`);
+    throw introspectionError(
+      `GraphQL error: ${msg || "introspection rejected"}.`,
+      msg ? "request.graphql.errGraphql" : "request.graphql.errGraphqlRejected",
+      msg ? { message: msg } : undefined,
+    );
   }
 
   if (!json?.data?.__schema && !json?.__schema) {
-    throw new Error("Introspection response contained no __schema.");
+    throw introspectionError(
+      "Introspection response contained no __schema.",
+      "request.graphql.errNoSchema",
+    );
   }
 
   return json;

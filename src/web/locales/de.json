@@ -73,7 +73,21 @@
         "one": "{count} Anfrage in „{name}“ ausgeführt – keine Tests definiert.",
         "other": "{count} Anfragen in „{name}“ ausgeführt – keine Tests definiert."
       }
-    }
+    },
+    "exportedAs": "„{name}“ als {format} exportiert.",
+    "exportedAsHarEmpty": "„{name}“ als HAR exportiert – noch kein Ausführungsverlauf, daher ist das Archiv leer.",
+    "workspaceExportedAs": {
+      "one": "{count} Sammlung als {format} exportiert.",
+      "other": "{count} Sammlungen als {format} exportiert."
+    },
+    "workspaceExportedAsHarEmpty": "Arbeitsbereich als HAR exportiert – noch kein Ausführungsverlauf, daher ist das Archiv leer.",
+    "importedRequests": {
+      "one": "„{name}“ mit {count} Anfrage importiert.",
+      "other": "„{name}“ mit {count} Anfragen importiert."
+    },
+    "importErrNotJsonYaml": "Die Datei ist kein gültiges JSON oder YAML.",
+    "importErrUnrecognized": "Unbekanntes Format. Unterstützt: Postman v2.x, Insomnia v3/v4/v5, OpenAPI 3.x, Swagger 2.0, HAR 1.2.",
+    "importErrCurlNoUrl": "Im cURL-Befehl wurde keine URL gefunden."
   },
   "vars": {
     "title": "Variablen-Editor",
@@ -553,7 +567,15 @@
       "errorCount": {
         "one": "{count} Fehler:",
         "other": "{count} Fehler:"
-      }
+      },
+      "errExecuteUnavailable": "Die HTTP-Engine ist nicht verfügbar – erstellen Sie die App neu, um die Schema-Introspektion zu aktivieren.",
+      "errExecuteApi": "Execute-API hat HTTP {status} zurückgegeben.",
+      "errNetwork": "Netzwerkfehler während der Introspektion.",
+      "errHttp": "Introspektion fehlgeschlagen: HTTP {status}.",
+      "errNotJson": "Die Introspektionsantwort war kein gültiges JSON.",
+      "errGraphql": "GraphQL-Fehler: {message}.",
+      "errGraphqlRejected": "Die GraphQL-Introspektion wurde vom Server abgelehnt.",
+      "errNoSchema": "Die Introspektionsantwort enthielt kein Schema."
     },
     "headers": {
       "empty": "Keine Header — klicken Sie auf  +,  um einen hinzuzufügen.",

@@ -70,7 +70,21 @@
       "noTests": {
         "other": "「{name}」で {count} 件のリクエストを実行しました — テストは定義されていません。"
       }
-    }
+    },
+    "exportedAs": "「{name}」を {format} としてエクスポートしました。",
+    "exportedAsHarEmpty": "「{name}」を HAR としてエクスポートしました — 実行履歴がまだないため、アーカイブは空です。",
+    "workspaceExportedAs": {
+      "one": "{count} 個のコレクションを {format} としてエクスポートしました。",
+      "other": "{count} 個のコレクションを {format} としてエクスポートしました。"
+    },
+    "workspaceExportedAsHarEmpty": "ワークスペースを HAR としてエクスポートしました — 実行履歴がまだないため、アーカイブは空です。",
+    "importedRequests": {
+      "one": "「{name}」を {count} 件のリクエストとともにインポートしました。",
+      "other": "「{name}」を {count} 件のリクエストとともにインポートしました。"
+    },
+    "importErrNotJsonYaml": "ファイルが有効な JSON または YAML ではありません。",
+    "importErrUnrecognized": "認識できない形式です。対応形式: Postman v2.x、Insomnia v3/v4/v5、OpenAPI 3.x、Swagger 2.0、HAR 1.2。",
+    "importErrCurlNoUrl": "cURL コマンドに URL が見つかりません。"
   },
   "vars": {
     "title": "変数エディター",
@@ -549,7 +563,15 @@
       "schemaFileType": "GraphQL スキーマ",
       "errorCount": {
         "other": "{count} 件のエラー:"
-      }
+      },
+      "errExecuteUnavailable": "HTTP エンジンを利用できません — スキーマのイントロスペクションを有効にするにはアプリを再ビルドしてください。",
+      "errExecuteApi": "実行 API が HTTP {status} を返しました。",
+      "errNetwork": "イントロスペクション中にネットワークエラーが発生しました。",
+      "errHttp": "イントロスペクションに失敗しました: HTTP {status}。",
+      "errNotJson": "イントロスペクションの応答が有効な JSON ではありませんでした。",
+      "errGraphql": "GraphQL エラー: {message}。",
+      "errGraphqlRejected": "GraphQL イントロスペクションがサーバーによって拒否されました。",
+      "errNoSchema": "イントロスペクションの応答にスキーマが含まれていませんでした。"
     },
     "headers": {
       "empty": "ヘッダーがありません —  +  をクリックして追加します。",

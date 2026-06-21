@@ -70,7 +70,21 @@
       "noTests": {
         "other": "已在“{name}”中运行 {count} 个请求 — 未定义测试。"
       }
-    }
+    },
+    "exportedAs": "“{name}”已导出为 {format}。",
+    "exportedAsHarEmpty": "“{name}”已导出为 HAR — 尚无运行历史记录，因此归档为空。",
+    "workspaceExportedAs": {
+      "one": "已将 {count} 个集合导出为 {format}。",
+      "other": "已将 {count} 个集合导出为 {format}。"
+    },
+    "workspaceExportedAsHarEmpty": "已将工作区导出为 HAR — 尚无运行历史记录，因此归档为空。",
+    "importedRequests": {
+      "one": "已导入“{name}”，包含 {count} 个请求。",
+      "other": "已导入“{name}”，包含 {count} 个请求。"
+    },
+    "importErrNotJsonYaml": "文件不是有效的 JSON 或 YAML。",
+    "importErrUnrecognized": "无法识别的格式。支持：Postman v2.x、Insomnia v3/v4/v5、OpenAPI 3.x、Swagger 2.0、HAR 1.2。",
+    "importErrCurlNoUrl": "在 cURL 命令中未找到 URL。"
   },
   "vars": {
     "title": "变量编辑器",
@@ -549,7 +563,15 @@
       "schemaFileType": "GraphQL 架构",
       "errorCount": {
         "other": "{count} 个错误："
-      }
+      },
+      "errExecuteUnavailable": "HTTP 引擎不可用 — 请重新构建应用以启用 schema 内省。",
+      "errExecuteApi": "执行 API 返回 HTTP {status}。",
+      "errNetwork": "内省期间发生网络错误。",
+      "errHttp": "内省失败：HTTP {status}。",
+      "errNotJson": "内省响应不是有效的 JSON。",
+      "errGraphql": "GraphQL 错误：{message}。",
+      "errGraphqlRejected": "GraphQL 内省被服务器拒绝。",
+      "errNoSchema": "内省响应不包含任何 schema。"
     },
     "headers": {
       "empty": "暂无标头——点击  +  添加。",

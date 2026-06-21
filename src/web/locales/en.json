@@ -73,7 +73,21 @@
         "one": "Ran {count} request in “{name}” — no tests defined.",
         "other": "Ran {count} requests in “{name}” — no tests defined."
       }
-    }
+    },
+    "exportedAs": "\"{name}\" exported as {format}.",
+    "exportedAsHarEmpty": "\"{name}\" exported as HAR — no run history yet, so the archive is empty.",
+    "workspaceExportedAs": {
+      "one": "{count} collection exported as {format}.",
+      "other": "{count} collections exported as {format}."
+    },
+    "workspaceExportedAsHarEmpty": "Workspace exported as HAR — no run history yet, so the archive is empty.",
+    "importedRequests": {
+      "one": "\"{name}\" imported with {count} request.",
+      "other": "\"{name}\" imported with {count} requests."
+    },
+    "importErrNotJsonYaml": "File is not valid JSON or YAML.",
+    "importErrUnrecognized": "Unrecognized format. Supported: Postman v2.x, Insomnia v3/v4/v5, OpenAPI 3.x, Swagger 2.0, HAR 1.2.",
+    "importErrCurlNoUrl": "No URL found in the cURL command."
   },
   "vars": {
     "title": "Variable Editor",
@@ -553,7 +567,15 @@
       "errorCount": {
         "one": "{count} error:",
         "other": "{count} errors:"
-      }
+      },
+      "errExecuteUnavailable": "The HTTP engine is unavailable — rebuild the app to enable schema introspection.",
+      "errExecuteApi": "Execute API returned HTTP {status}.",
+      "errNetwork": "Network error during introspection.",
+      "errHttp": "Introspection failed: HTTP {status}.",
+      "errNotJson": "Introspection response was not valid JSON.",
+      "errGraphql": "GraphQL error: {message}.",
+      "errGraphqlRejected": "GraphQL introspection was rejected by the server.",
+      "errNoSchema": "Introspection response contained no schema."
     },
     "headers": {
       "empty": "No headers — click  +  to add one.",
