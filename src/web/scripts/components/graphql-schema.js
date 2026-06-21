@@ -150,20 +150,39 @@ export function buildSchemaModel(json) {
   };
 }
 
+const OPERATION_KEYWORDS = new Set(["query", "mutation", "subscription"]);
+
 /**
  * The name of the first named operation in a document, or "" for an anonymous
- * (`{ … }`) / unnamed (`query { … }`) operation. Heuristic: an operation
- * keyword followed by a name and then `(` or `{`.
+ * (`{ … }`) / unnamed (`query { … }`) operation.
+ *
+ * Tokenises first (via {@link tokenize}, which discards strings and comments) and
+ * only treats an operation keyword at the *top level* (selection-set / paren
+ * depth 0) as the start of an operation. This avoids the two failure modes of a
+ * bare regex: a `query`/`mutation`/`subscription` word appearing inside a string
+ * literal or comment, and a field literally named `query` nested in a selection
+ * set. For a multi-operation document the first operation's name wins.
  *
  * @param {string} query
  * @returns {string}
  */
 export function extractOperationName(query) {
-  const m =
-    /(?:^|[\s}])(query|mutation|subscription)\s+([A-Za-z_]\w*)\s*[({]/.exec(
-      query ?? "",
-    );
-  return m ? m[2] : "";
+  const tokens = tokenize(query ?? "");
+  let depth = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    if (tok.kind === "punct") {
+      if (tok.value === "{" || tok.value === "(") depth++;
+      else if (tok.value === "}" || tok.value === ")") depth--;
+      continue;
+    }
+    if (depth === 0 && OPERATION_KEYWORDS.has(tok.value)) {
+      // `query Name …` → named; `query (`/`{`/`@` … → anonymous.
+      const next = tokens[i + 1];
+      return next && next.kind === "name" ? next.value : "";
+    }
+  }
+  return "";
 }
 
 const ROOT_FOR_OP = {

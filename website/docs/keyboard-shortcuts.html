@@ -2,11 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#6C5CE7" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Keyboard Shortcuts · Rest Hippo Guide</title>
   <meta name="description" content="Keyboard Shortcuts — the Rest Hippo user guide." />
   <link rel="canonical" href="https://resthippo.com/docs/keyboard-shortcuts.html" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Rest Hippo" />
+  <meta property="og:title" content="Keyboard Shortcuts · Rest Hippo Guide" />
+  <meta property="og:description" content="Keyboard Shortcuts — the Rest Hippo user guide." />
+  <meta property="og:url" content="https://resthippo.com/docs/keyboard-shortcuts.html" />
+  <meta property="og:image" content="https://resthippo.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Keyboard Shortcuts · Rest Hippo Guide" />
+  <meta name="twitter:description" content="Keyboard Shortcuts — the Rest Hippo user guide." />
+  <meta name="twitter:image" content="https://resthippo.com/og-image.png" />
   <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#1c1c1c;--mantle:#161616;--crust:#101010;--surface-0:#2a2a2a;--surface-1:#383838;--overlay-0:#686868;--text:#e8e8e8;--subtext:#b0b0b0;--accent:#d0d0d0;--green:#80c080}
@@ -51,7 +63,7 @@ kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px so
     <a class="back" href="/">← Back to site</a>
   </header>
   <div class="layout">
-    <nav class="sidebar">
+    <nav class="sidebar" aria-label="User guide">
       <div class="sidebar-title">User Guide</div>
         <a class="doc-nav-link" href="index.html">Overview</a>
         <a class="doc-nav-link" href="getting-started.html">Getting Started</a>
@@ -195,7 +207,7 @@ there is no unsaved state to lose.</p>
 <td>Close the find or filter bar</td>
 </tr>
 </tbody></table>
-<h2 id="editors-amp-typeahead">Editors &amp; typeahead</h2>
+<h2 id="editors--typeahead">Editors &amp; typeahead</h2>
 <table>
 <thead>
 <tr>
@@ -306,7 +318,7 @@ move around entirely with the arrow keys — you don&#39;t tab through every row
 </tbody></table>
 <p>The same <kbd>↑</kbd> / <kbd>↓</kbd> / <kbd>Home</kbd> / <kbd>End</kbd> keys move
 between entries in the collections and environments lists.</p>
-<h2 id="pickers-amp-menus">Pickers &amp; menus</h2>
+<h2 id="pickers--menus">Pickers &amp; menus</h2>
 <p>The layout picker (and other dropdown menus) are fully keyboard-operable:</p>
 <table>
 <thead>
@@ -336,7 +348,7 @@ between entries in the collections and environments lists.</p>
 <td>Close without changing</td>
 </tr>
 </tbody></table>
-<h2 id="tree-amp-dialogs">Tree &amp; dialogs</h2>
+<h2 id="tree--dialogs">Tree &amp; dialogs</h2>
 <table>
 <thead>
 <tr>

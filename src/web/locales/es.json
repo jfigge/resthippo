@@ -123,8 +123,8 @@
     "aboutTitle": "Acerca de Rest Hippo",
     "subtitle": "Cliente de API REST",
     "actionsAria": "Acciones de la aplicación",
-    "environmentTitle": "Entorno",
-    "environmentAria": "Seleccionar entorno",
+    "environmentTitle": "Cambiar entorno · clic derecho para gestionar",
+    "environmentAria": "Cambiar entorno",
     "settingsTitle": "Ajustes",
     "settingsAria": "Abrir ajustes",
     "collections": "Colecciones",
@@ -287,15 +287,16 @@
       "request": "Solicitud",
       "proxy": "Proxy",
       "retries": "Reintentos",
-      "history": "Historial",
       "certificates": "Certificados",
-      "about": "Acerca de"
+      "about": "Acerca de",
+      "security": "Seguridad"
     },
     "appearance": {
       "theme": "Tema",
       "themeDark": "Oscuro",
       "themeLight": "Claro",
       "themeCustom": "Personalizado",
+      "themeEditor": "Editor de temas…",
       "fontSize": "Tamaño de fuente del editor",
       "fontFamily": "Fuente de la interfaz",
       "fontFamilySystem": "Predeterminada del sistema",
@@ -326,7 +327,8 @@
       "showScriptsTabTitle": "Cuando está desactivado, la pestaña Scripts se oculta y los scripts de pre-solicitud y posrespuesta no se ejecutan",
       "showTestsTab": "Mostrar la pestaña Pruebas",
       "showTestsTabTitle": "Cuando está desactivado, la pestaña Pruebas se oculta y las aserciones sin código no se ejecutan tras una respuesta",
-      "showNotesTab": "Mostrar la pestaña Notas"
+      "showNotesTab": "Mostrar la pestaña Notas",
+      "timelineEntries": "Entradas de la cronología"
     },
     "proxy": {
       "enable": "Activar proxy",
@@ -350,9 +352,6 @@
       "onTimeout": "Reintentar al agotar el tiempo de espera",
       "onStatus": "Reintentar en códigos de estado",
       "statusPlaceholder": "429, 503, 504"
-    },
-    "history": {
-      "timelineEntries": "Entradas de la cronología"
     },
     "certificates": {
       "clientHeading": "Certificados de cliente",
@@ -379,6 +378,41 @@
     "about": {
       "checkButton": "Buscar actualizaciones",
       "version": "Rest Hippo {version}"
+    },
+    "security": {
+      "heading": "Almacenamiento de secretos",
+      "help": "Elige cómo Rest Hippo cifra los secretos —contraseñas, tokens y claves— en este dispositivo. Al cambiar se vuelven a cifrar todos los secretos guardados.",
+      "modeAria": "Modo de almacenamiento de secretos",
+      "mode": {
+        "appKey": "Este dispositivo (sin aviso)",
+        "appKeyDesc": "Cifra con una clave guardada en este dispositivo. Sin avisos del sistema, pero cualquiera que pueda leer los archivos de este equipo podría leer tus secretos.",
+        "osKeychain": "Llavero del sistema",
+        "osKeychainDesc": "Cifra con el llavero de tu sistema operativo. La protección más fuerte, pero el sistema puede pedir acceso.",
+        "masterPassword": "Contraseña maestra",
+        "masterPasswordDesc": "Cifra con una contraseña que elijas. Los secretos permanecen bloqueados hasta que los desbloquees en cada sesión. Si la olvidas, no se podrán recuperar."
+      },
+      "lockedNote": "Los secretos están bloqueados. Introduce tu contraseña maestra para desbloquearlos en esta sesión.",
+      "password": "Contraseña",
+      "confirmPassword": "Confirmar contraseña",
+      "setPasswordWarn": "Si olvidas esta contraseña, tus secretos guardados no se podrán recuperar.",
+      "setPasswordSubmit": "Establecer contraseña y cifrar",
+      "unlock": "Desbloquear",
+      "unlocking": "Desbloqueando…",
+      "switching": "Volviendo a cifrar los secretos…",
+      "switchTitle": "¿Cambiar el almacenamiento de secretos?",
+      "switchMessage": "Esto vuelve a cifrar cada secreto guardado con el nuevo método. ¿Continuar?",
+      "switchConfirm": "Cambiar",
+      "unlockTitle": "Desbloquear secretos",
+      "unlockIntro": "Introduce tu contraseña maestra para desbloquear tus secretos guardados en esta sesión.",
+      "error": {
+        "passwordRequired": "Introduce una contraseña.",
+        "passwordMismatch": "Las contraseñas no coinciden.",
+        "badPassword": "Contraseña incorrecta.",
+        "migrationFailed": "No se pudieron convertir algunos secretos, por lo que el método de almacenamiento no cambió.",
+        "keychainUnavailable": "El llavero del sistema no está disponible en este sistema.",
+        "lockedSwitch": "Desbloquea primero tus secretos y luego cambia el método de almacenamiento.",
+        "generic": "Algo salió mal. Inténtalo de nuevo."
+      }
     }
   },
   "request": {
@@ -1130,7 +1164,8 @@
       "realm": "Realm",
       "realmPlaceholder": "Realm (opcional)",
       "hint": "Se firma al enviar la solicitud; el nonce y la marca de tiempo se generan automáticamente."
-    }
+    },
+    "decryptLocked": "Los secretos están bloqueados."
   },
   "wsConsole": {
     "state": {

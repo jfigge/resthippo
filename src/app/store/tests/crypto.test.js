@@ -47,6 +47,7 @@ const {
   decryptVariables,
   redactVariables,
   restoreUndecryptableVariables,
+  restoreUndecryptableSettings,
   isPasswordEncrypted,
   encryptWithPassword,
   decryptWithPassword,
@@ -56,7 +57,21 @@ const {
   importSettingsSecrets,
   exportVariableSecrets,
   importVariableSecrets,
+  configure,
+  lock,
+  isLocked,
+  reencryptValue,
 } = require("../crypto");
+
+const nodeCrypto = require("node:crypto");
+
+// Reset the multi-backend module state to the default (os-keychain, no keys, no
+// safeStorage) so a configure()-using suite can't leak mode/key state into the
+// no-op suites above. Call in afterEach of every suite that calls configure().
+function resetCrypto() {
+  configure({ mode: "os-keychain", appKey: null, masterKey: null });
+  _setSafeStorage(null);
+}
 
 describe("isAvailable", () => {
   it("returns false in a plain Node.js test environment", () => {
@@ -899,5 +914,225 @@ describe("exportRequestSecrets / importRequestSecrets", () => {
     const req = { authBasic: { password: "hunter2" } };
     const exported = exportRequestSecrets(req, PW);
     assert.equal(importRequestSecrets(exported, "").authBasic.password, "");
+  });
+});
+
+// ── Multi-backend at-rest families (app-key, master-password) ─────────────────
+//
+// Unlike the keystore family (no-op in tests), app-key and master-password use
+// Node crypto directly, so they perform REAL AES-256-GCM here.
+
+describe("isEncrypted recognises every at-rest prefix", () => {
+  it("matches enc:/enck:/encm: but not the portable encp: family", () => {
+    assert.ok(isEncrypted("enc:v1:x"));
+    assert.ok(isEncrypted("enck:v1:x"));
+    assert.ok(isEncrypted("encm:v1:x"));
+    assert.ok(!isEncrypted("encp:v2:x"));
+    assert.ok(!isEncrypted("plaintext"));
+  });
+});
+
+describe("app-key backend", () => {
+  const APP_KEY = nodeCrypto.randomBytes(32);
+  afterEach(resetCrypto);
+
+  it("seals as enck:v1: and round-trips", () => {
+    configure({ mode: "app-key", appKey: APP_KEY });
+    const ct = encryptString("s3cret");
+    assert.ok(ct.startsWith("enck:v1:"));
+    assert.equal(decryptString(ct), "s3cret");
+  });
+
+  it("produces fresh ciphertext each call (random iv)", () => {
+    configure({ mode: "app-key", appKey: APP_KEY });
+    assert.notEqual(encryptString("x"), encryptString("x"));
+  });
+
+  it("fails to decrypt when the app key is absent", () => {
+    configure({ mode: "app-key", appKey: APP_KEY });
+    const ct = encryptString("s3cret");
+    configure({ mode: "app-key", appKey: null });
+    assert.throws(
+      () => decryptString(ct),
+      (e) => e.code === "decrypt-failed",
+    );
+  });
+});
+
+describe("master-password backend + locked state", () => {
+  const MK = nodeCrypto.randomBytes(32);
+  afterEach(resetCrypto);
+
+  it("seals as encm:v1: and round-trips while unlocked", () => {
+    configure({ mode: "master-password", masterKey: MK });
+    assert.ok(!isLocked());
+    const ct = encryptString("topsecret");
+    assert.ok(ct.startsWith("encm:v1:"));
+    assert.equal(decryptString(ct), "topsecret");
+  });
+
+  it("isLocked() and reads throw DecryptError('locked') without the key", () => {
+    configure({ mode: "master-password", masterKey: MK });
+    const ct = encryptString("topsecret");
+    lock();
+    assert.ok(isLocked());
+    assert.throws(
+      () => decryptString(ct),
+      (e) => e.code === "locked",
+    );
+  });
+
+  it("decryptVariables marks a locked entry with reason 'locked'", () => {
+    configure({ mode: "master-password", masterKey: MK });
+    const enc = encryptVariables([{ name: "k", value: "v", secure: true }]);
+    lock();
+    const out = decryptVariables(enc);
+    assert.equal(out[0].value, "");
+    assert.equal(out[0].decryptError, "locked");
+  });
+
+  it("decryptRequest records reason 'locked' on _decryptReason", () => {
+    configure({ mode: "master-password", masterKey: MK });
+    const enc = encryptRequest({ authBearer: { token: "t" } });
+    lock();
+    const out = decryptRequest(enc);
+    assert.deepEqual(out._decryptErrors, ["authBearer.token"]);
+    assert.equal(out._decryptReason, "locked");
+  });
+});
+
+describe("decryptString dispatches on prefix (mixed backends)", () => {
+  afterEach(resetCrypto);
+
+  it("decrypts enc:/enck:/encm: values together when all keys are loaded", () => {
+    const APP_KEY = nodeCrypto.randomBytes(32);
+    const MK = nodeCrypto.randomBytes(32);
+    const reversible = {
+      isEncryptionAvailable: () => true,
+      encryptString: (s) => Buffer.from(s, "utf8"),
+      decryptString: (b) => Buffer.from(b).toString("utf8"),
+    };
+    // Build one value under each backend.
+    _setSafeStorage(reversible);
+    configure({ mode: "os-keychain" });
+    const ek = encryptString("kc");
+    configure({ mode: "app-key", appKey: APP_KEY });
+    const ea = encryptString("ak");
+    configure({ mode: "master-password", masterKey: MK });
+    const em = encryptString("mp");
+    // With every key present, all three decrypt regardless of active mode.
+    configure({ mode: "app-key", appKey: APP_KEY, masterKey: MK });
+    _setSafeStorage(reversible);
+    assert.equal(decryptString(ek), "kc");
+    assert.equal(decryptString(ea), "ak");
+    assert.equal(decryptString(em), "mp");
+  });
+});
+
+describe("reencryptValue (migration primitive)", () => {
+  afterEach(resetCrypto);
+
+  it("re-encrypts a FOREIGN-prefix value to the target (does NOT pass through)", () => {
+    // The #1 migration bug: an app-key value migrated to master-password must be
+    // decrypted-then-resealed, never returned unchanged.
+    const APP_KEY = nodeCrypto.randomBytes(32);
+    const MK = nodeCrypto.randomBytes(32);
+    configure({ mode: "app-key", appKey: APP_KEY });
+    const enck = encryptString("payload");
+    configure({ mode: "master-password", appKey: APP_KEY, masterKey: MK });
+    const out = reencryptValue(enck, "master-password");
+    assert.ok(out.startsWith("encm:v1:"));
+    assert.equal(decryptString(out), "payload");
+  });
+
+  it("is idempotent for a value already under the target prefix", () => {
+    const APP_KEY = nodeCrypto.randomBytes(32);
+    configure({ mode: "app-key", appKey: APP_KEY });
+    const enck = encryptString("payload");
+    assert.equal(reencryptValue(enck, "app-key"), enck);
+  });
+
+  it("seals plaintext directly", () => {
+    const APP_KEY = nodeCrypto.randomBytes(32);
+    configure({ mode: "app-key", appKey: APP_KEY });
+    const out = reencryptValue("plain", "app-key");
+    assert.ok(out.startsWith("enck:v1:"));
+    assert.equal(decryptString(out), "plain");
+  });
+});
+
+describe("encp:v2: frozen vector (AES-GCM refactor is byte-compatible)", () => {
+  it("decrypts a blob sealed by a previous version", () => {
+    // Captured from encryptWithPassword("frozen-secret-😀", "vector-password")
+    // before the _aesGcm* refactor. Pins cross-version compatibility.
+    const FROZEN =
+      "encp:v2:AAM0UKXqpq4qv6fAliR4syaEYuXQl0rxkl35INNjzKv2TEylUcXqx6lHc0a+a1evCCOhek18cXcVtnhA8YerwW+P";
+    assert.equal(
+      decryptWithPassword(FROZEN, "vector-password"),
+      "frozen-secret-😀",
+    );
+  });
+});
+
+describe("restoreUndecryptableSettings (manifest clobber guard)", () => {
+  afterEach(resetCrypto);
+
+  it("restores on-disk ciphertext for a locked, blanked secret key", () => {
+    const MK = nodeCrypto.randomBytes(32);
+    configure({ mode: "master-password", masterKey: MK });
+    const onDisk = { proxyUrl: encryptString("http://u:p@h"), theme: "dark" };
+    lock(); // now isLocked() → guard should protect blanks
+    const encrypted = encryptSettings({ proxyUrl: "", theme: "light" });
+    const out = restoreUndecryptableSettings(
+      encrypted,
+      { proxyUrl: "", theme: "light" },
+      onDisk,
+    );
+    assert.equal(out.proxyUrl, onDisk.proxyUrl); // ciphertext preserved
+  });
+
+  it("honours an intentional clear when not locked and not flagged", () => {
+    const APP_KEY = nodeCrypto.randomBytes(32);
+    configure({ mode: "app-key", appKey: APP_KEY });
+    const onDisk = { proxyUrl: encryptString("http://u:p@h") };
+    const encrypted = encryptSettings({ proxyUrl: "" });
+    const out = restoreUndecryptableSettings(
+      encrypted,
+      { proxyUrl: "" },
+      onDisk,
+    );
+    assert.equal(out.proxyUrl, ""); // user really cleared it
+  });
+
+  it("restores a flagged blank via the incoming _decryptErrors marker", () => {
+    const APP_KEY = nodeCrypto.randomBytes(32);
+    configure({ mode: "app-key", appKey: APP_KEY });
+    const onDisk = { proxyPassword: encryptString("pw") };
+    const encrypted = encryptSettings({ proxyPassword: "" });
+    const out = restoreUndecryptableSettings(
+      encrypted,
+      { proxyPassword: "", _decryptErrors: ["proxyPassword"] },
+      onDisk,
+    );
+    assert.equal(out.proxyPassword, onDisk.proxyPassword);
+  });
+});
+
+describe("restoreUndecryptableVariables under a locked session", () => {
+  afterEach(resetCrypto);
+
+  it("preserves encm: ciphertext for a locked, blanked secure entry", () => {
+    const MK = nodeCrypto.randomBytes(32);
+    configure({ mode: "master-password", masterKey: MK });
+    const onDisk = encryptVariables([{ name: "k", value: "v", secure: true }]);
+    lock();
+    // The caller echoes back the locked-blanked entry (no decryptError marker).
+    const incoming = [{ name: "k", value: "", secure: true }];
+    const out = restoreUndecryptableVariables(
+      encryptVariables(incoming),
+      incoming,
+      onDisk,
+    );
+    assert.equal(out[0].value, onDisk[0].value); // ciphertext survives the save
   });
 });

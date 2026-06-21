@@ -45,6 +45,10 @@ export class SettingsPopup {
   // historyCount value at the time the popup was opened — used to revert on X/Escape.
   #openHistoryCount = 5;
 
+  // Live secret-storage backend state ({ mode, locked, available, hasPassword }),
+  // fetched from main on open / when the Security panel is shown.
+  #securityState = null;
+
   // Stable handler references so we can attach on open() and detach on close.
   // A one-shot document-level keydown was previously registered in the
   // constructor and never removed — harmless for a singleton popup, but it
@@ -136,8 +140,8 @@ export class SettingsPopup {
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="request">${t("settings.nav.request")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="proxy">${t("settings.nav.proxy")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="certificates">${t("settings.nav.certificates")}</button>
+          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="security">${t("settings.nav.security")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="retries">${t("settings.nav.retries")}</button>
-          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="history">${t("settings.nav.history")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="about">${t("settings.nav.about")}</button>
         </nav>
 
@@ -166,6 +170,8 @@ export class SettingsPopup {
                   <option value="latte">Latte</option>
                   <option value="grey-light">Grey</option>
                 </optgroup>
+                <option disabled>──────────</option>
+                <option value="__theme-editor__">${t("settings.appearance.themeEditor")}</option>
               </select>
             </div>
 
@@ -253,6 +259,22 @@ export class SettingsPopup {
 
           <!-- Request ──────────────────────────────────────────────────── -->
           <section class="settings-panel" role="tabpanel" data-panel="request" hidden>
+            <div class="settings-row">
+              <label class="settings-label" for="setting-history-count">${t("settings.request.timelineEntries")}</label>
+              <select class="settings-select" id="setting-history-count">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+              </select>
+            </div>
+
             <div class="settings-row">
               <label class="settings-label" for="setting-timeout">${t("settings.request.timeout")}</label>
               <input
@@ -431,6 +453,49 @@ export class SettingsPopup {
             <p class="settings-help">${t("settings.certificates.insecureHelp")}</p>
           </section>
 
+          <!-- Security ─────────────────────────────────────────────────── -->
+          <section class="settings-panel" role="tabpanel" data-panel="security" hidden>
+            <h3 class="settings-subhead">${t("settings.security.heading")}</h3>
+            <p class="settings-help">${t("settings.security.help")}</p>
+
+            <!-- Locked master-password session: enter the password to unlock. -->
+            <div class="security-locked-row" hidden>
+              <p class="settings-help">${t("settings.security.lockedNote")}</p>
+              <div class="settings-row security-inline-field">
+                <input
+                  class="settings-input js-security-unlock-pw"
+                  type="password"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="${t("settings.security.password")}"
+                />
+                <button class="btn cert-add js-security-unlock" type="button">${t("settings.security.unlock")}</button>
+              </div>
+            </div>
+
+            <div class="security-mode-group" role="radiogroup" aria-label="${t("settings.security.modeAria")}">
+              ${this.#securityModeOption("app-key", t("settings.security.mode.appKey"), t("settings.security.mode.appKeyDesc"))}
+              ${this.#securityModeOption("os-keychain", t("settings.security.mode.osKeychain"), t("settings.security.mode.osKeychainDesc"))}
+              ${this.#securityModeOption(
+                "master-password",
+                t("settings.security.mode.masterPassword"),
+                t("settings.security.mode.masterPasswordDesc"),
+                `
+                <div class="security-master-fields" hidden>
+                  <div class="security-inline-field">
+                    <input class="settings-input js-master-pw" type="password" autocomplete="new-password" spellcheck="false" placeholder="${t("settings.security.password")}" />
+                  </div>
+                  <div class="security-inline-field">
+                    <input class="settings-input js-master-pw-confirm" type="password" autocomplete="new-password" spellcheck="false" placeholder="${t("settings.security.confirmPassword")}" />
+                  </div>
+                  <p class="settings-help">${t("settings.security.setPasswordWarn")}</p>
+                  <button class="btn cert-add js-master-apply" type="button">${t("settings.security.setPasswordSubmit")}</button>
+                </div>`,
+              )}
+            </div>
+            <div class="security-status" role="status" aria-live="polite"></div>
+          </section>
+
           <!-- Retries ──────────────────────────────────────────────────── -->
           <section class="settings-panel" role="tabpanel" data-panel="retries" hidden>
             <div class="settings-row settings-row--toggle">
@@ -504,25 +569,6 @@ export class SettingsPopup {
                 type="text"
                 placeholder="${t("settings.retries.statusPlaceholder")}"
               />
-            </div>
-          </section>
-
-          <!-- History ──────────────────────────────────────────────────── -->
-          <section class="settings-panel" role="tabpanel" data-panel="history" hidden>
-            <div class="settings-row">
-              <label class="settings-label" for="setting-history-count">${t("settings.history.timelineEntries")}</label>
-              <select class="settings-select" id="setting-history-count">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-                <option value="8">8</option>
-                <option value="9">9</option>
-                <option value="10">10</option>
-              </select>
             </div>
           </section>
 
@@ -666,6 +712,11 @@ export class SettingsPopup {
       .querySelector("#btn-add-ca-cert")
       .addEventListener("click", () => this.#pickCaFile());
 
+    // Security panel — secret-storage mode radios + unlock button. These do NOT
+    // go through #emitChange (the mode lives in an unencrypted config, not the
+    // settings manifest, and switching runs a re-encryption migration).
+    this.#wireSecurity();
+
     // Escape handling lives in #onKeyDown, attached on open() and detached
     // when PopupManager dispatches "hippo:popup-closed". See class fields above.
 
@@ -707,6 +758,227 @@ export class SettingsPopup {
       const active = panel.dataset.panel === name;
       panel.hidden = !active;
     });
+    // Refresh the live backend state each time the Security panel is revealed.
+    if (name === "security") this.#loadSecurityState();
+  }
+
+  // ── Security panel (secret-storage backend) ─────────────────────────────────
+  //
+  // Everything here is INLINE (no PopupManager.open child modal): the Settings
+  // popup is the active popup, and PopupManager.open would detach it. The mode is
+  // NOT routed through #emitChange — it lives in an unencrypted config, and
+  // switching runs a re-encryption migration in the main process. set-mode /
+  // unlock reload the window on success, so the success paths fall through.
+
+  /**
+   * One radio option card for the secret-storage mode group. `extra` carries the
+   * inline master-password fields nested inside the master-password card.
+   */
+  #securityModeOption(value, label, desc, extra = "") {
+    const head = `
+      <label class="security-mode-head">
+        <input type="radio" name="secret-storage-mode" value="${value}" />
+        <span class="security-mode-text">
+          <span class="security-mode-label">${label}</span>
+          <span class="security-mode-desc">${desc}</span>
+        </span>
+      </label>`;
+    if (!extra) return `<label class="security-mode-option">${head}</label>`;
+    return `<div class="security-mode-option security-mode-option--expandable">${head}${extra}</div>`;
+  }
+
+  /** Wire the security radios, the master-password Apply, and the Unlock button. */
+  #wireSecurity() {
+    for (const radio of this.#el.querySelectorAll(
+      'input[name="secret-storage-mode"]',
+    )) {
+      radio.addEventListener("change", () => this.#onSecurityModeChange(radio));
+    }
+    this.#el
+      .querySelector(".js-master-apply")
+      ?.addEventListener("click", () => this.#applyMasterPassword());
+    this.#el
+      .querySelector(".js-security-unlock")
+      ?.addEventListener("click", () => this.#unlockMaster());
+    this.#el
+      .querySelector(".js-security-unlock-pw")
+      ?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this.#unlockMaster();
+        }
+      });
+  }
+
+  /** Fetch the live backend state and reflect it in the Security panel. */
+  async #loadSecurityState() {
+    let state;
+    try {
+      state = await window.hippo.secretStorage.getMode();
+    } catch {
+      return; // leave the panel as-is if the bridge is unavailable
+    }
+    if (!this.#el) return;
+    this.#securityState = state;
+    this.#syncSecurityRadio(state.mode);
+    this.#showMasterFields(false);
+    // Disable OS keychain when the platform keystore isn't available.
+    const keychainRadio = this.#el.querySelector(
+      'input[name="secret-storage-mode"][value="os-keychain"]',
+    );
+    if (keychainRadio) keychainRadio.disabled = !state.available;
+    // Locked master-password session: surface the inline unlock field.
+    const lockedRow = this.#el.querySelector(".security-locked-row");
+    if (lockedRow) lockedRow.hidden = !state.locked;
+    this.#setSecurityStatus("");
+  }
+
+  /** Select the radio matching `mode` without firing its change handler. */
+  #syncSecurityRadio(mode) {
+    for (const radio of this.#el.querySelectorAll(
+      'input[name="secret-storage-mode"]',
+    )) {
+      radio.checked = radio.value === mode;
+    }
+  }
+
+  #showMasterFields(show) {
+    const fields = this.#el.querySelector(".security-master-fields");
+    if (!fields) return;
+    fields.hidden = !show;
+    if (show) {
+      requestAnimationFrame(() =>
+        this.#el.querySelector(".js-master-pw")?.focus(),
+      );
+    } else {
+      const pw = this.#el.querySelector(".js-master-pw");
+      const cpw = this.#el.querySelector(".js-master-pw-confirm");
+      if (pw) pw.value = "";
+      if (cpw) cpw.value = "";
+    }
+  }
+
+  #setSecurityStatus(text, isError = false) {
+    const el = this.#el?.querySelector(".security-status");
+    if (!el) return;
+    el.textContent = text;
+    el.classList.toggle("security-status--error", isError && !!text);
+  }
+
+  /**
+   * A mode radio changed. app-key / OS-keychain confirm then re-encrypt directly
+   * (the confirm dialog stacks safely over Settings). master-password reveals the
+   * inline password fields; the actual switch happens on Apply.
+   */
+  #onSecurityModeChange(radio) {
+    const target = radio.value;
+    const current = this.#securityState?.mode;
+    this.#setSecurityStatus("");
+    if (target === current) {
+      this.#showMasterFields(false);
+      return;
+    }
+
+    if (target === "master-password") {
+      this.#showMasterFields(true);
+      return;
+    }
+    this.#showMasterFields(false);
+
+    PopupManager.confirm({
+      title: t("settings.security.switchTitle"),
+      message: t("settings.security.switchMessage"),
+      confirmLabel: t("settings.security.switchConfirm"),
+      confirmClass: "btn--primary",
+      onConfirm: () => this.#applyMode(target),
+      onCancel: () => this.#syncSecurityRadio(current),
+    });
+  }
+
+  /** Switch to app-key / os-keychain (no password). Reloads on success. */
+  async #applyMode(target) {
+    this.#setSecurityStatus(t("settings.security.switching"));
+    let res;
+    try {
+      res = await window.hippo.secretStorage.setMode({ mode: target });
+    } catch {
+      res = { ok: false, reason: "error" };
+    }
+    if (res && res.ok) return; // success reloads the window
+    this.#setSecurityStatus(this.#switchErrorMessage(res?.reason), true);
+    this.#syncSecurityRadio(this.#securityState?.mode);
+  }
+
+  /** Apply a freshly chosen master password (validates confirm). Reloads on success. */
+  async #applyMasterPassword() {
+    const pw = this.#el.querySelector(".js-master-pw").value;
+    const confirm = this.#el.querySelector(".js-master-pw-confirm").value;
+    if (!pw) {
+      this.#setSecurityStatus(
+        t("settings.security.error.passwordRequired"),
+        true,
+      );
+      return;
+    }
+    if (pw !== confirm) {
+      this.#setSecurityStatus(
+        t("settings.security.error.passwordMismatch"),
+        true,
+      );
+      return;
+    }
+    this.#setSecurityStatus(t("settings.security.switching"));
+    let res;
+    try {
+      res = await window.hippo.secretStorage.setMode({
+        mode: "master-password",
+        password: pw,
+      });
+    } catch {
+      res = { ok: false, reason: "error" };
+    }
+    if (res && res.ok) return; // success reloads the window
+    this.#setSecurityStatus(this.#switchErrorMessage(res?.reason), true);
+  }
+
+  /** Unlock a locked master-password session from the inline field. */
+  async #unlockMaster() {
+    const input = this.#el.querySelector(".js-security-unlock-pw");
+    const pw = input ? input.value : "";
+    if (!pw) {
+      this.#setSecurityStatus(
+        t("settings.security.error.passwordRequired"),
+        true,
+      );
+      return;
+    }
+    this.#setSecurityStatus(t("settings.security.unlocking"));
+    let res;
+    try {
+      res = await window.hippo.secretStorage.unlock(pw);
+    } catch {
+      res = { ok: false, reason: "error" };
+    }
+    if (res && res.ok) return; // success reloads the window
+    this.#setSecurityStatus(
+      res?.reason === "bad-password"
+        ? t("settings.security.error.badPassword")
+        : t("settings.security.error.generic"),
+      true,
+    );
+    if (input) {
+      input.value = "";
+      input.focus();
+    }
+  }
+
+  #switchErrorMessage(reason) {
+    if (reason === "keychain-unavailable")
+      return t("settings.security.error.keychainUnavailable");
+    if (reason === "locked") return t("settings.security.error.lockedSwitch");
+    if (reason === "migration-failed")
+      return t("settings.security.error.migrationFailed");
+    return t("settings.security.error.generic");
   }
 
   // ── About panel / auto-update (Feature 36) ───────────────────────────────────
@@ -1129,6 +1401,7 @@ export class SettingsPopup {
     // status from a previous open, then track updater events while open.
     this.#setUpdateStatus("");
     this.#loadAppInfo();
+    this.#loadSecurityState();
     this.#wireUpdaterStatus();
     PopupManager.open(this);
     // Scope the Escape handler to the open lifecycle. PopupManager.close()

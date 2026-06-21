@@ -70,8 +70,38 @@ system certificate store.
   those hosts only.
 
 Only file **paths** are stored — Rest Hippo reads the certificate bytes in the
-background process when a request is sent. Passphrases are encrypted at rest with
-the OS keystore (like other secrets) and are removed from secret-free exports.
+background process when a request is sent. Passphrases are encrypted at rest using
+the secret-storage method chosen under **Security** (like all other secrets) and
+are removed from secret-free exports.
+
+## Security
+
+Choose how Rest Hippo encrypts your secrets — auth passwords and tokens, OAuth
+client secrets, proxy credentials, mTLS passphrases, and variables marked
+**secure** — at rest on this device. Switching re-encrypts every stored secret;
+the change applies after a quick reload.
+
+- **This device (no prompt)** — the default. Secrets are encrypted with a random
+  key kept in a protected file on this device, so there are **no system prompts**.
+  The trade-off: the key sits alongside your data, so anyone who can read this
+  computer's files could read your secrets. (On Windows and on Linux without a
+  keyring, the OS-keychain option falls back to this behaviour.)
+
+- **OS keychain** — secrets are encrypted with your operating system's keychain
+  (macOS Keychain, Windows Credential Manager, Linux Secret Service). This is the
+  strongest at-rest protection, but the OS may show an access prompt.
+
+- **Master password** — secrets are encrypted with a password you choose. On each
+  launch they start **locked**; enter the password once per session to unlock
+  them (a locked secret shows an **Unlock** link where it's used). If you forget
+  the password, the secrets **cannot be recovered**.
+
+Existing installs keep using the OS keychain until you switch here; new installs
+default to **This device**. Switching to or from **OS keychain** may show one
+system prompt during the re-encryption.
+
+Note: only secret _values_ are encrypted. Execution history, response bodies, and
+the cookie jar are stored unencrypted in every mode.
 
 ## Retries
 

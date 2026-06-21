@@ -139,7 +139,7 @@ export class PillPicker {
     }
 
     if (matchedNames.length) {
-      this.#el.appendChild(this.#sectionHeader("Variables"));
+      this.#el.appendChild(this.#sectionHeader(t("common.variables")));
       for (const name of matchedNames) {
         const item = { type: "variable", name, rawToken: `{{${name}}}` };
         this.#items.push(item);

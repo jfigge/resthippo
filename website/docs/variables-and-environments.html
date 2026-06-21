@@ -2,11 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#6C5CE7" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Variables &amp; Environments · Rest Hippo Guide</title>
   <meta name="description" content="Variables &amp; Environments — the Rest Hippo user guide." />
   <link rel="canonical" href="https://resthippo.com/docs/variables-and-environments.html" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Rest Hippo" />
+  <meta property="og:title" content="Variables &amp; Environments · Rest Hippo Guide" />
+  <meta property="og:description" content="Variables &amp; Environments — the Rest Hippo user guide." />
+  <meta property="og:url" content="https://resthippo.com/docs/variables-and-environments.html" />
+  <meta property="og:image" content="https://resthippo.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Variables &amp; Environments · Rest Hippo Guide" />
+  <meta name="twitter:description" content="Variables &amp; Environments — the Rest Hippo user guide." />
+  <meta name="twitter:image" content="https://resthippo.com/og-image.png" />
   <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#1c1c1c;--mantle:#161616;--crust:#101010;--surface-0:#2a2a2a;--surface-1:#383838;--overlay-0:#686868;--text:#e8e8e8;--subtext:#b0b0b0;--accent:#d0d0d0;--green:#80c080}
@@ -51,7 +63,7 @@ kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px so
     <a class="back" href="/">← Back to site</a>
   </header>
   <div class="layout">
-    <nav class="sidebar">
+    <nav class="sidebar" aria-label="User guide">
       <div class="sidebar-title">User Guide</div>
         <a class="doc-nav-link" href="index.html">Overview</a>
         <a class="doc-nav-link" href="getting-started.html">Getting Started</a>
@@ -110,7 +122,10 @@ with its own <code>baseUrl</code>, credentials, and IDs.</p>
 environment, e.g. <code>LOCAL</code>) to open a quick-switch menu. It lists <strong>Global</strong>
 followed by every named environment, with a check beside the active one — pick
 one to <strong>make it active</strong> instantly (all <code>{{variables}}</code> resolve against it).
-Choose <strong>Manage…</strong> at the bottom to open the full environments editor:</p>
+To <strong>add, rename, delete, or edit</strong> environments you must <strong>right-click</strong> the
+picker: that opens the same menu plus a <strong>Manage…</strong> entry, which opens the full
+environments editor. (A plain click only switches the active environment — it
+never opens the editor.)</p>
 <p><img src="images/environments-popup.png" alt="The environments editor"></p>
 <ul>
 <li><strong>Global</strong> is always first; its variables are available everywhere.</li>

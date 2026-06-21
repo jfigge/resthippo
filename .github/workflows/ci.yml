@@ -2,7 +2,16 @@ name: CI
 
 on:
   push:
+    # Only branch pushes to main; tag pushes are handled by release.yml, and
+    # an unqualified `push:` would build every branch and tag (and double-build
+    # release tags).
+    branches: [main]
   pull_request:
+
+# Least privilege: no CI job writes repo contents, so drop the token to
+# read-only rather than inheriting the repo/org default scope.
+permissions:
+  contents: read
 
 # Cancel superseded runs on the same ref to save runner minutes.
 concurrency:
@@ -19,10 +28,10 @@ jobs:
     name: Lint, format & test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -44,7 +53,7 @@ jobs:
 
       - name: Upload test output on failure
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: test-output
           path: test-output.log
@@ -74,10 +83,10 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -88,7 +97,7 @@ jobs:
       # unchanged. Node/npm from setup-node are inherited via path-type: inherit.
       - name: Set up MSYS2 (Windows)
         if: runner.os == 'Windows'
-        uses: msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
         with:
           msystem: UCRT64
           install: make rsync

@@ -1373,13 +1373,33 @@ export class ResponseViewer {
     else this.#renderHex(response, pane);
   }
 
-  /** Decode a base64 response body to a Uint8Array of the raw bytes. */
-  #decodeBytes(response) {
+  /**
+   * Decode a base64 response body to a Uint8Array of the raw bytes. When
+   * `maxBytes` is given, only the base64 prefix needed for that many bytes is
+   * decoded — so a large under-spill-threshold body isn't fully materialised on
+   * the main thread just to show a capped view.
+   */
+  #decodeBytes(response, maxBytes = Infinity) {
     const b64 = response.body ?? "";
-    const bin = atob(b64);
+    // base64 packs 3 bytes per 4 chars; round the cap up to a 4-char boundary.
+    const slice =
+      Number.isFinite(maxBytes) && maxBytes >= 0
+        ? b64.slice(0, Math.ceil(maxBytes / 3) * 4)
+        : b64;
+    const bin = atob(slice);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return bytes;
+  }
+
+  /** Exact decoded byte length of a clean (no-whitespace) base64 string. */
+  #base64ByteLength(b64) {
+    const len = b64.length;
+    if (!len) return 0;
+    let pad = 0;
+    if (b64[len - 1] === "=") pad++;
+    if (b64[len - 2] === "=") pad++;
+    return Math.floor((len * 3) / 4) - pad;
   }
 
   /** Render an inline image from a blob: URL (revoked on the next teardown). */
@@ -1428,19 +1448,29 @@ export class ResponseViewer {
 
   /** Render a capped hex + ASCII dump with 8-digit offsets, 16 bytes per row. */
   #renderHex(response, pane) {
-    const bytes =
-      response.encoding === "base64"
-        ? this.#decodeBytes(response)
-        : new TextEncoder().encode(response.body ?? "");
-
     const HEX_VIEW_LIMIT = 256 * 1024;
+
+    // Decode/encode only the prefix we display: a large under-spill body must
+    // not be fully materialised on the main thread just to show a 256 KB window.
+    let bytes;
+    let total;
+    if (response.encoding === "base64") {
+      total = this.#base64ByteLength(response.body ?? "");
+      bytes = this.#decodeBytes(response, HEX_VIEW_LIMIT);
+    } else {
+      const all = new TextEncoder().encode(response.body ?? "");
+      total = all.length;
+      bytes =
+        all.length > HEX_VIEW_LIMIT ? all.subarray(0, HEX_VIEW_LIMIT) : all;
+    }
+
     const shown = Math.min(bytes.length, HEX_VIEW_LIMIT);
-    if (shown < bytes.length) {
+    if (shown < total) {
       const note = document.createElement("div");
       note.className = "res-hex-note";
       note.textContent = t("response.truncation.hexNote", {
         shown: this.#formatSize(shown),
-        total: this.#formatSize(bytes.length),
+        total: this.#formatSize(total),
       });
       pane.appendChild(note);
     }

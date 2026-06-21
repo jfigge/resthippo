@@ -2,11 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#6C5CE7" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Building Requests · Rest Hippo Guide</title>
   <meta name="description" content="Building Requests — the Rest Hippo user guide." />
   <link rel="canonical" href="https://resthippo.com/docs/requests.html" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Rest Hippo" />
+  <meta property="og:title" content="Building Requests · Rest Hippo Guide" />
+  <meta property="og:description" content="Building Requests — the Rest Hippo user guide." />
+  <meta property="og:url" content="https://resthippo.com/docs/requests.html" />
+  <meta property="og:image" content="https://resthippo.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Building Requests · Rest Hippo Guide" />
+  <meta name="twitter:description" content="Building Requests — the Rest Hippo user guide." />
+  <meta name="twitter:image" content="https://resthippo.com/og-image.png" />
   <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#1c1c1c;--mantle:#161616;--crust:#101010;--surface-0:#2a2a2a;--surface-1:#383838;--overlay-0:#686868;--text:#e8e8e8;--subtext:#b0b0b0;--accent:#d0d0d0;--green:#80c080}
@@ -51,7 +63,7 @@ kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px so
     <a class="back" href="/">← Back to site</a>
   </header>
   <div class="layout">
-    <nav class="sidebar">
+    <nav class="sidebar" aria-label="User guide">
       <div class="sidebar-title">User Guide</div>
         <a class="doc-nav-link" href="index.html">Overview</a>
         <a class="doc-nav-link" href="getting-started.html">Getting Started</a>
@@ -170,7 +182,7 @@ resize handle. <code>{{variables}}</code> are highlighted inline and resolved at
 <p>The <strong>Form Data</strong> and <strong>Form URL Encoded</strong> editors use the same key/value grid
 as Params and Headers, with a bulk-text mode. In Form Data, switch a row between
 <strong>Text</strong> and <strong>File</strong> to attach a file.</p>
-<h2 id="authentication-amp-captures">Authentication &amp; captures</h2>
+<h2 id="authentication--captures">Authentication &amp; captures</h2>
 <p>Two more tabs round out the request:</p>
 <ul>
 <li><strong><a href="authentication.html">Auth</a></strong> — attach credentials (Bearer, OAuth 2.0, …).</li>

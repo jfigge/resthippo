@@ -121,8 +121,8 @@
     "aboutTitle": "Rest Hippo について",
     "subtitle": "REST API クライアント",
     "actionsAria": "アプリケーションの操作",
-    "environmentTitle": "環境",
-    "environmentAria": "環境を選択",
+    "environmentTitle": "環境を切り替え · 右クリックで管理",
+    "environmentAria": "環境を切り替え",
     "settingsTitle": "設定",
     "settingsAria": "設定を開く",
     "collections": "コレクション",
@@ -285,15 +285,16 @@
       "request": "リクエスト",
       "proxy": "プロキシ",
       "retries": "再試行",
-      "history": "履歴",
       "certificates": "証明書",
-      "about": "情報"
+      "about": "情報",
+      "security": "セキュリティ"
     },
     "appearance": {
       "theme": "テーマ",
       "themeDark": "ダーク",
       "themeLight": "ライト",
       "themeCustom": "カスタム",
+      "themeEditor": "テーマエディタ…",
       "fontSize": "エディターのフォントサイズ",
       "fontFamily": "UI フォント",
       "fontFamilySystem": "システムのデフォルト",
@@ -324,7 +325,8 @@
       "showScriptsTabTitle": "オフにすると、スクリプトタブが非表示になり、リクエスト前およびレスポンス後のスクリプトが実行されません",
       "showTestsTab": "テストタブを表示",
       "showTestsTabTitle": "オフにすると、テストタブが非表示になり、レスポンス後にノーコードのアサーションが実行されません",
-      "showNotesTab": "メモタブを表示"
+      "showNotesTab": "メモタブを表示",
+      "timelineEntries": "タイムラインのエントリ"
     },
     "proxy": {
       "enable": "プロキシを有効にする",
@@ -348,9 +350,6 @@
       "onTimeout": "タイムアウト時に再試行",
       "onStatus": "ステータスコードで再試行",
       "statusPlaceholder": "429, 503, 504"
-    },
-    "history": {
-      "timelineEntries": "タイムラインのエントリ"
     },
     "certificates": {
       "clientHeading": "クライアント証明書",
@@ -377,6 +376,41 @@
     "about": {
       "checkButton": "アップデートを確認",
       "version": "Rest Hippo {version}"
+    },
+    "security": {
+      "heading": "シークレットの保存",
+      "help": "このデバイスで Rest Hippo がシークレット（パスワード、トークン、キー）を暗号化する方法を選びます。切り替えると、保存済みのすべてのシークレットが再暗号化されます。",
+      "modeAria": "シークレットの保存モード",
+      "mode": {
+        "appKey": "このデバイス（確認なし）",
+        "appKeyDesc": "このデバイスに保存したキーで暗号化します。システムの確認は表示されませんが、このコンピューターのファイルを読める人はシークレットを読める可能性があります。",
+        "osKeychain": "OS のキーチェーン",
+        "osKeychainDesc": "オペレーティングシステムのキーチェーンで暗号化します。最も強力ですが、OS がアクセスの確認を求めることがあります。",
+        "masterPassword": "マスターパスワード",
+        "masterPasswordDesc": "自分で決めたパスワードで暗号化します。シークレットはセッションごとにロック解除するまでロックされます。忘れると復元できません。"
+      },
+      "lockedNote": "シークレットはロックされています。このセッションで解除するにはマスターパスワードを入力してください。",
+      "password": "パスワード",
+      "confirmPassword": "パスワードの確認",
+      "setPasswordWarn": "このパスワードを忘れると、保存済みのシークレットは復元できません。",
+      "setPasswordSubmit": "パスワードを設定して暗号化",
+      "unlock": "ロック解除",
+      "unlocking": "ロック解除中…",
+      "switching": "シークレットを再暗号化中…",
+      "switchTitle": "シークレットの保存方法を切り替えますか？",
+      "switchMessage": "保存済みのすべてのシークレットを新しい方法で再暗号化します。続行しますか？",
+      "switchConfirm": "切り替える",
+      "unlockTitle": "シークレットのロック解除",
+      "unlockIntro": "このセッションで保存済みのシークレットを解除するには、マスターパスワードを入力してください。",
+      "error": {
+        "passwordRequired": "パスワードを入力してください。",
+        "passwordMismatch": "パスワードが一致しません。",
+        "badPassword": "パスワードが正しくありません。",
+        "migrationFailed": "一部のシークレットを変換できなかったため、保存方法は変更されませんでした。",
+        "keychainUnavailable": "このシステムでは OS のキーチェーンを利用できません。",
+        "lockedSwitch": "先にシークレットのロックを解除してから、保存方法を切り替えてください。",
+        "generic": "問題が発生しました。もう一度お試しください。"
+      }
     }
   },
   "request": {
@@ -1126,7 +1160,8 @@
       "realm": "レルム",
       "realmPlaceholder": "レルム（任意）",
       "hint": "リクエスト送信時に署名されます。nonce とタイムスタンプは自動的に生成されます。"
-    }
+    },
+    "decryptLocked": "シークレットはロックされています。"
   },
   "wsConsole": {
     "state": {

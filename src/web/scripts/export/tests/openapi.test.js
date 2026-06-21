@@ -246,6 +246,78 @@ test("api-key auth maps to an apiKey scheme with name + placement", () => {
   assert.ok(!JSON.stringify(out).includes("k-secret"), "api-key value leaked");
 });
 
+test("two API keys with different names get distinct, non-colliding schemes", () => {
+  const out = exportObject({
+    id: "c1",
+    name: "C",
+    children: [
+      {
+        type: "request",
+        name: "One",
+        method: "GET",
+        url: "https://x/one",
+        authEnabled: true,
+        authType: "apikey",
+        authApiKey: { name: "X-Key-One", value: "s1", addTo: "header" },
+      },
+      {
+        type: "request",
+        name: "Two",
+        method: "GET",
+        url: "https://x/two",
+        authEnabled: true,
+        authType: "apikey",
+        authApiKey: { name: "X-Key-Two", value: "s2", addTo: "header" },
+      },
+    ],
+  });
+
+  const schemes = out.components.securitySchemes;
+  const apiKeyNames = Object.values(schemes)
+    .filter((s) => s.type === "apiKey")
+    .map((s) => s.name)
+    .sort();
+  assert.deepEqual(apiKeyNames, ["X-Key-One", "X-Key-Two"]);
+
+  // Each operation references its own scheme, and they differ.
+  const oneScheme = Object.keys(out.paths["/one"].get.security[0])[0];
+  const twoScheme = Object.keys(out.paths["/two"].get.security[0])[0];
+  assert.notEqual(oneScheme, twoScheme);
+  assert.equal(schemes[oneScheme].name, "X-Key-One");
+  assert.equal(schemes[twoScheme].name, "X-Key-Two");
+});
+
+test("requests sharing one API key reuse a single scheme", () => {
+  const out = exportObject({
+    id: "c1",
+    name: "C",
+    children: [
+      {
+        type: "request",
+        name: "A",
+        method: "GET",
+        url: "https://x/a",
+        authEnabled: true,
+        authType: "apikey",
+        authApiKey: { name: "X-Same", value: "s", addTo: "header" },
+      },
+      {
+        type: "request",
+        name: "B",
+        method: "GET",
+        url: "https://x/b",
+        authEnabled: true,
+        authType: "apikey",
+        authApiKey: { name: "X-Same", value: "s", addTo: "header" },
+      },
+    ],
+  });
+  const apiKeySchemes = Object.values(out.components.securitySchemes).filter(
+    (s) => s.type === "apiKey",
+  );
+  assert.equal(apiKeySchemes.length, 1, "identical keys share one scheme");
+});
+
 test("digest and ntlm map to http schemes", () => {
   const out = exportObject({
     id: "c1",

@@ -63,7 +63,7 @@
 
 /** Canonical default settings — merged over whatever is stored on disk. */
 const DEFAULT_SETTINGS = {
-  theme: "mocha",
+  theme: "grey-dark",
   fontSize: 13,
   fontFamily: "inter",
   // UI language: "system" follows the OS locale; otherwise a shipped locale tag
@@ -156,7 +156,7 @@ const DEFAULT_SETTINGS = {
   // tab; the list itself is always tracked.
   favorites: [],
   recents: [],
-  showRecents: true,
+  showRecents: false,
 };
 
 // ── In-memory caches ──────────────────────────────────────────────────────────

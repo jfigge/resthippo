@@ -67,6 +67,15 @@ class OAuthExecutor {
    * @param {object} config - authOAuth2 state from the request editor
    * @returns {Promise<import('./types/oauth-types').OAuthResult>}
    */
+  /**
+   * In-flight token acquisitions keyed by cacheKey. Concurrent callers for the
+   * same config share one network round-trip instead of racing N parallel
+   * refresh/grant requests — with refresh-token rotation (OAuth 2.1) those races
+   * would invalidate each other and fail with invalid_grant.
+   * @type {Map<string, Promise<import('./types/oauth-types').OAuthResult>>}
+   */
+  #inFlight = new Map();
+
   async acquireToken(config) {
     // ── Validate configuration ────────────────────────────────────────────
     const configError = validateOAuthConfig(config);
@@ -75,7 +84,7 @@ class OAuthExecutor {
 
     const cacheKey = tokenStore.keyFor(config);
 
-    // ── Return cached token if still valid (or use for refresh token) ────────
+    // ── Return cached token if still valid ────────────────────────────────
     const cached = tokenStore.get(cacheKey);
     if (cached?.isValid?.()) {
       return createOAuthResult({
@@ -90,7 +99,29 @@ class OAuthExecutor {
       });
     }
 
+    // ── Coalesce concurrent acquisitions for the same config ──────────────
+    const inFlight = this.#inFlight.get(cacheKey);
+    if (inFlight) return inFlight;
+
+    const promise = this.#refreshOrGrant(config, cacheKey).finally(() => {
+      this.#inFlight.delete(cacheKey);
+    });
+    this.#inFlight.set(cacheKey, promise);
+    return promise;
+  }
+
+  /**
+   * Uncached acquisition: try a stored refresh token first, then fall back to
+   * the full grant flow. Caches a successful result. Runs under the #inFlight
+   * de-duplication so only one of N concurrent callers reaches the network.
+   *
+   * @param {object} config
+   * @param {string} cacheKey
+   * @returns {Promise<import('./types/oauth-types').OAuthResult>}
+   */
+  async #refreshOrGrant(config, cacheKey) {
     // ── Attempt refresh if we have a stored refresh token ─────────────────
+    const cached = tokenStore.get(cacheKey);
     if (cached?.refreshToken) {
       const refreshResult = await refreshTokenFlow(config, cached.refreshToken);
       if (refreshResult.success) {
@@ -121,6 +152,9 @@ class OAuthExecutor {
   async forceRefresh(config) {
     const cacheKey = tokenStore.keyFor(config);
     tokenStore.clear(cacheKey);
+    // Drop any in-flight acquisition for this config so we don't piggyback on it
+    // — "force" must start a genuinely fresh request, not reuse a coalesced one.
+    this.#inFlight.delete(cacheKey);
     return this.acquireToken(config);
   }
 

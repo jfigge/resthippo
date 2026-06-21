@@ -1,8 +1,98 @@
 {
   "repo": "jfigge/resthippo",
-  "generatedAt": "2026-06-19T16:37:36.378Z",
-  "latest": "0.8.0",
+  "generatedAt": "2026-06-20T22:24:07.858Z",
+  "latest": "0.9.0",
   "releases": [
+    {
+      "version": "0.9.0",
+      "tag": "v0.9.0",
+      "name": "v0.9.0",
+      "publishedAt": "2026-06-19T22:51:32Z",
+      "prerelease": false,
+      "url": "https://github.com/jfigge/resthippo/releases/tag/v0.9.0",
+      "assets": [
+        {
+          "name": "Rest.Hippo-0.9.0-arm64-mac.zip",
+          "size": 115627010,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.9.0/Rest.Hippo-0.9.0-arm64-mac.zip",
+          "platform": "mac",
+          "arch": "arm64",
+          "kind": "zip",
+          "label": "ZIP Archive",
+          "primary": false
+        },
+        {
+          "name": "Rest.Hippo-0.9.0-arm64.dmg",
+          "size": 119997054,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.9.0/Rest.Hippo-0.9.0-arm64.dmg",
+          "platform": "mac",
+          "arch": "arm64",
+          "kind": "dmg",
+          "label": "Disk Image",
+          "primary": true
+        },
+        {
+          "name": "Rest.Hippo-0.9.0-mac.zip",
+          "size": 122568366,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.9.0/Rest.Hippo-0.9.0-mac.zip",
+          "platform": "mac",
+          "arch": "x64",
+          "kind": "zip",
+          "label": "ZIP Archive",
+          "primary": false
+        },
+        {
+          "name": "Rest.Hippo-0.9.0.AppImage",
+          "size": 125396206,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.9.0/Rest.Hippo-0.9.0.AppImage",
+          "platform": "linux",
+          "arch": "x64",
+          "kind": "appimage",
+          "label": "AppImage",
+          "primary": true
+        },
+        {
+          "name": "Rest.Hippo-0.9.0.dmg",
+          "size": 127005091,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.9.0/Rest.Hippo-0.9.0.dmg",
+          "platform": "mac",
+          "arch": "x64",
+          "kind": "dmg",
+          "label": "Disk Image",
+          "primary": true
+        },
+        {
+          "name": "Rest.Hippo.0.9.0.exe",
+          "size": 104078085,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.9.0/Rest.Hippo.0.9.0.exe",
+          "platform": "win",
+          "arch": "x64",
+          "kind": "portable",
+          "label": "Portable",
+          "primary": true
+        },
+        {
+          "name": "Rest.Hippo.Setup.0.9.0.exe",
+          "size": 104233271,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.9.0/Rest.Hippo.Setup.0.9.0.exe",
+          "platform": "win",
+          "arch": "x64",
+          "kind": "setup",
+          "label": "Installer",
+          "primary": true
+        },
+        {
+          "name": "resthippo_0.9.0_amd64.deb",
+          "size": 98077196,
+          "url": "https://github.com/jfigge/resthippo/releases/download/v0.9.0/resthippo_0.9.0_amd64.deb",
+          "platform": "linux",
+          "arch": "x64",
+          "kind": "deb",
+          "label": "Debian Package",
+          "primary": true
+        }
+      ]
+    },
     {
       "version": "0.8.0",
       "tag": "v0.8.0",

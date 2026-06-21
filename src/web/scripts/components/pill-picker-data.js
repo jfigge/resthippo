@@ -52,9 +52,10 @@ export function pickerScopes(ctx) {
   }
 
   const labels = {
-    global: "Global",
-    environment: ctx?.activeEnvironmentName || "Environment",
-    collection: ctx?.collectionName || "Collection",
+    global: t("env.global"),
+    environment:
+      ctx?.activeEnvironmentName || t("request.captures.scopeEnvironment"),
+    collection: ctx?.collectionName || t("request.captures.scopeCollection"),
   };
 
   const scopes = [];

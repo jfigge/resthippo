@@ -34,10 +34,10 @@ Rest Hippo is organized into three panels:
 
 The header holds two controls, from left to right:
 
-| Control            | What it does                                                                                                                 |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| 🌐 **Environment** | Shows the active environment (e.g. `LOCAL`) and opens the [environments editor](variables-and-environments.md#environments). |
-| ⚙ **Settings**     | Opens [Settings](settings-and-themes.md) — theme, fonts, the [panel layout](settings-and-themes.md#layouts), proxy, and more. |
+| Control            | What it does                                                                                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🌐 **Environment** | Shows the active environment (e.g. `LOCAL`); click to switch, **right-click** to reach the [environments editor](variables-and-environments.md#environments). |
+| ⚙ **Settings**     | Opens [Settings](settings-and-themes.md) — theme, fonts, the [panel layout](settings-and-themes.md#layouts), proxy, and more.                                 |
 
 You can resize the panels by dragging the dividers between them, and Rest Hippo
 remembers the positions.
@@ -78,10 +78,10 @@ secret values — and is your starting point if something goes wrong.
 
 From the **Help** menu:
 
-| Item                         | What it does                                                                                                             |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **Reveal Logs**              | Opens the log folder in your file manager.                                                                              |
-| **Export Diagnostics…**      | Saves a single `.txt` file containing Rest Hippo's version and build info plus the recent logs — ideal to attach to a bug report. |
+| Item                    | What it does                                                                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Reveal Logs**         | Opens the log folder in your file manager.                                                                                        |
+| **Export Diagnostics…** | Saves a single `.txt` file containing Rest Hippo's version and build info plus the recent logs — ideal to attach to a bug report. |
 
 If Rest Hippo ever hits an unexpected error it can't recover from, it writes the
 details to the log and shows a dialog before closing, so the failure is never

@@ -44,6 +44,8 @@ const {
   decryptArchiveSecrets,
 } = require("./store/collection-archive");
 const io = require("./store/io");
+const crypto = require("./store/crypto");
+const { MODES } = require("./store/secret-storage");
 const { createLogger } = require("./logger");
 const { buildReport } = require("./diagnostics");
 const { loadCatalog, label: i18nLabel } = require("./i18n");
@@ -1966,6 +1968,127 @@ ipcMain.handle(
   },
 );
 
+// ─── Secret-storage mode IPC ──────────────────────────────────────────────────
+// The active at-rest backend (app key / OS keychain / master password) is chosen
+// here; the renderer Security panel only picks a mode and, for master-password,
+// supplies a password. All crypto + file I/O is owned by the main process. On a
+// mode change / unlock the window reloads so every panel re-reads freshly
+// (de)crypted secrets — the same precedent as backup:import. (The main-process
+// crypto singleton survives the renderer reload, so we reconfigure it here.)
+
+ipcMain.handle("secret-storage:get-mode", () =>
+  safeCall(
+    "secret-storage:get-mode",
+    () => {
+      const config = getStores().secretStorage().readConfig();
+      return {
+        mode: crypto.getMode(),
+        locked: crypto.isLocked(),
+        available: crypto.isAvailable(), // OS keychain usable on this platform?
+        hasPassword: !!(config && config.verifier),
+      };
+    },
+    { mode: "app-key", locked: false, available: false, hasPassword: false },
+  ),
+);
+
+ipcMain.handle("secret-storage:unlock", (_event, { password } = {}) => {
+  const sec = getStores().secretStorage();
+  const config = sec.readConfig();
+  if (!config || config.mode !== "master-password" || !config.verifier) {
+    return { ok: false, reason: "not-applicable" };
+  }
+  const key = sec.verifyMasterPassword(password, config);
+  if (!key) return { ok: false, reason: "bad-password" };
+  crypto.setMasterKey(key);
+  const win = _backupWin();
+  if (win) win.webContents.reload();
+  return { ok: true };
+});
+
+ipcMain.handle("secret-storage:lock", () => {
+  crypto.lock();
+  const win = _backupWin();
+  if (win) win.webContents.reload();
+  return { ok: true };
+});
+
+ipcMain.handle("secret-storage:set-mode", (_event, { mode, password } = {}) => {
+  if (!MODES.includes(mode)) return { ok: false, reason: "invalid-mode" };
+  const sec = getStores().secretStorage();
+  const current = crypto.getMode();
+  // Re-selecting the current mode is a no-op (except re-setting a master password).
+  if (mode === current && !(mode === "master-password" && password)) {
+    return { ok: true, unchanged: true };
+  }
+
+  try {
+    // Leaving master-password needs the session unlocked — the old ciphertext
+    // must be decryptable to migrate it forward.
+    if (current === "master-password" && crypto.isLocked()) {
+      return { ok: false, reason: "locked" };
+    }
+
+    // Prepare the TARGET backend's durable key material BEFORE converting any
+    // file. A crash mid-migration is then recoverable: the key/verifier are on
+    // disk and the mode flip (below) is the final write, so re-running converts
+    // any stragglers with the SAME key.
+    let prep = null;
+    if (mode === "app-key") {
+      crypto.configure({ appKey: sec.ensureAppKey() }); // active mode still `current`
+    } else if (mode === "master-password") {
+      if (typeof password !== "string" || password.length === 0) {
+        return { ok: false, reason: "password-required" };
+      }
+      prep = sec.prepareMasterPassword(password);
+      sec.writeConfig({
+        mode: current,
+        kdf: prep.kdf,
+        verifier: prep.verifier,
+      });
+      crypto.setMasterKey(prep.key);
+    } else if (mode === "os-keychain" && !crypto.isAvailable()) {
+      return { ok: false, reason: "keychain-unavailable" };
+    }
+
+    // Re-encrypt every secret to the target (decrypts the current backend's
+    // values first — this also coalesces the macOS prompt into one preflight).
+    const result = sec.reencryptAll(mode);
+    if (!result.ok) {
+      return {
+        ok: false,
+        reason: "migration-failed",
+        failures: result.failures,
+      };
+    }
+
+    // Flip the mode LAST (atomicity anchor) and reconfigure the live backend.
+    if (mode === "app-key") {
+      sec.writeConfig({ mode });
+      crypto.configure({ mode, appKey: sec.readAppKey(), masterKey: null });
+    } else if (mode === "os-keychain") {
+      sec.writeConfig({ mode });
+      crypto.configure({ mode, appKey: null, masterKey: null });
+    } else {
+      sec.writeConfig({ mode, kdf: prep.kdf, verifier: prep.verifier });
+      crypto.configure({ mode, appKey: null, masterKey: prep.key });
+    }
+
+    // Leaving app-key mode: every secret was just re-encrypted under the new
+    // backend, so the on-device key protects nothing in the live store. Remove it
+    // — AFTER the mode flip above, so a crash can never strand `enck:` values with
+    // their key already deleted.
+    if (mode !== "app-key") sec.deleteAppKey();
+
+    const win = _backupWin();
+    if (win) win.webContents.reload();
+    return { ok: true };
+  } catch (err) {
+    console.error("[main] secret-storage:set-mode error:", err.message);
+    return { ok: false, reason: "error", message: err.message };
+  }
+});
+
 // ─── Native collection archive (Rest Hippo v1) IPC ────────────────────────────
 // The renderer builds the plaintext archive (it already holds the decrypted tree
 // + environments); the main process owns only the secret crypto + file dialogs.
@@ -2066,10 +2189,10 @@ function showAboutDialog() {
   const rev = readRevisionInfo();
 
   // Read the current theme so the about window matches the app's colour scheme
-  let theme = "mocha";
+  let theme = "grey-dark";
   try {
     const manifest = getStores().collectionStore().getManifest();
-    theme = manifest?.settings?.theme ?? "mocha";
+    theme = manifest?.settings?.theme ?? "grey-dark";
   } catch {
     /* fall back to default theme */
   }
@@ -2138,10 +2261,10 @@ function showThemeEditor() {
     _themeEditorWin.focus();
     return;
   }
-  let theme = "mocha";
+  let theme = "grey-dark";
   try {
     const manifest = getStores().collectionStore().getManifest();
-    theme = manifest?.settings?.theme ?? "mocha";
+    theme = manifest?.settings?.theme ?? "grey-dark";
   } catch {}
   _themeEditorWin = new BrowserWindow({
     width: 900,
@@ -2181,10 +2304,11 @@ function showDocsWindow() {
     _docsWin.focus();
     return;
   }
-  let theme = "mocha";
+  let theme = "grey-dark";
   try {
     theme =
-      getStores().collectionStore().getManifest()?.settings?.theme ?? "mocha";
+      getStores().collectionStore().getManifest()?.settings?.theme ??
+      "grey-dark";
   } catch {
     /* fall back to default theme */
   }

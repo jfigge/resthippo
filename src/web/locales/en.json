@@ -123,8 +123,8 @@
     "aboutTitle": "About Rest Hippo",
     "subtitle": "REST API Client",
     "actionsAria": "Application actions",
-    "environmentTitle": "Environment",
-    "environmentAria": "Select environment",
+    "environmentTitle": "Switch environment · right-click to manage",
+    "environmentAria": "Switch environment",
     "settingsTitle": "Settings",
     "settingsAria": "Open settings",
     "collections": "Collections",
@@ -287,15 +287,16 @@
       "request": "Request",
       "proxy": "Proxy",
       "retries": "Retries",
-      "history": "History",
       "certificates": "Certificates",
-      "about": "About"
+      "about": "About",
+      "security": "Security"
     },
     "appearance": {
       "theme": "Theme",
       "themeDark": "Dark",
       "themeLight": "Light",
       "themeCustom": "Custom",
+      "themeEditor": "Theme Editor…",
       "fontSize": "Editor font size",
       "fontFamily": "UI font",
       "fontFamilySystem": "System Default",
@@ -326,7 +327,8 @@
       "showScriptsTabTitle": "When off, the Scripts tab is hidden and pre-request and after-response scripts are not executed",
       "showTestsTab": "Show Tests tab",
       "showTestsTabTitle": "When off, the Tests tab is hidden and no-code assertions are not run after a response",
-      "showNotesTab": "Show Notes tab"
+      "showNotesTab": "Show Notes tab",
+      "timelineEntries": "Timeline entries"
     },
     "proxy": {
       "enable": "Enable proxy",
@@ -350,9 +352,6 @@
       "onTimeout": "Retry on timeout",
       "onStatus": "Retry on status codes",
       "statusPlaceholder": "429, 503, 504"
-    },
-    "history": {
-      "timelineEntries": "Timeline entries"
     },
     "certificates": {
       "clientHeading": "Client certificates",
@@ -379,6 +378,41 @@
     "about": {
       "checkButton": "Check for Updates",
       "version": "Rest Hippo {version}"
+    },
+    "security": {
+      "heading": "Secret storage",
+      "help": "Choose how Rest Hippo encrypts secrets — passwords, tokens, and keys — on this device. Switching re-encrypts every stored secret.",
+      "modeAria": "Secret storage mode",
+      "mode": {
+        "appKey": "This device (no prompt)",
+        "appKeyDesc": "Encrypt with a key kept on this device. No system prompts — but anyone who can read this computer's files could read your secrets.",
+        "osKeychain": "OS keychain",
+        "osKeychainDesc": "Encrypt with your operating system's keychain. Strongest protection, but the OS may prompt for access.",
+        "masterPassword": "Master password",
+        "masterPasswordDesc": "Encrypt with a password you choose. Secrets stay locked until you unlock them each session. If you forget it, they cannot be recovered."
+      },
+      "lockedNote": "Secrets are locked. Enter your master password to unlock them for this session.",
+      "password": "Password",
+      "confirmPassword": "Confirm password",
+      "setPasswordWarn": "If you forget this password, your stored secrets cannot be recovered.",
+      "setPasswordSubmit": "Set password & encrypt",
+      "unlock": "Unlock",
+      "unlocking": "Unlocking…",
+      "switching": "Re-encrypting secrets…",
+      "switchTitle": "Switch secret storage?",
+      "switchMessage": "This re-encrypts every stored secret with the new method. Continue?",
+      "switchConfirm": "Switch",
+      "unlockTitle": "Unlock secrets",
+      "unlockIntro": "Enter your master password to unlock your stored secrets for this session.",
+      "error": {
+        "passwordRequired": "Enter a password.",
+        "passwordMismatch": "The passwords don't match.",
+        "badPassword": "Incorrect password.",
+        "migrationFailed": "Some secrets couldn't be converted, so the storage method was left unchanged.",
+        "keychainUnavailable": "The OS keychain isn't available on this system.",
+        "lockedSwitch": "Unlock your secrets first, then switch storage method.",
+        "generic": "Something went wrong. Please try again."
+      }
     }
   },
   "request": {
@@ -1130,7 +1164,8 @@
       "realm": "Realm",
       "realmPlaceholder": "Realm (optional)",
       "hint": "Signed when the request is sent; the nonce and timestamp are generated automatically."
-    }
+    },
+    "decryptLocked": "Secrets are locked."
   },
   "wsConsole": {
     "state": {

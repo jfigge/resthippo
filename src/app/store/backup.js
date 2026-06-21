@@ -42,13 +42,16 @@
  *   - "none" (default): every secret is blanked via crypto.redact* before it
  *     leaves the machine, so nothing sensitive is ever written in plaintext.
  *     Variable rows keep their `secure` flag but lose their value.
- *   - "machine": the on-disk keystore ciphertext is kept verbatim. It is bound
- *     to the originating machine's OS keystore and will NOT decrypt elsewhere —
- *     hence "this machine only".
+ *   - "machine": the on-disk at-rest ciphertext is kept verbatim. Whatever the
+ *     active secret-storage backend produced (`enc:` OS keystore, `enck:` app
+ *     key, or `encm:` master password) is bound to THIS machine + mode and will
+ *     NOT decrypt elsewhere — hence "this machine only". (On import, a
+ *     foreign-prefix value simply surfaces as a failed decrypt at read time; it
+ *     never crashes the import.)
  *   - "password": secrets are re-encrypted under a user-supplied password into
  *     portable `encp:v2:` ciphertext (PBKDF2 + AES-256-GCM). Such a backup is
  *     fully portable; on import the password decrypts the secrets, which are
- *     then re-encrypted to the destination machine's keystore.
+ *     then re-encrypted with the destination's active secret-storage backend.
  *
  * History and response payloads are intentionally out of scope: a backup
  * captures the reproducible workspace (collections + environments + settings),
@@ -83,7 +86,8 @@ const BACKUP_KIND = "resthippo-backup";
 // Secret-handling modes for a backup. Recorded on the envelope as `secretsMode`
 // (with the legacy boolean `secretsIncluded` kept in sync for older readers):
 //   "none"     — secrets redacted (blanked); safe to share.
-//   "machine"  — keystore ciphertext kept verbatim; only restores on THIS machine.
+//   "machine"  — at-rest ciphertext kept verbatim; only restores on THIS machine
+//                + the same secret-storage mode (enc:/enck:/encm:).
 //   "password" — secrets re-encrypted under a user password (portable encp:v2:).
 const SECRETS_NONE = "none";
 const SECRETS_MACHINE = "machine";

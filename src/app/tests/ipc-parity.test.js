@@ -34,7 +34,8 @@
  * the `sendTo(sender, ...)` wrapper ↔ a preload `ipcRenderer.on(...)`). A push
  * channel renamed on only one side silently breaks the feature with no runtime
  * signal, exactly like the invoke/handle case, so both are guarded here. The
- * renderer→main `ipcRenderer.send` / `ipcMain.on` direction is unused.
+ * renderer→main `ipcRenderer.send` ↔ `ipcMain.on` direction (used by the
+ * theme-editor window for theme:preview / theme:editor:*) is guarded too.
  *
  * Pure text analysis — no Electron process is started.
  *
@@ -78,6 +79,7 @@ const mainProcessSource =
   read("updater.js");
 
 const handlers = channelsFor(mainProcessSource, "ipcMain\\.handle");
+const mainOn = channelsFor(mainProcessSource, "ipcMain\\.on");
 const invokes = [
   ...channelsFor(read("preload.js"), "ipcRenderer\\.invoke"),
   ...channelsFor(read("preload-theme-editor.js"), "ipcRenderer\\.invoke"),
@@ -109,6 +111,14 @@ const listens = [
   ...channelsFor(read("preload.js"), "ipcRenderer\\.on"),
   ...channelsFor(read("preload-theme-editor.js"), "ipcRenderer\\.on"),
   ...channelsFor(read("preload-docs.js"), "ipcRenderer\\.on"),
+];
+
+// Renderer→main fire-and-forget channels (`ipcRenderer.send` ↔ `ipcMain.on`),
+// used by the theme-editor window. Same one-side-rename hazard as the others.
+const rendererSends = [
+  ...channelsFor(read("preload.js"), "ipcRenderer\\.send"),
+  ...channelsFor(read("preload-theme-editor.js"), "ipcRenderer\\.send"),
+  ...channelsFor(read("preload-docs.js"), "ipcRenderer\\.send"),
 ];
 
 test("no IPC channel is handled more than once across the main process", () => {
@@ -159,6 +169,25 @@ test("every main→renderer push channel has a preload listener, and vice versa"
   );
 });
 
+test("every renderer→main send channel has a main ipcMain.on handler, and vice versa", () => {
+  const onSet = new Set(mainOn);
+  const sendSet = new Set(rendererSends);
+
+  const orphanOn = [...onSet].filter((c) => !sendSet.has(c));
+  const orphanSends = [...sendSet].filter((c) => !onSet.has(c));
+
+  assert.deepEqual(
+    orphanOn,
+    [],
+    `ipcMain.on channels with no preload ipcRenderer.send: ${orphanOn.join(", ")}`,
+  );
+  assert.deepEqual(
+    orphanSends,
+    [],
+    `preload ipcRenderer.send channels with no ipcMain.on handler: ${orphanSends.join(", ")}`,
+  );
+});
+
 test("every invoke/handle channel follows the area:noun:verb naming convention", () => {
   // Two or more colon-separated segments; each segment lowercase, starting with
   // a letter, with hyphens only between alphanumerics (no camelCase, no _).
@@ -166,7 +195,14 @@ test("every invoke/handle channel follows the area:noun:verb naming convention",
   const CONVENTION = new RegExp(`^${SEGMENT}(?::${SEGMENT})+$`);
 
   const offenders = [
-    ...new Set([...handlers, ...invokes, ...sends, ...listens]),
+    ...new Set([
+      ...handlers,
+      ...invokes,
+      ...sends,
+      ...listens,
+      ...mainOn,
+      ...rendererSends,
+    ]),
   ].filter((channel) => !CONVENTION.test(channel));
   assert.deepEqual(
     offenders,
