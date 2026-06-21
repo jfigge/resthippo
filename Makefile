@@ -496,7 +496,12 @@ release:
 	if ! $(MAKE) test; then echo "Tests failed; aborting release (no changes made)."; exit 1; fi; \
 	echo "Bumping version on $(MAIN_BRANCH)..."; \
 	(cd $(SRC_DIR) && npm version "$$NEW" --no-git-tag-version >/dev/null); \
-	git add src/package.json src/package-lock.json; \
+	sed -i.bak -E \
+		-e "s|(id=\"hero-version\">)v[0-9]+\.[0-9]+\.[0-9]+|\1v$$NEW|" \
+		-e "s|(id=\"dl-version\">)[0-9]+\.[0-9]+\.[0-9]+|\1$$NEW|" \
+		-e "s|(id=\"footer-version\">)v[0-9]+\.[0-9]+\.[0-9]+|\1v$$NEW|" \
+		website/index.html && rm -f website/index.html.bak; \
+	git add src/package.json src/package-lock.json website/index.html; \
 	git commit -m "Release v$$NEW" >/dev/null; \
 	echo "Fast-forwarding $(RELEASE_BRANCH) to $(MAIN_BRANCH)..."; \
 	if git show-ref --verify --quiet refs/remotes/origin/$(RELEASE_BRANCH); then \

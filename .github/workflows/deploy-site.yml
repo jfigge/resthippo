@@ -1,10 +1,16 @@
 name: Deploy Website
 
 # Builds the marketing/download site and publishes it to GitHub Pages
-# (resthippo.com). Runs when a GitHub Release is published (so a new version
-# shows up for download), on every push to main, and manually. Downloads link to
+# (resthippo.com). Runs on every push to main and manually. Downloads link to
 # GitHub Releases; versions.json and the hosted user guide are generated here so
 # the site always tracks the repo.
+#
+# NOTE: there is deliberately NO `release: published` trigger. GitHub never
+# starts a workflow run from an event created by the default GITHUB_TOKEN, and
+# our Releases are published by the Release workflow using that token — so a
+# `release: published` trigger here would silently never fire. Instead, the
+# Release workflow (release.yml) explicitly dispatches this one via
+# `workflow_dispatch` after publishing, which DOES fire with the built-in token.
 #
 # NOTE: this deliberately has NO `paths:` filter. A path-filtered push trigger
 # does not reliably fire on a squash-merge commit (the merge that lands a PR can
@@ -15,8 +21,6 @@ name: Deploy Website
 # Requires Pages → Source = "GitHub Actions" (the build job's configure-pages
 # step enables it on first run). Custom domain comes from website/CNAME.
 on:
-  release:
-    types: [published]
   push:
     branches: [main]
   workflow_dispatch: {}

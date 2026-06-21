@@ -147,3 +147,26 @@ jobs:
           draft: false
           generate_release_notes: true
           fail_on_unmatched_files: true
+
+  # ── Refresh the website now that the Release is published ───────────────────
+  # deploy-site.yml's `release: published` trigger does NOT fire from here:
+  # GitHub never starts a workflow run from an event created by the default
+  # GITHUB_TOKEN, and the Release above is published with that token. The push of
+  # the version-bump commit to main *does* run deploy-site, but ~8 min earlier —
+  # before this Release exists — so it captures the OLD version. We close the gap
+  # by explicitly dispatching deploy-site after publishing; workflow_dispatch is
+  # the sanctioned exception to the GITHUB_TOKEN no-recursion rule, so it fires
+  # reliably with the built-in token (no PAT needed). Gated on `release`, so a
+  # manual workflow_dispatch smoke build (where `release` is skipped) won't run it.
+  refresh-site:
+    name: Refresh website
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write # POST .../actions/workflows/{id}/dispatches
+    steps:
+      - name: Trigger Deploy Website
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy-site.yml --ref main --repo "${{ github.repository }}"
