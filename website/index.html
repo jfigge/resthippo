@@ -75,6 +75,29 @@
       line-height: 1.6;
     }
 
+    /* ── Pre-release banner ────────────────────────────────────────────────── */
+
+    .prerelease-banner {
+      background: color-mix(in srgb, var(--yellow) 14%, var(--crust));
+      border-bottom: 1px solid color-mix(in srgb, var(--yellow) 35%, transparent);
+      color: var(--text);
+      padding: 9px 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .prerelease-banner svg {
+      flex-shrink: 0;
+      color: var(--yellow);
+    }
+
+    .prerelease-banner strong { color: var(--yellow); font-weight: 700; }
+
     /* ── Nav ───────────────────────────────────────────────────────────────── */
 
     nav {
@@ -629,6 +652,7 @@
     /* ── Responsive ────────────────────────────────────────────────────────── */
 
     @media (max-width: 640px) {
+      .prerelease-banner { padding: 9px 1rem; font-size: 0.74rem; }
       nav { padding: 0 1rem; }
       .nav-right .nav-link { display: none; }
       .hero { padding: 64px 1rem 48px; }
@@ -644,6 +668,14 @@
   </style>
 </head>
 <body>
+
+<!-- ── Pre-release notice ──────────────────────────────────────────────────── -->
+<div class="prerelease-banner" role="alert">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+  <span><strong>Pre-release:</strong> Rest Hippo is still in active development and full testing hasn't been fully completed. User discretion is advised — if you have any concerns, please wait for the 1.0.0 release.</span>
+</div>
 
 <!-- ── Navigation ──────────────────────────────────────────────────────────── -->
 <nav>
