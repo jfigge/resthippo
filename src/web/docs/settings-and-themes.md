@@ -36,6 +36,7 @@ font size anywhere with <kbd>⌘/Ctrl</kbd>+<kbd>+</kbd> /
 | **Verify SSL certificates**          | Reject invalid/self-signed certificates. Turn off to test against dev servers. |
 | **Show Captures tab**                | Show the **Captures** tab on the request editor. When off, the tab is hidden _and_ capture rules are not run after a response. Off by default. |
 | **Show Scripts tab**                 | Show the **Scripts** tab on the request editor. When off, the tab is hidden _and_ pre-request / after-response scripts are not executed. Off by default. |
+| **Show Tests tab**                   | Show the **Tests** tab on the request editor. When off, the tab is hidden _and_ no-code assertions are not run after a response. Off by default. |
 | **Show Notes tab**                   | Show the **Notes** tab on the request editor. On by default.                   |
 
 ## Proxy

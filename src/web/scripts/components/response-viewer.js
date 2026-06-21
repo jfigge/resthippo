@@ -846,6 +846,16 @@ export class ResponseViewer {
         // Preview (HTML only) and Tests (only when a run has assertions) start
         // hidden; #setPreviewTabVisible / #setTestsTabVisible reveal them.
         if (tab.id === "preview" || tab.id === "tests") btn.hidden = true;
+        // Right-click on the Timeline tab → switch to it, then show a one-item
+        // "Delete All History" menu (the same clear the per-entry menu offers).
+        if (tab.id === "timeline") {
+          btn.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.#switchTab("timeline");
+            this.#showTimelineTabContextMenu(e.clientX, e.clientY);
+          });
+        }
       }
 
       btn.addEventListener("click", () => this.#switchTab(tab.id));
@@ -1013,6 +1023,20 @@ export class ResponseViewer {
     } else if (clickedId) {
       this.#setRenderMode(clickedId);
     }
+  }
+
+  /**
+   * Right-click menu for the Timeline tab: a single "Delete All History" entry
+   * wired to the same clear the per-entry context menu uses (TimelineView owns
+   * the action + the current request id).
+   */
+  async #showTimelineTabContextMenu(x, y) {
+    const clickedId = await window.hippo.ui.contextMenu.show({
+      items: [{ id: "delete-all", label: t("menu.deleteAllHistory") }],
+      x,
+      y,
+    });
+    if (clickedId === "delete-all") this.#timeline.clearAll();
   }
 
   /**

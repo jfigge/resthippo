@@ -662,6 +662,42 @@ test("right-click → Restore dispatches timeline-restore with the snapshot", as
   );
 });
 
+test("double-clicking a timeline entry restores it, like the menu item", async () => {
+  const { window, viewer } = mountViewer();
+  await openTimeline(window, viewer, [
+    timelineEntry({ id: "h1", requestUrl: "http://x/latest" }),
+    timelineEntry({ id: "h2", requestUrl: "http://x/older" }),
+  ]);
+
+  let restored = null;
+  window.addEventListener(
+    "hippo:timeline-restore",
+    (e) => (restored = e.detail),
+  );
+
+  // First click selects (and re-renders the list); re-query before the second
+  // click so it lands on the rebuilt row, exactly as a real double-click does.
+  viewer.element
+    .querySelectorAll(".timeline-list .timeline-item")[1]
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  viewer.element
+    .querySelectorAll(".timeline-list .timeline-item")[1]
+    .dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 10));
+
+  assert.ok(restored, "timeline-restore fired on double-click");
+  assert.equal(
+    restored.requestUrl,
+    "http://x/older",
+    "restores the double-clicked entry",
+  );
+  assert.equal(
+    restored.requestNode?.id,
+    "req1",
+    "carries the request snapshot, like the menu item",
+  );
+});
+
 test("right-click → Delete Entry dispatches timeline-delete-entry", async () => {
   const { window, viewer } = mountViewer();
   await openTimeline(window, viewer, [
@@ -684,6 +720,61 @@ test("right-click → Delete Entry dispatches timeline-delete-entry", async () =
   assert.ok(deleted, "timeline-delete-entry fired");
   assert.equal(deleted.requestId, "req1");
   assert.equal(deleted.historyId, "h2", "targets the right-clicked entry");
+});
+
+test("right-click on the Timeline tab → Delete All History clears the history", async () => {
+  const { window, viewer } = mountViewer();
+  await openTimeline(window, viewer, [
+    timelineEntry({ id: "h1" }),
+    timelineEntry({ id: "h2" }),
+  ]);
+
+  window.hippo.ui = { contextMenu: { show: async () => "delete-all" } };
+  let cleared = null;
+  window.addEventListener("hippo:timeline-clear", (e) => (cleared = e.detail));
+
+  viewer.element
+    .querySelector('.res-tab-btn[data-tab="timeline"]')
+    .dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 10));
+
+  assert.ok(cleared, "timeline-clear fired");
+  assert.equal(
+    cleared.requestId,
+    "req1",
+    "clears the shown request's history — same action as the per-entry menu",
+  );
+});
+
+test("right-click on the Timeline tab also switches to it", async () => {
+  const { window, viewer } = mountViewer();
+  // Body tab is active; load timeline entries WITHOUT clicking the tab.
+  await showResponse(window, baseResponse({ body: "{}" }));
+  window.dispatchEvent(
+    new window.CustomEvent("hippo:timeline-update", {
+      detail: {
+        requestId: "req1",
+        entries: [timelineEntry({ id: "h1" })],
+        isRequestSwitch: false,
+      },
+    }),
+  );
+  window.hippo.ui = { contextMenu: { show: async () => null } }; // menu dismissed
+
+  const tab = viewer.element.querySelector('.res-tab-btn[data-tab="timeline"]');
+  assert.equal(
+    tab.classList.contains("res-tab-btn--active"),
+    false,
+    "timeline tab not active before the right-click",
+  );
+
+  tab.dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 10));
+
+  assert.ok(
+    tab.classList.contains("res-tab-btn--active"),
+    "right-click switched to the Timeline tab even though the menu was dismissed",
+  );
 });
 
 // ── Timing breakdown (Feature 45) ───────────────────────────────────────────

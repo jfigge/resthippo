@@ -37,6 +37,9 @@ import { icon } from "../../icons.js";
 const SVG_COPY = icon("copy", { size: 18 });
 const SVG_CHECK = icon("check", { size: 18 });
 
+/** Max gap (ms) between two clicks on the same row to count as a double-click. */
+const DOUBLE_CLICK_MS = 400;
+
 export class TimelineView {
   #getActiveTab;
   #getPane;
@@ -48,6 +51,8 @@ export class TimelineView {
   #timelineSelected = -1; // index of the selected entry (-1 = none)
   #requestId = null; // id of the request whose timeline is shown (for delete/clear)
   #timestampTimer = null; // setInterval handle for live timestamp updates
+  #lastClickIdx = -1; // row index of the previous click (for double-click detection)
+  #lastClickAt = 0; // timestamp (ms) of the previous click
 
   /**
    * @param {object} deps
@@ -192,11 +197,31 @@ export class TimelineView {
     item.appendChild(ts);
     item.appendChild(record);
 
-    // Left-click selects the entry: highlight it, render its request snapshot in
-    // the detail panel, and load that run's response into the other tabs. This
-    // is non-destructive — it never overwrites the live request. Use the
-    // right-click "Restore" action for that.
-    item.addEventListener("click", () => this.#selectTimelineEntry(idx));
+    // Single click selects the entry: highlight it, render its request snapshot
+    // in the detail panel, and load that run's response into the other tabs.
+    // This is non-destructive — it never overwrites the live request. A double
+    // click restores the snapshot into the editor, matching the right-click
+    // "Restore Into Editor" action.
+    //
+    // Double-click is detected manually rather than via a native `dblclick`
+    // listener: selecting re-renders the list, so the row element the first
+    // click landed on is gone before the second click — a native dblclick
+    // (which needs both clicks on the same element) would never fire.
+    item.addEventListener("click", () => {
+      const now = Date.now();
+      if (
+        this.#lastClickIdx === idx &&
+        now - this.#lastClickAt < DOUBLE_CLICK_MS
+      ) {
+        this.#lastClickIdx = -1;
+        this.#lastClickAt = 0;
+        this.#restoreTimelineEntry(entry);
+      } else {
+        this.#lastClickIdx = idx;
+        this.#lastClickAt = now;
+        this.#selectTimelineEntry(idx);
+      }
+    });
 
     // Right-click opens the OS-native actions menu (restore / copy / delete).
     item.addEventListener("contextmenu", (e) => {
@@ -243,20 +268,30 @@ export class TimelineView {
     ];
     const clickedId = await window.hippo.ui.contextMenu.show({ items, x, y });
     if (clickedId === "restore") {
-      window.dispatchEvent(
-        new CustomEvent("hippo:timeline-restore", {
-          detail: {
-            requestNode: entry.requestNode,
-            requestUrl: entry.requestUrl ?? "",
-            response: entry.response,
-          },
-        }),
-      );
+      this.#restoreTimelineEntry(entry);
     } else if (clickedId === "delete") {
       this.#deleteTimelineEntry(entry.id);
     } else if (clickedId === "delete-all") {
       this.#clearTimeline();
     }
+  }
+
+  /**
+   * Replay a timeline entry's request snapshot back into the editor — the one
+   * destructive timeline action. Shared by the right-click "Restore Into Editor"
+   * menu item and the double-click shortcut. app.js owns the actual editor load.
+   */
+  #restoreTimelineEntry(entry) {
+    if (!entry) return;
+    window.dispatchEvent(
+      new CustomEvent("hippo:timeline-restore", {
+        detail: {
+          requestNode: entry.requestNode,
+          requestUrl: entry.requestUrl ?? "",
+          response: entry.response,
+        },
+      }),
+    );
   }
 
   /**
@@ -281,6 +316,15 @@ export class TimelineView {
         detail: { requestId: this.#requestId },
       }),
     );
+  }
+
+  /**
+   * Public alias for the per-entry context menu's "Delete All History" action,
+   * so the host (ResponseViewer) can wire the same clear to the Timeline tab's
+   * own right-click menu. Same single source of truth — no duplicated logic.
+   */
+  clearAll() {
+    this.#clearTimeline();
   }
 
   // ── Timeline detail panel ─────────────────────────────────────────────────

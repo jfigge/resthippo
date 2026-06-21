@@ -292,6 +292,19 @@ function _buildSnapshot(node) {
     body: bodyContent,
     ...(bodyGraphql ? { bodyGraphql } : {}),
     notes: node.notes ?? "",
+    // Post-response / test configuration — captured so a Timeline restore
+    // reinstates the request's tests, scripts, and captures exactly as they
+    // were for this run. Without these the snapshot would carry no test
+    // definition, so restoring it blanks the editor's Tests/Scripts/Captures
+    // tabs (the stored request keeps them, which is why re-selecting the
+    // request brings them back). Stored structured — load() consumes them as-is.
+    assertions: Array.isArray(node.assertions) ? node.assertions : [],
+    captures: Array.isArray(node.captures) ? node.captures : [],
+    preRequestScript: node.preRequestScript ?? "",
+    afterResponseScript: node.afterResponseScript ?? "",
+    preRequestScriptEnabled: node.preRequestScriptEnabled !== false,
+    afterResponseScriptEnabled: node.afterResponseScriptEnabled !== false,
+    ...(node.scriptSplit != null ? { scriptSplit: node.scriptSplit } : {}),
   };
 }
 

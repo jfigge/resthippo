@@ -332,8 +332,8 @@ const TABS = [
   { id: "body", labelKey: "request.tab.body" },
   { id: "auth", labelKey: "request.tab.auth" },
   { id: "captures", labelKey: "request.tab.captures" },
-  { id: "scripts", labelKey: "request.tab.scripts" },
   { id: "tests", labelKey: "request.tab.tests" },
+  { id: "scripts", labelKey: "request.tab.scripts" },
   { id: "notes", labelKey: "request.tab.notes" },
 ];
 
@@ -346,6 +346,7 @@ const WS_TABS = [
   { id: "auth", labelKey: "request.tab.auth" },
   { id: "captures", labelKey: "request.tab.captures" },
   { id: "tests", labelKey: "request.tab.tests" },
+  { id: "scripts", labelKey: "request.tab.scripts" },
   { id: "notes", labelKey: "request.tab.notes" },
 ];
 
@@ -1352,8 +1353,8 @@ export class RequestEditor {
     if (tabId === "message") return this.#buildMessageEditor();
     if (tabId === "auth") return this.#auth.element;
     if (tabId === "captures") return this.#capturesEditor.build();
-    if (tabId === "scripts") return this.#scriptsEditor.build();
     if (tabId === "tests") return this.#testsEditor.build();
+    if (tabId === "scripts") return this.#scriptsEditor.build();
     if (tabId === "notes") return this.#notesEditor.build();
     return document.createElement("div");
   }
@@ -3298,6 +3299,26 @@ export class RequestEditor {
     } else {
       node.bodyText = snapshot.body ?? "";
     }
+
+    // Test / script / capture configuration. New snapshots store these so a
+    // restore reinstates the exact config that ran; older snapshots predate the
+    // capture, so fall back to the request's CURRENT config (still loaded in the
+    // editor) rather than blanking it. `??` (not `||`) so an explicit empty
+    // string / false / [] in a new snapshot is honoured, not overwritten.
+    const currentScripts = this.#scriptsEditor.getValue();
+    node.assertions = snapshot.assertions ?? this.#testsEditor.getValue();
+    node.captures = snapshot.captures ?? this.#capturesEditor.getValue();
+    node.preRequestScript =
+      snapshot.preRequestScript ?? currentScripts.preRequestScript;
+    node.afterResponseScript =
+      snapshot.afterResponseScript ?? currentScripts.afterResponseScript;
+    node.preRequestScriptEnabled =
+      snapshot.preRequestScriptEnabled ??
+      currentScripts.preRequestScriptEnabled;
+    node.afterResponseScriptEnabled =
+      snapshot.afterResponseScriptEnabled ??
+      currentScripts.afterResponseScriptEnabled;
+    node.scriptSplit = snapshot.scriptSplit ?? currentScripts.scriptSplit;
 
     this.load(node);
     return node;

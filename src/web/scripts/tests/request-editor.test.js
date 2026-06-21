@@ -390,3 +390,43 @@ test("the Send button reverts to Send when the stream ends", () => {
     "reverts to Send once the stream ends",
   );
 });
+
+// ── loadSnapshot: test/script/capture config round-trips (timeline restore) ──
+
+test("loadSnapshot restores the test config carried by the snapshot", () => {
+  const { editor } = mountEditor({ id: "r1", url: "http://x" });
+  const node = editor.loadSnapshot({
+    id: "r1",
+    method: "GET",
+    url: "http://x",
+    bodyType: "no-body",
+    assertions: [{ source: "status", matcher: "equals", expected: "200" }],
+    captures: [{ source: "body", path: "$.id", target: "id" }],
+    afterResponseScript: "hippo.test('ok', () => {});",
+    afterResponseScriptEnabled: true,
+  });
+  assert.equal(node.assertions.length, 1, "assertion restored");
+  assert.equal(node.assertions[0].expected, "200");
+  assert.equal(node.captures.length, 1, "capture restored");
+  assert.equal(node.afterResponseScript, "hippo.test('ok', () => {});");
+});
+
+test("loadSnapshot keeps the request's current tests when the snapshot has none (old entry)", () => {
+  const { editor } = mountEditor({
+    id: "r1",
+    url: "http://x",
+    assertions: [{ source: "status", matcher: "equals", expected: "201" }],
+    afterResponseScript: "current();",
+  });
+  // An older timeline entry predates test-config capture: no assertions/script
+  // fields. Restoring it must NOT blank the request's live tests.
+  const node = editor.loadSnapshot({
+    id: "r1",
+    method: "GET",
+    url: "http://x",
+    bodyType: "no-body",
+  });
+  assert.equal(node.assertions.length, 1, "current assertions preserved");
+  assert.equal(node.assertions[0].expected, "201");
+  assert.equal(node.afterResponseScript, "current();", "current script kept");
+});

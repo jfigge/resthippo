@@ -129,6 +129,16 @@ event/byte counts, and the last events) rather than a body:
 
 ![The response timeline](images/response-timeline.png)
 
+- **Click** an entry to view that run — its response loads into the Body,
+  Headers, and Cookies tabs and its snapshot shows on the right. This is
+  non-destructive; your live request is untouched.
+- **Double-click** an entry (or right-click → **Restore Into Editor**) to replay
+  that snapshot back into the request editor.
+- **Right-click** for the full menu: restore, delete the entry, or clear the
+  whole history.
+- **Right-click the Timeline tab** itself to switch to it and get a quick
+  **Delete All History** — the same as clearing from an entry's menu.
+
 How many runs are kept is configurable in
 [Settings → History](settings-and-themes.md#history).
 
