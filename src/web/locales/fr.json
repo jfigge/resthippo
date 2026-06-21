@@ -289,7 +289,8 @@
       "retries": "Nouvelles tentatives",
       "history": "Historique",
       "certificates": "Certificats",
-      "about": "À propos"
+      "about": "À propos",
+      "security": "Sécurité"
     },
     "appearance": {
       "theme": "Thème",
@@ -380,6 +381,41 @@
     "about": {
       "checkButton": "Rechercher des mises à jour",
       "version": "Rest Hippo {version}"
+    },
+    "security": {
+      "heading": "Stockage des secrets",
+      "help": "Choisissez la façon dont Rest Hippo chiffre les secrets — mots de passe, jetons et clés — sur cet appareil. Changer de méthode rechiffre tous les secrets enregistrés.",
+      "modeAria": "Mode de stockage des secrets",
+      "mode": {
+        "appKey": "Cet appareil (sans invite)",
+        "appKeyDesc": "Chiffrer avec une clé conservée sur cet appareil. Aucune invite du système, mais quiconque peut lire les fichiers de cet ordinateur pourrait lire vos secrets.",
+        "osKeychain": "Trousseau du système",
+        "osKeychainDesc": "Chiffrer avec le trousseau de votre système d'exploitation. La protection la plus forte, mais le système peut demander l'accès.",
+        "masterPassword": "Mot de passe maître",
+        "masterPasswordDesc": "Chiffrer avec un mot de passe de votre choix. Les secrets restent verrouillés jusqu'à ce que vous les déverrouilliez à chaque session. Si vous l'oubliez, ils ne pourront pas être récupérés."
+      },
+      "lockedNote": "Les secrets sont verrouillés. Saisissez votre mot de passe maître pour les déverrouiller pour cette session.",
+      "password": "Mot de passe",
+      "confirmPassword": "Confirmer le mot de passe",
+      "setPasswordWarn": "Si vous oubliez ce mot de passe, vos secrets enregistrés ne pourront pas être récupérés.",
+      "setPasswordSubmit": "Définir le mot de passe et chiffrer",
+      "unlock": "Déverrouiller",
+      "unlocking": "Déverrouillage…",
+      "switching": "Rechiffrement des secrets…",
+      "switchTitle": "Changer le stockage des secrets ?",
+      "switchMessage": "Cela rechiffre chaque secret enregistré avec la nouvelle méthode. Continuer ?",
+      "switchConfirm": "Changer",
+      "unlockTitle": "Déverrouiller les secrets",
+      "unlockIntro": "Saisissez votre mot de passe maître pour déverrouiller vos secrets enregistrés pour cette session.",
+      "error": {
+        "passwordRequired": "Saisissez un mot de passe.",
+        "passwordMismatch": "Les mots de passe ne correspondent pas.",
+        "badPassword": "Mot de passe incorrect.",
+        "migrationFailed": "Certains secrets n'ont pas pu être convertis ; la méthode de stockage est restée inchangée.",
+        "keychainUnavailable": "Le trousseau du système n'est pas disponible sur ce système.",
+        "lockedSwitch": "Déverrouillez d'abord vos secrets, puis changez de méthode de stockage.",
+        "generic": "Une erreur s'est produite. Veuillez réessayer."
+      }
     }
   },
   "request": {
@@ -1131,7 +1167,8 @@
       "realm": "Realm",
       "realmPlaceholder": "Realm (facultatif)",
       "hint": "Signé lors de l’envoi de la requête ; le nonce et l’horodatage sont générés automatiquement."
-    }
+    },
+    "decryptLocked": "Les secrets sont verrouillés."
   },
   "wsConsole": {
     "state": {

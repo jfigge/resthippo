@@ -1,0 +1,79 @@
+{
+  "id": "00000000-0000-4000-8000-000000000021",
+  "type": "request",
+  "name": "Add pet",
+  "method": "POST",
+  "url": "{{baseUrl}}/echo/pets",
+  "schemaVersion": 1,
+  "params": [],
+  "headers": [
+    {
+      "id": "c0000000-0000-4000-8000-000000000006",
+      "name": "Content-Type",
+      "value": "application/json",
+      "enabled": true
+    }
+  ],
+  "authEnabled": false,
+  "authType": "none",
+  "authBasic": {
+    "username": "",
+    "password": ""
+  },
+  "authBearer": {
+    "token": ""
+  },
+  "authApiKey": {
+    "name": "",
+    "value": "",
+    "addTo": "header"
+  },
+  "authDigest": {
+    "username": "",
+    "password": ""
+  },
+  "authNtlm": {
+    "username": "",
+    "password": "",
+    "domain": "",
+    "workstation": ""
+  },
+  "authOAuth2": {
+    "grantType": "client_credentials",
+    "clientType": "confidential",
+    "clientId": "",
+    "clientSecret": "",
+    "accessTokenUrl": "",
+    "authUrl": "",
+    "scope": "",
+    "state": "",
+    "credentials": "header",
+    "headerPrefix": "",
+    "audience": "",
+    "resource": "",
+    "origin": "",
+    "redirectUri": "",
+    "responseType": "access_token",
+    "username": "",
+    "password": "",
+    "discoveredIssuer": "",
+    "discoveredScopes": null
+  },
+  "authAwsIam": {
+    "accessKeyId": "",
+    "secretAccessKey": "",
+    "region": "",
+    "service": "",
+    "sessionToken": ""
+  },
+  "bodyType": "json",
+  "bodyFormRows": [],
+  "bodyText": "{\n  \"name\": \"Rex\",\n  \"species\": \"dog\"\n}",
+  "bodyFilePath": "",
+  "bodyGraphql": {
+    "query": "",
+    "variables": ""
+  },
+  "captures": [],
+  "assertions": []
+}

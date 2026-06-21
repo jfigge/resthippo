@@ -289,7 +289,8 @@
       "retries": "Nuovi tentativi",
       "history": "Cronologia",
       "certificates": "Certificati",
-      "about": "Informazioni"
+      "about": "Informazioni",
+      "security": "Sicurezza"
     },
     "appearance": {
       "theme": "Tema",
@@ -380,6 +381,41 @@
     "about": {
       "checkButton": "Controlla aggiornamenti",
       "version": "Rest Hippo {version}"
+    },
+    "security": {
+      "heading": "Archiviazione dei segreti",
+      "help": "Scegli come Rest Hippo cifra i segreti — password, token e chiavi — su questo dispositivo. Il cambio ricifra tutti i segreti memorizzati.",
+      "modeAria": "Modalità di archiviazione dei segreti",
+      "mode": {
+        "appKey": "Questo dispositivo (nessuna richiesta)",
+        "appKeyDesc": "Cifra con una chiave conservata su questo dispositivo. Nessuna richiesta di sistema, ma chiunque possa leggere i file di questo computer potrebbe leggere i tuoi segreti.",
+        "osKeychain": "Portachiavi del sistema",
+        "osKeychainDesc": "Cifra con il portachiavi del tuo sistema operativo. La protezione più forte, ma il sistema potrebbe richiedere l'accesso.",
+        "masterPassword": "Password principale",
+        "masterPasswordDesc": "Cifra con una password scelta da te. I segreti restano bloccati finché non li sblocchi a ogni sessione. Se la dimentichi, non potranno essere recuperati."
+      },
+      "lockedNote": "I segreti sono bloccati. Inserisci la tua password principale per sbloccarli per questa sessione.",
+      "password": "Password",
+      "confirmPassword": "Conferma password",
+      "setPasswordWarn": "Se dimentichi questa password, i tuoi segreti memorizzati non potranno essere recuperati.",
+      "setPasswordSubmit": "Imposta password e cifra",
+      "unlock": "Sblocca",
+      "unlocking": "Sblocco in corso…",
+      "switching": "Ricifratura dei segreti…",
+      "switchTitle": "Cambiare l'archiviazione dei segreti?",
+      "switchMessage": "Questo ricifra ogni segreto memorizzato con il nuovo metodo. Continuare?",
+      "switchConfirm": "Cambia",
+      "unlockTitle": "Sblocca i segreti",
+      "unlockIntro": "Inserisci la tua password principale per sbloccare i segreti memorizzati per questa sessione.",
+      "error": {
+        "passwordRequired": "Inserisci una password.",
+        "passwordMismatch": "Le password non corrispondono.",
+        "badPassword": "Password errata.",
+        "migrationFailed": "Alcuni segreti non è stato possibile convertirli, quindi il metodo di archiviazione è rimasto invariato.",
+        "keychainUnavailable": "Il portachiavi del sistema non è disponibile su questo sistema.",
+        "lockedSwitch": "Sblocca prima i tuoi segreti, poi cambia metodo di archiviazione.",
+        "generic": "Qualcosa è andato storto. Riprova."
+      }
     }
   },
   "request": {
@@ -1131,7 +1167,8 @@
       "realm": "Realm",
       "realmPlaceholder": "Realm (facoltativo)",
       "hint": "Firmato all’invio della richiesta; nonce e timestamp vengono generati automaticamente."
-    }
+    },
+    "decryptLocked": "I segreti sono bloccati."
   },
   "wsConsole": {
     "state": {

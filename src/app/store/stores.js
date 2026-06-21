@@ -35,6 +35,7 @@
 const io = require("./io");
 const { Paths } = require("./paths");
 const { Resolver } = require("./resolver");
+const { SecretStorage } = require("./secret-storage");
 const { CollectionRepository } = require("./collection-repository");
 const { CollectionStore } = require("./collection-store");
 const { CollectionsStore } = require("./collections-store");
@@ -52,6 +53,14 @@ class Stores {
   constructor(dataDir) {
     this._paths = new Paths(dataDir);
     this._resolver = new Resolver(this._paths);
+
+    // Resolve the secret-storage backend and configure crypto BEFORE any store is
+    // built — the very first manifest read decrypts settings, so the active mode
+    // and keys must be in place first (and resolving the mode must never touch the
+    // keystore, so it can't trigger the macOS keychain prompt). On a fresh config
+    // the mode is inferred from existing ciphertext and persisted.
+    this._secretStorage = new SecretStorage(this._paths);
+    this._secretStorage.bootstrap();
 
     // Sweep orphaned temp files left by any prior crashed write before stores run.
     io.gcOrphanTempFiles(this._paths.dataDir);
@@ -132,6 +141,11 @@ class Stores {
   /** Whole-workspace backup export / import store. */
   backupStore() {
     return this._backupStore;
+  }
+
+  /** Selectable secret-storage backend (mode config, keys, migration). */
+  secretStorage() {
+    return this._secretStorage;
   }
 
   /** Shared Paths instance — the single source of truth for filesystem paths. */

@@ -1,0 +1,68 @@
+{
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "date": "Sat, 20 Jun 2026 02:00:17 GMT",
+    "content-length": "441"
+  },
+  "cookies": [],
+  "body": "{\n  \"method\": \"GET\",\n  \"url\": \"/echo?role=ADMIN\\u0026active=true\\u0026role=ADMIN\\u0026active=true\",\n  \"path\": \"/echo\",\n  \"protocol\": \"HTTP/1.1\",\n  \"host\": \"localhost:8888\",\n  \"remoteAddr\": \"[::1]:63782\",\n  \"params\": {\n    \"active\": [\n      \"true\",\n      \"true\"\n    ],\n    \"role\": [\n      \"ADMIN\",\n      \"ADMIN\"\n    ]\n  },\n  \"headers\": {\n    \"Connection\": [\n      \"keep-alive\"\n    ]\n  },\n  \"cookies\": {},\n  \"contentLength\": 0,\n  \"body\": \"\"\n}\n",
+  "consoleLog": [
+    "* Preparing request to http://localhost:8888/echo?role=ADMIN&active=true&role=ADMIN&active=true",
+    "* Current time is 2026-06-20T02:00:17.345Z",
+    "* Enable automatic URL encoding",
+    "* Using default HTTP version",
+    "* Enable timeout of 30000ms",
+    "* Enable SSL validation",
+    "> GET /echo?role=ADMIN&active=true&role=ADMIN&active=true HTTP/1.1",
+    "> Host: localhost:8888",
+    ">",
+    "* Trying to resolve host 'localhost'...",
+    "* Resolved 'localhost' → ::1",
+    "* Trying ::1:8888...",
+    "* Resolved 'localhost' → 127.0.0.1",
+    "* Trying 127.0.0.1:8888...",
+    "* Connected to localhost (::1) port 8888",
+    "< HTTP/1.1 200 OK",
+    "< content-type: application/json; charset=utf-8",
+    "< date: Sat, 20 Jun 2026 02:00:17 GMT",
+    "< content-length: 441",
+    "<",
+    "",
+    "* Received 441 B total",
+    "* Connection to host localhost left intact",
+    "* Request timing:",
+    "*   DNS lookup        0 ms",
+    "*   TCP connect       0 ms",
+    "*   Waiting (TTFB)    1 ms",
+    "*   Content download  0 ms",
+    "*   Total             1 ms"
+  ],
+  "encoding": "utf8",
+  "truncated": false,
+  "fullSize": 441,
+  "testResults": [
+    {
+      "name": "Status equals 200",
+      "passed": true,
+      "message": ""
+    },
+    {
+      "name": "Response time is less than 1000",
+      "passed": true,
+      "message": ""
+    },
+    {
+      "name": "Header Content-Type contains json",
+      "passed": true,
+      "message": ""
+    },
+    {
+      "name": "$.method equals GET",
+      "passed": true,
+      "message": ""
+    }
+  ],
+  "historyId": "9c73b585-841f-47a1-8a10-65925104250e",
+  "requestId": "00000000-0000-4000-8000-000000000001",
+  "schemaVersion": 3
+}

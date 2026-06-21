@@ -1,0 +1,40 @@
+{
+  "headers": {
+    "content-length": "870",
+    "content-type": "image/png",
+    "date": "Sat, 20 Jun 2026 02:00:17 GMT"
+  },
+  "cookies": [],
+  "body": "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAIAAADTED8xAAADLUlEQVR4nOzVwQkAIQwAwRyk/5oPbcLHDui880jYnZnvvI8Mumf97yeD7j2D93OQT1QAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUAplUApv0DAAD//+EYhf6o0xpuAAAAAElFTkSuQmCC",
+  "consoleLog": [
+    "* Preparing request to http://localhost:8888/binary/png",
+    "* Current time is 2026-06-20T02:00:17.991Z",
+    "* Enable automatic URL encoding",
+    "* Using default HTTP version",
+    "* Enable timeout of 30000ms",
+    "* Enable SSL validation",
+    "> GET /binary/png HTTP/1.1",
+    "> Host: localhost:8888",
+    ">",
+    "* Trying to resolve host 'localhost'...",
+    "< HTTP/1.1 200 OK",
+    "< content-length: 870",
+    "< content-type: image/png",
+    "< date: Sat, 20 Jun 2026 02:00:17 GMT",
+    "<",
+    "",
+    "* Received 870 B total",
+    "* Connection to host localhost left intact",
+    "* Request timing:",
+    "*   Waiting (TTFB)    3 ms",
+    "*   Content download  0 ms",
+    "*   Total             4 ms"
+  ],
+  "encoding": "base64",
+  "truncated": false,
+  "fullSize": 870,
+  "testResults": [],
+  "historyId": "3853ff8f-d0a8-4fde-88fd-d2534f900510",
+  "requestId": "00000000-0000-4000-8000-000000000013",
+  "schemaVersion": 3
+}

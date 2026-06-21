@@ -40,7 +40,17 @@ const { _setSafeStorage } = require("../crypto");
 // ── Helper: temp directory lifecycle ──────────────────────────────────────────
 
 function makeTmpDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "resthippo-test-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resthippo-test-"));
+  // Pin os-keychain mode so the test env matches the historical no-op/keychain
+  // baseline (with safeStorage absent / mocked). A fresh dir would otherwise
+  // infer the new app-key default and seal secrets with a per-dir AES key,
+  // changing the on-disk format these tests assert. bootstrap skips inference
+  // when the config exists.
+  fs.writeFileSync(
+    path.join(dir, "secret-storage.json"),
+    JSON.stringify({ version: 1, mode: "os-keychain" }),
+  );
+  return dir;
 }
 
 function rmTmpDir(dir) {

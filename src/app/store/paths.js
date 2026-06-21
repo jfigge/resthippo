@@ -67,6 +67,20 @@ class Paths {
   }
 
   /**
+   * Secret-storage mode config (UNENCRYPTED — read at bootstrap before any
+   * decrypt, so it must never depend on the keystore). Holds the active mode and,
+   * for master-password mode, the PBKDF2 salt + a verifier token.
+   */
+  secretStorageConfigPath() {
+    return path.join(this.dataDir, "secret-storage.json");
+  }
+
+  /** App-key file (0600): the random 256-bit key for "app key" storage mode. */
+  secretKeyPath() {
+    return path.join(this.dataDir, "secret.key");
+  }
+
+  /**
    * Scratch directory for response bodies too large to keep in renderer memory.
    * Lives under `dataDir` so the startup orphan-temp sweep recurses into it and
    * reaps any spill files left behind by a previous session.

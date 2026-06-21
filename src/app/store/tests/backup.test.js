@@ -42,7 +42,17 @@ const PW = "correct horse battery staple";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeTmpDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "resthippo-test-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resthippo-test-"));
+  // Pin os-keychain mode: these tests were written against the historical
+  // keychain/no-op baseline (with safeStorage absent in tests → plaintext at
+  // rest). A fresh dir would otherwise infer the new app-key default, whose
+  // per-dir key is not portable across the separate src/dest profiles a backup
+  // round-trip uses. Writing the config makes bootstrap skip inference.
+  fs.writeFileSync(
+    path.join(dir, "secret-storage.json"),
+    JSON.stringify({ version: 1, mode: "os-keychain" }),
+  );
+  return dir;
 }
 
 function rmTmpDir(dir) {

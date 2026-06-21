@@ -1,0 +1,3933 @@
+{
+  "kind": "resthippo-backup",
+  "schemaVersion": 2,
+  "exportedAt": "2026-06-18T18:22:46.622Z",
+  "secretsIncluded": false,
+  "secretsMode": "none",
+  "manifest": {
+    "version": 2,
+    "collections": [
+      {
+        "id": "a0000000-0000-4000-8000-000000000001",
+        "name": "Demo API",
+        "sendCookies": true
+      },
+      {
+        "id": "a0000000-0000-4000-8000-000000000002",
+        "name": "Petstore",
+        "sendCookies": true
+      },
+      {
+        "id": "f0000000-0000-4000-8000-000000000001",
+        "name": "Feature Test Suite",
+        "sendCookies": true
+      }
+    ],
+    "activeCollectionId": "a0000000-0000-4000-8000-000000000001",
+    "settings": {
+      "theme": "grey-dark",
+      "fontSize": 13,
+      "fontFamily": "inter",
+      "locale": "system",
+      "layout": 3,
+      "timeout": 30000,
+      "followRedirects": true,
+      "verifySsl": true,
+      "streamNdjson": false,
+      "proxyEnabled": false,
+      "proxyUrl": "",
+      "proxyAuthEnabled": false,
+      "proxyUsername": "",
+      "proxyPassword": "",
+      "proxyBypass": "",
+      "clientCerts": [],
+      "caCerts": [],
+      "tlsInsecureHosts": "",
+      "retryEnabled": false,
+      "retryMaxAttempts": 3,
+      "retryBackoffMs": 500,
+      "retryBackoffMultiplier": 2,
+      "retryMaxDelayMs": 10000,
+      "retryOnConnectionError": true,
+      "retryOnTimeout": true,
+      "retryStatusCodes": "",
+      "splitterNav": 349,
+      "splitterRes": 365,
+      "splitterRowRes": 360,
+      "graphqlVarsFractionColumn": null,
+      "graphqlVarsFractionRow": null,
+      "editorFolding": true,
+      "listHeaders": true,
+      "showUrlPreview": true,
+      "varsBulkEditor": false,
+      "selectedRequestIds": {
+        "a0000000-0000-4000-8000-000000000001": "00000000-0000-4000-8000-000000000001",
+        "a0000000-0000-4000-8000-000000000002": "00000000-0000-4000-8000-000000000021"
+      },
+      "responseBodyRenderMode": "styled",
+      "methodIcons": false,
+      "wrapResponseText": true,
+      "responseBodyLineNumbers": true,
+      "responseBodyCodeFolding": true,
+      "oauth2Advanced": false,
+      "historyCount": 5,
+      "customThemes": [],
+      "favorites": [],
+      "recents": [
+        {
+          "collectionId": "a0000000-0000-4000-8000-000000000001",
+          "requestId": "00000000-0000-4000-8000-000000000001",
+          "name": "List users",
+          "method": "GET"
+        },
+        {
+          "collectionId": "a0000000-0000-4000-8000-000000000001",
+          "requestId": "00000000-0000-4000-8000-000000000002",
+          "name": "Get user by ID",
+          "method": "GET"
+        },
+        {
+          "collectionId": "a0000000-0000-4000-8000-000000000001",
+          "requestId": "00000000-0000-4000-8000-000000000012",
+          "name": "HTML page",
+          "method": "GET"
+        },
+        {
+          "collectionId": "a0000000-0000-4000-8000-000000000001",
+          "requestId": "00000000-0000-4000-8000-000000000017",
+          "name": "PDF document",
+          "method": "GET"
+        },
+        {
+          "collectionId": "a0000000-0000-4000-8000-000000000001",
+          "requestId": "00000000-0000-4000-8000-000000000015",
+          "name": "Echo socket",
+          "method": "GET",
+          "protocol": "websocket"
+        },
+        {
+          "collectionId": "a0000000-0000-4000-8000-000000000001",
+          "requestId": "00000000-0000-4000-8000-000000000011",
+          "name": "JSON",
+          "method": "GET"
+        },
+        {
+          "collectionId": "a0000000-0000-4000-8000-000000000001",
+          "requestId": "00000000-0000-4000-8000-000000000006",
+          "name": "List users",
+          "method": "POST"
+        },
+        {
+          "collectionId": "a0000000-0000-4000-8000-000000000001",
+          "requestId": "00000000-0000-4000-8000-000000000007",
+          "name": "Get user",
+          "method": "POST"
+        },
+        {
+          "collectionId": "a0000000-0000-4000-8000-000000000001",
+          "requestId": "00000000-0000-4000-8000-000000000003",
+          "name": "Create user",
+          "method": "POST"
+        }
+      ],
+      "showRecents": false,
+      "removeHeaders": true,
+      "doubleClickExecute": false,
+      "pickerDebounceMs": 200
+    },
+    "schemaVersion": 2
+  },
+  "environments": {
+    "version": 1,
+    "globalVariables": [
+      {
+        "name": "apiVersion",
+        "value": "v1",
+        "secure": false
+      }
+    ],
+    "activeEnvironmentId": "b0000000-0000-4000-8000-000000000001",
+    "environments": [
+      {
+        "id": "b0000000-0000-4000-8000-000000000001",
+        "name": "Local",
+        "variables": [
+          {
+            "name": "baseUrl",
+            "value": "http://localhost:8888",
+            "secure": false
+          },
+          {
+            "name": "userId",
+            "value": "42",
+            "secure": false
+          },
+          {
+            "name": "defaultRole",
+            "value": "admin",
+            "secure": false
+          },
+          {
+            "name": "token",
+            "value": "demo-bearer-token-abc123",
+            "secure": false
+          },
+          {
+            "name": "apiKey",
+            "value": "",
+            "secure": true
+          },
+          {
+            "name": "lastMethod",
+            "value": "GET",
+            "secure": false
+          }
+        ]
+      },
+      {
+        "id": "b0000000-0000-4000-8000-000000000002",
+        "name": "Production",
+        "variables": [
+          {
+            "name": "baseUrl",
+            "value": "https://api.example.com",
+            "secure": false
+          },
+          {
+            "name": "userId",
+            "value": "1001",
+            "secure": false
+          },
+          {
+            "name": "defaultRole",
+            "value": "admin",
+            "secure": false
+          }
+        ]
+      }
+    ],
+    "schemaVersion": 2
+  },
+  "collections": [
+    {
+      "id": "a0000000-0000-4000-8000-000000000001",
+      "metadata": {
+        "id": "a0000000-0000-4000-8000-000000000001",
+        "variables": [
+          {
+            "name": "defaultRole",
+            "value": "ADMIN",
+            "secure": false
+          }
+        ],
+        "schemaVersion": 2
+      },
+      "tree": {
+        "children": [
+          {
+            "id": "f0000000-0000-4000-8000-000000000100",
+            "type": "folder",
+            "name": "Users",
+            "variables": [],
+            "children": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "type": "requestRef"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000002",
+                "type": "requestRef"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000003",
+                "type": "requestRef"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000004",
+                "type": "requestRef"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000005",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "f0000000-0000-4000-8000-000000000200",
+            "type": "folder",
+            "name": "GraphQL",
+            "variables": [],
+            "children": [
+              {
+                "id": "00000000-0000-4000-8000-000000000006",
+                "type": "requestRef"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000007",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "f0000000-0000-4000-8000-000000000300",
+            "type": "folder",
+            "name": "Authentication",
+            "variables": [],
+            "children": [
+              {
+                "id": "00000000-0000-4000-8000-000000000008",
+                "type": "requestRef"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000009",
+                "type": "requestRef"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000010",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "f0000000-0000-4000-8000-000000000400",
+            "type": "folder",
+            "name": "Content types",
+            "variables": [],
+            "children": [
+              {
+                "id": "00000000-0000-4000-8000-000000000011",
+                "type": "requestRef"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000012",
+                "type": "requestRef"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000013",
+                "type": "requestRef"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000014",
+                "type": "requestRef"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000017",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "f0000000-0000-4000-8000-000000000600",
+            "type": "folder",
+            "name": "WebSocket",
+            "variables": [],
+            "children": [
+              {
+                "id": "00000000-0000-4000-8000-000000000015",
+                "type": "requestRef"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000016",
+                "type": "requestRef"
+              }
+            ]
+          }
+        ],
+        "schemaVersion": 2
+      },
+      "requests": [
+        {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "type": "request",
+          "name": "List users",
+          "method": "GET",
+          "url": "{{baseUrl}}/echo?role={{defaultRole}}&active=true",
+          "schemaVersion": 2,
+          "params": [
+            {
+              "id": "c0000000-0000-4000-8000-000000000001",
+              "name": "role",
+              "value": "{{defaultRole}}",
+              "enabled": true
+            },
+            {
+              "id": "c0000000-0000-4000-8000-000000000002",
+              "name": "active",
+              "value": "true",
+              "enabled": true
+            }
+          ],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": [
+            {
+              "id": "00000000-0000-4000-8000-000000000901",
+              "enabled": true,
+              "source": "body",
+              "path": ".method",
+              "target": {
+                "scope": "environment",
+                "name": "lastMethod"
+              },
+              "secure": false
+            }
+          ]
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "type": "request",
+          "name": "Get user by ID",
+          "method": "GET",
+          "url": "{{baseUrl}}/echo/users/{{userId}}",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000003",
+          "type": "request",
+          "name": "Create user",
+          "method": "POST",
+          "url": "{{baseUrl}}/echo/users",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [
+            {
+              "id": "c0000000-0000-4000-8000-000000000003",
+              "name": "Content-Type",
+              "value": "application/json",
+              "enabled": true
+            }
+          ],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "json",
+          "bodyFormRows": [],
+          "bodyText": "{\n  \"name\": \"Ada Lovelace\",\n  \"email\": \"ada@example.com\",\n  \"role\": \"ADMIN\",\n  \"active\": true\n}",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000004",
+          "type": "request",
+          "name": "Update user",
+          "method": "PUT",
+          "url": "{{baseUrl}}/echo/users/{{userId}}",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [
+            {
+              "id": "c0000000-0000-4000-8000-000000000004",
+              "name": "Content-Type",
+              "value": "application/json",
+              "enabled": true
+            }
+          ],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "json",
+          "bodyFormRows": [],
+          "bodyText": "{\n  \"active\": false\n}",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000005",
+          "type": "request",
+          "name": "Delete user",
+          "method": "DELETE",
+          "url": "{{baseUrl}}/echo/users/{{userId}}",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000006",
+          "type": "request",
+          "name": "List users",
+          "method": "POST",
+          "url": "{{baseUrl}}/graphql",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "graphql",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "query ListUsers {\n  users(role: ADMIN, active: true) {\n    id\n    name\n    email\n    role\n    active\n  }\n}",
+            "variables": "{}"
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000007",
+          "type": "request",
+          "name": "Get user",
+          "method": "POST",
+          "url": "{{baseUrl}}/graphql",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "graphql",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "query GetUser($id: ID!) {\n  user(id: $id) {\n    id\n    name\n    email\n  }\n}",
+            "variables": "{\n  \"id\": \"1\"\n}"
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000008",
+          "type": "request",
+          "name": "Bearer token",
+          "method": "GET",
+          "url": "{{baseUrl}}/echo/{{",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": true,
+          "authType": "bearer",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000009",
+          "type": "request",
+          "name": "API key",
+          "method": "GET",
+          "url": "{{baseUrl}}/echo",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": true,
+          "authType": "apikey",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "X-API-Key",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000010",
+          "type": "request",
+          "name": "OAuth 2.0",
+          "method": "GET",
+          "url": "{{baseUrl}}/echo",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": true,
+          "authType": "oauth2",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "demo-client",
+            "clientSecret": "",
+            "accessTokenUrl": "{{baseUrl}}/auth/token",
+            "authUrl": "",
+            "scope": "openid profile email",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000011",
+          "type": "request",
+          "name": "JSON",
+          "method": "GET",
+          "url": "{{baseUrl}}/mimes/application/json",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000012",
+          "type": "request",
+          "name": "HTML page",
+          "method": "GET",
+          "url": "{{baseUrl}}/mimes/text/html",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000013",
+          "type": "request",
+          "name": "PNG image",
+          "method": "GET",
+          "url": "{{baseUrl}}/binary/png",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000014",
+          "type": "request",
+          "name": "XML",
+          "method": "GET",
+          "url": "{{baseUrl}}/mimes/application/xml",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000015",
+          "type": "request",
+          "name": "Echo socket",
+          "method": "GET",
+          "url": "ws://localhost:8888/ws/echo",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": [],
+          "protocol": "websocket",
+          "wsMessage": "Hello, Rest Hippo!",
+          "wsMessageFormat": "text",
+          "wsSubprotocols": ""
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000016",
+          "type": "request",
+          "name": "Time feed",
+          "method": "GET",
+          "url": "ws://localhost:8888/ws/time",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": [],
+          "protocol": "websocket",
+          "wsMessage": "",
+          "wsMessageFormat": "text",
+          "wsSubprotocols": ""
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000017",
+          "type": "request",
+          "name": "PDF document",
+          "method": "GET",
+          "url": "{{baseUrl}}/binary/pdf",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        }
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000002",
+      "metadata": {
+        "id": "a0000000-0000-4000-8000-000000000002",
+        "variables": [],
+        "schemaVersion": 2
+      },
+      "tree": {
+        "children": [
+          {
+            "id": "f0000000-0000-4000-8000-000000000500",
+            "type": "folder",
+            "name": "Pets",
+            "variables": [],
+            "children": [
+              {
+                "id": "00000000-0000-4000-8000-000000000020",
+                "type": "requestRef"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000021",
+                "type": "requestRef"
+              }
+            ]
+          }
+        ],
+        "schemaVersion": 2
+      },
+      "requests": [
+        {
+          "id": "00000000-0000-4000-8000-000000000020",
+          "type": "request",
+          "name": "List pets",
+          "method": "GET",
+          "url": "{{baseUrl}}/echo/pets?limit=20",
+          "schemaVersion": 2,
+          "params": [
+            {
+              "id": "c0000000-0000-4000-8000-000000000005",
+              "name": "limit",
+              "value": "20",
+              "enabled": true
+            }
+          ],
+          "headers": [],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "no-body",
+          "bodyFormRows": [],
+          "bodyText": "",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000021",
+          "type": "request",
+          "name": "Add pet",
+          "method": "POST",
+          "url": "{{baseUrl}}/echo/pets",
+          "schemaVersion": 2,
+          "params": [],
+          "headers": [
+            {
+              "id": "c0000000-0000-4000-8000-000000000006",
+              "name": "Content-Type",
+              "value": "application/json",
+              "enabled": true
+            }
+          ],
+          "authEnabled": false,
+          "authType": "none",
+          "authBasic": {
+            "username": "",
+            "password": ""
+          },
+          "authBearer": {
+            "token": ""
+          },
+          "authApiKey": {
+            "name": "",
+            "value": "",
+            "addTo": "header"
+          },
+          "authDigest": {
+            "username": "",
+            "password": ""
+          },
+          "authNtlm": {
+            "username": "",
+            "password": "",
+            "domain": "",
+            "workstation": ""
+          },
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "clientType": "confidential",
+            "clientId": "",
+            "clientSecret": "",
+            "accessTokenUrl": "",
+            "authUrl": "",
+            "scope": "",
+            "state": "",
+            "credentials": "header",
+            "headerPrefix": "",
+            "audience": "",
+            "resource": "",
+            "origin": "",
+            "redirectUri": "",
+            "responseType": "access_token",
+            "username": "",
+            "password": "",
+            "discoveredIssuer": "",
+            "discoveredScopes": null
+          },
+          "authAwsIam": {
+            "accessKeyId": "",
+            "secretAccessKey": "",
+            "region": "",
+            "service": "",
+            "sessionToken": ""
+          },
+          "bodyType": "json",
+          "bodyFormRows": [],
+          "bodyText": "{\n  \"name\": \"Rex\",\n  \"species\": \"dog\"\n}",
+          "bodyFilePath": "",
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "captures": []
+        }
+      ]
+    },
+    {
+      "id": "f0000000-0000-4000-8000-000000000001",
+      "metadata": {
+        "id": "f0000000-0000-4000-8000-000000000001",
+        "variables": [
+          {
+            "name": "mockUrl",
+            "value": "http://localhost:8888",
+            "secure": false
+          },
+          {
+            "name": "mockWsUrl",
+            "value": "ws://localhost:8888",
+            "secure": false
+          },
+          {
+            "name": "mockProxyUrl",
+            "value": "http://localhost:9999",
+            "secure": false
+          },
+          {
+            "name": "mockSocksUrl",
+            "value": "socks5://localhost:9998",
+            "secure": false
+          },
+          {
+            "name": "keycloakUrl",
+            "value": "http://localhost:8090",
+            "secure": false
+          },
+          {
+            "name": "realm",
+            "value": "demo-realm",
+            "secure": false
+          },
+          {
+            "name": "oidc",
+            "value": "http://localhost:8090/realms/demo-realm/protocol/openid-connect",
+            "secure": false
+          },
+          {
+            "name": "userId",
+            "value": "1",
+            "secure": false
+          }
+        ],
+        "schemaVersion": 2
+      },
+      "tree": {
+        "children": [
+          {
+            "id": "fld-01",
+            "type": "folder",
+            "name": "01 · Schema Versioning",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-01-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-02",
+            "type": "folder",
+            "name": "02 · Decryption Failures",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-02-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-03",
+            "type": "folder",
+            "name": "03 · File Locking & Temp GC",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-03-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-04",
+            "type": "folder",
+            "name": "04 · Backup & Restore",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-04-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-09",
+            "type": "folder",
+            "name": "09 · Cookie Jar",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-09-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-09-2",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-11",
+            "type": "folder",
+            "name": "11 · Auth Completeness",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-11-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-11-2",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-11-3",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-17",
+            "type": "folder",
+            "name": "17 · Large Response & Memory",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-17-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-17-2",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-17-3",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-20",
+            "type": "folder",
+            "name": "20 · Test Coverage",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-20-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-23",
+            "type": "folder",
+            "name": "23 · Request Editor (Refactor)",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-23-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-24",
+            "type": "folder",
+            "name": "24 · Renderer E2E Tests",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-24-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-26",
+            "type": "folder",
+            "name": "26 · Error Notifications",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-26-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-26-2",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-26-3",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-28",
+            "type": "folder",
+            "name": "28 · CI (GitHub Actions)",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-28-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-31",
+            "type": "folder",
+            "name": "31 · Code Signing",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-31-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-32",
+            "type": "folder",
+            "name": "32 · WebSocket",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-32-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-32-2",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-32-3",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-33",
+            "type": "folder",
+            "name": "33 · Server-Sent Events",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-33-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-33-2",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-33-3",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-33-4",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-34",
+            "type": "folder",
+            "name": "34 · GraphQL Body",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-34-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-34-2",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-34-3",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-34-4",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-35",
+            "type": "folder",
+            "name": "35 · Binary Responses",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-35-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-35-2",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-35-3",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-35-4",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-37",
+            "type": "folder",
+            "name": "37 · mTLS & Client Certs",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-37-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-38",
+            "type": "folder",
+            "name": "38 · Code Generation",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-38-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-38-2",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-39",
+            "type": "folder",
+            "name": "39 · Import cURL & HAR",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-39-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-40",
+            "type": "folder",
+            "name": "40 · Export Parity",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-40-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-41",
+            "type": "folder",
+            "name": "41 · OpenAPI Import Fidelity",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-41-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-43",
+            "type": "folder",
+            "name": "43 · Logging & Diagnostics",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-43-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-44",
+            "type": "folder",
+            "name": "44 · Proxy & Retries",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-44-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-44-2",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-44-3",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-44-4",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-45",
+            "type": "folder",
+            "name": "45 · Timing Waterfall",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-45-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-45-2",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-48",
+            "type": "folder",
+            "name": "48 · Accessibility",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-48-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-49",
+            "type": "folder",
+            "name": "49 · Multipart & Path Params",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-49-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-49-2",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-49-3",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-50",
+            "type": "folder",
+            "name": "50 · i18n",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-50-1",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-51",
+            "type": "folder",
+            "name": "51 · Favorites & Recents",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-51-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-51-2",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-52",
+            "type": "folder",
+            "name": "52 · Auth Breadth",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-52-1",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-52-2",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-52-3",
+                "type": "requestRef"
+              },
+              {
+                "id": "req-52-4",
+                "type": "requestRef"
+              }
+            ]
+          },
+          {
+            "id": "fld-53",
+            "type": "folder",
+            "name": "53 · Tip Jar",
+            "variables": [],
+            "children": [
+              {
+                "id": "req-53-1",
+                "type": "requestRef"
+              }
+            ]
+          }
+        ],
+        "schemaVersion": 2
+      },
+      "requests": [
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Storage/migration feature — no dedicated HTTP surface. Verify by other means: save this request, restart the app, confirm it reloads cleanly (on-read migration upgrades the stored doc to the current schemaVersion). Old data with no schemaVersion is upgraded silently. Covered by src/app/store unit tests.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-01-1",
+          "name": "Echo — round-trip a saved request",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?probe=schema-versioning"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": true,
+          "authType": "bearer",
+          "notes": "Keystore/crypto feature — no dedicated HTTP surface. Verify by hand: with a secret stored (the Bearer token here), simulate a keystore mismatch (move/relock the profile). The field must show an inline 'couldn't decrypt — re-enter' state (NOT blank), and the still-recoverable ciphertext must be preserved on the next save.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-02-1",
+          "name": "Echo — request carrying a secret",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?probe=decrypt",
+          "authBearer": {
+            "token": ""
+          }
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Storage I/O feature — no dedicated HTTP surface. Verify by hand: rapidly rename/edit/save to force overlapping writes (last-write-wins, no partial files); plant a stale *.tmp file under the userData dir, restart, confirm it is GC'd while real data survives.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-03-1",
+          "name": "Echo — drive overlapping saves",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?probe=file-locking"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Workspace backup/restore is file I/O, not HTTP. Verify the round-trip: Export everything → wipe the profile → Import → collections/environments/settings match. Confirm secrets are redacted (mode 'none') or ciphertext (never plaintext) in the archive. This suite's own archives exercise the export path.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-04-1",
+          "name": "Echo — seed data before export",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?probe=backup"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "The collection has sendCookies on. /echo reflects received cookies under `cookies`. Send a request that emits Set-Cookie first (any endpoint), then send this to confirm the jar auto-attaches the captured cookie.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-09-1",
+          "name": "Echo — inspect attached cookies",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validate cookie scoping: a cookie scoped to a different path/host must NOT be attached here — /echo will show it absent.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-09-2",
+          "name": "Echo — path/domain scoping",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/other/path"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": true,
+          "authType": "apikey",
+          "notes": "Validates first-class API-Key auth placement; mock echoes the parsed key.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-11-1",
+          "name": "API key (header)",
+          "method": "GET",
+          "url": "{{mockUrl}}/auth/apikey",
+          "authApiKey": {
+            "header": "X-API-Key",
+            "value": ""
+          }
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": true,
+          "authType": "digest",
+          "notes": "Validates the 401 WWW-Authenticate challenge → re-send Authorization: Digest round-trip.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-11-2",
+          "name": "Digest auth",
+          "method": "GET",
+          "url": "{{mockUrl}}/auth/digest",
+          "authDigest": {
+            "username": "alice",
+            "password": ""
+          }
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": true,
+          "authType": "ntlm",
+          "notes": "Validates the multi-leg NTLM handshake.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-11-3",
+          "name": "NTLM auth",
+          "method": "GET",
+          "url": "{{mockUrl}}/auth/ntlm",
+          "authNtlm": {
+            "username": "alice",
+            "password": ""
+          }
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates a large body spills to a temp file + preview, with no renderer freeze.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-17-1",
+          "name": "Volume — large (~28MB)",
+          "method": "GET",
+          "url": "{{mockUrl}}/volume/large"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates the preview / 'view full / save to file' affordance.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-17-2",
+          "name": "Volume — medium (~15MB)",
+          "method": "GET",
+          "url": "{{mockUrl}}/volume/medium"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Control: renders inline normally. Streamed temp files should be GC'd afterwards.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-17-3",
+          "name": "Volume — small (~1MB) control",
+          "method": "GET",
+          "url": "{{mockUrl}}/volume/small"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [
+            {
+              "id": "40fd4d96-9569-40e7-a68a-3141aa19dbbd",
+              "name": "X-Request-Id",
+              "value": "{{userId}}",
+              "enabled": true,
+              "secret": false
+            }
+          ],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Internal test-suite feature — verify via `make test` (variable-resolution, import/export, HTTP-execution tests pass), not via the collection. This request just exercises the {{var}} resolver the tests cover.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-20-1",
+          "name": "Echo — resolved dynamic variable",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [
+            {
+              "id": "43238318-978d-48a4-86bb-085aa63dc030",
+              "name": "X-Custom",
+              "value": "refactor-check",
+              "enabled": true,
+              "secret": false
+            },
+            {
+              "id": "6ebe6410-ae8a-489f-8add-44ed5e9f8127",
+              "name": "Content-Type",
+              "value": "application/json",
+              "enabled": true,
+              "secret": false
+            }
+          ],
+          "params": [
+            {
+              "id": "ec2af45c-905c-4040-9093-f0b3151615a1",
+              "name": "source",
+              "value": "editor",
+              "enabled": true,
+              "secret": false
+            }
+          ],
+          "pathParams": [],
+          "bodyType": "json",
+          "bodyText": "{\n  \"hello\": \"world\"\n}",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": true,
+          "authType": "basic",
+          "notes": "Pure refactor (no behaviour change). Manually confirm in `make debug` that headers/params/body/auth sub-components all still work; /echo reflects them for a parity check.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-23-1",
+          "name": "Echo — headers + params + body + auth",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo?source=editor",
+          "authBasic": {
+            "username": "alice",
+            "password": ""
+          }
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Covered by `make test` (data-store IPC mapping + request→response cycle). This request mirrors the loop a human would run by hand.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-24-1",
+          "name": "Echo — edit → execute → render cycle",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?probe=e2e"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates an HTTP error surfaces in the response viewer (status + error), not silent success.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-26-1",
+          "name": "Status 500 — server error surfaces",
+          "method": "GET",
+          "url": "{{mockUrl}}/status/500"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates a non-2xx status is shown clearly.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-26-2",
+          "name": "Status 404 — not found",
+          "method": "GET",
+          "url": "{{mockUrl}}/status/404"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates a connection failure raises a visible error notification. The write-failure toast path (disk full / permission denied / keystore down) is not HTTP-triggerable — simulate a save failure to verify that.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-26-3",
+          "name": "Dead port — connection failure",
+          "method": "GET",
+          "url": "http://localhost:1/echo"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "CI pipeline (build/infra only) — no runtime surface. Verify on GitHub: push/PR runs format-check + lint + `make test` and the macOS/Linux/Windows unsigned build matrix is green.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-28-1",
+          "name": "Echo — placeholder",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?probe=ci"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Packaging/signing (build only) — no runtime surface. Verify with `make dist` + credentials, then `codesign --verify --deep`/`spctl -a` (mac) and `signtool verify` (win); confirm unsigned `--dir` still builds when creds are absent.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-31-1",
+          "name": "Echo — placeholder",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?probe=signing"
+        },
+        {
+          "type": "request",
+          "protocol": "websocket",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Connect, send a text + a JSON frame, validate echoed frames appear timestamped; sent/received/system frames are visually distinct.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-32-1",
+          "name": "WS echo — send text + JSON frames",
+          "method": "GET",
+          "url": "{{mockWsUrl}}/ws/echo",
+          "wsMessage": "{\"hello\":\"{{userId}}\"}",
+          "wsMessageFormat": "text"
+        },
+        {
+          "type": "request",
+          "protocol": "websocket",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates a server-push stream (1 frame/sec) renders incrementally as frames arrive.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-32-2",
+          "name": "WS time — server push stream",
+          "method": "GET",
+          "url": "{{mockWsUrl}}/ws/time",
+          "wsMessage": "",
+          "wsMessageFormat": "text"
+        },
+        {
+          "type": "request",
+          "protocol": "websocket",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates a 401 handshake rejection surfaces as a clear connection error. Disconnect must tear down cleanly (no leak).",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-32-3",
+          "name": "WS reject — 401 handshake",
+          "method": "GET",
+          "url": "{{mockWsUrl}}/ws/reject",
+          "wsMessage": "",
+          "wsMessageFormat": "text"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [
+            {
+              "id": "5910f1cd-d037-4dd9-9248-9ffaf77425ae",
+              "name": "Accept",
+              "value": "text/event-stream",
+              "enabled": true,
+              "secret": false
+            }
+          ],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates SSE frames (event:/data:/id:) append live, not all at once.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-33-1",
+          "name": "SSE events",
+          "method": "GET",
+          "url": "{{mockUrl}}/sse/events",
+          "streaming": true
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [
+            {
+              "id": "920b4616-5c69-4505-8503-ffc1daec43e5",
+              "name": "Accept",
+              "value": "text/event-stream",
+              "enabled": true,
+              "secret": false
+            }
+          ],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates an OpenAI-style token stream renders incrementally and completes on [DONE].",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-33-2",
+          "name": "SSE LLM token stream",
+          "method": "GET",
+          "url": "{{mockUrl}}/sse/llm",
+          "streaming": true
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [
+            {
+              "id": "64767e89-97a6-416e-a976-ba1f8388820e",
+              "name": "Accept",
+              "value": "text/event-stream",
+              "enabled": true,
+              "secret": false
+            }
+          ],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates Stop aborts a never-ending stream (req.destroy) and memory stays bounded.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-33-3",
+          "name": "SSE infinite — Stop aborts",
+          "method": "GET",
+          "url": "{{mockUrl}}/sse/infinite",
+          "streaming": true
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates chunked application/x-ndjson streams line by line (Stream toggle on).",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-33-4",
+          "name": "NDJSON chunked stream",
+          "method": "GET",
+          "url": "{{mockUrl}}/ndjson",
+          "streaming": true
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "graphql",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "query {\n  user(id: \"1\") {\n    id\n    name\n    role\n  }\n}",
+            "variables": "{}"
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates {query,variables,operationName} serialization + Content-Type: application/json.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-34-1",
+          "name": "Query — user(id)",
+          "method": "POST",
+          "url": "{{mockUrl}}/graphql"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "graphql",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "query Get($id: ID!) {\n  user(id: $id) {\n    name\n  }\n}",
+            "variables": "{\n  \"id\": \"{{userId}}\"\n}"
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates {{var}} interpolation in both the query and variables panes.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-34-2",
+          "name": "Query — with variables",
+          "method": "POST",
+          "url": "{{mockUrl}}/graphql"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "graphql",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "mutation {\n  createUser(name: \"Eve\", role: ADMIN) {\n    id\n  }\n}",
+            "variables": "{}"
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates a mutation + enum (Role).",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-34-3",
+          "name": "Mutation — createUser (enum)",
+          "method": "POST",
+          "url": "{{mockUrl}}/graphql"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "graphql",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "query {\n  __schema {\n    queryType {\n      name\n    }\n  }\n}",
+            "variables": "{}"
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates schema introspection drives autocomplete; an introspection failure must be surfaced.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-34-4",
+          "name": "Introspection (Fetch schema)",
+          "method": "POST",
+          "url": "{{mockUrl}}/graphql"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates inline image preview (bytes intact).",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-35-1",
+          "name": "PNG image",
+          "method": "GET",
+          "url": "{{mockUrl}}/binary/png"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates PDF preview.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-35-2",
+          "name": "PDF",
+          "method": "GET",
+          "url": "{{mockUrl}}/binary/pdf"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates hex + ASCII dump with offsets for arbitrary binary.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-35-3",
+          "name": "Octet-stream — hex dump",
+          "method": "GET",
+          "url": "{{mockUrl}}/binary/octet-stream"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates Save-to-file produces a byte-accurate file.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-35-4",
+          "name": "JPEG — save to file",
+          "method": "GET",
+          "url": "{{mockUrl}}/binary/jpeg"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "The mock is plain HTTP, so no TLS handshake occurs. Configure a per-host client-cert entry for localhost:8888 in Settings and confirm it persists and the passphrase encrypts at rest / redacts on export. True mTLS + custom-CA validation needs an EXTERNAL https host with client-cert/self-signed config (manual): verify a per-request SSL-verify override toggles independently of the global setting.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-37-1",
+          "name": "Echo — cert config persists (HTTP)",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?probe=mtls"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [
+            {
+              "id": "5eeb6a63-7cb0-4688-895c-ed879c8d0ecb",
+              "name": "X-Demo",
+              "value": "code-gen",
+              "enabled": true,
+              "secret": false
+            }
+          ],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validation target is the GENERATED code text, not the response. Use 'Generate code…' → cURL / fetch / Python requests / Go / HTTPie; each snippet must be valid & runnable, with resolved {{vars}}.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-38-1",
+          "name": "Echo — GET with header (gen snippets)",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?q=1"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [
+            {
+              "id": "b022832d-cc95-437a-87fd-e0d7ae1d6ade",
+              "name": "Content-Type",
+              "value": "application/json",
+              "enabled": true,
+              "secret": false
+            }
+          ],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "json",
+          "bodyText": "{\n  \"name\": \"gen\"\n}",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": true,
+          "authType": "bearer",
+          "notes": "Validates snippets reflect method/headers/body/auth. AWS-SigV4 should bail out of static generation; unresolved {{var}} should warn.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-38-2",
+          "name": "Echo — POST JSON + Bearer (gen snippets)",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo",
+          "authBearer": {
+            "token": ""
+          }
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [
+            {
+              "id": "46b36cf4-d749-4564-9cce-6814dbcc34af",
+              "name": "Content-Type",
+              "value": "application/json",
+              "enabled": true,
+              "secret": false
+            },
+            {
+              "id": "59ff395e-815f-4ec6-bb88-5d2ce5b88ff5",
+              "name": "X-Test",
+              "value": "1",
+              "enabled": true,
+              "secret": false
+            }
+          ],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "json",
+          "bodyText": "{\n  \"a\": 1\n}",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Import is the artifact. Paste:  curl -X POST {{mockUrl}}/echo -H 'Content-Type: application/json' -H 'X-Test: 1' -d '{\"a\":1}'  → confirm the imported request matches this one, send it, and check /echo reflects it. Also try a cURL with -u alice:alice123 and -F field=val. Import a small .har whose entries point at {{mockUrl}}/echo. Malformed input must raise a notification, not silently drop.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-39-1",
+          "name": "Echo — target for cURL paste",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [
+            {
+              "id": "31219a69-4c90-497f-8eb9-59d3857dcf3b",
+              "name": "Content-Type",
+              "value": "application/json",
+              "enabled": true,
+              "secret": false
+            }
+          ],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "json",
+          "bodyText": "{\n  \"export\": true\n}",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": true,
+          "authType": "bearer",
+          "notes": "Export interchange (file output). Export this folder to Postman v2.1 / Insomnia v4 / OpenAPI 3 / HAR and validate the files in their target tools; confirm secrets are redacted in every exporter and structure round-trips.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-40-1",
+          "name": "Echo — POST JSON + Bearer (export source)",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo",
+          "authBearer": {
+            "token": ""
+          }
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [
+            {
+              "id": "925262db-423f-4a3e-9d87-ff89e1450873",
+              "name": "Content-Type",
+              "value": "application/json",
+              "enabled": true,
+              "secret": false
+            }
+          ],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "json",
+          "bodyText": "{\n  \"ref\": \"resolved\"\n}",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Import is the artifact. Import an OpenAPI 3 spec whose `servers` point at {{mockUrl}} and that uses components/$ref for a parameter and a requestBody, plus a schema-only operation. Send the imported ops and confirm $ref'd params/body are present (not dropped) and a synthesized example body with the correct Content-Type is sent. Remote $refs must be resolved or explicitly reported.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-41-1",
+          "name": "Echo — target for OpenAPI import",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Diagnostics/crash-reporting feature. Verify by hand: requests appear in the diagnostics/console log; a forced crash produces a crash report; logs redact secrets. No dedicated HTTP surface.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-43-1",
+          "name": "Echo — generate a log entry",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?probe=logging"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Configure Settings → proxy = {{mockProxyUrl}} (with optional creds). Validates HTTP proxy + credential handling; /echo confirms the relayed request.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-44-1",
+          "name": "Echo — via HTTP proxy",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?via=proxy"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Configure proxy = {{mockSocksUrl}}. Validates SOCKS5 agent selection.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-44-2",
+          "name": "Echo — via SOCKS5 proxy",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?via=socks"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [
+            {
+              "id": "2afe43b6-79ba-43f2-8df9-9b6e11534523",
+              "name": "X-Proxy-Error",
+              "value": "2:reset",
+              "enabled": true,
+              "secret": false
+            }
+          ],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Through the proxy with retries enabled. X-Proxy-Error: 2:reset fails twice then succeeds — validates the retry policy succeeds within configured attempts + backoff (attempt count shown in Console).",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-44-3",
+          "name": "Echo — retry on injected fault",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?via=proxy-retry"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Put localhost in the proxy bypass/no-proxy list; validates the bypassed host connects directly, ignoring the proxy. Confirm proxy creds redact on export.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-44-4",
+          "name": "Echo — bypass list",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?via=bypass"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates a measurable TTFB / server-think segment in the waterfall summing to ≈ total.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-45-1",
+          "name": "Delay 2s — measurable server-think",
+          "method": "GET",
+          "url": "{{mockUrl}}/delay?seconds=2"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Plain HTTP fast path — validates the breakdown renders sensibly with no TLS segment. Use an external https URL to see DNS/TCP/TLS phases. Breakdown persists in history/Timeline replay.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-45-2",
+          "name": "Echo — fast path (no TLS)",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "UI/a11y feature — no HTTP surface. Verify by hand: OS 'reduce motion' stops animation; forced-colors/high-contrast renders all controls; the tree is operable via Arrow/Home/End/type-ahead from a single tab stop; icon-only controls have accessible names; status changes announce via aria-live.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-48-1",
+          "name": "Echo — populate the tree",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?probe=a11y"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "form-data",
+          "bodyText": "",
+          "bodyFormRows": [
+            {
+              "id": "36a5af55-a5b7-4b1d-a7f5-18ed4e013893",
+              "kind": "file",
+              "name": "file",
+              "filePath": "/path/to/upload.txt",
+              "fileName": "upload.txt",
+              "contentType": "text/plain",
+              "enabled": true
+            },
+            {
+              "id": "3dbe7ed1-3008-493f-b42b-962f8477cfbd",
+              "kind": "text",
+              "name": "caption",
+              "value": "hello multipart",
+              "enabled": true,
+              "secret": false
+            }
+          ],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Set the file row's path to a real local file before sending. Validates mixed file+text parts (filename/boundary/Content-Type); /echo reflects the parsed parts. File bytes are read in main (only the path crosses IPC).",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-49-1",
+          "name": "Multipart — file + text fields",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "form-data",
+          "bodyText": "",
+          "bodyFormRows": [
+            {
+              "id": "2a360950-2d44-4ee8-a2c7-80f9083ad996",
+              "kind": "file",
+              "name": "first",
+              "filePath": "/path/to/a.bin",
+              "fileName": "a.bin",
+              "contentType": "application/octet-stream",
+              "enabled": true
+            },
+            {
+              "id": "393af9ad-1209-49db-85bf-c0c6a46aea36",
+              "kind": "file",
+              "name": "second",
+              "filePath": "/path/to/b.bin",
+              "fileName": "b.bin",
+              "contentType": "application/octet-stream",
+              "enabled": true
+            }
+          ],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates multiple file uploads. Point both rows at real files first.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-49-2",
+          "name": "Multipart — two file fields",
+          "method": "POST",
+          "url": "{{mockUrl}}/echo"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [
+            {
+              "id": "ff84e7f8-296e-46e4-b15a-c60878e42a67",
+              "name": "id",
+              "value": "42",
+              "enabled": true
+            },
+            {
+              "id": "100d1608-19e8-4e7f-b7b2-a4689196467b",
+              "name": "postId",
+              "value": "7",
+              "enabled": true
+            }
+          ],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Validates :token detection + substitution into the sent URL ({{var}} also supported). /echo shows the resolved path users/42/posts/7.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-49-3",
+          "name": "Path params — :id / :postId",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo/users/:id/posts/:postId"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Localization layer — no HTTP surface. Verify by hand: switching Appearance → Language (en/de/es/fr/it/ja/zh + system) re-localizes strings (incl. aria-label/title) and sets <html lang>; missing keys fall back to English. Gate is `make test-i18n`.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-50-1",
+          "name": "Echo — placeholder",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?probe=i18n"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Favorite this request (star toggle) and confirm it appears in the Favorites tab across collections. Lists persist across restart and survive rename/move; deleted ids drop out.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-51-1",
+          "name": "Echo — favorite me",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?id=fav"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Open/send it and confirm it enters the deduped, capped, newest-first Recents list. The [Requests | Favorites | Recent] tab bar appears only when a favorite exists and/or Recents is enabled.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-51-2",
+          "name": "Echo — recents",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?id=recent"
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": true,
+          "authType": "oauth2",
+          "notes": "Trigger 'Get Token' to run the device flow: user-code prompt + polling with authorization_pending/slow_down. The acquired token is attached to this /echo request. Keycloak: client device-code-client, users alice/alice123.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-52-1",
+          "name": "OAuth2 device_code (Keycloak)",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?grant=device_code",
+          "authOAuth2": {
+            "grantType": "device_code",
+            "tokenUrl": "{{oidc}}/token",
+            "deviceAuthorizationUrl": "{{oidc}}/auth/device",
+            "clientId": "device-code-client",
+            "clientSecret": "",
+            "scope": "openid"
+          }
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": true,
+          "authType": "oauth2",
+          "notes": "RFC 8693 token exchange. Supply a subject_token (from a prior login) and trigger 'Get Token'; validates the exchange + token caching.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-52-2",
+          "name": "OAuth2 token_exchange (Keycloak)",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?grant=token_exchange",
+          "authOAuth2": {
+            "grantType": "token_exchange",
+            "tokenUrl": "{{oidc}}/token",
+            "clientId": "token-exchange-client",
+            "clientSecret": "",
+            "subjectToken": "",
+            "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+            "scope": "openid"
+          }
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": true,
+          "authType": "oauth1",
+          "notes": "Validates a correct Authorization: OAuth … signature (signed in the main process); mock /auth/oauth1 verifies + echoes it.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-52-3",
+          "name": "OAuth 1.0a (mock)",
+          "method": "GET",
+          "url": "{{mockUrl}}/auth/oauth1",
+          "authOAuth1": {
+            "consumerKey": "demo-consumer-key",
+            "consumerSecret": "",
+            "token": "",
+            "tokenSecret": "",
+            "signatureMethod": "HMAC-SHA1"
+          }
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": true,
+          "authType": "oauth2",
+          "notes": "Sanity check that an existing grant didn't regress after the token helper rename. Token attached to /echo.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-52-4",
+          "name": "OAuth2 client_credentials (regression)",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?grant=client_credentials",
+          "authOAuth2": {
+            "grantType": "client_credentials",
+            "tokenUrl": "{{oidc}}/token",
+            "clientId": "client-credentials-client",
+            "clientSecret": "",
+            "scope": "openid"
+          }
+        },
+        {
+          "type": "request",
+          "protocol": "http",
+          "headers": [],
+          "params": [],
+          "pathParams": [],
+          "bodyType": "none",
+          "bodyText": "",
+          "bodyFormRows": [],
+          "bodyGraphql": {
+            "query": "",
+            "variables": ""
+          },
+          "authEnabled": false,
+          "authType": "none",
+          "notes": "Opens an external browser via shell.openExternal — no in-app HTTP request. Verify by hand: Help → 'Support Rest Hippo…' opens the donation URL in the default browser; no launch-time nag; nothing gated; only https: is passed to shell.openExternal; new strings localized across the 7 locales + native menu.",
+          "captures": [],
+          "schemaVersion": 2,
+          "id": "req-53-1",
+          "name": "Echo — placeholder",
+          "method": "GET",
+          "url": "{{mockUrl}}/echo?probe=tip-jar"
+        }
+      ]
+    }
+  ]
+}

@@ -289,7 +289,8 @@
       "retries": "Wiederholungen",
       "history": "Verlauf",
       "certificates": "Zertifikate",
-      "about": "Über"
+      "about": "Über",
+      "security": "Sicherheit"
     },
     "appearance": {
       "theme": "Design",
@@ -380,6 +381,41 @@
     "about": {
       "checkButton": "Nach Updates suchen",
       "version": "Rest Hippo {version}"
+    },
+    "security": {
+      "heading": "Geheimnisspeicher",
+      "help": "Legen Sie fest, wie Rest Hippo Geheimnisse – Passwörter, Tokens und Schlüssel – auf diesem Gerät verschlüsselt. Beim Wechsel werden alle gespeicherten Geheimnisse neu verschlüsselt.",
+      "modeAria": "Modus des Geheimnisspeichers",
+      "mode": {
+        "appKey": "Dieses Gerät (keine Abfrage)",
+        "appKeyDesc": "Mit einem auf diesem Gerät gespeicherten Schlüssel verschlüsseln. Keine Systemabfragen – aber wer die Dateien dieses Computers lesen kann, könnte Ihre Geheimnisse lesen.",
+        "osKeychain": "Betriebssystem-Schlüsselbund",
+        "osKeychainDesc": "Mit dem Schlüsselbund Ihres Betriebssystems verschlüsseln. Stärkster Schutz, aber das System fragt möglicherweise nach Zugriff.",
+        "masterPassword": "Master-Passwort",
+        "masterPasswordDesc": "Mit einem selbst gewählten Passwort verschlüsseln. Geheimnisse bleiben gesperrt, bis Sie sie pro Sitzung entsperren. Wenn Sie es vergessen, können sie nicht wiederhergestellt werden."
+      },
+      "lockedNote": "Geheimnisse sind gesperrt. Geben Sie Ihr Master-Passwort ein, um sie für diese Sitzung zu entsperren.",
+      "password": "Passwort",
+      "confirmPassword": "Passwort bestätigen",
+      "setPasswordWarn": "Wenn Sie dieses Passwort vergessen, können Ihre gespeicherten Geheimnisse nicht wiederhergestellt werden.",
+      "setPasswordSubmit": "Passwort festlegen & verschlüsseln",
+      "unlock": "Entsperren",
+      "unlocking": "Wird entsperrt …",
+      "switching": "Geheimnisse werden neu verschlüsselt …",
+      "switchTitle": "Geheimnisspeicher wechseln?",
+      "switchMessage": "Dadurch wird jedes gespeicherte Geheimnis mit der neuen Methode neu verschlüsselt. Fortfahren?",
+      "switchConfirm": "Wechseln",
+      "unlockTitle": "Geheimnisse entsperren",
+      "unlockIntro": "Geben Sie Ihr Master-Passwort ein, um Ihre gespeicherten Geheimnisse für diese Sitzung zu entsperren.",
+      "error": {
+        "passwordRequired": "Geben Sie ein Passwort ein.",
+        "passwordMismatch": "Die Passwörter stimmen nicht überein.",
+        "badPassword": "Falsches Passwort.",
+        "migrationFailed": "Einige Geheimnisse konnten nicht umgewandelt werden, daher wurde die Speichermethode nicht geändert.",
+        "keychainUnavailable": "Der Betriebssystem-Schlüsselbund ist auf diesem System nicht verfügbar.",
+        "lockedSwitch": "Entsperren Sie zuerst Ihre Geheimnisse, dann wechseln Sie die Speichermethode.",
+        "generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+      }
     }
   },
   "request": {
@@ -1131,7 +1167,8 @@
       "realm": "Realm",
       "realmPlaceholder": "Realm (optional)",
       "hint": "Wird beim Senden der Anfrage signiert; Nonce und Zeitstempel werden automatisch erzeugt."
-    }
+    },
+    "decryptLocked": "Geheimnisse sind gesperrt."
   },
   "wsConsole": {
     "state": {

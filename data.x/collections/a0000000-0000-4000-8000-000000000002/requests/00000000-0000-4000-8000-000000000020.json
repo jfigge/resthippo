@@ -1,0 +1,79 @@
+{
+  "id": "00000000-0000-4000-8000-000000000020",
+  "type": "request",
+  "name": "List pets",
+  "method": "GET",
+  "url": "{{baseUrl}}/echo/pets?limit=20",
+  "schemaVersion": 1,
+  "params": [
+    {
+      "id": "c0000000-0000-4000-8000-000000000005",
+      "name": "limit",
+      "value": "20",
+      "enabled": true
+    }
+  ],
+  "headers": [],
+  "authEnabled": false,
+  "authType": "none",
+  "authBasic": {
+    "username": "",
+    "password": ""
+  },
+  "authBearer": {
+    "token": ""
+  },
+  "authApiKey": {
+    "name": "",
+    "value": "",
+    "addTo": "header"
+  },
+  "authDigest": {
+    "username": "",
+    "password": ""
+  },
+  "authNtlm": {
+    "username": "",
+    "password": "",
+    "domain": "",
+    "workstation": ""
+  },
+  "authOAuth2": {
+    "grantType": "client_credentials",
+    "clientType": "confidential",
+    "clientId": "",
+    "clientSecret": "",
+    "accessTokenUrl": "",
+    "authUrl": "",
+    "scope": "",
+    "state": "",
+    "credentials": "header",
+    "headerPrefix": "",
+    "audience": "",
+    "resource": "",
+    "origin": "",
+    "redirectUri": "",
+    "responseType": "access_token",
+    "username": "",
+    "password": "",
+    "discoveredIssuer": "",
+    "discoveredScopes": null
+  },
+  "authAwsIam": {
+    "accessKeyId": "",
+    "secretAccessKey": "",
+    "region": "",
+    "service": "",
+    "sessionToken": ""
+  },
+  "bodyType": "no-body",
+  "bodyFormRows": [],
+  "bodyText": "",
+  "bodyFilePath": "",
+  "bodyGraphql": {
+    "query": "",
+    "variables": ""
+  },
+  "captures": [],
+  "assertions": []
+}

@@ -1,0 +1,30 @@
+{
+  "id": "f5e7c578-8972-4b67-bf18-47bd56c6c3e0",
+  "timestamp": 1781920810491,
+  "status": 200,
+  "statusText": "OK",
+  "elapsed": 5,
+  "size": 183,
+  "requestUrl": "http://localhost:8888/graphql",
+  "requestNode": {
+    "id": "00000000-0000-4000-8000-000000000006",
+    "method": "POST",
+    "url": "{{baseUrl}}/graphql",
+    "params": "",
+    "pathParams": [],
+    "headers": "",
+    "authType": "none",
+    "authEnabled": false,
+    "auth": "",
+    "bodyType": "graphql",
+    "body": "query ListUsers {\n  users(role: ADMIN, active: true) {\n    id\n    name\n    email\n    role\n    active\n  }\n}",
+    "bodyGraphql": {
+      "query": "query ListUsers {\n  users(role: ADMIN, active: true) {\n    id\n    name\n    email\n    role\n    active\n  }\n}",
+      "variables": "{}"
+    },
+    "notes": ""
+  },
+  "testSummary": null,
+  "requestId": "00000000-0000-4000-8000-000000000006",
+  "schemaVersion": 3
+}

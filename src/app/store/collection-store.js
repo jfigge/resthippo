@@ -24,7 +24,11 @@
 "use strict";
 
 const { readJSON, writeJSON, ensureDir, validateID, remove } = require("./io");
-const { encryptSettings, decryptSettings } = require("./crypto");
+const {
+  encryptSettings,
+  decryptSettings,
+  restoreUndecryptableSettings,
+} = require("./crypto");
 
 class CollectionStore {
   /**
@@ -66,9 +70,22 @@ class CollectionStore {
    */
   saveManifest(data) {
     ensureDir(this._paths.collectionsDir());
-    const toWrite = data.settings
-      ? { ...data, settings: encryptSettings(data.settings) }
-      : data;
+    let toWrite = data;
+    if (data.settings) {
+      let settings = encryptSettings(data.settings);
+      // Anti-clobber: preserve on-disk secret ciphertext that the incoming data
+      // blanked because it could not be decrypted on read (a locked
+      // master-password session, or a transient keystore failure). Without this,
+      // an unrelated settings change made while secrets are unreadable would wipe
+      // them. Mirrors the request/variable guards.
+      const existing = readJSON(this._paths.manifestPath());
+      settings = restoreUndecryptableSettings(
+        settings,
+        data.settings,
+        existing?.settings,
+      );
+      toWrite = { ...data, settings };
+    }
     writeJSON(this._paths.manifestPath(), toWrite);
   }
 

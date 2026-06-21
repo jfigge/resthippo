@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "globalVariables": [
+    {
+      "name": "apiVersion",
+      "value": "v1",
+      "secure": false
+    }
+  ],
+  "activeEnvironmentId": "b0000000-0000-4000-8000-000000000001",
+  "environments": [
+    {
+      "id": "b0000000-0000-4000-8000-000000000001",
+      "name": "Local",
+      "variables": [
+        {
+          "name": "baseUrl",
+          "value": "http://localhost:8888",
+          "secure": false
+        },
+        {
+          "name": "userId",
+          "value": "42",
+          "secure": false
+        },
+        {
+          "name": "defaultRole",
+          "value": "admin",
+          "secure": false
+        },
+        {
+          "name": "token",
+          "value": "demo-bearer-token-abc123",
+          "secure": false
+        },
+        {
+          "name": "apiKey",
+          "value": "demo-api-key-xyz789",
+          "secure": true
+        }
+      ]
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000002",
+      "name": "Production",
+      "variables": [
+        {
+          "name": "baseUrl",
+          "value": "https://api.example.com",
+          "secure": false
+        },
+        {
+          "name": "userId",
+          "value": "1001",
+          "secure": false
+        },
+        {
+          "name": "defaultRole",
+          "value": "admin",
+          "secure": false
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 1
+}

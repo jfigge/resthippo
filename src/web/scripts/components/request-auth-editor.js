@@ -34,6 +34,7 @@
 
 import { VariablePillEditor } from "./variable-pill-editor.js";
 import { wrapSecretField } from "./secret-field.js";
+import { SecretStorageModal } from "./secret-storage-modal.js";
 import { PopupManager } from "../popup-manager.js";
 import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
@@ -363,6 +364,10 @@ export class RequestAuthEditor {
   // not be decrypted on load — the main process flags these via `_decryptErrors`.
   // Used to render an inline "couldn't decrypt — re-enter" notice on the field.
   #decryptErrors = new Set();
+  // The decrypt-failure reason (`_decryptReason`): "locked" → the secret is fine
+  // but a master-password session is locked (offer Unlock); anything else →
+  // genuinely unrecoverable (offer re-enter).
+  #decryptReason = null;
   #authContentEl = null;
   #authTypeBarEl = null;
   #discoverBtnEl = null;
@@ -1904,7 +1909,21 @@ export class RequestAuthEditor {
     if (failedDecrypt) {
       const warnEl = document.createElement("span");
       warnEl.className = "auth-field-decrypt-warning";
-      warnEl.textContent = t("auth.decryptFailed");
+      if (this.#decryptReason === "locked") {
+        // The secret is intact — the master-password session is just locked.
+        warnEl.textContent = t("auth.decryptLocked");
+        const unlockBtn = document.createElement("button");
+        unlockBtn.type = "button";
+        unlockBtn.className = "auth-field-unlock";
+        unlockBtn.textContent = t("settings.security.unlock");
+        unlockBtn.addEventListener("click", () =>
+          SecretStorageModal.openUnlock(),
+        );
+        warnEl.appendChild(document.createTextNode(" "));
+        warnEl.appendChild(unlockBtn);
+      } else {
+        warnEl.textContent = t("auth.decryptFailed");
+      }
       wrapper.appendChild(warnEl);
     }
 
@@ -2345,6 +2364,7 @@ export class RequestAuthEditor {
     this.#decryptErrors = new Set(
       Array.isArray(node._decryptErrors) ? node._decryptErrors : [],
     );
+    this.#decryptReason = node._decryptReason ?? null;
 
     this.#authType = node.authType ?? "none";
     this.#authEnabled = node.authEnabled ?? true;

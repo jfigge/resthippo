@@ -655,6 +655,36 @@ contextBridge.exposeInMainWorld("hippo", {
   },
 
   /**
+   * Selectable secret-storage backend (app key / OS keychain / master password).
+   * The main process owns the config, keys, and the re-encryption migration; the
+   * renderer Security panel only chooses a mode and supplies a master password.
+   * set-mode and unlock reload the window on success.
+   */
+  secretStorage: {
+    /**
+     * Current backend + session state.
+     * @returns {Promise<{ mode: string, locked: boolean, available: boolean,
+     *                      hasPassword: boolean }>}
+     */
+    getMode: () => ipcRenderer.invoke("secret-storage:get-mode"),
+    /**
+     * Switch the at-rest backend (re-encrypts every secret). `opts.mode` is
+     * "app-key" | "os-keychain" | "master-password"; `opts.password` is required
+     * when switching TO master-password.
+     * @returns {Promise<{ ok: boolean, reason?: string, failures?: Array }>}
+     */
+    setMode: (opts) => ipcRenderer.invoke("secret-storage:set-mode", opts),
+    /**
+     * Unlock a locked master-password session for this run.
+     * @returns {Promise<{ ok: boolean, reason?: string }>}
+     */
+    unlock: (password) =>
+      ipcRenderer.invoke("secret-storage:unlock", { password }),
+    /** Drop the in-memory master key (re-locks secrets). */
+    lock: () => ipcRenderer.invoke("secret-storage:lock"),
+  },
+
+  /**
    * UI bridges to native chrome that the renderer cannot create itself.
    */
   ui: {
