@@ -2,9 +2,15 @@ name: Deploy Website
 
 # Builds the marketing/download site and publishes it to GitHub Pages
 # (resthippo.com). Runs when a GitHub Release is published (so a new version
-# shows up for download), on pushes to main that touch the site or the guide
-# source, and manually. Downloads link to GitHub Releases; versions.json and the
-# hosted user guide are generated here so the site always tracks the repo.
+# shows up for download), on every push to main, and manually. Downloads link to
+# GitHub Releases; versions.json and the hosted user guide are generated here so
+# the site always tracks the repo.
+#
+# NOTE: this deliberately has NO `paths:` filter. A path-filtered push trigger
+# does not reliably fire on a squash-merge commit (the merge that lands a PR can
+# skip the filter even when it changes website/** — that stranded the feature
+# page behind a 404 once). The build is ~20s, so unconditionally deploying every
+# push to main is cheaper than the risk of a silently stale site.
 #
 # Requires Pages → Source = "GitHub Actions" (the build job's configure-pages
 # step enables it on first run). Custom domain comes from website/CNAME.
@@ -13,12 +19,6 @@ on:
     types: [published]
   push:
     branches: [main]
-    paths:
-      - "website/**"
-      - "src/web/docs/**"
-      - "scripts/build-versions.mjs"
-      - "scripts/build-docs.mjs"
-      - ".github/workflows/deploy-site.yml"
   workflow_dispatch: {}
 
 # GITHUB_TOKEN scopes Pages needs; id-token lets deploy-pages attest the artifact.
