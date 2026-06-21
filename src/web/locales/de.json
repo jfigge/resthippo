@@ -65,7 +65,15 @@
       "other": "{count} Sammlungen als Rest Hippo v1 exportiert."
     },
     "resthippoSecuredSuffix": "Geheimnisse sind passwortgeschützt.",
-    "resthippoImported": "{created} Element(e) importiert, {replaced} ersetzt, {environments} Umgebung(en) hinzugefügt."
+    "resthippoImported": "{created} Element(e) importiert, {replaced} ersetzt, {environments} Umgebung(en) hinzugefügt.",
+    "runFolder": {
+      "title": "Ordner ausführen",
+      "empty": "Dieser Ordner enthält keine ausführbaren Anfragen.",
+      "noTests": {
+        "one": "{count} Anfrage in „{name}“ ausgeführt – keine Tests definiert.",
+        "other": "{count} Anfragen in „{name}“ ausgeführt – keine Tests definiert."
+      }
+    }
   },
   "vars": {
     "title": "Variablen-Editor",
@@ -850,7 +858,9 @@
       "copyAsCurl": "Als cURL kopieren",
       "clearHistory": "Ausführungsverlauf löschen",
       "delete": "Löschen",
-      "confirm": "Bestätigen?"
+      "confirm": "Bestätigen?",
+      "runFolder": "Alle Anfragen ausführen",
+      "clearRunCounts": "Testzähler löschen"
     },
     "curlCopied": "Der cURL-Befehl wurde in die Zwischenablage kopiert.",
     "code": {
@@ -864,7 +874,18 @@
     "unnamed": "(unbenannt)",
     "emptyFavorites": "Noch keine Favoriten",
     "emptyRecent": "Keine kürzlichen Anfragen",
-    "newWebSocket": "Neuer WebSocket"
+    "newWebSocket": "Neuer WebSocket",
+    "folderRun": {
+      "running": "Wird ausgeführt… {completed} von {count}",
+      "tests": {
+        "one": "{passed}/{total} Test bestanden",
+        "other": "{passed}/{total} Tests bestanden"
+      },
+      "failedReqs": {
+        "one": "{failed} Anfrage fehlgeschlagen",
+        "other": "{failed} Anfragen fehlgeschlagen"
+      }
+    }
   },
   "collections": {
     "title": "Sammlungen",

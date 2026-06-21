@@ -65,7 +65,15 @@
       "other": "{count} colecciones exportadas como Rest Hippo v1."
     },
     "resthippoSecuredSuffix": "Los secretos están protegidos con contraseña.",
-    "resthippoImported": "{created} elemento(s) importado(s), {replaced} reemplazado(s), {environments} entorno(s) añadido(s)."
+    "resthippoImported": "{created} elemento(s) importado(s), {replaced} reemplazado(s), {environments} entorno(s) añadido(s).",
+    "runFolder": {
+      "title": "Ejecutar carpeta",
+      "empty": "Esta carpeta no tiene solicitudes para ejecutar.",
+      "noTests": {
+        "one": "Se ejecutó {count} solicitud en «{name}»: no hay pruebas definidas.",
+        "other": "Se ejecutaron {count} solicitudes en «{name}»: no hay pruebas definidas."
+      }
+    }
   },
   "vars": {
     "title": "Editor de variables",
@@ -850,7 +858,9 @@
       "copyAsCurl": "Copiar como cURL",
       "clearHistory": "Borrar historial de ejecución",
       "delete": "Eliminar",
-      "confirm": "¿Confirmar?"
+      "confirm": "¿Confirmar?",
+      "runFolder": "Ejecutar todas las solicitudes",
+      "clearRunCounts": "Borrar recuentos de pruebas"
     },
     "curlCopied": "El comando cURL se ha copiado al portapapeles.",
     "code": {
@@ -864,7 +874,18 @@
     "unnamed": "(sin nombre)",
     "emptyFavorites": "Aún no hay favoritos",
     "emptyRecent": "No hay solicitudes recientes",
-    "newWebSocket": "Nuevo WebSocket"
+    "newWebSocket": "Nuevo WebSocket",
+    "folderRun": {
+      "running": "Ejecutando… {completed} de {count}",
+      "tests": {
+        "one": "{passed}/{total} prueba superada",
+        "other": "{passed}/{total} pruebas superadas"
+      },
+      "failedReqs": {
+        "one": "{failed} solicitud fallida",
+        "other": "{failed} solicitudes fallidas"
+      }
+    }
   },
   "collections": {
     "title": "Colecciones",

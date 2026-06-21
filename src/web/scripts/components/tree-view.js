@@ -164,6 +164,14 @@ export class TreeView {
   /** @type {Set<string>} — ids of requests with a live background WebSocket connection */
   #wsLiveIds = new Set();
 
+  /**
+   * @type {Map<string, {running:boolean, passed:number, total:number, failed:number, completed:number, count:number}>}
+   * Per-folder "Run All Requests" tallies, keyed by folder id. Drives the
+   * pass/total badge on the folder row (set live by app.js's folder runner via
+   * setFolderRunState). In-memory only — a session artifact, never persisted.
+   */
+  #folderRunResults = new Map();
+
   /** @type {HTMLElement|null} — the one row carrying tabindex="0" (the tab stop) */
   #rovingRow = null;
 
@@ -909,6 +917,15 @@ export class TreeView {
             "add-ws-request": () =>
               this.#addRequestTo(node.id, { protocol: "websocket" }),
             "add-folder": () => this.#addFolderTo(node.id),
+            "run-folder": () => {
+              const liveNode = findNode(this.#items, node.id) ?? node;
+              window.dispatchEvent(
+                new CustomEvent("hippo:run-folder", {
+                  detail: { folderId: liveNode.id },
+                }),
+              );
+            },
+            "clear-run": () => this.#clearFolderRunCounts(node.id),
             rename: () => this.#renameNode(node.id),
             duplicate: () => this.#duplicateNode(node.id),
             variables: () => {
@@ -982,6 +999,21 @@ export class TreeView {
               label: t("tree.menu.addFolder"),
               accelerator: electronAccelerator("newCollection"),
             },
+            { type: "separator" },
+            // Disabled when the folder holds no runnable (HTTP) requests — the
+            // app.js handler would otherwise just toast "nothing to run".
+            {
+              id: "run-folder",
+              label: t("tree.menu.runFolder"),
+              enabled: this.#folderHasRunnable(
+                findNode(this.#items, node.id) ?? node,
+              ),
+            },
+            // Only offered once a run has left a tally badge on this folder;
+            // clears this folder's counts and every sub-folder's counts.
+            ...(this.#folderRunResults.has(node.id)
+              ? [{ id: "clear-run", label: t("tree.menu.clearRunCounts") }]
+              : []),
             { type: "separator" },
             {
               id: "rename",
@@ -1658,6 +1690,10 @@ export class TreeView {
       const iconEl = row.querySelector(".tree-node-icon");
       const labelEl = row.querySelector(".tree-node-label");
 
+      // Re-apply a live/last "Run All Requests" tally badge across re-renders.
+      if (this.#folderRunResults.has(node.id))
+        this.#applyFolderBadge(row, node.id);
+
       /** Toggle this folder's expanded / collapsed state. */
       const toggleExpand = () => {
         const expanded = li.getAttribute("aria-expanded") === "true";
@@ -2146,6 +2182,98 @@ export class TreeView {
     dot.setAttribute("aria-hidden", "true");
     dot.title = t("tree.wsConnectionOpen");
     return dot;
+  }
+
+  /** True if a folder (recursively) contains at least one runnable HTTP request. */
+  #folderHasRunnable(node) {
+    for (const child of node.children ?? []) {
+      if (child.type === "request" && child.protocol !== "websocket")
+        return true;
+      if (child.type === "collection" && this.#folderHasRunnable(child))
+        return true;
+    }
+    return false;
+  }
+
+  /**
+   * Set (or clear) the "Run All Requests" tally for a folder and patch its row
+   * badge in place. Called by app.js's folder runner: once at start with
+   * `{ running: true }`, after each request to advance the counts, and once at
+   * the end with `{ running: false }`. Pass `null` to remove the badge.
+   * @param {string} folderId
+   * @param {object|null} state  { running, passed, total, failed, completed, count }
+   */
+  setFolderRunState(folderId, state) {
+    if (!folderId) return;
+    if (state == null) this.#folderRunResults.delete(folderId);
+    else this.#folderRunResults.set(folderId, state);
+    const li = this.#el.querySelector(`[data-id="${CSS.escape(folderId)}"]`);
+    const row = li?.querySelector(":scope > .tree-node-row");
+    this.#applyFolderBadge(row, folderId);
+  }
+
+  /**
+   * Clear the "Run All Requests" tally badge from a folder and every collection
+   * nested beneath it (the run subtree). Purely a display reset — the per-request
+   * run history recorded in each request's Timeline is left untouched.
+   * @param {string} folderId
+   */
+  #clearFolderRunCounts(folderId) {
+    const folder = findNode(this.#items, folderId);
+    if (!folder) return;
+    const clear = (node) => {
+      if (node.type === "collection") this.setFolderRunState(node.id, null);
+      for (const child of node.children ?? []) clear(child);
+    };
+    clear(folder);
+  }
+
+  /**
+   * Create / update / remove the pass-count badge on a folder row from the
+   * stored tally. The badge text is the running `passed/total` test ratio; its
+   * colour reflects the outcome once the run settles.
+   * @param {HTMLElement|null} row  the folder's `.tree-node-row`
+   * @param {string} folderId
+   */
+  #applyFolderBadge(row, folderId) {
+    if (!row) return;
+    const state = this.#folderRunResults.get(folderId);
+    let badge = row.querySelector(":scope > .tree-node-test-count");
+    if (!state) {
+      badge?.remove();
+      return;
+    }
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "tree-node-test-count";
+      row.appendChild(badge);
+    }
+    const {
+      running = false,
+      passed = 0,
+      total = 0,
+      failed = 0,
+      completed = 0,
+      count = 0,
+    } = state;
+    badge.textContent = `${passed}/${total}`;
+    // Outcome colour only once the run has settled.
+    const ok = !running && failed === 0 && total > 0 && passed === total;
+    const bad = !running && (failed > 0 || passed < total);
+    badge.classList.toggle("tree-node-test-count--running", running);
+    badge.classList.toggle("tree-node-test-count--pass", ok);
+    badge.classList.toggle("tree-node-test-count--fail", bad);
+    // Tooltip: live progress while running; tests + any failed requests when done.
+    if (running) {
+      badge.title = t("tree.folderRun.running", { completed, count });
+    } else {
+      const parts = [
+        t("tree.folderRun.tests", { passed, total, count: total }),
+      ];
+      if (failed > 0)
+        parts.push(t("tree.folderRun.failedReqs", { failed, count: failed }));
+      badge.title = parts.join(" · ");
+    }
   }
 
   /**

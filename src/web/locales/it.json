@@ -65,7 +65,15 @@
       "other": "{count} raccolte esportate come Rest Hippo v1."
     },
     "resthippoSecuredSuffix": "I segreti sono protetti da password.",
-    "resthippoImported": "{created} elemento/i importato/i, {replaced} sostituito/i, {environments} ambiente/i aggiunto/i."
+    "resthippoImported": "{created} elemento/i importato/i, {replaced} sostituito/i, {environments} ambiente/i aggiunto/i.",
+    "runFolder": {
+      "title": "Esegui cartella",
+      "empty": "Questa cartella non contiene richieste da eseguire.",
+      "noTests": {
+        "one": "Eseguita {count} richiesta in «{name}»: nessun test definito.",
+        "other": "Eseguite {count} richieste in «{name}»: nessun test definito."
+      }
+    }
   },
   "vars": {
     "title": "Editor di variabili",
@@ -850,7 +858,9 @@
       "copyAsCurl": "Copia come cURL",
       "clearHistory": "Cancella cronologia esecuzioni",
       "delete": "Elimina",
-      "confirm": "Confermare?"
+      "confirm": "Confermare?",
+      "runFolder": "Esegui tutte le richieste",
+      "clearRunCounts": "Cancella conteggi dei test"
     },
     "curlCopied": "Il comando cURL è stato copiato negli appunti.",
     "code": {
@@ -864,7 +874,18 @@
     "unnamed": "(senza nome)",
     "emptyFavorites": "Ancora nessun preferito",
     "emptyRecent": "Nessuna richiesta recente",
-    "newWebSocket": "Nuovo WebSocket"
+    "newWebSocket": "Nuovo WebSocket",
+    "folderRun": {
+      "running": "Esecuzione… {completed} di {count}",
+      "tests": {
+        "one": "{passed}/{total} test superato",
+        "other": "{passed}/{total} test superati"
+      },
+      "failedReqs": {
+        "one": "{failed} richiesta non riuscita",
+        "other": "{failed} richieste non riuscite"
+      }
+    }
   },
   "collections": {
     "title": "Raccolte",

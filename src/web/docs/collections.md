@@ -60,6 +60,7 @@ actions:
 | Action                                                       | Applies to           | What it does                                                   |
 | ------------------------------------------------------------ | -------------------- | -------------------------------------------------------------- |
 | **Add Request** / **Add WebSocket Request** / **Add Folder** | folders              | Create a child item                                            |
+| **Run All Requests**                                         | folders              | [Run every request in the folder](#running-a-whole-folder) and tally their tests |
 | **Rename**                                                   | both                 | Edit the name inline                                           |
 | **Favorite** / **Unfavorite**                                | requests             | Toggle the [Favorites](#favorites-and-recent) star             |
 | **Duplicate**                                                | both                 | Copy the item (and its contents)                               |
@@ -69,6 +70,50 @@ actions:
 | **Variables**                                                | collections, folders | Edit [variables](variables-and-environments.md) for that scope |
 | **Clear Run History**                                        | requests             | Discard the request's saved [timeline](responses.md#timeline)  |
 | **Delete**                                                   | both                 | Remove the item (asks to confirm)                              |
+
+## Running a whole folder
+
+Right-click a collection or folder and choose **Run All Requests** to send every
+request inside it — including those in nested sub-folders — one after another.
+WebSocket requests are skipped (they hold an open connection rather than running
+once). The entry is greyed out when the folder has nothing to run.
+
+As the run proceeds, a small **pass/total badge** appears on the folder row and
+counts up live — for example `7/10` means seven of ten
+[tests](scripting.md#test-assertions) have passed so far. Both the no-code
+[Tests](requests.md#tests) assertions and scripted `hippo.test()` calls count
+toward the total. When the run finishes the badge settles to its final tally and
+turns **green** if every test passed, or **red** if any test failed (or a request
+could not be sent). Hover the badge for a summary, and a toast reports the result.
+
+**Nested folders roll up.** Every folder in the run gets its own badge: each
+sub-folder shows the tally for just its own requests, while the folder you
+clicked rolls up its immediate requests **plus** everything in its sub-folders.
+So running a folder of three requests that also contains a sub-folder of two
+requests shows `2/2` on the sub-folder and `5/5` on the parent.
+
+**Clearing the counts.** Once a folder shows a badge, its right-click menu gains
+a **Clear Test Counts** entry just below **Run All Requests** (it is hidden when
+there is no badge). Choosing it removes the badge from that folder **and every
+sub-folder beneath it**. This only resets the on-screen counts — each request's
+recorded [timeline](responses.md#timeline) is left intact.
+
+Requests run **in order**, sharing the collection's
+[cookie jar](#cookies), and any [variables they capture](variables-and-environments.md#captures)
+or scripts write are applied before the next request runs — so a folder that
+logs in first and reuses the captured token in later requests works as expected.
+
+Each request is treated **exactly as if you had opened and sent it yourself**:
+the run is saved to that request's [timeline](responses.md#timeline) (with its
+test results), and selecting the request afterwards shows its latest response,
+console, and Tests tab. The response viewer is not switched while the folder
+runs — open any request when it finishes to inspect its recorded run.
+
+> Folders whose requests use **OAuth 2.0** are the one exception: that flow needs
+> the interactive token popup, so those requests are sent without it during a
+> folder run. Send them individually from the editor when you need a fresh OAuth
+> token. The badge is a live, in-session indicator — it clears when you restart
+> Rest Hippo or run the folder again.
 
 ## Favorites and Recent
 

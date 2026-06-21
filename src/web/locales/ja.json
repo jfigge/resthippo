@@ -63,7 +63,14 @@
       "other": "{count} 個のコレクションを Rest Hippo v1 としてエクスポートしました。"
     },
     "resthippoSecuredSuffix": "シークレットはパスワードで保護されています。",
-    "resthippoImported": "{created} 件をインポートし、{replaced} 件を置き換え、{environments} 個の環境を追加しました。"
+    "resthippoImported": "{created} 件をインポートし、{replaced} 件を置き換え、{environments} 個の環境を追加しました。",
+    "runFolder": {
+      "title": "フォルダーを実行",
+      "empty": "このフォルダーには実行できるリクエストがありません。",
+      "noTests": {
+        "other": "「{name}」で {count} 件のリクエストを実行しました — テストは定義されていません。"
+      }
+    }
   },
   "vars": {
     "title": "変数エディター",
@@ -847,7 +854,9 @@
       "copyAsCurl": "cURL としてコピー",
       "clearHistory": "実行履歴をクリア",
       "delete": "削除",
-      "confirm": "確認しますか？"
+      "confirm": "確認しますか？",
+      "runFolder": "すべてのリクエストを実行",
+      "clearRunCounts": "テスト数をクリア"
     },
     "curlCopied": "cURL コマンドをクリップボードにコピーしました。",
     "code": {
@@ -861,7 +870,16 @@
     "unnamed": "（名称未設定）",
     "emptyFavorites": "お気に入りはまだありません",
     "emptyRecent": "最近のリクエストはありません",
-    "newWebSocket": "新しい WebSocket"
+    "newWebSocket": "新しい WebSocket",
+    "folderRun": {
+      "running": "実行中… {count} 件中 {completed} 件",
+      "tests": {
+        "other": "{total} 件中 {passed} 件のテストに合格"
+      },
+      "failedReqs": {
+        "other": "{failed} 件のリクエストが失敗"
+      }
+    }
   },
   "collections": {
     "title": "コレクション",

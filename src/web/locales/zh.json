@@ -63,7 +63,14 @@
       "other": "已将 {count} 个集合导出为 Rest Hippo v1。"
     },
     "resthippoSecuredSuffix": "机密已用密码保护。",
-    "resthippoImported": "已导入 {created} 项，替换 {replaced} 项，新增 {environments} 个环境。"
+    "resthippoImported": "已导入 {created} 项，替换 {replaced} 项，新增 {environments} 个环境。",
+    "runFolder": {
+      "title": "运行文件夹",
+      "empty": "此文件夹没有可运行的请求。",
+      "noTests": {
+        "other": "已在“{name}”中运行 {count} 个请求 — 未定义测试。"
+      }
+    }
   },
   "vars": {
     "title": "变量编辑器",
@@ -847,7 +854,9 @@
       "copyAsCurl": "复制为 cURL",
       "clearHistory": "清除运行历史",
       "delete": "删除",
-      "confirm": "确认？"
+      "confirm": "确认？",
+      "runFolder": "运行所有请求",
+      "clearRunCounts": "清除测试计数"
     },
     "curlCopied": "cURL 命令已复制到剪贴板。",
     "code": {
@@ -861,7 +870,16 @@
     "unnamed": "（未命名）",
     "emptyFavorites": "暂无收藏",
     "emptyRecent": "暂无最近的请求",
-    "newWebSocket": "新建 WebSocket"
+    "newWebSocket": "新建 WebSocket",
+    "folderRun": {
+      "running": "正在运行… {count} 个中的 {completed} 个",
+      "tests": {
+        "other": "{total} 个测试中 {passed} 个通过"
+      },
+      "failedReqs": {
+        "other": "{failed} 个请求失败"
+      }
+    }
   },
   "collections": {
     "title": "集合",

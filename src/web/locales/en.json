@@ -65,7 +65,15 @@
       "other": "{count} collections exported as Rest Hippo v1."
     },
     "resthippoSecuredSuffix": "Secrets are password-protected.",
-    "resthippoImported": "Imported {created} item(s), replaced {replaced}, added {environments} environment(s)."
+    "resthippoImported": "Imported {created} item(s), replaced {replaced}, added {environments} environment(s).",
+    "runFolder": {
+      "title": "Run Folder",
+      "empty": "This folder has no requests to run.",
+      "noTests": {
+        "one": "Ran {count} request in “{name}” — no tests defined.",
+        "other": "Ran {count} requests in “{name}” — no tests defined."
+      }
+    }
   },
   "vars": {
     "title": "Variable Editor",
@@ -850,7 +858,9 @@
       "copyAsCurl": "Copy as cURL",
       "clearHistory": "Clear Run History",
       "delete": "Delete",
-      "confirm": "Confirm?"
+      "confirm": "Confirm?",
+      "runFolder": "Run All Requests",
+      "clearRunCounts": "Clear Test Counts"
     },
     "curlCopied": "The cURL command has been copied to your clipboard.",
     "code": {
@@ -864,7 +874,18 @@
     "unnamed": "(unnamed)",
     "emptyFavorites": "No favorites yet",
     "emptyRecent": "No recent requests",
-    "newWebSocket": "New WebSocket"
+    "newWebSocket": "New WebSocket",
+    "folderRun": {
+      "running": "Running… {completed} of {count}",
+      "tests": {
+        "one": "{passed}/{total} test passed",
+        "other": "{passed}/{total} tests passed"
+      },
+      "failedReqs": {
+        "one": "{failed} request failed",
+        "other": "{failed} requests failed"
+      }
+    }
   },
   "collections": {
     "title": "Collections",

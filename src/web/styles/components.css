@@ -296,6 +296,45 @@
   opacity: 1;
 }
 
+/* "Run All Requests" tally badge — sits at the folder row's right edge and
+   shows the running passed/total test ratio. Neutral while running, then
+   green (all passed) or red (any test or request failed) once settled. */
+.tree-node-test-count {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.6;
+  border-radius: 3px;
+  background: var(--color-surface-1);
+  color: var(--color-overlay-0);
+}
+
+.tree-node-test-count--running {
+  color: var(--color-overlay-0);
+  animation: tree-test-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes tree-test-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.tree-node-test-count--pass {
+  color: var(--color-success);
+}
+
+.tree-node-test-count--fail {
+  color: var(--color-error);
+}
+
 mark.tree-highlight {
   background: transparent;
   color: var(--color-warning);

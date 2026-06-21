@@ -35,6 +35,7 @@ import {
   buildRequestPayload,
   applyPathParams,
   resolvePathParamValues,
+  encodeBaseUrl,
 } from "./components/request-payload.js";
 import { ResponseViewer } from "./components/response-viewer.js";
 import { WsConsole } from "./components/ws-console.js";
@@ -1342,6 +1343,7 @@ function initEventBus() {
   //   collections-changed   items[]                       tree mutated → persist
   //   export-collection     { collection }
   //   folder-vars-open      { nodeId, folderName, variables }
+  //   run-folder            { folderId }                   run every request in a folder, tally tests
   //
   // Request lifecycle           (RequestEditor / app.js ↔ panels)
   //   send-request          { requestId, method, url, headers, … }
@@ -1602,6 +1604,172 @@ function installSelectionHandlers() {
   });
 }
 
+/** Compact { total, passed, failed } from a test-result array, or null if empty. */
+function _testSummary(testResults) {
+  return testResults?.length
+    ? {
+        total: testResults.length,
+        passed: testResults.filter((t) => t.passed).length,
+        failed: testResults.filter((t) => !t.passed).length,
+      }
+    : null;
+}
+
+/**
+ * Record a successful HTTP run into a request's per-request history, exactly as
+ * an interactive send does: it persists the full response (incl. test results),
+ * a compact metadata entry (with a test summary for the Timeline badge), updates
+ * the response cache so response()/responseHeader() pills resolve, refreshes the
+ * editor's pill context, and repaints the Timeline when this request is selected.
+ * Shared by the interactive response handler and the folder runner so the two
+ * can't drift. No-op when history is disabled. Returns the new entry list.
+ *
+ * @param {object} node          tree node the run belongs to
+ * @param {object} detail        response detail (request/status/headers/body/…)
+ * @param {Array}  testResults   [{name,passed,message}] from the after-response sandbox
+ */
+async function _recordRunHistory(node, detail, testResults = []) {
+  if (_maxHistory <= 0 || !node?.id) return null;
+  const histId = crypto.randomUUID();
+  const nowMs = Date.now();
+  const reqUrl = detail.request?.url ?? "";
+  const reqNode = _buildSnapshot(node);
+  const testSummary = _testSummary(testResults);
+  const resp = {
+    request: detail.request ?? {},
+    status: detail.status ?? 0,
+    statusText: detail.statusText ?? "",
+    headers: detail.headers ?? {},
+    cookies: detail.cookies ?? [],
+    body: detail.body ?? "",
+    elapsed: detail.elapsed ?? 0,
+    size: detail.size ?? 0,
+    consoleLog: detail.consoleLog ?? [],
+    encoding: detail.encoding ?? "utf8",
+    // bodyRef is a session-scoped handle to the full body cached in main; it is
+    // deliberately NOT persisted. truncated/fullSize ARE, so a reloaded entry
+    // still shows the "response was truncated" banner.
+    truncated: detail.truncated ?? false,
+    fullSize: detail.fullSize ?? detail.size ?? 0,
+    bodyRef: detail.bodyRef ?? null,
+    // Kept on the in-memory entry so a Timeline replay re-renders the Tests tab.
+    testResults,
+  };
+  const entries = await _recordHistoryEntry(
+    node.id,
+    {
+      id: histId,
+      requestNode: reqNode,
+      requestUrl: reqUrl,
+      response: resp,
+      timestamp: nowMs,
+    },
+    {
+      id: histId,
+      timestamp: nowMs,
+      status: resp.status,
+      statusText: resp.statusText,
+      elapsed: resp.elapsed,
+      size: resp.size,
+      requestUrl: reqUrl,
+      requestNode: reqNode,
+      testSummary,
+    },
+    {
+      headers: resp.headers,
+      cookies: resp.cookies,
+      body: resp.body,
+      consoleLog: resp.consoleLog,
+      encoding: resp.encoding,
+      truncated: resp.truncated,
+      fullSize: resp.fullSize,
+      testResults: resp.testResults,
+    },
+  );
+  const latest = entries[0];
+  const name = node.name;
+  if (name) {
+    _responseCache[name] = latest?.response?.body ?? "";
+    _responseHeaders[name] = latest?.response?.headers ?? {};
+    _responseStatus[name] = latest?.response?.status ?? 0;
+  }
+  // Refresh pill context for whichever request is loaded in the editor — a
+  // background response may make its response() pills resolvable.
+  _refreshEditorVariableContext(_selectedNode?.id);
+  // Only repaint the timeline pane when it is showing this request.
+  if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
+  return entries;
+}
+
+/**
+ * Record a network-level failure (ENOTFOUND, ETIMEDOUT, refused, …) into a
+ * request's history — the failure counterpart to _recordRunHistory, matching the
+ * interactive request-error path. No-op when history is disabled.
+ *
+ * @param {object} node    tree node the run belongs to
+ * @param {object} detail  error detail { request, name, message, hint, elapsed, consoleLog }
+ */
+async function _recordRunError(node, detail) {
+  if (_maxHistory <= 0 || !node?.id) return null;
+  const histId = crypto.randomUUID();
+  const nowMs = Date.now();
+  const reqUrl = detail.request?.url ?? "";
+  const reqNode = _buildSnapshot(node);
+  const resp = {
+    request: detail.request ?? {},
+    error: {
+      name: detail.name ?? "Error",
+      message: detail.message ?? "",
+      hint: detail.hint ?? "",
+    },
+    status: 0,
+    statusText: detail.name ?? "Error",
+    headers: {},
+    cookies: [],
+    body: "",
+    elapsed: detail.elapsed ?? 0,
+    size: 0,
+    consoleLog: detail.consoleLog ?? [],
+  };
+  const entries = await _recordHistoryEntry(
+    node.id,
+    {
+      id: histId,
+      requestNode: reqNode,
+      requestUrl: reqUrl,
+      response: resp,
+      timestamp: nowMs,
+    },
+    {
+      id: histId,
+      timestamp: nowMs,
+      status: 0,
+      statusText: resp.statusText,
+      elapsed: resp.elapsed,
+      size: 0,
+      requestUrl: reqUrl,
+      requestNode: reqNode,
+    },
+    {
+      request: resp.request,
+      error: resp.error,
+      headers: {},
+      cookies: [],
+      body: "",
+      consoleLog: resp.consoleLog,
+    },
+  );
+  const latest = entries[0];
+  const name = node?.name;
+  if (name) {
+    _responseCache[name] = latest?.response?.body ?? "";
+    _responseHeaders[name] = latest?.response?.headers ?? {};
+    _responseStatus[name] = latest?.response?.status ?? 0;
+  }
+  if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
+  return entries;
+}
+
 // Cache response data so function pills like response() / responseHeader() can
 // resolve; record real (non-replay) runs and failures into per-request history.
 function installResponseHandlers() {
@@ -1647,13 +1815,7 @@ function installResponseHandlers() {
     if (!skipHistory) {
       testResults = await _runAfterResponseScript(node, e.detail);
     }
-    const testSummary = testResults.length
-      ? {
-          total: testResults.length,
-          passed: testResults.filter((t) => t.passed).length,
-          failed: testResults.filter((t) => !t.passed).length,
-        }
-      : null;
+    const testSummary = _testSummary(testResults);
     // Push the results to the response viewer (Tests tab + status badge). The
     // viewer rendered the response off the same hippo:response-received event a
     // moment ago with no tests; this fills them in once the sandbox returns.
@@ -1672,81 +1834,10 @@ function installResponseHandlers() {
     // Record in per-request history only for real (non-replay) executions.
     // When replaying a historical entry, do NOT push to history and do NOT
     // re-render the timeline (which would clear the user's current selection).
-    if (!skipHistory && _maxHistory > 0 && node?.id) {
-      const histId = crypto.randomUUID();
-      const nowMs = Date.now();
-      const reqUrl = e.detail.request?.url ?? "";
-      const reqNode = _buildSnapshot(node);
-      const resp = {
-        request: e.detail.request ?? {},
-        status: e.detail.status ?? 0,
-        statusText: e.detail.statusText ?? "",
-        headers: e.detail.headers ?? {},
-        cookies: e.detail.cookies ?? [],
-        body: e.detail.body ?? "",
-        elapsed: e.detail.elapsed ?? 0,
-        size: e.detail.size ?? 0,
-        consoleLog: e.detail.consoleLog ?? [],
-        encoding: e.detail.encoding ?? "utf8",
-        // Streaming metadata for spilled (large) responses. bodyRef is a
-        // session-scoped handle to the full body cached in the main process; it
-        // is deliberately NOT persisted (see addHistory below) because that
-        // cache is reaped on restart. truncated/fullSize ARE persisted so a
-        // reloaded entry still shows the "response was truncated" banner.
-        truncated: e.detail.truncated ?? false,
-        fullSize: e.detail.fullSize ?? e.detail.size ?? 0,
-        bodyRef: e.detail.bodyRef ?? null,
-        // Test assertions (Feature 29) computed above — kept on the in-memory
-        // entry so a Timeline replay re-renders the Tests tab.
-        testResults,
-      };
-
-      const entries = await _recordHistoryEntry(
-        node.id,
-        {
-          id: histId,
-          requestNode: reqNode,
-          requestUrl: reqUrl,
-          response: resp,
-          timestamp: nowMs,
-        },
-        {
-          id: histId,
-          timestamp: nowMs,
-          status: resp.status,
-          statusText: resp.statusText,
-          elapsed: resp.elapsed,
-          size: resp.size,
-          requestUrl: reqUrl,
-          requestNode: reqNode,
-          // Compact test summary (Feature 29) on the lightweight metadata entry
-          // so the Timeline can show a per-run pass/fail badge without loading
-          // the full response payload. Null when no assertions ran.
-          testSummary,
-        },
-        {
-          headers: resp.headers,
-          cookies: resp.cookies,
-          body: resp.body,
-          consoleLog: resp.consoleLog,
-          encoding: resp.encoding,
-          // Persist truncation flags (but not the session-scoped bodyRef) so a
-          // reloaded large response is correctly flagged as a stored preview.
-          truncated: resp.truncated,
-          fullSize: resp.fullSize,
-          // Full per-assertion results (Feature 29) for the Tests tab on replay.
-          testResults: resp.testResults,
-        },
-      );
-      const latest = entries[0];
-      _responseCache[name] = latest?.response?.body ?? "";
-      _responseHeaders[name] = latest?.response?.headers ?? {};
-      _responseStatus[name] = latest?.response?.status ?? 0;
-      // Refresh pill context for whichever request is loaded in the editor —
-      // a background response may make its response() pills resolvable.
-      _refreshEditorVariableContext(_selectedNode?.id);
-      // Only repaint the timeline pane when it is showing this request.
-      if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
+    // The shared helper also updates the response cache + editor pill context
+    // and repaints the Timeline when this request is selected.
+    if (!skipHistory) {
+      await _recordRunHistory(node, e.detail, testResults);
     }
 
     // Post-response captures (Feature 03). Run on genuine sends only (never on a
@@ -1789,66 +1880,10 @@ function installResponseHandlers() {
     const node = e.detail.requestNode ?? _selectedNode;
     if (!node?.id || _maxHistory <= 0) return;
 
-    const histId = crypto.randomUUID();
-    const nowMs = Date.now();
-    const reqUrl = e.detail.request?.url ?? "";
     // Store the snapshot (bulk-string) format, matching the success path. The
     // timeline-restore handler replays it via loadSnapshot() and the timeline
     // detail panel reads params/headers as bulk text, both of which need strings.
-    const reqNode = _buildSnapshot(node);
-    const resp = {
-      request: e.detail.request ?? {},
-      error: {
-        name: e.detail.name ?? "Error",
-        message: e.detail.message ?? "",
-        hint: e.detail.hint ?? "",
-      },
-      status: 0,
-      statusText: e.detail.name ?? "Error",
-      headers: {},
-      cookies: [],
-      body: "",
-      elapsed: e.detail.elapsed ?? 0,
-      size: 0,
-      consoleLog: e.detail.consoleLog ?? [],
-    };
-
-    const entries = await _recordHistoryEntry(
-      node.id,
-      {
-        id: histId,
-        requestNode: reqNode,
-        requestUrl: reqUrl,
-        response: resp,
-        timestamp: nowMs,
-      },
-      {
-        id: histId,
-        timestamp: nowMs,
-        status: 0,
-        statusText: resp.statusText,
-        elapsed: resp.elapsed,
-        size: 0,
-        requestUrl: reqUrl,
-        requestNode: reqNode,
-      },
-      {
-        request: resp.request,
-        error: resp.error,
-        headers: {},
-        cookies: [],
-        body: "",
-        consoleLog: resp.consoleLog,
-      },
-    );
-    const errLatest = entries[0];
-    const errName = node?.name;
-    if (errName) {
-      _responseCache[errName] = errLatest?.response?.body ?? "";
-      _responseHeaders[errName] = errLatest?.response?.headers ?? {};
-      _responseStatus[errName] = errLatest?.response?.status ?? 0;
-    }
-    if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
+    await _recordRunError(node, e.detail);
   });
 }
 
@@ -2201,6 +2236,10 @@ function installFolderVarsHandler() {
       bulkEditor: currentSettings.varsBulkEditor ?? true,
     });
   });
+
+  window.addEventListener("hippo:run-folder", (e) => {
+    _runFolder(e.detail?.folderId);
+  });
 }
 
 /**
@@ -2303,16 +2342,21 @@ async function handleEnvVarsSave({ id, variables }) {
  * @param {string|null} [nodeId]  — the selected request/folder node ID;
  *   defaults to the active collection's selectedRequestId.
  */
-function _refreshEditorVariableContext(nodeId) {
-  if (!requestEditor) return;
-  const id =
-    nodeId ??
-    currentSettings.selectedRequestIds?.[currentColls.activeCollectionId] ??
-    null;
+/**
+ * Build the full variable-resolution context for a node at `nodeId` from the
+ * current global / environment / collection / folder-chain state — the shape
+ * `resolveStringAsync` consumes. Shared by the editor's live context refresh
+ * and the folder runner (so a folder run resolves {{vars}} exactly as an
+ * interactive send would, picking up its position-specific folder chain).
+ *
+ * @param {string|null} nodeId
+ * @param {object|null} [node]  the node itself, for requestName (optional)
+ */
+function _buildVariableContextForNode(nodeId, node = null) {
   // Variables are stored canonically as arrays; the resolver consumes maps,
   // so flatten each scope (and every folder-chain node) here at the boundary.
   const folderChain = (
-    treeView && id ? buildFolderChain(treeView.getItems(), id) : []
+    treeView && nodeId ? buildFolderChain(treeView.getItems(), nodeId) : []
   ).map((folder) => ({
     ...folder,
     variables: varsArrayToMap(folder.variables),
@@ -2322,30 +2366,22 @@ function _refreshEditorVariableContext(nodeId) {
   const activeColl = currentColls.collections.find(
     (coll) => coll.id === currentColls.activeCollectionId,
   );
-  const collectionVariables = varsArrayToMap(activeColl?.variables);
-  const secureCollectionVariables = varsArrayToSecureSet(activeColl?.variables);
-  const node =
-    _selectedNode ??
-    (id && treeView ? _findNodeById(treeView.getItems(), id) : null);
-
-  const activeEnvId = currentEnvironments.activeEnvironmentId;
   const activeEnv = currentEnvironments.environments.find(
-    (e) => e.id === activeEnvId,
+    (e) => e.id === currentEnvironments.activeEnvironmentId,
   );
+  const collectionVariables = varsArrayToMap(activeColl?.variables);
   const environmentVariables = varsArrayToMap(activeEnv?.variables);
-  const secureEnvironmentVariables = varsArrayToSecureSet(activeEnv?.variables);
   const globalVariables = varsArrayToMap(currentEnvironments.globalVariables);
-  const secureGlobalVariables = varsArrayToSecureSet(
-    currentEnvironments.globalVariables,
-  );
 
-  requestEditor.setVariableContext({
+  return {
     collectionVariables,
-    secureCollectionVariables,
+    secureCollectionVariables: varsArrayToSecureSet(activeColl?.variables),
     environmentVariables,
-    secureEnvironmentVariables,
+    secureEnvironmentVariables: varsArrayToSecureSet(activeEnv?.variables),
     globalVariables,
-    secureGlobalVariables,
+    secureGlobalVariables: varsArrayToSecureSet(
+      currentEnvironments.globalVariables,
+    ),
     folderChain,
     collectionName: activeColl?.name ?? "",
     activeEnvironmentName: activeEnv?.name ?? "",
@@ -2353,14 +2389,29 @@ function _refreshEditorVariableContext(nodeId) {
     responseCache: _responseCache,
     responseHeaders: _responseHeaders,
     responseStatus: _responseStatus,
-  });
+  };
+}
+
+function _refreshEditorVariableContext(nodeId) {
+  if (!requestEditor) return;
+  const id =
+    nodeId ??
+    currentSettings.selectedRequestIds?.[currentColls.activeCollectionId] ??
+    null;
+  const node =
+    _selectedNode ??
+    (id && treeView ? _findNodeById(treeView.getItems(), id) : null);
+
+  const ctx = _buildVariableContextForNode(id, node);
+  requestEditor.setVariableContext(ctx);
+
   // Feed merged variables to the tree-view so "Generate cURL" resolves correctly.
   // Collection-level wins over environment which wins over global.
   if (treeView) {
     treeView.setEnvVariables({
-      ...globalVariables,
-      ...environmentVariables,
-      ...collectionVariables,
+      ...ctx.globalVariables,
+      ...ctx.environmentVariables,
+      ...ctx.collectionVariables,
     });
   }
 }
@@ -3816,6 +3867,359 @@ async function _executeRequestNode(node, ctx) {
     };
   } catch {
     return { body: "", headers: {}, status: 0 };
+  }
+}
+
+// ── Folder run (run every request in a folder, tally tests) ──────────────────
+
+/** Folder ids with a run currently in flight — guards against re-entrant runs. */
+const _runningFolders = new Set();
+
+/**
+ * Collect runnable request nodes under a folder, in tree order, recursively.
+ * WebSocket requests are skipped — they open a persistent connection rather
+ * than executing a one-shot HTTP round-trip the runner can score.
+ */
+function _collectRunnableRequests(folder) {
+  const out = [];
+  const walk = (node) => {
+    for (const child of node.children ?? []) {
+      if (child.type === "collection") walk(child);
+      else if (child.type === "request" && child.protocol !== "websocket")
+        out.push(child);
+    }
+  };
+  walk(folder ?? {});
+  return out;
+}
+
+/**
+ * Apply a node's capture rules to a response and persist the writes WITHOUT the
+ * per-request toasts `_applyCapturesForNode` shows — a folder run executes many
+ * requests, so silent write-back keeps chained flows (login → capture token →
+ * later requests use it) working without flooding the user with notifications.
+ * Captured values land in the in-memory scope state, so the next request's
+ * freshly-built context resolves them.
+ */
+async function _applyCapturesQuiet(node, detail) {
+  const rules = node?.captures;
+  if (!Array.isArray(rules) || rules.length === 0) return;
+  const { writes } = applyCaptures(
+    {
+      status: detail?.status ?? 0,
+      headers: detail?.headers ?? {},
+      body: detail?.body ?? "",
+    },
+    rules,
+  );
+  if (writes.length) await persistVariableWrites(writes);
+}
+
+/**
+ * Execute a single request node for a folder run and return either a
+ * response detail (the shape `_runAfterResponseScript` / `_applyCapturesQuiet`
+ * consume) or a network-level error. Mirrors the interactive send's payload
+ * assembly (URL percent-encoded, query/auth/body via buildRequestPayload) but
+ * runs quietly — no editor/viewer/loading events. OAuth2 is unsupported here
+ * (its token acquisition is interactive), matching the dependency prefetcher.
+ *
+ * @param {object} node
+ * @param {object} ctx  variable-resolution context for this node
+ * @returns {Promise<{ok:boolean, detail?:object, error?:object}>}
+ */
+async function _executeForFolderRun(node, ctx) {
+  const rv = (s) => resolveStringAsync(s, ctx);
+  const method = node.method ?? "GET";
+  const {
+    finalUrl,
+    headers,
+    body,
+    bodyFilePath,
+    multipart,
+    awsIam,
+    authDigest,
+    authNtlm,
+    oauth1,
+  } = await buildRequestPayload(
+    {
+      method,
+      urlBase: encodeBaseUrl(
+        applyPathParams(
+          await rv(node.url ?? ""),
+          await resolvePathParamValues(node.pathParams, rv),
+        ),
+      ),
+      params: node.params,
+      headers: node.headers,
+      authEnabled: node.authEnabled !== false,
+      authType: node.authType,
+      authBasic: node.authBasic,
+      authBearer: node.authBearer,
+      authApiKey: node.authApiKey,
+      authDigest: node.authDigest,
+      authNtlm: node.authNtlm,
+      authAwsIam: node.authAwsIam,
+      authOAuth1: node.authOAuth1,
+      bodyType: node.bodyType,
+      bodyText: node.bodyText,
+      bodyFormRows: node.bodyFormRows,
+      bodyFile: node.bodyFile ?? null,
+      bodyGraphql: node.bodyGraphql,
+    },
+    rv,
+  );
+
+  const nativeDesc = {
+    method,
+    url: finalUrl,
+    headers,
+    body,
+    bodyFilePath,
+    multipart,
+    timeout: currentSettings.timeout ?? 30000,
+    followRedirects: currentSettings.followRedirects ?? true,
+    verifySsl: currentSettings.verifySsl ?? true,
+    awsIam,
+    authDigest,
+    authNtlm,
+    oauth1,
+    ..._proxyDescriptorFields(currentSettings),
+    retry: _retryDescriptor(currentSettings),
+    collectionId: currentColls.activeCollectionId ?? null,
+    useCookieJar: _collSendCookies(currentColls.activeCollectionId),
+  };
+
+  const request = {
+    method,
+    url: finalUrl,
+    headers,
+    body: typeof body === "string" ? body : null,
+  };
+
+  let result;
+  try {
+    if (window.hippo?.isElectron === true) {
+      result = await window.hippo.http.execute(nativeDesc);
+    } else {
+      const res = await fetch("/api/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nativeDesc),
+      });
+      if (!res.ok) throw new Error(`Execute API returned HTTP ${res.status}`);
+      result = await res.json();
+    }
+  } catch (err) {
+    // A thrown transport error (preload missing, dev-server down) is the same
+    // class of failure as a network error — record it as one rather than
+    // letting it escape the runner uncounted.
+    const name = (err instanceof Error ? err.name : "Error") || "Error";
+    const message = (err instanceof Error ? err.message : String(err)) || "";
+    return {
+      ok: false,
+      errorDetail: {
+        request,
+        name,
+        message,
+        hint: _buildHint(name, message),
+        elapsed: 0,
+        consoleLog: [`* ${name}: ${message}`],
+      },
+    };
+  }
+
+  // Network-level failure (status 0): no HTTP response was received.
+  if (result.error && result.status === 0) {
+    return {
+      ok: false,
+      errorDetail: {
+        request,
+        name: result.error.name,
+        message: result.error.message,
+        hint: _buildHint(result.error.name, result.error.message),
+        elapsed: result.elapsed ?? 0,
+        consoleLog: result.consoleLog ?? [],
+      },
+    };
+  }
+
+  // Genuine HTTP response (any status). Carry the full detail the history /
+  // captures / tests paths consume — the same shape as the interactive
+  // hippo:response-received event.
+  return {
+    ok: true,
+    detail: {
+      request,
+      status: result.status ?? 0,
+      statusText: result.statusText ?? "",
+      headers: result.headers ?? {},
+      cookies: result.cookies ?? [],
+      body: result.body ?? "",
+      elapsed: result.elapsed ?? 0,
+      size: result.size ?? 0,
+      consoleLog: result.consoleLog ?? [],
+      encoding: result.encoding ?? "utf8",
+      truncated: result.truncated ?? false,
+      fullSize: result.fullSize ?? result.size ?? 0,
+      bodyRef: result.bodyRef ?? null,
+    },
+  };
+}
+
+/**
+ * Run every request in a folder sequentially, tally each request's after-response
+ * tests (Feature 29 assertions + script), and stream a running pass/total count
+ * to the tree badge of EVERY folder in the run subtree — each nested folder shows
+ * the tally for its own requests, and the clicked (root) folder rolls up its
+ * immediate requests plus all descendants. Sequential by design: requests share
+ * the cookie jar and may depend on variables an earlier request captured;
+ * captures and script variable-writes ARE applied between requests (quietly) so
+ * those chains work.
+ */
+async function _runFolder(folderId) {
+  if (!folderId) return;
+  const items = treeView ? treeView.getItems() : [];
+  const folder = _findNodeById(items, folderId);
+  if (!folder) return;
+
+  const requests = _collectRunnableRequests(folder);
+  if (requests.length === 0) {
+    Notifications.info(t("app.runFolder.empty"), {
+      title: t("app.runFolder.title"),
+    });
+    return;
+  }
+
+  // Credit each request to every ancestor folder from its parent up to (and
+  // including) the run-root folder, so a result rolls up through the nesting.
+  // tally[folderId] holds that folder's own running totals; its `count` is the
+  // number of runnable requests in its subtree (pre-computed below for the
+  // "{completed} of {count}" tooltip).
+  const newTally = () => ({
+    running: true,
+    passed: 0,
+    total: 0,
+    failed: 0,
+    completed: 0,
+    count: 0,
+  });
+  const tally = new Map();
+  const creditChains = new Map(); // requestId → [folderId, … up to the run root]
+  for (const node of requests) {
+    const chain = buildFolderChain(items, node.id); // nearest-first ancestors
+    const rootIdx = chain.findIndex((f) => f.id === folderId);
+    const credited = (
+      rootIdx >= 0 ? chain.slice(0, rootIdx + 1) : [folder]
+    ).map((f) => f.id);
+    creditChains.set(node.id, credited);
+    for (const fid of credited) {
+      if (!tally.has(fid)) tally.set(fid, newTally());
+      tally.get(fid).count += 1;
+    }
+  }
+
+  // Re-entrancy guard across the whole subtree: block a run that overlaps one
+  // already in flight (an ancestor's run already locked this folder, or this
+  // run would lock a folder a descendant run is using).
+  const lockIds = [...tally.keys()];
+  if (lockIds.some((id) => _runningFolders.has(id))) return;
+  for (const id of lockIds) _runningFolders.add(id);
+
+  const push = (fid) => treeView?.setFolderRunState(fid, { ...tally.get(fid) });
+  const settle = () => {
+    for (const [fid, t] of tally) {
+      t.running = false;
+      treeView?.setFolderRunState(fid, { ...t });
+    }
+  };
+  for (const fid of lockIds) push(fid);
+
+  try {
+    for (const node of requests) {
+      // Per-request fault isolation: any throw (payload build, execute, capture
+      // write-back, or the test sandbox) counts this request as failed and the
+      // run continues to the next — one bad request never aborts the whole run.
+      const inc = { passed: 0, total: 0, failed: 0 };
+      try {
+        const ctx = _buildVariableContextForNode(node.id, node);
+        const outcome = await _executeForFolderRun(node, ctx);
+        if (outcome.ok) {
+          // Score this request's after-response tests (for the tally), then
+          // mirror an interactive send so the request's stored state matches a
+          // direct run: push results to the Tests tab (if it's the open
+          // request), record the run in its Timeline, and apply captures so a
+          // value captured here is visible to the next request's context.
+          const tests = await _runAfterResponseScript(node, outcome.detail);
+          for (const tr of tests) {
+            inc.total += 1;
+            if (tr.passed) inc.passed += 1;
+          }
+          if (tests.length) {
+            window.dispatchEvent(
+              new CustomEvent("hippo:test-results", {
+                detail: {
+                  requestId: node.id,
+                  results: tests,
+                  summary: _testSummary(tests),
+                },
+              }),
+            );
+          }
+          await _recordRunHistory(node, outcome.detail, tests);
+          await _applyCapturesQuiet(node, outcome.detail);
+        } else {
+          inc.failed += 1;
+          await _recordRunError(node, outcome.errorDetail);
+        }
+      } catch {
+        inc.failed += 1;
+      }
+      // Roll this request's result up through every folder that owns it.
+      for (const fid of creditChains.get(node.id)) {
+        const t = tally.get(fid);
+        t.passed += inc.passed;
+        t.total += inc.total;
+        t.failed += inc.failed;
+        t.completed += 1;
+        push(fid);
+      }
+    }
+  } finally {
+    settle();
+    for (const id of lockIds) _runningFolders.delete(id);
+  }
+
+  // One summary toast for the whole run, keyed off the run-root totals.
+  const root = tally.get(folderId);
+  if (root.total === 0 && root.failed === 0) {
+    Notifications.info(
+      t("app.runFolder.noTests", {
+        count: root.count,
+        name: folder.name ?? "",
+      }),
+      { title: t("app.runFolder.title") },
+    );
+    return;
+  }
+  const parts = [
+    t("tree.folderRun.tests", {
+      passed: root.passed,
+      total: root.total,
+      count: root.total,
+    }),
+  ];
+  if (root.failed > 0)
+    parts.push(
+      t("tree.folderRun.failedReqs", {
+        failed: root.failed,
+        count: root.failed,
+      }),
+    );
+  const message = parts.join(" · ");
+  if (root.failed === 0 && root.passed === root.total) {
+    Notifications.success(message, { title: t("app.runFolder.title") });
+  } else {
+    Notifications.warning(message, { title: t("app.runFolder.title") });
   }
 }
 
