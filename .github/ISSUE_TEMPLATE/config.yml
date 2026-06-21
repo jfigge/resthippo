@@ -1,0 +1,10 @@
+# Keep blank issues available (preserves the pre-template behaviour); the
+# feature-request form is offered alongside them via the issue chooser.
+blank_issues_enabled: true
+contact_links:
+  - name: 📖 User Guide
+    url: https://resthippo.com/docs/
+    about: Check the documentation before filing — your question may already be answered.
+  - name: 💬 Browse feature requests
+    url: https://resthippo.com/features.html
+    about: See what's already been suggested and add a 👍 to ideas you'd like.

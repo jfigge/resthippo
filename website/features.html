@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <meta name="description" content="Browse and submit feature requests for Rest Hippo. Suggest ideas using your own GitHub account — all requests are community suggestions, shown as-is." />
+  <title>Feature Requests — Rest Hippo</title>
+  <link rel="canonical" href="https://resthippo.com/features.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Rest Hippo" />
+  <meta property="og:title" content="Feature Requests — Rest Hippo" />
+  <meta property="og:description" content="Browse and submit feature requests for Rest Hippo using your own GitHub account. All requests are community suggestions, shown as-is." />
+  <meta property="og:url" content="https://resthippo.com/features.html" />
+  <meta property="og:image" content="https://resthippo.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@RestHippo" />
+  <meta name="twitter:title" content="Feature Requests — Rest Hippo" />
+  <meta name="twitter:description" content="Browse and submit feature requests for Rest Hippo using your own GitHub account." />
+  <meta name="twitter:image" content="https://resthippo.com/og-image.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #1c1c1c;
+      --mantle:    #161616;
+      --crust:     #101010;
+      --surface-0: #2a2a2a;
+      --surface-1: #383838;
+      --surface-2: #484848;
+      --overlay-0: #686868;
+      --text:      #e8e8e8;
+      --subtext:   #b0b0b0;
+      --accent:    #d0d0d0;
+      --accent2:   #a0a0a0;
+      --green:     #80c080;
+      --peach:     #d09060;
+      --mauve:     #a880c0;
+      --red:       #e07070;
+      --yellow:    #d4b060;
+      --teal:      #70b8d0;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Nav ───────────────────────────────────────────────────────────────── */
+
+    nav {
+      background: var(--mantle);
+      border-bottom: 1px solid var(--surface-0);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 58px;
+    }
+
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #1c1c1c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border: 1px solid var(--surface-1);
+    }
+
+    .nav-wordmark { font-size: 1.2rem; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+
+    .nav-right { display: flex; align-items: center; gap: 1.5rem; }
+
+    .nav-link {
+      color: var(--subtext);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.15s;
+    }
+    .nav-link:hover { color: var(--text); }
+    .nav-link--active { color: var(--text); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+      line-height: 1;
+    }
+
+    .btn-primary { background: var(--accent); color: var(--crust); }
+    .btn-primary:hover {
+      background: #e2e2e2;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(208, 208, 208, 0.25);
+    }
+
+    .btn-ghost { background: transparent; color: var(--subtext); border: 1px solid var(--surface-1); }
+    .btn-ghost:hover { background: var(--surface-0); color: var(--text); }
+
+    /* ── Page header ───────────────────────────────────────────────────────── */
+
+    .page {
+      flex: 1;
+      max-width: 860px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 64px 2rem 80px;
+    }
+
+    .page-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .page h1 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 900;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+
+    .page-desc { font-size: 1.1rem; color: var(--subtext); max-width: 620px; margin-bottom: 32px; }
+
+    .page-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 36px; }
+
+    /* ── As-is warning banner ──────────────────────────────────────────────── */
+
+    .notice {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      background: color-mix(in srgb, var(--yellow) 9%, var(--mantle));
+      border: 1px solid color-mix(in srgb, var(--yellow) 35%, transparent);
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 44px;
+    }
+    .notice svg { flex-shrink: 0; color: var(--yellow); margin-top: 2px; }
+    .notice-body { font-size: 0.92rem; color: var(--subtext); }
+    .notice-body strong { color: var(--text); font-weight: 700; }
+
+    /* ── Feature list ──────────────────────────────────────────────────────── */
+
+    .list-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .list-title { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.5px; }
+    .list-sub { font-size: 0.82rem; color: var(--overlay-0); }
+    .list-sub a { color: var(--accent); text-decoration: none; }
+    .list-sub a:hover { text-decoration: underline; }
+
+    #feature-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .fr-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 16px;
+      background: var(--mantle);
+      border: 1px solid var(--surface-0);
+      border-radius: 10px;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color 0.15s, background 0.15s, transform 0.15s;
+    }
+    .fr-row:hover {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 6%, var(--mantle));
+      transform: translateX(3px);
+    }
+
+    .fr-votes {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 52px;
+      padding: 6px 4px;
+      background: var(--surface-0);
+      border-radius: 8px;
+      line-height: 1.15;
+    }
+    .fr-votes-count { font-size: 1rem; font-weight: 800; color: var(--accent); }
+    .fr-votes-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.6px; color: var(--overlay-0); }
+
+    .fr-main { flex: 1; min-width: 0; }
+    .fr-title { font-weight: 600; font-size: 0.98rem; }
+    .fr-meta { font-size: 0.78rem; color: var(--overlay-0); margin-top: 3px; }
+    .fr-arrow { flex-shrink: 0; color: var(--overlay-0); transition: color 0.15s, transform 0.15s; }
+    .fr-row:hover .fr-arrow { color: var(--accent); transform: translateX(2px); }
+
+    .fr-msg {
+      padding: 32px 18px;
+      text-align: center;
+      color: var(--overlay-0);
+      background: var(--mantle);
+      border: 1px dashed var(--surface-1);
+      border-radius: 12px;
+      font-size: 0.92rem;
+    }
+    .fr-msg a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .fr-msg a:hover { text-decoration: underline; }
+
+    /* ── Footer ────────────────────────────────────────────────────────────── */
+
+    footer {
+      background: var(--crust);
+      border-top: 1px solid var(--surface-0);
+      padding: 48px 2rem;
+      text-align: center;
+    }
+    .footer-inner { max-width: 700px; margin: 0 auto; }
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .footer-name { font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+    footer p { color: var(--overlay-0); font-size: 0.83rem; line-height: 1.8; }
+
+    /* ── Responsive ────────────────────────────────────────────────────────── */
+
+    @media (max-width: 640px) {
+      nav { padding: 0 1rem; }
+      .nav-right .nav-link { display: none; }
+      .page { padding: 44px 1rem 64px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ──────────────────────────────────────────────────────────── -->
+<nav>
+  <a class="nav-logo" href="/">
+    <div class="logo-mark">
+      <svg width="20" height="20" viewBox="0 0 512 512" role="img" aria-label="Rest Hippo">
+        <rect x="0" y="0" width="512" height="512" rx="114" fill="#6C5CE7"/>
+        <circle cx="170" cy="146" r="40" fill="#FFFFFF"/>
+        <circle cx="342" cy="146" r="40" fill="#FFFFFF"/>
+        <rect x="144" y="140" width="224" height="190" rx="74" fill="#FFFFFF"/>
+        <rect x="118" y="260" width="276" height="150" rx="74" fill="#FFFFFF"/>
+        <circle cx="201" cy="198" r="17" fill="#6C5CE7"/>
+        <circle cx="311" cy="198" r="17" fill="#6C5CE7"/>
+        <ellipse cx="210" cy="330" rx="14" ry="20" fill="#6C5CE7"/>
+        <ellipse cx="302" cy="330" rx="14" ry="20" fill="#6C5CE7"/>
+      </svg>
+    </div>
+    <span class="nav-wordmark">Rest Hippo</span>
+  </a>
+  <div class="nav-right">
+    <a class="nav-link" href="/#features">Features</a>
+    <a class="nav-link" href="/#downloads">Downloads</a>
+    <a class="nav-link nav-link--active" href="/features.html" aria-current="page">Feature Requests</a>
+    <a class="nav-link" href="/docs/">Guide</a>
+    <a class="btn btn-primary" href="https://github.com/jfigge/resthippo/issues/new?template=feature_request.yml">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Request
+    </a>
+  </div>
+</nav>
+
+<!-- ── Page ────────────────────────────────────────────────────────────────── -->
+<main class="page">
+  <p class="page-tag">Community</p>
+  <h1>Feature requests</h1>
+  <p class="page-desc">
+    Have an idea for Rest Hippo? Submit it on GitHub using your own account, and
+    browse what others have suggested. Give a 👍 to the ideas you'd like to see —
+    the most-requested ones rise to the top.
+  </p>
+
+  <div class="page-actions">
+    <a class="btn btn-primary" href="https://github.com/jfigge/resthippo/issues/new?template=feature_request.yml">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Request a Feature
+    </a>
+    <a class="btn btn-ghost" href="https://github.com/jfigge/resthippo/issues?q=is%3Aissue+label%3Aenhancement">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
+      </svg>
+      Browse all on GitHub
+    </a>
+  </div>
+
+  <!-- As-is warning -->
+  <div class="notice" role="note">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+    <p class="notice-body">
+      <strong>Heads up:</strong> everything listed here is a community suggestion,
+      shown <strong>as-is</strong>. Listing a request is not a commitment to build,
+      endorse, or maintain it — features may change, be declined, or never ship.
+      Submissions are public GitHub issues filed under your own account.
+    </p>
+  </div>
+
+  <!-- List -->
+  <div class="list-head">
+    <span class="list-title">Open requests</span>
+    <span class="list-sub" id="list-sub">Sorted by most 👍 · <a href="https://github.com/jfigge/resthippo/issues?q=is%3Aissue+label%3Aenhancement+sort%3Areactions-%2B1-desc">view on GitHub</a></span>
+  </div>
+
+  <!-- Populated by features.js from the public GitHub Issues API; the link below
+       is the no-JS / fetch-failed fallback. -->
+  <div id="feature-list">
+    <div class="fr-msg">
+      Loading requests… &nbsp;
+      <a href="https://github.com/jfigge/resthippo/issues?q=is%3Aissue+label%3Aenhancement">View feature requests on GitHub →</a>
+    </div>
+  </div>
+</main>
+
+<!-- ── Footer ───────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">
+      <div class="logo-mark">
+        <svg width="20" height="20" viewBox="0 0 512 512" role="img" aria-label="Rest Hippo">
+        <rect x="0" y="0" width="512" height="512" rx="114" fill="#6C5CE7"/>
+        <circle cx="170" cy="146" r="40" fill="#FFFFFF"/>
+        <circle cx="342" cy="146" r="40" fill="#FFFFFF"/>
+        <rect x="144" y="140" width="224" height="190" rx="74" fill="#FFFFFF"/>
+        <rect x="118" y="260" width="276" height="150" rx="74" fill="#FFFFFF"/>
+        <circle cx="201" cy="198" r="17" fill="#6C5CE7"/>
+        <circle cx="311" cy="198" r="17" fill="#6C5CE7"/>
+        <ellipse cx="210" cy="330" rx="14" ry="20" fill="#6C5CE7"/>
+        <ellipse cx="302" cy="330" rx="14" ry="20" fill="#6C5CE7"/>
+      </svg>
+      </div>
+      <span class="footer-name">Rest Hippo</span>
+    </div>
+    <p style="margin-bottom:14px">
+      <a href="/" style="color:var(--accent);text-decoration:none">Home</a>
+      &nbsp;·&nbsp;
+      <a href="/docs/" style="color:var(--accent);text-decoration:none">User Guide</a>
+      &nbsp;·&nbsp;
+      <a href="/features.html" style="color:var(--accent);text-decoration:none">Feature Requests</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/jfigge/resthippo" style="color:var(--accent);text-decoration:none">GitHub</a>
+      &nbsp;·&nbsp;
+      <a href="https://x.com/RestHippo" style="color:var(--accent);text-decoration:none">@RestHippo</a>
+    </p>
+    <p>Copyright &copy; 2026 Jason Figge. Released under the Apache 2.0 License.<br>
+    Built with Electron &amp; Vanilla JS. No telemetry, no accounts, fully offline.</p>
+  </div>
+</footer>
+
+<script src="features.js" defer></script>
+</body>
+</html>

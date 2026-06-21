@@ -1,0 +1,47 @@
+name: ✨ Feature request
+description: Suggest an idea or improvement for Rest Hippo
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest a feature!
+
+        **Please note:** every request is a community suggestion, shown as-is.
+        Filing or listing a request is **not** a commitment to build, endorse, or
+        maintain it — features may change, be declined, or never ship.
+
+        Before submitting, please search the
+        [existing feature requests](https://github.com/jfigge/resthippo/issues?q=is%3Aissue+label%3Aenhancement)
+        — if one already exists, add a 👍 to it instead of opening a duplicate.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A clear, concise description of the feature you'd like to see.
+      placeholder: As a user, I'd like to be able to…
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / use case
+      description: What problem does this solve? What are you trying to accomplish?
+      placeholder: I'm always frustrated when…
+    validations:
+      required: false
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: If you have an idea of how it could work, describe it here. (Optional)
+    validations:
+      required: false
+  - type: checkboxes
+    id: duplicates
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing requests and this is not a duplicate.
+          required: true

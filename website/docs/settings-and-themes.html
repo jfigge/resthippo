@@ -194,8 +194,36 @@ those hosts only.</p>
 </li>
 </ul>
 <p>Only file <strong>paths</strong> are stored — Rest Hippo reads the certificate bytes in the
-background process when a request is sent. Passphrases are encrypted at rest with
-the OS keystore (like other secrets) and are removed from secret-free exports.</p>
+background process when a request is sent. Passphrases are encrypted at rest using
+the secret-storage method chosen under <strong>Security</strong> (like all other secrets) and
+are removed from secret-free exports.</p>
+<h2 id="security">Security</h2>
+<p>Choose how Rest Hippo encrypts your secrets — auth passwords and tokens, OAuth
+client secrets, proxy credentials, mTLS passphrases, and variables marked
+<strong>secure</strong> — at rest on this device. Switching re-encrypts every stored secret;
+the change applies after a quick reload.</p>
+<ul>
+<li><p><strong>This device (no prompt)</strong> — the default. Secrets are encrypted with a random
+key kept in a protected file on this device, so there are <strong>no system prompts</strong>.
+The trade-off: the key sits alongside your data, so anyone who can read this
+computer&#39;s files could read your secrets. (On Windows and on Linux without a
+keyring, the OS-keychain option falls back to this behaviour.)</p>
+</li>
+<li><p><strong>OS keychain</strong> — secrets are encrypted with your operating system&#39;s keychain
+(macOS Keychain, Windows Credential Manager, Linux Secret Service). This is the
+strongest at-rest protection, but the OS may show an access prompt.</p>
+</li>
+<li><p><strong>Master password</strong> — secrets are encrypted with a password you choose. On each
+launch they start <strong>locked</strong>; enter the password once per session to unlock
+them (a locked secret shows an <strong>Unlock</strong> link where it&#39;s used). If you forget
+the password, the secrets <strong>cannot be recovered</strong>.</p>
+</li>
+</ul>
+<p>Existing installs keep using the OS keychain until you switch here; new installs
+default to <strong>This device</strong>. Switching to or from <strong>OS keychain</strong> may show one
+system prompt during the re-encryption.</p>
+<p>Note: only secret <em>values</em> are encrypted. Execution history, response bodies, and
+the cookie jar are stored unencrypted in every mode.</p>
 <h2 id="retries">Retries</h2>
 <p>Automatically retry failed requests with backoff. Configure the <strong>max
 attempts</strong>, the <strong>backoff base</strong>, <strong>multiplier</strong>, and <strong>max delay</strong>, and choose
