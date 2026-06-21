@@ -693,8 +693,11 @@ contextBridge.exposeInMainWorld("hippo", {
        * Show a native OS context menu at (x, y) and resolve with the id of the
        * clicked item, or null if the menu was dismissed.
        *
+       * Items may carry an `iconDataUrl` (a small PNG data URL) shown as the
+       * item's icon — on macOS it is treated as a template image.
+       *
        * @param {{
-       *   items: Array<{ id?: string, label?: string, type?: "separator", enabled?: boolean }>,
+       *   items: Array<{ id?: string, label?: string, type?: "separator"|"checkbox"|"radio", checked?: boolean, enabled?: boolean, iconDataUrl?: string }>,
        *   x?: number,
        *   y?: number,
        * }} options

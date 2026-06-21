@@ -215,6 +215,26 @@ const ICONS = {
       '<rect x="3" y="4" width="18" height="16" rx="2"/>' +
       '<line x1="3" y1="12" x2="21" y2="12"/>',
   },
+
+  // ── Send-type glyphs ──────────────────────────────────────────────────────
+  // Shown to the right of "Send" on the button and in the native send-type menu
+  // (Immediate has no glyph).
+  // Stopwatch (Lucide "timer") — the "Delayed" send type: fire once after a wait.
+  sendDelayed: {
+    inner:
+      '<line x1="10" y1="2" x2="14" y2="2"/>' +
+      '<line x1="12" y1="14" x2="15" y2="11"/>' +
+      '<circle cx="12" cy="14" r="8"/>',
+  },
+  // Two circular arrows (Lucide "refresh-cw") — the "Interval" send type: fire,
+  // wait, fire again on a loop.
+  sendInterval: {
+    inner:
+      '<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>' +
+      '<path d="M3 3v5h5"/>' +
+      '<path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>' +
+      '<path d="M16 16h5v5"/>',
+  },
 };
 
 /**

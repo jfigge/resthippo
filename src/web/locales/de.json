@@ -458,6 +458,22 @@
     "stop": "Stopp",
     "sendAria": "Anfrage senden",
     "stopAria": "Anfrage stoppen",
+    "cancel": "Abbrechen",
+    "cancelAria": "Geplantes Senden abbrechen",
+    "sendType": {
+      "menuAria": "Sendetyp",
+      "triggerAria": "Sendetyp wählen",
+      "immediate": "Sofort",
+      "delayed": "Verzögert",
+      "interval": "Intervall",
+      "delayLabel": "Verzögerung",
+      "intervalLabel": "Intervall",
+      "delayAria": "Verzögerung vor dem Senden, in Sekunden",
+      "intervalAria": "Intervall zwischen Sendungen, in Sekunden",
+      "seconds": "s",
+      "delayDialogAria": "Timing für verzögertes Senden",
+      "intervalDialogAria": "Timing für Intervallsenden"
+    },
     "dragReorder": "Zum Neuordnen ziehen",
     "tab": {
       "params": "Parameter",

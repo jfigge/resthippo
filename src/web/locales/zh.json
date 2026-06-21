@@ -455,6 +455,22 @@
     "stop": "停止",
     "sendAria": "发送请求",
     "stopAria": "停止请求",
+    "cancel": "取消",
+    "cancelAria": "取消计划发送",
+    "sendType": {
+      "menuAria": "发送类型",
+      "triggerAria": "选择发送类型",
+      "immediate": "立即",
+      "delayed": "延迟",
+      "interval": "间隔",
+      "delayLabel": "延迟",
+      "intervalLabel": "间隔",
+      "delayAria": "发送前的延迟（秒）",
+      "intervalAria": "发送之间的间隔（秒）",
+      "seconds": "秒",
+      "delayDialogAria": "延迟发送时间",
+      "intervalDialogAria": "间隔发送时间"
+    },
     "dragReorder": "拖动以重新排序",
     "tab": {
       "params": "参数",

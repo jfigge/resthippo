@@ -157,6 +157,14 @@ const DEFAULT_SETTINGS = {
   favorites: [],
   recents: [],
   showRecents: false,
+  // Send command type (Feature: scheduled sends). A global default applied to
+  // every request's Send button: "immediate" fires now, "delayed" fires once
+  // after sendDelayMs, "interval" fires after sendIntervalMs then repeats on
+  // every completion. Durations are in milliseconds; edited from the Send
+  // button's type dropdown (see RequestEditor).
+  sendType: "immediate",
+  sendDelayMs: 5000,
+  sendIntervalMs: 10000,
 };
 
 // ── In-memory caches ──────────────────────────────────────────────────────────

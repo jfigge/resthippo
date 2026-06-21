@@ -460,6 +460,53 @@ function augmentVariableContext(ctx, writes) {
   return next;
 }
 
+// ── Native send-type menu icons ──────────────────────────────────────────────
+// The OS popup menu can't render our inline SVGs, so each glyph is rasterised
+// once to a small black PNG data URL (passed over IPC; treated as a macOS
+// template image in main.js) and cached. Rasterisation is best-effort and async;
+// if it isn't ready — or fails, e.g. in a non-DOM test env — the menu item just
+// shows without an icon.
+const _menuIcons = { sendDelayed: null, sendInterval: null };
+let _menuIconsStarted = false;
+
+function _rasterizeMenuIcon(name) {
+  return new Promise((resolve) => {
+    try {
+      const svg = icon(name, { size: 16 })
+        .replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"')
+        .replace(/currentColor/g, "#000");
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = canvas.height = 16;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return resolve(null);
+          ctx.drawImage(img, 0, 0, 16, 16);
+          resolve(canvas.toDataURL("image/png"));
+        } catch {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/** Kick off icon rasterisation once (module-wide); results land in _menuIcons. */
+function _ensureMenuIcons() {
+  if (_menuIconsStarted) return;
+  _menuIconsStarted = true;
+  for (const name of Object.keys(_menuIcons)) {
+    _rasterizeMenuIcon(name).then((url) => {
+      _menuIcons[name] = url;
+    });
+  }
+}
+
 export class RequestEditor {
   /** @type {HTMLElement} */
   #el;
@@ -649,6 +696,24 @@ export class RequestEditor {
   // stream ends; the streamId lets a Stop click abort that stream.
   #streamingReqs = new Map();
 
+  // ── Send command type (scheduled sends) ───────────────────────────────────
+  // A global default (persisted in Settings, applied to every request): how the
+  // Send button behaves when triggered. "immediate" fires now; "delayed" waits
+  // #sendDelayMs then fires once; "interval" waits #sendIntervalMs, fires, and
+  // restarts the wait on every completion. Edited from the dropdown next to the
+  // Send button (which writes back to Settings via hippo:editor-setting-changed).
+  #sendType = "immediate";
+  #sendDelayMs = 5000;
+  #sendIntervalMs = 10000;
+  // Active countdown/interval schedule for the LOADED request, or null. While a
+  // schedule is counting the Send button shows "Cancel" with a colour sweep;
+  // while the fired request is in flight the normal in-flight "Stop" state shows.
+  //   { requestId, type, phase:"counting"|"firing", durationMs, startTs,
+  //     timerId, rafId }
+  #sendSchedule = null;
+  // The caret button that opens the send-type dropdown (HTTP mode only).
+  #sendTypeTrigger = null;
+
   // ── Variable pill editor support ───────────────────────────────────────────
   /** Current variable resolution context: { collectionVariables, folderChain, … } */
   #variableContext = null;
@@ -667,6 +732,10 @@ export class RequestEditor {
   constructor() {
     this.#el = document.createElement("div");
     this.#el.className = "request-editor";
+
+    // Pre-rasterise the native send-type menu glyphs so they're cached by the
+    // time the user opens the menu (best-effort; no-op without a working canvas).
+    _ensureMenuIcons();
 
     // The Auth tab is owned by a dedicated sub-component. Construct it before
     // #renderTabContent() so #buildTabPane("auth") can mount its element.
@@ -703,6 +772,8 @@ export class RequestEditor {
       this.#inFlightIds.delete(rid);
       this.#streamingReqs.delete(rid);
       this.#applySendButtonState();
+      // Interval mode: the fired request just completed — start the next wait.
+      this.#maybeRestartInterval(rid);
     };
     // A live streaming response (Feature 33) keeps its request in flight: the body
     // arrives over hippo:stream-* and the Send button stays "Stop" until the stream
@@ -721,12 +792,17 @@ export class RequestEditor {
     const settleStream = (e) => {
       const sid = e.detail?.streamId;
       if (sid == null) return;
+      let settledRid = null;
       for (const [rid, s] of this.#streamingReqs) {
         if (s !== sid) continue;
         this.#streamingReqs.delete(rid);
         this.#inFlightIds.delete(rid);
+        settledRid = rid;
       }
       this.#applySendButtonState();
+      // Interval mode over a streaming response: restart the wait once the
+      // stream actually ends (not on the streaming marker).
+      if (settledRid != null) this.#maybeRestartInterval(settledRid);
     };
     window.addEventListener("hippo:stream-end", settleStream);
     window.addEventListener("hippo:stream-error", settleStream);
@@ -766,15 +842,338 @@ export class RequestEditor {
   #applySendButtonState() {
     const b = this.#sendBtn;
     if (!b || this.#protocol === "websocket") return;
-    if (this.#currentRequestInFlight()) {
+    const counting = this.#isCountingForLoaded();
+    const inFlight = this.#currentRequestInFlight();
+
+    // The type-picker caret is only meaningful while idle — hide it during a
+    // countdown or an in-flight request so the type can't change mid-operation.
+    if (this.#sendTypeTrigger)
+      this.#sendTypeTrigger.hidden = counting || inFlight;
+
+    if (counting) {
+      // Counting down to a scheduled fire: a cancellable "Cancel" with a colour
+      // sweep (driven by the rAF tick that owns --send-sweep).
+      b.textContent = t("request.cancel");
+      b.setAttribute("aria-label", t("request.cancelAria"));
+      b.classList.remove("req-send-btn--cancel");
+      b.classList.add("req-send-btn--countdown");
+    } else if (inFlight) {
+      // The fired request is running: the normal in-flight "Stop" (unchanged).
       b.textContent = t("request.stop");
       b.setAttribute("aria-label", t("request.stopAria"));
+      b.classList.remove("req-send-btn--countdown");
+      b.style.removeProperty("--send-sweep");
       b.classList.add("req-send-btn--cancel");
     } else {
-      b.textContent = t("request.send");
-      b.setAttribute("aria-label", t("request.sendAria"));
-      b.classList.remove("req-send-btn--cancel");
+      // Idle: "Send" plus the active send-type subscript glyph.
+      b.classList.remove("req-send-btn--cancel", "req-send-btn--countdown");
+      b.style.removeProperty("--send-sweep");
+      this.#setSendButtonIdle(b);
     }
+  }
+
+  /** True when a countdown is actively counting for the loaded request. */
+  #isCountingForLoaded() {
+    return (
+      this.#sendSchedule != null &&
+      this.#sendSchedule.phase === "counting" &&
+      this.#sendSchedule.requestId === this.#currentNodeId
+    );
+  }
+
+  /**
+   * Render the idle Send button: the "Send" label, plus a regular-sized type
+   * glyph to its right for delayed/interval. Immediate carries no glyph.
+   */
+  #setSendButtonIdle(b) {
+    b.setAttribute("aria-label", t("request.sendAria"));
+    const iconName = this.#sendTypeIconName();
+    b.innerHTML =
+      `<span class="req-send-label">${t("request.send")}</span>` +
+      (iconName
+        ? `<span class="req-send-type-icon" aria-hidden="true">${icon(iconName, { size: 15 })}</span>`
+        : "");
+  }
+
+  /** Icon-registry name for the active send type, or null for immediate. */
+  #sendTypeIconName() {
+    if (this.#sendType === "delayed") return "sendDelayed";
+    if (this.#sendType === "interval") return "sendInterval";
+    return null;
+  }
+
+  // ── Scheduled sends (Immediate / Delayed / Interval) ──────────────────────
+  // Entry point for a Send trigger (click, ⌘/Ctrl+Enter, or tree double-click,
+  // which all click .req-send-btn). Dispatches by the active type: fire now, or
+  // start a countdown the user can cancel.
+  #executeSend() {
+    if (this.#sendType === "immediate") {
+      this.#sendRequest();
+      return;
+    }
+    // Delayed / interval both need a URL before arming a timer — mirror the
+    // empty-URL guard in #sendRequest so a blank request just focuses the field.
+    if (!this.#urlPillEditor.getValue().trim()) {
+      this.#urlPillEditor.focus();
+      return;
+    }
+    this.#startSchedule(this.#sendType);
+  }
+
+  /**
+   * Arm a countdown for the loaded request. On expiry the request fires; an
+   * interval re-arms on completion (see #maybeRestartInterval). The colour sweep
+   * is animated by #tickSweep via requestAnimationFrame.
+   *
+   * Delayed waits its delay; Interval waits its interval before every send.
+   */
+  #startSchedule(type) {
+    this.#cancelSchedule(); // never run two timers at once
+    const requestId = this.#currentNodeId ?? null;
+    const durationMs =
+      type === "interval" ? this.#sendIntervalMs : this.#sendDelayMs;
+    const schedule = {
+      requestId,
+      type,
+      phase: "counting",
+      durationMs,
+      startTs: performance.now(),
+      timerId: null,
+      rafId: null,
+    };
+    schedule.timerId = setTimeout(() => this.#onScheduleFire(), durationMs);
+    this.#sendSchedule = schedule;
+    this.#applySendButtonState();
+    this.#tickSweep();
+  }
+
+  /** Animation frame: paint the countdown sweep (elapsed fraction, hard edge). */
+  #tickSweep() {
+    const s = this.#sendSchedule;
+    if (!s || s.phase !== "counting") return;
+    // Only paint while this schedule's request is the one on screen.
+    if (s.requestId === this.#currentNodeId && this.#sendBtn) {
+      const elapsed = (performance.now() - s.startTs) / s.durationMs;
+      const frac = Math.max(0, Math.min(1, elapsed));
+      this.#sendBtn.style.setProperty(
+        "--send-sweep",
+        `${(frac * 100).toFixed(2)}%`,
+      );
+    }
+    s.rafId = requestAnimationFrame(() => this.#tickSweep());
+  }
+
+  /** The countdown reached zero: fire the request (interval keeps the schedule). */
+  #onScheduleFire() {
+    const s = this.#sendSchedule;
+    if (!s) return;
+    if (s.rafId != null) cancelAnimationFrame(s.rafId);
+    s.rafId = null;
+    s.timerId = null;
+    // A request whose URL was cleared mid-countdown can't fire — drop the loop.
+    if (!this.#urlPillEditor.getValue().trim()) {
+      this.#clearSchedule();
+      return;
+    }
+    if (s.type === "interval") {
+      // Keep the schedule across the in-flight phase so completion can re-arm it.
+      s.phase = "firing";
+    } else {
+      // One-shot: the schedule is done once the send is dispatched.
+      this.#sendSchedule = null;
+    }
+    this.#applySendButtonState();
+    // Timer-driven sends skip the interactive unresolved-variable prompt so a
+    // loop never blocks on a modal (force=true).
+    this.#sendRequest(true);
+  }
+
+  /** Restart an interval's wait after the fired request completes. */
+  #maybeRestartInterval(requestId) {
+    const s = this.#sendSchedule;
+    if (
+      !s ||
+      s.type !== "interval" ||
+      s.phase !== "firing" ||
+      s.requestId !== requestId
+    )
+      return;
+    // Only re-arm while the interval's request is still the one on screen.
+    if (requestId !== this.#currentNodeId) {
+      this.#clearSchedule();
+      return;
+    }
+    this.#startSchedule("interval");
+  }
+
+  /**
+   * Cancel a counting-down schedule and restore the idle Send button. Used by a
+   * "Cancel" click and on request switch. Safe to call with no active schedule.
+   */
+  #cancelSchedule() {
+    this.#clearSchedule();
+    this.#applySendButtonState();
+  }
+
+  /** Tear down any schedule's timers without touching the button (internal). */
+  #clearSchedule() {
+    const s = this.#sendSchedule;
+    if (!s) return;
+    if (s.timerId != null) clearTimeout(s.timerId);
+    if (s.rafId != null) cancelAnimationFrame(s.rafId);
+    this.#sendSchedule = null;
+  }
+
+  // ── Send-type picker (native OS menu) + duration mini-dialog ──────────────
+  /**
+   * Show a native OS popup menu with the three send types under the Send button.
+   * Immediate carries no glyph; Delayed/Interval show their icons; the active
+   * type carries a checkmark. Choosing a type sets it (persisted globally), and
+   * Delayed/Interval then open a small dialog under the button to capture their
+   * timing. No-op outside Electron (no native-menu host).
+   */
+  async #openSendTypeMenu(trigger) {
+    const show = window.hippo?.ui?.contextMenu?.show;
+    if (!show) return;
+
+    const items = [
+      { id: "immediate" },
+      { id: "delayed", iconName: "sendDelayed" },
+      { id: "interval", iconName: "sendInterval" },
+    ].map((tp) => ({
+      id: tp.id,
+      label: t(`request.sendType.${tp.id}`),
+      type: "checkbox",
+      checked: tp.id === this.#sendType,
+      iconDataUrl: tp.iconName
+        ? (_menuIcons[tp.iconName] ?? undefined)
+        : undefined,
+    }));
+
+    // Anchor the menu under the Send button (fall back to the caret trigger).
+    const anchor = this.#sendBtn ?? trigger;
+    const r = anchor.getBoundingClientRect();
+    let choice = null;
+    try {
+      choice = await show({ items, x: r.left, y: r.bottom + 4 });
+    } catch {
+      return; // IPC failure — leave the send type unchanged
+    }
+    if (choice == null) return; // dismissed
+
+    this.#setSendType(choice);
+    if (choice === "delayed" || choice === "interval") {
+      this.#openDurationDialog(choice);
+    }
+  }
+
+  /**
+   * Small dialog anchored under the Send button that captures the timing for the
+   * active scheduled send: Delayed asks for its Delay, Interval for its Interval
+   * (one field either way). Values persist live and the dialog dismisses on
+   * outside click (PopupManager mask).
+   */
+  #openDurationDialog(type) {
+    const dialog = document.createElement("div");
+    dialog.className = "req-send-duration-dialog";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute(
+      "aria-label",
+      type === "interval"
+        ? t("request.sendType.intervalDialogAria")
+        : t("request.sendType.delayDialogAria"),
+    );
+    dialog.addEventListener("mousedown", (e) => {
+      // Keep clicks inside the dialog (other than the number inputs) from blurring.
+      if (e.target.tagName !== "INPUT") e.preventDefault();
+    });
+
+    // One field, scoped to the active type: Interval uses its interval, Delayed
+    // its delay.
+    if (type === "interval") {
+      dialog.appendChild(
+        this.#buildDurationRow(
+          t("request.sendType.intervalLabel"),
+          t("request.sendType.intervalAria"),
+          this.#sendIntervalMs,
+          (ms) => this.#setSendDuration("sendIntervalMs", ms),
+        ),
+      );
+    } else {
+      dialog.appendChild(
+        this.#buildDurationRow(
+          t("request.sendType.delayLabel"),
+          t("request.sendType.delayAria"),
+          this.#sendDelayMs,
+          (ms) => this.#setSendDuration("sendDelayMs", ms),
+        ),
+      );
+    }
+
+    const anchor = this.#sendBtn ?? this.#sendTypeTrigger;
+    const r = anchor.getBoundingClientRect();
+    PopupManager.openMenu(dialog, r.left, r.bottom + 4);
+    // Focus the first field for immediate keyboard entry.
+    requestAnimationFrame(() => dialog.querySelector("input")?.focus());
+  }
+
+  /** One labelled "Name [ n ] s" duration input row for the timing dialog. */
+  #buildDurationRow(labelText, ariaText, valueMs, onCommit) {
+    const row = document.createElement("div");
+    row.className = "req-send-type-duration-row";
+
+    const label = document.createElement("span");
+    label.className = "req-send-type-duration-label";
+    label.textContent = labelText;
+
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "0";
+    input.step = "0.5";
+    input.className = "req-send-type-duration-input";
+    input.value = String(valueMs / 1000);
+    input.setAttribute("aria-label", ariaText);
+
+    const unit = document.createElement("span");
+    unit.className = "req-send-type-duration-unit";
+    unit.textContent = t("request.sendType.seconds");
+
+    const commit = () => {
+      const secs = Math.max(0, Number(input.value) || 0);
+      const ms = Math.round(secs * 1000);
+      input.value = String(ms / 1000);
+      onCommit(ms);
+    };
+    input.addEventListener("change", commit);
+
+    row.append(label, input, unit);
+    return row;
+  }
+
+  /** Set the active send type, persist it, and refresh the Send button glyph. */
+  #setSendType(type) {
+    if (type === this.#sendType) return;
+    this.#sendType = type;
+    this.#persistSendSetting({ sendType: type });
+    this.#applySendButtonState();
+  }
+
+  /** Set a send duration (ms), clamped to a sane floor, and persist it. */
+  #setSendDuration(key, ms) {
+    const clamped = Math.max(250, ms || 0);
+    if (key === "sendIntervalMs") this.#sendIntervalMs = clamped;
+    else this.#sendDelayMs = clamped;
+    this.#persistSendSetting({ [key]: clamped });
+  }
+
+  /** Persist a send-type setting to the global Settings document (app.js). */
+  #persistSendSetting(detail) {
+    window.dispatchEvent(
+      new CustomEvent("hippo:editor-setting-changed", {
+        detail,
+        bubbles: true,
+      }),
+    );
   }
 
   // ── URL bar ─────────────────────────────────────────────────────────────
@@ -950,14 +1349,22 @@ export class RequestEditor {
     const sendGroup = document.createElement("div");
     sendGroup.className = "req-send-group";
 
+    // Split control: the main Send/Stop/Cancel button + a caret that opens the
+    // send-type dropdown. They read as one pill (see .req-send-split).
+    const split = document.createElement("div");
+    split.className = "req-send-split";
+
     const sendBtn = document.createElement("button");
     sendBtn.className = "btn req-send-btn";
+    sendBtn.type = "button";
     sendBtn.dataset.method = this.#method.toLowerCase();
-    sendBtn.textContent = t("request.send");
-    sendBtn.setAttribute("aria-label", t("request.sendAria"));
     sendBtn.title = t("request.sendTitle", { keys: bindingDisplay("send") });
     sendBtn.addEventListener("click", () => {
-      if (this.#currentRequestInFlight()) {
+      if (this.#isCountingForLoaded()) {
+        // A scheduled send is counting down → "Cancel": stop the timer/loop and
+        // return to the idle Send state. Nothing is dispatched on the wire.
+        this.#cancelSchedule();
+      } else if (this.#currentRequestInFlight()) {
         window.dispatchEvent(
           new CustomEvent("hippo:cancel-request", {
             detail: {
@@ -968,15 +1375,38 @@ export class RequestEditor {
             },
           }),
         );
+        // A Stop click during an interval's in-flight phase also ends the loop.
+        this.#clearSchedule();
       } else {
-        this.#sendRequest();
+        this.#executeSend();
       }
     });
+    // Idle content (label + active-type subscript glyph) + aria-label.
+    this.#setSendButtonIdle(sendBtn);
+
+    // Caret trigger for the send-type dropdown.
+    const typeTrigger = document.createElement("button");
+    typeTrigger.type = "button";
+    typeTrigger.className = "req-send-type-trigger";
+    typeTrigger.setAttribute("aria-haspopup", "menu");
+    typeTrigger.setAttribute("aria-label", t("request.sendType.triggerAria"));
+    typeTrigger.title = t("request.sendType.triggerAria");
+    typeTrigger.innerHTML = icon("caret", {
+      size: null,
+      className: "req-send-type-caret",
+    });
+    typeTrigger.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      this.#openSendTypeMenu(typeTrigger);
+    });
+    this.#sendTypeTrigger = typeTrigger;
 
     // The in-flight toggle (request-loading / response-received / request-error)
     // is registered once in the constructor and targets this.#sendBtn, so a
     // protocol-driven rebuild of the URL bar can't accumulate stale listeners.
-    sendGroup.appendChild(sendBtn);
+    split.append(sendBtn, typeTrigger);
+    sendGroup.appendChild(split);
 
     bar.appendChild(methodSel);
     bar.appendChild(urlEditor.element);
@@ -1056,8 +1486,12 @@ export class RequestEditor {
     // Tear down PillCodeEditors (body text / GraphQL / WS message) before the
     // DOM is wiped, so their document + ResizeObserver listeners are removed.
     this.#disposeCodeEditors();
+    // A protocol switch wipes the Send button — drop any running schedule's
+    // timers so they don't fire against the torn-down DOM.
+    this.#clearSchedule();
     // Drop stale element refs the render methods will reassign.
     this.#methodSel = this.#methodSelLabel = this.#sendBtn = null;
+    this.#sendTypeTrigger = null;
     this.#wsConnectBtn = this.#wsSendBtn = null;
     this.#wsMessageEl = this.#wsSubprotoEl = null;
     this.#syncWsFormatButtons = null;
@@ -3022,6 +3456,25 @@ export class RequestEditor {
    * @param {object} settings
    */
   applySettings(settings) {
+    // Send-type default (global): the active type drives the Send button glyph;
+    // the two durations feed the delayed/interval countdowns. Refresh the button
+    // only when idle so a change mid-countdown/in-flight doesn't disturb it.
+    let sendTypeChanged = false;
+    if (settings.sendType != null && settings.sendType !== this.#sendType) {
+      this.#sendType = settings.sendType;
+      sendTypeChanged = true;
+    }
+    if (settings.sendDelayMs != null)
+      this.#sendDelayMs = Math.max(250, settings.sendDelayMs);
+    if (settings.sendIntervalMs != null)
+      this.#sendIntervalMs = Math.max(250, settings.sendIntervalMs);
+    if (
+      sendTypeChanged &&
+      !this.#isCountingForLoaded() &&
+      !this.#currentRequestInFlight()
+    )
+      this.#applySendButtonState();
+
     if (settings.listHeaders != null) {
       this.#headerSuggestionsEnabled = !!settings.listHeaders;
       // Sync the specific List Headers checkbox by ID
@@ -3098,6 +3551,17 @@ export class RequestEditor {
    */
   load(node) {
     this.#currentNodeId = node.id ?? null;
+
+    // A scheduled send (delayed countdown / interval loop) belongs to the
+    // request that armed it; switching requests stops it and resets the send
+    // type back to Immediate. Any request it already fired keeps running in the
+    // background (app.js owns that lifecycle). Persist the reset so settings stay
+    // coherent (and a later applySettings can't re-apply the old type).
+    this.#clearSchedule();
+    if (this.#sendType !== "immediate") {
+      this.#sendType = "immediate";
+      this.#persistSendSetting({ sendType: "immediate" });
+    }
 
     // Cancel any in-progress inline confirm on the Delete All buttons.
     this.#paramsDeleteAllCleanup?.();

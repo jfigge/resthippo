@@ -30,7 +30,31 @@ Appearance), Rest Hippo shows the fully-resolved URL beneath the params, so you 
 confirm exactly what will be sent.
 
 Press <kbd>Enter</kbd> in the URL bar to send the request, or click **Send**.
-While a request is in flight the button becomes **Cancel**.
+While a request is in flight the button becomes **Stop** — click it to abort.
+
+### Send type
+
+An icon to the right of the word **Send** shows how the button fires. Click the
+caret beside it to open a menu of the three types (the active one is
+check-marked); the choice is a global default that applies to every request:
+
+| Type          | Icon              | Behavior                                                                                  |
+| ------------- | ----------------- | ----------------------------------------------------------------------------------------- |
+| **Immediate** | _(none)_          | Fires the request as soon as you trigger Send (the default).                               |
+| **Delayed**   | stopwatch         | Waits the **Delay** you set, then fires once.                                              |
+| **Interval**  | recycle arrows    | Waits the **Interval**, fires, then waits the interval again each time a response lands.     |
+
+Choosing **Delayed** or **Interval** opens a small dialog under the Send button
+with a single field for that type's timing — a delay for Delayed, an interval for
+Interval. Defaults are a **5-second delay** and a **10-second interval**.
+
+Every trigger — clicking **Send**, pressing <kbd>⌘/Ctrl</kbd>+<kbd>Enter</kbd>,
+or double-clicking the request in the tree — runs the active type.
+
+While a delayed or interval countdown is ticking, the button reads **Cancel**
+and a colour sweep drains across it as the timer runs down; click it to cancel
+the timer and return to **Send**. Switching to another request also stops the
+countdown.
 
 ## Query parameters
 

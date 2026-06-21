@@ -458,6 +458,22 @@
     "stop": "Arrêter",
     "sendAria": "Envoyer la requête",
     "stopAria": "Arrêter la requête",
+    "cancel": "Annuler",
+    "cancelAria": "Annuler l'envoi programmé",
+    "sendType": {
+      "menuAria": "Type d'envoi",
+      "triggerAria": "Choisir le type d'envoi",
+      "immediate": "Immédiat",
+      "delayed": "Différé",
+      "interval": "Intervalle",
+      "delayLabel": "Délai",
+      "intervalLabel": "Intervalle",
+      "delayAria": "Délai avant l'envoi, en secondes",
+      "intervalAria": "Intervalle entre les envois, en secondes",
+      "seconds": "s",
+      "delayDialogAria": "Minutage de l'envoi différé",
+      "intervalDialogAria": "Minutage de l'envoi par intervalle"
+    },
     "dragReorder": "Glisser pour réordonner",
     "tab": {
       "params": "Paramètres",

@@ -458,6 +458,22 @@
     "stop": "Interrompi",
     "sendAria": "Invia richiesta",
     "stopAria": "Interrompi richiesta",
+    "cancel": "Annulla",
+    "cancelAria": "Annulla l'invio programmato",
+    "sendType": {
+      "menuAria": "Tipo di invio",
+      "triggerAria": "Scegli il tipo di invio",
+      "immediate": "Immediato",
+      "delayed": "Ritardato",
+      "interval": "Intervallo",
+      "delayLabel": "Ritardo",
+      "intervalLabel": "Intervallo",
+      "delayAria": "Ritardo prima dell'invio, in secondi",
+      "intervalAria": "Intervallo tra gli invii, in secondi",
+      "seconds": "s",
+      "delayDialogAria": "Tempistica dell'invio ritardato",
+      "intervalDialogAria": "Tempistica dell'invio a intervalli"
+    },
     "dragReorder": "Trascina per riordinare",
     "tab": {
       "params": "Parametri",

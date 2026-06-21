@@ -455,6 +455,22 @@
     "stop": "停止",
     "sendAria": "リクエストを送信",
     "stopAria": "リクエストを停止",
+    "cancel": "キャンセル",
+    "cancelAria": "予約送信をキャンセル",
+    "sendType": {
+      "menuAria": "送信タイプ",
+      "triggerAria": "送信タイプを選択",
+      "immediate": "即時",
+      "delayed": "遅延",
+      "interval": "間隔",
+      "delayLabel": "遅延",
+      "intervalLabel": "間隔",
+      "delayAria": "送信までの遅延（秒）",
+      "intervalAria": "送信間隔（秒）",
+      "seconds": "秒",
+      "delayDialogAria": "遅延送信のタイミング",
+      "intervalDialogAria": "間隔送信のタイミング"
+    },
     "dragReorder": "ドラッグして並べ替え",
     "tab": {
       "params": "パラメーター",

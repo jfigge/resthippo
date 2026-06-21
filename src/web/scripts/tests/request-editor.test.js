@@ -430,3 +430,257 @@ test("loadSnapshot keeps the request's current tests when the snapshot has none 
   assert.equal(node.assertions[0].expected, "201");
   assert.equal(node.afterResponseScript, "current();", "current script kept");
 });
+
+// ── Send types: Immediate / Delayed / Interval ───────────────────────────────
+
+test("the idle Send button shows a type glyph for delayed/interval, none for immediate", () => {
+  const { editor } = mountEditor({ id: "r1", url: "http://x" });
+  const sendBtn = editor.element.querySelector(".req-send-btn");
+  // Default type is "immediate" → no trailing glyph.
+  assert.equal(
+    sendBtn.querySelector(".req-send-type-icon"),
+    null,
+    "immediate carries no glyph",
+  );
+
+  // Switching the global default to "delayed" adds a regular-sized glyph.
+  editor.applySettings({ sendType: "delayed" });
+  assert.ok(
+    sendBtn.querySelector(".req-send-type-icon svg"),
+    "delayed renders a glyph to the right of Send",
+  );
+
+  // Back to immediate → glyph removed again.
+  editor.applySettings({ sendType: "immediate" });
+  assert.equal(
+    sendBtn.querySelector(".req-send-type-icon"),
+    null,
+    "glyph removed when switching back to immediate",
+  );
+});
+
+test("Delayed send counts down then fires once after the delay", async () => {
+  const { window, editor } = mountEditor({ id: "r1", url: "http://x/d" });
+  editor.applySettings({ sendType: "delayed", sendDelayMs: 30 });
+  const sendBtn = editor.element.querySelector(".req-send-btn");
+
+  const fired = new Promise((resolve, reject) => {
+    const t = setTimeout(
+      () => reject(new Error("delayed send never fired")),
+      1000,
+    );
+    window.addEventListener("hippo:send-request", (e) => {
+      clearTimeout(t);
+      resolve(e.detail);
+    });
+  });
+
+  sendBtn.click();
+  // While counting down: the cancellable "Cancel" state, not yet dispatched.
+  assert.ok(
+    sendBtn.classList.contains("req-send-btn--countdown"),
+    "shows the countdown state immediately",
+  );
+
+  const detail = await fired;
+  assert.equal(detail.requestId, "r1");
+  // After firing, the one-shot countdown is cleared.
+  assert.ok(
+    !sendBtn.classList.contains("req-send-btn--countdown"),
+    "countdown cleared once fired",
+  );
+});
+
+test("clicking Cancel during a delayed countdown stops it (no send)", async () => {
+  const { window, editor } = mountEditor({ id: "r1", url: "http://x/d" });
+  editor.applySettings({ sendType: "delayed", sendDelayMs: 60 });
+  const sendBtn = editor.element.querySelector(".req-send-btn");
+
+  let fired = false;
+  window.addEventListener("hippo:send-request", () => {
+    fired = true;
+  });
+
+  sendBtn.click();
+  assert.ok(sendBtn.classList.contains("req-send-btn--countdown"));
+  // Cancel before the timer elapses.
+  sendBtn.click();
+  assert.ok(
+    !sendBtn.classList.contains("req-send-btn--countdown"),
+    "reverts to idle Send on cancel",
+  );
+
+  await new Promise((r) => setTimeout(r, 120));
+  assert.equal(fired, false, "cancelled countdown never dispatches a request");
+});
+
+test("Interval re-arms the countdown after the fired request completes", async () => {
+  const { window, editor } = mountEditor({ id: "r1", url: "http://x/i" });
+  // Interval waits its interval before every send — keep it small so the cycle
+  // completes within the test timeout.
+  editor.applySettings({ sendType: "interval", sendIntervalMs: 25 });
+  const sendBtn = editor.element.querySelector(".req-send-btn");
+
+  const nextSend = () =>
+    new Promise((resolve, reject) => {
+      const t = setTimeout(
+        () => reject(new Error("interval never fired")),
+        1000,
+      );
+      window.addEventListener(
+        "hippo:send-request",
+        (e) => {
+          clearTimeout(t);
+          resolve(e.detail);
+        },
+        { once: true },
+      );
+    });
+
+  // First cycle: count down → fire.
+  const first = nextSend();
+  sendBtn.click();
+  await first;
+
+  // Complete the fired request; the loop must re-arm and fire a second time.
+  const second = nextSend();
+  window.dispatchEvent(
+    new CustomEvent("hippo:response-received", { detail: { requestId: "r1" } }),
+  );
+  await second;
+
+  // Stop the loop so the test's timers don't keep running.
+  if (sendBtn.classList.contains("req-send-btn--countdown")) sendBtn.click();
+  window.dispatchEvent(
+    new CustomEvent("hippo:request-error", { detail: { requestId: "r1" } }),
+  );
+});
+
+/** Open the native send-type menu (stubbed to resolve `choiceId`) and settle. */
+async function pickSendType(window, editor, choiceId) {
+  const calls = [];
+  window.hippo.ui = {
+    contextMenu: {
+      show: async (opts) => {
+        calls.push(opts);
+        return choiceId;
+      },
+    },
+  };
+  const trigger = editor.element.querySelector(".req-send-type-trigger");
+  trigger.dispatchEvent(
+    new window.MouseEvent("mousedown", { button: 0, bubbles: true }),
+  );
+  await new Promise((r) => setTimeout(r, 0)); // let the async menu flow settle
+  return calls;
+}
+
+test("the native send-type menu offers the three types with a checkmark on the active one", async () => {
+  const { window, editor } = mountEditor({ id: "r1", url: "http://x" });
+  const calls = await pickSendType(window, editor, null); // dismissed
+
+  assert.equal(calls.length, 1, "native menu was shown");
+  const items = calls[0].items;
+  assert.deepEqual(
+    items.map((i) => i.id),
+    ["immediate", "delayed", "interval"],
+  );
+  // Immediate is active by default → its item is checked, the others not.
+  assert.equal(items.find((i) => i.id === "immediate").checked, true);
+  assert.equal(items.find((i) => i.id === "delayed").checked, false);
+  // Immediate carries no icon; delayed/interval do (a data URL when rasterised,
+  // else undefined — the key is that immediate never gets one).
+  assert.equal(items.find((i) => i.id === "immediate").iconDataUrl, undefined);
+});
+
+test("choosing Delayed sets the type and opens a dialog with only the delay field", async () => {
+  const { window, editor } = mountEditor({ id: "r1", url: "http://x" });
+  const changes = [];
+  window.addEventListener("hippo:editor-setting-changed", (e) =>
+    changes.push(e.detail),
+  );
+
+  await pickSendType(window, editor, "delayed");
+
+  assert.ok(changes.some((c) => c.sendType === "delayed"));
+  assert.ok(
+    editor.element.querySelector(".req-send-btn .req-send-type-icon svg"),
+    "button shows the delayed glyph",
+  );
+
+  const dialog = document.querySelector(".req-send-duration-dialog");
+  assert.ok(dialog, "duration dialog opened");
+  assert.equal(
+    dialog.querySelectorAll(".req-send-type-duration-input").length,
+    1,
+    "delayed asks for the delay only",
+  );
+
+  // Editing the delay (seconds) persists milliseconds.
+  const input = dialog.querySelector(".req-send-type-duration-input");
+  input.value = "3";
+  input.dispatchEvent(new window.Event("change", { bubbles: true }));
+  assert.deepEqual(changes.at(-1), { sendDelayMs: 3000 });
+});
+
+test("choosing Interval opens a dialog with only the interval field", async () => {
+  const { window, editor } = mountEditor({ id: "r1", url: "http://x" });
+  const changes = [];
+  window.addEventListener("hippo:editor-setting-changed", (e) =>
+    changes.push(e.detail),
+  );
+
+  await pickSendType(window, editor, "interval");
+
+  assert.ok(changes.some((c) => c.sendType === "interval"));
+  const dialog = document.querySelector(".req-send-duration-dialog");
+  assert.ok(dialog, "duration dialog opened");
+  const inputs = dialog.querySelectorAll(".req-send-type-duration-input");
+  assert.equal(inputs.length, 1, "interval asks for the interval only");
+
+  // Default interval is 10s.
+  assert.equal(inputs[0].value, "10");
+
+  inputs[0].value = "12";
+  inputs[0].dispatchEvent(new window.Event("change", { bubbles: true }));
+  assert.deepEqual(changes.at(-1), { sendIntervalMs: 12000 });
+});
+
+test("loading another request cancels a schedule and resets the type to Immediate", () => {
+  const { window, editor } = mountEditor({ id: "r1", url: "http://x/1" });
+  editor.applySettings({ sendType: "interval", sendIntervalMs: 5000 });
+  const sendBtn = editor.element.querySelector(".req-send-btn");
+  assert.ok(
+    sendBtn.querySelector(".req-send-type-icon"),
+    "interval glyph shown before switching",
+  );
+
+  // Arm an interval countdown.
+  sendBtn.click();
+  assert.ok(
+    sendBtn.classList.contains("req-send-btn--countdown"),
+    "countdown running",
+  );
+
+  const changes = [];
+  window.addEventListener("hippo:editor-setting-changed", (e) =>
+    changes.push(e.detail),
+  );
+
+  // Switch to another request.
+  editor.load({ id: "r2", url: "http://x/2" });
+
+  assert.ok(
+    !sendBtn.classList.contains("req-send-btn--countdown"),
+    "countdown cancelled on request switch",
+  );
+  assert.equal(
+    sendBtn.querySelector(".req-send-type-icon"),
+    null,
+    "send type reset to Immediate (no glyph)",
+  );
+  assert.ok(
+    changes.some((c) => c.sendType === "immediate"),
+    "reset persisted to settings",
+  );
+});

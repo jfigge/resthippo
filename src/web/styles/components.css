@@ -866,7 +866,9 @@ html.show-method-icons .req-method-menu-item-label::before {
 }
 
 /* Composes .btn; bespoke (mono, accent outline) rather than a standard colour
-   variant. */
+   variant. Idle, it hosts a "Send" label and (for delayed/interval) a regular-
+   sized type glyph to its right; immediate carries no glyph (see
+   #setSendButtonIdle). The .btn gap (var(--space-2)) spaces label and glyph. */
 .req-send-btn {
   background: var(--color-surface-1);
   border-color: var(--color-accent);
@@ -885,6 +887,14 @@ html.show-method-icons .req-method-menu-item-label::before {
   opacity: 0.8;
 }
 
+/* The active send-type glyph — a regular inline icon to the right of "Send". */
+.req-send-type-icon {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.9;
+}
+
+/* In-flight "Stop" state (pre-existing; class name kept for compatibility). */
 .req-send-btn--cancel {
   color: var(--color-warning);
 }
@@ -892,12 +902,127 @@ html.show-method-icons .req-method-menu-item-label::before {
   background: var(--color-surface-2);
 }
 
-/* ── Send button ─────────────────────────────────────────────────────────── */
+/* Counting-down "Cancel" state — a hard-edged colour sweep across the button.
+   --send-sweep is the elapsed fraction (0%→100%) set each frame by #tickSweep:
+   the elapsed (left) portion is the normal surface, the remaining (right)
+   portion is the Error colour, so the button drains from Error to normal and
+   lands fully normal exactly as the request fires. */
+.req-send-btn.req-send-btn--countdown,
+.req-send-btn.req-send-btn--countdown:hover {
+  --send-sweep: 0%;
+  border-color: var(--color-error);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  background: linear-gradient(
+    to right,
+    var(--color-surface-1) 0,
+    var(--color-surface-1) var(--send-sweep),
+    var(--color-error) var(--send-sweep),
+    var(--color-error) 100%
+  );
+}
+
+/* ── Send button + type-picker split control ─────────────────────────────── */
 .req-send-group {
   display: flex;
   align-items: stretch;
   gap: var(--space-2);
   flex-shrink: 0;
+}
+
+/* The Send button and its type-picker caret read as one joined pill. */
+.req-send-split {
+  display: flex;
+  align-items: stretch;
+}
+.req-send-split .req-send-btn {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/* In the Stop (in-flight) and Cancel (countdown) states the type caret is
+   hidden, leaving the button alone in the split — restore its right corners so
+   it reads as a complete pill, not flat on one side. */
+.req-send-split .req-send-btn--cancel,
+.req-send-split .req-send-btn--countdown {
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.req-send-type-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-2);
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-accent);
+  border-left: none;
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+  color: var(--color-accent);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast);
+}
+.req-send-type-trigger:hover {
+  background: var(--color-surface-2);
+}
+.req-send-type-trigger[hidden] {
+  display: none;
+}
+.req-send-type-caret {
+  width: 8px;
+  height: 5px;
+  opacity: 0.6;
+}
+
+/* ── Send timing dialog (.req-send-duration-dialog) ────────────────────────
+   The type picker itself is a native OS menu; choosing Delayed/Interval opens
+   this small anchored dialog (via PopupManager.openMenu) to capture the timing. */
+.req-send-duration-dialog {
+  position: fixed;
+  z-index: 900;
+  width: max-content;
+  min-width: 200px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  padding: var(--space-2) 0;
+  user-select: none;
+  animation: ctxmenu-open 0.08s ease-out;
+}
+
+.req-send-type-duration-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-4);
+}
+.req-send-type-duration-label {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+}
+.req-send-type-duration-input {
+  width: 56px;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  text-align: right;
+  background: var(--color-base);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+.req-send-type-duration-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+.req-send-type-duration-unit {
+  width: 12px;
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
 }
 
 /* Tab strip */

@@ -775,6 +775,20 @@ registerScripting({ ipcMain, safeCall });
           entry.type = item.type;
           entry.checked = !!item.checked;
         }
+        if (item.iconDataUrl) {
+          // The renderer rasterises an SVG glyph to a small black PNG data URL;
+          // on macOS we mark it a template image so it follows the menu's
+          // light/dark appearance. A bad/empty URL simply shows no icon.
+          try {
+            const img = nativeImage.createFromDataURL(String(item.iconDataUrl));
+            if (img && !img.isEmpty()) {
+              if (process.platform === "darwin") img.setTemplateImage(true);
+              entry.icon = img;
+            }
+          } catch {
+            /* ignore — item renders without an icon */
+          }
+        }
         return entry;
       });
 

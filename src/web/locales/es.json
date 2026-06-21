@@ -458,6 +458,22 @@
     "stop": "Detener",
     "sendAria": "Enviar solicitud",
     "stopAria": "Detener solicitud",
+    "cancel": "Cancelar",
+    "cancelAria": "Cancelar el envío programado",
+    "sendType": {
+      "menuAria": "Tipo de envío",
+      "triggerAria": "Elegir tipo de envío",
+      "immediate": "Inmediato",
+      "delayed": "Retardado",
+      "interval": "Intervalo",
+      "delayLabel": "Retardo",
+      "intervalLabel": "Intervalo",
+      "delayAria": "Retardo antes de enviar, en segundos",
+      "intervalAria": "Intervalo entre envíos, en segundos",
+      "seconds": "s",
+      "delayDialogAria": "Tiempo del envío retardado",
+      "intervalDialogAria": "Tiempo del envío por intervalo"
+    },
     "dragReorder": "Arrastra para reordenar",
     "tab": {
       "params": "Parámetros",

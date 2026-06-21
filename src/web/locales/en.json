@@ -458,6 +458,22 @@
     "stop": "Stop",
     "sendAria": "Send request",
     "stopAria": "Stop request",
+    "cancel": "Cancel",
+    "cancelAria": "Cancel scheduled send",
+    "sendType": {
+      "menuAria": "Send type",
+      "triggerAria": "Choose send type",
+      "immediate": "Immediate",
+      "delayed": "Delayed",
+      "interval": "Interval",
+      "delayLabel": "Delay",
+      "intervalLabel": "Interval",
+      "delayAria": "Delay before sending, in seconds",
+      "intervalAria": "Interval between sends, in seconds",
+      "seconds": "s",
+      "delayDialogAria": "Delayed send timing",
+      "intervalDialogAria": "Interval send timing"
+    },
     "dragReorder": "Drag to reorder",
     "tab": {
       "params": "Params",
