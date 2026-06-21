@@ -187,6 +187,7 @@ function page({ title, slug, body }) {
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#6C5CE7" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>${esc(title)} · Rest Hippo Guide</title>
   <meta name="description" content="${esc(title)} — the Rest Hippo user guide." />
@@ -209,7 +210,7 @@ function page({ title, slug, body }) {
     <a class="back" href="/">← Back to site</a>
   </header>
   <div class="layout">
-    <nav class="sidebar">
+    <nav class="sidebar" aria-label="User guide">
       <div class="sidebar-title">User Guide</div>
 ${nav}
     </nav>

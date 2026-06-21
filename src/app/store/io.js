@@ -190,7 +190,9 @@ function writeJSON(filePath, obj) {
  * @param {Error}  parseErr The JSON.parse failure, for the log line.
  */
 function quarantineCorruptFile(filePath, parseErr) {
-  const dest = `${filePath}.corrupt-${Date.now()}`;
+  // Timestamp + short random token so two corrupt reads of the same path within
+  // the same millisecond can't clobber each other's quarantine copy.
+  const dest = `${filePath}.corrupt-${Date.now()}-${randomUUID().slice(0, 8)}`;
   try {
     fs.renameSync(filePath, dest);
     console.warn(

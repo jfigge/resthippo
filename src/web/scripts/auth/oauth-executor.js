@@ -152,6 +152,9 @@ class OAuthExecutor {
   async forceRefresh(config) {
     const cacheKey = tokenStore.keyFor(config);
     tokenStore.clear(cacheKey);
+    // Drop any in-flight acquisition for this config so we don't piggyback on it
+    // — "force" must start a genuinely fresh request, not reuse a coalesced one.
+    this.#inFlight.delete(cacheKey);
     return this.acquireToken(config);
   }
 

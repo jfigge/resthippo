@@ -216,3 +216,25 @@ test("extractOperationName: named, anonymous and unnamed operations", () => {
   assert.equal(extractOperationName("query { user { id } }"), "");
   assert.equal(extractOperationName("{ user { id } }"), "");
 });
+
+test("extractOperationName: ignores keywords in strings/comments, fields, and picks the first of many", () => {
+  // A "query"/"mutation" word inside a string-literal argument is not an operation.
+  assert.equal(
+    extractOperationName('mutation Make { do(note: "run query Evil") { id } }'),
+    "Make",
+  );
+  // …nor inside a comment.
+  assert.equal(
+    extractOperationName("# query Commented\nquery Real { x }"),
+    "Real",
+  );
+  // A field literally named `query` is not an operation.
+  assert.equal(extractOperationName("{ query { id } }"), "");
+  // Multi-operation document → first operation's name wins.
+  assert.equal(
+    extractOperationName("query First { a } query Second { b }"),
+    "First",
+  );
+  // Operation keyword with a directive but no name is still anonymous.
+  assert.equal(extractOperationName("query @cached { a }"), "");
+});
