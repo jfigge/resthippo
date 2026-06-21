@@ -57,7 +57,10 @@ Click the **environment picker** in the collections toolbar (it shows the active
 environment, e.g. `LOCAL`) to open a quick-switch menu. It lists **Global**
 followed by every named environment, with a check beside the active one — pick
 one to **make it active** instantly (all `{{variables}}` resolve against it).
-Choose **Manage…** at the bottom to open the full environments editor:
+To **add, rename, delete, or edit** environments you must **right-click** the
+picker: that opens the same menu plus a **Manage…** entry, which opens the full
+environments editor. (A plain click only switches the active environment — it
+never opens the editor.)
 
 ![The environments editor](images/environments-popup.png)
 

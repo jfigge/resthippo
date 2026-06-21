@@ -123,8 +123,8 @@
     "aboutTitle": "Über Rest Hippo",
     "subtitle": "REST-API-Client",
     "actionsAria": "Anwendungsaktionen",
-    "environmentTitle": "Umgebung",
-    "environmentAria": "Umgebung auswählen",
+    "environmentTitle": "Umgebung wechseln · Rechtsklick zum Verwalten",
+    "environmentAria": "Umgebung wechseln",
     "settingsTitle": "Einstellungen",
     "settingsAria": "Einstellungen öffnen",
     "collections": "Sammlungen",
@@ -287,7 +287,6 @@
       "request": "Anfrage",
       "proxy": "Proxy",
       "retries": "Wiederholungen",
-      "history": "Verlauf",
       "certificates": "Zertifikate",
       "about": "Über",
       "security": "Sicherheit"
@@ -328,7 +327,8 @@
       "showScriptsTabTitle": "Wenn deaktiviert, wird der Tab Skripte ausgeblendet und Pre-Request- und After-Response-Skripte werden nicht ausgeführt",
       "showTestsTab": "Tab Tests anzeigen",
       "showTestsTabTitle": "Wenn deaktiviert, wird der Tab Tests ausgeblendet und No-Code-Assertions werden nach einer Antwort nicht ausgeführt",
-      "showNotesTab": "Tab Notizen anzeigen"
+      "showNotesTab": "Tab Notizen anzeigen",
+      "timelineEntries": "Verlaufseinträge"
     },
     "proxy": {
       "enable": "Proxy aktivieren",
@@ -352,9 +352,6 @@
       "onTimeout": "Bei Zeitüberschreitung wiederholen",
       "onStatus": "Bei Statuscodes wiederholen",
       "statusPlaceholder": "429, 503, 504"
-    },
-    "history": {
-      "timelineEntries": "Verlaufseinträge"
     },
     "certificates": {
       "clientHeading": "Client-Zertifikate",

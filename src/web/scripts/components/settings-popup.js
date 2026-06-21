@@ -142,7 +142,6 @@ export class SettingsPopup {
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="certificates">${t("settings.nav.certificates")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="security">${t("settings.nav.security")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="retries">${t("settings.nav.retries")}</button>
-          <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="history">${t("settings.nav.history")}</button>
           <button class="settings-nav-item" type="button" role="tab" aria-selected="false" data-panel="about">${t("settings.nav.about")}</button>
         </nav>
 
@@ -260,6 +259,22 @@ export class SettingsPopup {
 
           <!-- Request ──────────────────────────────────────────────────── -->
           <section class="settings-panel" role="tabpanel" data-panel="request" hidden>
+            <div class="settings-row">
+              <label class="settings-label" for="setting-history-count">${t("settings.request.timelineEntries")}</label>
+              <select class="settings-select" id="setting-history-count">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+              </select>
+            </div>
+
             <div class="settings-row">
               <label class="settings-label" for="setting-timeout">${t("settings.request.timeout")}</label>
               <input
@@ -554,25 +569,6 @@ export class SettingsPopup {
                 type="text"
                 placeholder="${t("settings.retries.statusPlaceholder")}"
               />
-            </div>
-          </section>
-
-          <!-- History ──────────────────────────────────────────────────── -->
-          <section class="settings-panel" role="tabpanel" data-panel="history" hidden>
-            <div class="settings-row">
-              <label class="settings-label" for="setting-history-count">${t("settings.history.timelineEntries")}</label>
-              <select class="settings-select" id="setting-history-count">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-                <option value="8">8</option>
-                <option value="9">9</option>
-                <option value="10">10</option>
-              </select>
             </div>
           </section>
 

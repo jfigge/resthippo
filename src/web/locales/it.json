@@ -123,8 +123,8 @@
     "aboutTitle": "Informazioni su Rest Hippo",
     "subtitle": "Client API REST",
     "actionsAria": "Azioni dell'applicazione",
-    "environmentTitle": "Ambiente",
-    "environmentAria": "Seleziona ambiente",
+    "environmentTitle": "Cambia ambiente · clic destro per gestire",
+    "environmentAria": "Cambia ambiente",
     "settingsTitle": "Impostazioni",
     "settingsAria": "Apri impostazioni",
     "collections": "Raccolte",
@@ -287,7 +287,6 @@
       "request": "Richiesta",
       "proxy": "Proxy",
       "retries": "Nuovi tentativi",
-      "history": "Cronologia",
       "certificates": "Certificati",
       "about": "Informazioni",
       "security": "Sicurezza"
@@ -328,7 +327,8 @@
       "showScriptsTabTitle": "Quando disattivato, la scheda Script è nascosta e gli script di pre-richiesta e post-risposta non vengono eseguiti",
       "showTestsTab": "Mostra la scheda Test",
       "showTestsTabTitle": "Quando disattivato, la scheda Test è nascosta e le asserzioni senza codice non vengono eseguite dopo una risposta",
-      "showNotesTab": "Mostra la scheda Note"
+      "showNotesTab": "Mostra la scheda Note",
+      "timelineEntries": "Voci della cronologia"
     },
     "proxy": {
       "enable": "Abilita proxy",
@@ -352,9 +352,6 @@
       "onTimeout": "Riprova in caso di timeout",
       "onStatus": "Riprova per i codici di stato",
       "statusPlaceholder": "429, 503, 504"
-    },
-    "history": {
-      "timelineEntries": "Voci della cronologia"
     },
     "certificates": {
       "clientHeading": "Certificati client",

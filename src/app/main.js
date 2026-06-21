@@ -2189,10 +2189,10 @@ function showAboutDialog() {
   const rev = readRevisionInfo();
 
   // Read the current theme so the about window matches the app's colour scheme
-  let theme = "mocha";
+  let theme = "grey-dark";
   try {
     const manifest = getStores().collectionStore().getManifest();
-    theme = manifest?.settings?.theme ?? "mocha";
+    theme = manifest?.settings?.theme ?? "grey-dark";
   } catch {
     /* fall back to default theme */
   }
@@ -2261,10 +2261,10 @@ function showThemeEditor() {
     _themeEditorWin.focus();
     return;
   }
-  let theme = "mocha";
+  let theme = "grey-dark";
   try {
     const manifest = getStores().collectionStore().getManifest();
-    theme = manifest?.settings?.theme ?? "mocha";
+    theme = manifest?.settings?.theme ?? "grey-dark";
   } catch {}
   _themeEditorWin = new BrowserWindow({
     width: 900,
@@ -2304,10 +2304,11 @@ function showDocsWindow() {
     _docsWin.focus();
     return;
   }
-  let theme = "mocha";
+  let theme = "grey-dark";
   try {
     theme =
-      getStores().collectionStore().getManifest()?.settings?.theme ?? "mocha";
+      getStores().collectionStore().getManifest()?.settings?.theme ??
+      "grey-dark";
   } catch {
     /* fall back to default theme */
   }

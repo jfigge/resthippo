@@ -123,8 +123,8 @@
     "aboutTitle": "About Rest Hippo",
     "subtitle": "REST API Client",
     "actionsAria": "Application actions",
-    "environmentTitle": "Environment",
-    "environmentAria": "Select environment",
+    "environmentTitle": "Switch environment · right-click to manage",
+    "environmentAria": "Switch environment",
     "settingsTitle": "Settings",
     "settingsAria": "Open settings",
     "collections": "Collections",
@@ -287,7 +287,6 @@
       "request": "Request",
       "proxy": "Proxy",
       "retries": "Retries",
-      "history": "History",
       "certificates": "Certificates",
       "about": "About",
       "security": "Security"
@@ -328,7 +327,8 @@
       "showScriptsTabTitle": "When off, the Scripts tab is hidden and pre-request and after-response scripts are not executed",
       "showTestsTab": "Show Tests tab",
       "showTestsTabTitle": "When off, the Tests tab is hidden and no-code assertions are not run after a response",
-      "showNotesTab": "Show Notes tab"
+      "showNotesTab": "Show Notes tab",
+      "timelineEntries": "Timeline entries"
     },
     "proxy": {
       "enable": "Enable proxy",
@@ -352,9 +352,6 @@
       "onTimeout": "Retry on timeout",
       "onStatus": "Retry on status codes",
       "statusPlaceholder": "429, 503, 504"
-    },
-    "history": {
-      "timelineEntries": "Timeline entries"
     },
     "certificates": {
       "clientHeading": "Client certificates",

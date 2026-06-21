@@ -121,8 +121,8 @@
     "aboutTitle": "Rest Hippo について",
     "subtitle": "REST API クライアント",
     "actionsAria": "アプリケーションの操作",
-    "environmentTitle": "環境",
-    "environmentAria": "環境を選択",
+    "environmentTitle": "環境を切り替え · 右クリックで管理",
+    "environmentAria": "環境を切り替え",
     "settingsTitle": "設定",
     "settingsAria": "設定を開く",
     "collections": "コレクション",
@@ -285,7 +285,6 @@
       "request": "リクエスト",
       "proxy": "プロキシ",
       "retries": "再試行",
-      "history": "履歴",
       "certificates": "証明書",
       "about": "情報",
       "security": "セキュリティ"
@@ -326,7 +325,8 @@
       "showScriptsTabTitle": "オフにすると、スクリプトタブが非表示になり、リクエスト前およびレスポンス後のスクリプトが実行されません",
       "showTestsTab": "テストタブを表示",
       "showTestsTabTitle": "オフにすると、テストタブが非表示になり、レスポンス後にノーコードのアサーションが実行されません",
-      "showNotesTab": "メモタブを表示"
+      "showNotesTab": "メモタブを表示",
+      "timelineEntries": "タイムラインのエントリ"
     },
     "proxy": {
       "enable": "プロキシを有効にする",
@@ -350,9 +350,6 @@
       "onTimeout": "タイムアウト時に再試行",
       "onStatus": "ステータスコードで再試行",
       "statusPlaceholder": "429, 503, 504"
-    },
-    "history": {
-      "timelineEntries": "タイムラインのエントリ"
     },
     "certificates": {
       "clientHeading": "クライアント証明書",

@@ -123,8 +123,8 @@
     "aboutTitle": "Acerca de Rest Hippo",
     "subtitle": "Cliente de API REST",
     "actionsAria": "Acciones de la aplicación",
-    "environmentTitle": "Entorno",
-    "environmentAria": "Seleccionar entorno",
+    "environmentTitle": "Cambiar entorno · clic derecho para gestionar",
+    "environmentAria": "Cambiar entorno",
     "settingsTitle": "Ajustes",
     "settingsAria": "Abrir ajustes",
     "collections": "Colecciones",
@@ -287,7 +287,6 @@
       "request": "Solicitud",
       "proxy": "Proxy",
       "retries": "Reintentos",
-      "history": "Historial",
       "certificates": "Certificados",
       "about": "Acerca de",
       "security": "Seguridad"
@@ -328,7 +327,8 @@
       "showScriptsTabTitle": "Cuando está desactivado, la pestaña Scripts se oculta y los scripts de pre-solicitud y posrespuesta no se ejecutan",
       "showTestsTab": "Mostrar la pestaña Pruebas",
       "showTestsTabTitle": "Cuando está desactivado, la pestaña Pruebas se oculta y las aserciones sin código no se ejecutan tras una respuesta",
-      "showNotesTab": "Mostrar la pestaña Notas"
+      "showNotesTab": "Mostrar la pestaña Notas",
+      "timelineEntries": "Entradas de la cronología"
     },
     "proxy": {
       "enable": "Activar proxy",
@@ -352,9 +352,6 @@
       "onTimeout": "Reintentar al agotar el tiempo de espera",
       "onStatus": "Reintentar en códigos de estado",
       "statusPlaceholder": "429, 503, 504"
-    },
-    "history": {
-      "timelineEntries": "Entradas de la cronología"
     },
     "certificates": {
       "clientHeading": "Certificados de cliente",

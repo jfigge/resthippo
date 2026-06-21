@@ -21,8 +21,11 @@
  *
  * Renders a trigger button that opens a native OS popup menu listing every
  * environment (plus the Global pseudo-environment), with a check beside the
- * active one, a separator, and a "Manage…" entry that opens the environments
- * editor. Selecting an environment activates it; the OS dismisses the menu.
+ * active one. Selecting an environment activates it; the OS dismisses the menu.
+ * Two mouse interactions differ only in what trails the list:
+ *   • primary (left) click    → environments only (no separator / "Manage…").
+ *   • secondary (right) click → adds a separator and a "Manage…" entry that
+ *     opens the environments editor (onManage).
  *
  * The menu is shown by the main process over the `ui:context-menu:show` IPC
  * channel (window.hippo.ui.contextMenu.show), which resolves with the clicked
@@ -72,10 +75,18 @@ export class EnvPicker {
   bindTrigger(btn) {
     if (!btn) return;
     this.#syncTrigger(btn);
+    // Primary (left) click → quick-switch menu, environments only.
     btn.addEventListener("mousedown", (e) => {
       if (e.button !== 0) return;
       e.preventDefault();
-      this.#openMenu(btn);
+      this.#openMenu(btn, false);
+    });
+    // Secondary click (right-click / ctrl-click / two-finger tap) → same menu
+    // plus the "Manage…" entry. `contextmenu` covers all those gestures
+    // cross-platform; preventDefault suppresses the browser menu.
+    btn.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      this.#openMenu(btn, true);
     });
     this.#triggers.push(btn);
   }
@@ -102,12 +113,13 @@ export class EnvPicker {
 
   /**
    * Open a native OS popup menu anchored under the trigger. Rows are Global
-   * (id null) then each named environment with a check beside the active one, a
-   * separator, then "Manage…". Environment labels are upper-cased to match the
-   * trigger and the environments list. Resolves to the clicked id (or null when
-   * dismissed); we map it back to the activate / manage action.
+   * (id null) then each named environment with a check beside the active one.
+   * When `withManage` is true a separator and a "Manage…" entry trail the list
+   * (the secondary-click affordance). Environment labels are upper-cased to
+   * match the trigger and the environments list. Resolves to the clicked id (or
+   * null when dismissed); we map it back to the activate / manage action.
    */
-  async #openMenu(btn) {
+  async #openMenu(btn, withManage = false) {
     // Re-entrancy guard; also a no-op outside Electron (no native menu host).
     if (this.#open || !window.hippo?.ui?.contextMenu?.show) return;
 
@@ -133,8 +145,10 @@ export class EnvPicker {
         checked: entry.id === activeId,
       };
     });
-    items.push({ type: "separator" });
-    items.push({ id: _MANAGE_ID, label: t("env.manage") });
+    if (withManage) {
+      items.push({ type: "separator" });
+      items.push({ id: _MANAGE_ID, label: t("env.manage") });
+    }
 
     const r = btn.getBoundingClientRect();
     this.#open = true;

@@ -121,8 +121,8 @@
     "aboutTitle": "关于 Rest Hippo",
     "subtitle": "REST API 客户端",
     "actionsAria": "应用程序操作",
-    "environmentTitle": "环境",
-    "environmentAria": "选择环境",
+    "environmentTitle": "切换环境 · 右键单击管理",
+    "environmentAria": "切换环境",
     "settingsTitle": "设置",
     "settingsAria": "打开设置",
     "collections": "集合",
@@ -285,7 +285,6 @@
       "request": "请求",
       "proxy": "代理",
       "retries": "重试",
-      "history": "历史记录",
       "certificates": "证书",
       "about": "关于",
       "security": "安全"
@@ -326,7 +325,8 @@
       "showScriptsTabTitle": "关闭时，隐藏脚本选项卡，并且不执行请求前和响应后脚本",
       "showTestsTab": "显示测试选项卡",
       "showTestsTabTitle": "关闭时，隐藏测试选项卡，并且在收到响应后不运行无代码断言",
-      "showNotesTab": "显示备注选项卡"
+      "showNotesTab": "显示备注选项卡",
+      "timelineEntries": "时间线条目"
     },
     "proxy": {
       "enable": "启用代理",
@@ -350,9 +350,6 @@
       "onTimeout": "超时时重试",
       "onStatus": "对状态码重试",
       "statusPlaceholder": "429, 503, 504"
-    },
-    "history": {
-      "timelineEntries": "时间线条目"
     },
     "certificates": {
       "clientHeading": "客户端证书",

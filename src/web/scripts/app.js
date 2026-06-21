@@ -3476,7 +3476,7 @@ function applySettings(settings) {
     "latte",
     "grey-light",
   ]);
-  const themeId = settings.theme ?? "mocha";
+  const themeId = settings.theme ?? "grey-dark";
   if (BUILT_IN_THEMES.has(themeId)) {
     document.documentElement.dataset.theme = themeId;
     document.getElementById("resthippo-custom-theme")?.remove();
@@ -3485,7 +3485,7 @@ function applySettings(settings) {
     if (custom) {
       _applyCustomThemeVars(custom);
     } else {
-      document.documentElement.dataset.theme = "mocha";
+      document.documentElement.dataset.theme = "grey-dark";
       document.getElementById("resthippo-custom-theme")?.remove();
     }
   }

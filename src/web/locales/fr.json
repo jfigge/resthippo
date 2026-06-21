@@ -123,8 +123,8 @@
     "aboutTitle": "À propos de Rest Hippo",
     "subtitle": "Client d'API REST",
     "actionsAria": "Actions de l'application",
-    "environmentTitle": "Environnement",
-    "environmentAria": "Sélectionner l'environnement",
+    "environmentTitle": "Changer d'environnement · clic droit pour gérer",
+    "environmentAria": "Changer d'environnement",
     "settingsTitle": "Paramètres",
     "settingsAria": "Ouvrir les paramètres",
     "collections": "Collections",
@@ -287,7 +287,6 @@
       "request": "Requête",
       "proxy": "Proxy",
       "retries": "Nouvelles tentatives",
-      "history": "Historique",
       "certificates": "Certificats",
       "about": "À propos",
       "security": "Sécurité"
@@ -328,7 +327,8 @@
       "showScriptsTabTitle": "Lorsque désactivé, l'onglet Scripts est masqué et les scripts de pré-requête et post-réponse ne sont pas exécutés",
       "showTestsTab": "Afficher l'onglet Tests",
       "showTestsTabTitle": "Lorsque désactivé, l'onglet Tests est masqué et les assertions sans code ne sont pas exécutées après une réponse",
-      "showNotesTab": "Afficher l'onglet Notes"
+      "showNotesTab": "Afficher l'onglet Notes",
+      "timelineEntries": "Entrées de la chronologie"
     },
     "proxy": {
       "enable": "Activer le proxy",
@@ -352,9 +352,6 @@
       "onTimeout": "Réessayer en cas d'expiration",
       "onStatus": "Réessayer pour les codes de statut",
       "statusPlaceholder": "429, 503, 504"
-    },
-    "history": {
-      "timelineEntries": "Entrées de la chronologie"
     },
     "certificates": {
       "clientHeading": "Certificats client",
