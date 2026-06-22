@@ -514,6 +514,45 @@ export class TreeView {
     li.scrollIntoView({ block: "nearest" });
   }
 
+  /**
+   * Open the folder-scope variable editor for the current selection — the same
+   * popup the context menu's "Variables" item opens. The scope resolves to: the
+   * selected node when it is a container (collection / folder), otherwise its
+   * parent container, otherwise the active collection. No-op when none exists.
+   * Driven by ⇧⌘/Ctrl+E.
+   */
+  openSelectedVariables() {
+    let id = this.#selectedId;
+    let node = id ? findNode(this.#items, id) : null;
+    if (node && node.type !== "collection") {
+      // A request (leaf) is selected — edit its containing folder instead.
+      id = findParentId(this.#items, node.id);
+      node = id ? findNode(this.#items, id) : null;
+    }
+    if (!node && this.#activeCollectionId)
+      node = findNode(this.#items, this.#activeCollectionId);
+    if (node) this.#openNodeVariables(node);
+  }
+
+  /**
+   * Fire the folder-vars-open event for a container node (collection / folder),
+   * which app.js routes to the variables popup. The single source of the event
+   * shape, shared by the "Variables" context-menu item and openSelectedVariables.
+   * @param {{ id:string, name:string, variables?:object[] }} node
+   */
+  #openNodeVariables(node) {
+    window.dispatchEvent(
+      new CustomEvent("hippo:folder-vars-open", {
+        detail: {
+          nodeId: node.id,
+          folderName: node.name,
+          variables: node.variables ?? [],
+        },
+        bubbles: true,
+      }),
+    );
+  }
+
   // ── Toolbar ─────────────────────────────────────────────────────────────
 
   #renderToolbar() {
@@ -928,19 +967,8 @@ export class TreeView {
             "clear-run": () => this.#clearFolderRunCounts(node.id),
             rename: () => this.#renameNode(node.id),
             duplicate: () => this.#duplicateNode(node.id),
-            variables: () => {
-              const liveNode = findNode(this.#items, node.id) ?? node;
-              window.dispatchEvent(
-                new CustomEvent("hippo:folder-vars-open", {
-                  detail: {
-                    nodeId: liveNode.id,
-                    folderName: liveNode.name,
-                    variables: liveNode.variables ?? [],
-                  },
-                  bubbles: true,
-                }),
-              );
-            },
+            variables: () =>
+              this.#openNodeVariables(findNode(this.#items, node.id) ?? node),
             "export-collection": () => {
               const liveNode = findNode(this.#items, node.id) ?? node;
               window.dispatchEvent(
@@ -1028,7 +1056,11 @@ export class TreeView {
             },
             { id: "export-collection", label: t("tree.menu.export") },
             { type: "separator" },
-            { id: "variables", label: t("tree.menu.variables") },
+            {
+              id: "variables",
+              label: t("tree.menu.variables"),
+              accelerator: electronAccelerator("folderVariables"),
+            },
             { type: "separator" },
             {
               id: "delete",

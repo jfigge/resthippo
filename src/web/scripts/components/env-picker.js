@@ -44,6 +44,7 @@
  */
 
 import { t } from "../i18n.js";
+import { electronAccelerator } from "../keymap.js";
 
 const _GLOBE = `<svg class="env-picker-globe" xmlns="http://www.w3.org/2000/svg"
     width="12" height="12" viewBox="0 0 24 24"
@@ -147,7 +148,13 @@ export class EnvPicker {
     });
     if (withManage) {
       items.push({ type: "separator" });
-      items.push({ id: _MANAGE_ID, label: t("env.manage") });
+      // The accelerator is display-only (the renderer owns ⌘/Ctrl+E); it just
+      // advertises the shortcut next to the same action this entry triggers.
+      items.push({
+        id: _MANAGE_ID,
+        label: t("env.manage"),
+        accelerator: electronAccelerator("editEnvironment"),
+      });
     }
 
     const r = btn.getBoundingClientRect();

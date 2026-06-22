@@ -1158,11 +1158,15 @@ const envPicker = new EnvPicker({
   onActivate: (id) => handleEnvActivate({ id }),
   onManage: openEnvironmentsEditor,
 });
-// Collection selector — the mirror of envPicker. Its onManage opens the same
-// CollectionsPopup the header buttons used to; collPopup / collPopupState are
-// defined further down but only read when the closure fires (on click).
+// Open the collections editor on the active collection's variables — collPopup /
+// collPopupState are defined further down but only read when this fires. Shared
+// by the collection picker's "Manage…" action and the ⌥/Alt+⌘/Ctrl+E shortcut.
+function openCollectionsEditor() {
+  collPopup.open(collPopupState());
+}
+// Collection selector — the mirror of envPicker.
 const collPicker = new CollPicker({
-  onManage: () => collPopup.open(collPopupState()),
+  onManage: openCollectionsEditor,
 });
 let currentSettings = {};
 
@@ -3468,6 +3472,8 @@ function installKeyboardShortcuts() {
       tabFavorites: () => switchTab("favorites"),
       tabRecents: () => switchTab("recents"),
       editEnvironment: openEnvironmentsEditor,
+      folderVariables: () => treeView?.openSelectedVariables(),
+      collectionVariables: openCollectionsEditor,
     },
     { isBlocked: () => popupVisible },
   );

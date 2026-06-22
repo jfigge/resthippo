@@ -1361,6 +1361,8 @@
     "fontReset": "Schriftgröße zurücksetzen",
     "settings": "Einstellungen öffnen",
     "editEnvironment": "Umgebungsvariablen bearbeiten",
+    "folderVariables": "Ordnervariablen bearbeiten",
+    "collectionVariables": "Sammlungsvariablen bearbeiten",
     "shortcuts": "Tastenkürzel anzeigen",
     "userGuide": "Benutzerhandbuch öffnen",
     "import": "Sammlung importieren",

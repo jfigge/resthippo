@@ -1361,6 +1361,8 @@
     "fontReset": "Réinitialiser la taille de police",
     "settings": "Ouvrir les réglages",
     "editEnvironment": "Modifier les variables d'environnement",
+    "folderVariables": "Modifier les variables du dossier",
+    "collectionVariables": "Modifier les variables de la collection",
     "shortcuts": "Afficher les raccourcis clavier",
     "userGuide": "Ouvrir le guide de l’utilisateur",
     "import": "Importer une collection",

@@ -221,12 +221,28 @@ export const SHORTCUT_GROUPS = [
         binding: { mod: true, key: "," },
         menuOwned: true,
       },
-      // ⌘/Ctrl+E — "Edit" the active environment: open the environments editor
-      // focused on the selected environment. Renderer-owned (no native menu item).
+      // The ⌘/Ctrl+E family opens the three variable scopes: plain ⌘E the active
+      // environment, ⇧⌘E the selected folder, ⌥⌘E the active collection. All
+      // renderer-owned; the matching native menu entries advertise them as
+      // display-only accelerators (env-picker "Manage…", tree "Variables").
       {
         id: "editEnvironment",
         descKey: "shortcuts.editEnvironment",
         binding: { mod: true, key: "e" },
+        wire: true,
+        allowWhileTyping: true,
+      },
+      {
+        id: "folderVariables",
+        descKey: "shortcuts.folderVariables",
+        binding: { mod: true, shift: true, key: "e" },
+        wire: true,
+        allowWhileTyping: true,
+      },
+      {
+        id: "collectionVariables",
+        descKey: "shortcuts.collectionVariables",
+        binding: { mod: true, alt: true, key: "e" },
         wire: true,
         allowWhileTyping: true,
       },
@@ -260,9 +276,18 @@ export const BINDINGS = Object.fromEntries(
 
 /** Does keyboard event `e` match the single key `key` (ignoring modifiers)? */
 function keyMatches(e, key) {
-  if (key.length === 1)
-    return (e.key || "").toLowerCase() === key.toLowerCase();
-  return e.key === key;
+  if (key.length !== 1) return e.key === key;
+  if ((e.key || "").toLowerCase() === key.toLowerCase()) return true;
+  // macOS composes Option+<key> into an accented / dead character, so with Alt
+  // held `e.key` is no longer the base key (⌥E yields a dead accent, not "e").
+  // Fall back to the layout-physical `e.code` for letters/digits in that case so
+  // Alt shortcuts (e.g. ⌥⌘E) still match. Scoped to Alt-down to avoid binding
+  // non-Alt shortcuts to physical positions on non-QWERTY layouts.
+  if (e.altKey) {
+    if (/[a-z]/i.test(key)) return e.code === `Key${key.toUpperCase()}`;
+    if (/[0-9]/.test(key)) return e.code === `Digit${key}`;
+  }
+  return false;
 }
 
 /**

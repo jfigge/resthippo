@@ -1361,6 +1361,8 @@
     "fontReset": "Reset font size",
     "settings": "Open Settings",
     "editEnvironment": "Edit environment variables",
+    "folderVariables": "Edit folder variables",
+    "collectionVariables": "Edit collection variables",
     "shortcuts": "Show keyboard shortcuts",
     "userGuide": "Open the User Guide",
     "import": "Import a collection",
