@@ -163,17 +163,30 @@
     renderHistory(releases);
   }
 
-  function init() {
-    injectStyles();
-    fetch("versions.json", { cache: "no-cache" })
+  // versions.json sits behind a CDN (GitHub Pages / Fastly); a single transient
+  // network blip would otherwise strand the whole page load on the static
+  // fallback. Retry a few times with a short backoff, and let the final attempt
+  // accept a cached copy, before giving up to the static "on GitHub" links.
+  function load(attempt) {
+    fetch("versions.json", { cache: attempt < 3 ? "no-cache" : "force-cache" })
       .then(function (r) {
         if (!r.ok) throw new Error("versions.json " + r.status);
         return r.json();
       })
       .then(apply)
       .catch(function () {
-        /* keep static fallback links → */ void RELEASES_URL;
+        if (attempt < 3) {
+          setTimeout(function () {
+            load(attempt + 1);
+          }, 300 * (attempt + 1));
+        }
+        /* final attempt failed → keep the static fallback links → */ void RELEASES_URL;
       });
+  }
+
+  function init() {
+    injectStyles();
+    load(0);
   }
 
   if (document.readyState === "loading") {
