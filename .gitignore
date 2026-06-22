@@ -7,6 +7,9 @@ data-docs/
 .docs-build/
 .keys/
 
+# ── E2E runtime data (seeded per run; the suite itself is tracked) ─────────────
+e2e/.data/
+
 # ── Node / npm ────────────────────────────────────────────────────────────────
 src/node_modules/
 src/npm-debug.log*

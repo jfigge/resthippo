@@ -288,6 +288,20 @@ test-renderer-e2e:
 	@node --test $(WEB_DIR)/scripts/tests/renderer-e2e.test.js
 	@echo "--------------------------------"
 
+# ─── UI end-to-end (real app over CDP) ────────────────────────────────────────
+# Drives the actual Electron renderer the way a user would (clicking, typing,
+# firing requests at the mock API) and asserts on what the live components
+# render. Deliberately NOT part of `make test` — it needs a display server, a
+# real Electron process and the mock API, none of which belong in the hermetic
+# unit gate. The runner seeds its own isolated data dir (e2e/.data) and reuses a
+# running mock on :8888 or launches one. Pass NAMES=... to run a subset.
+#   make test-e2e
+#   make test-e2e NAMES="send response graphql"
+test-e2e:
+	@echo "Running UI end-to-end suite (real app over CDP)..."
+	@node $(WORKSPACE)/e2e/run.mjs $(NAMES)
+	@echo "--------------------------------"
+
 # ─── Development ──────────────────────────────────────────────────────────────
 debug:
 	@echo "Starting Electron in debug mode (hot-reload)..."
@@ -973,7 +987,7 @@ mock-down:
         fmt fmt-check \
         lint \
         test test-js test-cookies test-auth test-content-type test-ipc test-oauth test-export test-components test-import \
-        test-data-store test-diagnostics test-renderer-components test-renderer-e2e \
+        test-data-store test-diagnostics test-renderer-components test-renderer-e2e test-e2e \
         debug \
         build build-mac build-linux build-win \
         build-setup build-install \
