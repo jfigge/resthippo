@@ -1,11 +1,25 @@
-# Rest Hippo — Cross-platform REST API Client
+# Rest Hippo — A free, offline, open-source REST API client
 
 [![CI](https://github.com/jfigge/resthippo/actions/workflows/ci.yml/badge.svg)](https://github.com/jfigge/resthippo/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
+[![GitHub stars](https://img.shields.io/github/stars/jfigge/resthippo?style=social)](https://github.com/jfigge/resthippo/stargazers)
 
-A lightweight, cross-platform desktop API client — like Postman or Insomnia —
-built with **Electron** and **Vanilla JavaScript**, backed by a file-based
-**Node.js storage layer**. No framework, no CDN dependencies, and all HTTP runs
-natively in the main process, so requests are never subject to browser CORS.
+A lightweight, cross-platform desktop API client — a **Postman / Insomnia
+alternative** that runs entirely on your machine. **No account, no telemetry, no
+cloud** — just install it and send a request. Built with **Electron** and
+**Vanilla JavaScript**, backed by a file-based **Node.js storage layer**, with all
+HTTP running natively in the main process so requests are never subject to browser
+CORS.
+
+> **Why Rest Hippo?** Free forever · Open source (Apache 2.0) · 100% offline · No
+> sign-in · No tracking · Your collections stay in local files.
+> [See how it compares →](https://resthippo.com/vs-postman.html)
+
+<p align="center"><img src="docs/demo.gif" alt="Rest Hippo in action" width="820"></p>
+
+📦 **[Download for macOS, Windows &amp; Linux](https://resthippo.com/#downloads)** &nbsp;·&nbsp;
+🌐 **[resthippo.com](https://resthippo.com)**
 
 ## Features
 
