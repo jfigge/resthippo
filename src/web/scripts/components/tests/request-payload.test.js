@@ -494,6 +494,33 @@ test("form-data body: multipart parts with a boundary Content-Type", async () =>
   assert.match(body, /Content-Disposition: form-data; name="field"\r\n\r\nval/);
 });
 
+test("form-data body: a field name with CR/LF/quote can't inject headers", async () => {
+  const { body } = await buildRequestPayload(
+    {
+      method: "POST",
+      urlBase: "https://x",
+      bodyType: "form-data",
+      // A hostile field name trying to break out of Content-Disposition and
+      // forge an extra header / part.
+      bodyFormRows: [
+        {
+          enabled: true,
+          name: 'evil"\r\nX-Injected: 1\r\nContent-Disposition: form-data; name="x',
+          value: "v",
+        },
+      ],
+    },
+    identity,
+  );
+  // CR/LF stripped, the delimiting quote neutralised to %22 → a single,
+  // well-formed Content-Disposition line with no injected header.
+  assert.ok(!/\r\nX-Injected:/.test(body), "no injected header line");
+  assert.match(
+    body,
+    /Content-Disposition: form-data; name="evil%22X-Injected: 1Content-Disposition: form-data; name=%22x"\r\n\r\nv/,
+  );
+});
+
 test("file body: exposes the file path and a Content-Type", async () => {
   const { bodyFilePath, headers } = await buildRequestPayload(
     {

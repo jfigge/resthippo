@@ -67,6 +67,17 @@ function baseName(p) {
 }
 
 /**
+ * Sanitise a form-data field name before it goes into a Content-Disposition
+ * header line: strip CR/LF (so a name can't inject extra headers or parts) and
+ * neutralise the quote that delimits `name="..."`. Identical to the main
+ * process's `buildMultipartBody` cleaner, applied here for the string-serialised
+ * (text-only) path so both routes sanitise the same way (RFC 7578 §5.1).
+ */
+function cleanPartName(s) {
+  return String(s ?? "").replace(/[\r\n"]/g, (c) => (c === '"' ? "%22" : ""));
+}
+
+/**
  * True if `headers` already carries a Content-Type under any casing. User
  * header rows preserve their typed casing (e.g. `content-type`), so a
  * case-sensitive `headers["Content-Type"]` check would miss it and append a
@@ -383,7 +394,7 @@ export async function buildRequestPayload(spec, rv) {
               await Promise.all(
                 rows.map(
                   async (r) =>
-                    `--${boundary}\r\nContent-Disposition: form-data; name="${await rv(r.name)}"\r\n\r\n${await rv(r.value)}`,
+                    `--${boundary}\r\nContent-Disposition: form-data; name="${cleanPartName(await rv(r.name))}"\r\n\r\n${await rv(r.value)}`,
                 ),
               )
             ).join("\r\n");

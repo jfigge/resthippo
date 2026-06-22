@@ -205,7 +205,7 @@ test-license-headers:
 
 test-js:
 	@echo "Running JavaScript store tests..."
-	@node --test $(APP_DIR)/store/tests/stores.test.js $(APP_DIR)/store/tests/crypto.test.js $(APP_DIR)/store/tests/integration.test.js $(APP_DIR)/store/tests/migrations.test.js $(APP_DIR)/store/tests/io-locking.test.js $(APP_DIR)/store/tests/backup.test.js $(APP_DIR)/store/tests/synchronous-writes.test.js $(APP_DIR)/store/tests/collection-archive.test.js
+	@node --test $(APP_DIR)/store/tests/stores.test.js $(APP_DIR)/store/tests/crypto.test.js $(APP_DIR)/store/tests/integration.test.js $(APP_DIR)/store/tests/migrations.test.js $(APP_DIR)/store/tests/io-locking.test.js $(APP_DIR)/store/tests/backup.test.js $(APP_DIR)/store/tests/synchronous-writes.test.js $(APP_DIR)/store/tests/collection-archive.test.js $(APP_DIR)/store/tests/secret-storage.test.js
 	@echo "--------------------------------"
 
 test-cookies:
@@ -239,8 +239,8 @@ test-ipc:
 	@echo "--------------------------------"
 
 test-oauth:
-	@echo "Running OAuth 2.0 unit tests..."
-	@node --experimental-vm-modules $(WEB_DIR)/scripts/auth/tests/oauth.test.js
+	@echo "Running OAuth 2.0 unit tests (renderer flows + main-process redirect guard)..."
+	@node --experimental-vm-modules $(WEB_DIR)/scripts/auth/tests/oauth.test.js $(APP_DIR)/tests/oauth-redirect.test.js
 	@echo "--------------------------------"
 
 test-export:

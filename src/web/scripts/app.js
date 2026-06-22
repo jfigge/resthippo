@@ -2968,6 +2968,13 @@ function installRequestEditSendHandlers() {
       exec.cancelled = true;
       exec.abortController?.abort();
       exec.abortController = null;
+      // Electron: destroy the in-flight socket in the main process so the
+      // request stops server-side too (the Go dev path uses the AbortController
+      // above). No-op in dev mode, where http.abort isn't exposed; harmless if
+      // the request already settled (main returns { ok: false, not-found }).
+      if (exec.streamId) {
+        window.hippo?.http?.abort?.(exec.streamId)?.catch?.(() => {});
+      }
       snapshot = exec.snapshot;
       _inFlightExecs.delete(exec);
     }
@@ -3053,21 +3060,26 @@ function installRequestEditSendHandlers() {
       body: typeof descriptor.body === "string" ? descriptor.body : null,
     };
 
+    // One id per send. It is the stream id (Feature 33) AND the abort handle for
+    // the main-process request: a Stop on a not-yet-streaming Electron request
+    // sends it to http:abort so the socket is destroyed server-side, not merely
+    // discarded in the renderer. Only interactive sends are streamCapable;
+    // text/event-stream always auto-streams, and application/x-ndjson
+    // auto-streams when the global streamNdjson setting is on (Settings →
+    // Request). Carried on the loading event so the ResponseViewer can pre-arm
+    // and never miss an early frame.
+    const streamId = crypto.randomUUID();
+
     // Register this execution so hippo:cancel-request can abort it individually.
     const exec = {
       requestId,
       snapshot: requestSnapshot,
       abortController: null,
       cancelled: false,
+      streamId,
     };
     _inFlightExecs.add(exec);
 
-    // Streaming (Feature 33): mint a stream id now and carry it on the loading
-    // event so the ResponseViewer can pre-arm and never miss an early frame.
-    // Only interactive sends are streamCapable; text/event-stream always
-    // auto-streams, and application/x-ndjson auto-streams when the global
-    // streamNdjson setting is on (Settings → Request).
-    const streamId = crypto.randomUUID();
     window.dispatchEvent(
       new CustomEvent("hippo:request-loading", {
         detail: { requestId, streamId },

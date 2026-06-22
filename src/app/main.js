@@ -52,6 +52,10 @@ const { loadCatalog, label: i18nLabel } = require("./i18n");
 const { WebSocketHub } = require("./net/websocket");
 const { registerHttpEngine } = require("./net/http-engine");
 const { registerScripting } = require("./scripting/sandbox");
+const {
+  isHttpUrl: isHttpAuthUrl,
+  matchesRedirect,
+} = require("./oauth-redirect");
 const updater = require("./updater");
 const cliLauncher = require("./cli-launcher");
 
@@ -587,40 +591,22 @@ registerScripting({ ipcMain, safeCall });
 //   url       – the full callback URL (includes code= / token= etc.)
 //   cancelled – true when the user closes the window without completing login
 (function initOAuthIPC() {
-  /**
-   * Test whether a navigation URL matches the registered redirect URI.
-   * Handles both http:// and https:// redirect URIs.
-   *
-   * @param {string} navUrl      URL being navigated to
-   * @param {string} redirectUri Registered redirect URI
-   * @returns {boolean}
-   */
-  function _matchesRedirect(navUrl, redirectUri) {
-    if (!navUrl || !redirectUri) return false;
-    try {
-      const nav = new URL(navUrl);
-      const redirect = new URL(redirectUri);
-      // urn: schemes (urn:ietf:wg:oauth:2.0:oob) cannot be matched via URL navigation
-      if (redirect.protocol === "urn:") return false;
-      const sameOrigin =
-        nav.protocol.toLowerCase() === redirect.protocol.toLowerCase() &&
-        nav.hostname.toLowerCase() === redirect.hostname.toLowerCase() &&
-        nav.port === redirect.port;
-      const samePath =
-        nav.pathname === redirect.pathname ||
-        (redirect.pathname === "/" &&
-          (nav.pathname === "" || nav.pathname === "/"));
-      return sameOrigin && samePath;
-    } catch {
-      // Fallback for unusual URI schemes
-      return navUrl.startsWith(redirectUri);
-    }
-  }
-
+  // The redirect-URI matcher and the authorization-URL scheme guard are pure and
+  // security-sensitive, so they live (and are unit-tested) in ./oauth-redirect.
   ipcMain.handle(
     "oauth:open-popup",
     (_event, { authUrl, redirectUri, title }) => {
       return new Promise((resolve) => {
+        // Only ever load an http(s) authorization endpoint. authUrl is built from
+        // the user's OAuth config, but a stray `file:`/`data:`/`javascript:` value
+        // must never reach loadURL — it would load in this app-origin (if sandboxed)
+        // popup. Reject before the window is even created.
+        if (!isHttpAuthUrl(authUrl)) {
+          console.error("[oauth:popup] refusing non-http(s) authorization URL");
+          resolve({ url: null, cancelled: true });
+          return;
+        }
+
         const popup = new BrowserWindow({
           width: 860,
           height: 720,
@@ -665,9 +651,14 @@ registerScripting({ ipcMain, safeCall });
           resolve(result);
         }
 
+        // A malicious or compromised IdP page must not be able to spawn child
+        // windows (popunders, new BrowserWindows inheriting this context). The
+        // whole flow happens by navigation in this single window.
+        popup.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+
         // ── Intercept any navigation to the redirect URI (fires BEFORE request) ──
         popup.webContents.on("will-navigate", (e, url) => {
-          if (_matchesRedirect(url, redirectUri)) {
+          if (matchesRedirect(url, redirectUri)) {
             e.preventDefault();
             _finish({ url, cancelled: false });
           }
@@ -675,7 +666,7 @@ registerScripting({ ipcMain, safeCall });
 
         // ── Intercept server-initiated redirects (3xx) ─────────────────────────
         popup.webContents.on("will-redirect", (e, url) => {
-          if (_matchesRedirect(url, redirectUri)) {
+          if (matchesRedirect(url, redirectUri)) {
             e.preventDefault();
             _finish({ url, cancelled: false });
           }
@@ -683,11 +674,11 @@ registerScripting({ ipcMain, safeCall });
 
         // ── Catch successful navigations (e.g. custom protocol handlers) ───────
         popup.webContents.on("did-navigate", (_e, url) => {
-          if (_matchesRedirect(url, redirectUri))
+          if (matchesRedirect(url, redirectUri))
             _finish({ url, cancelled: false });
         });
         popup.webContents.on("did-navigate-in-page", (_e, url) => {
-          if (_matchesRedirect(url, redirectUri))
+          if (matchesRedirect(url, redirectUri))
             _finish({ url, cancelled: false });
         });
 
@@ -697,7 +688,7 @@ registerScripting({ ipcMain, safeCall });
         popup.webContents.on(
           "did-fail-load",
           (_e, _code, _desc, validatedUrl) => {
-            if (_matchesRedirect(validatedUrl, redirectUri)) {
+            if (matchesRedirect(validatedUrl, redirectUri)) {
               _finish({ url: validatedUrl, cancelled: false });
             }
           },

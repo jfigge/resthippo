@@ -81,6 +81,67 @@ describe("mode inference (no decrypt → no keychain prompt)", () => {
       rmTmpDir(dir);
     }
   });
+
+  it("infers master-password from encm: ciphertext and never mints an app key", () => {
+    const dir = makeTmpDir();
+    try {
+      const paths = new Paths(dir);
+      fs.mkdirSync(path.dirname(paths.manifestPath()), { recursive: true });
+      // A profile whose secrets were sealed under a master password, with the
+      // config file lost. Defaulting to app-key here would generate a fresh key
+      // and the encm: secrets could NEVER be unlocked again.
+      fs.writeFileSync(
+        paths.manifestPath(),
+        JSON.stringify({ settings: { proxyPassword: "encm:v1:sealed" } }),
+      );
+      const ss = new SecretStorage(paths);
+      const { mode, locked } = ss.bootstrap();
+      assert.equal(mode, "master-password");
+      assert.equal(locked, true); // starts locked → prompts to unlock (recoverable)
+      assert.equal(ss.readConfig().mode, "master-password");
+      // The regression guard: no fresh app key was minted over the secrets.
+      assert.ok(!fs.existsSync(paths.secretKeyPath()));
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("prefers master-password over a stray enc:v1: value (recovery priority)", () => {
+    const dir = makeTmpDir();
+    try {
+      const paths = new Paths(dir);
+      fs.mkdirSync(path.dirname(paths.manifestPath()), { recursive: true });
+      // A half-migrated profile with both families present; the unlock-only
+      // master-password data must win so it stays recoverable.
+      fs.writeFileSync(
+        paths.manifestPath(),
+        JSON.stringify({
+          settings: { proxyUrl: "enc:v1:abc", proxyPassword: "encm:v1:sealed" },
+        }),
+      );
+      const ss = new SecretStorage(paths);
+      assert.equal(ss.bootstrap().mode, "master-password");
+      assert.ok(!fs.existsSync(paths.secretKeyPath()));
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("infers app-key when only enck: ciphertext exists", () => {
+    const dir = makeTmpDir();
+    try {
+      const paths = new Paths(dir);
+      fs.mkdirSync(path.dirname(paths.manifestPath()), { recursive: true });
+      fs.writeFileSync(
+        paths.manifestPath(),
+        JSON.stringify({ settings: { proxyPassword: "enck:v1:sealed" } }),
+      );
+      const ss = new SecretStorage(paths);
+      assert.equal(ss.bootstrap().mode, "app-key");
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
 });
 
 describe("app-key file", () => {

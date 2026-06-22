@@ -747,6 +747,87 @@ test("a >8MB body spills to disk and is redeemable via http:body:get", async () 
   );
 });
 
+// ── Stop (abort) for in-flight buffered requests ────────────────────────────
+//
+// A buffered request runs to completion in the main process even after the
+// renderer discards the result, so Stop has to reach across IPC and destroy the
+// actual socket. These pin that: the request is registered while in flight,
+// http:abort tears it down server-side, and the handle is cleaned up after.
+
+test("http:abort destroys an in-flight non-streaming request server-side", async () => {
+  const abort = handlers["http:abort"];
+  assert.equal(typeof abort, "function", "http:abort handler was captured");
+
+  let sawRequest;
+  const requestReceived = new Promise((r) => (sawRequest = r));
+  let sawClose;
+  const connectionClosed = new Promise((r) => (sawClose = r));
+
+  await withServer(
+    (req) => {
+      // Accept the request but never respond — a hung/slow server. The client's
+      // Stop must tear the socket down; detect that close here.
+      req.on("close", () => sawClose());
+      sawRequest();
+    },
+    async (base) => {
+      const sender = makeSender();
+      const streamId = "abort-buffered-1";
+      const p = run(
+        { method: "GET", url: `${base}/hang`, streamCapable: true, streamId },
+        sender,
+      );
+
+      await requestReceived; // the request is genuinely in flight on the server
+      assert.deepEqual(abort({ sender }, { streamId }), { ok: true });
+
+      // Without the fix this promise would hang until the 30s timeout; with it
+      // the destroyed socket resolves it promptly as a network failure.
+      const r = await p;
+      assert.equal(
+        r.status,
+        0,
+        "aborted request resolves as a network failure",
+      );
+      assert.equal(r.error?.code, "ABORTED", "carries the abort error");
+
+      await connectionClosed; // the socket was actually destroyed, not leaked
+    },
+  );
+});
+
+test("http:abort on an unknown id reports not-found", () => {
+  const r = handlers["http:abort"](
+    { sender: makeSender() },
+    { streamId: "no-such-exec" },
+  );
+  assert.deepEqual(r, { ok: false, reason: "not-found" });
+});
+
+test("a completed request de-registers its abort handle (a late Stop is a no-op)", async () => {
+  await withServer(
+    (req, res) => {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("ok");
+    },
+    async (base) => {
+      const sender = makeSender();
+      const streamId = "abort-buffered-2";
+      const r = await run(
+        { method: "GET", url: `${base}/x`, streamCapable: true, streamId },
+        sender,
+      );
+      assert.equal(r.status, 200);
+      // The request has settled, so its handle is gone: a late Stop (double
+      // click, interval restart) is a harmless not-found, never a stale destroy.
+      assert.deepEqual(handlers["http:abort"]({ sender }, { streamId }), {
+        ok: false,
+        reason: "not-found",
+      });
+    },
+  );
+});
+
 /** Poll `pred` up to `timeoutMs`, resolving once it is truthy. */
 async function waitFor(pred, timeoutMs = 1000) {
   const start = Date.now();

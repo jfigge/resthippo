@@ -16,7 +16,7 @@
 
 "use strict";
 
-import { isSecretHeader } from "./redact.js";
+import { isSecretHeader, redactBody } from "./redact.js";
 
 /**
  * HAR 1.2 exporter.
@@ -30,7 +30,11 @@ import { isSecretHeader } from "./redact.js";
  * Secret redaction (parity with the Postman exporter's auth handling): in a
  * recorded exchange the credential lives in materialized headers/cookies, so
  * sensitive request/response header values (Authorization, Cookie, Set-Cookie,
- * API keys) and all response cookie values are blanked — names preserved.
+ * API keys) and all response cookie values are blanked — names preserved. The
+ * same applies to body-borne credentials (a token-request form body, a token
+ * response): structured request/response bodies (form-urlencoded, JSON) have
+ * their secret-named fields blanked via redactBody. Free-form bodies (HTML/text/
+ * binary) can't be parsed for secrets and are exported verbatim.
  */
 
 const APP_VERSION = "0.6.1";
@@ -112,7 +116,7 @@ function postData(sent) {
   if (!body) return undefined;
   const mimeType =
     headerValue(sent.headers, "content-type") || "application/octet-stream";
-  return { mimeType, text: body };
+  return { mimeType, text: redactBody(mimeType, body) };
 }
 
 /** Build a single HAR entry from a run-history record. */
@@ -151,7 +155,10 @@ function buildEntry(entry) {
       content: {
         size: resp.size ?? byteLen(resp.body ?? ""),
         mimeType: headerValue(resp.headers, "content-type") || "",
-        text: typeof resp.body === "string" ? resp.body : "",
+        text:
+          typeof resp.body === "string"
+            ? redactBody(headerValue(resp.headers, "content-type"), resp.body)
+            : "",
       },
       redirectURL: "",
       headersSize: -1,

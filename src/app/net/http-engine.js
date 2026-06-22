@@ -195,6 +195,22 @@ function registerHttpEngine({
   /** streamId → { req, senderId, spillPath, spillStream, bytes, events, recent, ended, contentType, aborted } */
   const activeStreams = new Map();
 
+  // ── In-flight non-streaming requests (Stop) ────────────────────────────────
+  //
+  // A buffered (non-streaming) request runs entirely in the main process: the
+  // socket, the download, and any spill-to-disk keep going until the server
+  // finishes, even after the renderer has discarded the result. Without a way to
+  // reach that socket, the interactive "Stop" could only hide the result, not
+  // end the work. We track each interactive send's current leg here so http:abort
+  // can destroy it. The renderer mints one id per send (the same id it uses as
+  // streamId) and keys the handle by it; doRequest replaces `req` with each
+  // redirect/auth/retry leg's ClientRequest, so abort always hits the open one.
+  // A request that turns into a live stream is controlled via activeStreams
+  // instead and is removed from here when http:execute resolves.
+  //
+  /** execId → { req, senderId, aborted } */
+  const activeRequests = new Map();
+
   // The renderer writes one Timeline record per streaming run (Feature 33). We
   // keep the last few events here (each event's data capped) and hand them off
   // in the stream end/error payload so that record is bounded in size.
@@ -1532,6 +1548,22 @@ function registerHttpEngine({
         });
       });
 
+      // Expose this leg's ClientRequest for Stop (http:abort). The handle is
+      // threaded on the descriptor by the http:execute handler and shared across
+      // every recursive leg (redirect / digest-NTLM challenge / retry), so each
+      // leg overwrites `req` and abort always destroys the socket that is open.
+      // If Stop already arrived in the gap between legs — after the previous
+      // leg's req settled but before this one's socket existed — tear this one
+      // down at once; req's "error" handler resolves the promise.
+      if (desc._handle) {
+        desc._handle.req = req;
+        if (desc._handle.aborted) {
+          req.destroy(
+            Object.assign(new Error("Request aborted"), { code: "ABORTED" }),
+          );
+        }
+      }
+
       if (multipartStream) {
         // pipe() ends the request when the stream finishes; a read error on a
         // file part aborts the request, surfacing through req's "error" handler.
@@ -1576,6 +1608,10 @@ function registerHttpEngine({
       }
       result = await doRequest(descriptor, consoleLog, startTime, 0);
 
+      // A user Stop (http:abort) destroyed the socket — that surfaces as a
+      // connection error, which the retry policy would otherwise treat as
+      // retryable. Stop means stop: don't start another attempt.
+      if (descriptor._handle?.aborted) break;
       if (!policy || attempt >= maxAttempts) break;
       const reason = retryReason(result, policy);
       if (!reason) break;
@@ -1685,6 +1721,22 @@ function registerHttpEngine({
         sender: event.sender,
       };
     }
+    // Track interactive sends so the Stop button (http:abort) can destroy the
+    // in-flight socket. Keyed by the renderer's per-send id (its streamId). A
+    // send that becomes a live stream switches to activeStreams control; the
+    // `finally` below drops this handle the moment http:execute resolves (which,
+    // for a stream, is at the streaming marker — so abort then routes through
+    // http:stream:abort, not here).
+    const execId =
+      descriptor.streamCapable === true ? descriptor.streamId || null : null;
+    if (execId) {
+      descriptor._handle = {
+        req: null,
+        senderId: event.sender.id,
+        aborted: false,
+      };
+      activeRequests.set(execId, descriptor._handle);
+    }
     try {
       const result = await executeWithRetries(
         descriptor,
@@ -1712,6 +1764,11 @@ function registerHttpEngine({
         consoleLog,
         error: { name: err.name || "Error", message: err.message },
       };
+    } finally {
+      // Stop tracking once the request settles (or, for a stream, once it hands
+      // off to activeStreams at the streaming marker). Abort after this point is
+      // a harmless no-op (buffered: nothing to stop; stream: http:stream:abort).
+      if (execId) activeRequests.delete(execId);
     }
   });
 
@@ -1758,6 +1815,28 @@ function registerHttpEngine({
     } catch (err) {
       return { ok: false, reason: "error", message: err.message };
     }
+  });
+
+  // Abort an in-flight buffered (non-streaming) request — the interactive Stop
+  // button. The renderer settles its own UI synchronously and discards the late
+  // result; this destroys the actual socket so the download (and any spill to
+  // disk) stop server-side instead of running to completion. Keyed by the same
+  // id the renderer minted for the send (its streamId). Idempotent and safe when
+  // the request already finished (entry gone), became a live stream (handed off
+  // to http:stream:abort), or hasn't opened its socket yet (req null — the
+  // aborted flag makes the next leg tear down the moment it connects).
+  ipcMain.handle("http:abort", (_event, { streamId } = {}) => {
+    const entry = activeRequests.get(streamId);
+    if (!entry) return { ok: false, reason: "not-found" };
+    entry.aborted = true;
+    try {
+      entry.req?.destroy(
+        Object.assign(new Error("Request aborted"), { code: "ABORTED" }),
+      );
+    } catch {
+      // already torn down — the leg's error/close handler resolves the promise
+    }
+    return { ok: true };
   });
 
   // ── Live-stream control (Feature 33) ───────────────────────────────────────
@@ -1809,6 +1888,18 @@ function registerHttpEngine({
           entry.aborted = true;
           try {
             entry.req.destroy();
+          } catch {
+            // best-effort
+          }
+        }
+      }
+      // Buffered requests owned by the gone renderer: same hazard (a large
+      // download would otherwise run to completion against a dead listener).
+      for (const entry of activeRequests.values()) {
+        if (entry.senderId === contents.id) {
+          entry.aborted = true;
+          try {
+            entry.req?.destroy();
           } catch {
             // best-effort
           }

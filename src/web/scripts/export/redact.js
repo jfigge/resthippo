@@ -170,3 +170,99 @@ export function isSecretHeader(name) {
   if (SECRET_HEADERS.has(n)) return true;
   return n.includes("api-key") || n.includes("apikey") || n.includes("api_key");
 }
+
+// Body-field names whose value is a credential, matched case-insensitively as a
+// substring so client_secret, refresh_token, x-api-key, csrf_token, etc. are all
+// caught. Deliberately tight to avoid blanking benign fields: identifiers like
+// username, client_id, grant_type, scope, redirect_uri — and the single-use
+// OAuth `code` — round-trip intact, mirroring redactedAuth's "keep the id, drop
+// the secret".
+const SECRET_FIELD_RE =
+  /pass(?:word|wd)?|secret|token|credential|assertion|private[-_]?key|api[-_]?key|session[-_]?id/i;
+
+/**
+ * Whether a request/response body FIELD name carries a secret value.
+ * @param {string} name
+ * @returns {boolean}
+ */
+export function isSecretField(name) {
+  return SECRET_FIELD_RE.test(String(name ?? ""));
+}
+
+/**
+ * Deep-copy a parsed JSON value, blanking the value of any secret-named key.
+ * `ctx.changed` is set true if anything was blanked, so the caller can leave a
+ * secret-free body byte-for-byte untouched instead of reflowing its formatting.
+ */
+function redactJsonValue(val, ctx) {
+  if (Array.isArray(val)) return val.map((v) => redactJsonValue(v, ctx));
+  if (val && typeof val === "object") {
+    // Null-prototype so a literal "__proto__" key from JSON.parse is copied as
+    // plain data (and re-serialized faithfully) rather than mutating a prototype.
+    const out = Object.create(null);
+    for (const [k, v] of Object.entries(val)) {
+      if (isSecretField(k)) {
+        out[k] = "";
+        ctx.changed = true;
+      } else {
+        out[k] = redactJsonValue(v, ctx);
+      }
+    }
+    return out;
+  }
+  return val;
+}
+
+/**
+ * Redact secret-bearing fields from a recorded request/response BODY before it
+ * is written to an export (e.g. HAR `postData.text` / response `content.text`).
+ * A recorded exchange materializes credentials into the body too — an OAuth
+ * token-request (`grant_type=password&password=…&client_secret=…`) or a token
+ * response (`{"access_token":"…","refresh_token":"…"}`) — which header/cookie
+ * redaction alone misses.
+ *
+ * Only structured bodies we can parse are scrubbed: x-www-form-urlencoded and
+ * JSON. Any other body (HTML, plain text, binary, raw multipart) can't be safely
+ * located/parsed for secrets and is returned verbatim — callers exporting such
+ * bodies should treat them as potentially sensitive.
+ *
+ * @param {string} mimeType  the body's Content-Type (any casing)
+ * @param {string} text      the body text
+ * @returns {string} the redacted body (or the original when nothing applies)
+ */
+export function redactBody(mimeType, text) {
+  if (typeof text !== "string" || !text) return text;
+  const mt = String(mimeType ?? "").toLowerCase();
+
+  if (mt.includes("application/x-www-form-urlencoded")) {
+    try {
+      const pairs = [];
+      let changed = false;
+      for (const [k, v] of new URLSearchParams(text).entries()) {
+        if (isSecretField(k)) {
+          pairs.push([k, ""]);
+          changed = true;
+        } else {
+          pairs.push([k, v]);
+        }
+      }
+      return changed ? new URLSearchParams(pairs).toString() : text;
+    } catch {
+      return text;
+    }
+  }
+
+  if (mt.includes("json")) {
+    try {
+      const ctx = { changed: false };
+      const redacted = redactJsonValue(JSON.parse(text), ctx);
+      // Leave a secret-free body exactly as recorded (preserve its formatting);
+      // only reflow to compact JSON when something was actually blanked.
+      return ctx.changed ? JSON.stringify(redacted) : text;
+    } catch {
+      return text; // not actually JSON — leave it untouched
+    }
+  }
+
+  return text;
+}

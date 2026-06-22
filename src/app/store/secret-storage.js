@@ -169,10 +169,13 @@ class SecretStorage {
   /**
    * Resolve the active mode + keys and configure crypto, BEFORE any store reads.
    *
-   * On a fresh config (first run after this feature, or a new install) the mode is
-   * INFERRED from existing on-disk ciphertext — os-keychain when any `enc:v1:`
-   * value is found (preserving an existing keychain user's behaviour), else
-   * app-key (the no-prompt default) — and persisted so it never re-scans.
+   * On a fresh config (first run after this feature, or a lost config file) the
+   * mode is INFERRED from existing on-disk ciphertext by family, in
+   * recovery-priority order — master-password (`encm:`) → os-keychain (`enc:v1:`)
+   * → app-key (`enck:`), else app-key (the no-prompt default) — and persisted so
+   * it never re-scans. Probing master-password first is what prevents a lost
+   * config from minting a fresh app key over unlock-only secrets (see
+   * `_inferMode`).
    *
    * In master-password mode the key is NOT loaded here (the session starts
    * locked); the renderer prompts to unlock.
@@ -202,47 +205,58 @@ class SecretStorage {
   }
 
   /**
-   * Infer the mode for an install with no config: "os-keychain" if any `enc:v1:`
-   * keystore ciphertext exists anywhere, else "app-key". Pure string-prefix
-   * checks — never calls decryptString, so this NEVER triggers a keychain prompt.
-   * Scans cheap→expensive and short-circuits on the first hit.
+   * Infer the mode for an install with no config file. The config records which
+   * backend the at-rest ciphertext was sealed with; if it is lost we must NOT
+   * guess a mode that orphans that ciphertext. The unrecoverable case is
+   * master-password data (`encm:`): defaulting to app-key would mint a fresh
+   * random key, and because the user would never be prompted to enter the
+   * passphrase the GCM-sealed secrets could never be unlocked again. So probe
+   * every managed ciphertext family in recovery-priority order —
+   * master-password first (it alone is unrecoverable if mis-inferred; inferring
+   * it merely starts the session locked and prompts to unlock), then
+   * os-keychain (`enc:v1:`), then app-key (`enck:`) — and fall back to the
+   * no-prompt default ONLY when no managed ciphertext exists at all. Pure
+   * string-prefix checks: never calls decryptString, so this never triggers a
+   * keychain prompt.
    */
   _inferMode() {
-    const hasKeychainCiphertext = (value) =>
-      typeof value === "string" && value.startsWith("enc:v1:");
+    const startsWith = (prefix) => (value) =>
+      typeof value === "string" && value.startsWith(prefix);
 
+    if (this._anyCiphertext(startsWith("encm:"))) return "master-password";
+    if (this._anyCiphertext(startsWith("enc:v1:"))) return "os-keychain";
+    if (this._anyCiphertext(startsWith("enck:"))) return "app-key";
+    return DEFAULT_MODE;
+  }
+
+  /**
+   * Whether ANY at-rest secret value across the live stores satisfies `isHit`.
+   * Scans manifest settings, environments, and each collection's metadata / tree
+   * / request files cheap→expensive, short-circuiting on the first hit. Called
+   * once per ciphertext family on the rare no-config path (so a file may be read
+   * a few times there); never on the warm path.
+   *
+   * @param {(value: string) => boolean} isHit
+   */
+  _anyCiphertext(isHit) {
     // 1) Manifest settings (read first at startup anyway).
     const manifest = io.readJSON(this._paths.manifestPath());
-    if (
-      this._settingsHasKeychainSecret(manifest?.settings, hasKeychainCiphertext)
-    ) {
-      return "os-keychain";
-    }
+    if (this._settingsHasSealedSecret(manifest?.settings, isHit)) return true;
     // 2) Environments (global + per-env variables).
     const envs = io.readJSON(this._paths.environmentsPath());
-    if (this._envsHaveKeychainSecret(envs, hasKeychainCiphertext)) {
-      return "os-keychain";
-    }
+    if (this._envsHaveSealedSecret(envs, isHit)) return true;
     // 3) Per-collection metadata + tree + request files.
     for (const collId of this._listCollectionIds()) {
       const meta = io.readJSON(this._paths.metadataPath(collId));
-      if (
-        this._varsHaveKeychainSecret(meta?.variables, hasKeychainCiphertext)
-      ) {
-        return "os-keychain";
-      }
+      if (this._varsHaveSealedSecret(meta?.variables, isHit)) return true;
       const tree = io.readJSON(this._paths.treePath(collId));
-      if (this._treeHasKeychainSecret(tree?.children, hasKeychainCiphertext)) {
-        return "os-keychain";
-      }
+      if (this._treeHasSealedSecret(tree?.children, isHit)) return true;
       for (const reqId of this._listRequestIds(collId)) {
         const req = io.readJSON(this._paths.requestPath(collId, reqId));
-        if (this._requestHasKeychainSecret(req, hasKeychainCiphertext)) {
-          return "os-keychain";
-        }
+        if (this._requestHasSealedSecret(req, isHit)) return true;
       }
     }
-    return DEFAULT_MODE;
+    return false;
   }
 
   // ── Migration (re-encrypt every secret to a target backend) ───────────────
@@ -369,22 +383,22 @@ class SecretStorage {
       .map((name) => name.slice(0, -".json".length));
   }
 
-  // ── Inference probes (string-prefix only) ─────────────────────────────────
+  // ── Inference probes (string-prefix only; predicate-driven per family) ─────
 
-  _settingsHasKeychainSecret(settings, isHit) {
+  _settingsHasSealedSecret(settings, isHit) {
     if (!settings || typeof settings !== "object") return false;
     return collectSettings(settings).some(isHit);
   }
-  _envsHaveKeychainSecret(envs, isHit) {
+  _envsHaveSealedSecret(envs, isHit) {
     return collectEnvironments(envs ?? {}).some(isHit);
   }
-  _varsHaveKeychainSecret(vars, isHit) {
+  _varsHaveSealedSecret(vars, isHit) {
     return collectVariables(vars).some(isHit);
   }
-  _treeHasKeychainSecret(children, isHit) {
+  _treeHasSealedSecret(children, isHit) {
     return collectTree(children).some(isHit);
   }
-  _requestHasKeychainSecret(req, isHit) {
+  _requestHasSealedSecret(req, isHit) {
     if (!req || typeof req !== "object") return false;
     return collectRequest(req).some(isHit);
   }

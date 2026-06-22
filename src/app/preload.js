@@ -355,6 +355,15 @@ contextBridge.exposeInMainWorld("hippo", {
    */
   http: {
     execute: (descriptor) => ipcRenderer.invoke("http:execute", descriptor),
+    /**
+     * Stop an in-flight buffered (non-streaming) request — the Stop button.
+     * Destroys the underlying socket in the main process so a slow or large
+     * download actually ends, rather than running to completion after the
+     * renderer has discarded the result. Pass the id minted for the send (the
+     * same id used as streamId). A live streaming response uses stream.abort
+     * below instead. → { ok } | { ok: false, reason }
+     */
+    abort: (streamId) => ipcRenderer.invoke("http:abort", { streamId }),
     body: {
       /** Fetch the full text of a spilled response body. → { body, size, contentType } | { error } */
       get: (ref) => ipcRenderer.invoke("http:body:get", ref),

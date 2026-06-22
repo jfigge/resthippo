@@ -173,3 +173,101 @@ test("a request body becomes postData with its content type", () => {
   assert.equal(pd.mimeType, "application/json");
   assert.equal(pd.text, '{"a":1}');
 });
+
+/** One-request collection + a single run, for body-redaction cases. */
+function bodyFixture(sentBody, sentCt, respBody, respCt) {
+  const collection = {
+    id: "c1",
+    type: "collection",
+    name: "C",
+    children: [
+      {
+        id: "req-1",
+        type: "request",
+        name: "Token",
+        method: "POST",
+        url: "https://idp/token",
+      },
+    ],
+  };
+  const entry = {
+    id: "h1",
+    timestamp: 1700000000000,
+    response: {
+      request: {
+        method: "POST",
+        url: "https://idp/token",
+        headers: sentCt ? { "Content-Type": sentCt } : {},
+        body: sentBody,
+      },
+      status: 200,
+      statusText: "OK",
+      headers: respCt ? { "Content-Type": respCt } : {},
+      cookies: [],
+      body: respBody ?? "",
+      elapsed: 5,
+      size: 0,
+    },
+  };
+  return { collection, entry };
+}
+
+test("a form-urlencoded token-request body blanks secrets, keeps identifiers", () => {
+  const { collection, entry } = bodyFixture(
+    "grant_type=password&username=alice&password=SECRET-PW&client_secret=SECRET-CS&scope=read",
+    "application/x-www-form-urlencoded",
+  );
+  const json = exportToHar(collection, new Map([["req-1", entry]]));
+  assert.ok(!json.includes("SECRET-PW"), "password leaked");
+  assert.ok(!json.includes("SECRET-CS"), "client_secret leaked");
+
+  const params = new URLSearchParams(
+    JSON.parse(json).log.entries[0].request.postData.text,
+  );
+  assert.equal(params.get("password"), "");
+  assert.equal(params.get("client_secret"), "");
+  assert.equal(params.get("grant_type"), "password"); // identifier kept
+  assert.equal(params.get("username"), "alice"); // identifier kept
+  assert.equal(params.get("scope"), "read");
+});
+
+test("a JSON token response blanks access/refresh tokens, keeps non-secrets", () => {
+  const { collection, entry } = bodyFixture(
+    null,
+    null,
+    JSON.stringify({
+      access_token: "SECRET-AT",
+      refresh_token: "SECRET-RT",
+      data: { api_key: "SECRET-NESTED" }, // nested secret must also go
+      token_type: "Bearer",
+      expires_in: 3600,
+      scope: "read",
+    }),
+    "application/json",
+  );
+  const json = exportToHar(collection, new Map([["req-1", entry]]));
+  assert.ok(!json.includes("SECRET-AT"), "access_token leaked");
+  assert.ok(!json.includes("SECRET-RT"), "refresh_token leaked");
+  assert.ok(!json.includes("SECRET-NESTED"), "nested api_key leaked");
+
+  const content = JSON.parse(
+    JSON.parse(json).log.entries[0].response.content.text,
+  );
+  assert.equal(content.access_token, "");
+  assert.equal(content.refresh_token, "");
+  assert.equal(content.data.api_key, "");
+  assert.equal(content.expires_in, 3600); // non-secret kept
+  assert.equal(content.scope, "read");
+});
+
+test("an opaque (non-structured) body is exported verbatim", () => {
+  // Documents the known limitation: HTML/text/binary can't be parsed for
+  // secrets, so they pass through unchanged.
+  const { collection, entry } = bodyFixture(
+    "<form><input name=password value=hunter2></form>",
+    "text/html",
+  );
+  const pd = JSON.parse(exportToHar(collection, new Map([["req-1", entry]])))
+    .log.entries[0].request.postData;
+  assert.equal(pd.text, "<form><input name=password value=hunter2></form>");
+});
