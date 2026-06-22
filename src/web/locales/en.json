@@ -1360,6 +1360,7 @@
     "fontOut": "Decrease font size",
     "fontReset": "Reset font size",
     "settings": "Open Settings",
+    "editEnvironment": "Edit environment variables",
     "shortcuts": "Show keyboard shortcuts",
     "userGuide": "Open the User Guide",
     "import": "Import a collection",

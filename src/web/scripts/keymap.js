@@ -221,6 +221,15 @@ export const SHORTCUT_GROUPS = [
         binding: { mod: true, key: "," },
         menuOwned: true,
       },
+      // ⌘/Ctrl+E — "Edit" the active environment: open the environments editor
+      // focused on the selected environment. Renderer-owned (no native menu item).
+      {
+        id: "editEnvironment",
+        descKey: "shortcuts.editEnvironment",
+        binding: { mod: true, key: "e" },
+        wire: true,
+        allowWhileTyping: true,
+      },
       {
         id: "shortcuts",
         descKey: "shortcuts.shortcuts",

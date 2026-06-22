@@ -1353,6 +1353,7 @@
     "fontOut": "フォントサイズを縮小",
     "fontReset": "フォントサイズをリセット",
     "settings": "設定を開く",
+    "editEnvironment": "環境変数を編集",
     "shortcuts": "キーボードショートカットを表示",
     "userGuide": "ユーザーガイドを開く",
     "import": "コレクションをインポート",

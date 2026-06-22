@@ -1360,6 +1360,7 @@
     "fontOut": "Reducir el tamaño de fuente",
     "fontReset": "Restablecer el tamaño de fuente",
     "settings": "Abrir Configuración",
+    "editEnvironment": "Editar variables de entorno",
     "shortcuts": "Mostrar atajos de teclado",
     "userGuide": "Abrir la guía del usuario",
     "import": "Importar una colección",

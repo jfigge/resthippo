@@ -21,6 +21,7 @@ to pop up this same list inside Rest Hippo.
 | <kbd>⌘/Ctrl</kbd>+<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> | Switch to the Requests / Favorites / Recent tab   |
 | <kbd>⌘/Ctrl</kbd>+<kbd>\\</kbd>                   | Cycle through the panel layouts                         |
 | <kbd>⌘/Ctrl</kbd>+<kbd>,</kbd>                    | Open Settings                                           |
+| <kbd>⌘/Ctrl</kbd>+<kbd>E</kbd>                    | Edit the active environment's variables                 |
 | <kbd>⌘/Ctrl</kbd>+<kbd>K</kbd>                    | Open the keyboard-shortcuts cheat-sheet                 |
 | <kbd>⌘/Ctrl</kbd>+<kbd>/</kbd>                    | Open the User Guide                                     |
 | <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd>   | Import a collection                                     |

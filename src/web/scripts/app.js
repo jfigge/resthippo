@@ -117,7 +117,6 @@ import { installKeymap } from "./keymap.js";
 import { KeyboardShortcuts } from "./components/keyboard-shortcuts.js";
 import * as i18n from "./i18n.js";
 import { t } from "./i18n.js";
-import { reportCliResult } from "./cli-command.js";
 
 // ─── Renderer crash mirroring ───────────────────────────────────────────────────
 // Forward uncaught renderer errors and unhandled promise rejections to the main
@@ -487,7 +486,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   await initCollections();
   installZoomHandlers(buildBusContext());
   installKeyboardShortcuts();
-  maybeOfferCliCommand();
 });
 
 // ─── Static chrome localization ────────────────────────────────────────────────
@@ -1146,14 +1144,19 @@ const settingsPopup = new SettingsPopup();
 // environment handlers defined inside initEventBus(), so they are constructed
 // there — declared here only so initHeader() and applySettings() can reach them.
 let collPopup, varsPopup, environmentsPopup;
+// Open the environments editor focused on the active environment — the popup
+// selects data.activeEnvironmentId on open(). Shared by the env-picker's
+// "Manage…" action and the ⌘/Ctrl+E shortcut (see installKeyboardShortcuts).
+function openEnvironmentsEditor() {
+  environmentsPopup.open(currentEnvironments, {
+    bulkEditor: currentSettings.varsBulkEditor ?? true,
+  });
+}
 const envPicker = new EnvPicker({
   // Selecting an entry in the picker menu activates it (id null = Global);
   // "Manage…" opens the full environments editor.
   onActivate: (id) => handleEnvActivate({ id }),
-  onManage: () =>
-    environmentsPopup.open(currentEnvironments, {
-      bulkEditor: currentSettings.varsBulkEditor ?? true,
-    }),
+  onManage: openEnvironmentsEditor,
 });
 // Collection selector — the mirror of envPicker. Its onManage opens the same
 // CollectionsPopup the header buttons used to; collPopup / collPopupState are
@@ -3278,39 +3281,6 @@ async function initCollections() {
 }
 
 /**
- * First-run offer to install the `hippo` shell command (the VS Code "Install
- * 'code' command in PATH" equivalent). Shown once — when the launcher is
- * installable (packaged build on a supported OS), not yet installed, and the
- * user hasn't been asked before. Either answer sets `cliPromptSeen` so it never
- * asks again; Settings → Command Line stays the way to install/remove later.
- */
-async function maybeOfferCliCommand() {
-  if (currentSettings.cliPromptSeen) return;
-  let status;
-  try {
-    status = await window.hippo?.cli?.status?.();
-  } catch {
-    return; // launcher not reachable (e.g. plain browser dev server) — skip
-  }
-  if (!status?.available || status.installed) return;
-  PopupManager.confirm({
-    title: t("settings.cli.promptTitle"),
-    message: t("settings.cli.promptMessage"),
-    confirmLabel: t("settings.cli.installButton"),
-    confirmClass: "btn--primary",
-    onConfirm: async () => {
-      updateSettings({ cliPromptSeen: true });
-      try {
-        reportCliResult(await window.hippo.cli.install());
-      } catch {
-        reportCliResult(null); // surfaces the generic failure toast
-      }
-    },
-    onCancel: () => updateSettings({ cliPromptSeen: true }),
-  });
-}
-
-/**
  * Remove a set of request ids from favorites and recents, then persist and push
  * the result into the tree. Called when requests are deleted.
  * @param {Set<string>} idSet
@@ -3497,6 +3467,7 @@ function installKeyboardShortcuts() {
       tabRequests: () => switchTab("requests"),
       tabFavorites: () => switchTab("favorites"),
       tabRecents: () => switchTab("recents"),
+      editEnvironment: openEnvironmentsEditor,
     },
     { isBlocked: () => popupVisible },
   );
