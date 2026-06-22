@@ -115,6 +115,7 @@
     "response": "请求的响应正文",
     "responseHeader": "响应标头",
     "responseStatus": "响应 HTTP 状态",
+    "cascadeSend": "运行另一个请求",
     "param": {
       "format": "格式",
       "value": "值",

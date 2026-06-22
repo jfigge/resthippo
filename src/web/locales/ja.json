@@ -115,6 +115,7 @@
     "response": "リクエストのレスポンス本文",
     "responseHeader": "レスポンスヘッダー",
     "responseStatus": "レスポンスの HTTP ステータス",
+    "cascadeSend": "別のリクエストを実行",
     "param": {
       "format": "形式",
       "value": "値",

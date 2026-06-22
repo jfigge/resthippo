@@ -102,4 +102,8 @@ export const logicMap = {
   responseHeader: ([req = "", hdr = ""], ctx) =>
     ctx?.responseHeaders?.[req]?.[hdr.toLowerCase()] ?? "",
   responseStatus: ([name = ""], ctx) => ctx?.responseStatus?.[name] ?? "",
+
+  // cascadeSend only triggers pre-execution of the named request (done by the
+  // prefetch pass in app.js); the token itself always resolves to "".
+  cascadeSend: (_args, _ctx) => "",
 };

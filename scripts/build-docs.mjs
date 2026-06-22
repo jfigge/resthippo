@@ -62,6 +62,7 @@ const PAGES = [
   { slug: "requests", title: "Building Requests" },
   { slug: "authentication", title: "Authentication" },
   { slug: "variables-and-environments", title: "Variables & Environments" },
+  { slug: "functions", title: "Functions" },
   { slug: "graphql", title: "GraphQL" },
   { slug: "websocket", title: "WebSockets" },
   { slug: "responses", title: "Reading Responses" },

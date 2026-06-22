@@ -130,4 +130,4 @@ variable → env.token_), and the response status bar shows a **captured** badge
 
 ---
 
-Next: [GraphQL →](graphql.md)
+Next: [Functions →](functions.md)

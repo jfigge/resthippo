@@ -71,6 +71,7 @@ kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px so
         <a class="doc-nav-link" href="requests.html">Building Requests</a>
         <a class="doc-nav-link" href="authentication.html">Authentication</a>
         <a class="doc-nav-link" href="variables-and-environments.html">Variables &amp; Environments</a>
+        <a class="doc-nav-link" href="functions.html">Functions</a>
         <a class="doc-nav-link" href="graphql.html">GraphQL</a>
         <a class="doc-nav-link" href="websocket.html">WebSockets</a>
         <a class="doc-nav-link" href="responses.html">Reading Responses</a>
@@ -160,6 +161,10 @@ font size anywhere with <kbd>⌘/Ctrl</kbd>+<kbd>+</kbd> /
 <td>Show the <strong>Scripts</strong> tab on the request editor. When off, the tab is hidden <em>and</em> pre-request / after-response scripts are not executed. Off by default.</td>
 </tr>
 <tr>
+<td><strong>Show Tests tab</strong></td>
+<td>Show the <strong>Tests</strong> tab on the request editor. When off, the tab is hidden <em>and</em> no-code assertions are not run after a response. Off by default.</td>
+</tr>
+<tr>
 <td><strong>Show Notes tab</strong></td>
 <td>Show the <strong>Notes</strong> tab on the request editor. On by default.</td>
 </tr>
@@ -232,6 +237,25 @@ what to retry on — <strong>connection errors</strong>, <strong>timeouts</stron
 <h2 id="history">History</h2>
 <p>Set how many runs each request keeps in its
 <a href="responses.html#timeline"><strong>Timeline</strong></a> (1–10).</p>
+<h2 id="command-line">Command Line</h2>
+<p>The <strong>Command Line</strong> panel installs a <code>hippo</code> command so you can launch Rest
+Hippo from a terminal — the equivalent of VS Code&#39;s &quot;Install <code>code</code> command in
+PATH&quot;. Click <strong>Install</strong> and afterwards typing <code>hippo</code> in any terminal opens Rest
+Hippo (or focuses it if it&#39;s already running); click <strong>Remove</strong> to undo it.</p>
+<p>The first time you start a freshly installed copy, Rest Hippo also offers to set
+this up for you — you can decline and install it later from here.</p>
+<p>How it works per platform:</p>
+<ul>
+<li><strong>macOS / Linux</strong> — a small launcher script is written to <code>/usr/local/bin</code>
+when that&#39;s writable, otherwise to <code>~/.local/bin</code>. If the fallback location
+isn&#39;t already on your <code>PATH</code>, Rest Hippo tells you so you can add it.</li>
+<li><strong>Windows</strong> — a <code>hippo.cmd</code> shim is created and its folder is added to your
+per-user <code>PATH</code>. Open a <strong>new</strong> terminal afterwards to pick up the change.</li>
+</ul>
+<blockquote>
+<p>The command is only available in the installed app — it&#39;s disabled when running
+a development build, since there&#39;s no packaged executable to point at.</p>
+</blockquote>
 <h2 id="about--updates">About &amp; updates</h2>
 <p>The <strong>About</strong> panel shows the installed version and a <strong>Check for Updates</strong>
 button. Rest Hippo also checks automatically shortly after launch.</p>

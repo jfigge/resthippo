@@ -71,6 +71,7 @@ kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px so
         <a class="doc-nav-link" href="requests.html">Building Requests</a>
         <a class="doc-nav-link" href="authentication.html">Authentication</a>
         <a class="doc-nav-link" href="variables-and-environments.html">Variables &amp; Environments</a>
+        <a class="doc-nav-link" href="functions.html">Functions</a>
         <a class="doc-nav-link" href="graphql.html">GraphQL</a>
         <a class="doc-nav-link" href="websocket.html">WebSockets</a>
         <a class="doc-nav-link" href="responses.html">Reading Responses</a>
@@ -142,6 +143,11 @@ actions:</p>
 <td>Create a child item</td>
 </tr>
 <tr>
+<td><strong>Run All Requests</strong></td>
+<td>folders</td>
+<td><a href="#running-a-whole-folder">Run every request in the folder</a> and tally their tests</td>
+</tr>
+<tr>
 <td><strong>Rename</strong></td>
 <td>both</td>
 <td>Edit the name inline</td>
@@ -187,6 +193,44 @@ actions:</p>
 <td>Remove the item (asks to confirm)</td>
 </tr>
 </tbody></table>
+<h2 id="running-a-whole-folder">Running a whole folder</h2>
+<p>Right-click a collection or folder and choose <strong>Run All Requests</strong> to send every
+request inside it — including those in nested sub-folders — one after another.
+WebSocket requests are skipped (they hold an open connection rather than running
+once). The entry is greyed out when the folder has nothing to run.</p>
+<p>As the run proceeds, a small <strong>pass/total badge</strong> appears on the folder row and
+counts up live — for example <code>7/10</code> means seven of ten
+<a href="scripting.html#test-assertions">tests</a> have passed so far. Both the no-code
+<a href="requests.html#tests">Tests</a> assertions and scripted <code>hippo.test()</code> calls count
+toward the total. When the run finishes the badge settles to its final tally and
+turns <strong>green</strong> if every test passed, or <strong>red</strong> if any test failed (or a request
+could not be sent). Hover the badge for a summary, and a toast reports the result.</p>
+<p><strong>Nested folders roll up.</strong> Every folder in the run gets its own badge: each
+sub-folder shows the tally for just its own requests, while the folder you
+clicked rolls up its immediate requests <strong>plus</strong> everything in its sub-folders.
+So running a folder of three requests that also contains a sub-folder of two
+requests shows <code>2/2</code> on the sub-folder and <code>5/5</code> on the parent.</p>
+<p><strong>Clearing the counts.</strong> Once a folder shows a badge, its right-click menu gains
+a <strong>Clear Test Counts</strong> entry just below <strong>Run All Requests</strong> (it is hidden when
+there is no badge). Choosing it removes the badge from that folder <strong>and every
+sub-folder beneath it</strong>. This only resets the on-screen counts — each request&#39;s
+recorded <a href="responses.html#timeline">timeline</a> is left intact.</p>
+<p>Requests run <strong>in order</strong>, sharing the collection&#39;s
+<a href="#cookies">cookie jar</a>, and any <a href="variables-and-environments.html#captures">variables they capture</a>
+or scripts write are applied before the next request runs — so a folder that
+logs in first and reuses the captured token in later requests works as expected.</p>
+<p>Each request is treated <strong>exactly as if you had opened and sent it yourself</strong>:
+the run is saved to that request&#39;s <a href="responses.html#timeline">timeline</a> (with its
+test results), and selecting the request afterwards shows its latest response,
+console, and Tests tab. The response viewer is not switched while the folder
+runs — open any request when it finishes to inspect its recorded run.</p>
+<blockquote>
+<p>Folders whose requests use <strong>OAuth 2.0</strong> are the one exception: that flow needs
+the interactive token popup, so those requests are sent without it during a
+folder run. Send them individually from the editor when you need a fresh OAuth
+token. The badge is a live, in-session indicator — it clears when you restart
+Rest Hippo or run the folder again.</p>
+</blockquote>
 <h2 id="favorites-and-recent">Favorites and Recent</h2>
 <p>Two extra tabs sit above the tree and span <strong>all</strong> your collections:</p>
 <p><strong>Favorites</strong> — requests you&#39;ve starred for quick access. Star a request from

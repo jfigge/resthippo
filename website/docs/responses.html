@@ -71,6 +71,7 @@ kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px so
         <a class="doc-nav-link" href="requests.html">Building Requests</a>
         <a class="doc-nav-link" href="authentication.html">Authentication</a>
         <a class="doc-nav-link" href="variables-and-environments.html">Variables &amp; Environments</a>
+        <a class="doc-nav-link" href="functions.html">Functions</a>
         <a class="doc-nav-link" href="graphql.html">GraphQL</a>
         <a class="doc-nav-link" href="websocket.html">WebSockets</a>
         <a class="doc-nav-link doc-nav-link--active" href="responses.html">Reading Responses</a>
@@ -191,6 +192,17 @@ you can compare runs and reopen an earlier response. <a href="#streaming-respons
 runs</a> appear here too, recorded as a summary (duration,
 event/byte counts, and the last events) rather than a body:</p>
 <p><img src="images/response-timeline.png" alt="The response timeline"></p>
+<ul>
+<li><strong>Click</strong> an entry to view that run — its response loads into the Body,
+Headers, and Cookies tabs and its snapshot shows on the right. This is
+non-destructive; your live request is untouched.</li>
+<li><strong>Double-click</strong> an entry (or right-click → <strong>Restore Into Editor</strong>) to replay
+that snapshot back into the request editor.</li>
+<li><strong>Right-click</strong> for the full menu: restore, delete the entry, or clear the
+whole history.</li>
+<li><strong>Right-click the Timeline tab</strong> itself to switch to it and get a quick
+<strong>Delete All History</strong> — the same as clearing from an entry&#39;s menu.</li>
+</ul>
 <p>How many runs are kept is configurable in
 <a href="settings-and-themes.html#history">Settings → History</a>.</p>
 <h2 id="searching-the-body">Searching the body</h2>

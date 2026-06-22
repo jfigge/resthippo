@@ -19,6 +19,7 @@ to OAuth 2.0, environments, GraphQL schema introspection, and encrypted backups.
 | [Building Requests](requests.md)                          | Methods, the URL bar, query params, headers, and body editors                  |
 | [Authentication](authentication.md)                       | API Key, Basic, Bearer, Digest, NTLM, AWS SigV4, and OAuth 2.0                 |
 | [Variables & Environments](variables-and-environments.md) | `{{variables}}`, environments, collection/folder scopes, and response captures |
+| [Functions](functions.md)                                 | Built-in `{{ }}` functions: UUIDs, timestamps, encoding, request outputs, and `cascadeSend` |
 | [GraphQL](graphql.md)                                     | The query/variables editor, schema introspection, and validation               |
 | [WebSockets](websocket.md)                                | Connecting, sending frames, and reading the frame log                          |
 | [Reading Responses](responses.md)                         | Body rendering, previews, headers, cookies, timeline, and search               |

@@ -355,6 +355,7 @@ function _extractResponseFunctionRefs(templates) {
     "response",
     "responseHeader",
     "responseStatus",
+    "cascadeSend",
   ]);
   const map = new Map();
   for (const tpl of templates) {
@@ -366,12 +367,19 @@ function _extractResponseFunctionRefs(templates) {
       if (!parsed || !RESPONSE_FNS.has(parsed.name)) continue;
       const reqName = parsed.rawArgs[0] ?? "";
       if (!reqName) continue;
-      const modeArgIdx = parsed.name === "responseStatus" ? 1 : 2;
-      const rawMode = parsed.rawArgs[modeArgIdx] ?? "";
-      const mode =
-        rawMode === "Run immediately before"
-          ? "run-immediately"
-          : "use-last-result";
+      // cascadeSend has no executionMode arg — its sole purpose is to fire the
+      // named request, so it always runs immediately.
+      let mode;
+      if (parsed.name === "cascadeSend") {
+        mode = "run-immediately";
+      } else {
+        const modeArgIdx = parsed.name === "responseStatus" ? 1 : 2;
+        const rawMode = parsed.rawArgs[modeArgIdx] ?? "";
+        mode =
+          rawMode === "Run immediately before"
+            ? "run-immediately"
+            : "use-last-result";
+      }
       if (!map.has(reqName) || mode === "run-immediately") {
         map.set(reqName, mode);
       }

@@ -254,4 +254,16 @@ export const registry = {
       },
     ],
   },
+  cascadeSend: {
+    labelKey: "func.cascadeSend",
+    category: "request-output",
+    params: [
+      {
+        name: "requestName",
+        labelKey: "func.param.request",
+        type: "request-picker",
+        default: "",
+      },
+    ],
+  },
 };

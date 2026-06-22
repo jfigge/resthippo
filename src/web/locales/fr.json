@@ -118,6 +118,7 @@
     "response": "Corps de réponse de la requête",
     "responseHeader": "En-tête de réponse",
     "responseStatus": "Statut HTTP de la réponse",
+    "cascadeSend": "Exécuter une autre requête",
     "param": {
       "format": "Format",
       "value": "Valeur",

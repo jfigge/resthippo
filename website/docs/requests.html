@@ -71,6 +71,7 @@ kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px so
         <a class="doc-nav-link doc-nav-link--active" href="requests.html">Building Requests</a>
         <a class="doc-nav-link" href="authentication.html">Authentication</a>
         <a class="doc-nav-link" href="variables-and-environments.html">Variables &amp; Environments</a>
+        <a class="doc-nav-link" href="functions.html">Functions</a>
         <a class="doc-nav-link" href="graphql.html">GraphQL</a>
         <a class="doc-nav-link" href="websocket.html">WebSockets</a>
         <a class="doc-nav-link" href="responses.html">Reading Responses</a>
@@ -103,7 +104,44 @@ always persisted and there&#39;s no unsaved state to lose.</p>
 Appearance), Rest Hippo shows the fully-resolved URL beneath the params, so you can
 confirm exactly what will be sent.</p>
 <p>Press <kbd>Enter</kbd> in the URL bar to send the request, or click <strong>Send</strong>.
-While a request is in flight the button becomes <strong>Cancel</strong>.</p>
+While a request is in flight the button becomes <strong>Stop</strong> — click it to abort.</p>
+<h3 id="send-type">Send type</h3>
+<p>An icon to the right of the word <strong>Send</strong> shows how the button fires. Click the
+caret beside it to open a menu of the three types (the active one is
+check-marked); the choice is a global default that applies to every request:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Icon</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Immediate</strong></td>
+<td><em>(none)</em></td>
+<td>Fires the request as soon as you trigger Send (the default).</td>
+</tr>
+<tr>
+<td><strong>Delayed</strong></td>
+<td>stopwatch</td>
+<td>Waits the <strong>Delay</strong> you set, then fires once.</td>
+</tr>
+<tr>
+<td><strong>Interval</strong></td>
+<td>recycle arrows</td>
+<td>Waits the <strong>Interval</strong>, fires, then waits the interval again each time a response lands.</td>
+</tr>
+</tbody></table>
+<p>Choosing <strong>Delayed</strong> or <strong>Interval</strong> opens a small dialog under the Send button
+with a single field for that type&#39;s timing — a delay for Delayed, an interval for
+Interval. Defaults are a <strong>5-second delay</strong> and a <strong>10-second interval</strong>.</p>
+<p>Every trigger — clicking <strong>Send</strong>, pressing <kbd>⌘/Ctrl</kbd>+<kbd>Enter</kbd>,
+or double-clicking the request in the tree — runs the active type.</p>
+<p>While a delayed or interval countdown is ticking, the button reads <strong>Cancel</strong>
+and a colour sweep drains across it as the timer runs down; click it to cancel
+the timer and return to <strong>Send</strong>. Switching to another request also stops the
+countdown.</p>
 <h2 id="query-parameters">Query parameters</h2>
 <p>The <strong>Params</strong> tab edits the query string as an editable key/value grid. Rest Hippo
 keeps it in sync with the URL — editing one updates the other.</p>
