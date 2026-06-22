@@ -258,6 +258,25 @@ test("a JSON token response blanks access/refresh tokens, keeps non-secrets", ()
   assert.equal(content.data.api_key, "");
   assert.equal(content.expires_in, 3600); // non-secret kept
   assert.equal(content.scope, "read");
+  assert.equal(content.token_type, "Bearer"); // identifier, NOT a secret — kept
+});
+
+test("the heuristic does not over-redact benign 'pass'/'token' look-alike fields", () => {
+  const { collection, entry } = bodyFixture(
+    "bypass=cache&compass=ne&passenger=jane&token_type=Bearer&token_endpoint=https%3A%2F%2Fidp%2Ft&grant_type=password",
+    "application/x-www-form-urlencoded",
+  );
+  const params = new URLSearchParams(
+    JSON.parse(exportToHar(collection, new Map([["req-1", entry]]))).log
+      .entries[0].request.postData.text,
+  );
+  assert.equal(params.get("bypass"), "cache");
+  assert.equal(params.get("compass"), "ne");
+  assert.equal(params.get("passenger"), "jane");
+  assert.equal(params.get("token_type"), "Bearer");
+  assert.equal(params.get("token_endpoint"), "https://idp/t");
+  // The key grant_type isn't secret; its literal value "password" is irrelevant.
+  assert.equal(params.get("grant_type"), "password");
 });
 
 test("an opaque (non-structured) body is exported verbatim", () => {

@@ -177,8 +177,14 @@ export function isSecretHeader(name) {
 // to avoid blanking benign fields: identifiers like username, client_id,
 // grant_type, scope, redirect_uri — and the single-use OAuth `code` — round-trip
 // intact, mirroring redactedAuth's "keep the id, drop the secret".
+// Notes on precision:
+//  • `pass(?:word|wd|code|phrase)` requires a suffix — bare "pass" would also
+//    blank benign look-alikes like bypass/compass/passenger.
+//  • `token(?![-_]?(?:type|endpoint|uri|url))` matches access_token/refresh_token/
+//    id_token but NOT the identifier fields token_type ("Bearer") / token_endpoint
+//    / token_uri / token_url.
 const SECRET_FIELD_RE =
-  /pass(?:word|wd|code|phrase)?|pwd|secret|token|credential|assertion|signature|jwt|otp|private[-_]?key|api[-_]?key|session[-_]?(?:id|key)/i;
+  /pass(?:word|wd|code|phrase)|pwd|secret|token(?![-_]?(?:type|endpoint|uri|url))|credential|assertion|signature|jwt|otp|private[-_]?key|api[-_]?key|session[-_]?(?:id|key)/i;
 
 // Recursion guard for redactJsonValue. Normal payloads nest only a handful of
 // levels; a pathologically deep one would otherwise overflow the stack, throw
