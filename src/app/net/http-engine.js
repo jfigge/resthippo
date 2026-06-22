@@ -245,12 +245,15 @@ function registerHttpEngine({
     // break out of the Content-Disposition header (RFC 7578 sanitisation).
     const clean = (s) =>
       String(s ?? "").replace(/[\r\n"]/g, (c) => (c === '"' ? "%22" : ""));
+    // A part's Content-Type is a header value too: strip CR/LF so a crafted
+    // contentType (e.g. from an imported collection) can't inject a header line.
+    const cleanHeaderValue = (s) => String(s ?? "").replace(/[\r\n]/g, "");
 
     const segments = multipart.parts.map((part) => {
       let header = `--${boundary}${CRLF}Content-Disposition: form-data; name="${clean(part.name)}"`;
       if (part.kind === "file") {
         header += `; filename="${clean(part.filename)}"${CRLF}`;
-        header += `Content-Type: ${part.contentType || "application/octet-stream"}${CRLF}${CRLF}`;
+        header += `Content-Type: ${cleanHeaderValue(part.contentType) || "application/octet-stream"}${CRLF}${CRLF}`;
         return {
           header: Buffer.from(header),
           file: part.filePath,

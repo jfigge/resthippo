@@ -606,6 +606,55 @@ test("form-data without file rows: still a string body, multipart is null", asyn
   assert.match(body, /Content-Disposition: form-data; name="field"\r\n\r\nval/);
 });
 
+test("form-data body: the boundary is random/unguessable, not a timestamp", async () => {
+  const build = () =>
+    buildRequestPayload(
+      {
+        method: "POST",
+        urlBase: "https://x",
+        bodyType: "form-data",
+        bodyFormRows: [{ enabled: true, name: "field", value: "val" }],
+      },
+      identity,
+    );
+  const a = await build();
+  const b = await build();
+  const boundaryOf = (h) => h["Content-Type"].match(/boundary=(.+)$/)[1];
+  // 32 hex chars of entropy, and two builds never collide (no Date.now()).
+  assert.match(boundaryOf(a.headers), /^----RestHippoBoundary[0-9a-f]{32}$/);
+  assert.notEqual(boundaryOf(a.headers), boundaryOf(b.headers));
+});
+
+test("form-data body: a value forging a delimiter can't inject an extra part", async () => {
+  // A malicious value tries to close the part and open its own, guessing the
+  // old predictable boundary. With a random boundary it's inert text.
+  const evilValue =
+    'x\r\n------RestHippoBoundary000\r\nContent-Disposition: form-data; name="injected"\r\n\r\nPWNED';
+  const { body, headers } = await buildRequestPayload(
+    {
+      method: "POST",
+      urlBase: "https://x",
+      bodyType: "form-data",
+      bodyFormRows: [
+        { enabled: true, name: "a", value: "1" },
+        { enabled: true, name: "b", value: evilValue },
+      ],
+    },
+    identity,
+  );
+  const boundary = headers["Content-Type"].match(/boundary=(.+)$/)[1];
+  // Exactly 2 part openers + 1 closing delimiter for the REAL boundary — the
+  // forged delimiter in the value used a different string, so it's inert.
+  const delimiters = body.split(`--${boundary}`).length - 1;
+  assert.equal(
+    delimiters,
+    3,
+    "value must not have forged an extra real delimiter",
+  );
+  // The forged content is still present, but only as inert body text.
+  assert.ok(body.includes("PWNED"));
+});
+
 // ── Path-parameter helpers (Feature 49) ──────────────────────────────────────
 
 test("detectPathParams: finds :name and {name} tokens in URL order, deduped", () => {

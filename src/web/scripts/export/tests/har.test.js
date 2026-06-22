@@ -271,3 +271,86 @@ test("an opaque (non-structured) body is exported verbatim", () => {
     .log.entries[0].request.postData;
   assert.equal(pd.text, "<form><input name=password value=hunter2></form>");
 });
+
+test("the secret-field heuristic also catches pwd / signature / jwt / otp", () => {
+  const { collection, entry } = bodyFixture(
+    "pwd=SECRET-PWD&user_pwd=SECRET-UPWD&signature=SECRET-SIG&jwt=SECRET-JWT&otp=123456&username=alice",
+    "application/x-www-form-urlencoded",
+  );
+  const json = exportToHar(collection, new Map([["req-1", entry]]));
+  for (const s of ["SECRET-PWD", "SECRET-UPWD", "SECRET-SIG", "SECRET-JWT"]) {
+    assert.ok(!json.includes(s), `${s} leaked`);
+  }
+  const params = new URLSearchParams(
+    JSON.parse(json).log.entries[0].request.postData.text,
+  );
+  assert.equal(params.get("pwd"), "");
+  assert.equal(params.get("user_pwd"), "");
+  assert.equal(params.get("signature"), "");
+  assert.equal(params.get("jwt"), "");
+  assert.equal(params.get("otp"), ""); // value 123456 blanked
+  assert.equal(params.get("username"), "alice"); // identifier kept
+});
+
+test("query-string secrets are blanked in request.url and queryString", () => {
+  const collection = {
+    id: "c1",
+    type: "collection",
+    name: "C",
+    children: [
+      {
+        id: "req-1",
+        type: "request",
+        name: "Q",
+        method: "GET",
+        url: "https://api/x",
+      },
+    ],
+  };
+  const entry = {
+    id: "h1",
+    timestamp: 1700000000000,
+    response: {
+      request: {
+        method: "GET",
+        url: "https://api/x?access_token=SECRET-QT&api_key=SECRET-QK&q=1",
+        headers: {},
+        body: null,
+      },
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      cookies: [],
+      body: "",
+      elapsed: 1,
+      size: 0,
+    },
+  };
+  const json = exportToHar(collection, new Map([["req-1", entry]]));
+  assert.ok(!json.includes("SECRET-QT"), "access_token in query leaked");
+  assert.ok(!json.includes("SECRET-QK"), "api_key in query leaked");
+
+  const e = JSON.parse(json).log.entries[0];
+  const u = new URL(e.request.url);
+  assert.equal(u.searchParams.get("access_token"), "");
+  assert.equal(u.searchParams.get("api_key"), "");
+  assert.equal(u.searchParams.get("q"), "1"); // non-secret kept
+  const qs = Object.fromEntries(
+    e.request.queryString.map((p) => [p.name, p.value]),
+  );
+  assert.equal(qs.access_token, "");
+  assert.equal(qs.q, "1");
+});
+
+test("a pathologically deep JSON body fails closed (secret blanked, not leaked)", () => {
+  let obj = { api_key: "SECRET-DEEP" };
+  for (let i = 0; i < 400; i++) obj = { nested: obj }; // > MAX_REDACT_DEPTH
+  const { collection, entry } = bodyFixture(
+    null,
+    null,
+    JSON.stringify(obj),
+    "application/json",
+  );
+  const json = exportToHar(collection, new Map([["req-1", entry]]));
+  assert.ok(!json.includes("SECRET-DEEP"), "deeply nested secret leaked");
+});

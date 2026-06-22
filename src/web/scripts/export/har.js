@@ -16,7 +16,7 @@
 
 "use strict";
 
-import { isSecretHeader, redactBody } from "./redact.js";
+import { isSecretHeader, isSecretField, redactBody } from "./redact.js";
 
 /**
  * HAR 1.2 exporter.
@@ -33,8 +33,10 @@ import { isSecretHeader, redactBody } from "./redact.js";
  * API keys) and all response cookie values are blanked — names preserved. The
  * same applies to body-borne credentials (a token-request form body, a token
  * response): structured request/response bodies (form-urlencoded, JSON) have
- * their secret-named fields blanked via redactBody. Free-form bodies (HTML/text/
- * binary) can't be parsed for secrets and are exported verbatim.
+ * their secret-named fields blanked via redactBody, and secret-named query
+ * parameters are blanked in both `request.url` and `request.queryString`.
+ * Free-form bodies (HTML/text/binary) can't be parsed for secrets and are
+ * exported verbatim.
  */
 
 const APP_VERSION = "0.6.1";
@@ -97,16 +99,40 @@ function harCookies(cookies) {
   });
 }
 
-/** Parse a URL's query string into HAR `{name,value}[]`. */
+/** Parse a URL's query string into HAR `{name,value}[]`, blanking secrets. */
 function harQueryString(url) {
   try {
     const u = new URL(url, "http://_/");
     return [...u.searchParams.entries()].map(([name, value]) => ({
       name,
-      value,
+      value: isSecretField(name) ? "" : value,
     }));
   } catch {
     return [];
+  }
+}
+
+/**
+ * Rebuild an absolute URL with secret-named query-parameter values blanked, so a
+ * token in `?access_token=…` / `?api_key=…` / `?sig=…` is not exported in the
+ * clear in `request.url` (its companion `request.queryString` is redacted by
+ * harQueryString). A relative or unparseable URL is returned unchanged — request
+ * URLs in recorded runs are absolute.
+ */
+function redactUrlQuery(url) {
+  try {
+    const u = new URL(url);
+    let changed = false;
+    for (const name of [...new Set(u.searchParams.keys())]) {
+      if (!isSecretField(name)) continue;
+      const count = u.searchParams.getAll(name).length;
+      u.searchParams.delete(name);
+      for (let i = 0; i < count; i++) u.searchParams.append(name, "");
+      changed = true;
+    }
+    return changed ? u.toString() : url;
+  } catch {
+    return url;
   }
 }
 
@@ -130,6 +156,7 @@ function buildEntry(entry) {
     "GET"
   ).toUpperCase();
   const url = sent.url ?? entry.requestUrl ?? "";
+  const safeUrl = redactUrlQuery(url);
   const pd = postData(sent);
 
   return {
@@ -137,11 +164,11 @@ function buildEntry(entry) {
     time: elapsed,
     request: {
       method,
-      url,
+      url: safeUrl,
       httpVersion: "HTTP/1.1",
       cookies: [],
       headers: harHeaders(sent.headers),
-      queryString: harQueryString(url),
+      queryString: harQueryString(safeUrl),
       headersSize: -1,
       bodySize: pd ? byteLen(pd.text) : 0,
       ...(pd ? { postData: pd } : {}),

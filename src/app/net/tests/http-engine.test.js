@@ -747,6 +747,52 @@ test("a >8MB body spills to disk and is redeemable via http:body:get", async () 
   );
 });
 
+// ── Multipart assembly (buildMultipartBody) ─────────────────────────────────
+
+test("a part Content-Type with CR/LF can't inject a header into the multipart body", async () => {
+  const tmpFile = path.join(userDataDir, "upload.txt");
+  fs.writeFileSync(tmpFile, "filedata");
+  let raw = "";
+  await withServer(
+    (req, res) => {
+      req.setEncoding("utf8");
+      req.on("data", (c) => (raw += c));
+      req.on("end", () => {
+        res.writeHead(200);
+        res.end("ok");
+      });
+    },
+    async (base) => {
+      const r = await run({
+        method: "POST",
+        url: `${base}/upload`,
+        multipart: {
+          boundary: "----TestBoundaryABC",
+          parts: [
+            {
+              kind: "file",
+              name: "f",
+              filePath: tmpFile,
+              filename: "a.txt",
+              contentType: "text/plain\r\nX-Injected: yes",
+            },
+          ],
+        },
+      });
+      assert.equal(r.status, 200);
+      // CR/LF stripped → no standalone injected header line on the wire.
+      assert.ok(
+        !/\r\nX-Injected: yes\r\n/.test(raw),
+        "header injected via a part Content-Type",
+      );
+      // It survives only as inert text appended to the Content-Type value.
+      assert.match(raw, /Content-Type: text\/plainX-Injected: yes\r\n/);
+      assert.match(raw, /name="f"/);
+      assert.match(raw, /filename="a\.txt"/);
+    },
+  );
+});
+
 // ── Stop (abort) for in-flight buffered requests ────────────────────────────
 //
 // A buffered request runs to completion in the main process even after the

@@ -77,6 +77,36 @@ function cleanPartName(s) {
   return String(s ?? "").replace(/[\r\n"]/g, (c) => (c === '"' ? "%22" : ""));
 }
 
+/** A random, unguessable multipart boundary (122 bits of entropy). */
+function randomBoundary() {
+  return `----RestHippoBoundary${crypto.randomUUID().replace(/-/g, "")}`;
+}
+
+/**
+ * Pick a multipart boundary that appears in none of the resolved parts, so no
+ * part's content (a name, a text value, or a file's contentType) can forge a
+ * `--boundary` delimiter and inject an extra part. A 122-bit random boundary
+ * makes an accidental collision ~2^-122 and an attacker-crafted one impossible
+ * (it can't be predicted); the scan is correctness-by-construction belt-and-
+ * suspenders. File BYTES aren't read here (only paths are available in the
+ * renderer); the randomness covers those. Re-rolls a few times on the
+ * vanishingly rare collision, then accepts the random value regardless.
+ */
+function pickBoundary(resolved) {
+  const occurs = (b) =>
+    resolved.some(
+      (r) =>
+        (r.name && r.name.includes(b)) ||
+        (r.kind === "text" && r.value && r.value.includes(b)) ||
+        (r.kind === "file" && r.contentType && r.contentType.includes(b)),
+    );
+  for (let i = 0; i < 5; i++) {
+    const b = randomBoundary();
+    if (!occurs(b)) return b;
+  }
+  return randomBoundary();
+}
+
 /**
  * True if `headers` already carries a Content-Type under any casing. User
  * header rows preserve their typed casing (e.g. `content-type`), so a
@@ -363,42 +393,43 @@ export async function buildRequestPayload(spec, rv) {
           (r) => r.enabled && (r.name ?? "").trim(),
         );
         if (rows.length > 0) {
-          const boundary = `----RestHippoBoundary${Date.now()}`;
-          if (rows.some((r) => r.kind === "file")) {
-            // Mixed text + file parts can't be serialised here — only the file
-            // PATH is available in the renderer, not its bytes. Emit a structured
-            // spec the main process streams (reading each file's bytes in main).
-            multipart = {
-              boundary,
-              parts: await Promise.all(
-                rows.map(async (r) => {
-                  if (r.kind === "file") {
-                    return {
-                      kind: "file",
-                      name: await rv(r.name),
-                      filePath: r.filePath ?? "",
-                      filename: r.fileName || baseName(r.filePath ?? ""),
-                      contentType: r.contentType || "",
-                    };
+          // Resolve every row's {{vars}} first so the boundary can be picked to
+          // never occur inside a part. A part value is sent verbatim (it may be
+          // binary/arbitrary text), so the ONLY defence against a value forging a
+          // delimiter is an unguessable boundary that collides with no part — not
+          // escaping. Date.now() was predictable (precomputable by an attacker
+          // supplying a malicious {{var}} value); a random boundary is not.
+          const resolved = await Promise.all(
+            rows.map(async (r) =>
+              r.kind === "file"
+                ? {
+                    kind: "file",
+                    name: await rv(r.name),
+                    filePath: r.filePath ?? "",
+                    filename: r.fileName || baseName(r.filePath ?? ""),
+                    contentType: r.contentType || "",
                   }
-                  return {
+                : {
                     kind: "text",
                     name: await rv(r.name),
                     value: await rv(r.value),
-                  };
-                }),
-              ),
-            };
+                  },
+            ),
+          );
+          const boundary = pickBoundary(resolved);
+          if (resolved.some((r) => r.kind === "file")) {
+            // Mixed text + file parts can't be serialised here — only the file
+            // PATH is available in the renderer, not its bytes. Emit a structured
+            // spec the main process streams (reading each file's bytes in main).
+            multipart = { boundary, parts: resolved };
           } else {
-            const parts = (
-              await Promise.all(
-                rows.map(
-                  async (r) =>
-                    `--${boundary}\r\nContent-Disposition: form-data; name="${cleanPartName(await rv(r.name))}"\r\n\r\n${await rv(r.value)}`,
-                ),
-              )
-            ).join("\r\n");
-            body = `${parts}\r\n--${boundary}--`;
+            body =
+              resolved
+                .map(
+                  (r) =>
+                    `--${boundary}\r\nContent-Disposition: form-data; name="${cleanPartName(r.name)}"\r\n\r\n${r.value}`,
+                )
+                .join("\r\n") + `\r\n--${boundary}--`;
           }
           if (!hasContentType(headers))
             headers["Content-Type"] =

@@ -171,14 +171,19 @@ export function isSecretHeader(name) {
   return n.includes("api-key") || n.includes("apikey") || n.includes("api_key");
 }
 
-// Body-field names whose value is a credential, matched case-insensitively as a
-// substring so client_secret, refresh_token, x-api-key, csrf_token, etc. are all
-// caught. Deliberately tight to avoid blanking benign fields: identifiers like
-// username, client_id, grant_type, scope, redirect_uri — and the single-use
-// OAuth `code` — round-trip intact, mirroring redactedAuth's "keep the id, drop
-// the secret".
+// Body-field / query-param names whose value is a credential, matched
+// case-insensitively as a substring so client_secret, refresh_token, x-api-key,
+// csrf_token, user_pwd, oauth_signature, etc. are all caught. Deliberately tight
+// to avoid blanking benign fields: identifiers like username, client_id,
+// grant_type, scope, redirect_uri — and the single-use OAuth `code` — round-trip
+// intact, mirroring redactedAuth's "keep the id, drop the secret".
 const SECRET_FIELD_RE =
-  /pass(?:word|wd)?|secret|token|credential|assertion|private[-_]?key|api[-_]?key|session[-_]?id/i;
+  /pass(?:word|wd|code|phrase)?|pwd|secret|token|credential|assertion|signature|jwt|otp|private[-_]?key|api[-_]?key|session[-_]?(?:id|key)/i;
+
+// Recursion guard for redactJsonValue. Normal payloads nest only a handful of
+// levels; a pathologically deep one would otherwise overflow the stack, throw
+// RangeError, and (without the fail-closed catch below) leak the body verbatim.
+const MAX_REDACT_DEPTH = 200;
 
 /**
  * Whether a request/response body FIELD name carries a secret value.
@@ -194,8 +199,16 @@ export function isSecretField(name) {
  * `ctx.changed` is set true if anything was blanked, so the caller can leave a
  * secret-free body byte-for-byte untouched instead of reflowing its formatting.
  */
-function redactJsonValue(val, ctx) {
-  if (Array.isArray(val)) return val.map((v) => redactJsonValue(v, ctx));
+function redactJsonValue(val, ctx, depth = 0) {
+  if (depth > MAX_REDACT_DEPTH) {
+    // Too deep to safely walk — blank the subtree (fail CLOSED) rather than
+    // recurse to a stack overflow that would leak the whole body.
+    ctx.changed = true;
+    return "";
+  }
+  if (Array.isArray(val)) {
+    return val.map((v) => redactJsonValue(v, ctx, depth + 1));
+  }
   if (val && typeof val === "object") {
     // Null-prototype so a literal "__proto__" key from JSON.parse is copied as
     // plain data (and re-serialized faithfully) rather than mutating a prototype.
@@ -205,7 +218,7 @@ function redactJsonValue(val, ctx) {
         out[k] = "";
         ctx.changed = true;
       } else {
-        out[k] = redactJsonValue(v, ctx);
+        out[k] = redactJsonValue(v, ctx, depth + 1);
       }
     }
     return out;
@@ -259,8 +272,12 @@ export function redactBody(mimeType, text) {
       // Leave a secret-free body exactly as recorded (preserve its formatting);
       // only reflow to compact JSON when something was actually blanked.
       return ctx.changed ? JSON.stringify(redacted) : text;
-    } catch {
-      return text; // not actually JSON — leave it untouched
+    } catch (e) {
+      // A stack overflow from pathological nesting must fail CLOSED (blank the
+      // body), never leak it. A plain SyntaxError means it isn't JSON after all
+      // → leave it untouched.
+      if (e instanceof RangeError) return "";
+      return text;
     }
   }
 
