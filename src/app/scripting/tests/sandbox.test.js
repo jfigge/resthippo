@@ -194,6 +194,57 @@ describe("hippo.response (after-response)", () => {
   });
 });
 
+describe("hippo.run (execute another request)", () => {
+  const runCtx = {
+    runResults: {
+      Login: {
+        status: 200,
+        time: 12,
+        headers: { "content-type": "application/json" },
+        body: '{"token":"abc"}',
+      },
+    },
+  };
+
+  it("returns the pre-executed response (status/time/headers/body/json) in a pre-script", () => {
+    const r = pre(
+      `const res = hippo.run("Login");
+       hippo.variables.set("environment", "status", res.status);
+       hippo.variables.set("environment", "time", res.time);
+       hippo.variables.set("environment", "ct", res.headers["content-type"]);
+       hippo.variables.set("environment", "token", res.json().token);`,
+      runCtx,
+    );
+    assert.equal(r.error, null);
+    const w = Object.fromEntries(r.varWrites.map((v) => [v.name, v.value]));
+    assert.equal(w.status, "200");
+    assert.equal(w.time, "12");
+    assert.equal(w.ct, "application/json");
+    assert.equal(w.token, "abc");
+  });
+
+  it("is also available in an after-response script", () => {
+    const r = post(
+      `hippo.variables.set("global", "t", hippo.run("Login").json().token);`,
+      runCtx,
+    );
+    assert.equal(r.error, null);
+    assert.equal(r.varWrites[0].value, "abc");
+  });
+
+  it("throws for a name with no pre-executed result", () => {
+    const r = pre(`hippo.run("Missing");`, runCtx);
+    assert.notEqual(r.error, null);
+    assert.match(r.error.message, /no executed result for request 'Missing'/);
+  });
+
+  it("throws (rather than crashing) when no runResults were supplied", () => {
+    const r = pre(`hippo.run("Login");`);
+    assert.notEqual(r.error, null);
+    assert.match(r.error.message, /hippo\.run: no executed result/);
+  });
+});
+
 describe("hippo.console", () => {
   it("captures log/info/warn/error with levels", () => {
     const r = pre(

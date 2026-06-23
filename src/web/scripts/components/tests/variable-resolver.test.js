@@ -315,12 +315,12 @@ test("resolveStringAsync: response() reads the response cache with a simple jq p
   );
 });
 
-test("resolveStringAsync: cascadeSend() always resolves to an empty string", async () => {
-  // cascadeSend is fire-and-forget — the actual pre-execution is driven by the
+test("resolveStringAsync: run() always resolves to an empty string", async () => {
+  // run is fire-and-forget — the actual pre-execution is driven by the
   // prefetch pass in app.js; the token itself captures nothing and resolves to "".
-  assert.equal(await resolveStringAsync('{{cascadeSend("Login")}}', {}), "");
+  assert.equal(await resolveStringAsync('{{run("Login")}}', {}), "");
   assert.equal(
-    await resolveStringAsync('before {{cascadeSend("Login")}} after', {}),
+    await resolveStringAsync('before {{run("Login")}} after', {}),
     "before  after",
   );
 });

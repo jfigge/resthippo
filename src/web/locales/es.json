@@ -118,7 +118,7 @@
     "response": "Cuerpo de respuesta de la solicitud",
     "responseHeader": "Encabezado de respuesta",
     "responseStatus": "Estado HTTP de la respuesta",
-    "cascadeSend": "Ejecutar otra solicitud",
+    "run": "Ejecutar otra solicitud",
     "param": {
       "format": "Formato",
       "value": "Valor",

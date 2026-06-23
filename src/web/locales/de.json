@@ -118,7 +118,7 @@
     "response": "Antworttext der Anfrage",
     "responseHeader": "Antwort-Header",
     "responseStatus": "HTTP-Status der Antwort",
-    "cascadeSend": "Andere Anfrage ausführen",
+    "run": "Andere Anfrage ausführen",
     "param": {
       "format": "Format",
       "value": "Wert",

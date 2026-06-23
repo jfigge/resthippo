@@ -39,6 +39,7 @@ const MEMBERS = {
     { name: "response", detail: "after-response only" },
     { name: "environment", detail: "{ name, variables }" },
     { name: "console", detail: "log/info/warn/error" },
+    { name: "run", detail: '("Request") → response' },
   ],
   "hippo.variables": [
     { name: "get", detail: "(scope, name)" },

@@ -320,6 +320,36 @@ const BOOTSTRAP = `
         log("error", arguments);
       },
     }),
+    // hippo.run(requestName) — execute another saved request (by name) and read
+    // its response, so a pre- or after-response script can drive a dependency
+    // (e.g. log in first) and use the result. The sandbox has no network, so the
+    // request is actually fired by the RENDERER *before* this script runs: it
+    // statically scans the script for hippo.run("…") calls, executes each named
+    // request, and hands the results in as ctx.runResults — so the call resolves
+    // synchronously here. The name must therefore be a string LITERAL the scanner
+    // can see; a name it couldn't resolve, or that matches no request, throws.
+    run: function (name) {
+      var nm = name == null ? "" : String(name);
+      var results = ctx.runResults || {};
+      if (!Object.prototype.hasOwnProperty.call(results, nm)) {
+        throw new Error(
+          "hippo.run: no executed result for request '" +
+            nm +
+            "' — the request name must be a string literal naming an existing request",
+        );
+      }
+      var r = results[nm] || {};
+      var body = r.body == null ? "" : String(r.body);
+      return Object.freeze({
+        status: r.status,
+        time: r.time,
+        headers: Object.freeze(Object.assign({}, r.headers)),
+        body: body,
+        json: function () {
+          return JSON.parse(body);
+        },
+      });
+    },
     environment: Object.freeze({
       name: ctx.environment ? ctx.environment.name : undefined,
       variables: Object.freeze(
@@ -579,6 +609,8 @@ function validateScript(code) {
  * @param {object} [opts.response]           { status, headers, body } (post)
  * @param {object} [opts.environment]        { name, variables }
  * @param {object} [opts.variables]          { global, environment, collection, folder }
+ * @param {object} [opts.runResults]         { [requestName]: { status, time, headers, body } }
+ *   pre-executed responses for the requests the script names via hippo.run("…")
  * @returns {{ request: object|null, varWrites: Array, logs: Array,
  *            error: null | { name, message, line?, col? } }}
  *   On a script error, `request` and `varWrites` are dropped (fail closed — a
@@ -594,6 +626,7 @@ function runScript({
   environment,
   variables,
   assertions,
+  runResults,
 }) {
   const isPre = phase === "pre";
   const sandbox = {
@@ -604,6 +637,8 @@ function runScript({
       environment: environment || {},
       variables: variables || {},
       assertions: Array.isArray(assertions) ? assertions : [],
+      runResults:
+        runResults && typeof runResults === "object" ? runResults : {},
     }),
   };
   vm.createContext(sandbox, {

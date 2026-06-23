@@ -49,6 +49,7 @@ small and deliberately sandboxed (see [Sandbox & limits](#sandbox--limits)).
 | `hippo.response.status` · `.time` · `.headers` · `.body` | — | number · number (ms) · object · string | **after-response only** | Reading these in a pre-request script throws — the response doesn't exist yet. `.time` is the elapsed response time in milliseconds. |
 | `hippo.response.json()` | — | parsed value | after-response only | Parses the response body as JSON; throws if the body isn't valid JSON. |
 | `hippo.environment` | — | `{ name, variables }` | both | The active environment (read-only). |
+| `hippo.run(requestName)` | `requestName`: string **literal** | `{ status, time, headers, body, json() }` | both | Runs another saved request **by name** and returns its response (same shape as `hippo.response`). The name must be a string literal — see [Run another request](#example-run-another-request-first-pre-request). |
 | `hippo.console.log` / `.info` / `.warn` / `.error` | `...args`: any | `void` | both | Logs to the response **Console** tab (see [Console output](#console-output)). |
 | `hippo.test(name, fn)` | `name`: string · `fn`: function | `void` | after-response | Runs `fn` as a named test; if it throws, the test fails (see [Test assertions](#test-assertions)). |
 | `hippo.expect(value)` | `value`: any | matcher | after-response | Returns a matcher with `.toBe` / `.toEqual` / `.toContain` / `.toBeLessThan` / `.toBeGreaterThan` / `.toMatch` / `.toBeTruthy` / `.toBeFalsy` (and `.not`), each throwing on mismatch. |
@@ -69,6 +70,31 @@ hippo.request.headers["Authorization"] = "Bearer " + key;
 // substituted into THIS request because the script runs before substitution.
 hippo.variables.set("environment", "token", "abc123");
 ```
+
+## Example: run another request first (pre-request)
+
+`hippo.run("Name")` runs another saved request and hands you back its response,
+so a script can chain a dependency — log in, grab a token, and use it on the
+request you are about to send:
+
+```js
+// Log in first, then carry the token on this request.
+const res = hippo.run("Login");
+if (res.status === 200) {
+  hippo.request.headers["Authorization"] = "Bearer " + res.json().token;
+}
+```
+
+The returned response has the same shape as
+[`hippo.response`](#the-hippo-api): `status`, `time` (ms), `headers`, `body`,
+and `json()`.
+
+> The request name must be a **string literal** — Rest Hippo finds and runs it
+> _before_ your script does, so a computed name like `hippo.run(someVariable)`
+> can't work and throws. The named request runs with its own saved settings but
+> does **not** run its own pre- or after-response scripts, so two requests can't
+> recursively trigger each other. `hippo.run` works the same way in an
+> after-response script.
 
 ## Example: capture from the response (after-response)
 
@@ -145,7 +171,9 @@ one-second timeout.
 
 Scripts are **synchronous** — there is no `await` (there's nothing to wait for
 inside the sandbox). Keep them small: read a value, set a variable, log
-something.
+something. Even `hippo.run("…")` is synchronous: Rest Hippo runs the named
+request _outside_ the sandbox before your script starts, then hands the response
+in — which is why the request name has to be a literal it can spot ahead of time.
 
 ---
 

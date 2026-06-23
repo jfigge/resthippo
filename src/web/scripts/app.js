@@ -30,6 +30,7 @@
 import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
 import { applyCaptures } from "./components/captures.js";
+import { extractScriptRunNames } from "./components/script-run-refs.js";
 import { assertionLabel } from "./components/editors/tests-editor.js";
 import {
   buildRequestPayload,
@@ -2678,6 +2679,15 @@ async function _runAfterResponseScript(node, detail) {
   if (!code && assertions.length === 0) return [];
 
   const snap = _variableSnapshotForNode(node.id);
+  // Pre-execute any requests the script drives via hippo.run("…") so the sandbox
+  // can resolve them synchronously (it has no network of its own).
+  const runNames = extractScriptRunNames(code);
+  const runResults = runNames.length
+    ? await _runNamedRequests(
+        runNames,
+        _buildVariableContextForNode(node.id, node),
+      )
+    : {};
   const res = await window.hippo.script.runPost({
     code,
     request: detail?.request ?? {},
@@ -2695,6 +2705,7 @@ async function _runAfterResponseScript(node, detail) {
       folder: snap.folder,
     },
     assertions,
+    runResults,
   });
   surfaceScriptResult(res);
   if (res?.logs?.length) {
@@ -2956,6 +2967,15 @@ function installRequestEditSendHandlers() {
       }),
     );
   });
+
+  // hippo.run("Name") in a pre-request script: the editor hands us the request
+  // names the script references; we execute each and return its response so the
+  // sandbox can resolve hippo.run() synchronously. Mirrors the prefetch above but
+  // returns the results directly (the sandbox owns its own runResults map) rather
+  // than seeding the {{run()}} response cache.
+  requestEditor?.setRunRequestsByName((names, ctx) =>
+    _runNamedRequests(names, ctx),
+  );
 
   window.addEventListener("hippo:cancel-request", (e) => {
     const requestId = e.detail?.requestId ?? null;
@@ -3895,16 +3915,51 @@ async function _executeRequestNode(node, ctx) {
     }
 
     if (result.error && result.status === 0) {
-      return { body: "", headers: {}, status: 0 };
+      return { body: "", headers: {}, status: 0, time: 0 };
     }
     return {
       body: result.body ?? "",
       headers: result.headers ?? {},
       status: result.status ?? 0,
+      time: result.elapsed ?? 0,
     };
   } catch {
-    return { body: "", headers: {}, status: 0 };
+    return { body: "", headers: {}, status: 0, time: 0 };
   }
+}
+
+/**
+ * Execute a set of saved requests by name and return a `{ name -> response }`
+ * map for the scripting `hippo.run("…")` API. Each request is resolved + fired
+ * exactly like the `{{run()}}` prefetch (same `_executeRequestNode` path — so the
+ * executed request runs with its own saved config but does NOT itself run pre/
+ * after-response scripts, bounding any chaining). Unknown names are simply
+ * omitted; the sandbox's `hippo.run` throws for a name with no result.
+ *
+ * @param {string[]} names  request names referenced by hippo.run("…")
+ * @param {object} ctx      variable-resolution context for {{var}} substitution
+ * @returns {Promise<Object<string,{status:number,time:number,headers:object,body:string}>>}
+ */
+async function _runNamedRequests(names, ctx) {
+  const out = {};
+  const items = treeView?.getItems() ?? [];
+  const allRequests = getAllRequests(items);
+  await Promise.all(
+    (names ?? []).map(async (name) => {
+      const req = allRequests.find((r) => r.name === name);
+      if (!req) return;
+      const node = _findNodeById(items, req.id);
+      if (!node) return;
+      const result = await _executeRequestNode(node, ctx);
+      out[name] = {
+        status: result.status,
+        time: result.time ?? 0,
+        headers: result.headers,
+        body: result.body,
+      };
+    }),
+  );
+  return out;
 }
 
 // ── Folder run (run every request in a folder, tally tests) ──────────────────

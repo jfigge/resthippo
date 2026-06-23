@@ -254,8 +254,8 @@ export const registry = {
       },
     ],
   },
-  cascadeSend: {
-    labelKey: "func.cascadeSend",
+  run: {
+    labelKey: "func.run",
     category: "request-output",
     params: [
       {

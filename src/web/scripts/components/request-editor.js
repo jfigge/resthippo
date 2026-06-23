@@ -50,6 +50,7 @@ import { INTROSPECTION_QUERY } from "./graphql-schema.js";
 import { executeIntrospection } from "./graphql-introspection.js";
 import { GraphQLBodyEditor } from "./graphql-body-editor.js";
 import { RequestAuthEditor } from "./request-auth-editor.js";
+import { extractScriptRunNames } from "./script-run-refs.js";
 import { NotesEditor } from "./editors/notes-editor.js";
 import { CapturesEditor } from "./editors/captures-editor.js";
 import { ScriptsEditor } from "./editors/scripts-editor.js";
@@ -355,7 +356,7 @@ function _extractResponseFunctionRefs(templates) {
     "response",
     "responseHeader",
     "responseStatus",
-    "cascadeSend",
+    "run",
   ]);
   const map = new Map();
   for (const tpl of templates) {
@@ -367,10 +368,10 @@ function _extractResponseFunctionRefs(templates) {
       if (!parsed || !RESPONSE_FNS.has(parsed.name)) continue;
       const reqName = parsed.rawArgs[0] ?? "";
       if (!reqName) continue;
-      // cascadeSend has no executionMode arg — its sole purpose is to fire the
+      // run has no executionMode arg — its sole purpose is to fire the
       // named request, so it always runs immediately.
       let mode;
-      if (parsed.name === "cascadeSend") {
+      if (parsed.name === "run") {
         mode = "run-immediately";
       } else {
         const modeArgIdx = parsed.name === "responseStatus" ? 1 : 2;
@@ -729,6 +730,8 @@ export class RequestEditor {
   #getItems = () => [];
   /** Async callback invoked before send to ensure cross-request response caches are loaded. */
   #ensureResponseCaches = null;
+  /** Async callback executing requests by name for a script's hippo.run("…") calls. */
+  #runRequestsByName = null;
 
   /** Pill editor for the URL bar (single instance, never replaced). */
   #urlPillEditor = null;
@@ -3322,6 +3325,13 @@ export class RequestEditor {
   async #runPreRequestScript(code, rawUrl, ctx) {
     let res;
     try {
+      // Pre-execute any requests the script drives via hippo.run("…") so the
+      // sandbox can resolve them synchronously (it has no network of its own).
+      const runNames = extractScriptRunNames(code);
+      const runResults =
+        runNames.length && this.#runRequestsByName
+          ? await this.#runRequestsByName(runNames, ctx)
+          : {};
       res = await window.hippo.script.runPre({
         code,
         request: {
@@ -3340,6 +3350,7 @@ export class RequestEditor {
           collection: ctx?.collectionVariables ?? {},
           folder: flattenFolderChain(ctx?.folderChain),
         },
+        runResults,
       });
     } catch (err) {
       res = {
@@ -3456,6 +3467,15 @@ export class RequestEditor {
   /** Set the async hook called before send to preload response caches for referenced requests. */
   setEnsureResponseCaches(fn) {
     this.#ensureResponseCaches = fn ?? null;
+  }
+
+  /**
+   * Set the async hook that executes requests by name for a pre-request script's
+   * `hippo.run("…")` calls. `fn(names, ctx)` resolves to a
+   * `{ name -> { status, time, headers, body } }` map.
+   */
+  setRunRequestsByName(fn) {
+    this.#runRequestsByName = fn ?? null;
   }
 
   /**

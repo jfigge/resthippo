@@ -118,7 +118,7 @@
     "response": "Request response body",
     "responseHeader": "Response header",
     "responseStatus": "Response HTTP status",
-    "cascadeSend": "Run another request",
+    "run": "Run another request",
     "param": {
       "format": "Format",
       "value": "Value",

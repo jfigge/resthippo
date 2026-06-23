@@ -41,7 +41,14 @@ describe("suggestHippo — member access", () => {
       "response",
       "environment",
       "console",
+      "run",
     ]);
+    assert.equal(r.from, 6);
+  });
+
+  it("offers run for the `ru` partial", () => {
+    const r = suggestHippo("hippo.ru", 8);
+    assert.deepEqual(names(r), ["run"]);
     assert.equal(r.from, 6);
   });
 
