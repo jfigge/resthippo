@@ -51,6 +51,7 @@ import { executeIntrospection } from "./graphql-introspection.js";
 import { GraphQLBodyEditor } from "./graphql-body-editor.js";
 import { RequestAuthEditor } from "./request-auth-editor.js";
 import { extractScriptRunNames } from "./script-run-refs.js";
+import { REQUEST_PICKER_FNS } from "./request-refs.js";
 import { NotesEditor } from "./editors/notes-editor.js";
 import { CapturesEditor } from "./editors/captures-editor.js";
 import { ScriptsEditor } from "./editors/scripts-editor.js";
@@ -352,12 +353,6 @@ const WS_TABS = [
 ];
 
 function _extractResponseFunctionRefs(templates) {
-  const RESPONSE_FNS = new Set([
-    "response",
-    "responseHeader",
-    "responseStatus",
-    "run",
-  ]);
   const map = new Map();
   for (const tpl of templates) {
     if (!tpl) continue;
@@ -365,7 +360,9 @@ function _extractResponseFunctionRefs(templates) {
       if (tok.type !== "variable") continue;
       if (!isFunctionCall(tok.content)) continue;
       const parsed = parseFunctionCall(tok.content);
-      if (!parsed || !RESPONSE_FNS.has(parsed.name)) continue;
+      if (!parsed || !REQUEST_PICKER_FNS.has(parsed.name)) continue;
+      // The reference is an id (new pills) or a name (legacy); resolved later by
+      // resolveRequestRef in the ensureResponseCaches host hook.
       const reqName = parsed.rawArgs[0] ?? "";
       if (!reqName) continue;
       // run has no executionMode arg — its sole purpose is to fire the

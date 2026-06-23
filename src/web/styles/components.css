@@ -6190,6 +6190,17 @@ input[type="checkbox"]:disabled {
   word-break: break-all;
 }
 
+/* A function preview can resolve to a whole (multi-line) response body; clamp it
+   to a single line with an ellipsis so the popup keeps a stable height. */
+.pill-editor-popup--function .pill-editor-preview-value {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+}
+
 .pill-editor-preview--undefined {
   color: var(--color-overlay-0);
   font-style: italic;

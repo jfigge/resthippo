@@ -48,6 +48,25 @@ import {
 import { PillEditorPopup } from "./pill-editor-popup.js";
 import { registry } from "./function-registry.js";
 import { logicMap } from "./function-logic-map.js";
+import { REQUEST_PICKER_FNS, resolveRequestRef } from "./request-refs.js";
+
+/**
+ * Tooltip text for a function pill. For request-picker functions the stored
+ * first arg is a request id; resolve it back to the request's name so the hover
+ * shows `{{run("Login")}}` rather than `{{run("<uuid>")}}`. Unresolvable refs
+ * (and all other functions) fall back to the raw token.
+ */
+function _functionPillTitle(name, rawArgs, getItems) {
+  if (REQUEST_PICKER_FNS.has(name) && rawArgs[0]) {
+    const resolved = resolveRequestRef(getItems ? getItems() : [], rawArgs[0]);
+    if (resolved.found) {
+      const args = rawArgs.slice();
+      args[0] = resolved.name;
+      return buildFunctionToken(name, args);
+    }
+  }
+  return buildFunctionToken(name, rawArgs);
+}
 
 const TOKEN_RE = /^\{\{([^{}]+)\}\}$/;
 
@@ -139,7 +158,7 @@ export function makeFunctionPill(name, rawArgs, opts) {
   span.dataset.function = name;
   span.dataset.fnArgs = JSON.stringify(rawArgs);
   span.textContent = funcDef?.labelKey ? t(funcDef.labelKey) : name;
-  span.title = buildFunctionToken(name, rawArgs);
+  span.title = _functionPillTitle(name, rawArgs, getItems);
   span.className = "variable-pill function-pill";
 
   const openEditor = () => {
@@ -171,7 +190,7 @@ export function makeFunctionPill(name, rawArgs, opts) {
         const parsed = m && parseFunctionCall(m[1]);
         if (!parsed) return;
         span.dataset.fnArgs = JSON.stringify(parsed.rawArgs);
-        span.title = raw;
+        span.title = _functionPillTitle(parsed.name, parsed.rawArgs, getItems);
         onCommit();
       },
     });

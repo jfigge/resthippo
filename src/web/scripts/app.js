@@ -31,6 +31,11 @@ import { TreeView } from "./components/tree-view.js";
 import { RequestEditor } from "./components/request-editor.js";
 import { applyCaptures } from "./components/captures.js";
 import { extractScriptRunNames } from "./components/script-run-refs.js";
+import {
+  flattenRequests,
+  resolveRequestRef,
+  migrateRequestNodeRefs,
+} from "./components/request-refs.js";
 import { assertionLabel } from "./components/editors/tests-editor.js";
 import {
   buildRequestPayload,
@@ -178,10 +183,27 @@ const _pendingStreams = new Map();
 const _inFlightExecs = new Set();
 // Currently selected tree node (request or folder), for context functions.
 let _selectedNode = null;
-// Response caches keyed by request name — fed into variable context for function pills.
+// Response caches fed into variable context for function pills. Keyed by BOTH
+// the request's id (the canonical reference new pills store) and its name (so
+// legacy name-based tokens and the name-keyed hippo.run() script API still hit).
+// See _cacheResponse() and request-refs.js.
 let _responseCache = {};
 let _responseHeaders = {};
 let _responseStatus = {};
+
+/**
+ * Seed the response caches for a request under both its id and its name, so a
+ * reference stored either way resolves. `ref` is anything carrying `{id, name}`
+ * (a tree node or a resolveRequestRef() result).
+ */
+function _cacheResponse(ref, body, headers, status) {
+  for (const key of [ref?.id, ref?.name]) {
+    if (!key) continue;
+    _responseCache[key] = body;
+    _responseHeaders[key] = headers;
+    _responseStatus[key] = status;
+  }
+}
 // Debounced granular request-edit persistence (see _scheduleRequestSave).
 let _requestSaveTimer = null;
 const _pendingRequestPatches = new Map(); // id → merged partial patch
@@ -1604,12 +1626,12 @@ function installSelectionHandlers() {
       const loadedEntries = _requestHistory.get(id) ?? [];
       const loadedLatest = loadedEntries[0];
       if (_selectedNode?.id === id) {
-        const selName = node?.name;
-        if (selName) {
-          _responseCache[selName] = loadedLatest?.response?.body ?? "";
-          _responseHeaders[selName] = loadedLatest?.response?.headers ?? {};
-          _responseStatus[selName] = loadedLatest?.response?.status ?? 0;
-        }
+        _cacheResponse(
+          node,
+          loadedLatest?.response?.body ?? "",
+          loadedLatest?.response?.headers ?? {},
+          loadedLatest?.response?.status ?? 0,
+        );
         _refreshEditorVariableContext(id);
         _dispatchTimelineUpdate(id, true);
       }
@@ -1710,12 +1732,12 @@ async function _recordRunHistory(node, detail, testResults = []) {
     },
   );
   const latest = entries[0];
-  const name = node.name;
-  if (name) {
-    _responseCache[name] = latest?.response?.body ?? "";
-    _responseHeaders[name] = latest?.response?.headers ?? {};
-    _responseStatus[name] = latest?.response?.status ?? 0;
-  }
+  _cacheResponse(
+    node,
+    latest?.response?.body ?? "",
+    latest?.response?.headers ?? {},
+    latest?.response?.status ?? 0,
+  );
   // Refresh pill context for whichever request is loaded in the editor — a
   // background response may make its response() pills resolvable.
   _refreshEditorVariableContext(_selectedNode?.id);
@@ -1783,12 +1805,12 @@ async function _recordRunError(node, detail) {
     },
   );
   const latest = entries[0];
-  const name = node?.name;
-  if (name) {
-    _responseCache[name] = latest?.response?.body ?? "";
-    _responseHeaders[name] = latest?.response?.headers ?? {};
-    _responseStatus[name] = latest?.response?.status ?? 0;
-  }
+  _cacheResponse(
+    node,
+    latest?.response?.body ?? "",
+    latest?.response?.headers ?? {},
+    latest?.response?.status ?? 0,
+  );
   if (node.id === _selectedNode?.id) _dispatchTimelineUpdate(node.id);
   return entries;
 }
@@ -2791,10 +2813,25 @@ function _scheduleRequestSave(id, fields) {
 
 async function _persistRequestEdits(patches) {
   if (!treeView) return;
+  // Lazy-migrate cross-request references (name→id) in each patch as it is
+  // saved, so tokens become rename-safe and unambiguous over time. Apply the
+  // rewrite to the in-memory tree and _selectedNode too, so the persisted file,
+  // the tree, and the data-store mirror below all agree.
+  const requests = getAllRequests(treeView.getItems());
+  const migrated = patches.map(([id, patch]) => {
+    const { node: migPatch, changed } = migrateRequestNodeRefs(patch, requests);
+    if (changed) {
+      treeView.updateNode(id, migPatch, { silent: true });
+      if (_selectedNode?.id === id) {
+        _selectedNode = { ..._selectedNode, ...migPatch };
+      }
+    }
+    return [id, changed ? migPatch : patch];
+  });
   // Keep the data-store items mirror in step with the tree so a later
   // saveCollectionVariables() (full write) can't clobber these edits.
   setActiveItems(treeView.getItems());
-  for (const [id, patch] of patches) {
+  for (const [id, patch] of migrated) {
     const ok = await updateRequest(id, patch);
     if (!ok) {
       // Brand-new request not yet on disk, a write failure, or the dev-server:
@@ -2937,31 +2974,39 @@ function installRequestEditSendHandlers() {
     }
   }
 
-  // Lazy-load response caches when a request is executed that references another request
+  // Lazy-load response caches when a request is executed that references another
+  // request. Each ref is either a { name, mode } object (the send pipeline) or a
+  // bare reference string (the pill-editor live preview); the reference itself is
+  // an id (new pills) or a name (legacy tokens), resolved by resolveRequestRef.
   requestEditor?.setEnsureResponseCaches(async (refs, ctx) => {
-    const allRequests = getAllRequests(treeView?.getItems() ?? []);
+    const requests = getAllRequests(treeView?.getItems() ?? []);
     await Promise.all(
-      refs.map(async ({ name, mode }) => {
-        const req = allRequests.find((r) => r.name === name);
-        if (!req) return;
-        if (mode === "run-immediately") {
-          const node = _findNodeById(treeView?.getItems() ?? [], req.id);
+      (refs ?? []).map(async (raw) => {
+        const ref = typeof raw === "string" ? raw : raw?.name;
+        const mode =
+          typeof raw === "string"
+            ? "use-last-result"
+            : (raw?.mode ?? "use-last-result");
+        const resolved = resolveRequestRef(requests, ref);
+        if (!resolved.found) return;
+        if (mode === "run-immediately" && ctx) {
+          const node = _findNodeById(treeView?.getItems() ?? [], resolved.id);
           if (!node) return;
           const result = await _executeRequestNode(node, ctx);
-          _responseCache[name] = result.body;
-          _responseHeaders[name] = result.headers;
-          _responseStatus[name] = result.status;
+          _cacheResponse(resolved, result.body, result.headers, result.status);
         } else {
-          if (!_historyLoaded.has(req.id)) {
-            await _loadRequestHistory(req.id);
-            _historyLoaded.add(req.id);
+          if (!_historyLoaded.has(resolved.id)) {
+            await _loadRequestHistory(resolved.id);
+            _historyLoaded.add(resolved.id);
           }
-          const histEntries = _requestHistory.get(req.id) ?? [];
-          const latest = histEntries[0];
+          const latest = (_requestHistory.get(resolved.id) ?? [])[0];
           if (latest) {
-            _responseCache[name] = latest.response?.body ?? "";
-            _responseHeaders[name] = latest.response?.headers ?? {};
-            _responseStatus[name] = latest.response?.status ?? 0;
+            _cacheResponse(
+              resolved,
+              latest.response?.body ?? "",
+              latest.response?.headers ?? {},
+              latest.response?.status ?? 0,
+            );
           }
         }
       }),
@@ -3688,19 +3733,13 @@ function applySettings(settings) {
   }
 }
 
-/** Walk the item tree and collect all request nodes as { id, name } pairs. */
+/**
+ * Walk the item tree and collect all request nodes as { id, name, path } — the
+ * `path` (ancestor collection/folder names) lets the request-picker disambiguate
+ * duplicate names. See request-refs.js.
+ */
 function getAllRequests(items) {
-  const result = [];
-  function walk(nodes) {
-    for (const node of nodes) {
-      if (node.type === "request") {
-        result.push({ id: node.id, name: node.name ?? "" });
-      }
-      if (Array.isArray(node.children)) walk(node.children);
-    }
-  }
-  walk(items);
-  return result;
+  return flattenRequests(items);
 }
 
 /** Find a node by id anywhere in the tree (returns null if not found). */
@@ -3943,12 +3982,20 @@ async function _executeRequestNode(node, ctx) {
 async function _runNamedRequests(names, ctx) {
   const out = {};
   const items = treeView?.getItems() ?? [];
-  const allRequests = getAllRequests(items);
+  const requests = getAllRequests(items);
   await Promise.all(
     (names ?? []).map(async (name) => {
-      const req = allRequests.find((r) => r.name === name);
-      if (!req) return;
-      const node = _findNodeById(items, req.id);
+      // hippo.run() is name-keyed by nature (a script names a string literal);
+      // resolve by name and warn if the name is ambiguous (the picker stores ids
+      // instead, but a script can't).
+      const resolved = resolveRequestRef(requests, name);
+      if (!resolved.found) return;
+      if (resolved.ambiguous) {
+        Notifications.warning(t("script.ambiguousRequest", { name }), {
+          title: t("script.errorTitle"),
+        });
+      }
+      const node = _findNodeById(items, resolved.id);
       if (!node) return;
       const result = await _executeRequestNode(node, ctx);
       out[name] = {

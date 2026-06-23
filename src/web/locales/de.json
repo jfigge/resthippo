@@ -1380,7 +1380,8 @@
     "prePlaceholder": "// Wird vor dem Senden der Anfrage ausgeführt\n// hippo.variables.set(\"environment\", \"token\", \"abc123\")",
     "postPlaceholder": "// Wird ausgeführt, nachdem die Antwort eingetroffen ist\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
     "enabled": "Aktiviert",
-    "resizeAria": "Skriptbereiche anpassen"
+    "resizeAria": "Skriptbereiche anpassen",
+    "ambiguousRequest": "Mehrere Anfragen heißen „{name}“ – die erste Übereinstimmung wurde ausgeführt."
   },
   "updater": {
     "available": "Update verfügbar",

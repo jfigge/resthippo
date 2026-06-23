@@ -1380,7 +1380,8 @@
     "prePlaceholder": "// S’exécute avant l’envoi de la requête\n// hippo.variables.set(\"environment\", \"token\", \"abc123\")",
     "postPlaceholder": "// S’exécute après réception de la réponse\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
     "enabled": "Activé",
-    "resizeAria": "Redimensionner les volets de script"
+    "resizeAria": "Redimensionner les volets de script",
+    "ambiguousRequest": "Plusieurs requêtes portent le nom « {name} » — la première correspondance a été exécutée."
   },
   "updater": {
     "available": "Mise à jour disponible",

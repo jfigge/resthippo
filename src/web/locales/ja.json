@@ -1373,7 +1373,8 @@
     "prePlaceholder": "// リクエスト送信前に実行されます\n// hippo.variables.set(\"environment\", \"token\", \"abc123\")",
     "postPlaceholder": "// レスポンス受信後に実行されます\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
     "enabled": "有効",
-    "resizeAria": "スクリプトペインのサイズを変更"
+    "resizeAria": "スクリプトペインのサイズを変更",
+    "ambiguousRequest": "「{name}」という名前のリクエストが複数あります。最初に一致したものを実行しました。"
   },
   "updater": {
     "available": "アップデートが利用可能です",

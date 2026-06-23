@@ -1380,7 +1380,8 @@
     "prePlaceholder": "// Se ejecuta antes de enviar la solicitud\n// hippo.variables.set(\"environment\", \"token\", \"abc123\")",
     "postPlaceholder": "// Se ejecuta cuando llega la respuesta\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
     "enabled": "Habilitado",
-    "resizeAria": "Redimensionar los paneles de scripts"
+    "resizeAria": "Redimensionar los paneles de scripts",
+    "ambiguousRequest": "Hay más de una petición llamada «{name}»: se ejecutó la primera coincidencia."
   },
   "updater": {
     "available": "Actualización disponible",

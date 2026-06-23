@@ -1373,7 +1373,8 @@
     "prePlaceholder": "// 在发送请求之前运行\n// hippo.variables.set(\"environment\", \"token\", \"abc123\")",
     "postPlaceholder": "// 在收到响应之后运行\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
     "enabled": "启用",
-    "resizeAria": "调整脚本面板大小"
+    "resizeAria": "调整脚本面板大小",
+    "ambiguousRequest": "有多个请求名为“{name}”，已运行第一个匹配项。"
   },
   "updater": {
     "available": "有可用更新",

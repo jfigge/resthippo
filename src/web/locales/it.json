@@ -1380,7 +1380,8 @@
     "prePlaceholder": "// Eseguito prima dell’invio della richiesta\n// hippo.variables.set(\"environment\", \"token\", \"abc123\")",
     "postPlaceholder": "// Eseguito dopo l’arrivo della risposta\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
     "enabled": "Abilitato",
-    "resizeAria": "Ridimensiona i pannelli degli script"
+    "resizeAria": "Ridimensiona i pannelli degli script",
+    "ambiguousRequest": "Più richieste si chiamano «{name}»: è stata eseguita la prima corrispondenza."
   },
   "updater": {
     "available": "Aggiornamento disponibile",

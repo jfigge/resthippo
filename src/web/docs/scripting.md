@@ -96,6 +96,14 @@ and `json()`.
 > recursively trigger each other. `hippo.run` works the same way in an
 > after-response script.
 
+> **Duplicate names.** `hippo.run("Name")` matches **by name**, so if two saved
+> requests share that name it runs the first one and shows a warning — give them
+> distinct names to be sure. The cross-request **function pills** you insert into
+> a field (`run`, `response`, `responseHeader`, `responseStatus`) don't have this
+> problem: the picker stores the request's **stable id**, so they keep pointing at
+> the same request even if you rename it, and the picker shows each request's
+> folder path when a name is duplicated so you can tell them apart.
+
 ## Example: capture from the response (after-response)
 
 ```js

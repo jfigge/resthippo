@@ -1380,7 +1380,8 @@
     "prePlaceholder": "// Runs before the request is sent\n// hippo.variables.set(\"environment\", \"token\", \"abc123\")",
     "postPlaceholder": "// Runs after the response arrives\n// hippo.variables.set(\"global\", \"id\", hippo.response.json().id)",
     "enabled": "Enabled",
-    "resizeAria": "Resize the script panes"
+    "resizeAria": "Resize the script panes",
+    "ambiguousRequest": "More than one request is named \"{name}\" — ran the first match."
   },
   "updater": {
     "available": "Update available",

@@ -25,6 +25,7 @@ import {
   buildFunctionToken,
   collectScopeNames,
 } from "./variable-resolver.js";
+import { requestPickerGroups } from "./request-refs.js";
 
 // i18n keys (not display text) — resolved via t() at render time, since a
 // module-level t() call would run before the catalog is loaded.
@@ -154,7 +155,10 @@ export class PillEditorPopup {
   #build({ type, funcName, funcDef, rawArgs, getItems }) {
     const label = TYPE_LABELS[type] ? t(TYPE_LABELS[type]) : type;
     const el = document.createElement("div");
-    el.className = "popup pill-editor-popup";
+    el.className =
+      type === "function"
+        ? "popup pill-editor-popup pill-editor-popup--function"
+        : "popup pill-editor-popup";
     el.setAttribute("role", "dialog");
     el.setAttribute("aria-modal", "true");
     el.setAttribute("aria-label", t("pillEditor.editorAria", { label }));
@@ -212,16 +216,29 @@ export class PillEditorPopup {
               .join("");
             inputHtml = `<select class="pill-editor-param-input settings-input" data-param-idx="${i}">${opts}</select>`;
           } else if (p.type === "request-picker") {
-            const items = getItems ? getItems() : [];
-            const opts = items
-              .map(
-                (item) =>
-                  `<option value="${escapeHtml(item.name)}"${item.name === val ? " selected" : ""}>${escapeHtml(item.name)}</option>`,
-              )
+            // Options are valued by request id (the canonical, rename-safe
+            // reference) and grouped under a non-selectable <optgroup> per folder
+            // path, so requests are listed (indented) under their folder and
+            // duplicate names are told apart by their group. `val` may be an id
+            // (new pills) or a legacy name — pre-select the right one.
+            const reqs = getItems ? getItems() : [];
+            const valIsId = reqs.some((r) => r.id === val);
+            const selectedId = valIsId
+              ? val
+              : (reqs.find((r) => r.name === val)?.id ?? "");
+            const renderOpt = (r) =>
+              `<option value="${escapeHtml(r.id)}"${r.id === selectedId ? " selected" : ""}>${escapeHtml(r.name)}</option>`;
+            const groupsHtml = requestPickerGroups(reqs)
+              .map((g) => {
+                const opts = g.requests.map(renderOpt).join("");
+                return g.pathText
+                  ? `<optgroup label="${escapeHtml(g.pathText)}">${opts}</optgroup>`
+                  : opts;
+              })
               .join("");
             inputHtml =
               `<select class="pill-editor-param-input settings-input" data-param-idx="${i}">` +
-              `<option value="">${t("pillEditor.selectRequest")}</option>${opts}</select>`;
+              `<option value="">${t("pillEditor.selectRequest")}</option>${groupsHtml}</select>`;
           } else {
             const ph = p.placeholder
               ? ` placeholder="${escapeHtml(p.placeholder)}"`
