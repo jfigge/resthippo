@@ -34,6 +34,11 @@ const repo = arg("--repo", process.env.REPO || "jfigge/resthippo");
 const out = arg("--out", "website/versions.json");
 const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "";
 
+// The site links to only the most recent releases; older ones are dropped from
+// versions.json entirely so no page can reference them. The GitHub API returns
+// releases newest-first and we preserve that order, so these are the 3 newest.
+const MAX_RELEASES = 3;
+
 // Classify a release asset by filename. Returns null for non-installer assets
 // (electron-updater metadata: *.blockmap, latest*.yml, etc.) so they're dropped.
 function classify(name) {
@@ -75,7 +80,8 @@ const releases = raw
         return c ? { name: a.name, size: a.size, url: a.browser_download_url, ...c } : null;
       })
       .filter(Boolean),
-  }));
+  }))
+  .slice(0, MAX_RELEASES);
 
 const latest = releases.find((r) => !r.prerelease) || releases[0] || null;
 

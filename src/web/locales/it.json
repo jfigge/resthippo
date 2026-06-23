@@ -400,6 +400,7 @@
       "insecurePlaceholder": "internal.example.com, *.test"
     },
     "about": {
+      "autoCheck": "Controlla automaticamente gli aggiornamenti",
       "checkButton": "Controlla aggiornamenti",
       "version": "Rest Hippo {version}"
     },

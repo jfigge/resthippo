@@ -397,6 +397,7 @@
       "insecurePlaceholder": "internal.example.com, *.test"
     },
     "about": {
+      "autoCheck": "自动检查更新",
       "checkButton": "检查更新",
       "version": "Rest Hippo {version}"
     },

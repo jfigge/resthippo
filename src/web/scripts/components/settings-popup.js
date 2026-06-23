@@ -599,6 +599,10 @@ export class SettingsPopup {
             <div class="settings-row">
               <span class="settings-label" id="setting-about-version"></span>
             </div>
+            <div class="settings-row settings-row--toggle">
+              <label class="settings-label" for="setting-auto-update">${t("settings.about.autoCheck")}</label>
+              <input class="settings-toggle" id="setting-auto-update" type="checkbox" />
+            </div>
             <div class="settings-row">
               <button class="btn popup-btn" id="setting-check-updates" type="button">${t("settings.about.checkButton")}</button>
               <span class="settings-label" id="setting-about-status" role="status" aria-live="polite"></span>
@@ -1251,6 +1255,7 @@ export class SettingsPopup {
       tlsInsecureHosts: this.#el
         .querySelector("#setting-tls-insecure-hosts")
         .value.trim(),
+      autoUpdateCheck: this.#el.querySelector("#setting-auto-update").checked,
     };
   }
 
@@ -1682,6 +1687,10 @@ export class SettingsPopup {
     if (settings.tlsInsecureHosts !== undefined) {
       this.#el.querySelector("#setting-tls-insecure-hosts").value =
         settings.tlsInsecureHosts;
+    }
+    if (settings.autoUpdateCheck !== undefined) {
+      this.#el.querySelector("#setting-auto-update").checked =
+        settings.autoUpdateCheck;
     }
     // Rebuild the cert lists whenever either is supplied (imperative DOM can't be
     // patched key-by-key, so a full rebuild keeps the rows in sync with storage).

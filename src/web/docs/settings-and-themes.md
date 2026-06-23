@@ -27,17 +27,17 @@ font size anywhere with <kbd>⌘/Ctrl</kbd>+<kbd>+</kbd> /
 
 ![Settings — Request](images/settings-request.png)
 
-| Setting                              | What it does                                                                   |
-| ------------------------------------ | ------------------------------------------------------------------------------ |
-| **Timeout (ms)**                     | How long to wait before giving up on a request.                                |
-| **Picker debounce (ms)**             | Delay before the `{{` typeahead appears.                                       |
-| **Follow redirects**                 | Automatically follow 3xx redirects.                                            |
-| **Double-click requests to execute** | Double-clicking a request in the tree loads _and_ sends it.                    |
-| **Verify SSL certificates**          | Reject invalid/self-signed certificates. Turn off to test against dev servers. |
-| **Show Captures tab**                | Show the **Captures** tab on the request editor. When off, the tab is hidden _and_ capture rules are not run after a response. Off by default. |
+| Setting                              | What it does                                                                                                                                             |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Timeout (ms)**                     | How long to wait before giving up on a request.                                                                                                          |
+| **Picker debounce (ms)**             | Delay before the `{{` typeahead appears.                                                                                                                 |
+| **Follow redirects**                 | Automatically follow 3xx redirects.                                                                                                                      |
+| **Double-click requests to execute** | Double-clicking a request in the tree loads _and_ sends it.                                                                                              |
+| **Verify SSL certificates**          | Reject invalid/self-signed certificates. Turn off to test against dev servers.                                                                           |
+| **Show Captures tab**                | Show the **Captures** tab on the request editor. When off, the tab is hidden _and_ capture rules are not run after a response. Off by default.           |
 | **Show Scripts tab**                 | Show the **Scripts** tab on the request editor. When off, the tab is hidden _and_ pre-request / after-response scripts are not executed. Off by default. |
-| **Show Tests tab**                   | Show the **Tests** tab on the request editor. When off, the tab is hidden _and_ no-code assertions are not run after a response. Off by default. |
-| **Show Notes tab**                   | Show the **Notes** tab on the request editor. On by default.                   |
+| **Show Tests tab**                   | Show the **Tests** tab on the request editor. When off, the tab is hidden _and_ no-code assertions are not run after a response. Off by default.         |
+| **Show Notes tab**                   | Show the **Notes** tab on the request editor. On by default.                                                                                             |
 
 ## Proxy
 
@@ -139,13 +139,15 @@ How it works per platform:
 
 ## About & updates
 
-The **About** panel shows the installed version and a **Check for Updates**
-button. Rest Hippo also checks automatically shortly after launch.
+The **About** panel shows the installed version, an **Automatically check for
+updates** toggle, and a **Check for Updates** button. Automatic checking is
+**off by default**: enable the toggle to have Rest Hippo look for new releases
+shortly after launch. The **Check for Updates** button — and **Help → Check for
+Updates…** — run on demand regardless of the toggle.
 
 When a newer release is found it downloads in the background; once it's ready a
 notification offers to **Restart** and install it — Rest Hippo never restarts on
-its own. You can also trigger a check any time from **Help → Check for
-Updates…**. Updates are signed, so they install without security prompts.
+its own. Updates are signed, so they install without security prompts.
 
 ## Layouts
 

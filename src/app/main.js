@@ -2925,10 +2925,24 @@ app.whenReady().then(async () => {
   const win = createWindow(savedState);
   if (isDebug) startHotReload(win);
 
-  // Auto-update (Feature 36): wire the updater to the live window, then run a
-  // debounced startup check so it never blocks launch. No-op in dev/unpacked.
+  // Auto-update (Feature 36): wire the updater to the live window so manual
+  // checks (Help → Check for Updates… / Settings → About) keep working, then run
+  // a debounced silent startup check — but only when the user has opted in via
+  // the autoUpdateCheck setting. The default (absent / false) is off, so a fresh
+  // or unconfigured install makes no automatic outbound update call until the
+  // user enables it in Settings. No-op in dev/unpacked either way.
   updater.initUpdater(() => _mainWin, logger);
-  setTimeout(() => updater.checkForUpdates({ manual: false }), 10000);
+  let autoUpdateCheck = false;
+  try {
+    autoUpdateCheck =
+      getStores().collectionStore().getManifest()?.settings?.autoUpdateCheck ===
+      true;
+  } catch {
+    /* manifest unreadable — leave automatic checks off */
+  }
+  if (autoUpdateCheck) {
+    setTimeout(() => updater.checkForUpdates({ manual: false }), 10000);
+  }
 
   // macOS: re-open a window when the dock icon is clicked with no open windows.
   app.on("activate", () => {

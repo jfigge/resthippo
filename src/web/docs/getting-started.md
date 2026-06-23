@@ -9,10 +9,11 @@ Download the installer for your platform, run it, and launch Rest Hippo — ther
 nothing else to set up. Your data lives in a local folder under your user
 profile, so requests, environments, and settings persist between sessions.
 
-Rest Hippo keeps itself current: it checks for new releases after launch (and on
-demand via **Help → Check for Updates…**), downloads them in the background, and
-asks before restarting to install. See
-[Settings → About & updates](settings-and-themes.md#about--updates).
+Rest Hippo can keep itself current: when you turn on automatic checks it looks
+for new releases shortly after launch, downloads them in the background, and asks
+before restarting to install. Automatic checking is **off by default** — enable
+it in **Settings → About**, or check any time via **Help → Check for Updates…**.
+See [Settings → About & updates](settings-and-themes.md#about--updates).
 
 On first launch Rest Hippo offers to install a `hippo` command so you can start
 it from a terminal; you can also set this up later from
