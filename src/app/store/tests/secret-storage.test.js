@@ -72,7 +72,11 @@ describe("defaultModeFor (fresh-install backend by platform)", () => {
 describe("mode inference (no decrypt → no keychain prompt)", () => {
   afterEach(resetCrypto);
 
-  it("a fresh profile infers app-key, persists it, and generates the key file", () => {
+  it("a fresh profile with no keystore infers app-key, persists it, generates the key file", () => {
+    // In the node:test context Electron safeStorage is unavailable, so
+    // crypto.isAvailable() is false on EVERY platform → defaultModeFor() yields
+    // app-key regardless of process.platform (the Windows-DPAPI branch is covered
+    // separately below). So this holds even on a Windows CI host.
     const dir = makeTmpDir();
     try {
       const ss = new SecretStorage(new Paths(dir));
@@ -82,6 +86,29 @@ describe("mode inference (no decrypt → no keychain prompt)", () => {
       assert.ok(fs.existsSync(new Paths(dir).secretKeyPath()));
       assert.equal(crypto.getMode(), "app-key");
     } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("a fresh Windows profile WITH a keystore infers os-keychain (DPAPI), no app-key file", () => {
+    const platformDesc = Object.getOwnPropertyDescriptor(process, "platform");
+    const dir = makeTmpDir();
+    try {
+      crypto._setSafeStorage(SAFE_STORAGE_MOCK); // → crypto.isAvailable() true
+      Object.defineProperty(process, "platform", {
+        value: "win32",
+        configurable: true,
+      });
+      const paths = new Paths(dir);
+      const { mode, locked } = new SecretStorage(paths).bootstrap();
+      assert.equal(mode, "os-keychain");
+      assert.equal(locked, false);
+      assert.equal(new SecretStorage(paths).readConfig().mode, "os-keychain");
+      // DPAPI protects the secrets at rest → no app-key file is minted.
+      assert.ok(!fs.existsSync(paths.secretKeyPath()));
+    } finally {
+      Object.defineProperty(process, "platform", platformDesc);
+      crypto._setSafeStorage(null);
       rmTmpDir(dir);
     }
   });

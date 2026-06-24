@@ -135,3 +135,33 @@ test("executeIntrospection: a missing http.execute bridge throws errExecuteUnava
     return true;
   });
 });
+
+test("executeIntrospection: dev-server non-2xx throws errExecuteApi with the status", async () => {
+  globalThis.window = {}; // not Electron → /api/execute fetch path
+  const origFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => ({ ok: false, status: 502 });
+    await assert.rejects(executeIntrospection(base), (err) => {
+      assert.equal(err.i18nKey, "request.graphql.errExecuteApi");
+      assert.deepEqual(err.i18nParams, { status: 502 });
+      return true;
+    });
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("executeIntrospection: dev-server success path returns the parsed envelope", async () => {
+  globalThis.window = {}; // not Electron → /api/execute fetch path
+  const origFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({ status: 200, body: OK_BODY }),
+    });
+    const json = await executeIntrospection(base);
+    assert.deepEqual(json, { data: { __schema: { types: [] } } });
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
