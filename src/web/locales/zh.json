@@ -1308,6 +1308,26 @@
       "warning": "警告",
       "error": "错误",
       "info": "信息"
+    },
+    "tab": {
+      "colors": "颜色",
+      "metrics": "度量"
+    },
+    "metric": {
+      "group": {
+        "spacing": "间距",
+        "controlHeights": "控件高度",
+        "radii": "圆角",
+        "splitter": "分隔条"
+      },
+      "space": "间距 {n}",
+      "size": {
+        "xs": "极小",
+        "sm": "小",
+        "md": "中",
+        "lg": "大"
+      },
+      "splitterSize": "粗细"
     }
   },
   "curlImport": {

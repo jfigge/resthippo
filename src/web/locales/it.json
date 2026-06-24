@@ -1315,6 +1315,26 @@
       "warning": "Avviso",
       "error": "Errore",
       "info": "Info"
+    },
+    "tab": {
+      "colors": "Colori",
+      "metrics": "Metriche"
+    },
+    "metric": {
+      "group": {
+        "spacing": "Spaziatura",
+        "controlHeights": "Altezza controlli",
+        "radii": "Raggi",
+        "splitter": "Divisore"
+      },
+      "space": "Spazio {n}",
+      "size": {
+        "xs": "Molto piccolo",
+        "sm": "Piccolo",
+        "md": "Medio",
+        "lg": "Grande"
+      },
+      "splitterSize": "Spessore"
     }
   },
   "curlImport": {

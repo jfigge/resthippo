@@ -259,6 +259,40 @@ body {
   color: var(--color-crust);
 }
 
+/* ── Editor tabs ─────────────────────────────────────────────────────────── */
+
+#editor-tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-5) 0;
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-mantle);
+  flex-shrink: 0;
+}
+
+.theme-tab {
+  padding: 6px var(--space-4);
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  color: var(--color-subtext);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.theme-tab:hover {
+  color: var(--color-text);
+}
+
+.theme-tab--active {
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
 /* ── Color grid ──────────────────────────────────────────────────────────── */
 
 #color-grid {
@@ -322,6 +356,99 @@ body {
   opacity: 0.5;
 }
 
+/* ── Metrics grid ────────────────────────────────────────────────────────── */
+
+#metrics-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-5);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+  align-content: start;
+}
+
+/* Group heading spans the whole grid row so each token group reads as a block. */
+.metric-group-title {
+  grid-column: 1 / -1;
+  margin-top: var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-subtext);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.metric-group-title:first-child {
+  margin-top: 0;
+}
+
+.metric-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-0);
+}
+
+.metric-row label {
+  flex: 1;
+  font-size: var(--font-size-xs);
+  color: var(--color-subtext);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+
+.metric-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.metric-input {
+  width: 56px;
+  background: var(--color-mantle);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  padding: 3px 6px;
+  text-align: right;
+}
+
+.metric-input:disabled {
+  opacity: 0.5;
+}
+
+/* The unit ("px") is a CSS unit, not translatable prose — render it from CSS so
+   it stays out of the i18n catalog and the no-hardcoded-strings scanner. */
+.metric-unit {
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+}
+
+.metric-unit::after {
+  content: "px";
+}
+
+/* ── Tab visibility ──────────────────────────────────────────────────────── */
+/* One content grid shows at a time, driven by #editor-panel[data-tab]. The
+   .empty rules below come later in source and, at equal specificity, win — so an
+   unselected panel hides both grids regardless of the active tab. */
+
+#editor-panel[data-tab="colors"] #metrics-grid {
+  display: none;
+}
+
+#editor-panel[data-tab="metrics"] #color-grid {
+  display: none;
+}
+
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 
 #empty-state {
@@ -333,7 +460,9 @@ body {
   font-size: var(--font-size-sm);
 }
 
-#editor-panel.empty #color-grid {
+#editor-panel.empty #color-grid,
+#editor-panel.empty #metrics-grid,
+#editor-panel.empty #editor-tabs {
   display: none;
 }
 

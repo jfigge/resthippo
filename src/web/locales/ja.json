@@ -1308,6 +1308,26 @@
       "warning": "警告",
       "error": "エラー",
       "info": "情報"
+    },
+    "tab": {
+      "colors": "色",
+      "metrics": "メトリクス"
+    },
+    "metric": {
+      "group": {
+        "spacing": "間隔",
+        "controlHeights": "コントロールの高さ",
+        "radii": "角丸",
+        "splitter": "スプリッター"
+      },
+      "space": "間隔 {n}",
+      "size": {
+        "xs": "極小",
+        "sm": "小",
+        "md": "中",
+        "lg": "大"
+      },
+      "splitterSize": "太さ"
     }
   },
   "curlImport": {

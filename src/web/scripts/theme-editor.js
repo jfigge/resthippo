@@ -197,9 +197,123 @@ function varLabel(key) {
 // than black, and capture it if re-saved.
 const FALLBACK_VARS = BUILT_IN_THEMES[0].vars;
 
+// ── Metric tokens (the second editor tab) ───────────────────────────────────
+// The non-colour design tokens a theme may override: the spacing scale, control
+// heights, corner radii, and the splitter thickness. Each is an integer-pixel
+// value stored as "<n>px" in the theme's `vars` alongside the colour tokens, so
+// the existing buildCustomThemeCss()/preview/apply path carries them with no
+// extra plumbing. Grouped for display; group headings and per-row labels resolve
+// via t() at render time (the catalog isn't loaded when this module is first
+// evaluated, mirroring VAR_LABEL_KEYS above).
+const METRIC_GROUPS = [
+  {
+    titleKey: "themeEditor.metric.group.spacing",
+    rows: [
+      {
+        key: "--space-1",
+        labelKey: "themeEditor.metric.space",
+        params: { n: 1 },
+      },
+      {
+        key: "--space-2",
+        labelKey: "themeEditor.metric.space",
+        params: { n: 2 },
+      },
+      {
+        key: "--space-3",
+        labelKey: "themeEditor.metric.space",
+        params: { n: 3 },
+      },
+      {
+        key: "--space-4",
+        labelKey: "themeEditor.metric.space",
+        params: { n: 4 },
+      },
+      {
+        key: "--space-5",
+        labelKey: "themeEditor.metric.space",
+        params: { n: 5 },
+      },
+      {
+        key: "--space-6",
+        labelKey: "themeEditor.metric.space",
+        params: { n: 6 },
+      },
+      {
+        key: "--space-7",
+        labelKey: "themeEditor.metric.space",
+        params: { n: 7 },
+      },
+    ],
+  },
+  {
+    titleKey: "themeEditor.metric.group.controlHeights",
+    rows: [
+      { key: "--control-h-xs", labelKey: "themeEditor.metric.size.xs" },
+      { key: "--control-h-sm", labelKey: "themeEditor.metric.size.sm" },
+      { key: "--control-h-md", labelKey: "themeEditor.metric.size.md" },
+      { key: "--control-h-lg", labelKey: "themeEditor.metric.size.lg" },
+    ],
+  },
+  {
+    titleKey: "themeEditor.metric.group.radii",
+    rows: [
+      { key: "--radius-sm", labelKey: "themeEditor.metric.size.sm" },
+      { key: "--radius-md", labelKey: "themeEditor.metric.size.md" },
+      { key: "--radius-lg", labelKey: "themeEditor.metric.size.lg" },
+    ],
+  },
+  {
+    titleKey: "themeEditor.metric.group.splitter",
+    rows: [
+      { key: "--splitter-size", labelKey: "themeEditor.metric.splitterSize" },
+    ],
+  },
+];
+
+// Base pixel value for each metric token, mirroring :root in theme.css. Shown
+// when a theme omits the token — every built-in, and any custom theme saved
+// before metric editing existed — so the field reflects the real rendered value;
+// only a token the user actually edits gets written into the theme's vars.
+const DEFAULT_METRICS = {
+  "--space-1": 2,
+  "--space-2": 4,
+  "--space-3": 8,
+  "--space-4": 12,
+  "--space-5": 16,
+  "--space-6": 24,
+  "--space-7": 32,
+  "--control-h-xs": 24,
+  "--control-h-sm": 26,
+  "--control-h-md": 30,
+  "--control-h-lg": 32,
+  "--radius-sm": 4,
+  "--radius-md": 6,
+  "--radius-lg": 8,
+  "--splitter-size": 2,
+};
+
+// Flat list of every metric key — used to copy/validate metric tokens on import.
+const METRIC_KEYS = METRIC_GROUPS.flatMap((g) => g.rows.map((r) => r.key));
+
+const METRIC_MIN = 0;
+const METRIC_MAX = 200;
+
+/**
+ * Parse a stored metric value (`"12px"` or a bare number) to a clamped integer,
+ * or null when it isn't a number. The clamp keeps a corrupt or imported value
+ * from producing an absurd layout.
+ */
+function parseMetric(value) {
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(METRIC_MIN, Math.min(METRIC_MAX, n));
+}
+
 let _customThemes = [];
 let _selectedId = null;
 let _editingTheme = null;
+let _activeTab = "colors";
 
 /**
  * Localize the hand-authored HTML shell once, after the catalog is applied and
@@ -232,6 +346,8 @@ function localizeChrome() {
   setText("#btn-delete", "common.delete");
   setText("#btn-apply", "themeEditor.apply");
   setText("#btn-save", "common.save");
+  setText("#tab-colors", "themeEditor.tab.colors");
+  setText("#tab-metrics", "themeEditor.tab.metrics");
   setText("#empty-state", "themeEditor.emptyState");
 }
 
@@ -278,6 +394,26 @@ async function init() {
     markDirty();
     previewCurrent();
   });
+
+  document
+    .getElementById("tab-colors")
+    .addEventListener("click", () => setActiveTab("colors"));
+  document
+    .getElementById("tab-metrics")
+    .addEventListener("click", () => setActiveTab("metrics"));
+  setActiveTab(_activeTab);
+}
+
+/** Switch the editor between the Colors and Metrics pages. */
+function setActiveTab(tab) {
+  _activeTab = tab;
+  document.getElementById("editor-panel").dataset.tab = tab;
+  document
+    .getElementById("tab-colors")
+    .classList.toggle("theme-tab--active", tab === "colors");
+  document
+    .getElementById("tab-metrics")
+    .classList.toggle("theme-tab--active", tab === "metrics");
 }
 
 function renderThemeList() {
@@ -349,6 +485,7 @@ function selectBuiltInTheme(id) {
   document.getElementById("btn-export").disabled = false;
 
   renderColorGrid(theme.vars, true);
+  renderMetricsGrid(theme.vars, true);
   previewThemeData(theme);
 }
 
@@ -373,6 +510,7 @@ function selectCustomTheme(id) {
   document.getElementById("btn-export").disabled = false;
 
   renderColorGrid(theme.vars, false);
+  renderMetricsGrid(theme.vars, false);
   previewThemeData(theme);
 }
 
@@ -433,6 +571,67 @@ function renderColorGrid(vars, readOnly) {
 function onColorChange(varKey, value) {
   if (!_editingTheme) return;
   _editingTheme.vars[varKey] = value;
+  markDirty();
+  previewCurrent();
+}
+
+function renderMetricsGrid(vars, readOnly) {
+  const grid = document.getElementById("metrics-grid");
+  grid.innerHTML = "";
+
+  for (const group of METRIC_GROUPS) {
+    const heading = document.createElement("div");
+    heading.className = "metric-group-title";
+    heading.textContent = t(group.titleKey);
+    grid.appendChild(heading);
+
+    for (const { key, labelKey, params } of group.rows) {
+      // Stored "<n>px" → integer for the field; fall back to the :root default
+      // when the theme doesn't carry this token (built-ins, legacy customs).
+      const value = parseMetric(vars[key]) ?? DEFAULT_METRICS[key];
+
+      const row = document.createElement("div");
+      row.className = "metric-row";
+
+      const label = document.createElement("label");
+      label.textContent = t(labelKey, params);
+      label.title = key;
+
+      const wrap = document.createElement("div");
+      wrap.className = "metric-input-wrap";
+
+      const input = document.createElement("input");
+      input.type = "number";
+      input.className = "metric-input";
+      input.min = String(METRIC_MIN);
+      input.max = String(METRIC_MAX);
+      input.step = "1";
+      input.value = String(value);
+      input.disabled = readOnly;
+      input.dataset.varKey = key;
+
+      // The "px" unit is supplied by CSS (.metric-unit::after) — see theme-editor.css.
+      const unit = document.createElement("span");
+      unit.className = "metric-unit";
+
+      input.addEventListener("input", () => {
+        const n = parseMetric(input.value);
+        if (n === null) return; // mid-edit empty / non-numeric — ignore
+        onMetricChange(key, n);
+      });
+
+      wrap.appendChild(input);
+      wrap.appendChild(unit);
+      row.appendChild(label);
+      row.appendChild(wrap);
+      grid.appendChild(row);
+    }
+  }
+}
+
+function onMetricChange(varKey, value) {
+  if (!_editingTheme) return;
+  _editingTheme.vars[varKey] = `${value}px`;
   markDirty();
   previewCurrent();
 }
@@ -557,6 +756,13 @@ async function importTheme() {
   };
   for (const key of VAR_KEYS) {
     newTheme.vars[key] = normalizeHex(data.vars[key] ?? "") ?? "#000000";
+  }
+  // Carry over any metric tokens the imported theme defines, normalized to
+  // "<n>px"; absent or non-numeric tokens are simply omitted (they fall back to
+  // the :root default at render time).
+  for (const key of METRIC_KEYS) {
+    const n = parseMetric(data.vars[key]);
+    if (n !== null) newTheme.vars[key] = `${n}px`;
   }
   _customThemes.push(newTheme);
   renderThemeList();

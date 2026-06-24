@@ -182,10 +182,17 @@ Rest Hippo ships with four built-in themes — **Mocha** (the default dark theme
 **Appearance → Theme**.
 
 For full control, choose **Theme Editor…** from the theme dropdown to open the
-editor in its own window. There you can tune every design token — backgrounds,
-text, accent and semantic colors — with a live preview, and save your creation
-as a custom theme that appears in the theme list. Custom themes can be exported
-and imported to share.
+editor in its own window. It has two tabs:
+
+- **Colors** — tune every colour token: backgrounds, text, accent and semantic
+  colours, plus the per-method request badges.
+- **Metrics** — adjust the layout tokens that control how dense the interface
+  feels: the **spacing** scale, **control heights** (buttons, inputs, selects),
+  corner **radii**, and the **splitter** thickness. Each is a pixel value.
+
+Both tabs update the app with a **live preview**, so you can see your changes as
+you make them. Save your creation as a custom theme that appears in the theme
+list. Custom themes can be exported and imported to share.
 
 > The interface font for **context menus** always uses your OS's native
 > typeface (San Francisco, Segoe UI, …); the **UI font** setting controls
