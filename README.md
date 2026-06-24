@@ -31,9 +31,12 @@ CORS.
 - **Realtime** — a WebSocket console and live **Server-Sent Events** /
   chunked-streaming response rendering.
 - **Response viewer** — pretty-printing with syntax highlighting (Prism.js),
-  hex view for binary payloads, in-body search, and a request **timing
-  waterfall**. Post-response **captures** pull values from the body, headers, or
-  status straight into variables.
+  hex view for binary payloads, in-body search, a **jq / yq / XPath** body
+  filter, and a request **timing waterfall**. Post-response **captures** pull
+  values from the body, headers, or status straight into variables.
+- **Scripting** — sandboxed **pre-request** and **after-response** JavaScript
+  hooks with a small `hippo.*` API to read and mutate the request, variables,
+  and environment; runs isolated from the filesystem and network.
 - **Authentication** — API Key, Basic, Bearer, Digest, NTLM, and AWS SigV4 /
   OAuth 1.0a request signing, plus a full **OAuth 2.0 / OIDC** implementation:
   Authorization Code (PKCE), Implicit, Client Credentials, Resource Owner
@@ -42,15 +45,17 @@ CORS.
 - **mTLS** — per-host client certificates and TLS-verification overrides.
 - **Cookie jar** — persistent, per-domain cookie storage.
 - **Environments & variables** — global / collection / environment scopes,
-  `{{variable}}` resolution with an inline typeahead, and secrets that are
+  `{{variable}}` resolution with an inline typeahead, built-in dynamic functions
+  (`uuid`, `now`, `randomInt`, `hash`, `hmac`, …), allow-listed OS-environment
+  access (`environmentVariable("RESTHIPPO_…")`), and secrets that are
   **encrypted at rest**.
 - **Import / export** — import from **Postman**, **Insomnia**, **OpenAPI 3 /
   Swagger 2**, **HAR**, and **cURL**; redaction-aware export back to Postman,
   Insomnia, OpenAPI, and HAR; plus full-workspace backup & restore.
 - **Code generation** — copy any request as a snippet (cURL, `fetch`, Python
   `requests`, Go, HTTPie).
-- **Networking** — configurable proxy with request-retry policy and per-host
-  network overrides.
+- **Networking** — configurable HTTP / SOCKS5 proxy with request-retry policy
+  and per-host network overrides.
 - **Productivity** — favorites & recents, and an in-app user guide
   (Help → User Guide).
 - **Themes, typography & i18n** — a theme editor, a user-selectable UI font
@@ -95,6 +100,7 @@ Rest Hippo/
     │   ├── preload.js     #   IPC bridge exposed as window.hippo
     │   ├── store/         #   file-based storage layer (+ tests)
     │   ├── net/           #   native HTTP, TLS/mTLS, SSE streaming
+    │   ├── scripting/     #   sandboxed pre-request / after-response scripts
     │   └── auth/          #   Digest / NTLM / SigV4 / OAuth 1.0a signing (+ tests)
     └── web/               # Renderer (Vanilla JS + CSS)
         ├── index.html
@@ -192,14 +198,16 @@ signtool verify /pa /v <resthippo-setup.exe>                     # Windows
 make fmt            # Format JS/CSS/HTML (Prettier)
 make fmt-check      # Verify formatting without writing
 make lint           # Lint JS (ESLint)
-make test           # Run the full test suite (node --test)
+make test           # Run the full unit/integration suite (node --test)
+make test-e2e       # UI end-to-end suite — drives the real app over CDP
 ```
 
-The default target runs the whole pipeline:
-
-```bash
-make                # clean → fmt → lint → test → build
-```
+`make test` is hermetic — pure `node --test` units with no display, Electron
+process, or network — and is the gate that CI and the pre-commit hook enforce.
+`make test-e2e` is **separate and not part of `make test`**: it launches the
+real Electron app and drives it the way a user would over the Chrome DevTools
+Protocol (no Playwright/Puppeteer) against the Go mock API, so it needs a
+display. Pass `NAMES="send graphql"` to run a subset.
 
 ## Releasing
 
@@ -230,6 +238,7 @@ make vendor-yaml        # yaml
 make vendor-prism       # Prism.js (syntax highlighting)
 make vendor-markdown    # marked + DOMPurify
 make vendor-graphql     # graphql (introspection + validation)
+make vendor-jq          # jqjs (response body filtering)
 ```
 
 ## Test Helpers
@@ -260,25 +269,35 @@ which echoes every frame back; `/ws/time`, which pushes a timestamped JSON frame
 once per second (to test received-without-send traffic); and `/ws/reject`, which
 refuses the upgrade with `401` so handshake-failure handling can be exercised.
 
-It also runs a forward proxy on `http://localhost:9999` for exercising Rest Hippo's
-proxy settings and request-retry policy. Point a request's proxy at it and send
-the `X-PROXY-ERROR` header to make the proxy fail a fixed number of times before
-the request succeeds — `X-PROXY-ERROR: 3` returns `503` for the first two
-attempts of a given URL, then forwards the third upstream. The countdown is
+For GraphQL it serves `POST /graphql` (introspection plus `user` / `users` /
+`createUser` operations). For streaming responses it exposes `GET /sse` (an
+index) with `/sse/events`, `/sse/counter`, `/sse/llm`, and `/sse/infinite`
+emitting live **Server-Sent Events**, and `GET /ndjson` for chunked NDJSON
+(enable the request's **Stream** toggle to watch either render incrementally).
+
+It also runs a forward proxy on `http://localhost:9999` and a **SOCKS5** proxy
+on `localhost:9998` for exercising Rest Hippo's proxy settings and request-retry
+policy. Point a request's proxy at one and send the `X-Proxy-Error` header to
+make the forward proxy fail a fixed number of times before the request succeeds
+— `X-Proxy-Error: 3` returns `503` for the first two attempts of a given URL,
+then forwards the third upstream (append `:timeout`, `:reset`, or a status code
+to vary the failure mode, e.g. `X-Proxy-Error: 2:timeout`). The countdown is
 cached per URL for 5 minutes and resets once the request finally succeeds, so a
-retry policy can be observed driving the request to completion.
+retry policy can be observed driving the request to completion. Set
+`MOCK_PROXY_USER` / `MOCK_PROXY_PASS` to require proxy authentication (Basic on
+the forward proxy, RFC 1929 on SOCKS5).
 
 ### Keycloak OAuth environment (Docker)
 
 Spins up a Keycloak instance pre-configured with realms, users, and clients for
 each OAuth grant type (Authorization Code, PKCE, Client Credentials, Implicit,
-Password):
+Password, Device Authorization, and Token Exchange):
 
 ```bash
 make kc             # start + bootstrap + print credentials
-make creds          # print endpoints, clients, and sample curl requests
-make stop           # stop and remove the container
-make reset          # stop and delete data volumes
+make kc_creds       # print endpoints, clients, and sample curl requests
+make kc_stop        # stop and remove the container
+make kc_reset       # stop and delete data volumes
 ```
 
 ## Build Information
