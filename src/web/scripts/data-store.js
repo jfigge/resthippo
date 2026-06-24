@@ -403,10 +403,12 @@ export async function loadAll() {
     let activeId = raw.activeCollectionId ?? raw.activeEnvironmentId ?? null;
 
     // Seed a default collection on true first-run (empty manifest)
+    let seededDefault = false;
     if (collections.length === 0) {
       const defaultId = crypto.randomUUID();
       collections = [{ id: defaultId, name: "COLLECTIONS" }];
       activeId = defaultId;
+      seededDefault = true;
     }
 
     // Guard: activeId must reference a real collection
@@ -428,6 +430,17 @@ export async function loadAll() {
       settings: { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) },
     };
     _activeCollectionId = activeId;
+
+    // Persist a freshly-seeded default immediately so its random id is stable
+    // across restarts. Without this the manifest stays empty until some later
+    // action (a settings change, a collection rename) happens to write it; if the
+    // user instead imports into the in-memory default and quits, the next launch
+    // reads the still-empty manifest, seeds ANOTHER default with a new id, and
+    // the imported collection's directory is orphaned — leaving duplicate request
+    // files the resolver then flags. Only the genuine first-run seed is persisted
+    // here; the catch branch below must NOT (a transient manifest-read failure
+    // would otherwise clobber a real manifest with an empty default).
+    if (seededDefault) await _persistManifest("Seed default collection");
 
     const { items, variables } = await _loadCollectionFile(activeId);
     _activeItems = items;

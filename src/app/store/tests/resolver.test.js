@@ -46,6 +46,15 @@ function putRequest(paths, collId, reqId) {
   fs.writeFileSync(path.join(dir, `${reqId}.json`), "{}");
 }
 
+/** Write the global manifest listing the given collection ids. */
+function putManifest(paths, collIds) {
+  fs.mkdirSync(paths.collectionsDir(), { recursive: true });
+  fs.writeFileSync(
+    paths.manifestPath(),
+    JSON.stringify({ collections: collIds.map((id) => ({ id })) }),
+  );
+}
+
 /** Capture console.warn calls for the duration of `fn`. */
 function captureWarn(fn) {
   const warnings = [];
@@ -145,6 +154,57 @@ test("duplicates() only reports requests in more than one collection", () => {
   assert.deepEqual([...dups.keys()], ["shared"]);
   assert.equal(r.resolve("solo-1"), "collA");
   assert.equal(r.resolve("solo-2"), "collB");
+});
+
+test("a directory not listed in the manifest (an orphan) is skipped", () => {
+  const paths = tmpPaths();
+  // The live collection (in the manifest) and an orphan copy left on disk — e.g.
+  // a previous session's seeded-but-unpersisted default. Both hold the same
+  // request file plus the orphan has one of its own.
+  putRequest(paths, "live", "shared-req");
+  putRequest(paths, "orphan", "shared-req");
+  putRequest(paths, "orphan", "orphan-only");
+  putManifest(paths, ["live"]);
+  const r = new Resolver(paths);
+
+  let owner;
+  const warnings = captureWarn(() => {
+    owner = r.resolve("shared-req");
+  });
+  assert.equal(
+    owner,
+    "live",
+    "resolves to the manifest collection, not the orphan",
+  );
+  assert.equal(
+    warnings.length,
+    0,
+    "no duplicate warning — the orphan is ignored",
+  );
+  assert.equal(r.duplicates().size, 0);
+  assert.throws(
+    () => r.resolve("orphan-only"),
+    (err) => err.code === "NOT_FOUND",
+    "a request that lives only in an orphan dir is not resolvable",
+  );
+});
+
+test("a genuine duplicate across two MANIFEST collections is still reported", () => {
+  const paths = tmpPaths();
+  // Both collections are real (listed) — a legitimately merged backup. The
+  // manifest gate must not suppress this case.
+  putRequest(paths, "zeta", "dup-req");
+  putRequest(paths, "alpha", "dup-req");
+  putManifest(paths, ["alpha", "zeta"]);
+  const r = new Resolver(paths);
+
+  let owner;
+  const warnings = captureWarn(() => {
+    owner = r.resolve("dup-req");
+  });
+  assert.equal(owner, "alpha");
+  assert.deepEqual(r.duplicates().get("dup-req"), ["alpha", "zeta"]);
+  assert.equal(warnings.length, 1);
 });
 
 test("a non-directory entry (index.json manifest) is ignored by the scan", () => {

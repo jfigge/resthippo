@@ -26,10 +26,20 @@
  * rebuild resolves it deterministically to the lexicographically-first
  * collection, records it in duplicates(), and warns — rather than silently
  * routing reads/writes to whichever directory the filesystem listed last.
+ *
+ * The scan is restricted to the collections the manifest (collections/index.json)
+ * actually lists. The on-disk directory set can include ORPHANS — e.g. a default
+ * collection that a previous session seeded but never persisted to the manifest,
+ * or a hand-copied directory — and those hold the same request IDs as the live
+ * collection. Scanning them would make every request resolve ambiguously and warn
+ * on every startup. The manifest is the source of truth for which collections
+ * exist, so orphan directories are skipped. (When there is no manifest at all —
+ * a true pre-seed first run — the scan falls back to every directory so a store
+ * built before the manifest still resolves.)
  */
 "use strict";
 
-const { listDir, notFoundError } = require("./io");
+const { listDir, readJSON, notFoundError } = require("./io");
 
 class Resolver {
   /**
@@ -122,6 +132,16 @@ class Resolver {
   _rebuild() {
     const collectionsDir = this._paths.collectionsDir();
 
+    // The manifest is the source of truth for which collections exist; restrict
+    // the scan to its ids so orphan directories (a seeded-but-unpersisted
+    // default, a hand-copied dir) can't pollute resolution. null = no manifest
+    // yet → scan every directory (legacy/pre-seed fallback). See the file header.
+    const manifest = readJSON(this._paths.manifestPath());
+    const validIds =
+      manifest && Array.isArray(manifest.collections)
+        ? new Set(manifest.collections.map((c) => c && c.id).filter(Boolean))
+        : null;
+
     // Scan collections in a STABLE (sorted) order. readdir order is filesystem-
     // dependent, so without sorting a request that exists in two collections
     // (e.g. after a merged backup or a hand-copied directory) would resolve to
@@ -130,6 +150,7 @@ class Resolver {
     const collIds = listDir(collectionsDir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
+      .filter((name) => validIds === null || validIds.has(name))
       .sort();
 
     // reqId → every collection containing a file for it, so a request present in

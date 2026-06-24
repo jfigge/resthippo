@@ -231,6 +231,39 @@ test("loadAll: seeds a default collection on an empty (first-run) manifest", asy
   assert.ok(result.collections[0].id, "seeded collection has an id");
   // collections.get is called with the freshly-minted collection id.
   assert.equal(mock.one("collections.get").args[0], result.activeCollectionId);
+
+  // The seeded default must be PERSISTED immediately. Without this the manifest
+  // stays empty until some later write, and an import-then-quit would orphan the
+  // imported collection's directory on the next launch (the next loadAll would
+  // seed yet another default with a new id). See the comment in loadAll().
+  const saved = mock.one("manifest.save");
+  assert.equal(saved.args[0].activeCollectionId, result.activeCollectionId);
+  assert.deepEqual(
+    saved.args[0].collections.map((c) => c.id),
+    [result.activeCollectionId],
+    "manifest persisted with the seeded collection",
+  );
+});
+
+test("loadAll: an existing (non-empty) manifest is NOT re-persisted on load", async () => {
+  const mock = makeRestHippoMock();
+  mock.install();
+  mock.setReturn("manifest.get", {
+    version: 2,
+    collections: [{ id: "c1", name: "COLLECTIONS" }],
+    activeCollectionId: "c1",
+    settings: {},
+  });
+  mock.setReturn("collections.get", {
+    version: 1,
+    collections: [],
+    variables: {},
+  });
+
+  await store.loadAll();
+
+  // Only the genuine first-run seed writes the manifest; a normal load must not.
+  assert.equal(mock.of("manifest.save").length, 0);
 });
 
 test("loadAll: a thrown manifest channel is absorbed into a valid default doc", async () => {
