@@ -104,9 +104,9 @@ The **Body** tab lets you choose a body type from the dropdown and edit it:
 | **File**             | Send a file's raw bytes as the body                                  |
 
 For the structured editors (JSON / YAML / XML), Rest Hippo shows a **✓ VALID** /
-**✗** badge as you type and can **prettify** the document. The code editor has
-line numbers, optional [code folding](settings-and-themes.md#appearance), and a
-resize handle. `{{variables}}` are highlighted inline and resolved at send time.
+**✗ INVALID** badge as you type. The code editor has line numbers and a resize
+handle, and its right-click menu offers **Prettify** and **code folding**.
+`{{variables}}` are highlighted inline and resolved at send time.
 
 The **Form Data** and **Form URL Encoded** editors use the same key/value grid
 as Params and Headers, with a bulk-text mode. In Form Data, switch a row between

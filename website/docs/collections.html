@@ -129,6 +129,9 @@ can switch these badges to compact icons in
 <h3 id="the-right-click-menu">The right-click menu</h3>
 <p>Right-clicking a request or folder opens a context menu with the most common
 actions:</p>
+<p>Collections and folders are the same kind of container, so they share one menu;
+a request has its own. (A collection&#39;s icon differs, but its actions match a
+folder&#39;s.)</p>
 <table>
 <thead>
 <tr>
@@ -139,17 +142,17 @@ actions:</p>
 </thead>
 <tbody><tr>
 <td><strong>Add Request</strong> / <strong>Add WebSocket Request</strong> / <strong>Add Folder</strong></td>
-<td>folders</td>
-<td>Create a child item</td>
+<td>collections &amp; folders</td>
+<td>Create a child item (also on a request, to insert a sibling after)</td>
 </tr>
 <tr>
 <td><strong>Run All Requests</strong></td>
-<td>folders</td>
-<td><a href="#running-a-whole-folder">Run every request in the folder</a> and tally their tests</td>
+<td>collections &amp; folders</td>
+<td><a href="#running-a-whole-folder">Run every request inside</a> and tally their tests</td>
 </tr>
 <tr>
 <td><strong>Rename</strong></td>
-<td>both</td>
+<td>any item</td>
 <td>Edit the name inline</td>
 </tr>
 <tr>
@@ -159,7 +162,7 @@ actions:</p>
 </tr>
 <tr>
 <td><strong>Duplicate</strong></td>
-<td>both</td>
+<td>any item</td>
 <td>Copy the item (and its contents)</td>
 </tr>
 <tr>
@@ -174,12 +177,12 @@ actions:</p>
 </tr>
 <tr>
 <td><strong>Export…</strong></td>
-<td>collections</td>
-<td><a href="import-export-and-backup.html">Export</a> the collection</td>
+<td>collections &amp; folders</td>
+<td><a href="import-export-and-backup.html">Export</a> the collection or folder subtree</td>
 </tr>
 <tr>
 <td><strong>Variables</strong></td>
-<td>collections, folders</td>
+<td>collections &amp; folders</td>
 <td>Edit <a href="variables-and-environments.html">variables</a> for that scope</td>
 </tr>
 <tr>
@@ -189,7 +192,7 @@ actions:</p>
 </tr>
 <tr>
 <td><strong>Delete</strong></td>
-<td>both</td>
+<td>any item</td>
 <td>Remove the item (asks to confirm)</td>
 </tr>
 </tbody></table>
@@ -234,13 +237,14 @@ Rest Hippo or run the folder again.</p>
 <h2 id="favorites-and-recent">Favorites and Recent</h2>
 <p>Two extra tabs sit above the tree and span <strong>all</strong> your collections:</p>
 <p><strong>Favorites</strong> — requests you&#39;ve starred for quick access. Star a request from
-its right-click menu, then drag to reorder them.</p>
+its right-click menu; they appear in the order you starred them. Remove one with
+<strong>Unfavorite</strong> from its right-click menu.</p>
 <p><img src="images/tree-favorites.png" alt="The Favorites tab"></p>
 <p><strong>Recent</strong> — the requests you&#39;ve used most recently, newest first. This list is
 maintained automatically.</p>
 <p><img src="images/tree-recents.png" alt="The Recent tab"></p>
 <blockquote>
-<p>Prefer not to see the Recent tab? Turn off <strong>Show recents</strong> in
+<p>Prefer not to see the Recent tab? Turn off <strong>Show recently used tab</strong> in
 <a href="settings-and-themes.html#appearance">Settings → Appearance</a>.</p>
 </blockquote>
 <h2 id="cookies">Cookies</h2>

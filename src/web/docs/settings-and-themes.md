@@ -10,18 +10,21 @@ save step.
 
 ![Settings — Appearance](images/settings-appearance.png)
 
-| Setting              | What it does                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------ |
-| **Theme**            | The color theme (see [Themes](#themes)).                                                               |
-| **Editor font size** | Size of text in the code editors (11–18 px).                                                           |
-| **UI font**          | The interface typeface — **Inter** (bundled) or a system font.                                         |
-| **Remove headers**   | Hides the top header bar and moves its controls into the collections panel, for a more compact window. |
-| **Method icons**     | Show HTTP method badges as compact icons instead of text.                                              |
-| **Show recents**     | Show or hide the [Recent](collections.md#favorites-and-recent) tab.                                    |
+| Setting              | What it does                                                                                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Language**         | The interface language — **System** (follow the OS) or English, Deutsch, Español, Français, Italiano, 日本語, 中文（简体）. Changing it reloads the window. |
+| **Theme**            | The color theme, plus the **Theme Editor…** entry (see [Themes](#themes)).                                                                                   |
+| **Editor font size** | Size of text in the code editors (11, 12, 13, 14, 16, or 18 px).                                                                                            |
+| **UI font**          | The interface typeface — **Inter** (bundled), your **system** font, or SF Pro / Segoe UI / Ubuntu / Roboto.                                                  |
+| **Layout**           | The [panel layout](#layouts) (1–4).                                                                                                                          |
+| **Hide headers**     | Hides the top header bar and moves its controls into the collections panel, for a more compact window.                                                       |
+| **Use method icons** | Show HTTP method badges as compact icons instead of text.                                                                                                    |
+| **Show recently used tab** | Show or hide the [Recent](collections.md#favorites-and-recent) tab.                                                                                    |
+| **Show URL preview** | Show the resolved URL (with `{{variables}}` filled in) above the Params editor.                                                                              |
 
-There's also a **code folding** toggle for the editors, and you can change the
-font size anywhere with <kbd>⌘/Ctrl</kbd>+<kbd>+</kbd> /
-<kbd>-</kbd> / <kbd>0</kbd>.
+You can change the editor font size anywhere with <kbd>⌘/Ctrl</kbd>+<kbd>+</kbd> /
+<kbd>-</kbd> / <kbd>0</kbd>. **Code folding** is toggled from each editor's own
+right-click menu rather than from Settings.
 
 ## Request
 

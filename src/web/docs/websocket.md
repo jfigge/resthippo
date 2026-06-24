@@ -39,10 +39,11 @@ The frame log is a timestamped record of the whole session:
 - **Sent** frames (outgoing messages),
 - **Received** frames (incoming data — including server pushes you didn't ask
   for), and
-- **System** frames (lifecycle events: _Connected_, _Disconnected_, errors).
+- **System** frames (lifecycle events: _Connected_, _Connection closed_, errors).
 
 JSON payloads are pretty-printed automatically. Use **Clear** to reset the log;
-it also clears when you disconnect.
+it's also reset when you connect (or reconnect) and when you switch to a
+different request.
 
 > A failed handshake (for example a `401` rejection) surfaces in the log as an
 > **Error** frame with the status, so you can tell a refused upgrade from a

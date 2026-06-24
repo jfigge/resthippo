@@ -40,10 +40,9 @@ Rest Hippo's window has three panels:
 - **Response** (right) — the status, timing, body (syntax-highlighted), headers,
   cookies, console output, and a request timeline.
 
-At the top right are the **layout picker** and **settings**. You can rearrange
-the three panels into four different
-[layouts](settings-and-themes.md#layouts) and restyle everything with
-[themes](settings-and-themes.md#themes).
+At the top right is **Settings**. From there you can rearrange the three panels
+into four different [layouts](settings-and-themes.md#layouts) and restyle
+everything with [themes](settings-and-themes.md#themes).
 
 > The screenshots in this guide use a demo collection called **Demo API** and a
 > **Local** environment pointing at a test server. Yours will show your own

@@ -15,8 +15,8 @@ before restarting to install. Automatic checking is **off by default** — enabl
 it in **Settings → About**, or check any time via **Help → Check for Updates…**.
 See [Settings → About & updates](settings-and-themes.md#about--updates).
 
-On first launch Rest Hippo offers to install a `hippo` command so you can start
-it from a terminal; you can also set this up later from
+Rest Hippo can install a `hippo` command so you can start it from a terminal —
+set this up from
 [Settings → Command Line](settings-and-themes.md#command-line).
 
 > Building from source? See the project [README](../README.md) — `make install`
@@ -37,12 +37,16 @@ Rest Hippo is organized into three panels:
 3. **Response** (right) — the response status and timing, plus tabs for the
    body, headers, cookies, console, and timeline.
 
-The header holds two controls, from left to right:
+The header (top right) holds the **Settings** control:
 
-| Control            | What it does                                                                                                                                                  |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 🌐 **Environment** | Shows the active environment (e.g. `LOCAL`); click to switch, **right-click** to reach the [environments editor](variables-and-environments.md#environments). |
-| ⚙ **Settings**     | Opens [Settings](settings-and-themes.md) — theme, fonts, the [panel layout](settings-and-themes.md#layouts), proxy, and more.                                 |
+| Control        | What it does                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| ⚙ **Settings** | Opens [Settings](settings-and-themes.md) — theme, fonts, the [panel layout](settings-and-themes.md#layouts), proxy, and more. |
+
+The **🌐 environment selector** (showing the active environment, e.g. `LOCAL`)
+lives in the **Collections** panel's toolbar next to the collection selector —
+click it to switch environments, or **right-click** to open the
+[environments editor](variables-and-environments.md#environments).
 
 You can resize the panels by dragging the dividers between them, and Rest Hippo
 remembers the positions.

@@ -96,33 +96,45 @@ save step.</p>
 </tr>
 </thead>
 <tbody><tr>
+<td><strong>Language</strong></td>
+<td>The interface language — <strong>System</strong> (follow the OS) or English, Deutsch, Español, Français, Italiano, 日本語, 中文（简体）. Changing it reloads the window.</td>
+</tr>
+<tr>
 <td><strong>Theme</strong></td>
-<td>The color theme (see <a href="#themes">Themes</a>).</td>
+<td>The color theme, plus the <strong>Theme Editor…</strong> entry (see <a href="#themes">Themes</a>).</td>
 </tr>
 <tr>
 <td><strong>Editor font size</strong></td>
-<td>Size of text in the code editors (11–18 px).</td>
+<td>Size of text in the code editors (11, 12, 13, 14, 16, or 18 px).</td>
 </tr>
 <tr>
 <td><strong>UI font</strong></td>
-<td>The interface typeface — <strong>Inter</strong> (bundled) or a system font.</td>
+<td>The interface typeface — <strong>Inter</strong> (bundled), your <strong>system</strong> font, or SF Pro / Segoe UI / Ubuntu / Roboto.</td>
 </tr>
 <tr>
-<td><strong>Remove headers</strong></td>
+<td><strong>Layout</strong></td>
+<td>The <a href="#layouts">panel layout</a> (1–4).</td>
+</tr>
+<tr>
+<td><strong>Hide headers</strong></td>
 <td>Hides the top header bar and moves its controls into the collections panel, for a more compact window.</td>
 </tr>
 <tr>
-<td><strong>Method icons</strong></td>
+<td><strong>Use method icons</strong></td>
 <td>Show HTTP method badges as compact icons instead of text.</td>
 </tr>
 <tr>
-<td><strong>Show recents</strong></td>
+<td><strong>Show recently used tab</strong></td>
 <td>Show or hide the <a href="collections.html#favorites-and-recent">Recent</a> tab.</td>
 </tr>
+<tr>
+<td><strong>Show URL preview</strong></td>
+<td>Show the resolved URL (with <code>{{variables}}</code> filled in) above the Params editor.</td>
+</tr>
 </tbody></table>
-<p>There&#39;s also a <strong>code folding</strong> toggle for the editors, and you can change the
-font size anywhere with <kbd>⌘/Ctrl</kbd>+<kbd>+</kbd> /
-<kbd>-</kbd> / <kbd>0</kbd>.</p>
+<p>You can change the editor font size anywhere with <kbd>⌘/Ctrl</kbd>+<kbd>+</kbd> /
+<kbd>-</kbd> / <kbd>0</kbd>. <strong>Code folding</strong> is toggled from each editor&#39;s own
+right-click menu rather than from Settings.</p>
 <h2 id="request">Request</h2>
 <p><img src="images/settings-request.png" alt="Settings — Request"></p>
 <table>
@@ -234,6 +246,14 @@ the cookie jar are stored unencrypted in every mode.</p>
 attempts</strong>, the <strong>backoff base</strong>, <strong>multiplier</strong>, and <strong>max delay</strong>, and choose
 what to retry on — <strong>connection errors</strong>, <strong>timeouts</strong>, and/or a list of
 <strong>status codes</strong> (e.g. <code>429, 503, 504</code>). Retries are off by default.</p>
+<p>When a retried response carries a <strong><code>Retry-After</code></strong> header, Rest Hippo waits for
+the time the server asks (capped at your <strong>max delay</strong>) instead of the computed
+backoff. To avoid duplicating a write, <strong>connection-error and timeout</strong> retries
+apply only to idempotent methods (GET, HEAD, PUT, DELETE, …) — a <code>POST</code>/<code>PATCH</code>
+that fails mid-flight might already have been processed, so it is <strong>not</strong> retried
+on a network error unless you enable <strong>Retry POST/PATCH on network errors</strong>.
+(Status-code retries still apply to every method, since the server&#39;s response
+shows it didn&#39;t act on the request.)</p>
 <h2 id="history">History</h2>
 <p>Set how many runs each request keeps in its
 <a href="responses.html#timeline"><strong>Timeline</strong></a> (1–10).</p>
@@ -257,12 +277,14 @@ per-user <code>PATH</code>. Open a <strong>new</strong> terminal afterwards to p
 a development build, since there&#39;s no packaged executable to point at.</p>
 </blockquote>
 <h2 id="about--updates">About &amp; updates</h2>
-<p>The <strong>About</strong> panel shows the installed version and a <strong>Check for Updates</strong>
-button. Rest Hippo also checks automatically shortly after launch.</p>
+<p>The <strong>About</strong> panel shows the installed version, an <strong>Automatically check for
+updates</strong> toggle, and a <strong>Check for Updates</strong> button. Automatic checking is
+<strong>off by default</strong>: enable the toggle to have Rest Hippo look for new releases
+shortly after launch. The <strong>Check for Updates</strong> button — and <strong>Help → Check for
+Updates…</strong> — run on demand regardless of the toggle.</p>
 <p>When a newer release is found it downloads in the background; once it&#39;s ready a
 notification offers to <strong>Restart</strong> and install it — Rest Hippo never restarts on
-its own. You can also trigger a check any time from <strong>Help → Check for
-Updates…</strong>. Updates are signed, so they install without security prompts.</p>
+its own. Updates are signed, so they install without security prompts.</p>
 <h2 id="layouts">Layouts</h2>
 <p>The <strong>layout picker</strong> in <strong>Appearance → Layout</strong> rearranges the three panels
 into four configurations — click a layout icon to switch:</p>
@@ -298,10 +320,17 @@ the panel dividers.</p>
 <strong>Grey dark</strong>, <strong>Latte</strong> (light), and <strong>Grey light</strong> — selectable from
 <strong>Appearance → Theme</strong>.</p>
 <p>For full control, choose <strong>Theme Editor…</strong> from the theme dropdown to open the
-editor in its own window. There you can tune every design token — backgrounds,
-text, accent and semantic colors — with a live preview, and save your creation
-as a custom theme that appears in the theme list. Custom themes can be exported
-and imported to share.</p>
+editor in its own window. It has two tabs:</p>
+<ul>
+<li><strong>Colors</strong> — tune every colour token: backgrounds, text, accent and semantic
+colours, plus the per-method request badges.</li>
+<li><strong>Metrics</strong> — adjust the layout tokens that control how dense the interface
+feels: the <strong>spacing</strong> scale, <strong>control heights</strong> (buttons, inputs, selects),
+corner <strong>radii</strong>, and the <strong>splitter</strong> thickness. Each is a pixel value.</li>
+</ul>
+<p>Both tabs update the app with a <strong>live preview</strong>, so you can see your changes as
+you make them. Save your creation as a custom theme that appears in the theme
+list. Custom themes can be exported and imported to share.</p>
 <blockquote>
 <p>The interface font for <strong>context menus</strong> always uses your OS&#39;s native
 typeface (San Francisco, Segoe UI, …); the <strong>UI font</strong> setting controls

@@ -19,7 +19,7 @@ The **Body** tab renders the response according to its content type. By default
 it's **Styled** — pretty-printed and syntax-highlighted:
 
 - **JSON / YAML / XML / HTML** — indented and colorized
-- **Markdown** — rendered
+- **Markdown** — rendered inline
 - **JavaScript / CSS** — colorized
 - **Images** — shown inline:
 
@@ -28,15 +28,18 @@ it's **Styled** — pretty-printed and syntax-highlighted:
 - **Binary** — shown as a hex dump
 
 **Secondary-click (right-click) the `Body` tab** for options: switch the render
-mode between **Styled**, **Raw** (plain monospace), and **Hex**; **Copy** the
-body; **Download** it (Rest Hippo picks an extension from the content type); or **Copy
-as cURL** to reproduce the whole request on the command line.
+mode between **Styled**, **Raw** (plain monospace), and **Hex**, or **Download**
+the body (Rest Hippo picks an extension from the content type). Right-clicking the
+rendered body **text** itself offers **Copy** (of the current selection) plus
+wrap, line-number, and code-folding toggles. To reproduce the whole request as a
+`curl` command, use **Copy as cURL** on the request in the tree.
 
 ### Preview
 
-For HTML and Markdown responses, the **Preview** tab renders the content live in
-a sandboxed view, so you can see the page as a browser would. Any `console.log`
-output the page produces is captured on the **Console** tab.
+For **HTML** responses, the **Preview** tab renders the content live in a
+sandboxed view, so you can see the page as a browser would. Any `console.log`
+output the page produces is captured on the **Console** tab. (Markdown is
+rendered inline on the **Body** tab, so it has no separate Preview tab.)
 
 > PDF responses open in Rest Hippo's built-in PDF viewer with zoom and page
 > navigation.

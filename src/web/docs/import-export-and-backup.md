@@ -122,7 +122,7 @@ When creating a backup, choose how secrets are handled:
 | Mode                   | Secrets                                                                         | Restores on…                                      |
 | ---------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------- |
 | **Redacted**           | Removed entirely                                                                | Anywhere — safe to share or move between machines |
-| **This machine only**  | Encrypted with the OS keystore (Keychain / Credential Manager / Secret Service) | Only this machine                                 |
+| **This machine only**  | Kept in their at-rest encrypted form, tied to this machine's [Security](settings-and-themes.md#security) setup | Only this machine                                 |
 | **Password-protected** | Encrypted with a password you choose                                            | Anywhere, with the password                       |
 
 **Restoring** reads a backup file (prompting for the password if it's

@@ -7,7 +7,7 @@
 ## Global
 
 These work anywhere in the app. Press <kbd>⌘/Ctrl</kbd>+<kbd>K</kbd> at any time
-to pop up this same list inside Rest Hippo.
+to pop up a quick reference to the most common shortcuts inside Rest Hippo.
 
 | Shortcut                                          | Action                                                  |
 | ------------------------------------------------- | ------------------------------------------------------- |
@@ -63,6 +63,8 @@ also list these accelerators next to their commands.
 | <kbd>↑</kbd> / <kbd>↓</kbd>       | Move through autocomplete suggestions |
 | <kbd>Enter</kbd> / <kbd>Tab</kbd> | Accept the highlighted suggestion     |
 | <kbd>Esc</kbd>                    | Dismiss suggestions                   |
+| <kbd>⌘/Ctrl</kbd>+<kbd>Z</kbd>                   | Undo in the focused editor field |
+| <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd>  | Redo in the focused editor field |
 
 ## Appearance
 
@@ -98,7 +100,7 @@ between entries in the collections and environments lists.
 
 ## Pickers & menus
 
-The layout picker (and other dropdown menus) are fully keyboard-operable:
+Dropdown menus and selectors throughout the app are fully keyboard-operable:
 
 | Shortcut                                         | Action                       |
 | ------------------------------------------------ | ---------------------------- |

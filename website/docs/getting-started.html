@@ -88,12 +88,13 @@ kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px so
 Download the installer for your platform, run it, and launch Rest Hippo — there&#39;s
 nothing else to set up. Your data lives in a local folder under your user
 profile, so requests, environments, and settings persist between sessions.</p>
-<p>Rest Hippo keeps itself current: it checks for new releases after launch (and on
-demand via <strong>Help → Check for Updates…</strong>), downloads them in the background, and
-asks before restarting to install. See
-<a href="settings-and-themes.html#about--updates">Settings → About &amp; updates</a>.</p>
-<p>On first launch Rest Hippo offers to install a <code>hippo</code> command so you can start
-it from a terminal; you can also set this up later from
+<p>Rest Hippo can keep itself current: when you turn on automatic checks it looks
+for new releases shortly after launch, downloads them in the background, and asks
+before restarting to install. Automatic checking is <strong>off by default</strong> — enable
+it in <strong>Settings → About</strong>, or check any time via <strong>Help → Check for Updates…</strong>.
+See <a href="settings-and-themes.html#about--updates">Settings → About &amp; updates</a>.</p>
+<p>Rest Hippo can install a <code>hippo</code> command so you can start it from a terminal —
+set this up from
 <a href="settings-and-themes.html#command-line">Settings → Command Line</a>.</p>
 <blockquote>
 <p>Building from source? See the project <a href="https://github.com/jfigge/resthippo#readme">README</a> — <code>make install</code>
@@ -112,7 +113,7 @@ define query parameters, headers, the body, authentication, and captures.</li>
 <li><strong>Response</strong> (right) — the response status and timing, plus tabs for the
 body, headers, cookies, console, and timeline.</li>
 </ol>
-<p>The header holds two controls, from left to right:</p>
+<p>The header (top right) holds the <strong>Settings</strong> control:</p>
 <table>
 <thead>
 <tr>
@@ -121,14 +122,14 @@ body, headers, cookies, console, and timeline.</li>
 </tr>
 </thead>
 <tbody><tr>
-<td>🌐 <strong>Environment</strong></td>
-<td>Shows the active environment (e.g. <code>LOCAL</code>); click to switch, <strong>right-click</strong> to reach the <a href="variables-and-environments.html#environments">environments editor</a>.</td>
-</tr>
-<tr>
 <td>⚙ <strong>Settings</strong></td>
 <td>Opens <a href="settings-and-themes.html">Settings</a> — theme, fonts, the <a href="settings-and-themes.html#layouts">panel layout</a>, proxy, and more.</td>
 </tr>
 </tbody></table>
+<p>The <strong>🌐 environment selector</strong> (showing the active environment, e.g. <code>LOCAL</code>)
+lives in the <strong>Collections</strong> panel&#39;s toolbar next to the collection selector —
+click it to switch environments, or <strong>right-click</strong> to open the
+<a href="variables-and-environments.html#environments">environments editor</a>.</p>
 <p>You can resize the panels by dragging the dividers between them, and Rest Hippo
 remembers the positions.</p>
 <h2 id="sending-your-first-request">Sending your first request</h2>

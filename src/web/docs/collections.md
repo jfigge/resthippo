@@ -57,19 +57,23 @@ can switch these badges to compact icons in
 Right-clicking a request or folder opens a context menu with the most common
 actions:
 
-| Action                                                       | Applies to           | What it does                                                   |
-| ------------------------------------------------------------ | -------------------- | -------------------------------------------------------------- |
-| **Add Request** / **Add WebSocket Request** / **Add Folder** | folders              | Create a child item                                            |
-| **Run All Requests**                                         | folders              | [Run every request in the folder](#running-a-whole-folder) and tally their tests |
-| **Rename**                                                   | both                 | Edit the name inline                                           |
-| **Favorite** / **Unfavorite**                                | requests             | Toggle the [Favorites](#favorites-and-recent) star             |
-| **Duplicate**                                                | both                 | Copy the item (and its contents)                               |
-| **Generate code…**                                           | requests             | Preview the request as cURL, JavaScript `fetch`, Python `requests`, Go, or HTTPie, then copy |
-| **Copy as cURL**                                             | requests             | Copy an equivalent `curl` command straight to the clipboard    |
-| **Export…**                                                  | collections          | [Export](import-export-and-backup.md) the collection           |
-| **Variables**                                                | collections, folders | Edit [variables](variables-and-environments.md) for that scope |
-| **Clear Run History**                                        | requests             | Discard the request's saved [timeline](responses.md#timeline)  |
-| **Delete**                                                   | both                 | Remove the item (asks to confirm)                              |
+Collections and folders are the same kind of container, so they share one menu;
+a request has its own. (A collection's icon differs, but its actions match a
+folder's.)
+
+| Action                                                       | Applies to            | What it does                                                   |
+| ------------------------------------------------------------ | --------------------- | -------------------------------------------------------------- |
+| **Add Request** / **Add WebSocket Request** / **Add Folder** | collections & folders | Create a child item (also on a request, to insert a sibling after) |
+| **Run All Requests**                                         | collections & folders | [Run every request inside](#running-a-whole-folder) and tally their tests |
+| **Rename**                                                   | any item              | Edit the name inline                                           |
+| **Favorite** / **Unfavorite**                                | requests              | Toggle the [Favorites](#favorites-and-recent) star             |
+| **Duplicate**                                                | any item              | Copy the item (and its contents)                               |
+| **Generate code…**                                           | requests              | Preview the request as cURL, JavaScript `fetch`, Python `requests`, Go, or HTTPie, then copy |
+| **Copy as cURL**                                             | requests              | Copy an equivalent `curl` command straight to the clipboard    |
+| **Export…**                                                  | collections & folders | [Export](import-export-and-backup.md) the collection or folder subtree |
+| **Variables**                                                | collections & folders | Edit [variables](variables-and-environments.md) for that scope |
+| **Clear Run History**                                        | requests              | Discard the request's saved [timeline](responses.md#timeline)  |
+| **Delete**                                                   | any item              | Remove the item (asks to confirm)                             |
 
 ## Running a whole folder
 
@@ -120,7 +124,8 @@ runs — open any request when it finishes to inspect its recorded run.
 Two extra tabs sit above the tree and span **all** your collections:
 
 **Favorites** — requests you've starred for quick access. Star a request from
-its right-click menu, then drag to reorder them.
+its right-click menu; they appear in the order you starred them. Remove one with
+**Unfavorite** from its right-click menu.
 
 ![The Favorites tab](images/tree-favorites.png)
 
@@ -129,7 +134,7 @@ maintained automatically.
 
 ![The Recent tab](images/tree-recents.png)
 
-> Prefer not to see the Recent tab? Turn off **Show recents** in
+> Prefer not to see the Recent tab? Turn off **Show recently used tab** in
 > [Settings → Appearance](settings-and-themes.md#appearance).
 
 ## Cookies

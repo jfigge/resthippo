@@ -97,7 +97,7 @@ it&#39;s <strong>Styled</strong> — pretty-printed and syntax-highlighted:</p>
 <ul>
 <li><p><strong>JSON / YAML / XML / HTML</strong> — indented and colorized</p>
 </li>
-<li><p><strong>Markdown</strong> — rendered</p>
+<li><p><strong>Markdown</strong> — rendered inline</p>
 </li>
 <li><p><strong>JavaScript / CSS</strong> — colorized</p>
 </li>
@@ -108,13 +108,16 @@ it&#39;s <strong>Styled</strong> — pretty-printed and syntax-highlighted:</p>
 </li>
 </ul>
 <p><strong>Secondary-click (right-click) the <code>Body</code> tab</strong> for options: switch the render
-mode between <strong>Styled</strong>, <strong>Raw</strong> (plain monospace), and <strong>Hex</strong>; <strong>Copy</strong> the
-body; <strong>Download</strong> it (Rest Hippo picks an extension from the content type); or <strong>Copy
-as cURL</strong> to reproduce the whole request on the command line.</p>
+mode between <strong>Styled</strong>, <strong>Raw</strong> (plain monospace), and <strong>Hex</strong>, or <strong>Download</strong>
+the body (Rest Hippo picks an extension from the content type). Right-clicking the
+rendered body <strong>text</strong> itself offers <strong>Copy</strong> (of the current selection) plus
+wrap, line-number, and code-folding toggles. To reproduce the whole request as a
+<code>curl</code> command, use <strong>Copy as cURL</strong> on the request in the tree.</p>
 <h3 id="preview">Preview</h3>
-<p>For HTML and Markdown responses, the <strong>Preview</strong> tab renders the content live in
-a sandboxed view, so you can see the page as a browser would. Any <code>console.log</code>
-output the page produces is captured on the <strong>Console</strong> tab.</p>
+<p>For <strong>HTML</strong> responses, the <strong>Preview</strong> tab renders the content live in a
+sandboxed view, so you can see the page as a browser would. Any <code>console.log</code>
+output the page produces is captured on the <strong>Console</strong> tab. (Markdown is
+rendered inline on the <strong>Body</strong> tab, so it has no separate Preview tab.)</p>
 <blockquote>
 <p>PDF responses open in Rest Hippo&#39;s built-in PDF viewer with zoom and page
 navigation.</p>
