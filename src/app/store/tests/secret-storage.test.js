@@ -47,6 +47,14 @@ function resetCrypto() {
   crypto.configure({ mode: "os-keychain", appKey: null, masterKey: null });
 }
 
+// A reversible stand-in for Electron safeStorage so os-keychain (enc:v1:) values
+// can be sealed/opened in this Node test context (mirrors crypto.test.js).
+const SAFE_STORAGE_MOCK = {
+  isEncryptionAvailable: () => true,
+  encryptString: (s) => Buffer.from(s, "utf8"),
+  decryptString: (buf) => Buffer.from(buf).toString("utf8"),
+};
+
 describe("mode inference (no decrypt → no keychain prompt)", () => {
   afterEach(resetCrypto);
 
@@ -315,6 +323,261 @@ describe("reencryptAll migration", () => {
       assert.equal(
         fs.readFileSync(paths.requestPath("c1", "r1"), "utf8"),
         after1,
+      );
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+});
+
+describe("crash-resume of an interrupted mode-switch migration", () => {
+  afterEach(() => {
+    crypto._setSafeStorage(null);
+    resetCrypto();
+  });
+
+  // Seed a store sealed under `from`, write the app-key file when relevant, and
+  // leave a migration marker as if a crash struck right after markMigration()
+  // (before the mode flip). Returns { paths }.
+  function seedInterrupted(dir, { from, to, appKey, masterPrep }) {
+    const paths = new Paths(dir);
+    crypto.configure({
+      mode: from,
+      appKey: appKey ?? null,
+      masterKey: masterPrep?.key ?? null,
+    });
+    fs.mkdirSync(paths.requestsDir("c1"), { recursive: true });
+    fs.mkdirSync(path.dirname(paths.manifestPath()), { recursive: true });
+    fs.writeFileSync(
+      paths.manifestPath(),
+      JSON.stringify({ settings: { proxyUrl: crypto.encryptString("u:p@h") } }),
+    );
+    fs.writeFileSync(
+      paths.requestPath("c1", "r1"),
+      JSON.stringify({
+        id: "r1",
+        authBearer: { token: crypto.encryptString("tok") },
+      }),
+    );
+    const ss = new SecretStorage(paths);
+    if (appKey) {
+      // The real switch creates the target/source app-key file via ensureAppKey.
+      fs.mkdirSync(path.dirname(paths.secretKeyPath()), { recursive: true });
+      fs.writeFileSync(paths.secretKeyPath(), appKey.toString("base64"), {
+        mode: 0o600,
+      });
+    }
+    if (from === "master-password") {
+      ss.writeConfig({
+        mode: "master-password",
+        kdf: masterPrep.kdf,
+        verifier: masterPrep.verifier,
+      });
+    }
+    ss.markMigration(
+      from,
+      to,
+      to === "master-password"
+        ? { kdf: masterPrep.kdf, verifier: masterPrep.verifier }
+        : {},
+    );
+    return paths;
+  }
+
+  it("auto-resumes app-key → os-keychain at bootstrap (silent, no password)", () => {
+    const dir = makeTmpDir();
+    try {
+      crypto._setSafeStorage(SAFE_STORAGE_MOCK);
+      const APP_KEY = nodeCrypto.randomBytes(32);
+      const paths = seedInterrupted(dir, {
+        from: "app-key",
+        to: "os-keychain",
+        appKey: APP_KEY,
+      });
+
+      const { mode, locked } = new SecretStorage(paths).bootstrap();
+      assert.equal(mode, "os-keychain");
+      assert.equal(locked, false);
+      assert.equal(new SecretStorage(paths).pendingMigration(), null);
+      assert.ok(!fs.existsSync(paths.secretKeyPath())); // left app-key → key removed
+
+      const req = JSON.parse(
+        fs.readFileSync(paths.requestPath("c1", "r1"), "utf8"),
+      );
+      assert.ok(req.authBearer.token.startsWith("enc:v1:"));
+      crypto.configure({ mode: "os-keychain" });
+      assert.equal(crypto.decryptString(req.authBearer.token), "tok");
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("auto-resumes os-keychain → app-key at bootstrap (the once-stranded case)", () => {
+    const dir = makeTmpDir();
+    try {
+      crypto._setSafeStorage(SAFE_STORAGE_MOCK);
+      const APP_KEY = nodeCrypto.randomBytes(32);
+      const paths = seedInterrupted(dir, {
+        from: "os-keychain",
+        to: "app-key",
+        appKey: APP_KEY, // the switch created the target key file
+      });
+
+      const { mode } = new SecretStorage(paths).bootstrap();
+      assert.equal(mode, "app-key");
+      assert.equal(new SecretStorage(paths).pendingMigration(), null);
+      assert.ok(fs.existsSync(paths.secretKeyPath())); // target app-key → key kept
+
+      const req = JSON.parse(
+        fs.readFileSync(paths.requestPath("c1", "r1"), "utf8"),
+      );
+      assert.ok(req.authBearer.token.startsWith("enck:v1:"));
+      crypto.configure({ mode: "app-key", appKey: APP_KEY });
+      assert.equal(crypto.decryptString(req.authBearer.token), "tok");
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("defers an X → master-password switch to unlock, then resumes", () => {
+    const dir = makeTmpDir();
+    try {
+      const APP_KEY = nodeCrypto.randomBytes(32);
+      const prep = new SecretStorage(new Paths(dir)).prepareMasterPassword(
+        "pw",
+      );
+      const paths = seedInterrupted(dir, {
+        from: "app-key",
+        to: "master-password",
+        appKey: APP_KEY,
+        masterPrep: prep,
+      });
+
+      // Next launch boots LOCKED master-password so the user is prompted…
+      const ss = new SecretStorage(paths);
+      const boot = ss.bootstrap();
+      assert.equal(boot.mode, "master-password");
+      assert.equal(boot.locked, true);
+      assert.deepEqual(ss.pendingMigration(), {
+        from: "app-key",
+        to: "master-password",
+      });
+      assert.equal(ss.readConfig().mode, "app-key"); // flip never happened
+
+      // …the unlock handler verifies the password and resumes.
+      const key = ss.verifyMasterPassword("pw", ss.readConfig());
+      assert.ok(Buffer.isBuffer(key));
+      crypto.setMasterKey(key);
+      assert.equal(ss.resumeMigration({ masterKey: key }).status, "resumed");
+      assert.equal(ss.readConfig().mode, "master-password");
+      assert.equal(ss.pendingMigration(), null);
+      assert.ok(!fs.existsSync(paths.secretKeyPath())); // left app-key → key removed
+
+      const req = JSON.parse(
+        fs.readFileSync(paths.requestPath("c1", "r1"), "utf8"),
+      );
+      assert.ok(req.authBearer.token.startsWith("encm:v1:"));
+      crypto.configure({ mode: "master-password", masterKey: key });
+      assert.equal(crypto.decryptString(req.authBearer.token), "tok");
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("resumes a master-password → os-keychain switch after unlock", () => {
+    const dir = makeTmpDir();
+    try {
+      crypto._setSafeStorage(SAFE_STORAGE_MOCK);
+      const prep = new SecretStorage(new Paths(dir)).prepareMasterPassword(
+        "pw",
+      );
+      const paths = seedInterrupted(dir, {
+        from: "master-password",
+        to: "os-keychain",
+        masterPrep: prep,
+      });
+
+      const ss = new SecretStorage(paths);
+      const boot = ss.bootstrap();
+      assert.equal(boot.mode, "master-password");
+      assert.equal(boot.locked, true);
+
+      const key = ss.verifyMasterPassword("pw", ss.readConfig());
+      crypto.setMasterKey(key);
+      assert.equal(ss.resumeMigration({ masterKey: key }).status, "resumed");
+      assert.equal(ss.readConfig().mode, "os-keychain");
+      assert.equal(ss.pendingMigration(), null);
+
+      const req = JSON.parse(
+        fs.readFileSync(paths.requestPath("c1", "r1"), "utf8"),
+      );
+      assert.ok(req.authBearer.token.startsWith("enc:v1:"));
+      crypto.configure({ mode: "os-keychain" });
+      assert.equal(crypto.decryptString(req.authBearer.token), "tok");
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("resumeMigration() reports needs-unlock for a master migration with no key", () => {
+    const dir = makeTmpDir();
+    try {
+      const ss = new SecretStorage(new Paths(dir));
+      const prep = ss.prepareMasterPassword("pw");
+      ss.markMigration("app-key", "master-password", {
+        kdf: prep.kdf,
+        verifier: prep.verifier,
+      });
+      assert.deepEqual(ss.resumeMigration({}), {
+        status: "needs-unlock",
+        from: "app-key",
+        to: "master-password",
+      });
+      // …and the marker is still there to retry.
+      assert.ok(ss.pendingMigration());
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("resumeMigration() is a no-op with no marker", () => {
+    const dir = makeTmpDir();
+    try {
+      const ss = new SecretStorage(new Paths(dir));
+      ss.writeConfig({ mode: "app-key" });
+      assert.deepEqual(ss.resumeMigration({}), { status: "none" });
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("markMigration preserves master key material; clearMigration drops only the marker", () => {
+    const dir = makeTmpDir();
+    try {
+      const ss = new SecretStorage(new Paths(dir));
+      const prep = ss.prepareMasterPassword("pw");
+      ss.writeConfig({
+        mode: "master-password",
+        kdf: prep.kdf,
+        verifier: prep.verifier,
+      });
+      ss.markMigration("master-password", "app-key"); // leaving master
+      assert.deepEqual(ss.pendingMigration(), {
+        from: "master-password",
+        to: "app-key",
+      });
+      assert.ok(
+        ss.readConfig().verifier,
+        "verifier kept so from-master stays unlockable",
+      );
+
+      ss.clearMigration();
+      assert.equal(ss.pendingMigration(), null);
+      const cfg = ss.readConfig();
+      assert.equal(cfg.mode, "master-password");
+      assert.ok(
+        cfg.kdf && cfg.verifier,
+        "master material retained after clear",
       );
     } finally {
       rmTmpDir(dir);

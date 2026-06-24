@@ -186,13 +186,157 @@ class SecretStorage {
     let config = this.readConfig();
     if (!config) config = this._inferAndPersist();
 
-    const mode = config.mode;
-    let appKey = null;
-    if (mode === "app-key") appKey = this.ensureAppKey();
-    // master-password: leave the key null → starts locked until the user unlocks.
+    // Finish a mode-switch migration that a crash interrupted between converting
+    // the secret files and flipping the mode (see markMigration/resumeMigration).
+    // The no-password directions (app-key ↔ os-keychain) complete here, silently;
+    // a direction involving master-password is deferred to the unlock prompt
+    // below, since sealing/decrypting encm: needs the passphrase.
+    const marker = this._migrationOf(config);
+    if (marker && !this._markerNeedsPassword(marker)) {
+      try {
+        this.resumeMigration({});
+      } catch (err) {
+        console.warn(`[secret-storage] auto-resume failed: ${err?.message}`);
+      }
+      config = this.readConfig() || config; // refresh: mode flipped, marker cleared
+    }
+
+    // A still-pending master-password migration boots LOCKED in master-password
+    // mode so the renderer prompts for the passphrase; the unlock handler then
+    // calls resumeMigration() to finish it. config carries the kdf + verifier
+    // (written by markMigration) needed to verify that passphrase.
+    const pending = this._migrationOf(config);
+    const mode =
+      pending && this._markerNeedsPassword(pending)
+        ? "master-password"
+        : config.mode;
+
+    let appKey = mode === "app-key" ? this.ensureAppKey() : null;
+    // While any migration is still pending, also load the app key (if present)
+    // so values already converted to enck: stay readable even in a mode that
+    // wouldn't otherwise load it. (enc:v1: rides the always-present keystore;
+    // encm: intentionally stays locked until the unlock above.)
+    if (pending && appKey === null) appKey = this.readAppKey();
 
     crypto.configure({ mode, appKey, masterKey: null });
     return { mode, locked: crypto.isLocked() };
+  }
+
+  // ── In-flight migration marker + crash resume ─────────────────────────────
+
+  /** The validated in-flight migration marker { from, to }, or null. */
+  _migrationOf(config) {
+    const m = config && config.migration;
+    if (!m || typeof m !== "object") return null;
+    if (!MODES.includes(m.from) || !MODES.includes(m.to) || m.from === m.to) {
+      return null;
+    }
+    return { from: m.from, to: m.to };
+  }
+
+  _markerNeedsPassword(marker) {
+    return marker.from === "master-password" || marker.to === "master-password";
+  }
+
+  /** The pending migration { from, to } for this profile, or null. */
+  pendingMigration() {
+    return this._migrationOf(this.readConfig());
+  }
+
+  /**
+   * Durably record an in-flight mode switch BEFORE any file is converted, so a
+   * crash mid-convert is finished automatically on next launch. The active mode
+   * stays `from` (the still-readable backend); `extra` persists the target's key
+   * material when needed (kdf + verifier for master-password). Any kdf/verifier
+   * the CURRENT config already holds (a `master-password → …` migration) is
+   * preserved so the from-side ciphertext stays unlockable during resume. The
+   * marker is dropped by the final mode flip (a writeConfig with no `migration`).
+   *
+   * @param {string} from
+   * @param {string} to
+   * @param {object} [extra]
+   */
+  markMigration(from, to, extra = {}) {
+    const config = this.readConfig() || {};
+    const preserved = {};
+    if (config.kdf) preserved.kdf = config.kdf;
+    if (config.verifier) preserved.verifier = config.verifier;
+    this.writeConfig({
+      ...preserved,
+      ...extra,
+      mode: from,
+      migration: { from, to },
+    });
+  }
+
+  /**
+   * Drop a migration marker without converting anything — used when a migration
+   * aborts during its pre-convert validation (nothing was written, so the marker
+   * is spurious). Keeps the mode and any master key material intact.
+   */
+  clearMigration() {
+    const config = this.readConfig();
+    if (!config || !config.migration) return;
+    const { migration: _drop, ...rest } = config;
+    this.writeConfig(rest);
+  }
+
+  /**
+   * Finish an interrupted mode-switch migration recorded by markMigration().
+   * reencryptAll() is idempotent (already-converted values are skipped), so this
+   * converts only the stragglers and flips the mode — the same tail as the
+   * happy-path secret-storage:set-mode handler. Returns one of:
+   *   { status: "none" }                    no marker → nothing to do
+   *   { status: "needs-unlock", from, to }  marker involves master-password but
+   *                                         no masterKey was supplied — the caller
+   *                                         must prompt then re-call
+   *   { status: "failed", failures }        a value couldn't be decrypted; the
+   *                                         marker is left in place for a retry
+   *   { status: "resumed", from, to }       completed; mode flipped, marker gone
+   *
+   * @param {{ masterKey?: Buffer|null }} [opts]
+   */
+  resumeMigration({ masterKey = null } = {}) {
+    const config = this.readConfig();
+    const marker = this._migrationOf(config);
+    if (!marker) return { status: "none" };
+    const { from, to } = marker;
+    if (this._markerNeedsPassword(marker) && !masterKey) {
+      return { status: "needs-unlock", from, to };
+    }
+
+    // Load every key needed to READ the `from` ciphertext and SEAL to `to`. The
+    // app-key file still exists (deleteAppKey runs only after a completed flip).
+    const appKey =
+      from === "app-key" || to === "app-key"
+        ? this.ensureAppKey()
+        : this.readAppKey();
+    crypto.configure({ mode: from, appKey, masterKey });
+
+    const result = this.reencryptAll(to);
+    if (!result.ok) return { status: "failed", failures: result.failures };
+
+    // Flip the mode LAST (drops the marker) and reconfigure the live backend.
+    if (to === "master-password") {
+      this.writeConfig({
+        mode: to,
+        kdf: config.kdf,
+        verifier: config.verifier,
+      });
+      crypto.configure({ mode: to, appKey: null, masterKey });
+    } else if (to === "app-key") {
+      this.writeConfig({ mode: to });
+      crypto.configure({
+        mode: to,
+        appKey: this.readAppKey(),
+        masterKey: null,
+      });
+    } else {
+      this.writeConfig({ mode: to });
+      crypto.configure({ mode: to, appKey: null, masterKey: null });
+    }
+    if (to !== "app-key") this.deleteAppKey();
+    return { status: "resumed", from, to };
   }
 
   /** Probe on-disk ciphertext to infer the pre-existing mode, then persist it. */
@@ -273,10 +417,12 @@ class SecretStorage {
    *   2) CONVERT — only when pass 1 was clean: re-encrypt every value to the
    *      target (via crypto.reencryptValue, which decrypts-then-seals) and write
    *      each file. A crash mid-convert is recoverable: prefix dispatch keeps
-   *      every value readable and re-running the migration converts the stragglers.
+   *      every value readable and re-running converts the stragglers (idempotent).
    *
-   * The caller flips the mode in `secret-storage.json` only AFTER this resolves
-   * { ok: true } — that write is the atomicity anchor.
+   * The caller (set-mode) brackets this with markMigration() before and the mode
+   * flip after — so a crash between the two is auto-finished on the next launch
+   * by resumeMigration() (driven from bootstrap / the unlock handler), not left
+   * for the user to re-run by hand. The mode flip is the atomicity anchor.
    *
    * @param {string} targetBackend  "app-key" | "os-keychain" | "master-password"
    * @returns {{ ok: boolean, failures: Array<{file:string, reason:string}> }}

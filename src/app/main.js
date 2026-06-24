@@ -2011,12 +2011,25 @@ ipcMain.handle("secret-storage:get-mode", () =>
 ipcMain.handle("secret-storage:unlock", (_event, { password } = {}) => {
   const sec = getStores().secretStorage();
   const config = sec.readConfig();
-  if (!config || config.mode !== "master-password" || !config.verifier) {
+  // Unlock applies to a master-password profile, OR one interrupted mid-migration
+  // to/from master-password whose mode flip didn't land — both carry the
+  // kdf+verifier needed to derive and verify the key.
+  const marker = sec.pendingMigration();
+  const masterMigration =
+    marker &&
+    (marker.from === "master-password" || marker.to === "master-password");
+  if (
+    !config ||
+    (config.mode !== "master-password" && !masterMigration) ||
+    !config.verifier
+  ) {
     return { ok: false, reason: "not-applicable" };
   }
   const key = sec.verifyMasterPassword(password, config);
   if (!key) return { ok: false, reason: "bad-password" };
   crypto.setMasterKey(key);
+  // Finish an interrupted migration to/from master-password (no-op otherwise).
+  sec.resumeMigration({ masterKey: key });
   const win = _backupWin();
   if (win) win.webContents.reload();
   return { ok: true };
@@ -2050,6 +2063,7 @@ ipcMain.handle("secret-storage:set-mode", (_event, { mode, password } = {}) => {
     // disk and the mode flip (below) is the final write, so re-running converts
     // any stragglers with the SAME key.
     let prep = null;
+    let markerExtra = {};
     if (mode === "app-key") {
       crypto.configure({ appKey: sec.ensureAppKey() }); // active mode still `current`
     } else if (mode === "master-password") {
@@ -2057,20 +2071,25 @@ ipcMain.handle("secret-storage:set-mode", (_event, { mode, password } = {}) => {
         return { ok: false, reason: "password-required" };
       }
       prep = sec.prepareMasterPassword(password);
-      sec.writeConfig({
-        mode: current,
-        kdf: prep.kdf,
-        verifier: prep.verifier,
-      });
-      crypto.setMasterKey(prep.key);
+      markerExtra = { kdf: prep.kdf, verifier: prep.verifier };
     } else if (mode === "os-keychain" && !crypto.isAvailable()) {
       return { ok: false, reason: "keychain-unavailable" };
     }
+
+    // Durably record the in-flight migration BEFORE converting any file (the
+    // mode stays `current` until the flip below). A crash mid-convert is then
+    // finished automatically on the next launch by resumeMigration(), instead of
+    // leaving a half-converted store for the user to re-migrate by hand.
+    sec.markMigration(current, mode, markerExtra);
+    if (mode === "master-password") crypto.setMasterKey(prep.key);
 
     // Re-encrypt every secret to the target (decrypts the current backend's
     // values first — this also coalesces the macOS prompt into one preflight).
     const result = sec.reencryptAll(mode);
     if (!result.ok) {
+      // Pass 1 aborted having written nothing — drop the spurious marker so the
+      // next launch doesn't try to "resume" a migration that never converted.
+      sec.clearMigration();
       return {
         ok: false,
         reason: "migration-failed",
