@@ -3460,6 +3460,7 @@ function _retryDescriptor(settings) {
     maxDelayMs: settings.retryMaxDelayMs ?? 10000,
     onConnectionError: settings.retryOnConnectionError === true,
     onTimeout: settings.retryOnTimeout === true,
+    retryNonIdempotent: settings.retryNonIdempotent === true,
     statusCodes: settings.retryStatusCodes ?? "",
   };
 }

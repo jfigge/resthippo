@@ -121,6 +121,9 @@ const DEFAULT_SETTINGS = {
   retryMaxDelayMs: 10000,
   retryOnConnectionError: false,
   retryOnTimeout: false,
+  // Opt-in: also retry POST/PATCH (non-idempotent methods) on a network failure.
+  // Off by default so a lost-response write isn't silently re-sent / duplicated.
+  retryNonIdempotent: false,
   retryStatusCodes: "",
   splitterNav: 240,
   splitterRes: 340,

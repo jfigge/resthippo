@@ -374,6 +374,7 @@
       "maxDelay": "Ritardo massimo (ms)",
       "onConn": "Riprova in caso di errori di connessione",
       "onTimeout": "Riprova in caso di timeout",
+      "nonIdempotent": "Riprova POST/PATCH in caso di errori di rete",
       "onStatus": "Riprova per i codici di stato",
       "statusPlaceholder": "429, 503, 504"
     },

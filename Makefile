@@ -205,7 +205,7 @@ test-license-headers:
 
 test-js:
 	@echo "Running JavaScript store tests..."
-	@node --test $(APP_DIR)/store/tests/stores.test.js $(APP_DIR)/store/tests/crypto.test.js $(APP_DIR)/store/tests/integration.test.js $(APP_DIR)/store/tests/migrations.test.js $(APP_DIR)/store/tests/io-locking.test.js $(APP_DIR)/store/tests/backup.test.js $(APP_DIR)/store/tests/synchronous-writes.test.js $(APP_DIR)/store/tests/collection-archive.test.js $(APP_DIR)/store/tests/secret-storage.test.js
+	@node --test $(APP_DIR)/store/tests/stores.test.js $(APP_DIR)/store/tests/crypto.test.js $(APP_DIR)/store/tests/integration.test.js $(APP_DIR)/store/tests/migrations.test.js $(APP_DIR)/store/tests/io-locking.test.js $(APP_DIR)/store/tests/backup.test.js $(APP_DIR)/store/tests/synchronous-writes.test.js $(APP_DIR)/store/tests/collection-archive.test.js $(APP_DIR)/store/tests/secret-storage.test.js $(APP_DIR)/store/tests/resolver.test.js
 	@echo "--------------------------------"
 
 test-cookies:
@@ -274,8 +274,8 @@ test-i18n:
 	@echo "--------------------------------"
 
 test-diagnostics:
-	@echo "Running logger + diagnostics tests..."
-	@node --test $(APP_DIR)/tests/logger.test.js $(APP_DIR)/tests/diagnostics.test.js
+	@echo "Running logger + diagnostics + env-access tests..."
+	@node --test $(APP_DIR)/tests/logger.test.js $(APP_DIR)/tests/diagnostics.test.js $(APP_DIR)/tests/env-access.test.js
 	@echo "--------------------------------"
 
 test-renderer-components:

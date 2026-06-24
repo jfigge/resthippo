@@ -374,6 +374,7 @@
       "maxDelay": "Maximale Verzögerung (ms)",
       "onConn": "Bei Verbindungsfehlern wiederholen",
       "onTimeout": "Bei Zeitüberschreitung wiederholen",
+      "nonIdempotent": "POST/PATCH bei Netzwerkfehlern wiederholen",
       "onStatus": "Bei Statuscodes wiederholen",
       "statusPlaceholder": "429, 503, 504"
     },

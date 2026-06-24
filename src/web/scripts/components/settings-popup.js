@@ -568,6 +568,11 @@ export class SettingsPopup {
               <input class="settings-toggle" id="setting-retry-timeout" type="checkbox" />
             </div>
 
+            <div class="settings-row settings-row--toggle">
+              <label class="settings-label" for="setting-retry-nonidempotent">${t("settings.retries.nonIdempotent")}</label>
+              <input class="settings-toggle" id="setting-retry-nonidempotent" type="checkbox" />
+            </div>
+
             <div class="settings-row">
               <label class="settings-label" for="setting-retry-status">${t("settings.retries.onStatus")}</label>
               <input
@@ -1247,6 +1252,8 @@ export class SettingsPopup {
       retryOnConnectionError: this.#el.querySelector("#setting-retry-conn")
         .checked,
       retryOnTimeout: this.#el.querySelector("#setting-retry-timeout").checked,
+      retryNonIdempotent: this.#el.querySelector("#setting-retry-nonidempotent")
+        .checked,
       retryStatusCodes: this.#el
         .querySelector("#setting-retry-status")
         .value.trim(),
@@ -1674,6 +1681,10 @@ export class SettingsPopup {
     if (settings.retryOnTimeout !== undefined) {
       this.#el.querySelector("#setting-retry-timeout").checked =
         settings.retryOnTimeout;
+    }
+    if (settings.retryNonIdempotent !== undefined) {
+      this.#el.querySelector("#setting-retry-nonidempotent").checked =
+        settings.retryNonIdempotent;
     }
     if (settings.retryStatusCodes !== undefined) {
       this.#el.querySelector("#setting-retry-status").value =

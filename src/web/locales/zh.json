@@ -371,6 +371,7 @@
       "maxDelay": "最大延迟（毫秒）",
       "onConn": "连接错误时重试",
       "onTimeout": "超时时重试",
+      "nonIdempotent": "网络错误时重试 POST/PATCH",
       "onStatus": "对状态码重试",
       "statusPlaceholder": "429, 503, 504"
     },

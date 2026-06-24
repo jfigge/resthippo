@@ -23,7 +23,10 @@ const {
   normalizeRetry,
   retryReason,
   backoffDelay,
+  retryDelay,
+  parseRetryAfter,
   parseStatusCodes,
+  isIdempotentMethod,
 } = require("../retry.js");
 
 describe("parseStatusCodes", () => {
@@ -96,20 +99,25 @@ describe("retryReason", () => {
     statusCodes: "503",
   });
 
+  // Network-error retries are gated on idempotency, so these pass an idempotent
+  // method (GET); the idempotency gate itself is exercised below.
   it("retries a tagged timeout when onTimeout is set", () => {
     const r = { status: 0, error: { name: "ETIMEDOUT", message: "x" } };
-    assert.equal(retryReason(r, policy), "timeout");
+    assert.equal(retryReason(r, policy, "GET"), "timeout");
   });
 
   it("classifies a timeout off the canonical .code field", () => {
     // The live HTTP path stamps result.error.code; classification must key off it.
     const r = { status: 0, error: { code: "ETIMEDOUT", message: "x" } };
-    assert.equal(retryReason(r, policy), "timeout");
+    assert.equal(retryReason(r, policy, "GET"), "timeout");
   });
 
   it("classifies a connection error off the canonical .code field", () => {
     const r = { status: 0, error: { code: "ECONNREFUSED", message: "x" } };
-    assert.match(retryReason(r, policy), /connection error \(ECONNREFUSED\)/);
+    assert.match(
+      retryReason(r, policy, "GET"),
+      /connection error \(ECONNREFUSED\)/,
+    );
   });
 
   it("recognises a timeout by message text", () => {
@@ -117,24 +125,27 @@ describe("retryReason", () => {
       status: 0,
       error: { name: "Error", message: "Request timed out after 30000ms" },
     };
-    assert.equal(retryReason(r, policy), "timeout");
+    assert.equal(retryReason(r, policy, "GET"), "timeout");
   });
 
   it("retries connection errors", () => {
     const r = { status: 0, error: { name: "ECONNREFUSED", message: "x" } };
-    assert.match(retryReason(r, policy), /connection error \(ECONNREFUSED\)/);
+    assert.match(
+      retryReason(r, policy, "GET"),
+      /connection error \(ECONNREFUSED\)/,
+    );
   });
 
   it("retries an opted-in status code", () => {
-    assert.equal(retryReason({ status: 503 }, policy), "HTTP 503");
+    assert.equal(retryReason({ status: 503 }, policy, "GET"), "HTTP 503");
   });
 
   it("does not retry a status code that is not opted in", () => {
-    assert.equal(retryReason({ status: 500 }, policy), null);
+    assert.equal(retryReason({ status: 500 }, policy, "GET"), null);
   });
 
   it("does not retry a successful response", () => {
-    assert.equal(retryReason({ status: 200 }, policy), null);
+    assert.equal(retryReason({ status: 200 }, policy, "GET"), null);
   });
 
   it("respects disabled conditions", () => {
@@ -147,8 +158,135 @@ describe("retryReason", () => {
     });
     const timeout = { status: 0, error: { name: "ETIMEDOUT", message: "" } };
     const conn = { status: 0, error: { name: "ECONNRESET", message: "" } };
-    assert.equal(retryReason(timeout, p), "timeout");
-    assert.equal(retryReason(conn, p), null);
+    assert.equal(retryReason(timeout, p, "GET"), "timeout");
+    assert.equal(retryReason(conn, p, "GET"), null);
+  });
+});
+
+describe("retryReason idempotency gate", () => {
+  const policy = normalizeRetry({
+    enabled: true,
+    maxAttempts: 3,
+    onConnectionError: true,
+    onTimeout: true,
+    statusCodes: "503",
+  });
+  const connErr = { status: 0, error: { code: "ECONNRESET", message: "x" } };
+  const timeout = { status: 0, error: { code: "ETIMEDOUT", message: "x" } };
+
+  it("retries network errors for idempotent methods", () => {
+    for (const m of ["GET", "HEAD", "PUT", "DELETE", "OPTIONS", "get"]) {
+      assert.match(retryReason(connErr, policy, m), /connection error/, m);
+      assert.equal(retryReason(timeout, policy, m), "timeout", m);
+    }
+  });
+
+  it("does NOT retry network errors for non-idempotent methods", () => {
+    for (const m of ["POST", "PATCH", "post"]) {
+      assert.equal(retryReason(connErr, policy, m), null, m);
+      assert.equal(retryReason(timeout, policy, m), null, m);
+    }
+  });
+
+  it("treats an unknown/missing method as non-idempotent (fails safe)", () => {
+    assert.equal(retryReason(connErr, policy, undefined), null);
+    assert.equal(retryReason(connErr, policy, "FROBNICATE"), null);
+  });
+
+  it("retries non-idempotent network errors when opted in", () => {
+    const opted = normalizeRetry({
+      enabled: true,
+      maxAttempts: 3,
+      onConnectionError: true,
+      onTimeout: true,
+      retryNonIdempotent: true,
+      statusCodes: "503",
+    });
+    assert.match(retryReason(connErr, opted, "POST"), /connection error/);
+    assert.equal(retryReason(timeout, opted, "POST"), "timeout");
+  });
+
+  it("still retries opted-in STATUS codes for non-idempotent methods", () => {
+    // The server responded — it didn't act on the request — so a 503 retry is
+    // safe regardless of method, even without the opt-in.
+    assert.equal(retryReason({ status: 503 }, policy, "POST"), "HTTP 503");
+    assert.equal(retryReason({ status: 503 }, policy, "PATCH"), "HTTP 503");
+  });
+});
+
+describe("isIdempotentMethod", () => {
+  it("recognises the RFC idempotent methods, case-insensitively", () => {
+    for (const m of ["GET", "head", "PUT", "Delete", "OPTIONS", "TRACE"]) {
+      assert.equal(isIdempotentMethod(m), true, m);
+    }
+  });
+  it("rejects POST/PATCH/CONNECT and junk", () => {
+    for (const m of ["POST", "PATCH", "CONNECT", "", undefined, null, 42]) {
+      assert.equal(isIdempotentMethod(m), false, String(m));
+    }
+  });
+});
+
+describe("parseRetryAfter", () => {
+  it("parses delta-seconds into milliseconds", () => {
+    assert.equal(parseRetryAfter("120", 0), 120000);
+    assert.equal(parseRetryAfter("0", 0), 0);
+  });
+
+  it("parses an HTTP-date relative to now, clamping a past date to 0", () => {
+    const now = Date.parse("Wed, 21 Oct 2015 07:28:00 GMT");
+    assert.equal(parseRetryAfter("Wed, 21 Oct 2015 07:28:05 GMT", now), 5000);
+    assert.equal(parseRetryAfter("Wed, 21 Oct 2015 07:27:00 GMT", now), 0);
+  });
+
+  it("returns null for absent / blank / unparseable values", () => {
+    assert.equal(parseRetryAfter(undefined, 0), null);
+    assert.equal(parseRetryAfter(null, 0), null);
+    assert.equal(parseRetryAfter("   ", 0), null);
+    assert.equal(parseRetryAfter("soon", 0), null);
+  });
+});
+
+describe("retryDelay", () => {
+  const policy = normalizeRetry({
+    enabled: true,
+    maxAttempts: 5,
+    backoffMs: 500,
+    multiplier: 2,
+    maxDelayMs: 10000,
+  });
+
+  it("falls back to exponential backoff when no Retry-After header", () => {
+    assert.equal(retryDelay(policy, 1, { headers: {} }), 500);
+    assert.equal(retryDelay(policy, 2, undefined), 1000);
+  });
+
+  it("honors Retry-After as a floor over the backoff", () => {
+    const r = { status: 503, headers: { "retry-after": "3" } };
+    assert.equal(retryDelay(policy, 1, r, 0), 3000); // 3s > 500ms backoff
+  });
+
+  it("never waits less than the computed backoff", () => {
+    const r = { status: 503, headers: { "retry-after": "0" } };
+    assert.equal(retryDelay(policy, 3, r, 0), 2000); // backoff 2s > 0
+  });
+
+  it("clamps a large Retry-After to maxDelayMs", () => {
+    const r = { status: 503, headers: { "retry-after": "9999" } };
+    assert.equal(retryDelay(policy, 1, r, 0), 10000);
+  });
+});
+
+describe("normalizeRetry idempotency opt-in", () => {
+  it("defaults retryNonIdempotent to false and passes through true", () => {
+    const off = normalizeRetry({ enabled: true, maxAttempts: 2 });
+    assert.equal(off.retryNonIdempotent, false);
+    const on = normalizeRetry({
+      enabled: true,
+      maxAttempts: 2,
+      retryNonIdempotent: true,
+    });
+    assert.equal(on.retryNonIdempotent, true);
   });
 });
 

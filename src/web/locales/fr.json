@@ -374,6 +374,7 @@
       "maxDelay": "Délai max (ms)",
       "onConn": "Réessayer en cas d'erreurs de connexion",
       "onTimeout": "Réessayer en cas d'expiration",
+      "nonIdempotent": "Réessayer POST/PATCH en cas d'erreur réseau",
       "onStatus": "Réessayer pour les codes de statut",
       "statusPlaceholder": "429, 503, 504"
     },

@@ -183,8 +183,20 @@ export function isSecretHeader(name) {
 //  • `token(?![-_]?(?:type|endpoint|uri|url))` matches access_token/refresh_token/
 //    id_token but NOT the identifier fields token_type ("Bearer") / token_endpoint
 //    / token_uri / token_url.
+//  • `[cx]srf` catches csrf / xsrf anti-forgery tokens (csrf, xsrf, _csrf,
+//    X-CSRF-Token, xsrf_token) that the `token` rule misses when the field is the
+//    bare stem (a field literally named `csrf`/`xsrf`).
+//  • `(?<![a-z])sig(?![a-z])` blanks a standalone `sig` token (signed-URL secret,
+//    e.g. Azure SAS `sig=`) without touching benign words that merely contain the
+//    letters — design / signal / assign / signup / consign / insignia all keep
+//    their values. `signature` is matched separately.
+//  • `cookie` and `authorization` cover a recorded exchange that carries the
+//    Authorization/Cookie credential in the BODY (some APIs echo it as a JSON
+//    field), the body-side counterpart of SECRET_HEADERS. `authorization` excludes
+//    the OIDC discovery identifiers (authorization_endpoint/uri/url) and the OAuth
+//    `authorization_code` so those round-trip like the bare `code`.
 const SECRET_FIELD_RE =
-  /pass(?:word|wd|code|phrase)|pwd|secret|token(?![-_]?(?:type|endpoint|uri|url))|credential|assertion|signature|jwt|otp|private[-_]?key|api[-_]?key|session[-_]?(?:id|key)/i;
+  /pass(?:word|wd|code|phrase)|pwd|secret|token(?![-_]?(?:type|endpoint|uri|url))|credential|assertion|signature|(?<![a-z])sig(?![a-z])|jwt|otp|private[-_]?key|api[-_]?key|session[-_]?(?:id|key)|[cx]srf|cookie|authorization(?![-_]?(?:endpoint|uri|url|code))/i;
 
 // Recursion guard for redactJsonValue. Normal payloads nest only a handful of
 // levels; a pathologically deep one would otherwise overflow the stack, throw
@@ -236,9 +248,10 @@ function redactJsonValue(val, ctx, depth = 0) {
  * Redact secret-bearing fields from a recorded request/response BODY before it
  * is written to an export (e.g. HAR `postData.text` / response `content.text`).
  * A recorded exchange materializes credentials into the body too — an OAuth
- * token-request (`grant_type=password&password=…&client_secret=…`) or a token
- * response (`{"access_token":"…","refresh_token":"…"}`) — which header/cookie
- * redaction alone misses.
+ * token-request (`grant_type=password&password=…&client_secret=…`), a token
+ * response (`{"access_token":"…","refresh_token":"…"}`), an anti-forgery
+ * `csrf`/`xsrf` token, a signed-URL `sig`, or an Authorization/Cookie value
+ * echoed as a JSON field — which header/cookie redaction alone misses.
  *
  * Only structured bodies we can parse are scrubbed: x-www-form-urlencoded and
  * JSON. Any other body (HTML, plain text, binary, raw multipart) can't be safely

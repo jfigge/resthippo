@@ -279,6 +279,77 @@ test("the heuristic does not over-redact benign 'pass'/'token' look-alike fields
   assert.equal(params.get("grant_type"), "password");
 });
 
+test("a form body blanks csrf/xsrf/sig/cookie/authorization, keeps identifiers", () => {
+  const { collection, entry } = bodyFixture(
+    "csrf=SECRET-CSRF&xsrf=SECRET-XSRF&sig=SECRET-SIG&cookie=sid%3DSECRET-COOKIE&authorization=Bearer+SECRET-AUTH&user=alice",
+    "application/x-www-form-urlencoded",
+  );
+  const json = exportToHar(collection, new Map([["req-1", entry]]));
+  for (const leak of [
+    "SECRET-CSRF",
+    "SECRET-XSRF",
+    "SECRET-SIG",
+    "SECRET-COOKIE",
+    "SECRET-AUTH",
+  ]) {
+    assert.ok(!json.includes(leak), `${leak} leaked`);
+  }
+  const params = new URLSearchParams(
+    JSON.parse(json).log.entries[0].request.postData.text,
+  );
+  assert.equal(params.get("csrf"), "");
+  assert.equal(params.get("xsrf"), "");
+  assert.equal(params.get("sig"), "");
+  assert.equal(params.get("cookie"), "");
+  assert.equal(params.get("authorization"), "");
+  assert.equal(params.get("user"), "alice"); // identifier kept
+});
+
+test("a JSON body echoing Authorization/Cookie/csrf blanks those values", () => {
+  const { collection, entry } = bodyFixture(
+    null,
+    null,
+    JSON.stringify({
+      Authorization: "Bearer SECRET-AUTH",
+      Cookie: "sid=SECRET-COOKIE",
+      csrf: "SECRET-CSRF",
+      requestId: "abc-123", // identifier kept
+    }),
+    "application/json",
+  );
+  const json = exportToHar(collection, new Map([["req-1", entry]]));
+  assert.ok(!json.includes("SECRET-AUTH"), "Authorization leaked");
+  assert.ok(!json.includes("SECRET-COOKIE"), "Cookie leaked");
+  assert.ok(!json.includes("SECRET-CSRF"), "csrf leaked");
+
+  const content = JSON.parse(
+    JSON.parse(json).log.entries[0].response.content.text,
+  );
+  assert.equal(content.Authorization, "");
+  assert.equal(content.Cookie, "");
+  assert.equal(content.csrf, "");
+  assert.equal(content.requestId, "abc-123"); // identifier kept
+});
+
+test("the field heuristic keeps 'sig'/'authorization' identifier look-alikes", () => {
+  // `sig` is token-bounded, and `authorization` excludes the OIDC discovery URLs
+  // and the OAuth code, so these benign fields round-trip with their values.
+  const { collection, entry } = bodyFixture(
+    "design=modern&signal=on&assignee=bob&signup=1&authorization_endpoint=https%3A%2F%2Fidp%2Fauth&authorization_code=KEEP-CODE",
+    "application/x-www-form-urlencoded",
+  );
+  const params = new URLSearchParams(
+    JSON.parse(exportToHar(collection, new Map([["req-1", entry]]))).log
+      .entries[0].request.postData.text,
+  );
+  assert.equal(params.get("design"), "modern");
+  assert.equal(params.get("signal"), "on");
+  assert.equal(params.get("assignee"), "bob");
+  assert.equal(params.get("signup"), "1");
+  assert.equal(params.get("authorization_endpoint"), "https://idp/auth");
+  assert.equal(params.get("authorization_code"), "KEEP-CODE");
+});
+
 test("an opaque (non-structured) body is exported verbatim", () => {
   // Documents the known limitation: HTML/text/binary can't be parsed for
   // secrets, so they pass through unchanged.

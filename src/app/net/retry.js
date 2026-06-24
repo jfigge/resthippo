@@ -30,6 +30,31 @@ function clampNum(value, min, max, dflt) {
   return Math.min(max, Math.max(min, n));
 }
 
+// RFC 7231 §4.2.2 idempotent methods — re-issuing one cannot cause a second
+// side effect, so it is safe to auto-retry after a network failure. POST, PATCH
+// (and CONNECT) are NOT idempotent: a connection error or timeout may strike
+// AFTER the request reached the server and was processed but the response was
+// lost, so re-sending risks a duplicate write. Such methods are therefore not
+// retried on a network failure unless the policy opts in (retryNonIdempotent).
+// A server-signalled status retry (429/503/…) is allowed for any method — the
+// server's response tells us it did not act on the request.
+const IDEMPOTENT_METHODS = new Set([
+  "GET",
+  "HEAD",
+  "PUT",
+  "DELETE",
+  "OPTIONS",
+  "TRACE",
+]);
+
+/**
+ * @param {string} method  HTTP method (any casing)
+ * @returns {boolean} true for an RFC-idempotent method.
+ */
+function isIdempotentMethod(method) {
+  return IDEMPOTENT_METHODS.has(String(method || "").toUpperCase());
+}
+
 /**
  * Parse the "retry on these HTTP status codes" field into a Set of integers.
  * Accepts an array of numbers or a comma/space separated string ("429, 503").
@@ -61,7 +86,7 @@ function parseStatusCodes(codes) {
  * @returns {null | {
  *   maxAttempts: number, backoffMs: number, multiplier: number,
  *   maxDelayMs: number, onConnectionError: boolean, onTimeout: boolean,
- *   statusCodes: Set<number>
+ *   retryNonIdempotent: boolean, statusCodes: Set<number>
  * }}
  */
 function normalizeRetry(policy) {
@@ -83,6 +108,9 @@ function normalizeRetry(policy) {
     maxDelayMs: clampNum(policy.maxDelayMs, 0, 600000, 10000),
     onConnectionError,
     onTimeout,
+    // Opt-in (default off): also retry POST/PATCH/… on a network failure. Off by
+    // default so a lost-response write isn't silently duplicated.
+    retryNonIdempotent: policy.retryNonIdempotent === true,
     statusCodes,
   };
 }
@@ -107,13 +135,18 @@ function isTimeoutResult(result) {
  *
  * @param {object} result  the resolved doRequest() result
  * @param {object} policy  a normalizeRetry() result (non-null)
+ * @param {string} [method]  the request's HTTP method (for the idempotency gate)
  * @returns {string|null}
  */
-function retryReason(result, policy) {
+function retryReason(result, policy, method) {
   if (!result || !policy) return null;
 
-  // Network-level failure (no HTTP response).
+  // Network-level failure (no HTTP response). The request may already have
+  // reached the server, so only retry when re-sending is safe: an idempotent
+  // method, or the explicit retryNonIdempotent opt-in. (A server-signalled
+  // status retry below is method-agnostic — the server told us it didn't act.)
   if (result.status === 0 && result.error) {
+    if (!policy.retryNonIdempotent && !isIdempotentMethod(method)) return null;
     if (isTimeoutResult(result)) {
       return policy.onTimeout ? "timeout" : null;
     }
@@ -128,6 +161,46 @@ function retryReason(result, policy) {
     return `HTTP ${result.status}`;
   }
   return null;
+}
+
+/**
+ * Parse a `Retry-After` header value into a delay in milliseconds, or null when
+ * absent/invalid. Accepts both RFC 7231 §7.1.3 forms: delta-seconds ("120") and
+ * an HTTP-date ("Wed, 21 Oct 2015 07:28:00 GMT"), the latter resolved relative
+ * to `nowMs`. A past date or zero clamps to 0 (retry now), never negative.
+ *
+ * @param {string|undefined|null} value  the Retry-After header value
+ * @param {number} nowMs                 current epoch ms (Date.now() at call site)
+ * @returns {number|null}
+ */
+function parseRetryAfter(value, nowMs) {
+  if (value == null) return null;
+  const s = String(value).trim();
+  if (s === "") return null;
+  if (/^\d+$/.test(s)) return Number(s) * 1000; // delta-seconds
+  const when = Date.parse(s); // HTTP-date
+  if (Number.isNaN(when)) return null;
+  return Math.max(0, when - nowMs);
+}
+
+/**
+ * Delay (ms) before the next attempt. Honors a `Retry-After` header on the
+ * just-failed response when present and valid — the server's own hint — using it
+ * as a floor over the exponential backoff; otherwise falls back to backoff
+ * alone. Always clamped to [0, maxDelayMs] so a large Retry-After can't stall the
+ * client past the user's configured ceiling (it may then retry a little early).
+ *
+ * @param {object} policy            a normalizeRetry() result
+ * @param {number} completedAttempt  1-based number of the attempt that failed
+ * @param {object} [result]          the doRequest() result (for Retry-After)
+ * @param {number} [nowMs=0]         current epoch ms (for HTTP-date Retry-After)
+ * @returns {number}
+ */
+function retryDelay(policy, completedAttempt, result, nowMs = 0) {
+  const base = backoffDelay(policy, completedAttempt);
+  const after = parseRetryAfter(result?.headers?.["retry-after"], nowMs);
+  if (after === null) return base;
+  return Math.round(Math.min(policy.maxDelayMs, Math.max(base, after)));
 }
 
 /**
@@ -149,5 +222,8 @@ module.exports = {
   normalizeRetry,
   retryReason,
   backoffDelay,
+  retryDelay,
+  parseRetryAfter,
   parseStatusCodes,
+  isIdempotentMethod,
 };

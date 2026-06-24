@@ -59,7 +59,12 @@ const {
   loadClientCertMaterial,
   loadCaBundle,
 } = require("./tls");
-const { normalizeRetry, retryReason, backoffDelay } = require("./retry");
+const {
+  normalizeRetry,
+  retryReason,
+  retryDelay,
+  isIdempotentMethod,
+} = require("./retry");
 const { computeTiming, formatTiming } = require("./timing");
 const {
   SseParser,
@@ -1616,10 +1621,28 @@ function registerHttpEngine({
       // retryable. Stop means stop: don't start another attempt.
       if (descriptor._handle?.aborted) break;
       if (!policy || attempt >= maxAttempts) break;
-      const reason = retryReason(result, policy);
-      if (!reason) break;
+      const reason = retryReason(result, policy, descriptor.method);
+      if (!reason) {
+        // If a retry was suppressed purely by the idempotency gate, say so —
+        // otherwise a user who enabled network-error retries is left wondering
+        // why their POST wasn't retried.
+        if (
+          result.status === 0 &&
+          result.error &&
+          !policy.retryNonIdempotent &&
+          !isIdempotentMethod(descriptor.method) &&
+          (policy.onConnectionError || policy.onTimeout)
+        ) {
+          consoleLog.push(
+            `* Not retrying ${descriptor.method} after a network error — the ` +
+              `method is not idempotent (enable "Retry POST/PATCH on network ` +
+              `errors" to override)`,
+          );
+        }
+        break;
+      }
 
-      const delay = backoffDelay(policy, attempt);
+      const delay = retryDelay(policy, attempt, result, Date.now());
       consoleLog.push(
         `* Request failed (${reason}); retrying in ${delay}ms ` +
           `(attempt ${attempt + 1}/${maxAttempts})`,

@@ -374,6 +374,7 @@
       "maxDelay": "Max delay (ms)",
       "onConn": "Retry on connection errors",
       "onTimeout": "Retry on timeout",
+      "nonIdempotent": "Retry POST/PATCH on network errors",
       "onStatus": "Retry on status codes",
       "statusPlaceholder": "429, 503, 504"
     },

@@ -111,6 +111,15 @@ attempts**, the **backoff base**, **multiplier**, and **max delay**, and choose
 what to retry on — **connection errors**, **timeouts**, and/or a list of
 **status codes** (e.g. `429, 503, 504`). Retries are off by default.
 
+When a retried response carries a **`Retry-After`** header, Rest Hippo waits for
+the time the server asks (capped at your **max delay**) instead of the computed
+backoff. To avoid duplicating a write, **connection-error and timeout** retries
+apply only to idempotent methods (GET, HEAD, PUT, DELETE, …) — a `POST`/`PATCH`
+that fails mid-flight might already have been processed, so it is **not** retried
+on a network error unless you enable **Retry POST/PATCH on network errors**.
+(Status-code retries still apply to every method, since the server's response
+shows it didn't act on the request.)
+
 ## History
 
 Set how many runs each request keeps in its

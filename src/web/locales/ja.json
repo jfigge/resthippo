@@ -371,6 +371,7 @@
       "maxDelay": "最大遅延（ミリ秒）",
       "onConn": "接続エラー時に再試行",
       "onTimeout": "タイムアウト時に再試行",
+      "nonIdempotent": "ネットワークエラー時に POST/PATCH を再試行",
       "onStatus": "ステータスコードで再試行",
       "statusPlaceholder": "429, 503, 504"
     },

@@ -58,6 +58,7 @@ const {
 } = require("./oauth-redirect");
 const updater = require("./updater");
 const cliLauncher = require("./cli-launcher");
+const { ENV_ALLOW_PREFIX, isAllowedEnvName, readEnv } = require("./env-access");
 
 const isDev = process.argv.includes("--dev");
 const isDebug = process.argv.includes("--hot-reload");
@@ -1124,9 +1125,18 @@ registerScripting({ ipcMain, safeCall });
           };
         }
         case "env": {
+          // Only RESTHIPPO_*-prefixed vars are exposed; reading an arbitrary
+          // host env var (AWS_SECRET_ACCESS_KEY, tokens, …) from a possibly
+          // untrusted/imported collection is an exfiltration vector. The gate
+          // and rationale live in env-access.js.
           const { name } = args;
-          const val = process.env[name];
-          return { result: val !== undefined ? String(val) : "" };
+          if (!isAllowedEnvName(name) && typeof name === "string" && name) {
+            logger.warn(
+              "functions:invoke",
+              `env access denied for "${name}" — only ${ENV_ALLOW_PREFIX}* variables are readable`,
+            );
+          }
+          return { result: readEnv(name) };
         }
         default:
           return {
