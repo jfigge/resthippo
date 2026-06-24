@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <meta name="description" content="Rest Hippo's privacy statement: no accounts, no telemetry, no third-party tracking. Your API requests, collections, and secrets stay on your own device." />
+  <title>Privacy Statement — Rest Hippo</title>
+  <link rel="canonical" href="https://resthippo.com/privacy.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Rest Hippo" />
+  <meta property="og:title" content="Privacy Statement — Rest Hippo" />
+  <meta property="og:description" content="No accounts, no telemetry, no tracking. Your API requests, collections, and secrets stay on your own device." />
+  <meta property="og:url" content="https://resthippo.com/privacy.html" />
+  <meta property="og:image" content="https://resthippo.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@RestHippo" />
+  <meta name="twitter:title" content="Privacy Statement — Rest Hippo" />
+  <meta name="twitter:description" content="No accounts, no telemetry, no tracking. Your data stays on your own device." />
+  <meta name="twitter:image" content="https://resthippo.com/og-image.png" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #1c1c1c;
+      --mantle:    #161616;
+      --crust:     #101010;
+      --surface-0: #2a2a2a;
+      --surface-1: #383838;
+      --surface-2: #484848;
+      --overlay-0: #686868;
+      --text:      #e8e8e8;
+      --subtext:   #b0b0b0;
+      --accent:    #d0d0d0;
+      --accent2:   #a0a0a0;
+      --green:     #80c080;
+      --peach:     #d09060;
+      --mauve:     #a880c0;
+      --red:       #e07070;
+      --yellow:    #d4b060;
+      --teal:      #70b8d0;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Nav ───────────────────────────────────────────────────────────────── */
+
+    nav {
+      background: var(--mantle);
+      border-bottom: 1px solid var(--surface-0);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 58px;
+    }
+
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #1c1c1c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border: 1px solid var(--surface-1);
+    }
+
+    .nav-wordmark { font-size: 1.2rem; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+
+    .nav-right { display: flex; align-items: center; gap: 1.5rem; }
+
+    .nav-link {
+      color: var(--subtext);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.15s;
+    }
+    .nav-link:hover { color: var(--text); }
+    .nav-link--active { color: var(--text); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+      line-height: 1;
+    }
+
+    .btn-primary { background: var(--accent); color: var(--crust); }
+    .btn-primary:hover {
+      background: #e2e2e2;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(208, 208, 208, 0.25);
+    }
+
+    /* ── Page ──────────────────────────────────────────────────────────────── */
+
+    .page {
+      flex: 1;
+      max-width: 800px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 64px 2rem 80px;
+    }
+
+    .page-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .page h1 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 900;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+
+    .updated { font-size: 0.85rem; color: var(--overlay-0); margin-bottom: 32px; }
+
+    /* TL;DR card */
+    .tldr {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      background: color-mix(in srgb, var(--green) 9%, var(--mantle));
+      border: 1px solid color-mix(in srgb, var(--green) 32%, transparent);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 44px;
+    }
+    .tldr svg { flex-shrink: 0; color: var(--green); margin-top: 2px; }
+    .tldr-body { font-size: 0.95rem; color: var(--subtext); }
+    .tldr-body strong { color: var(--text); font-weight: 700; }
+
+    /* Prose */
+    .page h2 {
+      font-size: 1.3rem;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      margin: 40px 0 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--surface-0);
+    }
+    .page h3 { font-size: 1.02rem; font-weight: 700; color: var(--text); margin: 22px 0 6px; }
+    .page p { color: var(--subtext); margin-bottom: 14px; }
+    .page ul { color: var(--subtext); margin: 0 0 16px; padding-left: 22px; }
+    .page li { margin-bottom: 8px; }
+    .page a { color: var(--accent); text-decoration: none; }
+    .page a:hover { text-decoration: underline; }
+    .page strong { color: var(--text); }
+
+    /* ── Footer ────────────────────────────────────────────────────────────── */
+
+    footer {
+      background: var(--crust);
+      border-top: 1px solid var(--surface-0);
+      padding: 48px 2rem;
+      text-align: center;
+    }
+    .footer-inner { max-width: 700px; margin: 0 auto; }
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .footer-name { font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+    footer p { color: var(--overlay-0); font-size: 0.83rem; line-height: 1.8; }
+
+    /* ── Responsive ────────────────────────────────────────────────────────── */
+
+    @media (max-width: 640px) {
+      nav { padding: 0 1rem; }
+      .nav-right .nav-link { display: none; }
+      .page { padding: 44px 1rem 64px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ──────────────────────────────────────────────────────────── -->
+<nav>
+  <a class="nav-logo" href="/">
+    <div class="logo-mark">
+      <svg width="20" height="20" viewBox="0 0 512 512" role="img" aria-label="Rest Hippo">
+        <rect x="0" y="0" width="512" height="512" rx="114" fill="#6C5CE7"/>
+        <circle cx="170" cy="146" r="40" fill="#FFFFFF"/>
+        <circle cx="342" cy="146" r="40" fill="#FFFFFF"/>
+        <rect x="144" y="140" width="224" height="190" rx="74" fill="#FFFFFF"/>
+        <rect x="118" y="260" width="276" height="150" rx="74" fill="#FFFFFF"/>
+        <circle cx="201" cy="198" r="17" fill="#6C5CE7"/>
+        <circle cx="311" cy="198" r="17" fill="#6C5CE7"/>
+        <ellipse cx="210" cy="330" rx="14" ry="20" fill="#6C5CE7"/>
+        <ellipse cx="302" cy="330" rx="14" ry="20" fill="#6C5CE7"/>
+      </svg>
+    </div>
+    <span class="nav-wordmark">Rest Hippo</span>
+  </a>
+  <div class="nav-right">
+    <a class="nav-link" href="/#features">Features</a>
+    <a class="nav-link" href="/#downloads">Downloads</a>
+    <a class="nav-link" href="/vs-postman.html">Compare</a>
+    <a class="nav-link" href="/features.html">Feature Requests</a>
+    <a class="nav-link" href="/docs/">Guide</a>
+    <a class="btn btn-primary" href="/#downloads">Download</a>
+  </div>
+</nav>
+
+<!-- ── Page ────────────────────────────────────────────────────────────────── -->
+<main class="page">
+  <p class="page-tag">Legal</p>
+  <h1>Privacy Statement</h1>
+  <p class="updated">Last updated: June 24, 2026</p>
+
+  <div class="tldr" role="note">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/>
+    </svg>
+    <p class="tldr-body">
+      <strong>The short version:</strong> Rest Hippo has no accounts, no telemetry,
+      and no third-party tracking. Everything you create in the app — requests,
+      collections, history, and secrets — stays on your own device. This website
+      sets no cookies and runs no analytics.
+    </p>
+  </div>
+
+  <p>
+    This statement explains how the <strong>Rest Hippo</strong> desktop application
+    and the <strong>resthippo.com</strong> website handle your information. Both are
+    built and maintained by Jason Figge. The principle behind both is the same:
+    Rest Hippo is a local-first tool, so your data belongs to you and stays with you.
+  </p>
+
+  <h2>1. The Rest Hippo app</h2>
+
+  <h3>Your data stays on your device</h3>
+  <p>
+    Collections, requests, environments, variables, run history, and settings are
+    stored in local files under your operating system's user-profile folder. None
+    of it is uploaded to us or to any cloud service — there is no Rest Hippo account
+    and no server that holds your work. You can back it up, move it, or delete it
+    yourself at any time.
+  </p>
+
+  <h3>The requests you send</h3>
+  <p>
+    Rest Hippo's whole job is to send the HTTP, GraphQL, and WebSocket requests you
+    compose to the servers <em>you</em> choose. That traffic goes directly from your
+    computer to those destinations. It does not pass through us, and we never see,
+    log, proxy, or store your requests, responses, headers, or bodies.
+  </p>
+
+  <h3>Secrets and credentials</h3>
+  <p>
+    Tokens, passwords, API keys, and other secrets are encrypted at rest on your
+    machine (using your OS keychain, an app-managed key, or an optional master
+    password — your choice in Settings). They stay local and are never transmitted
+    to us.
+  </p>
+
+  <h3>Software updates (optional)</h3>
+  <p>
+    Automatic update checks are <strong>off by default</strong>. If you turn them on
+    — or use “Check for Updates” manually — the app contacts <a href="https://github.com" rel="noopener noreferrer">GitHub</a>
+    to look for and download new releases. That connection reaches GitHub's servers
+    and is subject to <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener noreferrer">GitHub's privacy statement</a>.
+    You can leave updates off and download new versions yourself instead.
+  </p>
+
+  <h3>Logs and diagnostics</h3>
+  <p>
+    The app keeps a local, rotating log of its own lifecycle and error events to help
+    you troubleshoot — it never records your secret values. Nothing is sent anywhere
+    automatically. “Export Diagnostics” bundles recent logs and build info into a
+    single file <em>only if you ask it to</em>, and it is entirely up to you whether
+    to share that file (for example, when filing a bug report).
+  </p>
+
+  <h3>No telemetry</h3>
+  <p>
+    Rest Hippo contains no analytics SDKs, usage tracking, crash-reporting services,
+    advertising, or “phone-home” beacons. The optional donation link (Help → Support
+    Rest Hippo) simply opens a page in your browser; the app does not track whether
+    you visit it or give.
+  </p>
+
+  <h2>2. This website</h2>
+
+  <h3>Static, cookie-free, no analytics</h3>
+  <p>
+    resthippo.com is a static website. It sets no cookies, runs no analytics or
+    advertising scripts, and includes no third-party tracking. Fonts are loaded from
+    your own system, so there are no web-font CDN requests either.
+  </p>
+
+  <h3>Hosting</h3>
+  <p>
+    The site is hosted on <a href="https://pages.github.com" rel="noopener noreferrer">GitHub Pages</a>.
+    As with any web host, GitHub may process standard technical information — such as
+    your IP address and browser user-agent — in server logs in order to deliver and
+    protect the site. We do not receive or store those logs; that processing is
+    governed by GitHub's privacy practices, not ours.
+  </p>
+
+  <h3>Content loaded from GitHub</h3>
+  <p>
+    A few pages load public data directly from GitHub in your browser: the
+    <a href="/features.html">Feature Requests</a> page lists open issues from the
+    project's repository, and the download links point to GitHub Releases. When those
+    load, your browser connects to GitHub, subject to GitHub's privacy statement.
+  </p>
+
+  <h3>Outbound links</h3>
+  <p>
+    Links to GitHub, X (Twitter), and other external sites take you to third parties
+    that have their own privacy policies, which we don't control.
+  </p>
+
+  <h2>3. What we never do</h2>
+  <ul>
+    <li>We don't sell, rent, or share your personal data — we don't collect it to begin with.</li>
+    <li>We don't run ads or embed third-party trackers, in the app or on this site.</li>
+    <li>We don't require or create user accounts.</li>
+    <li>We don't collect, transmit, or store your API requests, responses, or credentials.</li>
+  </ul>
+
+  <h2>4. Your data and your rights</h2>
+  <p>
+    Because we don't collect or hold personal data about you, there is nothing on our
+    side to access, correct, export, or delete. The information the app stores lives
+    on your own device and is fully under your control — you can view, edit, back up,
+    or erase it at any time. If you are in a region with data-protection laws such as
+    the GDPR or CCPA, those rights are effectively satisfied because no personal data
+    about you ever leaves your machine for us.
+  </p>
+
+  <h2>5. Changes to this statement</h2>
+  <p>
+    If this statement changes, we'll update the “Last updated” date above and post the
+    revised version here. Because the site is open source, its full history is also
+    visible in the project's <a href="https://github.com/jfigge/resthippo" rel="noopener noreferrer">GitHub repository</a>.
+  </p>
+
+  <h2>6. Contact</h2>
+  <p>
+    Questions about privacy? Email
+    <a href="mailto:resthippo411@gmail.com">resthippo411@gmail.com</a> or open an issue
+    on <a href="https://github.com/jfigge/resthippo/issues" rel="noopener noreferrer">GitHub</a>.
+  </p>
+</main>
+
+<!-- ── Footer ───────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">
+      <div class="logo-mark">
+        <svg width="20" height="20" viewBox="0 0 512 512" role="img" aria-label="Rest Hippo">
+        <rect x="0" y="0" width="512" height="512" rx="114" fill="#6C5CE7"/>
+        <circle cx="170" cy="146" r="40" fill="#FFFFFF"/>
+        <circle cx="342" cy="146" r="40" fill="#FFFFFF"/>
+        <rect x="144" y="140" width="224" height="190" rx="74" fill="#FFFFFF"/>
+        <rect x="118" y="260" width="276" height="150" rx="74" fill="#FFFFFF"/>
+        <circle cx="201" cy="198" r="17" fill="#6C5CE7"/>
+        <circle cx="311" cy="198" r="17" fill="#6C5CE7"/>
+        <ellipse cx="210" cy="330" rx="14" ry="20" fill="#6C5CE7"/>
+        <ellipse cx="302" cy="330" rx="14" ry="20" fill="#6C5CE7"/>
+      </svg>
+      </div>
+      <span class="footer-name">Rest Hippo</span>
+    </div>
+    <p style="margin-bottom:14px">
+      <a href="/" style="color:var(--accent);text-decoration:none">Home</a>
+      &nbsp;·&nbsp;
+      <a href="/docs/" style="color:var(--accent);text-decoration:none">User Guide</a>
+      &nbsp;·&nbsp;
+      <a href="/features.html" style="color:var(--accent);text-decoration:none">Feature Requests</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/jfigge/resthippo" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none">GitHub</a>
+      &nbsp;·&nbsp;
+      <a href="https://x.com/RestHippo" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none">@RestHippo</a>
+      &nbsp;·&nbsp;
+      <a href="mailto:resthippo411@gmail.com" style="color:var(--accent);text-decoration:none">Contact</a>
+    </p>
+    <p>Copyright &copy; 2026 Jason Figge. Released under the Apache 2.0 License.<br>
+    Built with Electron &amp; Vanilla JS. No telemetry, no accounts, fully offline.</p>
+  </div>
+</footer>
+
+</body>
+</html>
