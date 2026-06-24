@@ -47,7 +47,9 @@ import {
   buildFunctionToken,
   buildFolderChain,
   parseFnArgs,
+  MAX_RESOLVE_CONCURRENCY,
 } from "../variable-resolver.js";
+import { invokeBackend } from "../function-backend.js";
 
 // ── Scope precedence ─────────────────────────────────────────────────────────
 
@@ -388,6 +390,70 @@ test("resolveStringAsync: a throwing backend surfaces as an [error: …] token",
     await resolveStringAsync('{{hmac("SHA256", "k", "m")}}', {}),
     "[error: boom]",
   );
+});
+
+test("resolveStringAsync: caps concurrent backend calls and preserves order", async () => {
+  let inFlight = 0;
+  let maxInFlight = 0;
+  globalThis.window.hippo.functions.invoke = async (_fn, args) => {
+    inFlight++;
+    maxInFlight = Math.max(maxInFlight, inFlight);
+    await new Promise((r) => setTimeout(r, 5));
+    inFlight--;
+    return { result: `h${args.value}` };
+  };
+  const N = 20;
+  const template = Array.from(
+    { length: N },
+    (_, i) => `{{hash("SHA256", "${i}")}}`,
+  ).join("");
+
+  const out = await resolveStringAsync(template, {});
+
+  // Output is concatenated strictly in token order…
+  assert.equal(out, Array.from({ length: N }, (_, i) => `h${i}`).join(""));
+  // …and the burst was capped (yet it did parallelize up to the cap).
+  assert.ok(
+    maxInFlight <= MAX_RESOLVE_CONCURRENCY,
+    `maxInFlight ${maxInFlight} exceeded cap ${MAX_RESOLVE_CONCURRENCY}`,
+  );
+  assert.equal(maxInFlight, Math.min(MAX_RESOLVE_CONCURRENCY, N));
+});
+
+// ── Backend fetch timeout (dev-server path) ───────────────────────────────────
+
+test("invokeBackend: the fetch path is given an AbortSignal for the timeout", async () => {
+  globalThis.window = {}; // not Electron → dev-server fetch path
+  const origFetch = globalThis.fetch;
+  try {
+    let sawSignal = false;
+    globalThis.fetch = (_url, opts) => {
+      sawSignal = opts?.signal instanceof AbortSignal;
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ result: "ok" }),
+      });
+    };
+    assert.equal(await invokeBackend("hash", { value: "x" }), "ok");
+    assert.ok(sawSignal, "fetch must receive an AbortSignal");
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("invokeBackend: an aborted (timed-out) fetch surfaces as a timeout error", async () => {
+  globalThis.window = {}; // not Electron → dev-server fetch path
+  const origFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = () => {
+      const err = new Error("The operation was aborted");
+      err.name = "AbortError";
+      return Promise.reject(err);
+    };
+    await assert.rejects(invokeBackend("hash", { value: "x" }), /timed out/i);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
 });
 
 // ── buildFolderChain ─────────────────────────────────────────────────────────

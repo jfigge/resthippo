@@ -358,7 +358,17 @@ export class CapturesEditor {
   #applyStatusTrigger(btn, rule) {
     const tokens = normalizeStatusMatch(rule.status);
     const summary = this.#statusSummary(tokens);
-    btn.innerHTML = `<span class="captures-status-text">${summary}</span><span class="captures-status-caret" aria-hidden="true">${icon("chevronDown", { size: 12 })}</span>`;
+    // summary is built from validated status tokens, but set it via textContent
+    // so this trigger can never become an injection sink; the caret is our own
+    // trusted icon SVG.
+    const text = document.createElement("span");
+    text.className = "captures-status-text";
+    text.textContent = summary;
+    const caret = document.createElement("span");
+    caret.className = "captures-status-caret";
+    caret.setAttribute("aria-hidden", "true");
+    caret.innerHTML = icon("chevronDown", { size: 12 });
+    btn.replaceChildren(text, caret);
     const full = tokens.length
       ? tokens.join(", ")
       : t("request.captures.statusNone");

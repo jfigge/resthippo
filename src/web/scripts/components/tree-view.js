@@ -24,11 +24,20 @@
  *   setItems(items)   — replace the full tree data and re-render
  *   getItems()        — return the current items array (deep copy)
  *
- * Events dispatched on window:
- *   hippo:request-selected    { detail: node }   — user clicked a request
- *   hippo:collections-changed { detail: items }  — tree was mutated (add/remove)
+ * Events dispatched on window (payload shapes are documented in the canonical
+ * `hippo:*` registry at the top of initEventBus() in app.js):
+ *   hippo:request-selected    node               — user clicked a request
+ *   hippo:request-open        { collectionId, requestId } — open from a menu action
+ *   hippo:request-execute     node               — run a request from the tree
+ *   hippo:favorite-toggle     { node, favorited }
+ *   hippo:requests-deleted    { ids }            — one or more requests removed
+ *   hippo:request-cleared     —                  — last request deleted; editor should reset
+ *   hippo:collections-changed items[]            — tree was mutated (add/remove/move) → persist
+ *   hippo:export-collection   { collection }
  *   hippo:folder-vars-open    { nodeId, folderName, variables } — user opened folder vars
- *   hippo:request-cleared     (no detail)        — last request deleted; editor should reset
+ *   hippo:run-folder          { folderId }       — run every request in a folder
+ *   hippo:cancel-request      { requestId }      — stop a running request from the tree
+ *   hippo:timeline-clear      { requestId }      — clear a request's run history
  */
 
 "use strict";

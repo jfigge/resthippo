@@ -2201,8 +2201,16 @@ export class RequestAuthEditor {
       PopupManager.close();
     };
 
-    const showError = (msg) => {
-      errorEl.innerHTML = msg;
+    const showError = (key, params = {}) => {
+      // The catalog string may carry trusted inline markup (<code>/<br>), so this
+      // renders as HTML — but interpolated values are escaped HERE, at the single
+      // sink, so callers pass raw values and can't forget. Safe by construction
+      // rather than by every caller's discipline.
+      const escaped = {};
+      for (const [k, v] of Object.entries(params)) {
+        escaped[k] = escapeHtml(String(v));
+      }
+      errorEl.innerHTML = t(key, escaped);
       errorEl.hidden = false;
       discoverEl.disabled = false;
       discoverEl.textContent = t("auth.discoverDialog.discover");
@@ -2212,7 +2220,7 @@ export class RequestAuthEditor {
     const doDiscover = async () => {
       const raw = urlInput.value.trim();
       if (!raw) {
-        showError(t("auth.discoverDialog.enterUrl"));
+        showError("auth.discoverDialog.enterUrl");
         return;
       }
 
@@ -2232,12 +2240,10 @@ export class RequestAuthEditor {
       try {
         config = await _fetchJson(discoveryUrl);
       } catch (err) {
-        showError(
-          t("auth.discoverDialog.fetchFailed", {
-            url: escapeHtml(discoveryUrl),
-            message: escapeHtml(err.message),
-          }),
-        );
+        showError("auth.discoverDialog.fetchFailed", {
+          url: discoveryUrl,
+          message: err.message,
+        });
         // Clear any previously stored discovery data so stale scopes/issuer
         // from a prior successful lookup don't linger after a failed re-discover.
         if (this.#getCurrentNodeId() === targetNodeId) {

@@ -269,8 +269,8 @@ test-quick-access:
 	@echo "--------------------------------"
 
 test-i18n:
-	@echo "Running i18n tests (locale resolver + t()/format + hardcoded-string guard)..."
-	@node --test $(APP_DIR)/tests/i18n.test.js $(APP_DIR)/tests/no-hardcoded-native-strings.test.js $(WEB_DIR)/scripts/tests/i18n.test.js $(WEB_DIR)/scripts/tests/no-hardcoded-strings.test.js
+	@echo "Running i18n tests (locale resolver + t()/format + hardcoded-string + event-registry guards)..."
+	@node --test $(APP_DIR)/tests/i18n.test.js $(APP_DIR)/tests/no-hardcoded-native-strings.test.js $(WEB_DIR)/scripts/tests/i18n.test.js $(WEB_DIR)/scripts/tests/no-hardcoded-strings.test.js $(WEB_DIR)/scripts/tests/event-registry.test.js
 	@echo "--------------------------------"
 
 test-diagnostics:

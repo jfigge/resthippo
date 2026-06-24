@@ -1406,6 +1406,9 @@ function initEventBus() {
   // Test assertions (Feature 29)
   //   test-results          { requestId, results, summary }  after-response assertions (app.js → ResponseViewer): fill the Tests tab + status badge
   //
+  // Response captures
+  //   captures-applied      { count }                        app.js → ResponseViewer: response-capture rules wrote N variables → refresh
+  //
   // Live HTTP streaming (Feature 33)  (preload http:stream:* → app.js → ResponseViewer)
   //   stream-data           { streamId, kind, index, ts, event?|data?, totalBytes, count }
   //   stream-end            { streamId, ts, totalBytes, eventCount, elapsed, status, bodyRef, aborted, lastEvents }
@@ -1449,6 +1452,7 @@ function initEventBus() {
   //   new-request  ·  new-collection  ·  new-ws-request  ·  open-settings  ·
   //   keyboard-shortcuts  ·  cycle-layout
   //                                  — payload-less; menu accelerator or click
+  //   edit-action           { action: "undo" | "redo" }     Edit-menu undo/redo → focused editable
   //
   // UI coordination             (broadcast; PopupManager / pickers)
   //   popup-opened          —

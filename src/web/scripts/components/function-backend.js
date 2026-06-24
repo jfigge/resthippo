@@ -29,6 +29,10 @@ function errorMessage(error) {
   return error?.message ?? "Function call failed";
 }
 
+// Cap on a single dev-server function call so a hung backend can't stall the
+// whole template resolution (and thus the request send) indefinitely.
+const BACKEND_FETCH_TIMEOUT_MS = 15000;
+
 /**
  * @param {string} fn
  * @param {Record<string, string>} args
@@ -42,11 +46,27 @@ export async function invokeBackend(fn, args) {
     return result.result ?? "";
   }
 
-  const response = await fetch("/api/functions/invoke", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fn, args }),
-  });
+  // Dev-server path: bound the request with an abortable timeout.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), BACKEND_FETCH_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch("/api/functions/invoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fn, args }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      throw new Error(
+        `Function "${fn}" timed out after ${BACKEND_FETCH_TIMEOUT_MS}ms`,
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const result = await response.json();
   if (result.error) throw new Error(errorMessage(result.error));

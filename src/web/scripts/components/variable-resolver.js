@@ -305,6 +305,40 @@ export function serializeEditor(el) {
 }
 
 /**
+ * Cap on concurrent async token resolutions. Function pills (`{{hmac()}}`,
+ * `{{hash()}}`, `{{environmentVariable()}}`) each delegate to the main process
+ * over IPC (or, on the dev-server path, fetch); a template carrying many of them
+ * would otherwise fire them ALL at once — flooding the bridge and opening a burst
+ * of sockets. 8 keeps resolution responsive without serializing it.
+ */
+export const MAX_RESOLVE_CONCURRENCY = 8;
+
+/**
+ * Map `fn` over `items` with at most `limit` calls in flight at once, preserving
+ * input order in the result array. Plain-text tokens resolve instantly, so this
+ * effectively bounds the number of concurrent backend calls.
+ *
+ * @template T, R
+ * @param {T[]} items
+ * @param {number} limit
+ * @param {(item: T, index: number) => Promise<R>} fn
+ * @returns {Promise<R[]>}
+ */
+async function mapLimit(items, limit, fn) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const i = cursor++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  const n = Math.min(Math.max(1, limit), items.length);
+  await Promise.all(Array.from({ length: n }, worker));
+  return results;
+}
+
+/**
  * Async version of resolveString that also evaluates function calls.
  * Function handlers may return Promises (backend-delegated functions).
  *
@@ -314,6 +348,10 @@ export function serializeEditor(el) {
  * (variables hold literal values, not nested templates) and makes circular
  * references impossible — there is no recursion to loop.
  *
+ * Backend-delegated function pills are evaluated with bounded concurrency
+ * (MAX_RESOLVE_CONCURRENCY) so a template with many of them can't fire an
+ * unbounded burst of IPC/fetch calls; output order is preserved regardless.
+ *
  * @param {string} template
  * @param {object | null} context
  * @returns {Promise<string>}
@@ -322,8 +360,10 @@ export async function resolveStringAsync(template, context) {
   if (!template) return template ?? "";
 
   const tokens = tokenize(template);
-  const parts = await Promise.all(
-    tokens.map(async (token) => {
+  const parts = await mapLimit(
+    tokens,
+    MAX_RESOLVE_CONCURRENCY,
+    async (token) => {
       if (token.type === "text") return token.content;
 
       const content = token.content.trim();
@@ -343,7 +383,7 @@ export async function resolveStringAsync(template, context) {
       // On miss, re-emit the original token verbatim (untrimmed) so user text
       // like `{{ name }}` is preserved, matching the function-call branch above.
       return found ? String(value ?? "") : `{{${token.content}}}`;
-    }),
+    },
   );
 
   return parts.join("");
