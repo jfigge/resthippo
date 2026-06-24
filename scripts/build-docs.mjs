@@ -245,10 +245,12 @@ if (existsSync(resolve(SRC, "images"))) {
   cpSync(resolve(SRC, "images"), resolve(OUT, "images"), { recursive: true });
 }
 
-// Sitemap: homepage + feature-requests page + every guide page.
+// Sitemap: homepage + top-level marketing/legal pages + every guide page.
 const urls = [
   `${SITE_URL}/`,
   `${SITE_URL}/features.html`,
+  `${SITE_URL}/vs-postman.html`,
+  `${SITE_URL}/privacy.html`,
   ...PAGES.map((p) => `${SITE_URL}/docs/${outFile(p)}`),
 ];
 const sitemap =

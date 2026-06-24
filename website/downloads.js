@@ -99,6 +99,22 @@
     return any;
   }
 
+  function renderWin(list, assets) {
+    var groups = [
+      { arch: "x64", label: "Intel / AMD (64-bit)" },
+      { arch: "arm64", label: "ARM (arm64)" },
+    ];
+    var any = false;
+    groups.forEach(function (g) {
+      var items = assets.filter(function (a) { return a.arch === g.arch; }).sort(byPreferred);
+      if (!items.length) return;
+      any = true;
+      list.appendChild(sep(g.label));
+      items.forEach(function (a) { list.appendChild(row(a)); });
+    });
+    return any;
+  }
+
   function renderFlat(label) {
     return function (list, assets) {
       if (!assets.length) return false;
@@ -158,7 +174,7 @@
     setText("dl-version", latest.version);
     setText("footer-version", "v" + latest.version);
     fillCard("dl-list-mac", assets, renderMac);
-    fillCard("dl-list-win", assets, renderFlat("64-bit"));
+    fillCard("dl-list-win", assets, renderWin);
     fillCard("dl-list-linux", assets, renderFlat("64-bit"));
     renderHistory(releases);
   }
