@@ -1,6 +1,6 @@
 {
   "name": "resthippo",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "A web-based REST API client — like Insomnia, built with Electron",
   "homepage": "https://github.com/jfigge/resthippo",
   "author": {
