@@ -44,6 +44,7 @@
     "productName": "Rest Hippo",
     "copyright": "Copyright © 2026",
     "icon": "web/resthippo-logo.png",
+    "artifactName": "Rest-Hippo-${version}-${arch}.${ext}",
     "publish": {
       "provider": "github",
       "owner": "jfigge",
@@ -120,6 +121,9 @@
           ]
         }
       ]
+    },
+    "nsis": {
+      "artifactName": "Rest-Hippo-Setup-${version}-${arch}.${ext}"
     }
   },
   "dependencies": {
