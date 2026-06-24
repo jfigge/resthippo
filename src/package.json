@@ -130,8 +130,14 @@
     "socks-proxy-agent": "^8.0.5",
     "ws": "^8.21.0"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "overrides": {
     "@electron/asar": "^4.1.2",
-    "@electron/get": "^5.0.0"
+    "@electron/get": "^5.0.0",
+    "node-gyp": {
+      "undici": "^6.27.0"
+    }
   }
 }

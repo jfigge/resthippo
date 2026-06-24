@@ -43,6 +43,28 @@ const CONFIG_VERSION = 1;
 const MODES = ["app-key", "os-keychain", "master-password"];
 const DEFAULT_MODE = "app-key";
 
+/**
+ * Pick the backend for a fresh install with no existing managed ciphertext.
+ *
+ * On Windows, Electron safeStorage is backed by DPAPI — real, user-bound at-rest
+ * protection with NO prompt — whereas the app-key file's 0600 mode is a no-op
+ * there (any local-user process can read it). So when the keystore is available
+ * on Windows, os-keychain is the better PROMPTLESS default. Everywhere else keep
+ * app-key: macOS os-keychain shows a Keychain prompt, and Linux may have no
+ * Secret Service provider, so the no-prompt file is the safer default there.
+ *
+ * Pure (platform + availability in, mode out) so it is unit-testable without
+ * touching process.platform.
+ *
+ * @param {string} platform           process.platform
+ * @param {boolean} keystoreAvailable crypto.isAvailable()
+ * @returns {string} a MODES value
+ */
+function defaultModeFor(platform, keystoreAvailable) {
+  if (platform === "win32" && keystoreAvailable) return "os-keychain";
+  return DEFAULT_MODE;
+}
+
 // A fixed constant sealed under the master key; decrypting it back proves the
 // entered password is correct (the GCM tag does the verification). Never secret.
 const VERIFIER_PLAINTEXT = "resthippo:secret-storage:verifier:v1";
@@ -370,7 +392,7 @@ class SecretStorage {
     if (this._anyCiphertext(startsWith("encm:"))) return "master-password";
     if (this._anyCiphertext(startsWith("enc:v1:"))) return "os-keychain";
     if (this._anyCiphertext(startsWith("enck:"))) return "app-key";
-    return DEFAULT_MODE;
+    return defaultModeFor(process.platform, crypto.isAvailable());
   }
 
   /**
@@ -680,4 +702,4 @@ function mapRequest(req, fn) {
   return out;
 }
 
-module.exports = { SecretStorage, MODES, DEFAULT_MODE };
+module.exports = { SecretStorage, MODES, DEFAULT_MODE, defaultModeFor };

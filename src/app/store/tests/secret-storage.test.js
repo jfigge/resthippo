@@ -33,7 +33,7 @@ const path = require("path");
 const nodeCrypto = require("node:crypto");
 
 const { Paths } = require("../paths");
-const { SecretStorage } = require("../secret-storage");
+const { SecretStorage, defaultModeFor } = require("../secret-storage");
 const { Stores } = require("../stores");
 const crypto = require("../crypto");
 
@@ -54,6 +54,20 @@ const SAFE_STORAGE_MOCK = {
   encryptString: (s) => Buffer.from(s, "utf8"),
   decryptString: (buf) => Buffer.from(buf).toString("utf8"),
 };
+
+describe("defaultModeFor (fresh-install backend by platform)", () => {
+  it("prefers os-keychain (DPAPI) on Windows when the keystore is available", () => {
+    assert.equal(defaultModeFor("win32", true), "os-keychain");
+  });
+  it("falls back to app-key on Windows when no keystore is available", () => {
+    assert.equal(defaultModeFor("win32", false), "app-key");
+  });
+  it("uses app-key on macOS / Linux (avoids a prompt / a missing provider)", () => {
+    assert.equal(defaultModeFor("darwin", true), "app-key");
+    assert.equal(defaultModeFor("linux", true), "app-key");
+    assert.equal(defaultModeFor("linux", false), "app-key");
+  });
+});
 
 describe("mode inference (no decrypt → no keychain prompt)", () => {
   afterEach(resetCrypto);

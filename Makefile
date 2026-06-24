@@ -250,7 +250,7 @@ test-export:
 
 test-components:
 	@echo "Running renderer component tests (variable resolution, request payload)..."
-	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/request-refs.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js $(WEB_DIR)/scripts/components/tests/captures.test.js $(WEB_DIR)/scripts/components/tests/status-match.test.js $(WEB_DIR)/scripts/components/tests/captures-xml.test.js $(WEB_DIR)/scripts/components/tests/tree-model.test.js $(WEB_DIR)/scripts/components/tests/body-filter.test.js $(WEB_DIR)/scripts/components/code-gen/tests/code-gen.test.js $(WEB_DIR)/scripts/utils/tests/theme-css.test.js
+	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/request-refs.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js $(WEB_DIR)/scripts/components/tests/graphql-introspection.test.js $(WEB_DIR)/scripts/components/tests/captures.test.js $(WEB_DIR)/scripts/components/tests/status-match.test.js $(WEB_DIR)/scripts/components/tests/captures-xml.test.js $(WEB_DIR)/scripts/components/tests/tree-model.test.js $(WEB_DIR)/scripts/components/tests/body-filter.test.js $(WEB_DIR)/scripts/components/code-gen/tests/code-gen.test.js $(WEB_DIR)/scripts/utils/tests/theme-css.test.js
 	@echo "--------------------------------"
 
 test-import:
