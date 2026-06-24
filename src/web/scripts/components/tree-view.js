@@ -1206,7 +1206,7 @@ export class TreeView {
     )
       ? ` title="${escapeHtml(m)}"`
       : "";
-    return `<span class="tree-node-method method--${m.toLowerCase()}"${title}>${escapeHtml(m)}</span>`;
+    return `<span class="tree-node-method method--${escapeHtml(m.toLowerCase())}"${title}>${escapeHtml(m)}</span>`;
   }
 
   // ── Mutations — toolbar ─────────────────────────────────────────────────

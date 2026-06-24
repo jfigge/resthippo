@@ -374,6 +374,32 @@ test("openapi: groups operations under their tag and maps bearer security", () =
   assert.deepEqual(req.params, [{ enabled: true, name: "verbose", value: "" }]);
 });
 
+test("openapi: a __proto__ body-schema property is inert data, not prototype pollution", () => {
+  // A raw JSON string (how specs actually arrive) so "__proto__" is a genuine
+  // own key after JSON.parse — a JS object literal would instead set the
+  // prototype and lose the key before it reaches the importer.
+  const schema =
+    '{"type":"object","properties":' +
+    '{"__proto__":{"type":"object","properties":{"injected":{"default":"PWNED"}}},' +
+    '"normal":{"type":"string","default":"ok"}}}';
+  const hostileJson =
+    '{"openapi":"3.0.1","info":{"title":"Evil"},"paths":{"/x":{"post":' +
+    '{"operationId":"evil","requestBody":{"content":{"application/json":' +
+    `{"schema":${schema}}}}}}}}`;
+
+  const { collection } = parseImport(hostileJson);
+  // No global prototype pollution from building the example.
+  assert.equal({}.injected, undefined);
+  assert.equal(Object.prototype.injected, undefined);
+
+  // The example body parses, and __proto__ survives as OWN data (the null-proto
+  // build), rather than being absorbed into the object's prototype (the bug).
+  const req = findRequest(collection, "evil");
+  const body = JSON.parse(req.bodyText);
+  assert.ok(Object.hasOwn(body, "__proto__"));
+  assert.equal(body.normal, "ok");
+});
+
 test("swagger 2.0: detected and base URL built from host + basePath", () => {
   const swagger = {
     swagger: "2.0",

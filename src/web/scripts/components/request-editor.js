@@ -693,6 +693,11 @@ export class RequestEditor {
   // Global "Remove Headers" setting — forwarded to the body + GraphQL editors.
   #removeHeaders = false;
 
+  // Global network settings, cached so a direct fetch that bypasses app.js's
+  // descriptor enrichment (GraphQL introspection) still honors them.
+  #verifySsl = true;
+  #followRedirects = true;
+
   // IDs of requests currently in flight. Requests run concurrently, so the
   // Send/Stop button reflects only the request loaded in the editor.
   #inFlightIds = new Set();
@@ -1965,7 +1970,13 @@ export class RequestEditor {
       },
       rv,
     );
-    return executeIntrospection({ url: finalUrl, headers, body });
+    return executeIntrospection({
+      url: finalUrl,
+      headers,
+      body,
+      verifySsl: this.#verifySsl,
+      followRedirects: this.#followRedirects,
+    });
   }
 
   #dispatchBodyUpdated() {
@@ -3517,6 +3528,12 @@ export class RequestEditor {
       this.#bodyEditor.setRemoveHeaders(this.#removeHeaders);
       this.#graphql.setRemoveHeaders(this.#removeHeaders);
     }
+    // Cache network settings for the GraphQL introspection fetch (which bypasses
+    // app.js's send-time descriptor enrichment).
+    if (settings.verifySsl != null)
+      this.#verifySsl = settings.verifySsl !== false;
+    if (settings.followRedirects != null)
+      this.#followRedirects = settings.followRedirects !== false;
     // Request-tab visibility (Settings → Request). Update the flags and reflect
     // them onto the tab strip live; Captures/Scripts also gate execution.
     if (settings.showCapturesTab != null)

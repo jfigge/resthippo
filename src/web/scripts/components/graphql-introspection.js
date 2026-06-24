@@ -55,6 +55,10 @@ function introspectionError(message, i18nKey, i18nParams) {
  * @param {object} opts.headers  resolved request headers (Content-Type forced)
  * @param {string} opts.body     the JSON-stringified `{ query }` introspection body
  * @param {number} [opts.timeout]
+ * @param {boolean} [opts.verifySsl=true]       honor the user's SSL-verification
+ *   setting so a self-signed endpoint that the user can already send to can also
+ *   be introspected.
+ * @param {boolean} [opts.followRedirects=true]
  * @returns {Promise<object>} the parsed introspection JSON
  */
 export async function executeIntrospection({
@@ -62,6 +66,8 @@ export async function executeIntrospection({
   headers,
   body,
   timeout = 30000,
+  verifySsl = true,
+  followRedirects = true,
 }) {
   const desc = {
     method: "POST",
@@ -69,8 +75,8 @@ export async function executeIntrospection({
     headers: { "Content-Type": "application/json", ...(headers ?? {}) },
     body,
     timeout,
-    followRedirects: true,
-    verifySsl: true,
+    followRedirects,
+    verifySsl,
   };
 
   let result;

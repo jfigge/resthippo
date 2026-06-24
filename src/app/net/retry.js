@@ -178,7 +178,12 @@ function parseRetryAfter(value, nowMs) {
   const s = String(value).trim();
   if (s === "") return null;
   if (/^\d+$/.test(s)) return Number(s) * 1000; // delta-seconds
-  const when = Date.parse(s); // HTTP-date
+  // HTTP-date: an IMF-fixdate always carries alphabetic weekday/month/"GMT", so
+  // require a letter before trusting Date.parse — otherwise junk like "1.5",
+  // "-5", or a comma-folded duplicate ("3, 5") would be misread as a bogus date
+  // instead of failing the "null when invalid" contract.
+  if (!/[a-zA-Z]/.test(s)) return null;
+  const when = Date.parse(s);
   if (Number.isNaN(when)) return null;
   return Math.max(0, when - nowMs);
 }

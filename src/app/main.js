@@ -2046,8 +2046,14 @@ ipcMain.handle("secret-storage:set-mode", (_event, { mode, password } = {}) => {
   if (!MODES.includes(mode)) return { ok: false, reason: "invalid-mode" };
   const sec = getStores().secretStorage();
   const current = crypto.getMode();
-  // Re-selecting the current mode is a no-op (except re-setting a master password).
-  if (mode === current && !(mode === "master-password" && password)) {
+  // Re-selecting the current mode is a no-op. This includes re-entering a master
+  // password: a same-mode "re-key" is NOT a real migration (reencryptValue skips
+  // same-prefix values, so the secrets stay sealed under the OLD key while the
+  // flip would write the NEW verifier — leaving them unrecoverable). Re-keying the
+  // master password is a distinct feature, not implemented here; treat it as a
+  // no-op rather than the data-loss path. The UI already hides the master fields
+  // when the target equals the current mode.
+  if (mode === current) {
     return { ok: true, unchanged: true };
   }
 

@@ -136,7 +136,10 @@ class RefResolver {
     }
 
     if (type === "object" || schema.properties || schema.allOf) {
-      const out = {};
+      // Null-prototype so a hostile schema property named "__proto__" (or
+      // "constructor") from an untrusted spec is copied as plain data rather than
+      // walking the prototype chain / polluting it. Serializes to JSON normally.
+      const out = Object.create(null);
       // `allOf` members contribute their object properties first.
       for (const sub of schema.allOf ?? []) {
         const merged = this.exampleFromSchema(sub, path, depth + 1);

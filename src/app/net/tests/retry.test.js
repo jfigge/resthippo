@@ -245,6 +245,14 @@ describe("parseRetryAfter", () => {
     assert.equal(parseRetryAfter("   ", 0), null);
     assert.equal(parseRetryAfter("soon", 0), null);
   });
+
+  it("returns null for letterless garbage (not a bogus Date.parse result)", () => {
+    // Without the letter guard these slip through Date.parse as junk dates.
+    assert.equal(parseRetryAfter("1.5", 0), null);
+    assert.equal(parseRetryAfter("-5", 0), null);
+    assert.equal(parseRetryAfter("3, 5", 0), null); // comma-folded duplicate header
+    assert.equal(parseRetryAfter("12:30", 0), null);
+  });
 });
 
 describe("retryDelay", () => {
