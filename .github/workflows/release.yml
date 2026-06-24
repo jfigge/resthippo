@@ -170,3 +170,39 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run deploy-site.yml --ref main --repo "${{ github.repository }}"
+
+  # ── Announce the release on X (Twitter) ────────────────────────────────────
+  # Posts a single tweet once the Release is published. Authenticated with
+  # OAuth 1.0a user-context credentials from an X developer app, supplied as
+  # repository secrets. Like the signing secrets above, EMPTY secrets are not an
+  # error: scripts/post-release-tweet.mjs detects missing credentials and exits
+  # cleanly without posting, so this job stays a no-op until the four secrets
+  # are configured (Settings → Secrets and variables → Actions):
+  #
+  #   X_API_KEY         OAuth 1.0a consumer (API) key
+  #   X_API_SECRET      OAuth 1.0a consumer (API) secret
+  #   X_ACCESS_TOKEN    access token for the posting account (app = Read + Write)
+  #   X_ACCESS_SECRET   access token secret
+  #
+  # Gated on tag pushes, so a manual workflow_dispatch smoke build won't tweet.
+  announce:
+    name: Announce on X
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Post release tweet
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/post-release-tweet.mjs

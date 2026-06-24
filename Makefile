@@ -193,7 +193,7 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-cookies test-auth test-net test-scripting test-content-type test-ipc test-oauth test-export test-components test-import test-data-store test-quick-access test-i18n test-diagnostics test-renderer-components test-renderer-e2e test-license-headers
+test: test-js test-cookies test-auth test-net test-scripting test-content-type test-ipc test-oauth test-export test-components test-import test-data-store test-quick-access test-i18n test-diagnostics test-renderer-components test-renderer-e2e test-scripts test-license-headers
 
 # Guard: every first-party src/ JS+CSS file and build script must carry the
 # Apache 2.0 header. Run by `make test` (CI) and the pre-commit hook. Fix any
@@ -286,6 +286,11 @@ test-renderer-components:
 test-renderer-e2e:
 	@echo "Running renderer request->response E2E tests (jsdom)..."
 	@node --test $(WEB_DIR)/scripts/tests/renderer-e2e.test.js
+	@echo "--------------------------------"
+
+test-scripts:
+	@echo "Running build/release script tests (release-tweet OAuth signing)..."
+	@node --test $(WORKSPACE)/scripts/tests/post-release-tweet.test.js
 	@echo "--------------------------------"
 
 # ─── UI end-to-end (real app over CDP) ────────────────────────────────────────
