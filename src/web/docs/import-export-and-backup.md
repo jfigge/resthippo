@@ -16,7 +16,8 @@ workspace. There are two separate features:
 ## Exporting
 
 Export a single collection from its right-click menu (**Export…**), or export
-everything at once:
+everything at once — from the **File ▸ Export All Collections…** menu or the
+export button in the [collections manager](collections.md) toolbar:
 
 ![The export dialog](images/export-modal.png)
 

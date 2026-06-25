@@ -18,10 +18,11 @@
  * collections-popup.js — collections manager (settings-style two-pane layout)
  *
  * Left pane:  a sidebar listing every collection. A toolbar at the top holds an
- *             add ([+]) button and a circular-arrow reset button. Each row shows
- *             the collection name plus rename / delete actions, and the active
- *             collection is marked with a checkmark. Rename and add both edit the
- *             name inline (Enter confirms, Escape cancels).
+ *             add ([+]) button and an export-all button (the same workspace
+ *             export as the File ▸ "Export All Collections…" menu item). Each row
+ *             shows the collection name plus rename / delete actions, and the
+ *             active collection is marked with a checkmark. Rename and add both
+ *             edit the name inline (Enter confirms, Escape cancels).
  *
  * Right pane: a tabbed panel for the selected collection:
  *             • Variables — the inline key/value editor (bulk-textarea / KV-row
@@ -43,6 +44,7 @@
  *   onSendCookiesChange({ id, sendCookies }) — toggle the cookie-jar attach flag
  *   onVarsSave({ scopeId, variables })   — debounced 500ms auto-save
  *   onBulkEditorChange({ bulkEditor }) — bulk-textarea / KV-row toggle changed
+ *   onExportAll()                      — export every collection to one file
  *
  * The cookie jar is owned by the main process, so no cookie callbacks fire for
  * jar reads/writes — the Cookies tab re-reads from IPC whenever it opens or
@@ -71,6 +73,7 @@ import { upsertCookie, deleteCookie, clearCookies } from "../data-store.js";
 const ICON_CHECK = icon("check", { size: 13 });
 const ICON_RENAME = icon("rename", { size: 13 });
 const ICON_ADD = icon("add", { size: 15 });
+const ICON_EXPORT = icon("download", { size: 15 });
 // Cookie edit reuses the rename pencil so the two managers stay visually consistent.
 const ICON_EDIT = ICON_RENAME;
 
@@ -140,6 +143,7 @@ export class CollectionsPopup {
   #onSendCookiesChange;
   #onVarsSave;
   #onBulkEditorChange;
+  #onExportAll;
 
   /**
    * @param {{
@@ -150,6 +154,7 @@ export class CollectionsPopup {
    *   onSendCookiesChange?: (payload: { id: string, sendCookies: boolean }) => void,
    *   onVarsSave?: (payload: { scopeId: string, variables: Array }) => void,
    *   onBulkEditorChange?: (payload: { bulkEditor: boolean }) => void,
+   *   onExportAll?: () => void,
    * }} [opts]
    */
   constructor({
@@ -160,6 +165,7 @@ export class CollectionsPopup {
     onSendCookiesChange,
     onVarsSave,
     onBulkEditorChange,
+    onExportAll,
   } = {}) {
     this.#onSelect = onSelect;
     this.#onAdd = onAdd;
@@ -168,6 +174,7 @@ export class CollectionsPopup {
     this.#onSendCookiesChange = onSendCookiesChange;
     this.#onVarsSave = onVarsSave;
     this.#onBulkEditorChange = onBulkEditorChange;
+    this.#onExportAll = onExportAll;
     this.#el = this.#build();
     this.#initResize(this.#el);
   }
@@ -274,6 +281,7 @@ export class CollectionsPopup {
         <div class="coll-sidebar">
           <div class="coll-sidebar-toolbar">
             <button class="icon-btn coll-new-btn" title="${t("collections.addCollection")}" aria-label="${t("collections.addCollection")}">${ICON_ADD}</button>
+            <button class="icon-btn coll-export-all-btn" title="${t("collections.exportAll")}" aria-label="${t("collections.exportAll")}">${ICON_EXPORT}</button>
           </div>
           <ul class="coll-list" role="listbox" aria-label="${t("collections.title")}"></ul>
         </div>
@@ -345,6 +353,11 @@ export class CollectionsPopup {
     // Sidebar toolbar
     el.querySelector(".coll-new-btn").addEventListener("click", () =>
       this.#startAdd(),
+    );
+    // Export-all hands off to the creator, which routes it to the same workspace
+    // export flow as the File ▸ "Export All Collections…" menu item.
+    el.querySelector(".coll-export-all-btn").addEventListener("click", () =>
+      this.#onExportAll?.(),
     );
 
     // Tabs

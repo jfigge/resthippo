@@ -940,6 +940,8 @@
   },
   "collections": {
     "title": "コレクション",
+    "manage": "管理…",
+    "exportAll": "すべてのコレクションをエクスポート…",
     "tabCookies": "Cookie",
     "addCollection": "コレクションを追加",
     "editorAria": "コレクションエディター",

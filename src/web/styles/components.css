@@ -5218,9 +5218,10 @@ html.show-method-icons .req-method-menu-item-label::before {
   flex-shrink: 0;
 }
 
-/* .coll-new-btn inherits the shared .icon-btn appearance
+/* .coll-new-btn / .coll-export-all-btn inherit the shared .icon-btn appearance
    (matching .coll-add-btn); only the cursor is extra. */
-.coll-new-btn {
+.coll-new-btn,
+.coll-export-all-btn {
   cursor: pointer;
 }
 

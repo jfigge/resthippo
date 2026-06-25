@@ -946,6 +946,8 @@
   },
   "collections": {
     "title": "Raccolte",
+    "manage": "Gestisci…",
+    "exportAll": "Esporta tutte le raccolte…",
     "tabCookies": "Cookie",
     "addCollection": "Aggiungi raccolta",
     "editorAria": "Editor della raccolta",

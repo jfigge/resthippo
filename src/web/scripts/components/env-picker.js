@@ -22,10 +22,11 @@
  * Renders a trigger button that opens a native OS popup menu listing every
  * environment (plus the Global pseudo-environment), with a check beside the
  * active one. Selecting an environment activates it; the OS dismisses the menu.
- * Two mouse interactions differ only in what trails the list:
- *   • primary (left) click    → environments only (no separator / "Manage…").
- *   • secondary (right) click → adds a separator and a "Manage…" entry that
- *     opens the environments editor (onManage).
+ * The two mouse interactions open different menus:
+ *   • primary (left) click    → the environment list (Global + each
+ *     environment); selecting one activates it.
+ *   • secondary (right) click → just a "Manage…" entry that opens the
+ *     environments editor (onManage) — no environment rows, no separator.
  *
  * The menu is shown by the main process over the `ui:context-menu:show` IPC
  * channel (window.hippo.ui.contextMenu.show), which resolves with the clicked
@@ -113,11 +114,12 @@ export class EnvPicker {
   }
 
   /**
-   * Open a native OS popup menu anchored under the trigger. Rows are Global
-   * (id null) then each named environment with a check beside the active one.
-   * When `withManage` is true a separator and a "Manage…" entry trail the list
-   * (the secondary-click affordance). Environment labels are upper-cased to
-   * match the trigger and the environments list. Resolves to the clicked id (or
+   * Open a native OS popup menu anchored under the trigger. With `withManage`
+   * false (primary click) the rows are Global (id null) then each named
+   * environment with a check beside the active one, upper-cased to match the
+   * trigger; selecting one activates it. With `withManage` true (secondary
+   * click) the menu holds only a "Manage…" entry that opens the environments
+   * editor — no environment rows, no separator. Resolves to the clicked id (or
    * null when dismissed); we map it back to the activate / manage action.
    */
   async #openMenu(btn, withManage = false) {
@@ -125,35 +127,39 @@ export class EnvPicker {
     if (this.#open || !window.hippo?.ui?.contextMenu?.show) return;
 
     const activeId = this.#data.activeEnvironmentId ?? null;
-    const entries = [
-      { id: null, name: t("env.global") },
-      ...(this.#data.environments ?? []).map((e) => ({
-        id: e.id,
-        name: e.name,
-      })),
-    ];
 
-    // Native menu ids are strings; key each row by index and map the chosen key
-    // back to its (possibly null) environment id.
+    // Native menu ids are strings; key each environment row by index and map
+    // the chosen key back to its (possibly null) environment id.
     const idByKey = new Map();
-    const items = entries.map((entry, i) => {
-      const key = `env:${i}`;
-      idByKey.set(key, entry.id);
-      return {
-        id: key,
-        label: String(entry.name ?? "").toUpperCase(),
-        type: "checkbox",
-        checked: entry.id === activeId,
-      };
-    });
+    let items;
     if (withManage) {
-      items.push({ type: "separator" });
-      // The accelerator is display-only (the renderer owns ⌘/Ctrl+E); it just
+      // Secondary click → just the "Manage…" entry; no environment rows. The
+      // accelerator is display-only (the renderer owns ⌘/Ctrl+E); it just
       // advertises the shortcut next to the same action this entry triggers.
-      items.push({
-        id: _MANAGE_ID,
-        label: t("env.manage"),
-        accelerator: electronAccelerator("editEnvironment"),
+      items = [
+        {
+          id: _MANAGE_ID,
+          label: t("env.manage"),
+          accelerator: electronAccelerator("editEnvironment"),
+        },
+      ];
+    } else {
+      const entries = [
+        { id: null, name: t("env.global") },
+        ...(this.#data.environments ?? []).map((e) => ({
+          id: e.id,
+          name: e.name,
+        })),
+      ];
+      items = entries.map((entry, i) => {
+        const key = `env:${i}`;
+        idByKey.set(key, entry.id);
+        return {
+          id: key,
+          label: String(entry.name ?? "").toUpperCase(),
+          type: "checkbox",
+          checked: entry.id === activeId,
+        };
       });
     }
 

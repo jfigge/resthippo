@@ -1479,6 +1479,11 @@ function initEventBus() {
     onSendCookiesChange: handleCollSendCookies,
     onVarsSave: handleVarsSave,
     onBulkEditorChange: handleVarsBulkEditorChange,
+    // Export-all routes through the same hippo:export-all-requested handler the
+    // File ▸ "Export All Collections…" menu item fires, so the popup button and
+    // the menu share one implementation (ExportModal → runWorkspaceExport).
+    onExportAll: () =>
+      window.dispatchEvent(new CustomEvent("hippo:export-all-requested")),
   });
   varsPopup = new VariablesPopup({
     onSave: handleVarsSave,

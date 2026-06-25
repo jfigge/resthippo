@@ -940,6 +940,8 @@
   },
   "collections": {
     "title": "集合",
+    "manage": "管理…",
+    "exportAll": "导出所有集合…",
     "tabCookies": "Cookie",
     "addCollection": "添加集合",
     "editorAria": "集合编辑器",
