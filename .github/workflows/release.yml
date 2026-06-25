@@ -18,9 +18,20 @@ name: Release
 #   macOS notarization   APPLE_ID                     Apple ID email
 #                        APPLE_APP_SPECIFIC_PASSWORD  app-specific password
 #                        APPLE_TEAM_ID                10-char Team ID
-#   Windows signing      WIN_CSC_LINK                 base64 of the Authenticode
-#                                                    .pfx
-#                        WIN_CSC_KEY_PASSWORD         its password
+#   Windows signing      Authenticode via SignPath Foundation (free OSS code
+#   (SignPath)           signing). The publisher shows as "SignPath Foundation",
+#                        not Jason Figge — accepted tradeoff for a free, trusted
+#                        signature on an Apache-2.0 project. Signing is SKIPPED
+#                        (the unsigned build still ships) until the org-id VARIABLE
+#                        is set, so this workflow works before SignPath is wired.
+#                        Configure (Settings → Secrets and variables → Actions):
+#                          secrets.SIGNPATH_API_TOKEN          CI user API token
+#                          vars.SIGNPATH_ORGANIZATION_ID       enables signing when set
+#                          vars.SIGNPATH_PROJECT_SLUG          SignPath project slug
+#                          vars.SIGNPATH_SIGNING_POLICY_SLUG   e.g. release-signing
+#                          vars.SIGNPATH_ARTIFACT_CONFIG_SLUG  artifact configuration slug
+#                        Also install the SignPath GitHub App on the repo. Each
+#                        release waits for manual approval in the SignPath console.
 #
 # The installer's internal version comes from src/package.json ("version"), so
 # bump that to match the tag before tagging.
@@ -45,6 +56,9 @@ jobs:
   build:
     name: Build installers (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      actions: read # the SignPath action downloads the uploaded artifact by id
     strategy:
       fail-fast: false
       matrix:
@@ -83,11 +97,45 @@ jobs:
       - name: Build installers (Windows)
         if: runner.os == 'Windows'
         shell: "msys2 {0}"
-        # Authenticode signing — empty secrets ⇒ electron-builder skips signing.
-        env:
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        # Built UNSIGNED here; Authenticode signing is applied out-of-band by
+        # SignPath in the steps below (see the file header). electron-builder's
+        # signtoolOptions in package.json are inert without a local cert.
         run: make ${{ matrix.target }}
+
+      # ── Windows Authenticode via SignPath Foundation ─────────────────────────
+      # All three steps are gated on the SignPath org-id variable being set, so
+      # until SignPath is configured they are skipped and the unsigned build above
+      # ships as-is (mirrors the empty-secret graceful-skip used for macOS).
+      - name: Upload unsigned Windows exes for signing
+        id: unsigned-win
+        if: runner.os == 'Windows' && vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: unsigned-win
+          path: build/src/dist/*.exe
+          if-no-files-found: error
+          retention-days: 1 # intermediate hand-off only; never published
+
+      - name: Sign Windows exes with SignPath
+        if: runner.os == 'Windows' && vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@b9d91eadd323de506c0c81cf0c7fe7438f3360fd # v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIG_SLUG }}
+          github-artifact-id: ${{ steps.unsigned-win.outputs.artifact-id }}
+          wait-for-completion: true
+          # Signed exes are extracted back over the unsigned ones in dist/.
+          output-artifact-directory: build/src/dist
+
+      # SignPath rewrote the .exe bytes AFTER electron-builder hashed them into
+      # latest.yml, so recompute the sha512/size and drop the stale blockmaps or
+      # electron-updater rejects every signed release on a checksum mismatch.
+      - name: Refresh auto-update metadata after signing
+        if: runner.os == 'Windows' && vars.SIGNPATH_ORGANIZATION_ID != ''
+        run: node scripts/resign-update-metadata.mjs build/src/dist
 
       - name: Build installers (macOS / Linux)
         if: runner.os != 'Windows'
@@ -139,6 +187,9 @@ jobs:
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           path: artifacts
+          # Only the per-OS final installers — excludes the intermediate
+          # `unsigned-win` artifact so unsigned exes never reach the Release.
+          pattern: installers-*
 
       - name: Publish release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2

@@ -615,6 +615,15 @@
       padding: 6px 2px 2px;
     }
 
+    .dl-signed {
+      font-size: 0.72rem;
+      color: var(--overlay-0);
+      line-height: 1.5;
+      margin-top: 12px;
+    }
+    .dl-signed a { color: var(--accent); text-decoration: none; }
+    .dl-signed a:hover { text-decoration: underline; }
+
     /* ── Footer ────────────────────────────────────────────────────────────── */
 
     footer {
@@ -992,6 +1001,11 @@
             </div>
           </a>
         </div>
+        <p class="dl-signed">
+          Executables are Authenticode-signed by
+          <a href="/code-signing-policy.html">SignPath Foundation</a>, so Windows
+          shows that verified publisher.
+        </p>
       </div>
 
       <!-- Linux -->
@@ -1070,6 +1084,8 @@
       <a href="https://x.com/RestHippo" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none">@RestHippo</a>
       &nbsp;·&nbsp;
       <a href="/privacy.html" style="color:var(--accent);text-decoration:none">Privacy</a>
+      &nbsp;·&nbsp;
+      <a href="/code-signing-policy.html" style="color:var(--accent);text-decoration:none">Code Signing</a>
       &nbsp;·&nbsp;
       <a href="mailto:resthippo411@gmail.com" style="color:var(--accent);text-decoration:none">Contact</a>
     </p>

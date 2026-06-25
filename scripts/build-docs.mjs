@@ -251,6 +251,7 @@ const urls = [
   `${SITE_URL}/features.html`,
   `${SITE_URL}/vs-postman.html`,
   `${SITE_URL}/privacy.html`,
+  `${SITE_URL}/code-signing-policy.html`,
   ...PAGES.map((p) => `${SITE_URL}/docs/${outFile(p)}`),
 ];
 const sitemap =

@@ -289,8 +289,8 @@ test-renderer-e2e:
 	@echo "--------------------------------"
 
 test-scripts:
-	@echo "Running build/release script tests (release-tweet OAuth signing)..."
-	@node --test $(WORKSPACE)/scripts/tests/post-release-tweet.test.js
+	@echo "Running build/release script tests (release-tweet OAuth signing, resign metadata)..."
+	@node --test $(WORKSPACE)/scripts/tests/post-release-tweet.test.js $(WORKSPACE)/scripts/tests/resign-update-metadata.test.mjs
 	@echo "--------------------------------"
 
 # ─── UI end-to-end (real app over CDP) ────────────────────────────────────────

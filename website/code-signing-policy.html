@@ -4,19 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-  <meta name="description" content="Rest Hippo's privacy statement: no accounts, no telemetry, no third-party tracking. Your API requests, collections, and secrets stay on your own device." />
-  <title>Privacy Statement — Rest Hippo</title>
-  <link rel="canonical" href="https://resthippo.com/privacy.html" />
+  <meta name="description" content="Rest Hippo's code signing policy: Windows releases are Authenticode-signed through SignPath Foundation's free certification program for open-source projects." />
+  <title>Code Signing Policy — Rest Hippo</title>
+  <link rel="canonical" href="https://resthippo.com/code-signing-policy.html" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Rest Hippo" />
-  <meta property="og:title" content="Privacy Statement — Rest Hippo" />
-  <meta property="og:description" content="No accounts, no telemetry, no tracking. Your API requests, collections, and secrets stay on your own device." />
-  <meta property="og:url" content="https://resthippo.com/privacy.html" />
+  <meta property="og:title" content="Code Signing Policy — Rest Hippo" />
+  <meta property="og:description" content="Windows releases are Authenticode-signed through SignPath Foundation's free certification program for open-source projects." />
+  <meta property="og:url" content="https://resthippo.com/code-signing-policy.html" />
   <meta property="og:image" content="https://resthippo.com/og-image.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:site" content="@RestHippo" />
-  <meta name="twitter:title" content="Privacy Statement — Rest Hippo" />
-  <meta name="twitter:description" content="No accounts, no telemetry, no tracking. Your data stays on your own device." />
+  <meta name="twitter:title" content="Code Signing Policy — Rest Hippo" />
+  <meta name="twitter:description" content="Windows releases are Authenticode-signed through SignPath Foundation's free OSS code signing program." />
   <meta name="twitter:image" content="https://resthippo.com/og-image.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -238,144 +238,113 @@
 
 <!-- ── Page ────────────────────────────────────────────────────────────────── -->
 <main class="page">
-  <p class="page-tag">Legal</p>
-  <h1>Privacy Statement</h1>
-  <p class="updated">Last updated: June 24, 2026</p>
+  <p class="page-tag">Security</p>
+  <h1>Code Signing Policy</h1>
+  <p class="updated">Last updated: June 25, 2026</p>
 
   <div class="tldr" role="note">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/>
     </svg>
     <p class="tldr-body">
-      <strong>The short version:</strong> Rest Hippo has no accounts, no telemetry,
-      and no third-party tracking. Everything you create in the app — requests,
-      collections, history, and secrets — stays on your own device. This website
-      sets no cookies and runs no analytics.
+      <strong>The short version:</strong> Rest Hippo's Windows installers are
+      Authenticode-signed by <strong>SignPath Foundation</strong>, which provides
+      free code signing certificates to open-source projects. Because the
+      certificate belongs to the Foundation, Windows shows the verified publisher
+      as <strong>“SignPath Foundation”</strong> rather than Jason Figge — that's
+      expected, and a sign the build came through the audited release pipeline.
     </p>
   </div>
 
   <p>
-    This statement explains how the <strong>Rest Hippo</strong> desktop application
-    and the <strong>resthippo.com</strong> website handle your information. Both are
-    built and maintained by Jason Figge. The principle behind both is the same:
-    Rest Hippo is a local-first tool, so your data belongs to you and stays with you.
+    <strong>Rest Hippo</strong> is a free, open-source (Apache-2.0) desktop API
+    client built and maintained by Jason Figge. This page documents how its
+    release binaries are code-signed, who signs them, and how you can verify a
+    download you received is genuine.
   </p>
 
-  <h2>1. The Rest Hippo app</h2>
-
-  <h3>Your data stays on your device</h3>
+  <h2>1. What is signed</h2>
   <p>
-    Collections, requests, environments, variables, run history, and settings are
-    stored in local files under your operating system's user-profile folder. None
-    of it is uploaded to us or to any cloud service — there is no Rest Hippo account
-    and no server that holds your work. You can back it up, move it, or delete it
-    yourself at any time.
+    Every published Windows release — the NSIS installer
+    (<code>Rest-Hippo-Setup-&lt;version&gt;-&lt;arch&gt;.exe</code>) and the
+    portable executable, for both x64 and arm64 — is Authenticode-signed and
+    timestamped. macOS builds are separately signed and notarized with an Apple
+    Developer ID; Linux packages are not code-signed (Linux uses distribution-level
+    trust instead).
   </p>
 
-  <h3>The requests you send</h3>
+  <h2>2. Who signs it — SignPath Foundation</h2>
   <p>
-    Rest Hippo's whole job is to send the HTTP, GraphQL, and WebSocket requests you
-    compose to the servers <em>you</em> choose. That traffic goes directly from your
-    computer to those destinations. It does not pass through us, and we never see,
-    log, proxy, or store your requests, responses, headers, or bodies.
+    Windows signing is provided by
+    <a href="https://signpath.org/" rel="noopener noreferrer">SignPath Foundation</a>,
+    a non-profit that issues code signing certificates free of charge to qualifying
+    open-source projects. Rest Hippo does not hold its own Authenticode certificate;
+    the signature is applied with the Foundation's certificate through the
+    <a href="https://about.signpath.io/" rel="noopener noreferrer">SignPath.io</a>
+    signing service.
   </p>
-
-  <h3>Secrets and credentials</h3>
   <p>
-    Tokens, passwords, API keys, and other secrets are encrypted at rest on your
-    machine (using your OS keychain, an app-managed key, or an optional master
-    password — your choice in Settings). They stay local and are never transmitted
-    to us.
+    As a result, the <strong>verified publisher</strong> reported by Windows (in the
+    User Account Control prompt and the file's Digital Signatures tab) is
+    <strong>“SignPath Foundation”</strong>, not “Jason Figge” or “Rest Hippo”. This
+    is the normal, expected behavior for Foundation-signed software and is itself a
+    trust signal: it means the binary was produced and signed through the project's
+    reviewed release process.
   </p>
 
-  <h3>Software updates (optional)</h3>
+  <h2>3. How signing works</h2>
   <p>
-    Automatic update checks are <strong>off by default</strong>. If you turn them on
-    — or use “Check for Updates” manually — the app contacts <a href="https://github.com" rel="noopener noreferrer">GitHub</a>
-    to look for and download new releases. That connection reaches GitHub's servers
-    and is subject to <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener noreferrer">GitHub's privacy statement</a>.
-    You can leave updates off and download new versions yourself instead.
+    Signing is integrated into the project's automated release pipeline and is never
+    performed on a personal machine:
   </p>
-
-  <h3>Logs and diagnostics</h3>
-  <p>
-    The app keeps a local, rotating log of its own lifecycle and error events to help
-    you troubleshoot — it never records your secret values. Nothing is sent anywhere
-    automatically. “Export Diagnostics” bundles recent logs and build info into a
-    single file <em>only if you ask it to</em>, and it is entirely up to you whether
-    to share that file (for example, when filing a bug report).
-  </p>
-
-  <h3>No telemetry</h3>
-  <p>
-    Rest Hippo contains no analytics SDKs, usage tracking, crash-reporting services,
-    advertising, or “phone-home” beacons. The optional donation link (Help → Support
-    Rest Hippo) simply opens a page in your browser; the app does not track whether
-    you visit it or give.
-  </p>
-
-  <h2>2. This website</h2>
-
-  <h3>Static, cookie-free, no analytics</h3>
-  <p>
-    resthippo.com is a static website. It sets no cookies, runs no analytics or
-    advertising scripts, and includes no third-party tracking. Fonts are loaded from
-    your own system, so there are no web-font CDN requests either.
-  </p>
-
-  <h3>Hosting</h3>
-  <p>
-    The site is hosted on <a href="https://pages.github.com" rel="noopener noreferrer">GitHub Pages</a>.
-    As with any web host, GitHub may process standard technical information — such as
-    your IP address and browser user-agent — in server logs in order to deliver and
-    protect the site. We do not receive or store those logs; that processing is
-    governed by GitHub's privacy practices, not ours.
-  </p>
-
-  <h3>Content loaded from GitHub</h3>
-  <p>
-    A few pages load public data directly from GitHub in your browser: the
-    <a href="/features.html">Feature Requests</a> page lists open issues from the
-    project's repository, and the download links point to GitHub Releases. When those
-    load, your browser connects to GitHub, subject to GitHub's privacy statement.
-  </p>
-
-  <h3>Outbound links</h3>
-  <p>
-    Links to GitHub, X (Twitter), and other external sites take you to third parties
-    that have their own privacy policies, which we don't control.
-  </p>
-
-  <h2>3. What we never do</h2>
   <ul>
-    <li>We don't sell, rent, or share your personal data — we don't collect it to begin with.</li>
-    <li>We don't run ads or embed third-party trackers, in the app or on this site.</li>
-    <li>We don't require or create user accounts.</li>
-    <li>We don't collect, transmit, or store your API requests, responses, or credentials.</li>
+    <li>
+      Installers are built from a tagged commit by a
+      <a href="https://github.com/jfigge/resthippo/actions" rel="noopener noreferrer">GitHub Actions</a>
+      workflow running on GitHub-hosted runners, directly from the public
+      <a href="https://github.com/jfigge/resthippo" rel="noopener noreferrer">source repository</a>.
+    </li>
+    <li>
+      The unsigned Windows executables are submitted to SignPath under a defined
+      signing policy, where the request is reviewed and approved before a signature
+      is applied.
+    </li>
+    <li>
+      The signed binaries are returned to the pipeline, the auto-update manifest
+      checksums are recomputed to match the signed files, and everything is attached
+      to the corresponding
+      <a href="https://github.com/jfigge/resthippo/releases" rel="noopener noreferrer">GitHub Release</a>.
+    </li>
   </ul>
 
-  <h2>4. Your data and your rights</h2>
+  <h2>4. Where to get genuine builds</h2>
   <p>
-    Because we don't collect or hold personal data about you, there is nothing on our
-    side to access, correct, export, or delete. The information the app stores lives
-    on your own device and is fully under your control — you can view, edit, back up,
-    or erase it at any time. If you are in a region with data-protection laws such as
-    the GDPR or CCPA, those rights are effectively satisfied because no personal data
-    about you ever leaves your machine for us.
+    Only download Rest Hippo from official sources: the
+    <a href="/#downloads">resthippo.com downloads section</a> (which links to GitHub)
+    and the project's
+    <a href="https://github.com/jfigge/resthippo/releases" rel="noopener noreferrer">GitHub Releases</a>.
+    Binaries obtained anywhere else are not covered by this policy and should not be
+    trusted.
   </p>
 
-  <h2>5. Changes to this statement</h2>
+  <h2>5. Verifying a download</h2>
   <p>
-    If this statement changes, we'll update the “Last updated” date above and post the
-    revised version here. Because the site is open source, its full history is also
-    visible in the project's <a href="https://github.com/jfigge/resthippo" rel="noopener noreferrer">GitHub repository</a>.
+    On Windows, right-click the downloaded <code>.exe</code> → <strong>Properties</strong>
+    → <strong>Digital Signatures</strong>, and confirm the signature lists
+    <strong>SignPath Foundation</strong> and validates as OK. You can also confirm
+    the file matches the checksum published in the release's <code>latest.yml</code>.
+    If a build is unsigned, shows a different publisher, or fails signature
+    validation, do not run it — please report it (see Contact).
   </p>
 
-  <h2>6. Contact</h2>
+  <h2>6. Reporting a problem</h2>
   <p>
-    Questions about privacy? Email
-    <a href="mailto:resthippo411@gmail.com">resthippo411@gmail.com</a> or open an issue
-    on <a href="https://github.com/jfigge/resthippo/issues" rel="noopener noreferrer">GitHub</a>.
+    If you find a binary that claims to be Rest Hippo but is unsigned, signed by an
+    unexpected publisher, or otherwise suspicious, email
+    <a href="mailto:resthippo411@gmail.com">resthippo411@gmail.com</a> or open an
+    issue on <a href="https://github.com/jfigge/resthippo/issues" rel="noopener noreferrer">GitHub</a>.
+    Because the project is open source, the entire build and signing configuration is
+    public and auditable in the repository.
   </p>
 </main>
 
