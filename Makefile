@@ -250,7 +250,7 @@ test-export:
 
 test-components:
 	@echo "Running renderer component tests (variable resolution, request payload)..."
-	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/request-refs.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js $(WEB_DIR)/scripts/components/tests/graphql-introspection.test.js $(WEB_DIR)/scripts/components/tests/captures.test.js $(WEB_DIR)/scripts/components/tests/status-match.test.js $(WEB_DIR)/scripts/components/tests/captures-xml.test.js $(WEB_DIR)/scripts/components/tests/tree-model.test.js $(WEB_DIR)/scripts/components/tests/body-filter.test.js $(WEB_DIR)/scripts/components/code-gen/tests/code-gen.test.js $(WEB_DIR)/scripts/utils/tests/theme-css.test.js
+	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/request-refs.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js $(WEB_DIR)/scripts/components/tests/graphql-introspection.test.js $(WEB_DIR)/scripts/components/tests/captures.test.js $(WEB_DIR)/scripts/components/tests/status-match.test.js $(WEB_DIR)/scripts/components/tests/captures-xml.test.js $(WEB_DIR)/scripts/components/tests/tree-model.test.js $(WEB_DIR)/scripts/components/tests/drag-drop.test.js $(WEB_DIR)/scripts/components/tests/body-filter.test.js $(WEB_DIR)/scripts/components/auth/tests/oauth2-fields.test.js $(WEB_DIR)/scripts/components/code-gen/tests/code-gen.test.js $(WEB_DIR)/scripts/utils/tests/theme-css.test.js
 	@echo "--------------------------------"
 
 test-import:
@@ -280,7 +280,7 @@ test-diagnostics:
 
 test-renderer-components:
 	@echo "Running renderer component render tests (editor + viewer + notifications + pill editors, jsdom)..."
-	@node --test $(WEB_DIR)/scripts/tests/request-editor.test.js $(WEB_DIR)/scripts/tests/response-viewer.test.js $(WEB_DIR)/scripts/tests/notifications.test.js $(WEB_DIR)/scripts/tests/pill-editors.test.js $(WEB_DIR)/scripts/tests/tree-view.test.js $(WEB_DIR)/scripts/tests/popup-manager.test.js $(WEB_DIR)/scripts/tests/graphql-schema-viewer.test.js $(WEB_DIR)/scripts/components/tests/variable-editor-shared.test.js $(WEB_DIR)/scripts/event-bus/tests/zoom-handlers.test.js
+	@node --test $(WEB_DIR)/scripts/tests/request-editor.test.js $(WEB_DIR)/scripts/tests/response-viewer.test.js $(WEB_DIR)/scripts/tests/notifications.test.js $(WEB_DIR)/scripts/tests/pill-editors.test.js $(WEB_DIR)/scripts/tests/pill-caret.test.js $(WEB_DIR)/scripts/tests/scheduled-send.test.js $(WEB_DIR)/scripts/tests/tree-view.test.js $(WEB_DIR)/scripts/tests/popup-manager.test.js $(WEB_DIR)/scripts/tests/graphql-schema-viewer.test.js $(WEB_DIR)/scripts/components/tests/variable-editor-shared.test.js $(WEB_DIR)/scripts/event-bus/tests/zoom-handlers.test.js
 	@echo "--------------------------------"
 
 test-renderer-e2e:
@@ -305,6 +305,15 @@ test-scripts:
 test-e2e:
 	@echo "Running UI end-to-end suite (real app over CDP)..."
 	@node $(WORKSPACE)/e2e/run.mjs $(NAMES)
+	@echo "--------------------------------"
+
+# Real-layout (geometry) subset of the e2e suite — caret coords, drag drop-ratios
+# and overlay bounds that the jsdom unit harness stubs to zero (see e2e/geometry.mjs).
+# Same display/Electron/mock requirements as test-e2e; also kept out of `make test`.
+#   make test-geometry
+test-geometry:
+	@echo "Running UI geometry suite (real layout over CDP)..."
+	@node $(WORKSPACE)/e2e/run.mjs geometry
 	@echo "--------------------------------"
 
 # ─── Development ──────────────────────────────────────────────────────────────

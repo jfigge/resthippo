@@ -66,17 +66,22 @@ function channelsFor(source, fnPattern) {
 // delegates registration to — the HTTP engine (http:execute / http:body:* /
 // http:stream:*) registers its handlers from net/http-engine.js, the scripting
 // sandbox (script:run-pre / script:run-post / script:validate) from
-// scripting/sandbox.js, and the auto-updater (the updater:* push channels) from
-// updater.js. Scan them as one source so the parity + push-topology checks see
-// the whole surface.
-const mainProcessSource =
-  read("main.js") +
-  "\n" +
-  read("net/http-engine.js") +
-  "\n" +
-  read("scripting/sandbox.js") +
-  "\n" +
-  read("updater.js");
+// scripting/sandbox.js, the auto-updater (the updater:* push channels) from
+// updater.js, and the IPC modules under ipc/ (context-menu / store / websocket /
+// oauth). Scan them as one source so the parity + push-topology checks see the
+// whole surface.
+const mainProcessSource = [
+  "main.js",
+  "net/http-engine.js",
+  "scripting/sandbox.js",
+  "updater.js",
+  "ipc/context-menu.js",
+  "ipc/store.js",
+  "ipc/websocket.js",
+  "ipc/oauth.js",
+]
+  .map(read)
+  .join("\n");
 
 const handlers = channelsFor(mainProcessSource, "ipcMain\\.handle");
 const mainOn = channelsFor(mainProcessSource, "ipcMain\\.on");

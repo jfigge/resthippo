@@ -233,3 +233,68 @@ test("collectRequestIds: a request yields itself; a folder/collection yields all
     "depth-first",
   );
 });
+
+// ── canDrop (drag-and-drop permission) ──────────────────────────────────────
+
+test("canDrop forbids self-drop and a collection into its own descendant", () => {
+  const t = tree();
+  assert.equal(M.canDrop(t, "r1", "r1"), false, "onto self");
+  assert.equal(M.canDrop(t, "c1", "r1"), false, "into a direct child");
+  assert.equal(M.canDrop(t, "c1", "r2"), false, "into a deep descendant");
+  assert.equal(M.canDrop(t, "c1", "f1"), false, "into a descendant folder");
+});
+
+test("canDrop allows drops onto unrelated nodes", () => {
+  const t = tree();
+  assert.equal(M.canDrop(t, "r1", "c2"), true, "request → other collection");
+  assert.equal(M.canDrop(t, "f1", "c2"), true, "folder → unrelated collection");
+  assert.equal(M.canDrop(t, "c2", "c1"), true, "two unrelated collections");
+});
+
+// ── moveNode (drag-and-drop result) ─────────────────────────────────────────
+
+test("moveNode 'inside' prepends the node to the target's children, immutably", () => {
+  const t = tree();
+  const out = M.moveNode(t, "r1", "c2", "inside");
+  assert.equal(M.findParentId(out, "r1"), "c2");
+  assert.equal(M.findNode(out, "c2").children[0].id, "r1", "prepended");
+  assert.equal(M.findParentId(t, "r1"), "c1", "original tree unchanged");
+});
+
+test("moveNode 'before'/'after' place the node as a sibling of the target", () => {
+  const t = tree();
+  assert.deepEqual(
+    M.findNode(M.moveNode(t, "r1", "r3", "before"), "c2").children.map(
+      (c) => c.id,
+    ),
+    ["r1", "r3"],
+  );
+  assert.deepEqual(
+    M.findNode(M.moveNode(t, "r1", "r3", "after"), "c2").children.map(
+      (c) => c.id,
+    ),
+    ["r3", "r1"],
+  );
+});
+
+test("moveNode carries a moved collection's children with it", () => {
+  const t = tree();
+  const out = M.moveNode(t, "f1", "c2", "inside");
+  assert.equal(M.findParentId(out, "f1"), "c2");
+  assert.equal(
+    M.findParentId(out, "r2"),
+    "f1",
+    "grandchild travelled with the folder",
+  );
+});
+
+test("moveNode returns the same array reference for a no-op", () => {
+  const t = tree();
+  assert.equal(M.moveNode(t, "r1", "r1", "before"), t, "same id");
+  assert.equal(M.moveNode(t, "nope", "c2", "before"), t, "missing node");
+  assert.equal(
+    M.moveNode(t, "r1", "c2", "sideways"),
+    t,
+    "unrecognised position",
+  );
+});

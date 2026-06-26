@@ -208,3 +208,41 @@ export function collectRequestIds(node) {
   }
   return ids;
 }
+
+/**
+ * Whether the node `draggedId` may be dropped onto `targetId`. Mirrors the
+ * drag-and-drop constraint TreeView enforces: a node can't be dropped onto
+ * itself, and a collection can't be dropped into one of its own descendants
+ * (which would detach the subtree from the tree).
+ */
+export function canDrop(nodes, draggedId, targetId) {
+  if (draggedId === targetId) return false;
+  const dragged = findNode(nodes, draggedId);
+  if (dragged?.type === "collection") {
+    if (findNode(dragged.children ?? [], targetId)) return false;
+  }
+  return true;
+}
+
+/**
+ * Return a new tree with `draggedId` moved to `position` relative to `targetId`
+ * (the node's children travel with it). Pure composition of removeNode + the
+ * insert helpers — the move semantics TreeView applies on drop. Returns the
+ * original `nodes` unchanged for a no-op (same id, missing node, or an
+ * unrecognised position).
+ *
+ * @param {Array} nodes
+ * @param {string} draggedId
+ * @param {string} targetId
+ * @param {"before"|"after"|"inside"} position
+ */
+export function moveNode(nodes, draggedId, targetId, position) {
+  if (draggedId === targetId) return nodes;
+  const node = findNode(nodes, draggedId);
+  if (!node) return nodes;
+  const without = removeNode(nodes, draggedId);
+  if (position === "before") return insertBefore(without, targetId, node);
+  if (position === "after") return insertNodeAfter(without, targetId, node);
+  if (position === "inside") return insertChild(without, targetId, node);
+  return nodes;
+}

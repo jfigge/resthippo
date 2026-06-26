@@ -54,6 +54,7 @@ import {
   collectTemplateVariables,
 } from "./variable-resolver.js";
 import { varsArrayToMap } from "./variable-shape.js";
+import { computeDropPos } from "./drag-drop.js";
 import {
   findParentId,
   insertChild,
@@ -61,7 +62,8 @@ import {
   findNode,
   cloneWithNewIds,
   insertNodeAfter,
-  insertBefore,
+  canDrop,
+  moveNode,
   updateNodeName,
   patchNodeFields,
   getFlatRequests,
@@ -2491,31 +2493,12 @@ export class TreeView {
       const rect = row.getBoundingClientRect();
       const ratio = (e.clientY - rect.top) / rect.height;
 
-      let pos;
-      if (node.type === "collection") {
-        if (this.#draggedIsCollection) {
-          // Dragging a folder onto another folder: the target's open/closed
-          // state — not the cursor depth — decides whether we nest or stay at
-          // the same level.
-          //   • open target   → drop *inside* it (as the first child)
-          //   • closed target → drop *after* it, a sibling at the same level
-          // A thin top zone still allows dropping *before* the target folder.
-          const open = !this.#collapsedIds.has(node.id);
-          if (open) {
-            pos = ratio < 0.25 ? "before" : "inside";
-          } else {
-            pos = ratio < 0.5 ? "before" : "after";
-          }
-        } else if (ratio < 0.25) {
-          pos = "before";
-        } else if (ratio > 0.75) {
-          pos = "after";
-        } else {
-          pos = "inside";
-        }
-      } else {
-        pos = ratio < 0.5 ? "before" : "after";
-      }
+      const pos = computeDropPos(
+        ratio,
+        node.type,
+        !this.#collapsedIds.has(node.id),
+        this.#draggedIsCollection,
+      );
 
       // Only move the phantom when the position actually changes (perf)
       const posKey = `${node.id}:${pos}`;
@@ -2606,13 +2589,7 @@ export class TreeView {
    */
   #isDragAllowed(targetNode) {
     if (!this.#dragId) return false;
-    if (this.#dragId === targetNode.id) return false;
-    // Prevent dragging a collection into one of its own descendants
-    const dragged = findNode(this.#items, this.#dragId);
-    if (dragged?.type === "collection") {
-      if (findNode(dragged.children ?? [], targetNode.id)) return false;
-    }
-    return true;
+    return canDrop(this.#items, this.#dragId, targetNode.id);
   }
 
   /**
@@ -2623,23 +2600,10 @@ export class TreeView {
    */
   #moveNode(draggedId, targetId, position) {
     if (draggedId === targetId) return;
+    if (!findNode(this.#items, draggedId)) return;
 
-    const node = findNode(this.#items, draggedId);
-    if (!node) return;
-
-    // Remove the node from its current position (children travel with it)
-    let newItems = removeNode(this.#items, draggedId);
-
-    // Insert at the requested position
-    if (position === "before") {
-      newItems = insertBefore(newItems, targetId, node);
-    } else if (position === "after") {
-      newItems = insertNodeAfter(newItems, targetId, node);
-    } else if (position === "inside") {
-      newItems = insertChild(newItems, targetId, node);
-    }
-
-    this.#items = newItems;
+    // Pure move (children travel with the node) — see tree-model.moveNode.
+    this.#items = moveNode(this.#items, draggedId, targetId, position);
     this.#syncButtonState();
     this.#rerender();
     this.#emitChange();

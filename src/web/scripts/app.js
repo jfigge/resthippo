@@ -123,6 +123,8 @@ import { installSettingsHandlers } from "./event-bus/settings-handlers.js";
 import { installWsHandlers } from "./event-bus/ws-handlers.js";
 import { installTimelineHandlers } from "./event-bus/timeline-handlers.js";
 import { installZoomHandlers } from "./event-bus/zoom-handlers.js";
+import { installUpdaterHandlers } from "./event-bus/updater-handlers.js";
+import { installFolderVarsHandler } from "./event-bus/folder-vars-handlers.js";
 import { PopupManager } from "./popup-manager.js";
 import { installKeymap } from "./keymap.js";
 import { KeyboardShortcuts } from "./components/keyboard-shortcuts.js";
@@ -1353,6 +1355,7 @@ function buildBusContext() {
     getWsConsole: () => wsConsole,
     getRequestEditor: () => requestEditor,
     settingsPopup,
+    varsPopup,
     // Maps / Sets — mutated via methods, safe to share by reference.
     requestHistory: _requestHistory,
     historyLoaded: _historyLoaded,
@@ -1367,6 +1370,7 @@ function buildBusContext() {
     closeWsConn: _closeWsConn,
     setResponsePane: _setResponsePane,
     connForRequest: _connForRequest,
+    runFolder: _runFolder,
     getLiveRequestIds: _getLiveRequestIds,
     viewTimelineResponse: _viewTimelineResponse,
     deleteHistory,
@@ -1525,42 +1529,11 @@ function initEventBus() {
   installResponseHandlers();
   installStreamHandlers();
   installTreeQuickAccessHandlers();
-  installFolderVarsHandler();
   installRequestEditSendHandlers();
-  installUpdaterHandlers();
-}
 
-// Auto-update toasts (Feature 36). Discrete toasts only (no live percentage):
-// an info toast when an update is found and downloading, a success toast with a
-// "Restart" action when it's ready, and — only for an explicit user check — an
-// "up to date" toast or an error toast. A silent startup check never nags. The
-// Settings → About panel owns the inline status line.
-function installUpdaterHandlers() {
-  window.addEventListener("hippo:updater-available", (e) => {
-    const version = e.detail?.version || "";
-    Notifications.info(t("updater.downloadingMsg", { version }), {
-      title: t("updater.available"),
-    });
-  });
-  window.addEventListener("hippo:updater-downloaded", (e) => {
-    const version = e.detail?.version || "";
-    Notifications.success(t("updater.readyMsg", { version }), {
-      title: t("updater.ready"),
-      actionLabel: t("updater.restart"),
-      onAction: () => window.hippo?.updater?.install?.(),
-    });
-  });
-  window.addEventListener("hippo:updater-not-available", (e) => {
-    // Dev/unpacked builds report their own status in Settings; don't toast.
-    if (e.detail?.manual && e.detail?.reason !== "dev-build")
-      Notifications.success(t("updater.upToDate"));
-  });
-  window.addEventListener("hippo:updater-error", (e) => {
-    if (e.detail?.manual)
-      Notifications.error(t("updater.failedMsg"), {
-        title: t("updater.failed"),
-      });
-  });
+  // Self-contained groups extracted to their own modules (ctx-driven).
+  installFolderVarsHandler(ctx);
+  installUpdaterHandlers();
 }
 
 // When a request is selected in the tree, load it into the editor.
@@ -2293,23 +2266,6 @@ async function handleCollDelete({ id }) {
 }
 
 // ── Variable handlers ───────────────────────────────────────────────────────
-
-/** Open the variables popup for a folder node (the one listener in this group). */
-function installFolderVarsHandler() {
-  window.addEventListener("hippo:folder-vars-open", (e) => {
-    const { nodeId, folderName, variables } = e.detail;
-    varsPopup.open({
-      scopeId: nodeId,
-      scopeName: folderName,
-      variables: variables ?? [],
-      bulkEditor: currentSettings.varsBulkEditor ?? true,
-    });
-  });
-
-  window.addEventListener("hippo:run-folder", (e) => {
-    _runFolder(e.detail?.folderId);
-  });
-}
 
 /**
  * Persist variables and keep in-memory state in sync.
