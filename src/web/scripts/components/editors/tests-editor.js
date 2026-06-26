@@ -214,7 +214,6 @@ export class TestsEditor {
     row.className = "params-row tests-row";
     row.dataset.id = rule.id;
     row.dataset.index = String(index);
-    row.draggable = true;
     if (rule.enabled === false) row.classList.add("params-row--disabled");
 
     // Drag handle
@@ -335,7 +334,7 @@ export class TestsEditor {
     deleteBtn.setAttribute("aria-label", t("request.tests.delete"));
     wireDeleteConfirm(deleteBtn, () => this.#remove(rule.id));
 
-    this.#drag.wireRow(row, rule.id);
+    this.#drag.wireRow(row, rule.id, handle);
 
     row.appendChild(handle);
     row.appendChild(enabled);

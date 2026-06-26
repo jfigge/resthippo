@@ -254,8 +254,22 @@ export class DragReorderController {
     });
   }
 
-  /** Wire dragstart/dragover/dragend for one row. Call per row build. */
-  wireRow(rowEl, itemId) {
+  /**
+   * Wire dragstart/dragover/dragend for one row. Call per row build.
+   *
+   * A drag may only be initiated from `handleEl` (the grab grip): the row is
+   * kept non-draggable and `draggable` is flipped on only while the handle is
+   * pressed, then cleared on mouseup (plain click) or dragend (completed drag).
+   */
+  wireRow(rowEl, itemId, handleEl) {
+    rowEl.draggable = false;
+    handleEl?.addEventListener("mousedown", () => {
+      rowEl.draggable = true;
+    });
+    handleEl?.addEventListener("mouseup", () => {
+      rowEl.draggable = false;
+    });
+
     rowEl.addEventListener("dragstart", (e) => {
       // Defensive: clear any drag state still lingering from a prior gesture
       // (dragend normally finalizes, so this is a no-op on the happy path).
@@ -309,6 +323,7 @@ export class DragReorderController {
     });
 
     rowEl.addEventListener("dragend", () => {
+      rowEl.draggable = false;
       if (!this.#dropHandled) this.#cancel();
       this.#finalize();
     });
@@ -398,7 +413,6 @@ export function buildKvRow({
   row.className = "params-row";
   row.dataset.id = item.id;
   if (index != null) row.dataset.index = String(index);
-  if (!noDrag) row.draggable = true;
   if (item.enabled === false) row.classList.add("params-row--disabled");
 
   // ── Drag handle (inert placeholder when reordering is disabled) ───────
@@ -443,7 +457,7 @@ export function buildKvRow({
   wireDeleteConfirm(deleteBtn, onDelete);
 
   // ── HTML5 drag-and-drop reordering (phantom pattern) ─────────────────
-  if (!noDrag) drag.wireRow(row, item.id);
+  if (!noDrag) drag.wireRow(row, item.id, handle);
 
   row.appendChild(handle);
   row.appendChild(control);

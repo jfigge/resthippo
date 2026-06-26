@@ -180,7 +180,6 @@ export class CapturesEditor {
     row.className = "params-row captures-row";
     row.dataset.id = rule.id;
     row.dataset.index = String(index);
-    row.draggable = true;
     if (rule.enabled === false) row.classList.add("params-row--disabled");
 
     // Drag handle
@@ -313,7 +312,7 @@ export class CapturesEditor {
     deleteBtn.setAttribute("aria-label", t("request.captures.delete"));
     wireDeleteConfirm(deleteBtn, () => this.#remove(rule.id));
 
-    this.#drag.wireRow(row, rule.id);
+    this.#drag.wireRow(row, rule.id, handle);
 
     row.appendChild(handle);
     row.appendChild(enabled);

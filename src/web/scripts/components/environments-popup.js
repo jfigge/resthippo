@@ -508,13 +508,21 @@ export class EnvironmentsPopup {
     nameBtn.addEventListener("click", () => this.#selectEnv(id));
 
     if (!isGlobal) {
-      li.draggable = true;
+      // A drag may only start from the grab handle: keep the row
+      // non-draggable and flip `draggable` on only while the handle is pressed.
+      li.draggable = false;
 
       const handle = document.createElement("span");
       handle.className = "params-drag-handle env-list-item-drag";
       handle.setAttribute("aria-hidden", "true");
       handle.title = t("common.dragReorder");
       handle.innerHTML = icon("drag", { width: 10, height: 16 });
+      handle.addEventListener("mousedown", () => {
+        li.draggable = true;
+      });
+      handle.addEventListener("mouseup", () => {
+        li.draggable = false;
+      });
       li.appendChild(handle);
 
       li.addEventListener("dragstart", (e) => {
@@ -526,6 +534,7 @@ export class EnvironmentsPopup {
         );
       });
       li.addEventListener("dragend", () => {
+        li.draggable = false;
         li.classList.remove("env-list-item--dragging");
         this.#envPhantom.remove();
         this.#envDragId = null;
