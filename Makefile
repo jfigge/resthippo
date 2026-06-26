@@ -376,6 +376,13 @@ vendor-jq:
 	@cd $(SRC_DIR); npm run vendor-jq
 	@echo "--------------------------------"
 
+# Regenerate the Windows .ico + Linux icon set from src/web/resthippo-icon.svg.
+# macOS-only (uses qlmanage/sips); outputs are committed and consumed at build time.
+icons:
+	@echo "Regenerating app icons from resthippo-icon.svg..."
+	@node scripts/make-icons.mjs
+	@echo "--------------------------------"
+
 # ─── Distribution packages ────────────────────────────────────────────────────
 # `dist` builds every platform, but a given host can only build its own
 # (mac dmg needs macOS, etc.). CI runs dist-mac/linux/win on native runners;
@@ -1000,6 +1007,7 @@ mock-down:
         release \
         sync-mac sync-win \
         vendor-yaml vendor-prism vendor-markdown vendor-graphql vendor-jq \
+        icons \
         clean help launch \
         mock-up mock-down mock-build \
         kc_start kc_wait kc_bootstrap kc_creds kc_stop kc_reset kc

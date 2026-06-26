@@ -1,7 +1,7 @@
 {
   "name": "resthippo",
   "version": "1.18.4",
-  "description": "A web-based REST API client — like Insomnia, built with Electron",
+  "description": "The rest client you want to use",
   "homepage": "https://github.com/jfigge/resthippo",
   "author": {
     "name": "Jason Figge",
@@ -43,7 +43,7 @@
     "appId": "com.resthippo.app",
     "productName": "Rest Hippo",
     "copyright": "Copyright © 2026",
-    "icon": "web/resthippo-logo.png",
+    "icon": "web/resthippo-icon.ico",
     "artifactName": "Rest-Hippo-${version}-${arch}.${ext}",
     "publish": {
       "provider": "github",
@@ -85,6 +85,7 @@
       ]
     },
     "linux": {
+      "icon": "web/icons",
       "target": [
         {
           "target": "AppImage",
@@ -103,6 +104,7 @@
       ]
     },
     "win": {
+      "icon": "web/resthippo-icon.ico",
       "signtoolOptions": {
         "signingHashAlgorithms": [
           "sha256"
