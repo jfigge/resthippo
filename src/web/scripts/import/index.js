@@ -19,7 +19,7 @@
 import { parse as parseYaml } from "../vendor/yaml.js";
 import { parsePostman } from "./postman.js";
 import { parseInsomnia, parseInsomniaV5 } from "./insomnia.js";
-import { parseOpenApi } from "./openapi.js";
+import { parseOpenApi, resolveBaseUrl } from "./openapi.js";
 import { parseHar } from "./har.js";
 
 // Re-export the cURL importer so `app.js` has one import surface for the
@@ -87,12 +87,16 @@ function detectFormat(data) {
  * the consumer (`app.js`) can read `warnings` uniformly.
  *
  * @param {string} content  Raw file content
+ * @param {{ baseUrlVarName?: string, baseUrlValue?: string }} [options]
+ *   Format-specific options. Only the OpenAPI/Swagger parser reads them (the
+ *   base-URL variable name/value the renderer prompts for); other parsers ignore
+ *   the argument.
  * @returns {{ collection: object,
  *   variables: { name: string, value: string, secure: boolean }[],
  *   warnings: string[] }}  Variables use the canonical array shape.
  * @throws {Error} if the format is unrecognized or the file is invalid
  */
-export function parseImport(content) {
+export function parseImport(content, options = {}) {
   let data;
   try {
     data = JSON.parse(content);
@@ -117,7 +121,7 @@ export function parseImport(content) {
     case "insomnia-v5":
       return parseInsomniaV5(data);
     case "openapi":
-      return parseOpenApi(data);
+      return parseOpenApi(data, options);
     case "har":
       return parseHar(data);
     default:
@@ -128,6 +132,38 @@ export function parseImport(content) {
         { i18nKey: "app.importErrUnrecognized" },
       );
   }
+}
+
+/**
+ * Peek at a raw import file to learn its format without building a collection,
+ * so the renderer can branch before parsing — OpenAPI/Swagger imports prompt for
+ * a base-URL variable name + value first. For an OpenAPI/Swagger file the spec's
+ * resolved server URL is returned as `openApiBaseUrl` to pre-fill that prompt.
+ *
+ * Unlike `parseImport`, this never throws: an unparseable or unrecognized file
+ * returns `{ format: null }`, and the caller falls through to `parseImport`,
+ * which raises the localized error.
+ *
+ * @param {string} content  Raw file content
+ * @returns {{ format: ("postman"|"insomnia"|"insomnia-v5"|"openapi"|"har"|null),
+ *   openApiBaseUrl?: string }}
+ */
+export function inspectImport(content) {
+  let data;
+  try {
+    data = JSON.parse(content);
+  } catch {
+    try {
+      data = parseYaml(content);
+    } catch {
+      return { format: null };
+    }
+  }
+  const format = detectFormat(data);
+  if (format === "openapi") {
+    return { format, openApiBaseUrl: resolveBaseUrl(data) };
+  }
+  return { format };
 }
 
 /**

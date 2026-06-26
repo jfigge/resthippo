@@ -1347,6 +1347,15 @@
     "submit": "Importer",
     "empty": "Collez une commande cURL à importer."
   },
+  "swaggerImport": {
+    "title": "Importer OpenAPI / Swagger",
+    "intro": "Les opérations OpenAPI et Swagger sont des chemins relatifs ; Rest Hippo préfixe donc chaque requête importée avec une variable d'URL de base. Choisissez son nom et sa valeur — la valeur peut rester vide et être renseignée plus tard.",
+    "nameLabel": "Nom de la variable",
+    "valueLabel": "Valeur de l'URL de base",
+    "namePlaceholder": "baseUrl",
+    "valuePlaceholder": "https://api.example.com",
+    "submit": "Importer"
+  },
   "variables": {
     "titleScope": "Variables — {scope}",
     "secureTooltip": "Sécurisé (chiffré au repos)",

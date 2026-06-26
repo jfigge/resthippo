@@ -1340,6 +1340,15 @@
     "submit": "导入",
     "empty": "粘贴要导入的 cURL 命令。"
   },
+  "swaggerImport": {
+    "title": "导入 OpenAPI / Swagger",
+    "intro": "OpenAPI 和 Swagger 的操作均为相对路径，因此 Rest Hippo 会在每个导入的请求前加上一个基础 URL 变量。请选择该变量的名称和值——值可以留空，稍后再填写。",
+    "nameLabel": "变量名称",
+    "valueLabel": "基础 URL 值",
+    "namePlaceholder": "baseUrl",
+    "valuePlaceholder": "https://api.example.com",
+    "submit": "导入"
+  },
   "variables": {
     "titleScope": "变量 — {scope}",
     "secureTooltip": "安全（静态加密）",

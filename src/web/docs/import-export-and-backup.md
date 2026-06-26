@@ -87,6 +87,13 @@ capture (a browser's "Save all as HAR", or a proxy export) is imported request
 by request — grouped into a folder per host — so you can replay real traffic;
 only the requests are imported, not the recorded responses.
 
+**OpenAPI / Swagger** specs describe their operations as relative paths, so
+importing one first asks for a **base-URL variable**: a name (default `baseUrl`)
+and a value. Every imported request is prefixed with that variable — e.g.
+`{{baseUrl}}/pets/{{petId}}` — so the host lives in one editable place. The value
+is pre-filled from the spec's `servers` / `host` when it has one; otherwise leave
+it blank and set it later in the collection's **Variables**.
+
 ### Import from cURL
 
 To pull in a single request from a terminal, API docs, or a browser's **Copy as

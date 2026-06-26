@@ -244,7 +244,7 @@ function contentTyped(mime, defaultMime, partial) {
   return mime === defaultMime ? partial : { ...partial, _contentType: mime };
 }
 
-function resolveBaseUrl(spec) {
+export function resolveBaseUrl(spec) {
   if (spec.servers?.length > 0) {
     const server = spec.servers[0];
     let url = server.url ?? "";
@@ -264,10 +264,12 @@ function resolveBaseUrl(spec) {
   return "";
 }
 
-function toRestHippoUrl(baseUrl, path) {
-  // Replace OpenAPI {param} placeholders with Rest Hippo {{param}} template syntax
+function toRestHippoUrl(varName, path) {
+  // Replace OpenAPI {param} placeholders with Rest Hippo {{param}} template syntax,
+  // then prefix every request with the base-URL variable the import created so the
+  // host lives in one editable place instead of being embedded per request.
   const resthippoPath = path.replace(/\{([^}]+)\}/g, "{{$1}}");
-  return baseUrl ? `${baseUrl}${resthippoPath}` : `{{baseUrl}}${resthippoPath}`;
+  return `{{${varName}}}${resthippoPath}`;
 }
 
 function resolveSecurityScheme(spec, name) {
@@ -454,14 +456,23 @@ function refWarnings(resolver) {
 /**
  * Parse an OpenAPI 3.x or Swagger 2.0 spec.
  *
+ * Every imported request is prefixed with a `{{baseUrlVarName}}` template ref
+ * rather than an embedded literal host, and that variable is always emitted (its
+ * value defaults to the spec's resolved server URL, or is left blank for the user
+ * to fill in). The renderer prompts the user for the name/value and passes them
+ * via `options`; called with no options it falls back to a `baseUrl` variable
+ * holding the resolved server URL.
+ *
  * @param {object} spec  Parsed JSON / YAML object
+ * @param {{ baseUrlVarName?: string, baseUrlValue?: string }} [options]
  * @returns {{ collection: object,
  *   variables: { name: string, value: string, secure: boolean }[],
  *   warnings: string[] }}  Variables use the canonical array shape.
  */
-export function parseOpenApi(spec) {
+export function parseOpenApi(spec, { baseUrlVarName, baseUrlValue } = {}) {
   const isV3 = Boolean(spec.openapi);
-  const baseUrl = resolveBaseUrl(spec);
+  const varName = baseUrlVarName || "baseUrl";
+  const baseUrl = baseUrlValue ?? resolveBaseUrl(spec);
   const title = spec.info?.title ?? "Imported API";
   const globalSec = spec.security ?? [];
   const resolver = new RefResolver(spec);
@@ -537,7 +548,7 @@ export function parseOpenApi(spec) {
           operation.summary ??
           `${method.toUpperCase()} ${path}`,
         method: method.toUpperCase(),
-        url: toRestHippoUrl(baseUrl, path),
+        url: toRestHippoUrl(varName, path),
         params: [...queryParams, ...extraParams],
         headers: [...headerParams, ...contentTypeHeader, ...extraHeaders],
         notes: operation.description ?? operation.summary ?? "",
@@ -567,13 +578,17 @@ export function parseOpenApi(spec) {
       id: crypto.randomUUID(),
       type: "collection",
       name: title,
-      variables: [],
+      // The base URL lives on the imported collection's own root folder (scoped
+      // to this import, not the active workspace). It is always emitted — even
+      // with a blank value — so the `{{varName}}` every request carries resolves
+      // against this one editable entry. The root folder is an ancestor of every
+      // request beneath it, so the resolver's folder-chain walk picks it up.
+      variables: [{ name: varName, value: baseUrl, secure: false }],
       children,
     },
-    // Canonical array shape; the templated base URL becomes a `baseUrl` variable.
-    variables: baseUrl
-      ? [{ name: "baseUrl", value: baseUrl, secure: false }]
-      : [],
+    // No workspace-level variables: the base URL is scoped to the root folder
+    // above, so nothing is merged into the active collection's variables.
+    variables: [],
     warnings: refWarnings(resolver),
   };
 }

@@ -4679,6 +4679,12 @@ html.show-method-icons .req-method-menu-item-label::before {
   display: none;
 }
 
+/* ── Swagger/OpenAPI import: base-URL variable prompt (reuses backup-body/
+   backup-field; only the inputs need to fill the modal width) ──────────── */
+.swagger-import-input {
+  width: 100%;
+}
+
 /* ── Security panel: secret-storage mode picker (mirrors backup-mode-*) ──── */
 .security-mode-group {
   display: flex;

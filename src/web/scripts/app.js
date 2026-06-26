@@ -95,6 +95,7 @@ import {
 } from "./quick-access.js";
 import {
   parseImport,
+  inspectImport,
   parseCurl,
   collectFormFilePaths,
   warnMissingFormFiles,
@@ -111,6 +112,7 @@ import {
   mergeVariableList,
 } from "./import/resthippo.js";
 import { ExportModal } from "./components/export-modal.js";
+import { SwaggerImportModal } from "./components/swagger-import-modal.js";
 import { PasswordPrompt } from "./components/password-prompt.js";
 import { buildCustomThemeCss } from "./utils/theme-css.js";
 import { installMenuHandlers } from "./event-bus/menu-handlers.js";
@@ -4876,9 +4878,27 @@ async function handleImport() {
     return;
   }
 
+  // OpenAPI/Swagger specs are relative paths; prompt for a base-URL variable
+  // (name + value, pre-filled from the spec's server URL) so every imported
+  // request can reference {{name}} instead of a dangling/embedded host. Peek the
+  // format first; other formats skip the prompt and parse as before.
+  let importOptions;
+  const info = inspectImport(file.content);
+  if (info.format === "openapi") {
+    const choice = await SwaggerImportModal.open({
+      defaultName: "baseUrl",
+      defaultValue: info.openApiBaseUrl ?? "",
+    });
+    if (!choice) return; // user cancelled the import
+    importOptions = {
+      baseUrlVarName: choice.name,
+      baseUrlValue: choice.value,
+    };
+  }
+
   let parsed;
   try {
-    parsed = parseImport(file.content);
+    parsed = parseImport(file.content, importOptions);
   } catch (err) {
     Notifications.error(
       t("app.importFailed", { message: _importErrorText(err) }),

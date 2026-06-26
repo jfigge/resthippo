@@ -350,15 +350,19 @@ const OPENAPI_FIXTURE = {
 };
 
 test("openapi: detects format, resolves templated base URL and converts path params", () => {
-  const { collection, variables } = parseImport(
-    JSON.stringify(OPENAPI_FIXTURE),
-  );
+  const { collection } = parseImport(JSON.stringify(OPENAPI_FIXTURE));
   assert.equal(collection.name, "Petstore");
-  assert.equal(varOf(variables, "baseUrl").value, "https://api.example.com/v2");
+  // The resolved server URL becomes the value of the (default-named) base-URL
+  // variable on the imported collection's own root folder; every request
+  // references it via {{baseUrl}}.
+  assert.equal(
+    varOf(collection.variables, "baseUrl").value,
+    "https://api.example.com/v2",
+  );
 
   const req = findRequest(collection, "getPet");
-  // {petId} → {{petId}}, base server var substituted.
-  assert.equal(req.url, "https://api.example.com/v2/pets/{{petId}}");
+  // {petId} → {{petId}}; the host is replaced by the {{baseUrl}} prefix.
+  assert.equal(req.url, "{{baseUrl}}/pets/{{petId}}");
   assert.equal(req.method, "GET");
 });
 
@@ -411,10 +415,44 @@ test("swagger 2.0: detected and base URL built from host + basePath", () => {
       "/ping": { get: { operationId: "ping" } },
     },
   };
-  const { collection, variables } = parseImport(JSON.stringify(swagger));
-  assert.equal(varOf(variables, "baseUrl").value, "https://api.legacy.test/v1");
+  const { collection } = parseImport(JSON.stringify(swagger));
+  assert.equal(
+    varOf(collection.variables, "baseUrl").value,
+    "https://api.legacy.test/v1",
+  );
   const req = findRequest(collection, "ping");
-  assert.equal(req.url, "https://api.legacy.test/v1/ping");
+  assert.equal(req.url, "{{baseUrl}}/ping");
+});
+
+test("openapi: caller-supplied base-URL variable name + value override the default", () => {
+  const { collection, variables } = parseOpenApi(OPENAPI_FIXTURE, {
+    baseUrlVarName: "apiHost",
+    baseUrlValue: "https://staging.example.com",
+  });
+  // The variable goes on the imported root folder under the chosen name/value;
+  // nothing is returned at the workspace level.
+  assert.deepEqual(collection.variables, [
+    { name: "apiHost", value: "https://staging.example.com", secure: false },
+  ]);
+  assert.deepEqual(variables, []);
+  const req = findRequest(collection, "getPet");
+  assert.equal(req.url, "{{apiHost}}/pets/{{petId}}");
+});
+
+test("openapi: a server-less spec still emits the base-URL variable (blank value)", () => {
+  const spec = {
+    openapi: "3.0.1",
+    info: { title: "Pathy" },
+    paths: { "/health": { get: { operationId: "health" } } },
+  };
+  const { collection } = parseImport(JSON.stringify(spec));
+  // The variable is created even with no resolvable host, so the {{baseUrl}}
+  // reference every request carries is never dangling — the user fills it in.
+  assert.deepEqual(collection.variables, [
+    { name: "baseUrl", value: "", secure: false },
+  ]);
+  const req = findRequest(collection, "health");
+  assert.equal(req.url, "{{baseUrl}}/health");
 });
 
 // ── OpenAPI $ref resolution + example bodies ─────────────────────────────────

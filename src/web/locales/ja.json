@@ -1340,6 +1340,15 @@
     "submit": "インポート",
     "empty": "インポートする cURL コマンドを貼り付けてください。"
   },
+  "swaggerImport": {
+    "title": "OpenAPI / Swagger をインポート",
+    "intro": "OpenAPI や Swagger のオペレーションは相対パスのため、Rest Hippo はインポートする各リクエストの先頭にベース URL 変数を付加します。その名前と値を指定してください。値は空のままにして後で入力することもできます。",
+    "nameLabel": "変数名",
+    "valueLabel": "ベース URL の値",
+    "namePlaceholder": "baseUrl",
+    "valuePlaceholder": "https://api.example.com",
+    "submit": "インポート"
+  },
   "variables": {
     "titleScope": "変数 — {scope}",
     "secureTooltip": "セキュア（保存時に暗号化）",
