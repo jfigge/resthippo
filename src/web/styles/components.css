@@ -683,12 +683,19 @@ html.show-method-icons .req-method-menu-item-label::before {
 /* URL bar */
 .req-url-bar {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-surface-2);
   background: var(--color-surface-0);
   flex-shrink: 0;
+}
+
+/* Method · URL · Send controls; the resolved-URL preview stacks beneath. */
+.req-url-bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .req-method-select {
@@ -1691,28 +1698,27 @@ html.show-method-icons .req-method-menu-item-label::before {
   border-color: var(--color-accent);
 }
 
-/* ── URL preview bar (Params tab) ───────────────────────────────────────── */
-.params-url-preview {
+/* ── URL preview bar (under the URL input) ──────────────────────────────── */
+/* Padding / border / background come from the parent .req-url-bar; this is just
+   the second row inside it (resolved-URL field + Copy button). */
+.req-url-preview {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-surface-2);
-  background: var(--color-base);
   flex-shrink: 0;
   user-select: none;
 }
 
-.params-url-preview--hidden {
+.req-url-preview--hidden {
   display: none;
 }
 
-.params-url-preview-input {
+.req-url-preview-input {
   flex: 1;
   min-width: 0;
   height: var(--control-h-sm);
   padding: 0 var(--space-3);
-  background: var(--color-surface-0);
+  background: var(--color-base);
   border: 1px solid var(--color-surface-2);
   border-radius: var(--radius-sm);
   color: var(--color-overlay-0);
@@ -1728,13 +1734,9 @@ html.show-method-icons .req-method-menu-item-label::before {
   user-select: none;
 }
 
-.params-url-preview-input:focus {
-  border-color: var(--color-accent);
-}
-
 /* focus state intentionally omitted — pointer-events:none prevents focus */
 
-.params-url-preview-copy-btn {
+.req-url-preview-copy-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1748,12 +1750,12 @@ html.show-method-icons .req-method-menu-item-label::before {
     color var(--transition-fast);
 }
 
-.params-url-preview-copy-btn:hover {
+.req-url-preview-copy-btn:hover {
   background-color: var(--color-surface-1);
   color: var(--color-text);
 }
 
-.params-url-preview-copy-btn--copied {
+.req-url-preview-copy-btn--copied {
   color: var(--color-success) !important;
 }
 

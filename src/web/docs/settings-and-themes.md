@@ -20,7 +20,7 @@ save step.
 | **Hide headers**     | Hides the top header bar and moves its controls into the collections panel, for a more compact window.                                                       |
 | **Use method icons** | Show HTTP method badges as compact icons instead of text.                                                                                                    |
 | **Show recently used tab** | Show or hide the [Recent](collections.md#favorites-and-recent) tab.                                                                                    |
-| **Show URL preview** | Show the resolved URL (with `{{variables}}` filled in) above the Params editor.                                                                              |
+| **Show URL preview** | Show the resolved URL (with `{{variables}}` filled in) directly beneath the URL bar.                                                                         |
 
 You can change the editor font size anywhere with <kbd>⌘/Ctrl</kbd>+<kbd>+</kbd> /
 <kbd>-</kbd> / <kbd>0</kbd>. **Code folding** is toggled from each editor's own

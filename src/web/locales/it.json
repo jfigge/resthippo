@@ -335,7 +335,7 @@
       "showRecents": "Mostra scheda usati di recente",
       "showRecentsTitle": "Mostra una scheda Recenti con le richieste usate di recente nella barra laterale delle raccolte",
       "showUrlPreview": "Mostra anteprima URL",
-      "showUrlPreviewTitle": "Mostra la barra di anteprima dell'URL risolto sopra l'editor dei parametri",
+      "showUrlPreviewTitle": "Mostra l'anteprima dell'URL risolto direttamente sotto la barra dell'URL",
       "removeHeadersOnTitle": "Quando le intestazioni sono visibili, l'icona delle impostazioni si sposta nell'angolo in alto a destra",
       "removeHeadersOffTitle": "Quando le intestazioni sono nascoste, l'icona delle impostazioni si sposta nell'angolo in basso a sinistra"
     },

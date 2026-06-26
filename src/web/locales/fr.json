@@ -335,7 +335,7 @@
       "showRecents": "Afficher l'onglet des éléments récents",
       "showRecentsTitle": "Afficher un onglet Récents des requêtes récemment utilisées dans la barre latérale des collections",
       "showUrlPreview": "Afficher l'aperçu de l'URL",
-      "showUrlPreviewTitle": "Afficher la barre d'aperçu de l'URL résolue au-dessus de l'éditeur de paramètres",
+      "showUrlPreviewTitle": "Afficher l'aperçu de l'URL résolue directement sous la barre d'URL",
       "removeHeadersOnTitle": "Lorsque les en-têtes sont affichés, l'icône des paramètres se déplace dans le coin supérieur droit",
       "removeHeadersOffTitle": "Lorsque les en-têtes sont masqués, l'icône des paramètres se déplace dans le coin inférieur gauche"
     },

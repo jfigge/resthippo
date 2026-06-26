@@ -335,7 +335,7 @@
       "showRecents": "Mostrar pestaña de usados recientemente",
       "showRecentsTitle": "Mostrar una pestaña de Recientes con las solicitudes usadas recientemente en la barra lateral",
       "showUrlPreview": "Mostrar vista previa de URL",
-      "showUrlPreviewTitle": "Mostrar la barra de vista previa de la URL resuelta sobre el editor de parámetros",
+      "showUrlPreviewTitle": "Mostrar la vista previa de la URL resuelta justo debajo de la barra de URL",
       "removeHeadersOnTitle": "Cuando se muestran los encabezados, el icono de ajustes se mueve a la esquina superior derecha",
       "removeHeadersOffTitle": "Cuando se ocultan los encabezados, el icono de ajustes se mueve a la esquina inferior izquierda"
     },

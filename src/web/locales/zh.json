@@ -332,7 +332,7 @@
       "showRecents": "显示最近使用标签页",
       "showRecentsTitle": "在集合侧边栏中显示包含最近使用请求的“最近”标签页",
       "showUrlPreview": "显示 URL 预览",
-      "showUrlPreviewTitle": "在参数编辑器上方显示已解析的 URL 预览栏",
+      "showUrlPreviewTitle": "在 URL 栏正下方显示已解析的 URL 预览",
       "removeHeadersOnTitle": "显示标题栏时，设置图标将移至右上角",
       "removeHeadersOffTitle": "隐藏标题栏时，设置图标将移至左下角"
     },

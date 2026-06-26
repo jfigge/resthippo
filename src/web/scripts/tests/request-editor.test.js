@@ -970,14 +970,12 @@ test("URL preview reflects the resolved URL with enabled query params when enabl
   // #updateUrlPreview resolves asynchronously; let the microtasks settle.
   await new Promise((r) => setTimeout(r, 0));
 
-  const previewInput = editor.element.querySelector(
-    ".params-url-preview-input",
-  );
+  const previewInput = editor.element.querySelector(".req-url-preview-input");
   assert.ok(previewInput, "preview input present");
   assert.ok(
     !editor.element
-      .querySelector(".params-url-preview")
-      .classList.contains("params-url-preview--hidden"),
+      .querySelector(".req-url-preview")
+      .classList.contains("req-url-preview--hidden"),
     "preview bar shown when enabled",
   );
   // Path param substituted, enabled query encoded, disabled query omitted.
@@ -997,8 +995,8 @@ test("disabling the URL preview hides the preview bar", async () => {
   await new Promise((r) => setTimeout(r, 0));
   assert.ok(
     editor.element
-      .querySelector(".params-url-preview")
-      .classList.contains("params-url-preview--hidden"),
+      .querySelector(".req-url-preview")
+      .classList.contains("req-url-preview--hidden"),
     "preview bar hidden",
   );
 });

@@ -820,6 +820,11 @@ export class RequestEditor {
     const bar = document.createElement("div");
     bar.className = "req-url-bar";
 
+    // The method · URL · send controls live on this row; the resolved-URL
+    // preview stacks directly beneath it inside the same bar.
+    const row = document.createElement("div");
+    row.className = "req-url-bar-row";
+
     // Method selector
     const methodLabel = document.createElement("span");
     methodLabel.className = "req-method-select-label";
@@ -1043,9 +1048,14 @@ export class RequestEditor {
     split.append(sendBtn, typeTrigger);
     sendGroup.appendChild(split);
 
-    bar.appendChild(methodSel);
-    bar.appendChild(urlEditor.element);
-    bar.appendChild(sendGroup);
+    row.appendChild(methodSel);
+    row.appendChild(urlEditor.element);
+    row.appendChild(sendGroup);
+    bar.appendChild(row);
+    // Resolved-URL preview, directly under the URL input. Visibility is governed
+    // by Settings → Appearance ("Show URL preview") via applySettings(); see
+    // #urlPreviewEnabled / #buildUrlPreviewBar.
+    bar.appendChild(this.#buildUrlPreviewBar());
     this.#el.appendChild(bar);
 
     this.#methodSel = methodSel;
@@ -1062,6 +1072,9 @@ export class RequestEditor {
   #renderWsUrlBar() {
     const bar = document.createElement("div");
     bar.className = "req-url-bar";
+
+    const row = document.createElement("div");
+    row.className = "req-url-bar-row";
 
     const wsLabel = document.createElement("span");
     wsLabel.className = "req-method-select req-method-select--ws";
@@ -1099,7 +1112,8 @@ export class RequestEditor {
     this.#wsConnectBtn = connectBtn;
     sendGroup.appendChild(connectBtn);
 
-    bar.append(wsLabel, urlEditor.element, sendGroup);
+    row.append(wsLabel, urlEditor.element, sendGroup);
+    bar.appendChild(row);
     this.#el.appendChild(bar);
     this.#urlInput = urlEditor.element;
     // Apply whatever connection state is current so a re-render shows the right label.
@@ -1685,7 +1699,6 @@ export class RequestEditor {
    * @param {(value: string) => void} o.onBulkInput  bulk textarea input handler
    * @param {DragReorderController} o.drag
    * @param {HTMLElement} o.rightToggle  caller-built right-side toggle label
-   * @param {HTMLElement} [o.previewBar] optional bar inserted after the toolbar
    * @returns {{ container: HTMLElement, addBtn: HTMLElement, delAllBtn: HTMLElement, bulkEl: HTMLTextAreaElement, kvWrapEl: HTMLElement, listEl: HTMLElement, spacer: HTMLElement, deleteAllCleanup: () => void }}
    */
   #buildKvEditor(o) {
@@ -1742,9 +1755,6 @@ export class RequestEditor {
 
     container.appendChild(toolbar);
 
-    // ── Optional preview bar (params only) ────────────────────────────────
-    if (o.previewBar) container.appendChild(o.previewBar);
-
     // ── Bulk mode textarea ────────────────────────────────────────────────
     const bulkTa = document.createElement("textarea");
     bulkTa.className = "body-text-editor";
@@ -1792,8 +1802,6 @@ export class RequestEditor {
 
   // ── Params editor ────────────────────────────────────────────────────────
   #buildParamsEditor() {
-    // The URL preview bar's visibility is controlled from Settings → Appearance
-    // ("Show URL preview"), applied via applySettings(); see #urlPreviewEnabled.
     const {
       container,
       addBtn,
@@ -1819,7 +1827,6 @@ export class RequestEditor {
         this.#dispatchParamsUpdated();
       },
       drag: this.#paramsDrag,
-      previewBar: this.#buildUrlPreviewBar(),
     });
 
     this.#paramsAddBtnEl = addBtn;
@@ -2327,34 +2334,34 @@ export class RequestEditor {
    */
   #buildUrlPreviewBar() {
     const bar = document.createElement("div");
-    bar.className = "params-url-preview";
+    bar.className = "req-url-preview";
 
     const input = document.createElement("input");
     input.type = "text";
     input.readOnly = true;
-    input.className = "params-url-preview-input";
+    input.className = "req-url-preview-input";
     input.placeholder = t("request.url.previewPlaceholder");
     input.setAttribute("aria-label", t("request.url.previewAria"));
     input.tabIndex = -1;
 
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
-    copyBtn.className = "params-url-preview-copy-btn";
+    copyBtn.className = "req-url-preview-copy-btn";
     copyBtn.innerHTML = icon("copy", { size: 15 });
     copyBtn.title = t("request.url.copyTitle");
     copyBtn.setAttribute("aria-label", t("request.url.copyTitle"));
     copyBtn.addEventListener("click", async () => {
-      // Copy the *unresolved* template: variables/functions stay as `{{name}}`
-      // tokens rather than the resolved values shown in the preview bar, so the
-      // copied URL is reusable and never leaks resolved secrets.
-      const text = await this.#buildPreviewUrl(false);
+      // Copy the fully-resolved URL exactly as it will be sent — variables,
+      // functions and query parameters all substituted and percent-encoded —
+      // matching what the preview bar displays.
+      const text = await this.#buildPreviewUrl();
       if (!text) return;
       await navigator.clipboard.writeText(text);
       copyBtn.innerHTML = icon("check", { size: 15 });
-      copyBtn.classList.add("params-url-preview-copy-btn--copied");
+      copyBtn.classList.add("req-url-preview-copy-btn--copied");
       setTimeout(() => {
         copyBtn.innerHTML = icon("copy", { size: 15 });
-        copyBtn.classList.remove("params-url-preview-copy-btn--copied");
+        copyBtn.classList.remove("req-url-preview-copy-btn--copied");
       }, 1500);
     });
 
@@ -2368,46 +2375,38 @@ export class RequestEditor {
   }
 
   /**
-   * Assemble the URL string with enabled query parameters appended.
-   * @param {boolean} [resolve=true] when `false`, leave `{{variable}}` /
-   *   function tokens literal and skip percent-encoding, yielding a reusable
-   *   URL template (used by the Copy button) rather than the resolved preview.
+   * Assemble the fully-resolved request URL exactly as it will be sent:
+   * `{{variable}}` / function tokens substituted, path params applied, enabled
+   * query parameters appended, everything percent-encoded. Drives both the
+   * preview bar's text and its Copy button.
    */
-  async #buildPreviewUrl(resolve = true) {
+  async #buildPreviewUrl() {
     const ctx = this.#variableContext;
-    const rv = (s) =>
-      resolve ? resolveStringAsync(s ?? "", ctx) : Promise.resolve(s ?? "");
+    const rv = (s) => resolveStringAsync(s ?? "", ctx);
 
     const urlParts = await Promise.all(
-      tokenize(this.#url ?? "").map(async (tok) => {
-        if (tok.type === "text") return tok.content;
-        const raw = `{{${tok.content}}}`;
-        return resolve ? resolveStringAsync(raw, ctx) : raw;
-      }),
+      tokenize(this.#url ?? "").map((tok) =>
+        tok.type === "text" ? tok.content : rv(`{{${tok.content}}}`),
+      ),
     );
     // Substitute path params before percent-encoding so `{id}` braces aren't
-    // mangled by encodeBaseUrl (which would otherwise %7B-escape them). In raw
-    // mode path values pass through unresolved/unencoded so any `{{var}}` in
-    // them survives too.
+    // mangled by encodeBaseUrl (which would otherwise %7B-escape them).
     const pathValues = new Map();
     for (const p of this.#pathParams ?? []) {
       const name = (p.name ?? "").trim();
       if (!name) continue;
-      const v = await rv(p.value);
-      pathValues.set(name, resolve ? encodeURIComponent(v) : v);
+      pathValues.set(name, encodeURIComponent(await rv(p.value)));
     }
     const substituted = applyPathParams(urlParts.join(""), pathValues);
-    const base = resolve ? encodeBaseUrl(substituted) : substituted;
+    const base = encodeBaseUrl(substituted);
 
     const enabled = this.#params.filter((p) => p.enabled && p.name.trim());
     if (!enabled.length) return base;
     const pairs = await Promise.all(
       enabled.map(async (p) => {
-        const name = await rv(p.name);
-        const value = await rv(p.value);
-        return resolve
-          ? `${encodeURIComponent(name)}=${encodeURIComponent(value)}`
-          : `${name}=${value}`;
+        const name = encodeURIComponent(await rv(p.name));
+        const value = encodeURIComponent(await rv(p.value));
+        return `${name}=${value}`;
       }),
     );
     const qs = pairs.join("&");
@@ -2419,7 +2418,7 @@ export class RequestEditor {
     if (!this.#urlPreviewEl) return;
     const seq = ++this.#urlPreviewSeq;
     this.#urlPreviewEl.classList.toggle(
-      "params-url-preview--hidden",
+      "req-url-preview--hidden",
       !this.#urlPreviewEnabled,
     );
     if (this.#urlPreviewInputEl) {

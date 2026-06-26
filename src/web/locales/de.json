@@ -335,7 +335,7 @@
       "showRecents": "Tab „Zuletzt verwendet“ anzeigen",
       "showRecentsTitle": "Einen Tab „Zuletzt verwendet“ mit den kürzlich verwendeten Anfragen in der Sammlungs-Seitenleiste anzeigen",
       "showUrlPreview": "URL-Vorschau anzeigen",
-      "showUrlPreviewTitle": "Die Vorschauleiste der aufgelösten URL über dem Parameter-Editor anzeigen",
+      "showUrlPreviewTitle": "Die Vorschau der aufgelösten URL direkt unter der URL-Leiste anzeigen",
       "removeHeadersOnTitle": "Wenn die Header angezeigt werden, wird das Einstellungssymbol in die obere rechte Ecke verschoben",
       "removeHeadersOffTitle": "Wenn die Header ausgeblendet sind, wird das Einstellungssymbol in die untere linke Ecke verschoben"
     },

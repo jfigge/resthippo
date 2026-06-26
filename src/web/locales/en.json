@@ -335,7 +335,7 @@
       "showRecents": "Show recently used tab",
       "showRecentsTitle": "Show a Recent tab of recently used requests in the collections sidebar",
       "showUrlPreview": "Show URL preview",
-      "showUrlPreviewTitle": "Show the resolved URL preview bar above the Params editor",
+      "showUrlPreviewTitle": "Show the resolved URL preview directly beneath the URL bar",
       "removeHeadersOnTitle": "When headers are shown, the settings icon will move to the top right corner",
       "removeHeadersOffTitle": "When headers are hidden, the settings icon will move to the bottom left corner"
     },

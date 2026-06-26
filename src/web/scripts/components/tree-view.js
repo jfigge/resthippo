@@ -1037,6 +1037,11 @@ export class TreeView {
       node.type === "collection"
         ? [
             {
+              id: "add-folder",
+              label: t("tree.menu.addFolder"),
+              accelerator: electronAccelerator("newCollection"),
+            },
+            {
               id: "add-request",
               label: t("tree.menu.addRequest"),
               accelerator: electronAccelerator("newRequest"),
@@ -1045,11 +1050,6 @@ export class TreeView {
               id: "add-ws-request",
               label: t("tree.menu.addWsRequest"),
               accelerator: electronAccelerator("newWsRequest"),
-            },
-            {
-              id: "add-folder",
-              label: t("tree.menu.addFolder"),
-              accelerator: electronAccelerator("newCollection"),
             },
             { type: "separator" },
             // Disabled when the folder holds no runnable (HTTP) requests — the
@@ -1074,17 +1074,17 @@ export class TreeView {
             },
             { type: "separator" },
             {
+              id: "variables",
+              label: t("tree.menu.variables"),
+              accelerator: electronAccelerator("folderVariables"),
+            },
+            { type: "separator" },
+            {
               id: "duplicate",
               label: t("tree.menu.duplicate"),
               accelerator: electronAccelerator("duplicate"),
             },
             { id: "export-collection", label: t("tree.menu.export") },
-            { type: "separator" },
-            {
-              id: "variables",
-              label: t("tree.menu.variables"),
-              accelerator: electronAccelerator("folderVariables"),
-            },
             { type: "separator" },
             {
               id: "delete",
@@ -1095,6 +1095,11 @@ export class TreeView {
           ]
         : [
             {
+              id: "add-folder",
+              label: t("tree.menu.addFolder"),
+              accelerator: electronAccelerator("newCollection"),
+            },
+            {
               id: "add-request",
               label: t("tree.menu.addRequest"),
               accelerator: electronAccelerator("newRequest"),
@@ -1103,11 +1108,6 @@ export class TreeView {
               id: "add-ws-request",
               label: t("tree.menu.addWsRequest"),
               accelerator: electronAccelerator("newWsRequest"),
-            },
-            {
-              id: "add-folder",
-              label: t("tree.menu.addFolder"),
-              accelerator: electronAccelerator("newCollection"),
             },
             { type: "separator" },
             {
