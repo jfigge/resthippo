@@ -47,6 +47,28 @@ const MAX_LIMIT = 100;
 /** Default page size when caller omits limit. */
 const DEFAULT_LIMIT = 20;
 
+/**
+ * Newest-first comparator with a stable secondary key on `id`. Two entries that
+ * share a `timestamp` (same-millisecond executions) would otherwise sort in
+ * readdir order, which is OS-dependent and can differ between calls — so
+ * cursor pagination could skip or repeat an entry at a page boundary, and
+ * `_trimRequest` could drop a different entry than `listHistory` pages past.
+ * Tiebreaking on the unique id makes the order deterministic and keeps the two
+ * call sites in lockstep.
+ *
+ * @param {{ timestamp?: string, id?: string }} a
+ * @param {{ timestamp?: string, id?: string }} b
+ * @returns {number}
+ */
+function byNewestFirst(a, b) {
+  const ta = a.timestamp ?? "";
+  const tb = b.timestamp ?? "";
+  if (tb !== ta) return tb > ta ? 1 : -1;
+  const ia = a.id ?? "";
+  const ib = b.id ?? "";
+  return ib > ia ? 1 : ib < ia ? -1 : 0;
+}
+
 class HistoryStore {
   /**
    * @param {import('./paths').Paths}       paths
@@ -93,12 +115,9 @@ class HistoryStore {
       if (data !== null) entries.push(data);
     }
 
-    // Sort newest-first by timestamp (ISO strings compare lexicographically).
-    entries.sort((a, b) => {
-      const ta = a.timestamp ?? "";
-      const tb = b.timestamp ?? "";
-      return tb > ta ? 1 : tb < ta ? -1 : 0;
-    });
+    // Sort newest-first (ISO timestamps compare lexicographically), with a
+    // stable id tiebreak so paging is deterministic across calls.
+    entries.sort(byNewestFirst);
 
     // Apply cursor: skip everything up to and including the cursor entry.
     let startIdx = 0;
@@ -249,11 +268,7 @@ class HistoryStore {
     }
 
     // Sort newest-first — matches listHistory order so we drop the same entries.
-    entries.sort((a, b) => {
-      const ta = a.timestamp ?? "";
-      const tb = b.timestamp ?? "";
-      return tb > ta ? 1 : tb < ta ? -1 : 0;
-    });
+    entries.sort(byNewestFirst);
 
     for (let i = max; i < entries.length; i++) {
       const e = entries[i];

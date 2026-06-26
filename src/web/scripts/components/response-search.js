@@ -40,6 +40,16 @@
 
 import { t } from "../i18n.js";
 import { icon } from "../icons.js";
+import { Notifications } from "../notifications.js";
+
+/**
+ * Maximum body size (in characters) searched in regular-expression mode. Regex
+ * search compiles a user-supplied pattern and runs it over the whole body on the
+ * renderer's main thread; a pathological pattern against a very large body can
+ * exhibit catastrophic backtracking and hang the UI (ReDoS). Plain-text search
+ * is linear and stays uncapped — only regex mode bails above this size.
+ */
+const MAX_REGEX_SEARCH_CHARS = 2_000_000;
 
 export class ResponseSearch {
   #deps;
@@ -300,6 +310,15 @@ export class ResponseSearch {
       "res-search-btn--active",
     );
     const flags = caseSensitive ? "g" : "gi";
+
+    // Guard against ReDoS: a user regex run over a very large body on the main
+    // thread can hang the renderer via catastrophic backtracking. Refuse regex
+    // mode above the size cap and steer the user to plain-text search (which is
+    // linear and safe). Literal search is unaffected.
+    if (useRegex && (pre.textContent?.length ?? 0) > MAX_REGEX_SEARCH_CHARS) {
+      Notifications.warning(t("response.find.regexTooLarge"));
+      return;
+    }
 
     let pattern;
     try {

@@ -767,7 +767,8 @@
       "regexTitle": "Regular expression",
       "regexAria": "Use regular expression",
       "closeTitle": "Close search (Escape)",
-      "closeAria": "Close search"
+      "closeAria": "Close search",
+      "regexTooLarge": "Response is too large for regular-expression search. Use plain-text search instead."
     },
     "filter": {
       "label": "Filter",

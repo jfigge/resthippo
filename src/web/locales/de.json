@@ -767,7 +767,8 @@
       "regexTitle": "Regulärer Ausdruck",
       "regexAria": "Regulären Ausdruck verwenden",
       "closeTitle": "Suche schließen (Escape)",
-      "closeAria": "Suche schließen"
+      "closeAria": "Suche schließen",
+      "regexTooLarge": "Die Antwort ist zu groß für die Suche mit regulären Ausdrücken. Verwenden Sie stattdessen die Textsuche."
     },
     "filter": {
       "label": "Filtern",

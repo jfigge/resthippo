@@ -956,6 +956,14 @@ export class RequestEditor {
 
   // ── URL bar ─────────────────────────────────────────────────────────────
   #renderUrlBar() {
+    // Destroy the previous URL pill editor before building its replacement. Its
+    // only out-of-tree listener is a document-level `selectionchange` handler
+    // that just removing the DOM (#rebuildLayout's innerHTML = "") does NOT
+    // detach — only destroy() does. Without this, every HTTP↔WebSocket protocol
+    // switch leaks one such listener. Null-safe on the first render.
+    this.#urlPillEditor?.destroy();
+    this.#urlPillEditor = null;
+
     if (this.#protocol === "websocket") {
       this.#renderWsUrlBar();
       return;

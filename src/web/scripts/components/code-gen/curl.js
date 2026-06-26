@@ -54,12 +54,15 @@ export const curl = {
         }
       }
     } else if (b.kind === "urlencoded") {
-      // One --data per field; URLSearchParams gives correct, shell-safe encoding
-      // (already percent-encoded — no spaces/quotes/glob chars), so no quoting.
+      // One --data per field. URLSearchParams gives correct percent-encoding,
+      // but its form-urlencoded serializer leaves `*` literal — which the shell
+      // would glob-expand in an unquoted token, silently changing the request.
+      // Single-quote each pair (the encoded content is already quote-free, so
+      // the quoting is purely defensive against glob/word-splitting).
       const sp = new URLSearchParams();
       b.fields.forEach((f) => sp.append(f.name, f.value));
       for (const pair of sp.toString().split("&").filter(Boolean)) {
-        cmd += ` \\\n  --data ${pair}`;
+        cmd += ` \\\n  --data ${sq(pair)}`;
       }
     } else if (b.kind === "file") {
       // `@<path>` tells curl to read the body from the file; the `@` sits inside

@@ -289,6 +289,19 @@ test("cURL: GET keeps the baked-in query string", () => {
   assert.doesNotMatch(code, /--data/);
 });
 
+test("cURL: single-quotes urlencoded --data so a `*` value isn't shell-glob-expanded", () => {
+  const node = {
+    type: "request",
+    method: "POST",
+    url: "https://x.test/form",
+    bodyType: "form-urlencoded",
+    bodyFormRows: [{ enabled: true, name: "q", value: "a*b" }],
+  };
+  const code = generateCode("curl", buildRequestModel(node, CTX));
+  // URLSearchParams leaves `*` literal; quoting stops the shell from globbing it.
+  assert.match(code, /--data 'q=a\*b'/);
+});
+
 test("JavaScript fetch: uses fetch() with method/headers/body", () => {
   const code = generateCode("fetch", buildRequestModel(JSON_POST_NODE, CTX));
   assert.match(code, /await fetch\("https:\/\/api\.example\.com\/users", \{/);

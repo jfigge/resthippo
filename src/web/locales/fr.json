@@ -767,7 +767,8 @@
       "regexTitle": "Expression régulière",
       "regexAria": "Utiliser une expression régulière",
       "closeTitle": "Fermer la recherche (Escape)",
-      "closeAria": "Fermer la recherche"
+      "closeAria": "Fermer la recherche",
+      "regexTooLarge": "La réponse est trop volumineuse pour la recherche par expression régulière. Utilisez plutôt la recherche en texte brut."
     },
     "filter": {
       "label": "Filtrer",
