@@ -118,6 +118,27 @@ ready to send.
 > updated in place; if the request already has content, Rest Hippo asks you to confirm
 > before overwriting it.
 
+### Import from a URL
+
+When an OpenAPI or Swagger spec is published online, you don't have to download it
+first — choose **File → Import from URL…** and paste the document's address:
+
+```
+https://api.example.com/openapi.json
+```
+
+Rest Hippo fetches the document through the desktop app's request engine (not the
+browser), so there are no CORS limits, and a spec served from `http://localhost`
+by a service running on your machine works just as well. If the document sits
+behind a token, add the optional **Authorization header**: a bare value such as
+`Bearer …` is sent as `Authorization`, or use a `Name: Value` line for a custom
+header (e.g. `X-API-Key: …`). Once fetched, the import continues exactly like a
+file import — including the **base-URL variable** prompt described above, whose
+value is pre-filled with the host you imported from (so a spec with a relative
+`servers` path still gets a complete, usable base URL). This entry imports
+OpenAPI / Swagger documents; for other formats, download the file and use
+**Import Collection…**.
+
 ## Backup & restore
 
 A **backup** captures your complete workspace in one file. Open it from the

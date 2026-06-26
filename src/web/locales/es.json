@@ -292,6 +292,7 @@
     "revealLogs": "Mostrar registros",
     "exportDiagnostics": "Exportar diagnóstico…",
     "importCurl": "Importar desde cURL…",
+    "importUrl": "Importar desde URL…",
     "newRequest": "Nueva solicitud",
     "newCollection": "Nueva colección",
     "settings": "Configuración…",
@@ -1346,6 +1347,20 @@
     "placeholder": "curl https://api.example.com/users \\\n  -H 'Authorization: Bearer ...' \\\n  -d '{\"name\":\"Ada\"}'",
     "submit": "Importar",
     "empty": "Pega un comando cURL para importar."
+  },
+  "urlImport": {
+    "title": "Importar desde URL",
+    "intro": "Introduce la URL de un documento OpenAPI o Swagger y Rest Hippo lo descarga y lo convierte en una colección. La descarga se realiza a través del motor de peticiones de la aplicación de escritorio, por lo que no hay límites de CORS del navegador.",
+    "urlLabel": "URL del documento",
+    "urlPlaceholder": "https://api.example.com/openapi.json",
+    "headerLabel": "Encabezado de autorización (opcional)",
+    "headerPlaceholder": "Bearer …",
+    "submit": "Importar",
+    "empty": "Introduce una URL para importar.",
+    "errScheme": "Introduce una URL http o https.",
+    "errNetwork": "No se pudo obtener el documento: {message}",
+    "errHttp": "Error al obtener: HTTP {status}.",
+    "errNotOpenApi": "La URL no devolvió un documento OpenAPI o Swagger."
   },
   "swaggerImport": {
     "title": "Importar OpenAPI / Swagger",

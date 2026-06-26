@@ -42,6 +42,10 @@ ipcRenderer.on("menu:import-curl", () => {
   window.dispatchEvent(new CustomEvent("hippo:import-curl-requested"));
 });
 
+ipcRenderer.on("menu:import-url", () => {
+  window.dispatchEvent(new CustomEvent("hippo:import-url-requested"));
+});
+
 // Edit-menu Undo/Redo (and their ⌘Z/⌘⇧Z accelerators) are routed here instead
 // of using native roles, so the focused multi-line code editor can run its own
 // snapshot undo/redo; app.js falls back to document.execCommand for plain inputs.

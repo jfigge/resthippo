@@ -2751,6 +2751,13 @@ function buildMenu() {
           },
         },
         {
+          label: m("menu.importUrl", "Import from URL…"),
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:import-url");
+          },
+        },
+        {
           label: m("menu.exportAll", "Export All Collections…"),
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())

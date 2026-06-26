@@ -26,12 +26,14 @@
  * @param {object} ctx
  * @param {() => any} ctx.handleImport        open the external-file import flow
  * @param {Function}  ctx.handleCurlImport    save a request parsed from pasted cURL
+ * @param {Function}  ctx.handleUrlImport     fetch + import an OpenAPI/Swagger spec from a URL
  * @param {(collection: object) => void} ctx.handleExport  open the collection export picker
  * @param {(format: string) => any} ctx.runWorkspaceExport export every collection in one file
  */
 import { BackupModal } from "../components/backup-modal.js";
 import { ExportModal } from "../components/export-modal.js";
 import { CurlImportModal } from "../components/curl-import-modal.js";
+import { SwaggerUrlImportModal } from "../components/swagger-url-import-modal.js";
 
 export function installMenuHandlers(ctx) {
   // Import a collection from an external file (Postman / Insomnia / OpenAPI / HAR).
@@ -42,6 +44,12 @@ export function installMenuHandlers(ctx) {
   // File > "Import from cURL" menu item; opens a paste-box modal.
   window.addEventListener("hippo:import-curl-requested", () =>
     CurlImportModal.open(ctx.handleCurlImport),
+  );
+
+  // Import an OpenAPI/Swagger spec fetched from a live URL. Triggered by the
+  // File > "Import from URL" menu item; opens a URL + optional-header modal.
+  window.addEventListener("hippo:import-url-requested", () =>
+    SwaggerUrlImportModal.open(ctx.handleUrlImport),
   );
 
   // Whole-workspace backup create/restore. Triggered by the File menu items,

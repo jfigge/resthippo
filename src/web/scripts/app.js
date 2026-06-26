@@ -1368,6 +1368,7 @@ function buildBusContext() {
     // App-level command handlers (import / export).
     handleImport,
     handleCurlImport,
+    handleUrlImport,
     handleExport,
     runWorkspaceExport,
   };
@@ -1446,8 +1447,8 @@ function initEventBus() {
   //   ui-font-change        fontStack                     (from preload/main)
   //
   // Menu / backup               (preload → app.js)
-  //   import-requested  ·  import-curl-requested  ·  export-all-requested  ·
-  //   backup-export-requested  ·  backup-import-requested
+  //   import-requested  ·  import-curl-requested  ·  import-url-requested  ·
+  //   export-all-requested  ·  backup-export-requested  ·  backup-import-requested
   //                                  — all payload-less menu triggers
   //
   // Keyboard shortcuts / menu commands  (preload → app.js; Feature 47)
@@ -4878,18 +4879,29 @@ async function handleImport() {
     return;
   }
 
-  // OpenAPI/Swagger specs are relative paths; prompt for a base-URL variable
-  // (name + value, pre-filled from the spec's server URL) so every imported
-  // request can reference {{name}} instead of a dangling/embedded host. Peek the
-  // format first; other formats skip the prompt and parse as before.
+  await _importInspectedContent(file.content, inspectImport(file.content));
+}
+
+// Shared tail of the file-import (`handleImport`) and URL-import
+// (`handleUrlImport`) flows. Given raw interchange `content` and its pre-peeked
+// `info` (from inspectImport): OpenAPI/Swagger specs are relative paths, so it
+// prompts for a base-URL variable (name + value, pre-filled from the spec's
+// server URL) so every imported request can reference {{name}} instead of a
+// dangling/embedded host; other formats skip the prompt and parse as before.
+// Returns true when a collection was applied, false on user cancel or a parse
+// error (the error is surfaced via a notification).
+async function _importInspectedContent(
+  content,
+  info,
+  baseUrlDefault = info.openApiBaseUrl ?? "",
+) {
   let importOptions;
-  const info = inspectImport(file.content);
   if (info.format === "openapi") {
     const choice = await SwaggerImportModal.open({
       defaultName: "baseUrl",
-      defaultValue: info.openApiBaseUrl ?? "",
+      defaultValue: baseUrlDefault,
     });
-    if (!choice) return; // user cancelled the import
+    if (!choice) return false; // user cancelled the import
     importOptions = {
       baseUrlVarName: choice.name,
       baseUrlValue: choice.value,
@@ -4898,16 +4910,129 @@ async function handleImport() {
 
   let parsed;
   try {
-    parsed = parseImport(file.content, importOptions);
+    parsed = parseImport(content, importOptions);
   } catch (err) {
     Notifications.error(
       t("app.importFailed", { message: _importErrorText(err) }),
       { title: t("app.importTitle") },
     );
-    return;
+    return false;
   }
 
-  await applyImportedCollection(parsed);
+  return applyImportedCollection(parsed);
+}
+
+// Fetch an OpenAPI/Swagger spec from a live URL and import it. The fetch runs in
+// the main process via the request engine (no browser CORS), then the body runs
+// through the same inspect → base-URL prompt → parse → apply path as a file
+// import. Restricted to OpenAPI/Swagger — any other recognized format is
+// rejected so this entry stays a spec importer. Returns true once the spec is
+// fetched and recognized (the URL modal closes and the base-URL prompt opens),
+// false on any failure (the modal stays open; the error is surfaced via a
+// notification). `header` is an optional auth header: a bare value is sent as
+// Authorization, a "Name: Value" line as a custom header.
+async function handleUrlImport(url, header) {
+  // Desktop-only: the fetch needs the main-process request engine.
+  if (typeof window.hippo?.http?.execute !== "function") {
+    Notifications.info(t("app.importDesktopOnly"));
+    return false;
+  }
+
+  const headers = {
+    Accept: "application/json, application/yaml, text/yaml, */*",
+  };
+  if (header) {
+    // "Name: Value" → a custom header, but only when the part before the colon
+    // looks like a header name (no whitespace) — otherwise a bare token that
+    // happens to contain a colon is sent whole as Authorization.
+    const sep = header.indexOf(":");
+    const name = sep > 0 ? header.slice(0, sep).trim() : "";
+    if (name && !/\s/.test(name)) headers[name] = header.slice(sep + 1).trim();
+    else headers.Authorization = header;
+  }
+
+  let result;
+  try {
+    result = await window.hippo.http.execute({
+      method: "GET", // never mutate a server when fetching a spec
+      url,
+      headers,
+      timeout: 30000,
+      followRedirects: true,
+      // Honor the user's SSL-verification setting so a self-signed host they can
+      // already send to can also be imported from.
+      verifySsl: currentSettings.verifySsl ?? true,
+    });
+  } catch (err) {
+    Notifications.error(
+      t("urlImport.errNetwork", { message: String(err?.message ?? err) }),
+      { title: t("app.importTitle") },
+    );
+    return false;
+  }
+
+  // Network-level failure — no HTTP response was received (engine reports 0).
+  if (result?.error && (result.status ?? 0) === 0) {
+    Notifications.error(
+      t("urlImport.errNetwork", {
+        message: result.error.message || String(result.error),
+      }),
+      { title: t("app.importTitle") },
+    );
+    return false;
+  }
+  if (result.status < 200 || result.status >= 300) {
+    Notifications.error(t("urlImport.errHttp", { status: result.status }), {
+      title: t("app.importTitle"),
+    });
+    return false;
+  }
+
+  // Redeem a spilled (very large) body so the whole spec is parsed, not a preview.
+  let content = typeof result.body === "string" ? result.body : "";
+  if (result.truncated && result.bodyRef) {
+    try {
+      const full = await window.hippo.http.body.get(result.bodyRef);
+      if (full?.body) content = full.body;
+    } catch {
+      // Fall through with the preview; parsing flags a truncated spec loudly.
+    }
+  }
+
+  const info = inspectImport(content);
+  if (info.format !== "openapi") {
+    Notifications.error(t("urlImport.errNotOpenApi"), {
+      title: t("app.importTitle"),
+    });
+    return false;
+  }
+
+  // Default the base-URL variable to the host the spec was fetched from. A
+  // relative `servers` path (e.g. "/api/v3") is anchored to that host so the
+  // default is a complete, usable URL — the import domain — rather than a bare
+  // path; an absolute server URL already declared in the spec is left as-is.
+  let baseUrlDefault = info.openApiBaseUrl ?? "";
+  if (!/^https?:\/\//i.test(baseUrlDefault)) {
+    try {
+      const fetched = new URL(url);
+      const resolved = baseUrlDefault
+        ? new URL(baseUrlDefault, fetched).href
+        : fetched.origin;
+      baseUrlDefault = resolved.endsWith("/")
+        ? resolved.slice(0, -1)
+        : resolved;
+    } catch {
+      // url was scheme-checked in the modal; keep the spec value on a parse error.
+    }
+  }
+
+  // The spec was fetched and recognized. Close the URL modal first, then run the
+  // shared base-URL prompt + import — PopupManager holds a single popup, so the
+  // prompt can't open over the still-open URL modal. The modal's own close on a
+  // `true` return is then a no-op (this flow already finished and closed it).
+  PopupManager.close();
+  await _importInspectedContent(content, info, baseUrlDefault);
+  return true;
 }
 
 // Import a single request from a pasted cURL command. Parses the text and, on

@@ -289,6 +289,7 @@
     "revealLogs": "显示日志",
     "exportDiagnostics": "导出诊断信息…",
     "importCurl": "从 cURL 导入…",
+    "importUrl": "从 URL 导入…",
     "newRequest": "新建请求",
     "newCollection": "新建集合",
     "settings": "设置…",
@@ -1339,6 +1340,20 @@
     "placeholder": "curl https://api.example.com/users \\\n  -H 'Authorization: Bearer ...' \\\n  -d '{\"name\":\"Ada\"}'",
     "submit": "导入",
     "empty": "粘贴要导入的 cURL 命令。"
+  },
+  "urlImport": {
+    "title": "从 URL 导入",
+    "intro": "输入 OpenAPI 或 Swagger 文档的 URL，Rest Hippo 会获取该文档并将其转换为集合。获取通过桌面应用的请求引擎进行，因此不受浏览器 CORS 限制。",
+    "urlLabel": "文档 URL",
+    "urlPlaceholder": "https://api.example.com/openapi.json",
+    "headerLabel": "授权标头（可选）",
+    "headerPlaceholder": "Bearer …",
+    "submit": "导入",
+    "empty": "请输入要导入的 URL。",
+    "errScheme": "请输入 http 或 https URL。",
+    "errNetwork": "无法获取文档：{message}",
+    "errHttp": "获取失败：HTTP {status}。",
+    "errNotOpenApi": "该 URL 未返回 OpenAPI 或 Swagger 文档。"
   },
   "swaggerImport": {
     "title": "导入 OpenAPI / Swagger",
