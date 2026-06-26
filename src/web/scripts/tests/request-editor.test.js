@@ -684,3 +684,465 @@ test("loading another request cancels a schedule and resets the type to Immediat
     "reset persisted to settings",
   );
 });
+
+// ── Params / Headers CRUD, bulk mode, path params, URL preview ───────────────
+//
+// The Params/Headers tables render one `.params-row` per row. Name and value are
+// `VariablePillEditor` instances (contentEditable divs, `.params-name` /
+// `.params-value`); the enable toggle is `.params-checkbox`; delete is
+// `.params-delete-btn`. A pill editor reads its value back from the DOM on every
+// `input` event, so an edit is simulated by writing `.textContent` and firing a
+// bubbling `input` — exactly what native typing does.
+
+/** Drive a VariablePillEditor edit by writing text + firing its input event. */
+function typeInPill(window, el, text) {
+  el.textContent = text;
+  el.dispatchEvent(new window.Event("input", { bubbles: true }));
+}
+
+/** Collect the latest `hippo:request-updated` detail matching a predicate. */
+function captureRequestUpdates(window, pred = () => true) {
+  const updates = [];
+  window.addEventListener("hippo:request-updated", (e) => {
+    if (pred(e.detail)) updates.push(e.detail);
+  });
+  return updates;
+}
+
+test("loading a request renders its params + headers rows with the right values", () => {
+  const { editor } = mountEditor({
+    id: "r",
+    method: "GET",
+    url: "https://api.example.com",
+    params: [
+      { name: "q", value: "hello", enabled: true },
+      { name: "page", value: "2", enabled: false },
+    ],
+    headers: [{ name: "Accept", value: "application/json", enabled: true }],
+  });
+
+  const paramRows = editor.element.querySelectorAll(
+    "#req-tab-params .params-row",
+  );
+  assert.equal(paramRows.length, 2, "two param rows rendered");
+  assert.equal(paramRows[0].querySelector(".params-name").textContent, "q");
+  assert.equal(
+    paramRows[0].querySelector(".params-value").textContent,
+    "hello",
+  );
+  // The disabled row carries the disabled modifier + an unchecked toggle.
+  assert.ok(paramRows[1].classList.contains("params-row--disabled"));
+  assert.equal(paramRows[1].querySelector(".params-checkbox").checked, false);
+
+  const headerRows = editor.element.querySelectorAll(
+    "#req-tab-headers .params-row",
+  );
+  assert.equal(headerRows.length, 1, "one header row rendered");
+  // Header NAME is a plain input (combo-box), VALUE is a pill editor.
+  assert.equal(headerRows[0].querySelector(".params-name").value, "Accept");
+  assert.equal(
+    headerRows[0].querySelector(".params-value").textContent,
+    "application/json",
+  );
+});
+
+test("an empty params/headers list shows the empty placeholder", () => {
+  const { editor } = mountEditor({ id: "r", method: "GET", url: "https://x" });
+  assert.ok(
+    editor.element.querySelector("#req-tab-params .params-empty"),
+    "params empty placeholder",
+  );
+  assert.ok(
+    editor.element.querySelector("#req-tab-headers .params-empty"),
+    "headers empty placeholder",
+  );
+});
+
+test("the Add control appends a param row and edits dispatch request-updated", () => {
+  const { window, editor } = mountEditor({
+    id: "r",
+    method: "GET",
+    url: "https://x",
+  });
+  const updates = captureRequestUpdates(window, (d) => "params" in d);
+
+  const addBtn = editor.element.querySelector(
+    '#req-tab-params [aria-label="Add parameter"]',
+  );
+  assert.ok(addBtn, "Add parameter control present");
+  addBtn.click();
+
+  const rows = editor.element.querySelectorAll("#req-tab-params .params-row");
+  assert.equal(rows.length, 1, "one row added");
+  // Adding a row dispatches params with one (blank) entry.
+  assert.ok(updates.length >= 1);
+  assert.equal(updates.at(-1).params.length, 1);
+
+  // Edit the new row's name + value via its pill editors.
+  typeInPill(window, rows[0].querySelector(".params-name"), "token");
+  typeInPill(window, rows[0].querySelector(".params-value"), "abc");
+
+  const last = updates.at(-1);
+  assert.equal(last.params[0].name, "token");
+  assert.equal(last.params[0].value, "abc");
+});
+
+test("toggling a param row's checkbox flips enabled and re-dispatches", () => {
+  const { window, editor } = mountEditor({
+    id: "r",
+    method: "GET",
+    url: "https://x",
+    params: [{ name: "a", value: "1", enabled: true }],
+  });
+  const updates = captureRequestUpdates(window, (d) => "params" in d);
+
+  const cb = editor.element.querySelector(
+    "#req-tab-params .params-row .params-checkbox",
+  );
+  assert.equal(cb.checked, true);
+  cb.checked = false;
+  cb.dispatchEvent(new window.Event("change", { bubbles: true }));
+
+  assert.equal(updates.at(-1).params[0].enabled, false);
+  assert.ok(
+    editor.element
+      .querySelector("#req-tab-params .params-row")
+      .classList.contains("params-row--disabled"),
+  );
+});
+
+test("deleting a param row removes it and dispatches the shorter list", () => {
+  const { window, editor } = mountEditor({
+    id: "r",
+    method: "GET",
+    url: "https://x",
+    params: [
+      { name: "a", value: "1", enabled: true },
+      { name: "b", value: "2", enabled: true },
+    ],
+  });
+  const updates = captureRequestUpdates(window, (d) => "params" in d);
+
+  // wireDeleteConfirm uses a two-click inline confirm — click twice.
+  const delBtn = editor.element.querySelector(
+    "#req-tab-params .params-row .params-delete-btn",
+  );
+  delBtn.click();
+  delBtn.click();
+
+  const rows = editor.element.querySelectorAll("#req-tab-params .params-row");
+  assert.equal(rows.length, 1, "one row left after delete");
+  assert.equal(updates.at(-1).params.length, 1);
+  assert.equal(updates.at(-1).params[0].name, "b");
+});
+
+test("a header value edit dispatches the updated headers list", () => {
+  const { window, editor } = mountEditor({
+    id: "r",
+    method: "GET",
+    url: "https://x",
+    headers: [{ name: "Accept", value: "text/plain", enabled: true }],
+  });
+  const updates = captureRequestUpdates(window, (d) => "headers" in d);
+
+  // Header name is a plain input; value is a pill editor.
+  const row = editor.element.querySelector("#req-tab-headers .params-row");
+  typeInPill(window, row.querySelector(".params-value"), "application/json");
+
+  assert.equal(updates.at(-1).headers[0].value, "application/json");
+  assert.equal(updates.at(-1).headers[0].name, "Accept");
+});
+
+test("Bulk Editor mode shows the rows as text and editing it syncs back to rows", () => {
+  const { window, editor } = mountEditor({
+    id: "r",
+    method: "GET",
+    url: "https://x",
+    params: [
+      { name: "a", value: "1", enabled: true },
+      { name: "b", value: "2", enabled: false },
+    ],
+  });
+  const updates = captureRequestUpdates(window, (d) => "params" in d);
+
+  // The Bulk Editor toggle is the first toolbar checkbox in the params pane.
+  const bulkToggle = editor.element.querySelector(
+    "#req-tab-params .params-toolbar .params-toolbar-toggle",
+  );
+  bulkToggle.checked = true;
+  bulkToggle.dispatchEvent(new window.Event("change", { bubbles: true }));
+
+  const ta = editor.element.querySelector("#req-tab-params .body-text-editor");
+  assert.ok(ta, "bulk textarea present");
+  // Enabled rows are bare; disabled rows are "# "-prefixed.
+  assert.equal(ta.value, "a=1\n# b=2");
+  // The bulk textarea is shown and the KV list's wrapper is hidden.
+  assert.equal(ta.style.display, "");
+  assert.equal(
+    editor.element.querySelector("#req-tab-params .params-list").parentElement
+      .style.display,
+    "none",
+    "KV list hidden in bulk mode",
+  );
+
+  // Editing the textarea reparses into rows and dispatches them.
+  ta.value = "x=9\ny=10";
+  ta.dispatchEvent(new window.Event("input", { bubbles: true }));
+  const last = updates.at(-1);
+  assert.deepEqual(
+    last.params.map((p) => [p.name, p.value, p.enabled]),
+    [
+      ["x", "9", true],
+      ["y", "10", true],
+    ],
+  );
+});
+
+test("path params are derived from :id / {slug} URL tokens, query params kept separate", () => {
+  const { editor } = mountEditor({
+    id: "r",
+    method: "GET",
+    url: "https://api.example.com/users/:id/posts/{slug}",
+    params: [{ name: "q", value: "x", enabled: true }],
+  });
+
+  // One query row + two path rows (the path rows carry the braces indicator).
+  const pathNames = [
+    ...editor.element.querySelectorAll(
+      "#req-tab-params .params-row .path-param-name",
+    ),
+  ].map((i) => i.value);
+  assert.deepEqual(pathNames, ["id", "slug"], "both path tokens derived");
+  // Path rows show the path indicator instead of a checkbox.
+  const pathIcons = editor.element.querySelectorAll(
+    "#req-tab-params .path-param-icon",
+  );
+  assert.equal(pathIcons.length, 2);
+  // The query param row is still present and toggleable.
+  assert.ok(
+    editor.element.querySelector("#req-tab-params .params-checkbox"),
+    "query row keeps its checkbox",
+  );
+});
+
+test("editing the URL re-derives the path-param rows", () => {
+  const { window, editor } = mountEditor({
+    id: "r",
+    method: "GET",
+    url: "https://x/items/:id",
+  });
+  assert.deepEqual(
+    [
+      ...editor.element.querySelectorAll("#req-tab-params .path-param-name"),
+    ].map((i) => i.value),
+    ["id"],
+  );
+
+  // The URL bar is a pill editor; drive an input to re-derive tokens.
+  const urlEl = editor.element.querySelector(".req-url-input");
+  typeInPill(window, urlEl, "https://x/items/:id/sub/:childId");
+
+  assert.deepEqual(
+    [
+      ...editor.element.querySelectorAll("#req-tab-params .path-param-name"),
+    ].map((i) => i.value),
+    ["id", "childId"],
+    "new token derived after URL edit",
+  );
+});
+
+test("URL preview reflects the resolved URL with enabled query params when enabled", async () => {
+  const { editor } = mountEditor(
+    {
+      id: "r",
+      method: "GET",
+      url: "https://api.example.com/{ver}/search",
+      pathParams: [{ name: "ver", value: "v2" }],
+      params: [
+        { name: "q", value: "hi there", enabled: true },
+        { name: "off", value: "x", enabled: false },
+      ],
+    },
+    { collectionVariables: {}, folderChain: [] },
+  );
+
+  editor.applySettings({ showUrlPreview: true });
+  // #updateUrlPreview resolves asynchronously; let the microtasks settle.
+  await new Promise((r) => setTimeout(r, 0));
+
+  const previewInput = editor.element.querySelector(
+    ".params-url-preview-input",
+  );
+  assert.ok(previewInput, "preview input present");
+  assert.ok(
+    !editor.element
+      .querySelector(".params-url-preview")
+      .classList.contains("params-url-preview--hidden"),
+    "preview bar shown when enabled",
+  );
+  // Path param substituted, enabled query encoded, disabled query omitted.
+  assert.equal(
+    previewInput.value,
+    "https://api.example.com/v2/search?q=hi%20there",
+  );
+});
+
+test("disabling the URL preview hides the preview bar", async () => {
+  const { editor } = mountEditor({
+    id: "r",
+    method: "GET",
+    url: "https://x",
+  });
+  editor.applySettings({ showUrlPreview: false });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.ok(
+    editor.element
+      .querySelector(".params-url-preview")
+      .classList.contains("params-url-preview--hidden"),
+    "preview bar hidden",
+  );
+});
+
+// ── WebSocket message composer (Feature 32) ──────────────────────────────────
+
+test("WebSocket Message tab exposes a format toggle that flips text ↔ json", () => {
+  const { window, editor } = mountEditor({
+    id: "w",
+    protocol: "websocket",
+    url: "wss://x",
+    wsMessage: "{}",
+    wsMessageFormat: "text",
+  });
+  const updates = captureRequestUpdates(window, (d) => "wsMessageFormat" in d);
+
+  const fmt = editor.element.querySelector(
+    "#req-tab-message .ws-composer-format",
+  );
+  assert.ok(fmt, "format toggle present");
+  fmt.click();
+  assert.equal(updates.at(-1).wsMessageFormat, "json", "flipped to json");
+  fmt.click();
+  assert.equal(updates.at(-1).wsMessageFormat, "text", "flipped back to text");
+});
+
+test("WebSocket subprotocols input updates state + dispatches", () => {
+  const { window, editor } = mountEditor({
+    id: "w",
+    protocol: "websocket",
+    url: "wss://x",
+  });
+  const updates = captureRequestUpdates(window, (d) => "wsSubprotocols" in d);
+
+  const sub = editor.element.querySelector(
+    "#req-tab-message .ws-composer-subproto",
+  );
+  assert.ok(sub, "subprotocols input present");
+  sub.value = "graphql-ws, json";
+  sub.dispatchEvent(new window.Event("input", { bubbles: true }));
+  assert.equal(updates.at(-1).wsSubprotocols, "graphql-ws, json");
+});
+
+test("the WebSocket composer Send button is disabled until the connection is open", () => {
+  const { window, editor } = mountEditor({
+    id: "w",
+    protocol: "websocket",
+    url: "wss://x",
+  });
+  const sendBtn = editor.element.querySelector(
+    '#req-tab-message [aria-label="Send message"]',
+  );
+  assert.equal(sendBtn.disabled, true, "disabled while idle");
+  window.dispatchEvent(
+    new CustomEvent("hippo:ws-state", { detail: { state: "open" } }),
+  );
+  assert.equal(sendBtn.disabled, false, "enabled once open");
+  window.dispatchEvent(
+    new CustomEvent("hippo:ws-state", { detail: { state: "closed" } }),
+  );
+  assert.equal(sendBtn.disabled, true, "disabled again once closed");
+});
+
+// ── Tab visibility (Settings → Request) ──────────────────────────────────────
+
+test("applySettings hides/shows the gated request tabs", () => {
+  const { editor } = mountEditor({ id: "r", method: "GET", url: "https://x" });
+  const tabHidden = (id) =>
+    editor.element
+      .querySelector(`.req-tab-btn[data-tab="${id}"]`)
+      .classList.contains("req-tab-btn--hidden");
+
+  editor.applySettings({
+    showCapturesTab: true,
+    showScriptsTab: true,
+    showTestsTab: true,
+    showNotesTab: true,
+  });
+  for (const id of ["captures", "scripts", "tests", "notes"])
+    assert.equal(tabHidden(id), false, `${id} shown`);
+
+  editor.applySettings({
+    showCapturesTab: false,
+    showScriptsTab: false,
+    showTestsTab: false,
+    showNotesTab: false,
+  });
+  for (const id of ["captures", "scripts", "tests", "notes"])
+    assert.equal(tabHidden(id), true, `${id} hidden`);
+
+  // Params / Headers / Body / Auth are never gated.
+  for (const id of ["params", "headers", "body", "auth"])
+    assert.equal(tabHidden(id), false, `${id} always visible`);
+});
+
+test("switching tabs activates the clicked tab and reveals its pane", () => {
+  const { editor } = mountEditor({ id: "r", method: "GET", url: "https://x" });
+  // Params is active by default.
+  const headersBtn = editor.element.querySelector(
+    '.req-tab-btn[data-tab="headers"]',
+  );
+  headersBtn.click();
+  assert.ok(headersBtn.classList.contains("req-tab-btn--active"));
+  assert.equal(headersBtn.getAttribute("aria-selected"), "true");
+  assert.equal(
+    editor.element.querySelector("#req-tab-headers").hidden,
+    false,
+    "headers pane shown",
+  );
+  assert.equal(
+    editor.element.querySelector("#req-tab-params").hidden,
+    true,
+    "params pane hidden",
+  );
+});
+
+// ── load() resets prior params/headers/path-params state ─────────────────────
+
+test("loading a second request clears the previous params, headers and path params", () => {
+  const { editor } = mountEditor({
+    id: "r1",
+    method: "GET",
+    url: "https://x/items/:id",
+    params: [{ name: "a", value: "1", enabled: true }],
+    headers: [{ name: "Accept", value: "json", enabled: true }],
+  });
+  assert.equal(
+    editor.element.querySelectorAll("#req-tab-params .params-row").length,
+    2, // 1 query + 1 path
+  );
+
+  editor.load({ id: "r2", method: "POST", url: "https://y" });
+
+  // The new request has no params/headers/path params → empty placeholders.
+  assert.ok(editor.element.querySelector("#req-tab-params .params-empty"));
+  assert.ok(editor.element.querySelector("#req-tab-headers .params-empty"));
+  assert.equal(
+    editor.element.querySelectorAll("#req-tab-params .path-param-name").length,
+    0,
+    "no path-param rows after switching to a token-free URL",
+  );
+  // The method selector reflects the new request.
+  assert.equal(
+    editor.element.querySelector(".req-method-select-label").textContent,
+    "POST",
+  );
+});
