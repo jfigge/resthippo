@@ -47,6 +47,16 @@ const IDEMPOTENT_METHODS = new Set([
   "TRACE",
 ]);
 
+// Client-side request-construction failures (a header Node refuses to send:
+// invalid character, malformed name, missing value). These surface as a
+// status:0 result like a network error, but re-sending is pointless — the
+// request never left and would fail identically — so they are never retried.
+const CLIENT_BUILD_ERRORS = new Set([
+  "ERR_INVALID_CHAR",
+  "ERR_INVALID_HTTP_TOKEN",
+  "ERR_HTTP_INVALID_HEADER_VALUE",
+]);
+
 /**
  * @param {string} method  HTTP method (any casing)
  * @returns {boolean} true for an RFC-idempotent method.
@@ -146,6 +156,8 @@ function retryReason(result, policy, method) {
   // method, or the explicit retryNonIdempotent opt-in. (A server-signalled
   // status retry below is method-agnostic — the server told us it didn't act.)
   if (result.status === 0 && result.error) {
+    // A malformed-header build error fails identically every attempt — terminal.
+    if (CLIENT_BUILD_ERRORS.has(result.error.code)) return null;
     if (!policy.retryNonIdempotent && !isIdempotentMethod(method)) return null;
     if (isTimeoutResult(result)) {
       return policy.onTimeout ? "timeout" : null;

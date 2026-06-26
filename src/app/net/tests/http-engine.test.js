@@ -214,6 +214,56 @@ test("POST forwards the body and custom request headers", async () => {
   );
 });
 
+test("a header value with an invalid character fails gracefully, naming the header", async () => {
+  // U+2014 (em dash) — the kind of character that slips in when a Cookie value
+  // is pasted from a document. http.request() throws a SYNCHRONOUS TypeError
+  // [ERR_INVALID_CHAR] on it; the engine must catch that and resolve a normal
+  // status:0 error result rather than letting the raw TypeError reach the user.
+  let hit = false;
+  await withServer(
+    (req, res) => {
+      hit = true;
+      res.writeHead(200);
+      res.end("ok");
+    },
+    async (base) => {
+      const r = await run({
+        method: "GET",
+        url: `${base}/x`,
+        headers: { Cookie: "sid=—abc" },
+      });
+      assert.equal(r.status, 0);
+      assert.ok(r.error, "a status:0 result carries an error");
+      assert.equal(r.error.code, "ERR_INVALID_CHAR");
+      assert.match(r.error.message, /Cookie/);
+      assert.match(r.error.message, /U\+2014/);
+      assert.equal(
+        hit,
+        false,
+        "the malformed request never reached the server",
+      );
+    },
+  );
+});
+
+test("a valid Cookie header value is sent normally (no false positive)", async () => {
+  await withServer(
+    (req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ cookie: req.headers.cookie ?? null }));
+    },
+    async (base) => {
+      const r = await run({
+        method: "GET",
+        url: `${base}/x`,
+        headers: { Cookie: "sid=abc" },
+      });
+      assert.equal(r.status, 200);
+      assert.equal(JSON.parse(r.body).cookie, "sid=abc");
+    },
+  );
+});
+
 // ── Response decompression (Content-Encoding) ───────────────────────────────────
 
 test("gzip response body is decompressed and decoded as text, not base64", async () => {

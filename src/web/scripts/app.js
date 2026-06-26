@@ -1296,6 +1296,8 @@ function _buildHint(errName, msg) {
     return "The request timed out before the server responded.";
   if (/too many redirects/i.test(msg))
     return "The server sent too many redirects. Check for redirect loops.";
+  if (/invalid character|not allowed in an http header/i.test(msg))
+    return "A header value contains a character HTTP doesn't allow (a line break, a control character, or a smart-quote / em-dash / emoji). Edit the named header's value.";
   return "";
 }
 

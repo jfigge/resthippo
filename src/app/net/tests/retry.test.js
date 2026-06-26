@@ -136,6 +136,17 @@ describe("retryReason", () => {
     );
   });
 
+  it("never retries a client-side header build error, even on an idempotent method", () => {
+    for (const code of [
+      "ERR_INVALID_CHAR",
+      "ERR_INVALID_HTTP_TOKEN",
+      "ERR_HTTP_INVALID_HEADER_VALUE",
+    ]) {
+      const r = { status: 0, error: { code, message: "x" } };
+      assert.equal(retryReason(r, policy, "GET"), null, code);
+    }
+  });
+
   it("retries an opted-in status code", () => {
     assert.equal(retryReason({ status: 503 }, policy, "GET"), "HTTP 503");
   });

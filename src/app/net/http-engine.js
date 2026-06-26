@@ -105,6 +105,52 @@ function redactHeader(name, value) {
   return CREDENTIAL_HEADERS.has(name.toLowerCase()) ? "<redacted>" : value;
 }
 
+// Mirror Node's own header validation (checkInvalidHeaderChar / checkIsHttpToken)
+// so a malformed header fails gracefully with a precise message instead of
+// letting http.request() throw a raw `TypeError [ERR_INVALID_CHAR]` (which the
+// async `req.on("error")` handler can't catch — see findInvalidHeader's use
+// below). The classic trigger is a Cookie/Authorization VALUE carrying a
+// character HTTP forbids: a line break, a control char, or any char above
+// U+00FF (smart quotes, en/em dashes, ellipsis, emoji pasted from a document).
+const HEADER_VALUE_INVALID = /[^\t\x20-\x7e\x80-\xff]/; // ctrl chars + > U+00FF
+const HEADER_NAME_TOKEN = /^[\^_`a-zA-Z\-0-9!#$%&'*+.|~]+$/; // RFC 7230 token
+
+/**
+ * Return `{ code, message }` for the first header Node would reject (bad name,
+ * undefined value, or an invalid character in a value), or null when every
+ * header is wire-legal. Array values are checked element-by-element, matching
+ * how http.request() validates multi-value headers.
+ */
+function findInvalidHeader(headers) {
+  for (const [name, raw] of Object.entries(headers || {})) {
+    if (!HEADER_NAME_TOKEN.test(name))
+      return {
+        code: "ERR_INVALID_HTTP_TOKEN",
+        message: `Header name "${name}" contains characters not allowed in an HTTP header name.`,
+      };
+    for (const v of Array.isArray(raw) ? raw : [raw]) {
+      if (v === undefined)
+        return {
+          code: "ERR_HTTP_INVALID_HEADER_VALUE",
+          message: `Header "${name}" has no value.`,
+        };
+      const m = HEADER_VALUE_INVALID.exec(String(v));
+      if (m) {
+        const cp = m[0]
+          .codePointAt(0)
+          .toString(16)
+          .toUpperCase()
+          .padStart(4, "0");
+        return {
+          code: "ERR_INVALID_CHAR",
+          message: `Header "${name}" has an invalid character (U+${cp}) in its value — HTTP header values can't contain line breaks, control characters, or characters above U+00FF.`,
+        };
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * A zlib transform that reverses a response's Content-Encoding, or null when the
  * body is not compressed (identity / absent / an encoding we don't handle, which
@@ -767,6 +813,34 @@ function registerHttpEngine({
       // gets its own marks, so the resolved result carries the FINAL leg's
       // breakdown — the connection that produced the response the user sees.
       const t = { start: Date.now() };
+
+      // Validate headers exactly as Node will, before lib.request() does. A bad
+      // header (invalid char in a value, malformed name, missing value) makes
+      // http.request() throw a SYNCHRONOUS TypeError that the async
+      // req.on("error") handler below cannot catch — it would reject this
+      // Promise and surface a raw "TypeError [ERR_INVALID_CHAR]" to the user.
+      // Fail gracefully instead with the standard status:0 result, naming the
+      // offending header and character.
+      const badHeader = findInvalidHeader(reqHeaders);
+      if (badHeader) {
+        consoleLog.push(`* ${badHeader.message}`);
+        resolve({
+          status: 0,
+          statusText: "",
+          headers: {},
+          cookies: [],
+          body: "",
+          elapsed: Date.now() - startTime,
+          size: 0,
+          consoleLog,
+          error: {
+            name: badHeader.code,
+            code: badHeader.code,
+            message: badHeader.message,
+          },
+        });
+        return;
+      }
 
       const req = lib.request(options, (res) => {
         // First response byte (headers received) — the TTFB marker.
@@ -1614,7 +1688,31 @@ function registerHttpEngine({
       if (attempt > 1) {
         consoleLog.push(`* Attempt ${attempt} of ${maxAttempts}`);
       }
-      result = await doRequest(descriptor, consoleLog, startTime, 0);
+      try {
+        result = await doRequest(descriptor, consoleLog, startTime, 0);
+      } catch (e) {
+        // Version-proof safety net: doRequest's Promise executor rejects if a
+        // synchronous throw escapes (e.g. http.request() rejecting a header on
+        // some future Node that findInvalidHeader didn't anticipate). Convert
+        // it to the standard status:0 error result so the renderer never sees a
+        // raw TypeError.
+        consoleLog.push(`* ${e.message}`);
+        result = {
+          status: 0,
+          statusText: "",
+          headers: {},
+          cookies: [],
+          body: "",
+          elapsed: Date.now() - startTime,
+          size: 0,
+          consoleLog,
+          error: {
+            name: e.code || e.name || "RequestError",
+            code: e.code || e.name || "RequestError",
+            message: e.message,
+          },
+        };
+      }
 
       // A user Stop (http:abort) destroyed the socket — that surfaces as a
       // connection error, which the retry policy would otherwise treat as
