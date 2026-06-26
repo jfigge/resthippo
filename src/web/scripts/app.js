@@ -4999,40 +4999,45 @@ async function handleUrlImport(url, header) {
     }
   }
 
+  // Detect the format from the fetched body — any supported interchange type is
+  // accepted, exactly like a file import. OpenAPI/Swagger additionally prompts
+  // for a base-URL variable; every other format imports straight through.
   const info = inspectImport(content);
-  if (info.format !== "openapi") {
-    Notifications.error(t("urlImport.errNotOpenApi"), {
-      title: t("app.importTitle"),
-    });
-    return false;
-  }
 
-  // Default the base-URL variable to the host the spec was fetched from. A
-  // relative `servers` path (e.g. "/api/v3") is anchored to that host so the
-  // default is a complete, usable URL — the import domain — rather than a bare
-  // path; an absolute server URL already declared in the spec is left as-is.
-  let baseUrlDefault = info.openApiBaseUrl ?? "";
-  if (!/^https?:\/\//i.test(baseUrlDefault)) {
-    try {
-      const fetched = new URL(url);
-      const resolved = baseUrlDefault
-        ? new URL(baseUrlDefault, fetched).href
-        : fetched.origin;
-      baseUrlDefault = resolved.endsWith("/")
-        ? resolved.slice(0, -1)
-        : resolved;
-    } catch {
-      // url was scheme-checked in the modal; keep the spec value on a parse error.
+  if (info.format === "openapi") {
+    // Default the base-URL variable to the host the spec was fetched from. A
+    // relative `servers` path (e.g. "/api/v3") is anchored to that host so the
+    // default is a complete, usable URL — the import domain — rather than a bare
+    // path; an absolute server URL already declared in the spec is left as-is.
+    let baseUrlDefault = info.openApiBaseUrl ?? "";
+    if (!/^https?:\/\//i.test(baseUrlDefault)) {
+      try {
+        const fetched = new URL(url);
+        const resolved = baseUrlDefault
+          ? new URL(baseUrlDefault, fetched).href
+          : fetched.origin;
+        baseUrlDefault = resolved.endsWith("/")
+          ? resolved.slice(0, -1)
+          : resolved;
+      } catch {
+        // url was scheme-checked in the modal; keep the spec value on a parse error.
+      }
     }
+
+    // Close the URL modal first, then run the base-URL prompt + import —
+    // PopupManager holds a single popup, so the prompt can't open over the
+    // still-open URL modal. The modal's own close on a `true` return is then a
+    // no-op (this flow already finished and closed it).
+    PopupManager.close();
+    await _importInspectedContent(content, info, baseUrlDefault);
+    return true;
   }
 
-  // The spec was fetched and recognized. Close the URL modal first, then run the
-  // shared base-URL prompt + import — PopupManager holds a single popup, so the
-  // prompt can't open over the still-open URL modal. The modal's own close on a
-  // `true` return is then a no-op (this flow already finished and closed it).
-  PopupManager.close();
-  await _importInspectedContent(content, info, baseUrlDefault);
-  return true;
+  // Any other supported format (or an unrecognized body): no variable prompt.
+  // Parse + apply with the URL modal still open so a failure (unparseable or
+  // unsupported document) keeps it open and surfaces the error — the modal
+  // closes only on success.
+  return _importInspectedContent(content, info);
 }
 
 // Import a single request from a pasted cURL command. Parses the text and, on

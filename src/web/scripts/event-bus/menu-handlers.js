@@ -33,7 +33,7 @@
 import { BackupModal } from "../components/backup-modal.js";
 import { ExportModal } from "../components/export-modal.js";
 import { CurlImportModal } from "../components/curl-import-modal.js";
-import { SwaggerUrlImportModal } from "../components/swagger-url-import-modal.js";
+import { UrlImportModal } from "../components/url-import-modal.js";
 
 export function installMenuHandlers(ctx) {
   // Import a collection from an external file (Postman / Insomnia / OpenAPI / HAR).
@@ -46,10 +46,11 @@ export function installMenuHandlers(ctx) {
     CurlImportModal.open(ctx.handleCurlImport),
   );
 
-  // Import an OpenAPI/Swagger spec fetched from a live URL. Triggered by the
-  // File > "Import from URL" menu item; opens a URL + optional-header modal.
+  // Import a collection fetched from a live URL (Postman / Insomnia / OpenAPI /
+  // Swagger / HAR — auto-detected). Triggered by the File > "Import from URL"
+  // menu item; opens a URL + optional-header modal.
   window.addEventListener("hippo:import-url-requested", () =>
-    SwaggerUrlImportModal.open(ctx.handleUrlImport),
+    UrlImportModal.open(ctx.handleUrlImport),
   );
 
   // Whole-workspace backup create/restore. Triggered by the File menu items,

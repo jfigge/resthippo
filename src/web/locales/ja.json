@@ -1343,7 +1343,7 @@
   },
   "urlImport": {
     "title": "URL からインポート",
-    "intro": "OpenAPI または Swagger ドキュメントの URL を入力すると、Rest Hippo がそれを取得してコレクションに変換します。取得はデスクトップアプリのリクエストエンジンを経由するため、ブラウザーの CORS 制限はありません。",
+    "intro": "API ドキュメントの URL を入力すると（OpenAPI/Swagger 仕様、Postman または Insomnia のコレクション、HAR キャプチャ）、Rest Hippo がそれを取得してコレクションに変換します。取得はデスクトップアプリのリクエストエンジンを経由するため、ブラウザーの CORS 制限はありません。",
     "urlLabel": "ドキュメント URL",
     "urlPlaceholder": "https://api.example.com/openapi.json",
     "headerLabel": "認可ヘッダー（任意）",
@@ -1352,8 +1352,7 @@
     "empty": "インポートする URL を入力してください。",
     "errScheme": "http または https の URL を入力してください。",
     "errNetwork": "ドキュメントを取得できませんでした: {message}",
-    "errHttp": "取得に失敗しました: HTTP {status}。",
-    "errNotOpenApi": "URL から OpenAPI または Swagger ドキュメントが返されませんでした。"
+    "errHttp": "取得に失敗しました: HTTP {status}。"
   },
   "swaggerImport": {
     "title": "OpenAPI / Swagger をインポート",

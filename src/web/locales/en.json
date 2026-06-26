@@ -1350,7 +1350,7 @@
   },
   "urlImport": {
     "title": "Import from URL",
-    "intro": "Enter the URL of an OpenAPI or Swagger document and Rest Hippo fetches it and turns it into a collection. The fetch runs through the desktop request engine, so there are no browser CORS limits.",
+    "intro": "Enter the URL of an API document — an OpenAPI/Swagger spec, a Postman or Insomnia collection, or a HAR capture — and Rest Hippo fetches it and turns it into a collection. The fetch runs through the desktop request engine, so there are no browser CORS limits.",
     "urlLabel": "Document URL",
     "urlPlaceholder": "https://api.example.com/openapi.json",
     "headerLabel": "Authorization header (optional)",
@@ -1359,8 +1359,7 @@
     "empty": "Enter a URL to import.",
     "errScheme": "Enter an http or https URL.",
     "errNetwork": "Couldn't fetch the document: {message}",
-    "errHttp": "Fetch failed: HTTP {status}.",
-    "errNotOpenApi": "The URL didn't return an OpenAPI or Swagger document."
+    "errHttp": "Fetch failed: HTTP {status}."
   },
   "swaggerImport": {
     "title": "Import OpenAPI / Swagger",

@@ -1343,7 +1343,7 @@
   },
   "urlImport": {
     "title": "从 URL 导入",
-    "intro": "输入 OpenAPI 或 Swagger 文档的 URL，Rest Hippo 会获取该文档并将其转换为集合。获取通过桌面应用的请求引擎进行，因此不受浏览器 CORS 限制。",
+    "intro": "输入 API 文档的 URL（OpenAPI/Swagger 规范、Postman 或 Insomnia 集合，或 HAR 捕获），Rest Hippo 会获取该文档并将其转换为集合。获取通过桌面应用的请求引擎进行，因此不受浏览器 CORS 限制。",
     "urlLabel": "文档 URL",
     "urlPlaceholder": "https://api.example.com/openapi.json",
     "headerLabel": "授权标头（可选）",
@@ -1352,8 +1352,7 @@
     "empty": "请输入要导入的 URL。",
     "errScheme": "请输入 http 或 https URL。",
     "errNetwork": "无法获取文档：{message}",
-    "errHttp": "获取失败：HTTP {status}。",
-    "errNotOpenApi": "该 URL 未返回 OpenAPI 或 Swagger 文档。"
+    "errHttp": "获取失败：HTTP {status}。"
   },
   "swaggerImport": {
     "title": "导入 OpenAPI / Swagger",

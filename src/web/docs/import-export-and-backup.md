@@ -120,24 +120,26 @@ ready to send.
 
 ### Import from a URL
 
-When an OpenAPI or Swagger spec is published online, you don't have to download it
-first — choose **File → Import from URL…** and paste the document's address:
+When a document is published online, you don't have to download it first — choose
+**File → Import from URL…** and paste its address:
 
 ```
 https://api.example.com/openapi.json
 ```
 
 Rest Hippo fetches the document through the desktop app's request engine (not the
-browser), so there are no CORS limits, and a spec served from `http://localhost`
-by a service running on your machine works just as well. If the document sits
-behind a token, add the optional **Authorization header**: a bare value such as
-`Bearer …` is sent as `Authorization`, or use a `Name: Value` line for a custom
-header (e.g. `X-API-Key: …`). Once fetched, the import continues exactly like a
-file import — including the **base-URL variable** prompt described above, whose
-value is pre-filled with the host you imported from (so a spec with a relative
-`servers` path still gets a complete, usable base URL). This entry imports
-OpenAPI / Swagger documents; for other formats, download the file and use
-**Import Collection…**.
+browser), so there are no CORS limits, and a document served from
+`http://localhost` by a service running on your machine works just as well. If it
+sits behind a token, add the optional **Authorization header**: a bare value such
+as `Bearer …` is sent as `Authorization`, or use a `Name: Value` line for a
+custom header (e.g. `X-API-Key: …`).
+
+The format is detected automatically — the same set as a file import (Postman,
+Insomnia, OpenAPI 3 / Swagger 2.0, HAR) — and the import then continues exactly
+like one. An **OpenAPI / Swagger** spec still shows the **base-URL variable**
+prompt described above, with its value pre-filled from the host you imported from
+(so a spec with a relative `servers` path still gets a complete, usable base URL);
+every other format imports straight through with no prompt.
 
 ## Backup & restore
 
