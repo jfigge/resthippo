@@ -763,7 +763,8 @@
       "regexTitle": "正则表达式",
       "regexAria": "使用正则表达式",
       "closeTitle": "关闭搜索 (Escape)",
-      "closeAria": "关闭搜索"
+      "closeAria": "关闭搜索",
+      "regexTooLarge": "响应过大，无法进行正则表达式搜索。请改用纯文本搜索。"
     },
     "filter": {
       "label": "过滤",

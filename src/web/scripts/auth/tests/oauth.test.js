@@ -502,6 +502,36 @@ await test("mergeExtraParams ignores non-object sources", async () => {
   assert.deepEqual(target, { a: "1" });
 });
 
+await test("mergeExtraParams refuses to override reserved OAuth params", async () => {
+  // Security-critical params the flow assembles itself must survive even when a
+  // hostile/malformed extraParams (e.g. from a resolved env variable) tries to
+  // replace them — otherwise CSRF/PKCE could be defeated or the flow redirected.
+  const target = {
+    response_type: "code",
+    redirect_uri: "https://app.example/cb",
+    state: "real-state",
+    code_challenge: "real-challenge",
+  };
+  mergeExtraParams(target, {
+    response_type: "token",
+    redirect_uri: "https://evil.example/cb",
+    state: "forged",
+    code_challenge: "forged",
+    grant_type: "evil",
+    client_secret: "leak",
+    audience: "https://api.example", // not reserved → still merges
+    custom: "ok",
+  });
+  assert.equal(target.response_type, "code");
+  assert.equal(target.redirect_uri, "https://app.example/cb");
+  assert.equal(target.state, "real-state");
+  assert.equal(target.code_challenge, "real-challenge");
+  assert.equal(target.grant_type, undefined);
+  assert.equal(target.client_secret, undefined);
+  assert.equal(target.audience, "https://api.example");
+  assert.equal(target.custom, "ok");
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // applyClientAuth helper
 // ─────────────────────────────────────────────────────────────────────────────
@@ -645,6 +675,61 @@ await test("executor rejects missing client_credentials config before dispatch",
   });
   assert.equal(result.success, false);
   assert.equal(result.error?.code, OAuthErrorCode.CONFIGURATION_ERROR);
+});
+
+await test("forceRefresh serializes behind an in-flight acquisition (no parallel token request)", async () => {
+  // With refresh-token rotation, a forced refresh running in parallel with an
+  // already in-flight acquisition would invalidate it. forceRefresh must wait
+  // for the in-flight request, then issue exactly one fresh request.
+  tokenStore.clearAll();
+  let calls = 0;
+  let releaseFirst;
+  const gate = new Promise((r) => (releaseFirst = r));
+  let firstReached;
+  const reached = new Promise((r) => (firstReached = r));
+  const tokenResp = (tok) => ({
+    status: 200,
+    statusText: "OK",
+    body: JSON.stringify({
+      access_token: tok,
+      token_type: "Bearer",
+      expires_in: 3600,
+    }),
+  });
+  _mockResponse = async () => {
+    const n = ++calls;
+    if (n === 1) {
+      firstReached();
+      await gate; // park the first request until the test releases it
+      return tokenResp("first");
+    }
+    return tokenResp("forced");
+  };
+  const config = {
+    grantType: "client_credentials",
+    clientId: "cid",
+    clientSecret: "cs",
+    accessTokenUrl: "https://token.example.com",
+  };
+
+  const p1 = oauthExecutor.acquireToken(config); // call #1, parked on the gate
+  await reached; // ensure #1 has reached the network before forcing
+  const pForce = oauthExecutor.forceRefresh(config);
+  await Promise.resolve();
+  assert.equal(
+    calls,
+    1,
+    "forceRefresh must not issue a parallel token request",
+  );
+
+  releaseFirst();
+  const [r1, rForced] = await Promise.all([p1, pForce]);
+  assert.equal(r1.success, true);
+  assert.equal(rForced.success, true);
+  assert.equal(rForced.accessToken, "forced");
+  assert.equal(calls, 2, "exactly one fresh request after the in-flight one");
+  _mockResponse = null;
+  tokenStore.clearAll();
 });
 
 await test("client credentials flow: server 401 error", async () => {

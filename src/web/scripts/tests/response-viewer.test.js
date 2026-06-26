@@ -960,3 +960,594 @@ test("the live stream toolbar shows state + counts but no Stop/Save buttons", as
     "no Stop/Save buttons in the toolbar — they moved to Send→Stop and Download",
   );
 });
+
+// ── Body filter bar (Cmd/Ctrl+Shift+F → jq / yq / XPath) ────────────────────
+// Driven through the viewer UI: the keyboard shortcut opens ResponseFilter, a
+// typed expression transforms the styled body in place (the pure transform is
+// proven in body-filter.test.js — here we prove the wiring), and an invalid
+// expression surfaces an error state rather than throwing. The XML/XPath path
+// reads two bare globals (XPathResult / XMLSerializer) that jsdom exposes on the
+// window but doesn't install on globalThis; install them from the active window
+// inside the relevant test (a test-only global, never a source change).
+
+/** Open the body filter bar via its Cmd/Ctrl+Shift+F keyboard shortcut. */
+function openFilterBar(window, viewer) {
+  viewer.element.dispatchEvent(
+    new window.KeyboardEvent("keydown", {
+      key: "F",
+      metaKey: true,
+      shiftKey: true,
+      bubbles: true,
+    }),
+  );
+}
+
+/** Type `expr` into the (open) filter input and commit it with Enter. */
+async function applyFilter(window, viewer, expr) {
+  const input = viewer.element.querySelector(".res-filter-input");
+  input.value = expr;
+  input.dispatchEvent(
+    new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+  );
+  await new Promise((r) => setTimeout(r, 10));
+  return input;
+}
+
+test("the filter bar runs a jq expression over a JSON body and re-renders it", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/json" },
+      body: '{"items":[{"name":"Ada"},{"name":"Bo"}],"meta":{"total":2}}',
+    }),
+  );
+
+  openFilterBar(window, viewer);
+  assert.equal(
+    viewer.element.querySelector(".res-filter-bar").hidden,
+    false,
+    "the filter bar opens for a styled JSON body",
+  );
+
+  await applyFilter(window, viewer, ".items[].name");
+
+  const body = viewer.element.querySelector("#res-tab-body").textContent;
+  assert.ok(body.includes("Ada"), "the selected names survive the filter");
+  assert.ok(body.includes("Bo"));
+  assert.ok(
+    !body.includes("meta"),
+    "the unselected wrapper is gone — the body was transformed, not just highlighted",
+  );
+});
+
+test("an invalid jq expression surfaces an error state and keeps the original body", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/json" },
+      body: '{"value":42}',
+    }),
+  );
+
+  openFilterBar(window, viewer);
+  // A syntactically broken jq program — the filter must not throw out of the
+  // keydown handler; it flags the input and restores the unfiltered body.
+  const input = await applyFilter(window, viewer, ".items[");
+
+  assert.ok(
+    input.classList.contains("res-filter-input--error"),
+    "the input is marked invalid",
+  );
+  assert.ok(
+    viewer.element.querySelector("#res-tab-body").textContent.includes("42"),
+    "the original body stays on screen while the expression is invalid",
+  );
+});
+
+test("closing the filter bar restores the unfiltered body", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/json" },
+      body: '{"items":[{"name":"Ada"}],"meta":{"total":1}}',
+    }),
+  );
+
+  openFilterBar(window, viewer);
+  await applyFilter(window, viewer, ".items[].name");
+  assert.ok(
+    !viewer.element.querySelector("#res-tab-body").textContent.includes("meta"),
+    "filter applied",
+  );
+
+  // Escape closes the bar and restores the original (the close button does too).
+  viewer.element
+    .querySelector(".res-filter-input")
+    .dispatchEvent(
+      new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+  await new Promise((r) => setTimeout(r, 10));
+
+  assert.equal(
+    viewer.element.querySelector(".res-filter-bar").hidden,
+    true,
+    "the bar is hidden after Escape",
+  );
+  assert.ok(
+    viewer.element.querySelector("#res-tab-body").textContent.includes("meta"),
+    "the full, unfiltered body is back",
+  );
+});
+
+test("the filter bar runs a yq expression over a YAML body", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/yaml" },
+      body: "items:\n  - name: Ada\n  - name: Bo\nmeta:\n  total: 2\n",
+    }),
+  );
+
+  openFilterBar(window, viewer);
+  await applyFilter(window, viewer, ".items[].name");
+
+  const body = viewer.element.querySelector("#res-tab-body").textContent;
+  assert.ok(body.includes("Ada"), "yq selected the names");
+  assert.ok(body.includes("Bo"));
+  assert.ok(!body.includes("meta"), "the YAML body was transformed");
+});
+
+test("the filter bar runs an XPath expression over an XML body", async () => {
+  const { window, viewer } = mountViewer();
+  // The XML filter path references the bare globals XPathResult + XMLSerializer
+  // (body-filter.js). jsdom exposes them on the window but not on globalThis, so
+  // install them here from the active window — a test-only shim, no source edit.
+  if (typeof globalThis.XPathResult === "undefined") {
+    globalThis.XPathResult = window.XPathResult;
+  }
+  if (typeof globalThis.XMLSerializer === "undefined") {
+    globalThis.XMLSerializer = window.XMLSerializer;
+  }
+
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/xml" },
+      body: "<note><to>Tove</to><from>Jani</from></note>",
+    }),
+  );
+
+  openFilterBar(window, viewer);
+  await applyFilter(window, viewer, "//to/text()");
+
+  const body = viewer.element.querySelector("#res-tab-body").textContent;
+  assert.ok(body.includes("Tove"), "XPath selected the <to> text");
+  assert.ok(
+    !body.includes("Jani"),
+    "the unselected <from> node was filtered out",
+  );
+});
+
+test("the filter bar refuses an unfilterable body (plain text) and stays closed", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "text/plain" },
+      body: "just some plain text",
+    }),
+  );
+
+  openFilterBar(window, viewer);
+
+  assert.equal(
+    viewer.element.querySelector(".res-filter-bar").hidden,
+    true,
+    "no filter bar for a plain-text body — the unsupported toast is shown instead",
+  );
+});
+
+test("the filter bar is unavailable in Raw render mode", async () => {
+  const { window, viewer } = mountViewer();
+  viewer.applySettings({ responseBodyRenderMode: "raw" });
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/json" },
+      body: '{"a":1}',
+    }),
+  );
+
+  openFilterBar(window, viewer);
+
+  assert.equal(
+    viewer.element.querySelector(".res-filter-bar").hidden,
+    true,
+    "filtering needs the styled view; Raw mode is not filterable",
+  );
+});
+
+// ── Find / search bar (Cmd/Ctrl+F) ──────────────────────────────────────────
+// One gutter-skipping case already exists above; this drives the bar's full
+// lifecycle through the viewer: open via the shortcut, highlight, navigate, and
+// close-clears. (The pure match logic lives in response-search.js.)
+
+/** Open the find bar via its Cmd/Ctrl+F keyboard shortcut. */
+function openFindBar(window, viewer) {
+  viewer.element.dispatchEvent(
+    new window.KeyboardEvent("keydown", {
+      key: "f",
+      metaKey: true,
+      bubbles: true,
+    }),
+  );
+}
+
+test("Cmd/Ctrl+F opens the find bar and highlights every match", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/json" },
+      body: '{"a":"foo","b":"foo","c":"foo"}',
+    }),
+  );
+
+  openFindBar(window, viewer);
+  assert.equal(
+    viewer.element.querySelector(".res-search-bar").hidden,
+    false,
+    "the find bar opens",
+  );
+
+  const input = viewer.element.querySelector(".res-search-input");
+  input.value = "foo";
+  input.dispatchEvent(
+    new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+  );
+
+  const marks = viewer.element.querySelectorAll("mark.res-search-highlight");
+  assert.equal(marks.length, 3, "one <mark> per occurrence");
+  assert.ok(
+    marks[0].classList.contains("res-search-highlight--current"),
+    "the first match is the active one",
+  );
+});
+
+test("the next button advances the current find highlight", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/json" },
+      body: '{"a":"foo","b":"foo","c":"foo"}',
+    }),
+  );
+
+  openFindBar(window, viewer);
+  const input = viewer.element.querySelector(".res-search-input");
+  input.value = "foo";
+  input.dispatchEvent(
+    new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+  );
+
+  const currentIndex = () =>
+    [...viewer.element.querySelectorAll("mark.res-search-highlight")].findIndex(
+      (m) => m.classList.contains("res-search-highlight--current"),
+    );
+  assert.equal(currentIndex(), 0, "starts on the first match");
+
+  // The nav buttons are [prev, next]; clicking next moves the active highlight.
+  viewer.element.querySelectorAll(".res-search-nav-btn")[1].click();
+  assert.equal(currentIndex(), 1, "next moved the current highlight forward");
+
+  // Prev wraps back to the first.
+  viewer.element.querySelectorAll(".res-search-nav-btn")[0].click();
+  assert.equal(currentIndex(), 0, "prev moved it back");
+});
+
+test("closing the find bar clears every highlight", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/json" },
+      body: '{"a":"foo","b":"foo"}',
+    }),
+  );
+
+  openFindBar(window, viewer);
+  const input = viewer.element.querySelector(".res-search-input");
+  input.value = "foo";
+  input.dispatchEvent(
+    new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+  );
+  assert.ok(
+    viewer.element.querySelectorAll("mark.res-search-highlight").length > 0,
+    "matches present before close",
+  );
+
+  viewer.element.querySelector(".res-search-close-btn").click();
+
+  assert.equal(
+    viewer.element.querySelector(".res-search-bar").hidden,
+    true,
+    "the bar is hidden",
+  );
+  assert.equal(
+    viewer.element.querySelectorAll("mark.res-search-highlight").length,
+    0,
+    "all highlights are unwrapped",
+  );
+});
+
+// ── Post-response captures (hippo:captures-applied) ─────────────────────────
+
+test("hippo:captures-applied shows a count-only captured badge", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(window, baseResponse({ body: "{}" }));
+
+  const badge = viewer.element.querySelector(".res-captured-badge");
+  assert.equal(
+    badge.hidden,
+    true,
+    "no captured badge before any capture fires",
+  );
+
+  window.dispatchEvent(
+    new window.CustomEvent("hippo:captures-applied", { detail: { count: 2 } }),
+  );
+
+  assert.equal(badge.hidden, false, "the captured badge is shown");
+  assert.match(
+    badge.textContent,
+    /2/,
+    "it reports the captured count (count only — never values)",
+  );
+});
+
+test("a captures-applied with a zero count leaves the badge hidden", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(window, baseResponse({ body: "{}" }));
+
+  window.dispatchEvent(
+    new window.CustomEvent("hippo:captures-applied", { detail: { count: 0 } }),
+  );
+
+  assert.equal(
+    viewer.element.querySelector(".res-captured-badge").hidden,
+    true,
+    "nothing captured → no badge",
+  );
+});
+
+// ── After-response script console (hippo:script-console) ─────────────────────
+
+test("hippo:script-console appends lines to the existing console log", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      body: "{}",
+      consoleLog: ["* GET http://x", "< 200 OK"],
+    }),
+  );
+
+  window.dispatchEvent(
+    new window.CustomEvent("hippo:script-console", {
+      detail: { lines: ["* script: captured token", "* script: done"] },
+    }),
+  );
+
+  const console = viewer.element.querySelector("#res-tab-console").textContent;
+  // The original HTTP verbose lines are preserved …
+  assert.match(console, /GET http:\/\/x/, "original log lines kept");
+  // … and the script lines are appended after them.
+  assert.match(console, /script: captured token/, "script line appended");
+  assert.match(console, /script: done/);
+});
+
+// ── Tests pane (hippo:test-results) ─────────────────────────────────────────
+
+test("hippo:test-results fills the Tests tab and a pass/fail status badge", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(window, baseResponse({ body: "{}" }));
+
+  // Tests tab starts hidden (the live response carried no assertions).
+  const testsTab = viewer.element.querySelector(
+    '.res-tab-btn[data-tab="tests"]',
+  );
+  assert.equal(testsTab.hidden, true, "no Tests tab before results arrive");
+
+  window.dispatchEvent(
+    new window.CustomEvent("hippo:test-results", {
+      detail: {
+        results: [
+          { name: "status is 200", passed: true, message: "" },
+          { name: "body has id", passed: false, message: "expected id" },
+        ],
+        summary: { total: 2, passed: 1, failed: 1 },
+      },
+    }),
+  );
+  await new Promise((r) => setTimeout(r, 5));
+
+  assert.equal(testsTab.hidden, false, "the Tests tab is revealed");
+  const pane = viewer.element.querySelector("#res-tab-tests").textContent;
+  assert.match(pane, /status is 200/, "passing assertion rendered");
+  assert.match(pane, /body has id/, "failing assertion rendered");
+  assert.match(pane, /expected id/, "the failure message is shown");
+
+  const badge = viewer.element.querySelector(".res-tests-badge");
+  assert.equal(badge.hidden, false, "the tests status badge is shown");
+  assert.match(badge.textContent, /1\/2/, "badge reports passed/total");
+  assert.ok(
+    badge.classList.contains("res-tests--fail"),
+    "a failing run colours the badge as a failure",
+  );
+});
+
+// ── Content-type render paths (YAML / CSS / JS / redirect / 5xx) ─────────────
+
+test("renders a YAML response through the foldable styled view", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/yaml" },
+      body: "name: Ada\nrole: dev\n",
+    }),
+  );
+
+  const pre = viewer.element.querySelector(".res-body-pre--foldable");
+  assert.ok(pre, "YAML uses the per-line foldable render");
+  const body = viewer.element.querySelector("#res-tab-body").textContent;
+  assert.ok(body.includes("Ada"), "the value survives");
+  assert.ok(body.includes("role"), "the keys survive");
+});
+
+test("renders a CSS response with the foldable styled view", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "text/css" },
+      body: "body { color: red; }",
+    }),
+  );
+
+  assert.ok(
+    viewer.element.querySelector(".res-body-pre--foldable"),
+    "CSS is rendered with the foldable styled view",
+  );
+  assert.ok(
+    viewer.element.querySelector("#res-tab-body").textContent.includes("color"),
+    "the declaration text survives highlighting",
+  );
+});
+
+test("renders a JavaScript response with the foldable styled view", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/javascript" },
+      body: "function hi(name) { return name; }",
+    }),
+  );
+
+  assert.ok(
+    viewer.element.querySelector(".res-body-pre--foldable"),
+    "JS is rendered with the foldable styled view",
+  );
+  assert.ok(
+    viewer.element
+      .querySelector("#res-tab-body")
+      .textContent.includes("function"),
+    "the source text survives highlighting",
+  );
+});
+
+test("a 3xx redirect gets the redirect status class", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      status: 302,
+      statusText: "Found",
+      headers: { "content-type": "text/plain", location: "http://x/new" },
+      body: "",
+    }),
+  );
+
+  const badge = viewer.element.querySelector(".res-status-badge");
+  assert.ok(badge.textContent.includes("302"));
+  assert.ok(
+    badge.classList.contains("res-status--redirect"),
+    "3xx is classed as a redirect",
+  );
+  // The Location header is shown in the Headers pane.
+  assert.match(
+    viewer.element.querySelector("#res-tab-headers").textContent,
+    /http:\/\/x\/new/,
+  );
+});
+
+test("a 5xx server error gets the server-error status class", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      status: 500,
+      statusText: "Internal Server Error",
+      headers: { "content-type": "application/json" },
+      body: '{"error":"boom"}',
+    }),
+  );
+
+  const badge = viewer.element.querySelector(".res-status-badge");
+  assert.ok(badge.textContent.includes("500"));
+  assert.ok(
+    badge.classList.contains("res-status--server-error"),
+    "5xx is classed as a server error",
+  );
+  assert.ok(
+    viewer.element.querySelector("#res-tab-body").textContent.includes("boom"),
+    "the error body is still rendered as JSON",
+  );
+});
+
+// ── Cookies tab (multiple cookies, viewed via the tab) ──────────────────────
+
+test("the Cookies tab renders one row per Set-Cookie, switchable from the strip", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      cookies: [
+        "sid=abc123; HttpOnly; Path=/",
+        "theme=dark; Path=/; SameSite=Lax",
+      ],
+      body: "{}",
+    }),
+  );
+
+  // Switch to the Cookies tab the way a user would (click the tab button).
+  const tab = viewer.element.querySelector('.res-tab-btn[data-tab="cookies"]');
+  tab.click();
+  assert.ok(
+    tab.classList.contains("res-tab-btn--active"),
+    "the Cookies tab is active",
+  );
+  assert.equal(
+    viewer.element.querySelector("#res-tab-cookies").hidden,
+    false,
+    "the Cookies pane is visible",
+  );
+
+  const rows = viewer.element.querySelectorAll(
+    "#res-tab-cookies table tr:not(:first-child)",
+  );
+  assert.equal(rows.length, 2, "one data row per cookie");
+  const text = viewer.element.querySelector("#res-tab-cookies").textContent;
+  assert.ok(text.includes("sid"), "first cookie name");
+  assert.ok(text.includes("abc123"), "first cookie value");
+  assert.ok(text.includes("theme"), "second cookie name");
+  assert.ok(text.includes("SameSite=Lax"), "second cookie attributes");
+});
+
+test("the Cookies tab shows the empty placeholder when there are no cookies", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(window, baseResponse({ cookies: [], body: "{}" }));
+
+  const pane = viewer.element.querySelector("#res-tab-cookies");
+  assert.equal(pane.querySelector("table"), null, "no cookie table");
+  assert.ok(
+    pane.querySelector(".panel-placeholder"),
+    "an empty-state placeholder is shown instead",
+  );
+});

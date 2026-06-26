@@ -48,73 +48,18 @@ import {
   buildToolbarToggle,
   disposePillEditors,
 } from "./kv-editor-shared.js";
+import {
+  TOKEN_EXCHANGE_TOKEN_TYPES,
+  oauth2VisibleFields,
+  oauth2AdvancedKeys,
+  oauth2EnumValues,
+} from "./auth/oauth2-fields.js";
 
 // ── Scope suggestions dropdown ────────────────────────────────────────────────
 // Reuses the same .hdr-autocomplete CSS classes as the header dropdowns.
 // The list is populated from DEFAULT_SCOPES; the user can always type freely.
 
 const DEFAULT_SCOPES = ["openid", "email", "profile"];
-
-const OAUTH2_ADVANCED_KEYS = new Set([
-  "responseType",
-  "state",
-  "credentials",
-  "audience",
-  "resource",
-  "origin",
-  "headerPrefix",
-  "actorToken",
-  "actorTokenType",
-  "requestedTokenType",
-]);
-
-// Enum-valued OAuth2 keys → their allowed value set. The bulk-text editor must
-// constrain these so a typo (e.g. `grantType: garbage`) can't desync the select
-// from the model (the select silently falls back to its first option while the
-// model holds an invalid value).
-const OAUTH2_ENUM_VALUES = {
-  grantType: new Set([
-    "authorization_code",
-    "client_credentials",
-    "password",
-    "implicit",
-    "device_code",
-    "token_exchange",
-  ]),
-  clientType: new Set(["confidential", "public"]),
-  credentials: new Set(["header", "body"]),
-  responseType: new Set(["access_token", "id_token", "both"]),
-};
-
-// RFC 8693 §3 standard token-type identifiers, for the Token Exchange grant's
-// subject/actor/requested token-type selects. Values are the literal URNs; the
-// labels are resolved through t() at render time (never at module top-level).
-const TOKEN_EXCHANGE_TOKEN_TYPES = [
-  {
-    value: "urn:ietf:params:oauth:token-type:access_token",
-    labelKey: "auth.oauth2.tokenExchange.typeAccessToken",
-  },
-  {
-    value: "urn:ietf:params:oauth:token-type:refresh_token",
-    labelKey: "auth.oauth2.tokenExchange.typeRefreshToken",
-  },
-  {
-    value: "urn:ietf:params:oauth:token-type:id_token",
-    labelKey: "auth.oauth2.tokenExchange.typeIdToken",
-  },
-  {
-    value: "urn:ietf:params:oauth:token-type:jwt",
-    labelKey: "auth.oauth2.tokenExchange.typeJwt",
-  },
-  {
-    value: "urn:ietf:params:oauth:token-type:saml2",
-    labelKey: "auth.oauth2.tokenExchange.typeSaml2",
-  },
-  {
-    value: "urn:ietf:params:oauth:token-type:saml1",
-    labelKey: "auth.oauth2.tokenExchange.typeSaml1",
-  },
-];
 
 // Two dropdown instances — one for the OAuth 2.0 scope combo input and one for
 // the API-key name combo input.
@@ -627,132 +572,15 @@ export class RequestAuthEditor {
         ];
 
       case "oauth2": {
-        const g = this.#authOAuth2.grantType ?? "client_credentials";
-        const isPublic =
-          g === "authorization_code" &&
-          this.#authOAuth2.clientType === "public";
-        const fields = [{ key: "grantType", value: g }];
-
-        if (g === "authorization_code") {
-          fields.push({
-            key: "clientType",
-            value: this.#authOAuth2.clientType ?? "confidential",
-          });
-        }
-        fields.push({ key: "clientId", value: this.#authOAuth2.clientId });
-        if (g !== "implicit" && !isPublic) {
-          fields.push({
-            key: "clientSecret",
-            value: this.#authOAuth2.clientSecret,
-          });
-        }
-        if (g !== "implicit") {
-          fields.push({
-            key: "accessTokenUrl",
-            value: this.#authOAuth2.accessTokenUrl,
-          });
-        }
-        if (g === "device_code") {
-          fields.push({
-            key: "deviceAuthorizationUrl",
-            value: this.#authOAuth2.deviceAuthorizationUrl ?? "",
-          });
-        }
-        if (g === "token_exchange") {
-          fields.push({
-            key: "subjectToken",
-            value: this.#authOAuth2.subjectToken ?? "",
-          });
-          fields.push({
-            key: "subjectTokenType",
-            value:
-              this.#authOAuth2.subjectTokenType ??
-              TOKEN_EXCHANGE_TOKEN_TYPES[0].value,
-          });
-        }
-        if (["authorization_code", "implicit"].includes(g)) {
-          fields.push({ key: "authUrl", value: this.#authOAuth2.authUrl });
-        }
-        if (["authorization_code", "implicit"].includes(g)) {
-          fields.push({
-            key: "redirectUri",
-            value: this.#authOAuth2.redirectUri ?? "",
-          });
-        }
-        if (g === "password") {
-          fields.push({
-            key: "username",
-            value: this.#authOAuth2.username ?? "",
-          });
-          fields.push({
-            key: "password",
-            value: this.#authOAuth2.password ?? "",
-          });
-        }
-        fields.push({ key: "scope", value: this.#authOAuth2.scope });
-
-        if (this.#oauth2Advanced) {
-          if (g === "implicit") {
-            fields.push({
-              key: "responseType",
-              value: this.#authOAuth2.responseType ?? "access_token",
-            });
-          }
-          if (["authorization_code", "implicit"].includes(g)) {
-            fields.push({ key: "state", value: this.#authOAuth2.state ?? "" });
-          }
-          if (
-            ["authorization_code", "password", "client_credentials"].includes(g)
-          ) {
-            fields.push({
-              key: "credentials",
-              value: this.#authOAuth2.credentials ?? "header",
-            });
-          }
-          fields.push({
-            key: "audience",
-            value: this.#authOAuth2.audience ?? "",
-          });
-          if (
-            [
-              "authorization_code",
-              "client_credentials",
-              "token_exchange",
-            ].includes(g)
-          ) {
-            fields.push({
-              key: "resource",
-              value: this.#authOAuth2.resource ?? "",
-            });
-          }
-          if (g === "token_exchange") {
-            fields.push({
-              key: "actorToken",
-              value: this.#authOAuth2.actorToken ?? "",
-            });
-            fields.push({
-              key: "actorTokenType",
-              value:
-                this.#authOAuth2.actorTokenType ??
-                TOKEN_EXCHANGE_TOKEN_TYPES[0].value,
-            });
-            fields.push({
-              key: "requestedTokenType",
-              value: this.#authOAuth2.requestedTokenType ?? "",
-            });
-          }
-          if (g === "authorization_code") {
-            fields.push({
-              key: "origin",
-              value: this.#authOAuth2.origin ?? "",
-            });
-          }
-          fields.push({
-            key: "headerPrefix",
-            value: this.#authOAuth2.headerPrefix ?? "",
-          });
-        }
-        return fields;
+        // Single source of truth: derive the bulk-editor key/value list from the
+        // same spec the form renders from (see auth/oauth2-fields.js), so the two
+        // can't drift. Grant defaults to client_credentials (the model default).
+        const grant = this.#authOAuth2.grantType ?? "client_credentials";
+        return oauth2VisibleFields(
+          grant,
+          this.#authOAuth2.clientType,
+          this.#oauth2Advanced,
+        ).map((f) => ({ key: f.key, value: this.#oauth2FieldValue(f) }));
       }
 
       default:
@@ -783,7 +611,7 @@ export class RequestAuthEditor {
   #updateAuthFromText(text) {
     const validKeys = new Set(this.#getAuthFields().map((f) => f.key));
     if (this.#authType === "oauth2") {
-      for (const k of OAUTH2_ADVANCED_KEYS) validKeys.add(k);
+      for (const k of oauth2AdvancedKeys()) validKeys.add(k);
     }
 
     for (const raw of text.split("\n")) {
@@ -836,14 +664,16 @@ export class RequestAuthEditor {
             this.#authOAuth1[key] = v;
           }
           break;
-        case "oauth2":
+        case "oauth2": {
           // Constrain enum-valued keys so the bulk editor can't desync a select.
-          if (key in OAUTH2_ENUM_VALUES) {
-            if (OAUTH2_ENUM_VALUES[key].has(v)) this.#authOAuth2[key] = v;
+          const enums = oauth2EnumValues();
+          if (key in enums) {
+            if (enums[key].has(v)) this.#authOAuth2[key] = v;
           } else {
             this.#authOAuth2[key] = v;
           }
           break;
+        }
       }
     }
     this.#dispatchAuthUpdated();
@@ -1041,224 +871,70 @@ export class RequestAuthEditor {
   }
 
   // ── OAuth 2.0 ─────────────────────────────────────────────────────────────
+  /**
+   * Resolve a field's current value for the OAuth2 spec consumers. A descriptor
+   * WITH a `default` falls back to it (matching the old `?? default` sites); one
+   * WITHOUT reports the raw model value (possibly undefined), exactly as the old
+   * code did for clientId / clientSecret / accessTokenUrl / authUrl / scope.
+   */
+  #oauth2FieldValue(f) {
+    const raw = this.#authOAuth2[f.key];
+    return "default" in f ? (raw ?? f.default) : raw;
+  }
+
+  /**
+   * Build one OAuth2 field element from its spec descriptor (auth/oauth2-fields.js),
+   * dispatching on `type` to the existing field builders. A field flagged
+   * `rerender` re-renders the form on change (grant/client type change the set).
+   */
+  #buildOAuth2Field(f) {
+    const value = this.#oauth2FieldValue(f);
+    const onInput = (v) => {
+      this.#authOAuth2[f.key] = v;
+      if (f.rerender) this.#renderAuthContent();
+      this.#dispatchAuthUpdated();
+    };
+
+    if (f.type === "scope") {
+      return this.#buildAuthScopeField({
+        value,
+        onInput,
+        scopeList: this.#authOAuth2.discoveredScopes ?? DEFAULT_SCOPES,
+      });
+    }
+
+    if (f.type === "select") {
+      return this.#buildAuthFieldSelect(t(f.labelKey), {
+        options: f.options.map((o) => ({
+          value: o.value,
+          label: t(o.labelKey),
+        })),
+        value,
+        ariaLabel: t(f.ariaLabelKey ?? f.labelKey),
+        onInput,
+      });
+    }
+
+    // pill (text / secret)
+    const opts = { placeholder: t(f.placeholderKey), value, onInput };
+    if (f.secret) opts.decryptPath = f.secret;
+    if (f.hintKey) opts.hint = t(f.hintKey);
+    return this.#buildAuthPillField(t(f.labelKey), opts);
+  }
+
   #renderAuthOAuth2(el) {
     const form = document.createElement("div");
     form.className = "auth-form";
 
-    // ── Grant Type ────────────────────────────────────────────────────────
-    const allGrantTypes = [
-      {
-        value: "authorization_code",
-        label: t("auth.oauth2.grant.authorizationCode"),
-      },
-      {
-        value: "client_credentials",
-        label: t("auth.oauth2.grant.clientCredentials"),
-      },
-      { value: "password", label: t("auth.oauth2.grant.password") },
-      { value: "implicit", label: t("auth.oauth2.grant.implicit") },
-      { value: "device_code", label: t("auth.oauth2.grant.deviceCode") },
-      { value: "token_exchange", label: t("auth.oauth2.grant.tokenExchange") },
-    ];
-    form.appendChild(
-      this.#buildAuthFieldSelect(t("auth.oauth2.grantType"), {
-        options: allGrantTypes,
-        value: this.#authOAuth2.grantType,
-        ariaLabel: t("auth.oauth2.grantTypeAria"),
-        onInput: (v) => {
-          this.#authOAuth2.grantType = v;
-          this.#renderAuthContent();
-          this.#dispatchAuthUpdated();
-        },
-      }),
-    );
-
-    // ── Client Type (authorization_code only) — between Grant Type and Client ID
-    if (this.#authOAuth2.grantType === "authorization_code") {
-      // Omit PKCE option if the server explicitly does not support it
-      const clientTypeOptions = [
-        {
-          value: "confidential",
-          label: t("auth.oauth2.clientTypeConfidential"),
-        },
-        { value: "public", label: t("auth.oauth2.clientTypePublic") },
-      ];
-      form.appendChild(
-        this.#buildAuthFieldSelect(t("auth.oauth2.clientType"), {
-          options: clientTypeOptions,
-          value: this.#authOAuth2.clientType ?? "confidential",
-          ariaLabel: t("auth.oauth2.clientTypeAria"),
-          onInput: (v) => {
-            this.#authOAuth2.clientType = v;
-            this.#renderAuthContent();
-            this.#dispatchAuthUpdated();
-          },
-        }),
-      );
+    // Basic fields — rendered from the shared OAUTH2_FIELDS spec
+    // (auth/oauth2-fields.js) so the form and the bulk editor (#getAuthFields)
+    // are driven by one definition and can't drift. Grant defaults to
+    // client_credentials (the model default) for visibility resolution.
+    const grant = this.#authOAuth2.grantType ?? "client_credentials";
+    const clientType = this.#authOAuth2.clientType;
+    for (const field of oauth2VisibleFields(grant, clientType, false)) {
+      form.appendChild(this.#buildOAuth2Field(field));
     }
-
-    // ── Client ID (all grant types) ────────────────────────────────────────
-    form.appendChild(
-      this.#buildAuthPillField(t("auth.oauth2.clientId"), {
-        placeholder: t("auth.oauth2.clientId"),
-        value: this.#authOAuth2.clientId,
-        onInput: (v) => {
-          this.#authOAuth2.clientId = v;
-          this.#dispatchAuthUpdated();
-        },
-      }),
-    );
-
-    // ── Client Secret — hidden for implicit; also hidden when Public Client is selected
-    const isPublicClient =
-      this.#authOAuth2.grantType === "authorization_code" &&
-      this.#authOAuth2.clientType === "public";
-    if (this.#authOAuth2.grantType !== "implicit" && !isPublicClient) {
-      form.appendChild(
-        this.#buildAuthPillField(t("auth.oauth2.clientSecret"), {
-          placeholder: t("auth.oauth2.clientSecret"),
-          value: this.#authOAuth2.clientSecret,
-          decryptPath: "authOAuth2.clientSecret",
-          onInput: (v) => {
-            this.#authOAuth2.clientSecret = v;
-            this.#dispatchAuthUpdated();
-          },
-        }),
-      );
-    }
-
-    // ── Access Token URL (not shown for implicit) ──────────────────────────
-    if (this.#authOAuth2.grantType !== "implicit") {
-      form.appendChild(
-        this.#buildAuthPillField(t("auth.oauth2.accessTokenUrl"), {
-          placeholder: t("auth.oauth2.accessTokenUrlPlaceholder"),
-          value: this.#authOAuth2.accessTokenUrl,
-          onInput: (v) => {
-            this.#authOAuth2.accessTokenUrl = v;
-            this.#dispatchAuthUpdated();
-          },
-        }),
-      );
-    }
-
-    // ── Device Authorization URL (device_code only) ────────────────────────
-    if (this.#authOAuth2.grantType === "device_code") {
-      form.appendChild(
-        this.#buildAuthPillField(t("auth.oauth2.deviceAuthorizationUrl"), {
-          placeholder: t("auth.oauth2.deviceAuthorizationUrlPlaceholder"),
-          value: this.#authOAuth2.deviceAuthorizationUrl ?? "",
-          onInput: (v) => {
-            this.#authOAuth2.deviceAuthorizationUrl = v;
-            this.#dispatchAuthUpdated();
-          },
-          hint: t("auth.oauth2.deviceAuthorizationUrlHint"),
-        }),
-      );
-    }
-
-    // ── Subject Token / Type (token_exchange only) ─────────────────────────
-    if (this.#authOAuth2.grantType === "token_exchange") {
-      form.appendChild(
-        this.#buildAuthPillField(t("auth.oauth2.tokenExchange.subjectToken"), {
-          placeholder: t("auth.oauth2.tokenExchange.subjectTokenPlaceholder"),
-          value: this.#authOAuth2.subjectToken ?? "",
-          decryptPath: "authOAuth2.subjectToken",
-          onInput: (v) => {
-            this.#authOAuth2.subjectToken = v;
-            this.#dispatchAuthUpdated();
-          },
-        }),
-      );
-      form.appendChild(
-        this.#buildAuthFieldSelect(
-          t("auth.oauth2.tokenExchange.subjectTokenType"),
-          {
-            options: TOKEN_EXCHANGE_TOKEN_TYPES.map((o) => ({
-              value: o.value,
-              label: t(o.labelKey),
-            })),
-            value:
-              this.#authOAuth2.subjectTokenType ??
-              TOKEN_EXCHANGE_TOKEN_TYPES[0].value,
-            ariaLabel: t("auth.oauth2.tokenExchange.subjectTokenType"),
-            onInput: (v) => {
-              this.#authOAuth2.subjectTokenType = v;
-              this.#dispatchAuthUpdated();
-            },
-          },
-        ),
-      );
-    }
-
-    // ── Auth URL (authorization_code and implicit only) ────────────────────
-    if (
-      ["authorization_code", "implicit"].includes(this.#authOAuth2.grantType)
-    ) {
-      form.appendChild(
-        this.#buildAuthPillField(t("auth.oauth2.authUrl"), {
-          placeholder: t("auth.oauth2.authUrlPlaceholder"),
-          value: this.#authOAuth2.authUrl,
-          onInput: (v) => {
-            this.#authOAuth2.authUrl = v;
-            this.#dispatchAuthUpdated();
-          },
-        }),
-      );
-    }
-
-    // ── Redirect URI (authorization_code and implicit only) ───────────────
-    if (
-      ["authorization_code", "implicit"].includes(this.#authOAuth2.grantType)
-    ) {
-      form.appendChild(
-        this.#buildAuthPillField(t("auth.oauth2.redirectUri"), {
-          placeholder: t("auth.oauth2.redirectUriPlaceholder"),
-          value: this.#authOAuth2.redirectUri ?? "",
-          onInput: (v) => {
-            this.#authOAuth2.redirectUri = v;
-            this.#dispatchAuthUpdated();
-          },
-          hint: t("auth.oauth2.redirectUriHint"),
-        }),
-      );
-    }
-
-    // ── Username / Password (resource owner password only) ─────────────────
-    if (this.#authOAuth2.grantType === "password") {
-      form.appendChild(
-        this.#buildAuthPillField(t("auth.username"), {
-          placeholder: t("auth.username"),
-          value: this.#authOAuth2.username ?? "",
-          onInput: (v) => {
-            this.#authOAuth2.username = v;
-            this.#dispatchAuthUpdated();
-          },
-        }),
-      );
-      form.appendChild(
-        this.#buildAuthPillField(t("auth.password"), {
-          placeholder: t("auth.password"),
-          value: this.#authOAuth2.password ?? "",
-          decryptPath: "authOAuth2.password",
-          onInput: (v) => {
-            this.#authOAuth2.password = v;
-            this.#dispatchAuthUpdated();
-          },
-        }),
-      );
-    }
-
-    // ── Scope (combo-box with suggestions) ────────────────────────────────
-    form.appendChild(
-      this.#buildAuthScopeField({
-        value: this.#authOAuth2.scope,
-        onInput: (v) => {
-          this.#authOAuth2.scope = v;
-          this.#dispatchAuthUpdated();
-        },
-        scopeList: this.#authOAuth2.discoveredScopes ?? DEFAULT_SCOPES,
-      }),
-    );
 
     // ── Advanced toggle (matches every other app toggle) ──────────────────────
     const advRow = document.createElement("div");
@@ -1285,178 +961,11 @@ export class RequestAuthEditor {
 
     // ── Advanced fields (only when toggle is on) ───────────────────────────
     if (this.#oauth2Advanced) {
-      const grant = this.#authOAuth2.grantType;
-
-      // Response Type — implicit only
-      if (grant === "implicit") {
-        form.appendChild(
-          this.#buildAuthFieldSelect(t("auth.oauth2.responseType"), {
-            options: [
-              {
-                value: "access_token",
-                label: t("auth.oauth2.responseAccessToken"),
-              },
-              { value: "id_token", label: t("auth.oauth2.responseIdToken") },
-              { value: "both", label: t("auth.oauth2.responseBoth") },
-            ],
-            value: this.#authOAuth2.responseType ?? "access_token",
-            ariaLabel: t("auth.oauth2.responseTypeAria"),
-            onInput: (v) => {
-              this.#authOAuth2.responseType = v;
-              this.#dispatchAuthUpdated();
-            },
-          }),
-        );
+      // Advanced fields — same spec (auth/oauth2-fields.js), filtered to those
+      // flagged advanced. grant/clientType are from the basic section above.
+      for (const field of oauth2VisibleFields(grant, clientType, true)) {
+        if (field.advanced) form.appendChild(this.#buildOAuth2Field(field));
       }
-
-      // State — authorization_code, implicit
-      if (["authorization_code", "implicit"].includes(grant)) {
-        form.appendChild(
-          this.#buildAuthPillField(t("auth.oauth2.state"), {
-            placeholder: t("auth.oauth2.statePlaceholder"),
-            value: this.#authOAuth2.state ?? "",
-            onInput: (v) => {
-              this.#authOAuth2.state = v;
-              this.#dispatchAuthUpdated();
-            },
-          }),
-        );
-      }
-
-      // Credentials — authorization_code, password, client_credentials
-      if (
-        ["authorization_code", "password", "client_credentials"].includes(grant)
-      ) {
-        form.appendChild(
-          this.#buildAuthFieldSelect(t("auth.oauth2.credentials"), {
-            options: [
-              { value: "header", label: t("auth.oauth2.credentialsHeader") },
-              { value: "body", label: t("auth.oauth2.credentialsBody") },
-            ],
-            value: this.#authOAuth2.credentials ?? "header",
-            ariaLabel: t("auth.oauth2.credentialsAria"),
-            onInput: (v) => {
-              this.#authOAuth2.credentials = v;
-              this.#dispatchAuthUpdated();
-            },
-          }),
-        );
-      }
-
-      // Audience — all grant types
-      form.appendChild(
-        this.#buildAuthPillField(t("auth.oauth2.audience"), {
-          placeholder: t("auth.oauth2.audiencePlaceholder"),
-          value: this.#authOAuth2.audience ?? "",
-          onInput: (v) => {
-            this.#authOAuth2.audience = v;
-            this.#dispatchAuthUpdated();
-          },
-        }),
-      );
-
-      // Resource — authorization_code, client_credentials, token_exchange
-      if (
-        ["authorization_code", "client_credentials", "token_exchange"].includes(
-          grant,
-        )
-      ) {
-        form.appendChild(
-          this.#buildAuthPillField(t("auth.oauth2.resource"), {
-            placeholder: t("auth.oauth2.resourcePlaceholder"),
-            value: this.#authOAuth2.resource ?? "",
-            onInput: (v) => {
-              this.#authOAuth2.resource = v;
-              this.#dispatchAuthUpdated();
-            },
-          }),
-        );
-      }
-
-      // Actor token / Requested token type — token_exchange only (RFC 8693)
-      if (grant === "token_exchange") {
-        form.appendChild(
-          this.#buildAuthPillField(t("auth.oauth2.tokenExchange.actorToken"), {
-            placeholder: t("auth.oauth2.tokenExchange.actorTokenPlaceholder"),
-            value: this.#authOAuth2.actorToken ?? "",
-            decryptPath: "authOAuth2.actorToken",
-            onInput: (v) => {
-              this.#authOAuth2.actorToken = v;
-              this.#dispatchAuthUpdated();
-            },
-            hint: t("auth.oauth2.tokenExchange.actorTokenHint"),
-          }),
-        );
-        form.appendChild(
-          this.#buildAuthFieldSelect(
-            t("auth.oauth2.tokenExchange.actorTokenType"),
-            {
-              options: TOKEN_EXCHANGE_TOKEN_TYPES.map((o) => ({
-                value: o.value,
-                label: t(o.labelKey),
-              })),
-              value:
-                this.#authOAuth2.actorTokenType ??
-                TOKEN_EXCHANGE_TOKEN_TYPES[0].value,
-              ariaLabel: t("auth.oauth2.tokenExchange.actorTokenType"),
-              onInput: (v) => {
-                this.#authOAuth2.actorTokenType = v;
-                this.#dispatchAuthUpdated();
-              },
-            },
-          ),
-        );
-        form.appendChild(
-          this.#buildAuthFieldSelect(
-            t("auth.oauth2.tokenExchange.requestedTokenType"),
-            {
-              options: [
-                {
-                  value: "",
-                  label: t("auth.oauth2.tokenExchange.requestedTokenTypeNone"),
-                },
-                ...TOKEN_EXCHANGE_TOKEN_TYPES.map((o) => ({
-                  value: o.value,
-                  label: t(o.labelKey),
-                })),
-              ],
-              value: this.#authOAuth2.requestedTokenType ?? "",
-              ariaLabel: t("auth.oauth2.tokenExchange.requestedTokenType"),
-              onInput: (v) => {
-                this.#authOAuth2.requestedTokenType = v;
-                this.#dispatchAuthUpdated();
-              },
-            },
-          ),
-        );
-      }
-
-      // Origin — authorization_code only
-      if (grant === "authorization_code") {
-        form.appendChild(
-          this.#buildAuthPillField(t("auth.oauth2.origin"), {
-            placeholder: t("auth.oauth2.originPlaceholder"),
-            value: this.#authOAuth2.origin ?? "",
-            onInput: (v) => {
-              this.#authOAuth2.origin = v;
-              this.#dispatchAuthUpdated();
-            },
-          }),
-        );
-      }
-
-      // Header Prefix — all grant types, kept last so its hint text sits at the bottom
-      form.appendChild(
-        this.#buildAuthPillField(t("auth.oauth2.headerPrefix"), {
-          placeholder: t("auth.oauth2.headerPrefixPlaceholder"),
-          value: this.#authOAuth2.headerPrefix ?? "",
-          onInput: (v) => {
-            this.#authOAuth2.headerPrefix = v;
-            this.#dispatchAuthUpdated();
-          },
-          hint: t("auth.oauth2.headerPrefixHint"),
-        }),
-      );
     }
 
     // ── Current token display ──────────────────────────────────────────────

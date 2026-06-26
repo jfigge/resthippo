@@ -104,7 +104,11 @@ class OAuthExecutor {
     if (inFlight) return inFlight;
 
     const promise = this.#refreshOrGrant(config, cacheKey).finally(() => {
-      this.#inFlight.delete(cacheKey);
+      // Only clear the slot if it's still ours — a forceRefresh() may have
+      // superseded it with a newer acquisition for the same key.
+      if (this.#inFlight.get(cacheKey) === promise) {
+        this.#inFlight.delete(cacheKey);
+      }
     });
     this.#inFlight.set(cacheKey, promise);
     return promise;
@@ -151,11 +155,33 @@ class OAuthExecutor {
    */
   async forceRefresh(config) {
     const cacheKey = tokenStore.keyFor(config);
-    tokenStore.clear(cacheKey);
-    // Drop any in-flight acquisition for this config so we don't piggyback on it
-    // — "force" must start a genuinely fresh request, not reuse a coalesced one.
-    this.#inFlight.delete(cacheKey);
-    return this.acquireToken(config);
+
+    // "Force" must run a genuinely fresh acquisition, but it must NOT run one in
+    // parallel with an acquisition already in flight for the same config: with
+    // refresh-token rotation (OAuth 2.1) two concurrent token requests
+    // invalidate each other and fail with invalid_grant. So serialize behind any
+    // in-flight promise (awaiting its outcome, which we then discard), clear the
+    // cache it may have populated, and only then start the fresh grant. Register
+    // the chained promise as the new in-flight entry so concurrent callers
+    // coalesce onto this forced refresh instead of starting yet another.
+    const prior = this.#inFlight.get(cacheKey);
+    const fresh = (async () => {
+      if (prior) {
+        try {
+          await prior;
+        } catch {
+          // Ignore — we're forcing a new attempt regardless of how it resolved.
+        }
+      }
+      tokenStore.clear(cacheKey);
+      return this.#refreshOrGrant(config, cacheKey);
+    })().finally(() => {
+      if (this.#inFlight.get(cacheKey) === fresh) {
+        this.#inFlight.delete(cacheKey);
+      }
+    });
+    this.#inFlight.set(cacheKey, fresh);
+    return fresh;
   }
 
   /**

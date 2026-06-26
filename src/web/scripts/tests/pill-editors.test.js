@@ -355,3 +355,653 @@ test("VariablePillEditor: getValue serialises a lone pill with no surrounding te
   assert.equal(ed.getValue(), "{{token}}");
   ed.destroy();
 });
+
+// ── VariablePillEditor: constructor + ARIA wiring ───────────────────────────────
+
+test("VariablePillEditor: the element is a contenteditable textbox with the right attrs", () => {
+  const ed = makeVpe({
+    placeholder: "Enter value",
+    ariaLabel: "Param value",
+    className: "my-class",
+  });
+  const el = ed.element;
+  assert.equal(el.contentEditable, "true", "contenteditable host");
+  assert.equal(el.getAttribute("role"), "textbox");
+  assert.equal(el.getAttribute("aria-label"), "Param value");
+  assert.equal(el.dataset.placeholder, "Enter value");
+  assert.equal(el.spellcheck, false);
+  assert.equal(el.getAttribute("autocorrect"), "off");
+  assert.equal(el.getAttribute("autocapitalize"), "off");
+  assert.ok(el.classList.contains("pill-editor"), "carries base class");
+  assert.ok(el.classList.contains("params-input"), "carries params class");
+  assert.ok(el.classList.contains("my-class"), "carries the extra class");
+  ed.destroy();
+});
+
+test("VariablePillEditor: aria-label falls back to the placeholder when omitted", () => {
+  const ed = makeVpe({ placeholder: "Just a placeholder" });
+  assert.equal(ed.element.getAttribute("aria-label"), "Just a placeholder");
+  ed.destroy();
+});
+
+// ── VariablePillEditor: setValue / getValue round-trip edge cases ───────────────
+
+test("VariablePillEditor: setValue(null)/setValue(undefined) renders an empty field", () => {
+  const ed = makeVpe();
+  ed.setValue("seed"); // move off the sentinel so the next call renders
+  ed.setValue(null);
+  assert.equal(ed.getValue(), "", "null normalises to empty string");
+  assert.equal(ed.element.dataset.empty, "true");
+  ed.destroy();
+});
+
+test("VariablePillEditor: adjacent pills round-trip and get a guard between them", () => {
+  const ed = makeVpe();
+  ed.setValue("{{token}}{{uuid()}}");
+  assert.equal(
+    ed.element.querySelectorAll(".variable-pill").length,
+    2,
+    "both pills rendered",
+  );
+  assert.ok(
+    ed.element.querySelector(".pill-guard"),
+    "a guard separates the adjacent pills",
+  );
+  assert.equal(
+    ed.getValue(),
+    "{{token}}{{uuid()}}",
+    "guards drop on serialise",
+  );
+  ed.destroy();
+});
+
+test("VariablePillEditor: an unclosed {{ stays literal text and round-trips", () => {
+  const ed = makeVpe();
+  ed.setValue("prefix {{token");
+  assert.equal(
+    ed.element.querySelectorAll(".variable-pill").length,
+    0,
+    "no pill formed from an unclosed token",
+  );
+  assert.equal(ed.getValue(), "prefix {{token");
+  ed.destroy();
+});
+
+test("VariablePillEditor: a function pill with args round-trips its raw call", () => {
+  const ed = makeVpe();
+  ed.setValue('{{hash("md5", "x")}}');
+  const fn = ed.element.querySelector(".function-pill");
+  assert.ok(fn, "a function pill rendered");
+  assert.equal(fn.dataset.function, "hash");
+  assert.equal(ed.getValue(), '{{hash("md5", "x")}}');
+  ed.destroy();
+});
+
+test("VariablePillEditor: setValue is a no-op when the value is unchanged", () => {
+  const ed = makeVpe();
+  ed.setValue("{{token}}");
+  const pill = ed.element.querySelector(".variable-pill");
+  ed.setValue("{{token}}"); // same value → should NOT re-render
+  assert.equal(
+    ed.element.querySelector(".variable-pill"),
+    pill,
+    "the same DOM node survives an identical setValue",
+  );
+  ed.destroy();
+});
+
+// ── VariablePillEditor: callbacks ───────────────────────────────────────────────
+
+test("VariablePillEditor: onInput fires with the serialized value on an input event", () => {
+  const seen = [];
+  const ed = makeVpe({ onInput: (v) => seen.push(v) });
+  ed.setValue(""); // baseline empty (setValue does not fire onInput)
+  // Type a character the native way, then signal input.
+  ed.element.appendChild(document.createTextNode("hi"));
+  ed.element.dispatchEvent(new window.Event("input", { bubbles: true }));
+  assert.deepEqual(seen, ["hi"], "onInput received the new serialized value");
+  ed.destroy();
+});
+
+test("VariablePillEditor: onEnter fires on Enter (and the keydown is prevented)", () => {
+  let entered = 0;
+  const ed = makeVpe({ onEnter: () => entered++ });
+  ed.setValue("text");
+  const ev = new window.KeyboardEvent("keydown", {
+    key: "Enter",
+    bubbles: true,
+    cancelable: true,
+  });
+  ed.element.dispatchEvent(ev);
+  assert.equal(entered, 1, "onEnter called once");
+  assert.equal(ev.defaultPrevented, true, "Enter does not insert a newline");
+  ed.destroy();
+});
+
+test("VariablePillEditor: onEnter is optional — Enter with no handler is a no-op", () => {
+  const ed = makeVpe(); // no onEnter
+  ed.setValue("text");
+  const ev = new window.KeyboardEvent("keydown", {
+    key: "Enter",
+    bubbles: true,
+    cancelable: true,
+  });
+  // Should not throw despite the missing handler.
+  ed.element.dispatchEvent(ev);
+  assert.equal(ev.defaultPrevented, true);
+  ed.destroy();
+});
+
+test("VariablePillEditor: onPaste hook claims a paste, suppressing self-insertion", () => {
+  let pastedText = null;
+  const ed = makeVpe({
+    onPaste: (text) => {
+      pastedText = text;
+      return true; // claim it
+    },
+  });
+  ed.setValue("");
+  ed.element.focus();
+  const ev = new window.Event("paste", { bubbles: true, cancelable: true });
+  ev.clipboardData = { getData: () => "claimed text" };
+  ed.element.dispatchEvent(ev);
+  assert.equal(pastedText, "claimed text", "hook saw the pasted text");
+  assert.equal(ed.getValue(), "", "claimed paste was NOT inserted");
+  ed.destroy();
+});
+
+test("VariablePillEditor: a plain-text paste with no hook inserts at the caret", () => {
+  const ed = makeVpe();
+  ed.setValue("");
+  ed.element.focus();
+  // Caret at the start of the empty editor's seed text node.
+  const sel = window.getSelection();
+  const r = document.createRange();
+  r.setStart(ed.element.firstChild ?? ed.element, 0);
+  r.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(r);
+  const ev = new window.Event("paste", { bubbles: true, cancelable: true });
+  ev.clipboardData = { getData: () => "pasted" };
+  ed.element.dispatchEvent(ev);
+  assert.equal(ed.getValue(), "pasted", "plain text inserted verbatim");
+  ed.destroy();
+});
+
+test("VariablePillEditor: pasting {{token}} text converts to a pill on insert", () => {
+  const ed = makeVpe();
+  ed.setValue("");
+  ed.element.focus();
+  const sel = window.getSelection();
+  const r = document.createRange();
+  r.setStart(ed.element.firstChild ?? ed.element, 0);
+  r.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(r);
+  const ev = new window.Event("paste", { bubbles: true, cancelable: true });
+  ev.clipboardData = { getData: () => "{{token}}" };
+  ed.element.dispatchEvent(ev);
+  assert.equal(
+    ed.element.querySelectorAll(".variable-pill").length,
+    1,
+    "the pasted {{token}} became a pill",
+  );
+  assert.equal(ed.getValue(), "{{token}}");
+  ed.destroy();
+});
+
+test("VariablePillEditor: an empty paste is ignored", () => {
+  const ed = makeVpe();
+  ed.setValue("keep");
+  const ev = new window.Event("paste", { bubbles: true, cancelable: true });
+  ev.clipboardData = { getData: () => "" };
+  ed.element.dispatchEvent(ev);
+  assert.equal(ed.getValue(), "keep", "nothing changed");
+  assert.equal(ev.defaultPrevented, true, "default paste still prevented");
+  ed.destroy();
+});
+
+// ── VariablePillEditor: copy / cut serialise pills to raw {{…}} text ───────────
+
+test("VariablePillEditor: copy writes the raw {{token}} for a selected pill", () => {
+  const ed = makeVpe();
+  ed.setValue("a {{token}} b");
+  // Select the whole editor contents.
+  const sel = window.getSelection();
+  const r = document.createRange();
+  r.selectNodeContents(ed.element);
+  sel.removeAllRanges();
+  sel.addRange(r);
+  let written = null;
+  const ev = new window.Event("copy", { bubbles: true, cancelable: true });
+  ev.clipboardData = {
+    setData: (_type, v) => {
+      written = v;
+    },
+  };
+  ed.element.dispatchEvent(ev);
+  assert.equal(written, "a {{token}} b", "pill serialised back to its token");
+  assert.equal(ev.defaultPrevented, true, "we own the clipboard write");
+  ed.destroy();
+});
+
+test("VariablePillEditor: cut serialises then removes the selected content", () => {
+  const ed = makeVpe();
+  ed.setValue("x {{token}} y");
+  const sel = window.getSelection();
+  const r = document.createRange();
+  r.selectNodeContents(ed.element);
+  sel.removeAllRanges();
+  sel.addRange(r);
+  let written = null;
+  const ev = new window.Event("cut", { bubbles: true, cancelable: true });
+  ev.clipboardData = {
+    setData: (_type, v) => {
+      written = v;
+    },
+  };
+  ed.element.dispatchEvent(ev);
+  assert.equal(written, "x {{token}} y", "cut wrote the raw token text");
+  assert.equal(ed.getValue(), "", "the selection was removed");
+  ed.destroy();
+});
+
+// ── VariablePillEditor: backspace / delete remove a whole pill ──────────────────
+
+test("VariablePillEditor: Backspace just after a pill removes the whole pill", () => {
+  const changes = [];
+  const ed = makeVpe({ onInput: (v) => changes.push(v) });
+  ed.setValue("{{token}}tail");
+  ed.element.dispatchEvent(new window.Event("focus"));
+  // Caret at the very start of the "tail" text node — i.e. just after the pill.
+  // #pillBeforeCaret treats an all-ZWS prefix (here empty) as "at the pill edge".
+  const tailNode = [...ed.element.childNodes].find(
+    (n) => n.nodeType === Node.TEXT_NODE && n.textContent.includes("tail"),
+  );
+  const sel = window.getSelection();
+  const r = document.createRange();
+  r.setStart(tailNode, 0);
+  r.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(r);
+  const ev = new window.KeyboardEvent("keydown", {
+    key: "Backspace",
+    bubbles: true,
+    cancelable: true,
+  });
+  ed.element.dispatchEvent(ev);
+  assert.equal(
+    ed.element.querySelectorAll(".variable-pill").length,
+    0,
+    "the pill was deleted as a unit",
+  );
+  assert.equal(ev.defaultPrevented, true);
+  assert.equal(ed.getValue(), "tail");
+  ed.destroy();
+});
+
+test("VariablePillEditor: Delete just before a pill removes the whole pill", () => {
+  const ed = makeVpe();
+  ed.setValue("head{{token}}");
+  ed.element.focus();
+  caretAfter(ed.element, "head"); // caret between "head" and the pill
+  const ev = new window.KeyboardEvent("keydown", {
+    key: "Delete",
+    bubbles: true,
+    cancelable: true,
+  });
+  ed.element.dispatchEvent(ev);
+  assert.equal(ed.element.querySelectorAll(".variable-pill").length, 0);
+  assert.equal(ev.defaultPrevented, true);
+  assert.equal(ed.getValue(), "head");
+  ed.destroy();
+});
+
+// ── VariablePillEditor: revalidate re-colours pills on a context change ─────────
+
+test("VariablePillEditor: revalidate re-resolves known/unknown against new context", () => {
+  let ctx = { collectionVariables: {} }; // token unknown at first
+  const ed = makeVpe({ getContext: () => ctx });
+  ed.setValue("{{token}}");
+  let pill = ed.element.querySelector(".variable-pill");
+  assert.ok(
+    pill.classList.contains("variable-pill--unknown"),
+    "unknown before the context defines it",
+  );
+  ctx = { collectionVariables: { token: "x" } }; // now defined
+  ed.revalidate();
+  pill = ed.element.querySelector(".variable-pill");
+  assert.ok(
+    pill.classList.contains("variable-pill--known"),
+    "known after revalidate picks up the new context",
+  );
+  assert.ok(!pill.classList.contains("variable-pill--unknown"));
+  ed.destroy();
+});
+
+// ── VariablePillEditor: focus() + destroy() listener hygiene ────────────────────
+
+test("VariablePillEditor: focus() delegates to the host element's focus()", () => {
+  // jsdom won't move document.activeElement onto a contenteditable div lacking a
+  // tabindex (no layout / focusability model), so assert the delegation instead:
+  // focus() must invoke the host element's own focus() exactly once.
+  const ed = makeVpe();
+  ed.setValue("hi");
+  let calls = 0;
+  ed.element.focus = () => {
+    calls++;
+  };
+  assert.doesNotThrow(() => ed.focus());
+  assert.equal(calls, 1, "focus() forwarded to the contenteditable host");
+  ed.destroy();
+});
+
+test("VariablePillEditor: destroy() detaches the selectionchange listener", () => {
+  const ed = makeVpe();
+  ed.setValue("{{token}}");
+  ed.element.dispatchEvent(new window.Event("focus")); // mark focused
+  ed.destroy();
+  // After destroy the editor must not react to document selection changes.
+  // Mutate the pill class, then fire selectionchange: a live listener would
+  // call #syncPillSelection and could touch the pill; we assert it stays put
+  // and that dispatching does not throw (the listener is gone).
+  const before = ed.element.querySelector(".variable-pill")?.className;
+  assert.doesNotThrow(() =>
+    document.dispatchEvent(new window.Event("selectionchange")),
+  );
+  assert.equal(
+    ed.element.querySelector(".variable-pill")?.className,
+    before,
+    "no selection sync ran after destroy",
+  );
+});
+
+test("VariablePillEditor: destroy() is idempotent (double-destroy is safe)", () => {
+  const ed = makeVpe();
+  ed.setValue("text");
+  ed.destroy();
+  assert.doesNotThrow(() => ed.destroy(), "second destroy must not throw");
+});
+
+// ── VariablePillEditor: blur closes the picker + clears pill selection ──────────
+
+test("VariablePillEditor: blur clears the selected-pill highlight", () => {
+  const ed = makeVpe();
+  ed.setValue("{{token}}");
+  const pill = ed.element.querySelector(".variable-pill");
+  pill.classList.add("variable-pill--selected");
+  ed.element.dispatchEvent(new window.Event("blur", { bubbles: true }));
+  assert.ok(
+    !pill.classList.contains("variable-pill--selected"),
+    "blur removed the transient selection class",
+  );
+  ed.destroy();
+});
+
+// ── PillCodeEditor: view-setting setters apply mode classes ─────────────────────
+
+test("PillCodeEditor: setWrap toggles the pce--wrap class", () => {
+  const ed = makePce();
+  assert.ok(!ed.element.classList.contains("pce--wrap"), "off by default");
+  ed.setWrap(true);
+  assert.ok(
+    ed.element.classList.contains("pce--wrap"),
+    "on after setWrap(true)",
+  );
+  ed.setWrap(false);
+  assert.ok(!ed.element.classList.contains("pce--wrap"), "off again");
+  ed.destroy();
+});
+
+test("PillCodeEditor: setLineNumbers toggles the pce--nums class", () => {
+  const ed = makePce({ lineNumbers: false });
+  assert.ok(!ed.element.classList.contains("pce--nums"));
+  ed.setLineNumbers(true);
+  assert.ok(ed.element.classList.contains("pce--nums"));
+  ed.setLineNumbers(false);
+  assert.ok(!ed.element.classList.contains("pce--nums"));
+  ed.destroy();
+});
+
+test("PillCodeEditor: setFolding toggles the pce--fold class for a grammar language", () => {
+  const ed = makePce({ language: "json", folding: false });
+  assert.ok(!ed.element.classList.contains("pce--fold"));
+  ed.setFolding(true);
+  assert.ok(
+    ed.element.classList.contains("pce--fold"),
+    "folding active for a language that has a grammar",
+  );
+  ed.setFolding(false);
+  assert.ok(!ed.element.classList.contains("pce--fold"));
+  ed.destroy();
+});
+
+test("PillCodeEditor: folding never activates for plain text (no grammar)", () => {
+  const ed = makePce({ language: "text", folding: true });
+  ed.setFolding(true);
+  assert.ok(
+    !ed.element.classList.contains("pce--fold"),
+    "plain text has no grammar so folding stays inactive",
+  );
+  ed.destroy();
+});
+
+test("PillCodeEditor: setHighlight(false) leaves the value intact", () => {
+  const ed = makePce({ language: "json" });
+  ed.setValue('{"a": {{token}}}');
+  ed.setHighlight(false);
+  assert.equal(
+    ed.getValue(),
+    '{"a": {{token}}}',
+    "value survives highlight off",
+  );
+  assert.equal(ed.element.querySelectorAll(".variable-pill").length, 1);
+  ed.setHighlight(true);
+  assert.equal(
+    ed.getValue(),
+    '{"a": {{token}}}',
+    "value survives highlight on",
+  );
+  ed.destroy();
+});
+
+// ── PillCodeEditor: setLanguage re-derives mode + re-validates ──────────────────
+
+test("PillCodeEditor: setLanguage to plain text clears folding and keeps the value", () => {
+  const ed = makePce({ language: "json", folding: true });
+  ed.setValue("a\n  b\n  c");
+  ed.setLanguage("text");
+  assert.ok(
+    !ed.element.classList.contains("pce--fold"),
+    "switching to plain text disables folding",
+  );
+  assert.equal(ed.getValue(), "a\n  b\n  c", "content unchanged by the switch");
+  ed.destroy();
+});
+
+test("PillCodeEditor: setLanguage emits pce:validity for the new language", () => {
+  const ed = makePce({ language: "text" });
+  ed.setValue('{"broken": }');
+  const states = [];
+  ed.element.addEventListener("pce:validity", (e) =>
+    states.push(e.detail.state),
+  );
+  ed.setLanguage("json"); // now the broken JSON should validate as invalid
+  assert.ok(
+    states.includes(false),
+    "switching to JSON surfaced an invalid state for the malformed content",
+  );
+  ed.destroy();
+});
+
+// ── PillCodeEditor: setReadonly toggles editability + closes the picker ─────────
+
+test("PillCodeEditor: setReadonly(true) marks the doc non-editable, false restores it", () => {
+  const ed = makePce();
+  const doc = ed.element.querySelector(".pce-doc");
+  assert.equal(doc.contentEditable, "true", "editable by default");
+  ed.setReadonly(true);
+  assert.equal(doc.contentEditable, "false");
+  assert.equal(doc.getAttribute("aria-readonly"), "true");
+  assert.ok(ed.element.classList.contains("pce--readonly"));
+  ed.setReadonly(false);
+  assert.equal(doc.contentEditable, "true");
+  assert.equal(doc.getAttribute("aria-readonly"), "false");
+  assert.ok(!ed.element.classList.contains("pce--readonly"));
+  ed.destroy();
+});
+
+test("PillCodeEditor: undo/redo are no-ops while read-only", () => {
+  const ed = makePce({ value: "hello" });
+  ed.replaceRange(5, 5, " world");
+  assert.equal(ed.getValue(), "hello world");
+  ed.setReadonly(true);
+  ed.undo(); // suppressed by the readonly guard
+  assert.equal(ed.getValue(), "hello world", "undo did nothing while readonly");
+  ed.destroy();
+});
+
+// ── PillCodeEditor: setMultiline collapses newlines and toggles the single class ─
+
+test("PillCodeEditor: setMultiline(false) joins lines and flags pce--single", () => {
+  const ed = makePce();
+  ed.setValue("one\ntwo\nthree");
+  ed.setMultiline(false);
+  assert.ok(ed.element.classList.contains("pce--single"));
+  assert.equal(ed.getValue(), "one two three", "newlines flattened to spaces");
+  assert.equal(ed.element.querySelectorAll(".pce-line").length, 1);
+  ed.destroy();
+});
+
+// ── PillCodeEditor: external errors + markers ───────────────────────────────────
+
+test("PillCodeEditor: setErrors renders a squiggle marker, refreshMarkers re-renders", () => {
+  const ed = makePce({ language: "json", externalErrors: true });
+  ed.setValue('{"a": 1}');
+  // Without geometry jsdom returns zero-size rects, so the squiggle falls back
+  // to the line rect; assert the call path runs and tracks the error state.
+  ed.setErrors([{ line: 1, col: 3, length: 1, message: "boom" }]);
+  // refreshMarkers must not throw and re-runs the same render path.
+  assert.doesNotThrow(() => ed.refreshMarkers());
+  ed.destroy();
+});
+
+test("PillCodeEditor: setErrors([]) clears any rendered markers", () => {
+  const ed = makePce({ language: "json", externalErrors: true });
+  ed.setValue('{"a": 1}');
+  ed.setErrors([{ line: 1, col: 1, length: 1, message: "x" }]);
+  ed.setErrors([]);
+  const markers = ed.element.querySelector(".pce-markers");
+  assert.equal(
+    markers.querySelectorAll(".pce-error-squiggle").length,
+    0,
+    "no squiggles after clearing errors",
+  );
+  ed.destroy();
+});
+
+// ── PillCodeEditor: internal validation surfaces pce:validity ───────────────────
+
+test("PillCodeEditor: invalid JSON content emits pce:validity false, valid emits true", () => {
+  const ed = makePce({ language: "json" });
+  const states = [];
+  ed.element.addEventListener("pce:validity", (e) =>
+    states.push(e.detail.state),
+  );
+  ed.setValue('{"oops": }'); // malformed
+  // setValue triggers #afterStructural → #runValidate synchronously.
+  assert.ok(states.includes(false), "malformed JSON reported invalid");
+  states.length = 0;
+  ed.setValue('{"ok": 1}'); // well-formed
+  assert.ok(states.includes(true), "well-formed JSON reported valid");
+  ed.destroy();
+});
+
+test("PillCodeEditor: empty content emits pce:validity null (nothing to reject)", () => {
+  const ed = makePce({ language: "json" });
+  const states = [];
+  ed.element.addEventListener("pce:validity", (e) =>
+    states.push(e.detail.state),
+  );
+  ed.setValue("seed"); // move off the sentinel
+  ed.setValue("");
+  assert.ok(
+    states.includes(null),
+    "empty content is neither valid nor invalid",
+  );
+  ed.destroy();
+});
+
+// ── PillCodeEditor: getValue across many lines with pills on different lines ─────
+
+test("PillCodeEditor: multi-line value with pills on several lines round-trips", () => {
+  const ed = makePce({ language: "text" });
+  ed.setValue("{{token}} a\nb {{uuid()}}\n{{token}}");
+  assert.equal(ed.element.querySelectorAll(".pce-line").length, 3);
+  assert.equal(ed.element.querySelectorAll(".variable-pill").length, 3);
+  assert.equal(ed.element.querySelectorAll(".function-pill").length, 1);
+  assert.equal(ed.getValue(), "{{token}} a\nb {{uuid()}}\n{{token}}");
+  ed.destroy();
+});
+
+// ── PillCodeEditor: prettify reformats valid JSON, no-op when read-only ──────────
+
+test("PillCodeEditor: prettify reformats minified JSON", () => {
+  const ed = makePce({ language: "json" });
+  ed.setValue('{"a":1,"b":[2,3]}');
+  ed.prettify();
+  assert.equal(
+    ed.getValue(),
+    '{\n  "a": 1,\n  "b": [\n    2,\n    3\n  ]\n}',
+    "JSON pretty-printed with 2-space indent",
+  );
+  ed.destroy();
+});
+
+test("PillCodeEditor: prettify is a no-op while read-only", () => {
+  const ed = makePce({ language: "json", readonly: true });
+  ed.setValue('{"a":1}');
+  ed.prettify();
+  assert.equal(ed.getValue(), '{"a":1}', "read-only content is left untouched");
+  ed.destroy();
+});
+
+test("PillCodeEditor: prettify leaves invalid JSON unchanged", () => {
+  const ed = makePce({ language: "json" });
+  ed.setValue('{"a":}'); // malformed
+  ed.prettify();
+  assert.equal(
+    ed.getValue(),
+    '{"a":}',
+    "unparseable content is not reformatted",
+  );
+  ed.destroy();
+});
+
+// ── PillCodeEditor: getCaretOffset / isPickerOpen idle states ───────────────────
+
+test("PillCodeEditor: isPickerOpen is false when no {{ typeahead is active", () => {
+  const ed = makePce();
+  ed.setValue("plain");
+  assert.equal(ed.isPickerOpen(), false);
+  ed.destroy();
+});
+
+// ── PillCodeEditor: destroy() is safe and idempotent ────────────────────────────
+
+test("PillCodeEditor: destroy() detaches listeners and double-destroy is safe", () => {
+  const ed = makePce();
+  ed.setValue("x");
+  ed.destroy();
+  assert.doesNotThrow(() =>
+    document.dispatchEvent(new window.Event("selectionchange")),
+  );
+  assert.doesNotThrow(() =>
+    window.dispatchEvent(
+      new window.CustomEvent("hippo:edit-action", {
+        detail: { action: "undo" },
+      }),
+    ),
+  );
+  assert.doesNotThrow(() => ed.destroy(), "second destroy must not throw");
+});

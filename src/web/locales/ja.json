@@ -763,7 +763,8 @@
       "regexTitle": "正規表現",
       "regexAria": "正規表現を使用",
       "closeTitle": "検索を閉じる (Escape)",
-      "closeAria": "検索を閉じる"
+      "closeAria": "検索を閉じる",
+      "regexTooLarge": "応答が大きすぎて正規表現検索を実行できません。代わりにプレーンテキスト検索を使用してください。"
     },
     "filter": {
       "label": "フィルター",

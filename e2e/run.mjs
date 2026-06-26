@@ -20,6 +20,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { connect, makeHelpers } from "./harness.mjs";
 import { specs } from "./specs.mjs";
+import { geometrySpecs } from "./geometry.mjs";
+
+// Behaviour specs + the real-layout geometry specs (selected by name, e.g.
+// `node e2e/run.mjs geometry`). Both share the same launch / seed / teardown.
+const allSpecs = [...specs, ...geometrySpecs];
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const DATA = join(ROOT, "e2e", ".data"); // gitignored; clobbered each run
@@ -152,7 +157,7 @@ async function main() {
   });
   console.log("• app ready — running specs\n");
 
-  const selected = specs.filter(
+  const selected = allSpecs.filter(
     (s) => only.length === 0 || only.some((o) => s.name.includes(o)),
   );
 
