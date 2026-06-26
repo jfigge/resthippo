@@ -189,7 +189,47 @@ export function mergeVariableList(targetVars, incomingVars) {
   return { list, added };
 }
 
+/**
+ * Add every incoming default header whose name (case-insensitive — header names
+ * are case-insensitive) is not already present in the target; existing rows are
+ * never overwritten, so re-importing restores in place without duplicating.
+ * Returns a NEW array.
+ *
+ * @param {Array} targetHeaders
+ * @param {Array} incomingHeaders
+ * @returns {{ list: object[], added: number }}
+ */
+export function mergeHeaderList(targetHeaders, incomingHeaders) {
+  const list = normalizeHeaderRows(targetHeaders);
+  const names = new Set(list.map((h) => h.name.trim().toLowerCase()));
+  let added = 0;
+  for (const entry of normalizeHeaderRows(incomingHeaders)) {
+    const key = entry.name.trim().toLowerCase();
+    if (!key || names.has(key)) continue;
+    list.push(entry);
+    names.add(key);
+    added += 1;
+  }
+  return { list, added };
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+/** Coerce a header list to canonical { id, name, value, enabled } rows. */
+function normalizeHeaderRows(input) {
+  if (!Array.isArray(input)) return [];
+  const out = [];
+  for (const h of input) {
+    if (!h || typeof h !== "object") continue;
+    out.push({
+      id: h.id ?? newId(),
+      name: String(h.name ?? ""),
+      value: String(h.value ?? ""),
+      enabled: h.enabled !== false,
+    });
+  }
+  return out;
+}
 
 /** Count the folders and requests in a node subtree (for stats / new subtrees). */
 function countNodes(node) {

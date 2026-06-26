@@ -110,6 +110,9 @@ export class TreeView {
   /** @type {object} — active collection variables used for variable resolution in cURL generation */
   #collectionVariables = {};
 
+  /** @type {Array} — active collection default headers, merged into cURL / code-gen */
+  #collectionHeaders = [];
+
   /** @type {boolean} — true while the drag cursor is inside the treeview */
   #dragInsideTreeView = false;
 
@@ -379,6 +382,16 @@ export class TreeView {
    */
   setEnvVariables(vars) {
     this.#collectionVariables = vars && typeof vars === "object" ? vars : {};
+  }
+
+  /**
+   * Set the active collection's default headers, merged into generated cURL /
+   * code snippets (a same-named request header overrides them). Call whenever the
+   * active collection or its headers change.
+   * @param {Array} headers  [{ enabled, name, value }]
+   */
+  setCollectionHeaders(headers) {
+    this.#collectionHeaders = Array.isArray(headers) ? headers : [];
   }
 
   /**
@@ -1521,6 +1534,7 @@ export class TreeView {
       liveNode,
       context: {
         collectionVariables: this.#collectionVariables,
+        collectionHeaders: this.#collectionHeaders,
         folderChain: this.#resolverFolderChain(liveNode.id),
       },
     };

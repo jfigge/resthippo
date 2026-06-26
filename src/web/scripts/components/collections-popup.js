@@ -27,12 +27,15 @@
  * Right pane: a tabbed panel for the selected collection:
  *             • Variables — the inline key/value editor (bulk-textarea / KV-row
  *               toggle), functioning exactly as before.
+ *             • Headers    — default headers merged into every request in the
+ *               collection (the exact request Headers editor, via HeadersEditor),
+ *               overridable per-request by a same-named header.
  *             • Cookies    — the per-collection cookie-jar viewer/editor. Reads
  *               come straight from `window.hippo.store.cookies.*`; writes route
  *               through data-store so a save failure surfaces an error toast.
  *
  * Clicking a collection row both activates it (for tree-view data) and loads its
- * variables / cookies into the right pane.
+ * variables / headers / cookies into the right pane.
  *
  * Constructor callbacks (this is a parent-owned popup that reports back to its
  * creator, so it uses callbacks rather than global hippo:* events — see the
@@ -43,6 +46,7 @@
  *   onDelete({ id })                   — delete a collection
  *   onSendCookiesChange({ id, sendCookies }) — toggle the cookie-jar attach flag
  *   onVarsSave({ scopeId, variables })   — debounced 500ms auto-save
+ *   onHeadersSave({ scopeId, headers })  — debounced 500ms default-header save
  *   onBulkEditorChange({ bulkEditor }) — bulk-textarea / KV-row toggle changed
  *   onExportAll()                      — export every collection to one file
  *
@@ -66,6 +70,7 @@ import {
   rowsToVariables,
   buildVariableRow,
 } from "./variable-editor-shared.js";
+import { HeadersEditor } from "./headers-editor.js";
 import { upsertCookie, deleteCookie, clearCookies } from "../data-store.js";
 
 // ── SVG icons ─────────────────────────────────────────────────────────────────
@@ -85,7 +90,7 @@ export class CollectionsPopup {
   /** @type {HTMLElement} */
   #el;
 
-  /** @type {{id: string, name: string, variables?: {name:string,value:string,secure:boolean}[]}[]} */
+  /** @type {{id: string, name: string, variables?: {name:string,value:string,secure:boolean}[], headers?: {id:string,name:string,value:string,enabled:boolean}[]}[]} */
   #collections = [];
 
   /** @type {string|null} */
@@ -94,7 +99,7 @@ export class CollectionsPopup {
   /** ID currently shown in the right pane */
   #selectedId = null;
 
-  /** Which right-pane tab is showing: "vars" | "cookies" */
+  /** Which right-pane tab is showing: "vars" | "headers" | "cookies" */
   #activeTab = "vars";
 
   // ── Inline name-edit state ─────────────────────────────────────────────────
@@ -123,6 +128,19 @@ export class CollectionsPopup {
   /** @type {boolean} */
   #removeHeaders = false;
 
+  // ── Headers-tab state (collection-level default HTTP headers) ──────────────
+  // NB: distinct from #removeHeaders above (the "show column headers" appearance
+  // toggle) — these hold the embedded request-style Headers editor + its saves.
+  /** @type {HeadersEditor|null} */
+  #httpHeadersEditor = null;
+  /** Variable context handed to the header value pills for {{var}} validation. */
+  #headerContext = null;
+  /** @type {number|null} Debounce handle for persisting edited headers. */
+  #headersSaveTimer = null;
+  /** Captured (scopeId, headers) awaiting the debounced persist. */
+  #pendingHeaders = null;
+  #pendingHeadersScope = null;
+
   // ── Cookie-tab state ───────────────────────────────────────────────────────
   /** @type {object[]} Live jar entries last loaded from the main process. */
   #cookies = [];
@@ -142,6 +160,7 @@ export class CollectionsPopup {
   #onDelete;
   #onSendCookiesChange;
   #onVarsSave;
+  #onHeadersSave;
   #onBulkEditorChange;
   #onExportAll;
 
@@ -153,6 +172,7 @@ export class CollectionsPopup {
    *   onDelete?: (payload: { id: string }) => void,
    *   onSendCookiesChange?: (payload: { id: string, sendCookies: boolean }) => void,
    *   onVarsSave?: (payload: { scopeId: string, variables: Array }) => void,
+   *   onHeadersSave?: (payload: { scopeId: string, headers: Array }) => void,
    *   onBulkEditorChange?: (payload: { bulkEditor: boolean }) => void,
    *   onExportAll?: () => void,
    * }} [opts]
@@ -164,6 +184,7 @@ export class CollectionsPopup {
     onDelete,
     onSendCookiesChange,
     onVarsSave,
+    onHeadersSave,
     onBulkEditorChange,
     onExportAll,
   } = {}) {
@@ -173,9 +194,18 @@ export class CollectionsPopup {
     this.#onDelete = onDelete;
     this.#onSendCookiesChange = onSendCookiesChange;
     this.#onVarsSave = onVarsSave;
+    this.#onHeadersSave = onHeadersSave;
     this.#onBulkEditorChange = onBulkEditorChange;
     this.#onExportAll = onExportAll;
     this.#el = this.#build();
+    // Mount the embedded request-style Headers editor into its tab panel.
+    this.#httpHeadersEditor = new HeadersEditor({
+      getContext: () => this.#headerContext,
+      onChange: (rows) => this.#dispatchHeadersSave(rows),
+    });
+    this.#el
+      .querySelector(".coll-headers-mount")
+      .appendChild(this.#httpHeadersEditor.element);
     this.#initResize(this.#el);
   }
 
@@ -193,14 +223,22 @@ export class CollectionsPopup {
     if (settings.removeHeaders !== undefined) {
       this.#removeHeaders = settings.removeHeaders;
       this.#applyRemoveHeaders();
+      this.#httpHeadersEditor?.applySettings({
+        removeHeaders: this.#removeHeaders,
+      });
     }
   }
 
   /**
    * Open the popup seeded with the current app state.
-   * @param {{ collections: object[], activeCollectionId: string, bulkEditor?: boolean }} state
+   * @param {{ collections: object[], activeCollectionId: string, bulkEditor?: boolean, variableContext?: object }} state
    */
-  open({ collections, activeCollectionId, bulkEditor = true }) {
+  open({
+    collections,
+    activeCollectionId,
+    bulkEditor = true,
+    variableContext,
+  }) {
     this.#collections = collections.map((e) => ({ ...e }));
     this.#activeId = activeCollectionId;
     this.#selectedId = activeCollectionId;
@@ -214,6 +252,7 @@ export class CollectionsPopup {
     this.#addingCookie = false;
     this.#cookies = [];
 
+    this.setVariableContext(variableContext);
     this.#renderList();
     this.#loadEditorForSelected();
     this.#showPanel("vars");
@@ -224,10 +263,11 @@ export class CollectionsPopup {
   /**
    * Refresh the list without closing the popup.
    * Called by app.js after any collection mutation.
-   * @param {{ collections: object[], activeCollectionId: string, bulkEditor?: boolean }} state
+   * @param {{ collections: object[], activeCollectionId: string, bulkEditor?: boolean, variableContext?: object }} state
    */
-  update({ collections, activeCollectionId }) {
+  update({ collections, activeCollectionId, variableContext }) {
     const activeChanged = activeCollectionId !== this.#activeId;
+    if (variableContext !== undefined) this.setVariableContext(variableContext);
     this.#collections = collections.map((e) => ({ ...e }));
     this.#activeId = activeCollectionId;
     this.#editState = null;
@@ -290,6 +330,9 @@ export class CollectionsPopup {
             <button class="coll-tab coll-tab--active" role="tab" aria-selected="true"
                     data-panel="vars" type="button">${t("common.variables")}</button>
             <button class="coll-tab" role="tab" aria-selected="false"
+                    data-panel="headers" type="button"
+                    title="${t("collections.headersTooltip")}">${t("common.headers")}</button>
+            <button class="coll-tab" role="tab" aria-selected="false"
                     data-panel="cookies" type="button">${t("collections.tabCookies")}</button>
           </div>
           <div class="coll-panels">
@@ -318,6 +361,10 @@ export class CollectionsPopup {
                 </div>
                 <div class="coll-kv-list params-list" aria-label="${t("common.variables")}"></div>
               </div>
+            </section>
+            <section class="coll-panel coll-panel--headers"
+                     data-panel="headers" role="tabpanel" aria-label="${t("common.headers")}" hidden>
+              <div class="coll-headers-mount"></div>
             </section>
             <section class="coll-panel coll-panel--cookies"
                      data-panel="cookies" role="tabpanel" aria-label="${t("collections.tabCookies")}" hidden>
@@ -710,11 +757,20 @@ export class CollectionsPopup {
       this.#renderRows();
     }
     this.#applyMode();
+
+    // Load the selected collection's default headers (does not fire onChange).
+    this.#httpHeadersEditor?.setHeaders(this.#getSelectedHeaders());
   }
 
   #getSelectedVars() {
     return (
       this.#collections.find((c) => c.id === this.#selectedId)?.variables ?? []
+    );
+  }
+
+  #getSelectedHeaders() {
+    return (
+      this.#collections.find((c) => c.id === this.#selectedId)?.headers ?? []
     );
   }
 
@@ -821,6 +877,7 @@ export class CollectionsPopup {
     clearTimeout(this.#saveTimer);
     if (this.#isBulkMode) this.#saveFromBulk();
     else this.#saveFromRows();
+    this.#flushHeadersSave();
   }
 
   #dispatchVarsSave(variables) {
@@ -830,6 +887,50 @@ export class CollectionsPopup {
       c.id === this.#selectedId ? { ...c, variables } : c,
     );
     this.#onVarsSave?.({ scopeId: this.#selectedId, variables });
+  }
+
+  // ── Headers tab (collection default HTTP headers) ─────────────────────────────
+
+  /**
+   * The HeadersEditor reports a change on every edit; update in-memory state
+   * immediately (so a collection switch sees the latest) and debounce the persist
+   * — captured against the collection that was selected when the edit landed, so
+   * a late timer can never write the wrong collection.
+   */
+  #dispatchHeadersSave(headers) {
+    if (!this.#selectedId) return;
+    this.#collections = this.#collections.map((c) =>
+      c.id === this.#selectedId ? { ...c, headers } : c,
+    );
+    this.#pendingHeaders = headers;
+    this.#pendingHeadersScope = this.#selectedId;
+    clearTimeout(this.#headersSaveTimer);
+    this.#headersSaveTimer = setTimeout(
+      () => this.#flushHeadersSave(),
+      CollectionsPopup.#SAVE_MS,
+    );
+  }
+
+  #flushHeadersSave() {
+    clearTimeout(this.#headersSaveTimer);
+    this.#headersSaveTimer = null;
+    if (this.#pendingHeaders && this.#pendingHeadersScope) {
+      this.#onHeadersSave?.({
+        scopeId: this.#pendingHeadersScope,
+        headers: this.#pendingHeaders,
+      });
+      this.#pendingHeaders = null;
+      this.#pendingHeadersScope = null;
+    }
+  }
+
+  /**
+   * Provide the variable context the header value pills validate `{{var}}`
+   * tokens against. Forwarded live to the embedded editor.
+   */
+  setVariableContext(ctx) {
+    this.#headerContext = ctx ?? null;
+    this.#httpHeadersEditor?.setVariableContext();
   }
 
   // ── Cookies tab ──────────────────────────────────────────────────────────────

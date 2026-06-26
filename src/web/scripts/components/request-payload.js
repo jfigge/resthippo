@@ -190,6 +190,9 @@ export async function resolvePathParamValues(pathParams, rv) {
  *   @param {string}  spec.urlBase       base URL, already resolved + (optionally) encoded
  *   @param {Array}   spec.params        [{ enabled, name, value }] query params
  *   @param {Array}   spec.headers       [{ enabled, name, value }] header rows
+ *   @param {Array}   spec.collectionHeaders [{ enabled, name, value }] collection-level
+ *                                       default headers, merged BEFORE spec.headers; a same-named
+ *                                       enabled request row overrides one, a disabled one suppresses it
  *   @param {boolean} spec.authEnabled   truthy = apply auth (caller normalises its own default)
  *   @param {string}  spec.authType      "none"|"basic"|"bearer"|"apikey"|"digest"|"ntlm"|"aws-iam"|"oauth1"|"oauth2"
  *   @param {object}  spec.authBasic     { username, password }
@@ -231,12 +234,40 @@ export async function buildRequestPayload(spec, rv) {
     finalUrl += (finalUrl.includes("?") ? "&" : "?") + qs;
   }
 
-  // ── 2. Headers — enabled, non-blank rows ───────────────────────────────────
+  // ── 2. Headers — collection defaults first, then request rows ──────────────
+  // Collection-level default headers (spec.collectionHeaders) seed the set; an
+  // enabled request header of the same name (case-insensitive) overrides one,
+  // and a DISABLED request row of that name suppresses it (a per-request
+  // opt-out). Header names are case-insensitive, so override/suppress match by
+  // lower-cased name. Auth (below) is applied afterwards and still wins last.
   const headers = {};
+  const setHeaderCI = (name, value) => {
+    const lower = name.toLowerCase();
+    for (const k of Object.keys(headers))
+      if (k.toLowerCase() === lower) delete headers[k];
+    headers[name] = value;
+  };
+  const deleteHeaderCI = (name) => {
+    const lower = name.toLowerCase();
+    for (const k of Object.keys(headers))
+      if (k.toLowerCase() === lower) delete headers[k];
+  };
+  for (const h of (spec.collectionHeaders ?? []).filter(
+    (h) => h.enabled !== false && (h.name ?? "").trim(),
+  )) {
+    setHeaderCI((await rv(h.name)).trim(), await rv(h.value));
+  }
+  // Disabled request rows suppress a same-named collection default.
+  for (const h of (spec.headers ?? []).filter(
+    (h) => !h.enabled && (h.name ?? "").trim(),
+  )) {
+    deleteHeaderCI((await rv(h.name)).trim());
+  }
+  // Enabled request rows override the collection default of the same name.
   for (const h of (spec.headers ?? []).filter(
     (h) => h.enabled && (h.name ?? "").trim(),
   )) {
-    headers[(await rv(h.name)).trim()] = await rv(h.value);
+    setHeaderCI((await rv(h.name)).trim(), await rv(h.value));
   }
 
   // ── 3. Auth — static header / query value, or pass-through credential bag ──

@@ -57,12 +57,14 @@ import {
   updateRequest,
   setActiveItems,
   setActiveVariables,
+  setActiveHeaders,
   saveSettings,
   saveManifest,
   loadCollectionData,
   saveCollectionData,
   setActiveCollection,
   saveCollectionVariables,
+  saveCollectionHeaders,
   deleteRequest,
   deleteCollection,
   listHistory,
@@ -110,6 +112,7 @@ import {
   mergeArchiveIntoTree,
   mergeEnvironments,
   mergeVariableList,
+  mergeHeaderList,
 } from "./import/resthippo.js";
 import { ExportModal } from "./components/export-modal.js";
 import { SwaggerImportModal } from "./components/swagger-import-modal.js";
@@ -1229,6 +1232,8 @@ const collPopupState = () => ({
   collections: currentColls.collections,
   activeCollectionId: currentColls.activeCollectionId,
   bulkEditor: currentSettings.varsBulkEditor ?? true,
+  // Context for the Headers tab's value pills to validate {{var}} tokens.
+  variableContext: _buildVariableContextForNode(null),
 });
 
 function initHeader() {
@@ -1481,6 +1486,7 @@ function initEventBus() {
     onDelete: handleCollDelete,
     onSendCookiesChange: handleCollSendCookies,
     onVarsSave: handleVarsSave,
+    onHeadersSave: handleCollHeadersSave,
     onBulkEditorChange: handleVarsBulkEditorChange,
     // Export-all routes through the same hippo:export-all-requested handler the
     // File ▸ "Export All Collections…" menu item fires, so the popup button and
@@ -2147,15 +2153,17 @@ async function activateCollection(id) {
     activeCollectionId: id,
   });
 
-  const { items, variables } = await loadCollectionData(id);
+  const { items, variables, headers } = await loadCollectionData(id);
   treeView.setStorageKey(id);
   treeView.setItems(items);
 
-  // Attach variables to the collection entry in memory
+  // Attach variables + default headers to the collection entry in memory
   currentColls = {
     ...currentColls,
     collections: currentColls.collections.map((coll) =>
-      coll.id === id ? { ...coll, variables: variables ?? [] } : coll,
+      coll.id === id
+        ? { ...coll, variables: variables ?? [], headers: headers ?? [] }
+        : coll,
     ),
   };
 
@@ -2241,7 +2249,7 @@ async function handleCollDelete({ id }) {
     // so a stale timer can't fire against the collection we switch to.
     _discardRequestEdits();
     activeId = collections[0].id;
-    const { items, variables } = await loadCollectionData(activeId);
+    const { items, variables, headers } = await loadCollectionData(activeId);
     setActiveCollection(activeId);
     treeView.setStorageKey(activeId);
     treeView.setItems(items);
@@ -2250,9 +2258,11 @@ async function handleCollDelete({ id }) {
       _selectedNode = null;
       _clearRequestEditor();
     }
-    // Attach variables in memory
+    // Attach variables + default headers in memory
     collections = collections.map((coll) =>
-      coll.id === activeId ? { ...coll, variables: variables ?? [] } : coll,
+      coll.id === activeId
+        ? { ...coll, variables: variables ?? [], headers: headers ?? [] }
+        : coll,
     );
   } else {
     setActiveCollection(activeId);
@@ -2325,6 +2335,25 @@ async function handleVarsSave({ scopeId, variables }) {
   }
 
   // Revalidate pill editors in the request panel for the updated context
+  _refreshEditorVariableContext(
+    currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
+  );
+}
+
+/**
+ * Persist a collection's default headers (merged into every request in the
+ * collection at send / cURL / code-gen time). Mirrors handleVarsSave: update the
+ * in-memory collection, write the per-collection metadata blob, then refresh the
+ * editor context so the new defaults flow into the active request's send/curl.
+ */
+async function handleCollHeadersSave({ scopeId, headers }) {
+  currentColls = {
+    ...currentColls,
+    collections: currentColls.collections.map((coll) =>
+      coll.id === scopeId ? { ...coll, headers } : coll,
+    ),
+  };
+  await saveCollectionHeaders(scopeId, headers);
   _refreshEditorVariableContext(
     currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
   );
@@ -2433,6 +2462,9 @@ function _buildVariableContextForNode(nodeId, node = null) {
   return {
     collectionVariables,
     secureCollectionVariables: varsArrayToSecureSet(activeColl?.variables),
+    // Collection-level default headers (merged into each request before send /
+    // cURL / code-gen, overridable by a same-named request header).
+    collectionHeaders: activeColl?.headers ?? [],
     environmentVariables,
     secureEnvironmentVariables: varsArrayToSecureSet(activeEnv?.variables),
     globalVariables,
@@ -2470,6 +2502,8 @@ function _refreshEditorVariableContext(nodeId) {
       ...ctx.environmentVariables,
       ...ctx.collectionVariables,
     });
+    // Collection default headers, so tree-view cURL / code-gen merge them too.
+    treeView.setCollectionHeaders(ctx.collectionHeaders);
   }
 }
 
@@ -3331,7 +3365,7 @@ function installRequestEditSendHandlers() {
  */
 async function initCollections() {
   const [
-    { items, settings, collections, activeCollectionId, variables },
+    { items, settings, collections, activeCollectionId, variables, headers },
     environmentsData,
   ] = await Promise.all([loadAll(), window.hippo.store.environments.get()]);
 
@@ -3344,10 +3378,11 @@ async function initCollections() {
   settingsPopup.load(settings);
   applySettings(settings);
 
-  // Seed collection state — attach loaded variables to the active collection object
+  // Seed collection state — attach loaded variables + default headers to the
+  // active collection object
   const collsWithVars = collections.map((coll) =>
     coll.id === activeCollectionId
-      ? { ...coll, variables: variables ?? [] }
+      ? { ...coll, variables: variables ?? [], headers: headers ?? [] }
       : coll,
   );
   currentColls = { collections: collsWithVars, activeCollectionId };
@@ -3424,6 +3459,18 @@ function reconcileQuickAccess(items) {
 function _collSendCookies(id) {
   const coll = currentColls.collections.find((c) => c.id === id);
   return coll ? coll.sendCookies !== false : true;
+}
+
+/**
+ * The active collection's default headers, merged into a request before send /
+ * cURL / code-gen (a same-named request header overrides them). Empty when no
+ * collection is active.
+ */
+function _activeCollHeaders() {
+  const coll = currentColls.collections.find(
+    (c) => c.id === currentColls.activeCollectionId,
+  );
+  return coll?.headers ?? [];
 }
 
 /**
@@ -3856,6 +3903,7 @@ async function _executeRequestNode(node, ctx) {
       ),
       params: node.params,
       headers: node.headers,
+      collectionHeaders: _activeCollHeaders(),
       authEnabled: node.authEnabled !== false,
       authType: node.authType,
       authBasic: node.authBasic,
@@ -4103,6 +4151,7 @@ async function _executeForFolderRun(node, ctx) {
       ),
       params: node.params,
       headers: node.headers,
+      collectionHeaders: _activeCollHeaders(),
       authEnabled: node.authEnabled !== false,
       authType: node.authType,
       authBasic: node.authBasic,
@@ -4617,15 +4666,18 @@ async function runWorkspaceExport(format) {
  */
 async function runRestHippoCollectionExport(collection) {
   let collectionVariables = [];
+  let collectionHeaders = [];
   try {
     const data = await loadCollectionData(currentColls.activeCollectionId);
     collectionVariables = normalizeVariables(data.variables);
+    collectionHeaders = Array.isArray(data.headers) ? data.headers : [];
   } catch {
-    /* non-fatal — export without collection variables */
+    /* non-fatal — export without collection variables / headers */
   }
   const archive = buildRestHippoArchive({
     items: [collection],
     collectionVariables,
+    collectionHeaders,
     environments: currentEnvironments,
     exportedAt: new Date().toISOString(),
   });
@@ -4646,6 +4698,10 @@ async function runRestHippoWorkspaceExport() {
   const items = [];
   const collectionVariables = [];
   const seenVar = new Set();
+  // Default headers from every collection, deduped by name (case-insensitive) +
+  // value so identical rows collapse but distinct ones survive the flatten.
+  const collectionHeaders = [];
+  const seenHeader = new Set();
   let count = 0;
 
   for (const coll of currentColls.collections ?? []) {
@@ -4666,11 +4722,19 @@ async function runRestHippoWorkspaceExport() {
       seenVar.add(v.name);
       collectionVariables.push(v);
     }
+    for (const h of data.headers ?? []) {
+      if (!h || !h.name) continue;
+      const key = `${String(h.name).toLowerCase()} ${h.value ?? ""}`;
+      if (seenHeader.has(key)) continue;
+      seenHeader.add(key);
+      collectionHeaders.push(h);
+    }
   }
 
   const archive = buildRestHippoArchive({
     items,
     collectionVariables,
+    collectionHeaders,
     environments: currentEnvironments,
     exportedAt: new Date().toISOString(),
   });
@@ -4794,19 +4858,26 @@ async function mergeRestHippoArchive(archive) {
     archive.items ?? [],
   );
 
-  // 2. Collection-level variables: add any the archive carries that are missing.
+  // 2. Collection-level variables + default headers: add any the archive carries
+  //    that are missing (existing values are never overwritten).
   let collVars;
+  let collHeaders;
   try {
     const data = await loadCollectionData(activeId);
     collVars = mergeVariableList(
       data.variables,
       archive.collectionVariables,
     ).list;
+    collHeaders = mergeHeaderList(data.headers, archive.collectionHeaders).list;
   } catch {
     collVars = normalizeVariables(archive.collectionVariables);
+    collHeaders = mergeHeaderList([], archive.collectionHeaders).list;
   }
 
   if (treeView) treeView.setItems(treeMerge.items);
+  // Sync the cached default headers BEFORE the write so saveCollectionData's
+  // single blob carries the restored headers (it reads them from the cache).
+  setActiveHeaders(collHeaders);
   const saved = await saveCollectionData(activeId, treeMerge.items, collVars);
   if (!saved) return false; // write-error sink already surfaced the failure
   // saveCollectionData persists collVars but leaves the in-memory active-variable
@@ -4826,7 +4897,9 @@ async function mergeRestHippoArchive(archive) {
   currentColls = {
     ...currentColls,
     collections: currentColls.collections.map((coll) =>
-      coll.id === activeId ? { ...coll, variables: collVars } : coll,
+      coll.id === activeId
+        ? { ...coll, variables: collVars, headers: collHeaders }
+        : coll,
     ),
   };
 

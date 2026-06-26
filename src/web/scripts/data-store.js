@@ -40,10 +40,11 @@
  *     saveCollections(items)                 → persist active collection's item tree
  *     saveSettings(settings)
  *     saveManifest({ collections, activeCollectionId, settings? })
- *     loadCollectionData(collectionId)       → { items, variables }
+ *     loadCollectionData(collectionId)       → { items, variables, headers }
  *     saveCollectionData(collectionId, items, variables?)
  *     setActiveCollection(collectionId)
  *     saveCollectionVariables(collectionId, variables)
+ *     saveCollectionHeaders(collectionId, headers)
  *
  *   Granular (request + history):
  *     deleteRequest(id)
@@ -187,6 +188,9 @@ let _activeItems = [];
 
 /** Cached variables for the active collection. */
 let _activeVariables = {};
+
+/** Cached default headers for the active collection. */
+let _activeHeaders = [];
 
 // ── Transport detection ───────────────────────────────────────────────────────
 
@@ -342,14 +346,16 @@ async function _persistManifest(label = "Save changes") {
 }
 
 // ── Low-level per-collection I/O ──────────────────────────────────────────────
-// The "env blob" shape is: { version: 1, collections: [...], variables: {...} }
-// It is assembled from / decomposed into the new per-file layout transparently.
+// The "env blob" shape is: { version: 1, collections: [...], variables: {...},
+// headers: [...] }. It is assembled from / decomposed into the new per-file
+// layout transparently. `headers` are the collection-level default HTTP headers.
 
 async function _loadCollectionFile(collectionId) {
   const normalize = (raw) => ({
     items: Array.isArray(raw?.collections) ? raw.collections : [],
     variables:
       raw?.variables && typeof raw.variables === "object" ? raw.variables : {},
+    headers: Array.isArray(raw?.headers) ? raw.headers : [],
   });
   return storeCall(
     `env load (${collectionId})`,
@@ -359,12 +365,18 @@ async function _loadCollectionFile(collectionId) {
       normalize(
         await httpJson(`/api/env?id=${encodeURIComponent(collectionId)}`),
       ),
-    { items: [], variables: {} },
+    { items: [], variables: {}, headers: [] },
   );
 }
 
-async function _saveCollectionFile(collectionId, items, variables = {}, label) {
-  const blob = { version: 1, collections: items, variables };
+async function _saveCollectionFile(
+  collectionId,
+  items,
+  variables = {},
+  headers = [],
+  label,
+) {
+  const blob = { version: 1, collections: items, variables, headers };
   return storeWrite(
     label ?? "Save collection",
     () => window.hippo.store.collections.save(collectionId, blob),
@@ -442,9 +454,10 @@ export async function loadAll() {
     // would otherwise clobber a real manifest with an empty default).
     if (seededDefault) await _persistManifest("Seed default collection");
 
-    const { items, variables } = await _loadCollectionFile(activeId);
+    const { items, variables, headers } = await _loadCollectionFile(activeId);
     _activeItems = items;
     _activeVariables = variables;
+    _activeHeaders = headers;
 
     return {
       collections: _manifest.collections,
@@ -452,6 +465,7 @@ export async function loadAll() {
       settings: _manifest.settings,
       items,
       variables,
+      headers,
     };
   } catch (err) {
     console.warn("[data-store] load failed:", err.message);
@@ -465,12 +479,14 @@ export async function loadAll() {
     _activeCollectionId = defaultId;
     _activeItems = [];
     _activeVariables = {};
+    _activeHeaders = [];
     return {
       collections: _manifest.collections,
       activeCollectionId: _activeCollectionId,
       settings: _manifest.settings,
       items: [],
       variables: {},
+      headers: [],
     };
   }
 }
@@ -486,6 +502,7 @@ export async function saveCollections(items) {
     _activeCollectionId,
     items,
     _activeVariables,
+    _activeHeaders,
     "Save collection",
   );
 }
@@ -549,6 +566,19 @@ export function setActiveVariables(variables) {
 }
 
 /**
+ * Mirror updated collection-level default headers into the in-memory active-
+ * collection cache, WITHOUT persisting — the companion to setActiveVariables.
+ * A subsequent full saveCollections()/saveCollectionData() re-pairs the cached
+ * items with `_activeHeaders`, so syncing here keeps a Rest Hippo import's
+ * just-restored headers from being clobbered by a stale snapshot.
+ *
+ * @param {object[]} headers  [{ id, name, value, enabled }]
+ */
+export function setActiveHeaders(headers) {
+  _activeHeaders = headers;
+}
+
+/**
  * Persist updated settings into the manifest.
  * @param {object} settings
  */
@@ -566,7 +596,11 @@ export async function saveManifest({
   activeCollectionId,
   settings,
 }) {
-  const cleanColls = collections.map(({ variables: _v, ...rest }) => rest);
+  // Strip per-collection content (variables + default headers) — those live in
+  // the per-collection metadata blob, not the manifest.
+  const cleanColls = collections.map(
+    ({ variables: _v, headers: _h, ...rest }) => rest,
+  );
   _manifest = {
     ..._manifest,
     collections: cleanColls,
@@ -577,40 +611,48 @@ export async function saveManifest({
 }
 
 /**
- * Load items and variables for a specific collection.
+ * Load items, variables, and default headers for a specific collection.
  * @param {string} collectionId
- * @returns {Promise<{ items: object[], variables: object }>}
+ * @returns {Promise<{ items: object[], variables: object, headers: object[] }>}
  */
 export async function loadCollectionData(collectionId) {
   const data = await _loadCollectionFile(collectionId);
   if (collectionId === _activeCollectionId) {
     _activeItems = data.items;
     _activeVariables = data.variables;
+    _activeHeaders = data.headers;
   }
   return data;
 }
 
 /**
- * Save items for a specific collection.
+ * Save items for a specific collection. Variables and default headers are
+ * preserved (from the active-collection cache, or read from disk for an inactive
+ * one) so writing the item tree never silently drops them.
  * @param {string}   collectionId
  * @param {object[]} items
  * @param {object}   [variables]
  */
 export async function saveCollectionData(collectionId, items, variables) {
-  let vars;
-  if (variables !== undefined) {
-    vars = variables;
-  } else if (collectionId === _activeCollectionId) {
-    vars = _activeVariables;
-  } else {
-    // Load existing variables from disk so they are not silently discarded
-    const existing = await _loadCollectionFile(collectionId);
-    vars = existing?.variables ?? {};
-  }
+  let vars = variables;
+  let hdrs;
   if (collectionId === _activeCollectionId) {
+    if (vars === undefined) vars = _activeVariables;
+    hdrs = _activeHeaders;
     _activeItems = items;
+  } else {
+    // Inactive collection — read existing content so it is not discarded.
+    const existing = await _loadCollectionFile(collectionId);
+    if (vars === undefined) vars = existing?.variables ?? {};
+    hdrs = existing?.headers ?? [];
   }
-  return _saveCollectionFile(collectionId, items, vars, "Save collection");
+  return _saveCollectionFile(
+    collectionId,
+    items,
+    vars,
+    hdrs,
+    "Save collection",
+  );
 }
 
 /**
@@ -621,6 +663,7 @@ export function setActiveCollection(collectionId) {
   _activeCollectionId = collectionId;
   _activeItems = [];
   _activeVariables = {};
+  _activeHeaders = [];
   _manifest = { ..._manifest, activeCollectionId: collectionId };
 }
 
@@ -636,11 +679,44 @@ export async function saveCollectionVariables(collectionId, variables) {
       _activeCollectionId,
       _activeItems,
       variables,
+      _activeHeaders,
       "Save variables",
     );
   }
-  const { items } = await _loadCollectionFile(collectionId);
-  return _saveCollectionFile(collectionId, items, variables, "Save variables");
+  const { items, headers } = await _loadCollectionFile(collectionId);
+  return _saveCollectionFile(
+    collectionId,
+    items,
+    variables,
+    headers,
+    "Save variables",
+  );
+}
+
+/**
+ * Persist the collection-level default headers for a specific collection.
+ * @param {string} collectionId
+ * @param {object[]} headers  [{ id, name, value, enabled }]
+ */
+export async function saveCollectionHeaders(collectionId, headers) {
+  if (collectionId === _activeCollectionId) {
+    _activeHeaders = headers;
+    return _saveCollectionFile(
+      _activeCollectionId,
+      _activeItems,
+      _activeVariables,
+      headers,
+      "Save headers",
+    );
+  }
+  const { items, variables } = await _loadCollectionFile(collectionId);
+  return _saveCollectionFile(
+    collectionId,
+    items,
+    variables,
+    headers,
+    "Save headers",
+  );
 }
 
 /**

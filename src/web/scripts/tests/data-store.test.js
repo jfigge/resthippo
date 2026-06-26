@@ -313,6 +313,7 @@ test("saveCollections: writes the active collection's items via collections.save
     collections: items,
     // variables carried over from the loaded active collection, not discarded.
     variables: { k: "v" },
+    headers: [],
   });
 });
 
@@ -356,7 +357,11 @@ test("loadCollectionData: reads a specific collection via collections.get and no
   const data = await store.loadCollectionData("coll-42");
 
   assert.deepEqual(mock.one("collections.get").args, ["coll-42"]);
-  assert.deepEqual(data, { items: [{ id: "r1" }], variables: { a: "1" } });
+  assert.deepEqual(data, {
+    items: [{ id: "r1" }],
+    variables: { a: "1" },
+    headers: [],
+  });
 });
 
 test("saveCollectionData: forwards explicit variables in the env blob", async () => {
@@ -370,6 +375,7 @@ test("saveCollectionData: forwards explicit variables in the env blob", async ()
     version: 1,
     collections: [{ id: "r1" }],
     variables: { v: "1" },
+    headers: [],
   });
 });
 
@@ -438,6 +444,55 @@ test("saveCollectionVariables: for a non-active collection, reads-then-writes it
     version: 1,
     collections: [{ id: "keep" }],
     variables: { token: "abc" },
+    headers: [],
+  });
+});
+
+test("saveCollectionHeaders: active collection writes default headers, preserving items + variables", async () => {
+  const mock = makeRestHippoMock();
+  mock.install();
+  await loadActive(mock, { id: "coll-1", variables: { k: "v" } });
+  store.setActiveItems([{ id: "r1" }]);
+
+  const headers = [{ id: "h1", name: "X-Default", value: "d", enabled: true }];
+  await store.saveCollectionHeaders("coll-1", headers);
+
+  const save = mock.of("collections.save").find((c) => c.args[0] === "coll-1");
+  assert.ok(save, "collections.save targeted the active collection");
+  assert.deepEqual(save.args[1], {
+    version: 1,
+    collections: [{ id: "r1" }],
+    variables: { k: "v" },
+    headers,
+  });
+
+  // A later full item save keeps the cached headers (not dropped).
+  await store.saveCollections([{ id: "r2" }]);
+  assert.deepEqual(mock.of("collections.save").pop().args[1].headers, headers);
+});
+
+test("saveCollectionHeaders: non-active collection reads-then-writes, preserving items + variables", async () => {
+  const mock = makeRestHippoMock();
+  mock.install();
+  await loadActive(mock, { id: "active-coll" });
+
+  mock.setReturn("collections.get", {
+    version: 1,
+    collections: [{ id: "keep" }],
+    variables: { x: "1" },
+  });
+  const headers = [{ id: "h1", name: "X-Default", value: "d", enabled: true }];
+  await store.saveCollectionHeaders("other-coll", headers);
+
+  const save = mock
+    .of("collections.save")
+    .find((c) => c.args[0] === "other-coll");
+  assert.ok(save, "collections.save targeted the non-active collection");
+  assert.deepEqual(save.args[1], {
+    version: 1,
+    collections: [{ id: "keep" }],
+    variables: { x: "1" },
+    headers,
   });
 });
 

@@ -35,6 +35,7 @@ import {
   mergeArchiveIntoTree,
   mergeEnvironments,
   mergeVariableList,
+  mergeHeaderList,
 } from "../resthippo.js";
 
 test("detectRestHippo: only matches the native envelope", () => {
@@ -150,6 +151,33 @@ test("mergeVariableList: adds missing by name, never overwrites existing", () =>
   assert.equal(added, 1);
   assert.equal(list.find((v) => v.name === "a").value, "keep");
   assert.ok(list.find((v) => v.name === "b"));
+});
+
+test("mergeHeaderList: adds missing by case-insensitive name, never overwrites existing", () => {
+  const { list, added } = mergeHeaderList(
+    [{ id: "h1", name: "Content-Type", value: "keep", enabled: true }],
+    [
+      // Same name (different case) → must NOT overwrite the existing row.
+      { id: "h2", name: "content-type", value: "OVERWRITE?", enabled: true },
+      { id: "h3", name: "X-New", value: "new", enabled: false },
+    ],
+  );
+  assert.equal(added, 1);
+  assert.equal(list.find((h) => h.name === "Content-Type").value, "keep");
+  const added1 = list.find((h) => h.name === "X-New");
+  assert.ok(added1);
+  assert.equal(added1.enabled, false); // disabled flag preserved on import
+});
+
+test("mergeHeaderList: tolerant of missing/null inputs and blank names", () => {
+  assert.deepEqual(mergeHeaderList(null, null), { list: [], added: 0 });
+  const { list, added } = mergeHeaderList(
+    [],
+    [{ name: "   ", value: "x", enabled: true }],
+  );
+  // A blank-name incoming row is skipped (not added).
+  assert.equal(added, 0);
+  assert.equal(list.length, 0);
 });
 
 test("mergeEnvironments: match by id/name, create missing, add-only vars", () => {

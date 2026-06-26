@@ -108,6 +108,65 @@ test("buildRequestModel: disabled params/headers are dropped", () => {
   assert.equal(m.headers.length, 0);
 });
 
+test("buildRequestModel: collection default headers merge before request headers", () => {
+  const ctx = {
+    collectionVariables: {},
+    folderChain: [],
+    collectionHeaders: [{ enabled: true, name: "X-Default", value: "d" }],
+  };
+  const m = buildRequestModel(
+    {
+      type: "request",
+      method: "GET",
+      url: "https://x.test",
+      headers: [{ enabled: true, name: "X-Trace", value: "t" }],
+    },
+    ctx,
+  );
+  assert.deepEqual(m.headers, [
+    { name: "X-Default", value: "d" },
+    { name: "X-Trace", value: "t" },
+  ]);
+});
+
+test("buildRequestModel: an enabled request header overrides a collection default (case-insensitive)", () => {
+  const ctx = {
+    collectionVariables: {},
+    folderChain: [],
+    collectionHeaders: [{ enabled: true, name: "content-type", value: "a" }],
+  };
+  const m = buildRequestModel(
+    {
+      type: "request",
+      method: "GET",
+      url: "https://x.test",
+      headers: [{ enabled: true, name: "Content-Type", value: "b" }],
+    },
+    ctx,
+  );
+  const cts = m.headers.filter((h) => h.name.toLowerCase() === "content-type");
+  assert.equal(cts.length, 1);
+  assert.deepEqual(cts[0], { name: "Content-Type", value: "b" });
+});
+
+test("buildRequestModel: a disabled request header suppresses the collection default", () => {
+  const ctx = {
+    collectionVariables: {},
+    folderChain: [],
+    collectionHeaders: [{ enabled: true, name: "X-Default", value: "d" }],
+  };
+  const m = buildRequestModel(
+    {
+      type: "request",
+      method: "GET",
+      url: "https://x.test",
+      headers: [{ enabled: false, name: "x-default", value: "" }],
+    },
+    ctx,
+  );
+  assert.equal(m.headers.length, 0);
+});
+
 test("buildRequestModel: basic auth → Authorization: Basic <base64>", () => {
   const m = buildRequestModel(
     {

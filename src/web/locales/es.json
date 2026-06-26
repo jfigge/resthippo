@@ -25,7 +25,8 @@
     "hideValue": "Ocultar valor",
     "selectItem": "Seleccionar {name}",
     "renameItem": "Renombrar {name}",
-    "deleteItem": "Eliminar {name}"
+    "deleteItem": "Eliminar {name}",
+    "headers": "Encabezados"
   },
   "app": {
     "wsOpen": "La conexión WebSocket está abierta",
@@ -603,7 +604,10 @@
       "valueAria": "Valor del encabezado",
       "suggestTitle": "Mostrar sugerencias de encabezados estándar al editar el nombre del encabezado",
       "bulkAria": "Editor masivo de encabezados",
-      "listHeaders": "Listar encabezados"
+      "listHeaders": "Listar encabezados",
+      "suggestionsAria": "Sugerencias de encabezado",
+      "valueSuggestionsAria": "Sugerencias de valor de encabezado",
+      "bulkPlaceholder": "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped"
     },
     "params": {
       "empty": "Sin parámetros — haz clic en  +  para añadir uno.",
@@ -978,7 +982,8 @@
       "sameSite": "SameSite"
     },
     "cannotDeleteOnly": "No se puede eliminar la única colección",
-    "deleteCollection": "Eliminar colección"
+    "deleteCollection": "Eliminar colección",
+    "headersTooltip": "Los encabezados añadidos aquí se aplicarán como predeterminados a todas las solicitudes de la colección, salvo que se sustituyan por encabezados con el mismo nombre en una solicitud concreta."
   },
   "environments": {
     "title": "Entornos",

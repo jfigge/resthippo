@@ -59,7 +59,6 @@ import { TestsEditor } from "./editors/tests-editor.js";
 import { BodyEditor } from "./editors/body-editor.js";
 import {
   DragReorderController,
-  AutocompleteDropdown,
   buildToolbarToggle,
   buildKvRow,
   wireDeleteAllConfirm,
@@ -70,250 +69,16 @@ import {
   textToHeaderRows,
   disposePillEditors,
 } from "./kv-editor-shared.js";
-
-// Standard HTTP request headers offered in the header-name combo box.
-// Custom values are always accepted too (free-text input).
-const STANDARD_HEADERS_DICT = {
-  Accept: [
-    "*/*",
-    "application/json",
-    "application/xhtml+xml",
-    "text/html",
-    "text/plain",
-    "text/css",
-    "text/javascript",
-    "image/png",
-    "image/jpeg",
-    "image/webp",
-    "multipart/form-data",
-  ],
-
-  "Accept-Charset": ["utf-8", "iso-8859-1", "*"],
-
-  "Accept-Encoding": ["gzip", "deflate", "br", "compress", "identity", "*"],
-
-  "Accept-Language": ["en-US", "en", "fr", "de", "es", "zh-CN", "ja", "*"],
-
-  Authorization: [
-    "Basic <base64(username:password)>",
-    "Bearer <token>",
-    "Digest <credentials>",
-    "NTLM <base64(message)>",
-    "Negotiate <token>",
-    "OAuth <token>",
-    "AWS4-HMAC-SHA256 Credential=<credential>, SignedHeaders=<headers>, Signature=<signature>",
-  ],
-
-  "Cache-Control": [
-    "no-cache",
-    "no-store",
-    "max-age=<seconds>",
-    "max-stale=<seconds>",
-    "min-fresh=<seconds>",
-    "must-revalidate",
-    "proxy-revalidate",
-    "public",
-    "private",
-    "immutable",
-    "only-if-cached",
-  ],
-
-  Connection: ["keep-alive", "close", "Upgrade"],
-
-  "Content-Encoding": ["gzip", "compress", "deflate", "br", "identity"],
-
-  "Content-Length": ["<number>"],
-
-  "Content-MD5": ["<base64-md5>"],
-
-  "Content-Type": [
-    "application/json",
-    "application/xml",
-    "application/x-www-form-urlencoded",
-    "multipart/form-data",
-    "text/plain",
-    "text/html",
-    "text/css",
-    "text/csv",
-    "application/octet-stream",
-    "image/png",
-    "image/jpeg",
-  ],
-
-  Cookie: ["<name>=<value>", "<name>=<value>; <name2>=<value2>"],
-
-  Date: ["Tue, 15 Nov 1994 08:12:31 GMT"],
-
-  DNT: ["0", "1"],
-
-  Expect: ["100-continue"],
-
-  Forwarded: [
-    "for=<client-ip>",
-    "for=<client-ip>;proto=https",
-    "for=<client-ip>;host=<host>",
-    "by=<proxy-id>",
-  ],
-
-  From: ["<email@example.com>"],
-
-  Host: ["<hostname>", "<hostname>:<port>"],
-
-  "If-Match": ['"<etag>"', "*"],
-
-  "If-Modified-Since": ["Tue, 15 Nov 1994 08:12:31 GMT"],
-
-  "If-None-Match": ['"<etag>"', "*"],
-
-  "If-Range": ['"<etag>"', "Tue, 15 Nov 1994 08:12:31 GMT"],
-
-  "If-Unmodified-Since": ["Tue, 15 Nov 1994 08:12:31 GMT"],
-
-  "Max-Forwards": ["<number>"],
-
-  Origin: ["https://example.com", "null"],
-
-  Pragma: ["no-cache"],
-
-  "Proxy-Authorization": [
-    "Basic <base64(username:password)>",
-    "Bearer <token>",
-    "Digest <credentials>",
-    "NTLM <base64(message)>",
-    "Negotiate <token>",
-  ],
-
-  Range: ["bytes=0-499", "bytes=500-999", "bytes=-500", "bytes=9500-"],
-
-  Referer: ["https://example.com/page"],
-
-  TE: ["trailers", "compress", "deflate", "gzip"],
-
-  Trailer: ["Content-MD5", "ETag"],
-
-  "Transfer-Encoding": ["chunked", "compress", "deflate", "gzip", "identity"],
-
-  Upgrade: ["websocket", "h2c", "TLS/1.0"],
-
-  "User-Agent": [
-    "Mozilla/5.0",
-    "RestHippo/<version>",
-    "PostmanRuntime/<version>",
-    "python-requests/<version>",
-    "Go/<version>",
-  ],
-
-  Via: ["1.1 vegur", "1.0 proxy", "HTTP/1.1 proxy.example.com"],
-
-  Warning: [
-    "110 Response is stale",
-    "111 Revalidation failed",
-    "199 Miscellaneous warning",
-  ],
-
-  "X-Api-Key": [],
-
-  "X-Auth-Token": ["<token>"],
-
-  "X-Csrf-Token": ["<token>"],
-
-  "X-Forwarded-For": ["<client-ip>", "<client-ip>, <proxy-ip>"],
-
-  "X-Forwarded-Host": ["<hostname>"],
-
-  "X-Forwarded-Proto": ["http", "https"],
-
-  "X-Request-Id": ["<uuid>"],
-
-  "X-Requested-With": ["XMLHttpRequest"],
-};
-
-// AutocompleteDropdown (the shared combo-box mechanism) now lives in
-// ./kv-editor-shared.js and is imported above; the two singletons below drive
-// the header-name and header-value combo inputs. (The scope and API-key combo
-// dropdowns live with the auth editor in ./request-auth-editor.js.)
-
-// Two dropdown instances — one per combo input. _hdrAcOnSelect / _hdrValOnSelect
-// hold the active name/value callbacks for the keyboard-accept paths.
-const _hdrAc = new AutocompleteDropdown(
-  "hdr-autocomplete",
-  "Header suggestions",
-);
-let _hdrAcOnSelect = null;
-const _hdrVal = new AutocompleteDropdown(
-  "hdr-autocomplete hdr-val-autocomplete",
-  "Header value suggestions",
-);
-let _hdrValOnSelect = null;
-
-// ── Header-name suggestions dropdown ──────────────────────────────────────────
-
-function _showHdrDropdown(input, onSelect) {
-  // Store the on-select callback so the keyboard-accept path can fire it too.
-  _hdrAcOnSelect = onSelect ?? null;
-
-  const query = input.value.toLowerCase().trim();
-  const allHeaders = Object.keys(STANDARD_HEADERS_DICT);
-  const matches = query
-    ? allHeaders.filter((h) => h.toLowerCase().includes(query))
-    : allHeaders;
-
-  _hdrAc.show(input, matches, (h) => {
-    input.value = h;
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    _hdrAc.hide();
-    input.focus();
-    _hdrAcOnSelect?.(h);
-  });
-}
-
-/** Accept the currently keyboard-focused item, if any. */
-function _hdrDropdownAccept(input) {
-  const label = _hdrAc.activeLabel();
-  if (label === null) return false;
-  input.value = label;
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  _hdrAc.hide();
-  _hdrAcOnSelect?.(input.value);
-  return true;
-}
-
-// ── Header-value suggestions dropdown ─────────────────────────────────────────
-
-/**
- * Populate and show the value-suggestions dropdown below `anchorEl`.
- *
- * @param {HTMLElement} anchorEl  The value editor element to anchor below.
- * @param {string[]}    values    Candidate values from STANDARD_HEADERS_DICT.
- * @param {Function}    onSelect  Called with the chosen value string.
- */
-function _showHdrValDropdown(anchorEl, values, onSelect) {
-  _hdrValOnSelect = onSelect ?? null;
-  _hdrVal.show(
-    anchorEl,
-    values,
-    (v) => {
-      _hdrVal.hide();
-      _hdrValOnSelect?.(v);
-      anchorEl.focus();
-    },
-    { minWidth: 220 },
-  );
-}
-
-/** Accept the currently keyboard-focused value item, if any. */
-function _hdrValDropdownAccept() {
-  const label = _hdrVal.activeLabel();
-  if (label === null) return false;
-  _hdrVal.hide();
-  _hdrValOnSelect?.(label);
-  return true;
-}
-
-/** Returns true if the value-suggestions dropdown is currently visible. */
-function _hdrValDropdownVisible() {
-  return _hdrVal.visible;
-}
+import {
+  STANDARD_HEADERS_DICT,
+  hdrAc,
+  hdrVal,
+  showHdrDropdown,
+  hdrDropdownAccept,
+  showHdrValDropdown,
+  hdrValDropdownAccept,
+  hdrValDropdownVisible,
+} from "./header-suggestions.js";
 
 const HTTP_METHODS = [
   "GET",
@@ -1642,6 +1407,7 @@ export class RequestEditor {
           urlBase: encodeBaseUrl(await rv(rawUrl)),
           params: this.#params,
           headers: this.#headers,
+          collectionHeaders: this.#variableContext?.collectionHeaders ?? [],
           authEnabled: authModel.authEnabled,
           authType: authModel.authType,
           authBasic: authModel.authBasic,
@@ -1957,6 +1723,7 @@ export class RequestEditor {
         ),
         params: this.#params,
         headers: this.#headers,
+        collectionHeaders: this.#variableContext?.collectionHeaders ?? [],
         authEnabled: authModel.authEnabled,
         authType: authModel.authType,
         authBasic: authModel.authBasic,
@@ -2220,7 +1987,7 @@ export class RequestEditor {
       checked: this.#headerSuggestionsEnabled,
       onChange: (checked) => {
         this.#headerSuggestionsEnabled = checked;
-        if (!checked) _hdrAc.hide();
+        if (!checked) hdrAc.hide();
         // Persist the preference into settings
         window.dispatchEvent(
           new CustomEvent("hippo:editor-setting-changed", {
@@ -2349,45 +2116,45 @@ export class RequestEditor {
     headerInput.setAttribute("autocomplete", "off");
     headerInput.addEventListener("focus", () => {
       if (this.#headerSuggestionsEnabled)
-        _showHdrDropdown(headerInput, (name) => _onNameConfirmed?.(name));
+        showHdrDropdown(headerInput, (name) => _onNameConfirmed?.(name));
     });
     headerInput.addEventListener("input", () => {
       header.name = headerInput.value;
       this.#dispatchHeadersUpdated();
       if (this.#headerSuggestionsEnabled)
-        _showHdrDropdown(headerInput, (name) => _onNameConfirmed?.(name));
+        showHdrDropdown(headerInput, (name) => _onNameConfirmed?.(name));
     });
     headerInput.addEventListener("blur", () => {
       // Delay the hide so a click on a dropdown item registers first;
       // re-focusing the input cancels the pending hide.
-      _hdrAc.scheduleHide();
+      hdrAc.scheduleHide();
     });
     headerInput.addEventListener("keydown", (e) => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        _hdrAc.navigate(+1);
+        hdrAc.navigate(+1);
         return;
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        _hdrAc.navigate(-1);
+        hdrAc.navigate(-1);
         return;
       }
       if (e.key === "Escape") {
-        _hdrAc.hide();
+        hdrAc.hide();
         return;
       }
       if (e.key === " " && e.ctrlKey) {
         // Ctrl+Space: open the name-suggestions dropdown even when listHeaders is off.
         e.preventDefault();
-        _showHdrDropdown(headerInput, (name) =>
+        showHdrDropdown(headerInput, (name) =>
           _onNameConfirmed?.(name, { force: true }),
         );
         return;
       }
       if (e.key === "Enter") {
         e.preventDefault();
-        if (!_hdrDropdownAccept(headerInput)) this.#addHeader();
+        if (!hdrDropdownAccept(headerInput)) this.#addHeader();
       }
     });
 
@@ -2438,16 +2205,16 @@ export class RequestEditor {
       if (!this.#headerSuggestionsEnabled && !force) return;
       const values = STANDARD_HEADERS_DICT[name] ?? [];
       if (values.length === 0) {
-        _hdrVal.hide();
+        hdrVal.hide();
         return;
       }
-      _showHdrValDropdown(valueEditor.element, values, _onValueSelected);
+      showHdrValDropdown(valueEditor.element, values, _onValueSelected);
     };
 
     // Dismiss value dropdown when the value editor loses focus (with a short
     // delay so mousedown on a dropdown item can fire first).
     valueEditor.element.addEventListener("blur", () => {
-      _hdrVal.scheduleHide();
+      hdrVal.scheduleHide();
     });
 
     // Keyboard navigation for the value dropdown (capture phase so we intercept
@@ -2461,27 +2228,27 @@ export class RequestEditor {
           _onNameConfirmed?.(headerInput.value, { force: true });
           return;
         }
-        if (!_hdrValDropdownVisible()) return;
+        if (!hdrValDropdownVisible()) return;
         if (e.key === "ArrowDown") {
           e.preventDefault();
-          _hdrVal.navigate(+1);
+          hdrVal.navigate(+1);
           return;
         }
         if (e.key === "ArrowUp") {
           e.preventDefault();
-          _hdrVal.navigate(-1);
+          hdrVal.navigate(-1);
           return;
         }
         if (e.key === "Escape") {
           e.preventDefault();
-          _hdrVal.hide();
+          hdrVal.hide();
           return;
         }
-        if (e.key === "Enter" && _hdrVal.activeLabel() !== null) {
+        if (e.key === "Enter" && hdrVal.activeLabel() !== null) {
           // Prevent VariablePillEditor's Enter handler from adding a new header row.
           e.preventDefault();
           e.stopPropagation();
-          _hdrValDropdownAccept();
+          hdrValDropdownAccept();
         }
       },
       true /* capture — fires before VariablePillEditor's bubble-phase listener */,
@@ -2960,7 +2727,7 @@ export class RequestEditor {
     if (this.#listHdrLabelEl)
       this.#listHdrLabelEl.style.display = bulk ? "none" : "";
     // Hide the autocomplete dropdown when entering bulk mode
-    if (bulk) _hdrAc.hide();
+    if (bulk) hdrAc.hide();
   }
 
   // ── Tab switching ─────────────────────────────────────────────────────────
@@ -3195,6 +2962,7 @@ export class RequestEditor {
         ),
         params: this.#params,
         headers: scriptedHeaderRows,
+        collectionHeaders: this.#variableContext?.collectionHeaders ?? [],
         authEnabled: authModel.authEnabled,
         authType: authModel.authType,
         authBasic: authModel.authBasic,
@@ -3516,7 +3284,7 @@ export class RequestEditor {
       // Sync the specific List Headers checkbox by ID
       const cb = this.#el.querySelector("#list-headers-toggle");
       if (cb) cb.checked = this.#headerSuggestionsEnabled;
-      if (!this.#headerSuggestionsEnabled) _hdrAc.hide();
+      if (!this.#headerSuggestionsEnabled) hdrAc.hide();
     }
     if (settings.showUrlPreview != null) {
       // Toggled from Settings → Appearance; just reflect it onto the bar.

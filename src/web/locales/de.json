@@ -25,7 +25,8 @@
     "hideValue": "Wert verbergen",
     "selectItem": "{name} auswählen",
     "renameItem": "{name} umbenennen",
-    "deleteItem": "{name} löschen"
+    "deleteItem": "{name} löschen",
+    "headers": "Header"
   },
   "app": {
     "wsOpen": "WebSocket-Verbindung ist offen",
@@ -603,7 +604,10 @@
       "valueAria": "Header-Wert",
       "suggestTitle": "Standard-Header-Vorschläge beim Bearbeiten des Header-Namens anzeigen",
       "bulkAria": "Massen-Editor für Header",
-      "listHeaders": "Header auflisten"
+      "listHeaders": "Header auflisten",
+      "suggestionsAria": "Header-Vorschläge",
+      "valueSuggestionsAria": "Header-Wert-Vorschläge",
+      "bulkPlaceholder": "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped"
     },
     "params": {
       "empty": "Keine Parameter — klicken Sie auf  +,  um einen hinzuzufügen.",
@@ -978,7 +982,8 @@
       "sameSite": "SameSite"
     },
     "cannotDeleteOnly": "Die einzige Sammlung kann nicht gelöscht werden",
-    "deleteCollection": "Sammlung löschen"
+    "deleteCollection": "Sammlung löschen",
+    "headersTooltip": "Hier hinzugefügte Header werden als Standard für alle Anfragen der Sammlung verwendet, sofern sie nicht durch gleichnamige Header einer einzelnen Anfrage überschrieben werden."
   },
   "environments": {
     "title": "Umgebungen",

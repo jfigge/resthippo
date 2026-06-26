@@ -209,11 +209,12 @@ contextBridge.exposeInMainWorld("hippo", {
 
     /**
      * Collection lifecycle plus the per-collection blob, which assembles
-     * { version, collections[], variables } from the per-file layout for
-     * backward-compatible renderer access.
+     * { version, collections[], variables, headers } from the per-file layout for
+     * backward-compatible renderer access. `headers` are the collection-level
+     * default HTTP headers.
      */
     collections: {
-      /** @param {string} id @returns {Promise<{ version, collections, variables }>} */
+      /** @param {string} id @returns {Promise<{ version, collections, variables, headers }>} */
       get: (id) => ipcRenderer.invoke("store:collections:get", id),
       /** @param {string} id @param {object} data @returns {Promise<void>} */
       save: (id, data) =>

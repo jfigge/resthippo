@@ -25,7 +25,8 @@
     "hideValue": "隐藏值",
     "selectItem": "选择 {name}",
     "renameItem": "重命名 {name}",
-    "deleteItem": "删除 {name}"
+    "deleteItem": "删除 {name}",
+    "headers": "标头"
   },
   "app": {
     "wsOpen": "WebSocket 连接已打开",
@@ -599,7 +600,10 @@
       "valueAria": "标头值",
       "suggestTitle": "编辑标头名称时显示标准标头建议",
       "bulkAria": "标头批量编辑器",
-      "listHeaders": "列出标头"
+      "listHeaders": "列出标头",
+      "suggestionsAria": "标头建议",
+      "valueSuggestionsAria": "标头值建议",
+      "bulkPlaceholder": "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped"
     },
     "params": {
       "empty": "暂无参数——点击  +  添加。",
@@ -972,7 +976,8 @@
       "sameSite": "SameSite"
     },
     "cannotDeleteOnly": "无法删除唯一的集合",
-    "deleteCollection": "删除集合"
+    "deleteCollection": "删除集合",
+    "headersTooltip": "在此添加的标头将作为默认值应用于该集合的所有请求，除非被同名的特定请求标头覆盖。"
   },
   "environments": {
     "title": "环境",

@@ -25,7 +25,8 @@
     "hideValue": "Masquer la valeur",
     "selectItem": "Sélectionner {name}",
     "renameItem": "Renommer {name}",
-    "deleteItem": "Supprimer {name}"
+    "deleteItem": "Supprimer {name}",
+    "headers": "En-têtes"
   },
   "app": {
     "wsOpen": "La connexion WebSocket est ouverte",
@@ -603,7 +604,10 @@
       "valueAria": "Valeur de l'en-tête",
       "suggestTitle": "Afficher les suggestions d'en-têtes standard lors de la modification du nom de l'en-tête",
       "bulkAria": "Éditeur groupé d’en-têtes",
-      "listHeaders": "Lister les en-têtes"
+      "listHeaders": "Lister les en-têtes",
+      "suggestionsAria": "Suggestions d’en-tête",
+      "valueSuggestionsAria": "Suggestions de valeur d’en-tête",
+      "bulkPlaceholder": "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped"
     },
     "params": {
       "empty": "Aucun paramètre — cliquez sur  +  pour en ajouter un.",
@@ -978,7 +982,8 @@
       "sameSite": "SameSite"
     },
     "cannotDeleteOnly": "Impossible de supprimer la seule collection",
-    "deleteCollection": "Supprimer la collection"
+    "deleteCollection": "Supprimer la collection",
+    "headersTooltip": "Les en-têtes ajoutés ici s’appliqueront par défaut à toutes les requêtes de la collection, sauf s’ils sont remplacés par des en-têtes de même nom définis sur une requête spécifique."
   },
   "environments": {
     "title": "Environnements",

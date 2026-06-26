@@ -173,6 +173,44 @@ test("buildRestHippoArchive: tolerates empty/missing input", () => {
   const archive = buildRestHippoArchive({});
   assert.deepEqual(archive.items, []);
   assert.deepEqual(archive.collectionVariables, []);
+  assert.deepEqual(archive.collectionHeaders, []);
   assert.deepEqual(archive.environments.globalVariables, []);
   assert.deepEqual(archive.environments.environments, []);
+});
+
+test("buildRestHippoArchive: default headers travel verbatim (full, not referenced-filtered) and cloned", () => {
+  const headers = [
+    { id: "h1", name: "X-Default", value: "d", enabled: true },
+    { id: "h2", name: "X-Off", value: "o", enabled: false },
+  ];
+  const archive = buildRestHippoArchive({
+    items: [],
+    collectionVariables: [],
+    collectionHeaders: headers,
+    environments: { globalVariables: [], environments: [] },
+    exportedAt: "x",
+  });
+  assert.deepEqual(archive.collectionHeaders, headers);
+  // Cloned — mutating the archive cannot reach the caller's array.
+  archive.collectionHeaders[0].value = "MUTATED";
+  assert.equal(headers[0].value, "d");
+});
+
+test("buildRestHippoArchive: a {{var}} used only by a default header is still exported", () => {
+  const archive = buildRestHippoArchive({
+    items: [], // nothing in the tree references any variable
+    collectionVariables: [
+      { name: "apiKey", value: "secret", secure: true }, // referenced via header only
+      { name: "unused", value: "1", secure: false }, // not referenced → dropped
+    ],
+    collectionHeaders: [
+      { id: "h1", name: "X-Api-Key", value: "{{apiKey}}", enabled: true },
+    ],
+    environments: { globalVariables: [], environments: [] },
+    exportedAt: "x",
+  });
+  assert.deepEqual(
+    archive.collectionVariables.map((v) => v.name),
+    ["apiKey"],
+  );
 });

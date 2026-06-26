@@ -18,15 +18,16 @@
  * collections-store.js — Assembles / decomposes the legacy collection blob.
  *
  * The legacy API shape is:
- *   { collections: [ <nested collDoc tree> ], variables: {...} }
+ *   { collections: [ <nested collDoc tree> ], variables: {...}, headers: [...] }
  *
  * where each collDoc is:
  *   { id, type: "collection", name, variables, children: [ <request | collDoc> ] }
  *
- * and each request is the full request JSON object.
+ * and each request is the full request JSON object. `headers` are the
+ * collection-level default HTTP headers ([{ id, name, value, enabled }]).
  *
  * Internally the data lives in the new per-file layout:
- *   collections/<id>/metadata.json   ← id + collection-level variables
+ *   collections/<id>/metadata.json   ← id + collection-level variables + default headers
  *   collections/<id>/tree.json       ← folder hierarchy + requestRef IDs (no bodies)
  *   collections/<id>/requests/<reqId>.json ← one file per request
  *
@@ -67,7 +68,7 @@ class CollectionsStore {
    * Returns a minimal default `{ collections:[] }` when no data exists.
    *
    * @param {string} id  Collection ID
-   * @returns {object}   Legacy blob: { collections, variables }
+   * @returns {object}   Legacy blob: { collections, variables, headers }
    */
   getCollections(id) {
     validateID(id, "collectionId");
@@ -78,14 +79,16 @@ class CollectionsStore {
     }
 
     const variables = decryptVariables(meta.variables ?? [], "collection", id);
+    // Collection-level default headers — plain (non-secret), stored verbatim.
+    const headers = Array.isArray(meta.headers) ? meta.headers : [];
 
     const tree = readJSON(this._paths.treePath(id));
     if (tree === null) {
-      return { collections: [], variables };
+      return { collections: [], variables, headers };
     }
 
     const collections = this._buildLegacyCollections(id, tree.children ?? []);
-    return { collections, variables };
+    return { collections, variables, headers };
   }
 
   // ── Write ───────────────────────────────────────────────────────────────────
@@ -95,13 +98,15 @@ class CollectionsStore {
    * Invalidates the resolver cache so new request→collection mappings are found.
    *
    * @param {string} id    Environment / collection ID
-   * @param {object} data  Legacy blob: { collections?, variables? }
+   * @param {object} data  Legacy blob: { collections?, variables?, headers? }
    */
   saveCollections(id, data) {
     validateID(id, "collectionId");
 
     const collections = Array.isArray(data.collections) ? data.collections : [];
     const incomingVars = Array.isArray(data.variables) ? data.variables : [];
+    // Collection-level default headers — non-secret, persisted verbatim.
+    const headers = Array.isArray(data.headers) ? data.headers : [];
 
     // Read existing on-disk data first so the clobber guard can restore still-
     // recoverable ciphertext for any secure value the caller left blank because
@@ -122,7 +127,7 @@ class CollectionsStore {
       incomingVars,
       existingMeta?.variables,
     );
-    writeJSON(this._paths.metadataPath(id), { id, variables });
+    writeJSON(this._paths.metadataPath(id), { id, variables, headers });
 
     // Decompose collections into tree nodes + individual request files.
     const reqFiles = {};

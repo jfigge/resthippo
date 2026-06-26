@@ -51,6 +51,9 @@ export class AutocompleteDropdown {
   #className;
   #ariaLabel;
 
+  // `ariaLabel` may be a string or a `() => string` resolver, the latter so a
+  // localised label can be supplied before the i18n catalog is loaded (resolved
+  // lazily here in #ensure(), on first show()).
   constructor(className, ariaLabel) {
     this.#className = className;
     this.#ariaLabel = ariaLabel;
@@ -61,7 +64,12 @@ export class AutocompleteDropdown {
     this.#el = document.createElement("div");
     this.#el.className = this.#className;
     this.#el.setAttribute("role", "listbox");
-    this.#el.setAttribute("aria-label", this.#ariaLabel);
+    this.#el.setAttribute(
+      "aria-label",
+      typeof this.#ariaLabel === "function"
+        ? this.#ariaLabel()
+        : this.#ariaLabel,
+    );
     document.body.appendChild(this.#el);
 
     // Hide when anything outside the anchor + dropdown is clicked.

@@ -5299,6 +5299,16 @@ html.show-method-icons .req-method-menu-item-label::before {
   display: none;
 }
 
+/* The Headers panel hosts the shared request-style Headers editor
+   (HeadersEditor → .params-editor), which fills the mount. */
+.coll-panel--headers .coll-headers-mount {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* ── Cookies panel toolbar ────────────────────────────────────────────────── */
 .coll-cookies-toolbar {
   display: flex;

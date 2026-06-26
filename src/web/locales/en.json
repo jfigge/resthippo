@@ -25,7 +25,8 @@
     "hideValue": "Hide value",
     "selectItem": "Select {name}",
     "renameItem": "Rename {name}",
-    "deleteItem": "Delete {name}"
+    "deleteItem": "Delete {name}",
+    "headers": "Headers"
   },
   "app": {
     "wsOpen": "WebSocket connection is open",
@@ -603,7 +604,10 @@
       "valueAria": "Header value",
       "suggestTitle": "Show standard header suggestions when editing the header name",
       "bulkAria": "Headers bulk editor",
-      "listHeaders": "List Headers"
+      "listHeaders": "List Headers",
+      "suggestionsAria": "Header suggestions",
+      "valueSuggestionsAria": "Header value suggestions",
+      "bulkPlaceholder": "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped"
     },
     "params": {
       "empty": "No parameters — click  +  to add one.",
@@ -978,7 +982,8 @@
       "sameSite": "SameSite"
     },
     "cannotDeleteOnly": "Cannot delete the only collection",
-    "deleteCollection": "Delete collection"
+    "deleteCollection": "Delete collection",
+    "headersTooltip": "Headers added here will be added as defaults to all collection requests, unless overridden by specific request headers of the same name."
   },
   "environments": {
     "title": "Environments",

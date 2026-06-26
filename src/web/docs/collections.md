@@ -26,8 +26,29 @@ create, rename, switch, and delete collections:
 - Click a collection row to **make it active**; a check marks the active one.
 - The pencil and trash icons (or a double-click on the name) **rename** and
   **delete** a collection. Deletes ask for confirmation.
-- The **Variables** and **Cookies** tabs on the right edit that collection's
-  variables and stored cookies.
+- The **Variables**, **Headers**, and **Cookies** tabs on the right edit that
+  collection's variables, default headers, and stored cookies.
+
+## Default headers
+
+The **Headers** tab in the Collections manager sets headers that apply to
+**every request in the collection** — handy for a shared `Accept`,
+`X-Api-Version`, or a base `Authorization`. It is the same editor as a request's
+[Headers tab](requests.md#headers): a list / bulk-text toggle, drag to reorder,
+and the standard-header name/value suggestions.
+
+These defaults are merged into each request automatically — at **Send**, **Copy
+as cURL**, and **Generate code** time:
+
+- A request header with the **same name** (case-insensitive) **overrides** the
+  collection default for that request.
+- A **disabled** request header of that name **suppresses** the collection
+  default for that request (a per-request opt-out).
+- Authentication headers (e.g. a Bearer token) are still applied last and win
+  over a collection default `Authorization`.
+
+`{{variable}}` tokens work in header values, resolved with the same
+[variable scopes](variables-and-environments.md) as a request.
 
 ## Folders and requests
 

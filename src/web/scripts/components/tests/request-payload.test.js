@@ -113,6 +113,83 @@ test("headers: enabled non-blank rows are resolved; names trimmed", async () => 
   assert.deepEqual(headers, { "X-Trace": "abc" });
 });
 
+// ── Collection default headers ────────────────────────────────────────────────
+
+test("collection headers: applied when the request has no header of that name", async () => {
+  const { headers } = await buildRequestPayload(
+    {
+      method: "GET",
+      urlBase: "https://x",
+      collectionHeaders: [{ enabled: true, name: "X-Default", value: "{{v}}" }],
+      headers: [{ enabled: true, name: "X-Trace", value: "t" }],
+    },
+    mapResolver({ v: "from-coll" }),
+  );
+  assert.deepEqual(headers, { "X-Default": "from-coll", "X-Trace": "t" });
+});
+
+test("collection headers: an enabled request header of the same name overrides (case-insensitive)", async () => {
+  const { headers } = await buildRequestPayload(
+    {
+      method: "GET",
+      urlBase: "https://x",
+      collectionHeaders: [{ enabled: true, name: "content-type", value: "a" }],
+      headers: [{ enabled: true, name: "Content-Type", value: "b" }],
+    },
+    identity,
+  );
+  // The request casing wins, and the collection's lower-cased key is gone.
+  assert.deepEqual(headers, { "Content-Type": "b" });
+});
+
+test("collection headers: a disabled request row of the same name suppresses the default", async () => {
+  const { headers } = await buildRequestPayload(
+    {
+      method: "GET",
+      urlBase: "https://x",
+      collectionHeaders: [{ enabled: true, name: "X-Default", value: "d" }],
+      headers: [{ enabled: false, name: "x-default", value: "" }],
+    },
+    identity,
+  );
+  assert.deepEqual(headers, {});
+});
+
+test("collection headers: blank-name rows are skipped", async () => {
+  const { headers } = await buildRequestPayload(
+    {
+      method: "GET",
+      urlBase: "https://x",
+      collectionHeaders: [
+        { enabled: true, name: "   ", value: "ignored" },
+        { enabled: false, name: "X-Off", value: "off" },
+        { enabled: true, name: "X-On", value: "on" },
+      ],
+      headers: [],
+    },
+    identity,
+  );
+  assert.deepEqual(headers, { "X-On": "on" });
+});
+
+test("collection headers: auth (bearer) still wins over a collection Authorization default", async () => {
+  const { headers } = await buildRequestPayload(
+    {
+      method: "GET",
+      urlBase: "https://x",
+      collectionHeaders: [
+        { enabled: true, name: "Authorization", value: "Basic collection" },
+      ],
+      headers: [],
+      authEnabled: true,
+      authType: "bearer",
+      authBearer: { token: "tok" },
+    },
+    identity,
+  );
+  assert.equal(headers["Authorization"], "Bearer tok");
+});
+
 // ── Auth transforms ──────────────────────────────────────────────────────────
 
 test("basic auth: builds a base64 Authorization header", async () => {

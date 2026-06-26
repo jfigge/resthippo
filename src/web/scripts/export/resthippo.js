@@ -41,6 +41,11 @@
  * whole collection's (possibly secret) variables and needlessly forces a
  * password. Folder-level variables are the one exception: they travel inside
  * their folder node verbatim, as part of that folder's own definition.
+ *
+ * Collection-level DEFAULT HEADERS travel verbatim (in full, like the items) —
+ * they are part of the collection's definition, not referenced-filtered. Their
+ * `{{name}}` references DO seed the referenced-variable set, so a variable a
+ * default header relies on is exported alongside it.
  */
 
 import { isFunctionCall } from "../components/variable-resolver.js";
@@ -65,6 +70,8 @@ const VAR_TOKEN_RE = /\{\{([^{}]+)\}\}/g;
  * @param {Array|object} [opts.collectionVariables]  The active collection's
  *   collection-level variables (any canonical/legacy shape); filtered to the
  *   referenced-only subset in the archive.
+ * @param {Array} [opts.collectionHeaders]  The collection's default headers
+ *   ([{ id, name, value, enabled }]); included verbatim (not referenced-filtered).
  * @param {{ globalVariables?: Array, environments?: Array }} [opts.environments]
  *   The workspace environment store (decrypted, in-memory).
  * @param {string} opts.exportedAt  ISO timestamp (supplied by the caller; the
@@ -75,11 +82,16 @@ const VAR_TOKEN_RE = /\{\{([^{}]+)\}\}/g;
 export function buildRestHippoArchive({
   items,
   collectionVariables,
+  collectionHeaders,
   environments,
   exportedAt,
 } = {}) {
   const nodes = Array.isArray(items) ? structuredClone(items) : [];
   const collVars = normalizeVariables(collectionVariables);
+  // Default headers travel in full, like the items (not referenced-filtered).
+  const collHeaders = Array.isArray(collectionHeaders)
+    ? structuredClone(collectionHeaders)
+    : [];
   const globalVars = normalizeVariables(environments?.globalVariables);
   const envs = (
     Array.isArray(environments?.environments) ? environments.environments : []
@@ -89,11 +101,13 @@ export function buildRestHippoArchive({
     variables: normalizeVariables(env?.variables),
   }));
 
-  const referenced = collectReferencedVariables(nodes, [
-    collVars,
-    globalVars,
-    ...envs.map((e) => e.variables),
-  ]);
+  const referenced = collectReferencedVariables(
+    nodes,
+    [collVars, globalVars, ...envs.map((e) => e.variables)],
+    // Default-header values can reference {{vars}} too — seed them so a variable
+    // a header relies on is pulled into the referenced-only export.
+    collHeaders.map((h) => h?.value),
+  );
 
   // Filter collection vars, globals, and each environment to the referenced-only
   // set; drop environments that then contribute nothing. (Folder-scope vars stay
@@ -116,6 +130,7 @@ export function buildRestHippoArchive({
     app: { name: "Rest Hippo" },
     secretsMode: "none",
     collectionVariables: refdCollVars,
+    collectionHeaders: collHeaders,
     items: nodes,
     environments: {
       globalVariables: refdGlobal,
@@ -133,9 +148,15 @@ export function buildRestHippoArchive({
  * @param {object[]} nodes      The exported tree nodes (already cloned).
  * @param {Array[]} scopeLists  Canonical variable arrays from every scope, used to
  *   resolve value→value references for the closure.
+ * @param {string[]} [extraSeedStrings]  Extra strings (e.g. collection default
+ *   header values) whose `{{name}}` tokens also seed the referenced set.
  * @returns {Set<string>}
  */
-export function collectReferencedVariables(nodes, scopeLists = []) {
+export function collectReferencedVariables(
+  nodes,
+  scopeLists = [],
+  extraSeedStrings = [],
+) {
   // name → set of names its value(s) reference, unioned across every scope a name
   // appears in (over-inclusion is safe: better to ship a needed variable than miss
   // one). Folder-level variable values are reached through the node walk below.
@@ -159,6 +180,12 @@ export function collectReferencedVariables(nodes, scopeLists = []) {
   );
   // Folder variable values also seed edges so the closure can follow them.
   walkFolderVariables(nodes, (entry) => addEdges(entry?.name, entry?.value));
+
+  // Extra seed strings (e.g. collection default-header values) contribute their
+  // {{tokens}} to the referenced set directly.
+  for (const str of extraSeedStrings ?? []) {
+    forEachToken(str, (token) => referenced.add(token));
+  }
 
   // Transitive closure over the value-reference graph.
   const queue = [...referenced];

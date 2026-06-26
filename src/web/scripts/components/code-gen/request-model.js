@@ -60,7 +60,9 @@ import { utf8ToBase64 } from "../../utils/base64.js";
  *   }
  *
  * @param {object} node     a request-type tree node (live copy)
- * @param {object} context  variable-resolver context { collectionVariables, folderChain }
+ * @param {object} context  variable-resolver context { collectionVariables, folderChain,
+ *                          collectionHeaders }. collectionHeaders ([{enabled,name,value}]) are
+ *                          collection-level default headers merged before the node's own headers.
  * @returns {object} the normalized request model
  */
 export function buildRequestModel(node, context) {
@@ -93,19 +95,37 @@ export function buildRequestModel(node, context) {
     url += (baseUrl.includes("?") ? "&" : "?") + qs;
   }
 
-  // ── Headers — enabled array rows (new format) or legacy object. Kept as an
+  // ── Headers — collection defaults first, then this request's rows. Kept as an
   //    insertion-ordered plain object so the `!headers["Content-Type"]` default
-  //    check below matches the old cURL builder exactly. ─────────────────────
+  //    check below matches the old cURL builder exactly. A same-named (case-
+  //    insensitive) enabled request header overrides a collection default; a
+  //    disabled one suppresses it — mirroring the send path (request-payload.js).
   const headers = {};
+  const setHeaderCI = (name, value) => {
+    const lower = name.toLowerCase();
+    for (const k of Object.keys(headers))
+      if (k.toLowerCase() === lower) delete headers[k];
+    headers[name] = value;
+  };
+  const deleteHeaderCI = (name) => {
+    const lower = name.toLowerCase();
+    for (const k of Object.keys(headers))
+      if (k.toLowerCase() === lower) delete headers[k];
+  };
+  (context.collectionHeaders ?? [])
+    .filter((h) => h.enabled !== false && (h.name ?? "").trim())
+    .forEach((h) => setHeaderCI(rv(h.name).trim(), rv(h.value)));
   if (Array.isArray(node.headers)) {
+    // Disabled request rows suppress a same-named collection default.
+    node.headers
+      .filter((h) => !h.enabled && (h.name ?? "").trim())
+      .forEach((h) => deleteHeaderCI(rv(h.name).trim()));
     node.headers
       .filter((h) => h.enabled && h.name.trim())
-      .forEach((h) => {
-        headers[rv(h.name).trim()] = rv(h.value);
-      });
+      .forEach((h) => setHeaderCI(rv(h.name).trim(), rv(h.value)));
   } else if (node.headers && typeof node.headers === "object") {
     Object.entries(node.headers).forEach(([k, v]) => {
-      headers[rv(k)] = rv(v);
+      setHeaderCI(rv(k), rv(v));
     });
   }
 

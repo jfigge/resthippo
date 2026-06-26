@@ -25,7 +25,8 @@
     "hideValue": "Nascondi valore",
     "selectItem": "Seleziona {name}",
     "renameItem": "Rinomina {name}",
-    "deleteItem": "Elimina {name}"
+    "deleteItem": "Elimina {name}",
+    "headers": "Intestazioni"
   },
   "app": {
     "wsOpen": "La connessione WebSocket è aperta",
@@ -603,7 +604,10 @@
       "valueAria": "Valore dell'intestazione",
       "suggestTitle": "Mostra i suggerimenti per le intestazioni standard durante la modifica del nome dell'intestazione",
       "bulkAria": "Editor in blocco delle intestazioni",
-      "listHeaders": "Elenca intestazioni"
+      "listHeaders": "Elenca intestazioni",
+      "suggestionsAria": "Suggerimenti per le intestazioni",
+      "valueSuggestionsAria": "Suggerimenti per il valore dell’intestazione",
+      "bulkPlaceholder": "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped"
     },
     "params": {
       "empty": "Nessun parametro — fai clic su  +  per aggiungerne uno.",
@@ -978,7 +982,8 @@
       "sameSite": "SameSite"
     },
     "cannotDeleteOnly": "Impossibile eliminare l’unica raccolta",
-    "deleteCollection": "Elimina raccolta"
+    "deleteCollection": "Elimina raccolta",
+    "headersTooltip": "Le intestazioni aggiunte qui verranno applicate come predefinite a tutte le richieste della raccolta, salvo override da intestazioni con lo stesso nome di una richiesta specifica."
   },
   "environments": {
     "title": "Ambienti",
