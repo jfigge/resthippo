@@ -1439,6 +1439,7 @@
     "checking": "正在检查更新…",
     "failed": "检查更新失败",
     "failedMsg": "无法检查更新。请稍后重试。",
-    "devBuild": "仅安装版本支持更新。"
+    "devBuild": "仅安装版本支持更新。",
+    "storeManaged": "更新通过应用商店提供。"
   }
 }

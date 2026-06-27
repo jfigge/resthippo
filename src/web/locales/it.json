@@ -1446,6 +1446,7 @@
     "checking": "Ricerca di aggiornamenti…",
     "failed": "Controllo aggiornamenti non riuscito",
     "failedMsg": "Impossibile controllare gli aggiornamenti. Riprova più tardi.",
-    "devBuild": "Gli aggiornamenti sono disponibili solo nelle versioni installate."
+    "devBuild": "Gli aggiornamenti sono disponibili solo nelle versioni installate.",
+    "storeManaged": "Gli aggiornamenti vengono gestiti tramite l'app store."
   }
 }

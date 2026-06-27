@@ -66,6 +66,7 @@ const {
   isIdempotentMethod,
 } = require("./retry");
 const { computeTiming, formatTiming } = require("./timing");
+const { isMas } = require("../store-build");
 const {
   SseParser,
   LineBuffer,
@@ -381,6 +382,12 @@ function registerHttpEngine({
     return safeCall(
       "tls config",
       () => {
+        // Mac App Store sandbox: persisted cert/CA file paths can't be re-read at
+        // send time without a security-scoped bookmark, so mTLS is disabled in the
+        // MAS edition (returning null is the same "nothing configured" path that
+        // leaves Node's default TLS untouched). Direct + Microsoft Store builds
+        // keep full mTLS. See store-build.js.
+        if (isMas()) return null;
         const settings =
           getStores().collectionStore().getManifest().settings || {};
         const clientCerts = Array.isArray(settings.clientCerts)

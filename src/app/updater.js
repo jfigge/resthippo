@@ -29,6 +29,7 @@
 "use strict";
 
 const { app } = require("electron");
+const { isStoreBuild } = require("./store-build");
 
 // Lazily resolve electron-updater's autoUpdater. Accessing the getter eagerly
 // constructs the platform updater, which dereferences Electron's native
@@ -135,6 +136,17 @@ function initUpdater(getWindow, logger) {
  */
 function checkForUpdates({ manual = false } = {}) {
   _manual = !!manual;
+  // Store builds (Mac App Store / Microsoft Store) deliver updates through the
+  // store, and electron-updater has no feed to check (electron-builder strips it
+  // from MAS/appx). Short-circuit so the Settings panel reports it honestly. This
+  // one guard covers both the debounced startup check and every manual check.
+  if (isStoreBuild()) {
+    pushUpdaterEvent("updater:not-available", {
+      manual: _manual,
+      reason: "store-build",
+    });
+    return;
+  }
   if (!app.isPackaged) {
     pushUpdaterEvent("updater:not-available", {
       manual: _manual,

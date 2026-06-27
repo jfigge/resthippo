@@ -1446,6 +1446,7 @@
     "checking": "Checking for updates…",
     "failed": "Update check failed",
     "failedMsg": "Could not check for updates. Please try again later.",
-    "devBuild": "Updates are only available in installed builds."
+    "devBuild": "Updates are only available in installed builds.",
+    "storeManaged": "Updates are delivered through the app store."
   }
 }

@@ -41,6 +41,7 @@ const os = require("os");
 const path = require("path");
 const { app } = require("electron");
 const { execFile } = require("child_process");
+const { isStoreBuild } = require("./store-build");
 
 // The command users type. Also the shim filename (plus `.cmd` on Windows).
 const COMMAND_NAME = "hippo";
@@ -248,7 +249,10 @@ function status() {
     /* treat any probe failure as "not installed" */
   }
   return {
-    available: supported && app.isPackaged,
+    // Store builds can't install the shim: the MAS sandbox forbids writing
+    // outside the container, and the Microsoft Store virtualizes the per-user
+    // PATH so the shim would never reach a real shell. See store-build.js.
+    available: supported && app.isPackaged && !isStoreBuild(),
     installed,
     platform,
     target,
@@ -260,6 +264,7 @@ function status() {
  * @returns {Promise<{ ok: boolean, reason?: string, path?: string, onPath?: boolean, message?: string }>}
  */
 async function install() {
+  if (isStoreBuild()) return { ok: false, reason: "store" };
   if (!app.isPackaged) return { ok: false, reason: "dev" };
   if (process.platform === "win32") return installWindows();
   if (process.platform === "darwin" || process.platform === "linux")

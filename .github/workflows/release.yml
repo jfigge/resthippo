@@ -32,6 +32,38 @@ name: Release
 #                          vars.SIGNPATH_ARTIFACT_CONFIG_SLUG  artifact configuration slug
 #                        Also install the SignPath GitHub App on the repo. Each
 #                        release waits for manual approval in the SignPath console.
+#   Mac App Store        vars.MAS_ENABLED              'true' enables the MAS build
+#   (store-mas job)      secrets.MAS_CSC_LINK          base64 Apple Distribution .p12
+#                        secrets.MAS_CSC_KEY_PASSWORD  its export password
+#                        secrets.MAS_INSTALLER_CSC_LINK         base64 Mac Installer
+#                                                               Distribution .p12
+#                        secrets.MAS_INSTALLER_CSC_KEY_PASSWORD its export password
+#                        secrets.MAS_PROVISIONING_PROFILE_BASE64 base64 of the MAS
+#                                                               distribution profile
+#   Microsoft Store      vars.APPX_IDENTITY_NAME       reserved Partner Center identity
+#   (store-appx job)     vars.APPX_PUBLISHER           publisher CN (e.g. CN=ABCD…)
+#                        vars.APPX_PUBLISHER_DISPLAY_NAME publisher display name
+#
+#   Auto-submit (the actual PUSH to the store — see STORE-PUBLISHING.md). The store
+#   jobs always BUILD (so you can confirm CI packaging works), but they only PUSH the
+#   package to the store on a TAG release AND when this kill-switch variable is on:
+#                        vars.STORE_SUBMIT_ENABLED     'true' to enable the upload step.
+#                                                      Leave UNSET while the first
+#                                                      release is in review — CI then
+#                                                      builds + keeps the artifact but
+#                                                      does NOT submit. Flip it on once
+#                                                      the app is approved.
+#   App Store Connect API key (CI upload auth — same key can do notarization):
+#                        secrets.APPLE_API_KEY_ID      the .p8 Key ID (e.g. G9W84MCW73)
+#                        secrets.APPLE_API_ISSUER      the Issuer ID (UUID)
+#                        secrets.APPLE_API_KEY_BASE64  base64 of AuthKey_<id>.p8
+#   Microsoft Store submission (msstore CLI / Partner Center Azure AD — DORMANT until
+#   Partner Center exists; see the store-appx submit step):
+#                        secrets.MS_STORE_TENANT_ID / MS_STORE_CLIENT_ID /
+#                        MS_STORE_CLIENT_SECRET / vars.MS_STORE_PRODUCT_ID
+#
+# The build artifacts are also uploaded to the run (store-mas / store-appx) for a
+# manual fallback, and are NOT attached to the public GitHub Release.
 #
 # The installer's internal version comes from src/package.json ("version"), so
 # bump that to match the tag before tagging.
@@ -172,6 +204,172 @@ jobs:
           # workflow_dispatch smoke-test builds don't accumulate. The minimum is
           # 1 day; same-run downloads work regardless of retention.
           retention-days: 1
+
+  # ── Mac App Store package (.pkg) ────────────────────────────────────────────
+  # Separate from `build` so it never attaches to the public GitHub Release (the
+  # release job only globs installers-*). Gated at the JOB level on the MAS_ENABLED
+  # variable, so the runner isn't even spun up until the Apple certs/profile are
+  # configured — same graceful-skip philosophy as macOS signing above. electron-
+  # builder imports the two MAS certs from the CSC_* env vars (application +
+  # installer) exactly as it does for Developer ID; we only decode the provisioning
+  # profile into place first. The .pkg is uploaded to App Store Connect manually
+  # via Transporter.
+  store-mas:
+    name: Build Mac App Store package
+    if: vars.MAS_ENABLED == 'true'
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+
+      - name: Build Mac App Store package
+        env:
+          # electron-builder reads these like the Developer ID build: CSC_* is the
+          # application (Apple Distribution) cert; CSC_INSTALLER_* is the Mac
+          # Installer Distribution cert used to sign the uploaded .pkg.
+          CSC_LINK: ${{ secrets.MAS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAS_CSC_KEY_PASSWORD }}
+          CSC_INSTALLER_LINK: ${{ secrets.MAS_INSTALLER_CSC_LINK }}
+          CSC_INSTALLER_KEY_PASSWORD: ${{ secrets.MAS_INSTALLER_CSC_KEY_PASSWORD }}
+          MAS_PROVISIONING_PROFILE_BASE64: ${{ secrets.MAS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          # Decode the provisioning profile to where build.mas expects it; make
+          # dist-mas's build-setup copies src/ → build/src/ before packaging.
+          printf '%s' "$MAS_PROVISIONING_PROFILE_BASE64" | base64 --decode \
+            > src/packaging/embedded.provisionprofile
+          make dist-mas
+
+      - name: Upload Mac App Store package
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: store-mas
+          # The universal build lands in dist/mas-universal/; ** catches the subdir.
+          path: build/src/dist/**/*.pkg
+          if-no-files-found: error
+          # Always kept as a run artifact (manual Transporter fallback), regardless
+          # of whether the auto-submit step below runs.
+          retention-days: 5
+
+      # The actual PUSH to App Store Connect. Gated so it runs ONLY on a tag release
+      # (never on a workflow_dispatch smoke-test) AND only when the STORE_SUBMIT_ENABLED
+      # kill-switch is on — leave it off while the first build is in review, flip it on
+      # once approved. Uploads the build (it appears in App Store Connect as a processed
+      # build); the final "Submit for Review" stays a deliberate manual step in the ASC
+      # web UI. Auth is an App Store Connect API key (works headless; app-specific
+      # passwords don't, with 2FA). altool is deprecated but is still the supported CLI
+      # for Mac App Store .pkg uploads.
+      - name: Submit to App Store Connect
+        if: startsWith(github.ref, 'refs/tags/') && vars.STORE_SUBMIT_ENABLED == 'true'
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLE_API_KEY_ID}" ] || [ -z "${APPLE_API_ISSUER}" ] || [ -z "${APPLE_API_KEY_BASE64}" ]; then
+            echo "::error::STORE_SUBMIT_ENABLED is on but the APPLE_API_* secrets are not all set."
+            exit 1
+          fi
+          # altool finds the key by ID under ~/private_keys (or ./private_keys).
+          mkdir -p "$HOME/private_keys"
+          printf '%s' "$APPLE_API_KEY_BASE64" | base64 --decode \
+            > "$HOME/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
+          PKG=$(find build/src/dist -name '*.pkg' | head -1)
+          echo "Uploading $PKG to App Store Connect…"
+          xcrun altool --upload-app -t macos -f "$PKG" \
+            --apiKey "$APPLE_API_KEY_ID" --apiIssuer "$APPLE_API_ISSUER"
+          rm -f "$HOME/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
+
+  # ── Microsoft Store package (.appx) ─────────────────────────────────────────
+  # Gated at the job level on the (non-secret) reserved Partner Center identity
+  # variable. MSIX is full-trust (Desktop Bridge), so the Store re-signs on upload
+  # and no code-signing cert is needed here. Uploaded to Partner Center manually.
+  store-appx:
+    name: Build Microsoft Store package
+    if: vars.APPX_IDENTITY_NAME != ''
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+
+      # Windows runners lack make/rsync/bash; MSYS2 supplies them so `make
+      # dist-appx` runs unchanged (mirrors the dist-win build above).
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
+        with:
+          msystem: UCRT64
+          install: make rsync
+          path-type: inherit
+
+      - name: Build Microsoft Store package
+        shell: "msys2 {0}"
+        env:
+          APPX_IDENTITY_NAME: ${{ vars.APPX_IDENTITY_NAME }}
+          APPX_PUBLISHER: ${{ vars.APPX_PUBLISHER }}
+          APPX_PUBLISHER_DISPLAY_NAME: ${{ vars.APPX_PUBLISHER_DISPLAY_NAME }}
+        run: make dist-appx
+
+      - name: Upload Microsoft Store package
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: store-appx
+          path: build/src/dist/*.appx
+          if-no-files-found: error
+          # Always kept as a run artifact (manual Partner Center fallback).
+          retention-days: 5
+
+      # The PUSH to the Microsoft Store, gated identically to the MAS submit: tag
+      # release only AND the STORE_SUBMIT_ENABLED kill-switch on. DORMANT until
+      # Partner Center is set up — the whole store-appx job is already gated on
+      # vars.APPX_IDENTITY_NAME being set, which presupposes a reserved product. Uses
+      # the Microsoft Store Developer CLI (msstore) with a Partner Center Azure-AD app
+      # (tenant/client/secret). Untested until those exist; wire the secrets then.
+      - name: Submit to Microsoft Store
+        if: startsWith(github.ref, 'refs/tags/') && vars.STORE_SUBMIT_ENABLED == 'true'
+        shell: pwsh
+        env:
+          MS_STORE_TENANT_ID: ${{ secrets.MS_STORE_TENANT_ID }}
+          MS_STORE_CLIENT_ID: ${{ secrets.MS_STORE_CLIENT_ID }}
+          MS_STORE_CLIENT_SECRET: ${{ secrets.MS_STORE_CLIENT_SECRET }}
+          MS_STORE_PRODUCT_ID: ${{ vars.MS_STORE_PRODUCT_ID }}
+        run: |
+          if (-not $env:MS_STORE_TENANT_ID -or -not $env:MS_STORE_CLIENT_ID -or -not $env:MS_STORE_CLIENT_SECRET -or -not $env:MS_STORE_PRODUCT_ID) {
+            Write-Error "STORE_SUBMIT_ENABLED is on but the MS_STORE_* tenant/client/secret/product-id are not all set."
+            exit 1
+          }
+          # Microsoft Store Developer CLI — install, authenticate, publish the .appx.
+          winget install --id Microsoft.MSStoreCLI --accept-source-agreements --accept-package-agreements --disable-interactivity
+          msstore reconfigure --tenantId $env:MS_STORE_TENANT_ID --clientId $env:MS_STORE_CLIENT_ID --clientSecret $env:MS_STORE_CLIENT_SECRET --sellerId 0
+          $appx = Get-ChildItem -Path build/src/dist -Filter *.appx -Recurse | Select-Object -First 1
+          Write-Host "Publishing $($appx.FullName) to the Microsoft Store…"
+          msstore publish $appx.FullName --productId $env:MS_STORE_PRODUCT_ID --noCommit
 
   # ── Publish a GitHub Release with all platforms' installers attached ────────
   # Only runs for tag pushes; manual dispatch stops after the build job above.

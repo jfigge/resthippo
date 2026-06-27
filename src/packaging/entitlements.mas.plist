@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  App Sandbox entitlements for the Mac App Store (MAS) build of Rest Hippo.
+
+  The MAS build runs under Apple's App Sandbox (NOT the hardened runtime — the
+  two are mutually exclusive; build.mas sets hardenedRuntime:false). Kept to the
+  minimum the App Store accepts:
+
+    * app-sandbox                 required for every MAS app.
+    * network.client              Rest Hippo is an HTTP/WS client.
+    * files.user-selected.read-write   read/write files the user picks through the
+                                  native open/save dialogs (import / export /
+                                  backup / collection archives). The sandbox grants
+                                  access only to files the user selected — exactly
+                                  how those flows work.
+    * cs.allow-jit                V8's JIT compiler.
+
+  Deliberately ABSENT (and why):
+    * network.server              OAuth uses popup-window navigation interception
+                                  (src/app/oauth-redirect.js), NOT a localhost
+                                  loopback server — so no incoming-connection
+                                  entitlement is needed.
+    * disable-library-validation  forbidden under the App Sandbox; electron-builder
+                                  produces a MAS-signed bundle that doesn't need it.
+
+  Features the sandbox can't support are disabled at runtime via isMas()
+  (src/app/store-build.js): the `hippo` CLI launcher, persisted mTLS client-cert
+  re-reads, and the cURL arbitrary-file existence check.
+-->
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+  </dict>
+</plist>
