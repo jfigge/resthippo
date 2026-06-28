@@ -128,11 +128,61 @@ export class WsConsole {
     this.#logEl.appendChild(this.#emptyEl);
 
     this.#el.append(header, this.#logEl);
+
+    // Native OS context menu over the read-only log — Copy the current selection
+    // and Select All. Mirrors the response body's right-click menu
+    // (ResponseViewer.#showBodyTextContextMenu). Drag-selecting message text is
+    // enabled in CSS; frame timestamps / glyphs / sr-labels stay
+    // user-select:none, so both a drag selection and Select All capture only the
+    // message bodies (Chromium excludes user-select:none subtrees from the copy).
+    this.#logEl.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.#showContextMenu(e.clientX, e.clientY);
+    });
   }
 
   /** Root element — mount into the response pane. */
   get element() {
     return this.#el;
+  }
+
+  /**
+   * Pop the native Copy / Select All menu for the log. Copy is enabled only when
+   * there is a live selection; Select All only when at least one frame exists.
+   */
+  async #showContextMenu(x, y) {
+    const selectedText = window.getSelection()?.toString() ?? "";
+    const items = [
+      { id: "copy", label: t("menu.copy"), enabled: !!selectedText },
+      { type: "separator" },
+      {
+        id: "selectAll",
+        label: t("menu.selectAll"),
+        enabled: !!this.#logEl.querySelector(".ws-frame"),
+      },
+    ];
+    const clickedId = await window.hippo?.ui?.contextMenu?.show?.({
+      items,
+      x,
+      y,
+    });
+    if (clickedId === "copy") {
+      if (selectedText)
+        navigator.clipboard.writeText(selectedText).catch(() => {});
+    } else if (clickedId === "selectAll") {
+      this.#selectAllFrames();
+    }
+  }
+
+  /** Select the whole frame log so the next Copy (or ⌘/Ctrl+C) grabs it all. */
+  #selectAllFrames() {
+    const sel = window.getSelection();
+    if (!sel) return;
+    sel.removeAllRanges();
+    const range = document.createRange();
+    range.selectNodeContents(this.#logEl);
+    sel.addRange(range);
   }
 
   /**

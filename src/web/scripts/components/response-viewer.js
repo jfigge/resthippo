@@ -900,6 +900,16 @@ export class ResponseViewer {
     const consolePane = content.querySelector("#res-tab-console");
     consolePane.appendChild(this.#consolePlaceholder());
 
+    // Right-click on the verbose console log → Copy (current selection) /
+    // Select All — mirrors the body pane's read-only text menu.
+    consolePane.addEventListener("contextmenu", (e) => {
+      const pre = consolePane.querySelector(".res-console-pre");
+      if (!pre || !pre.contains(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.#showConsoleContextMenu(e.clientX, e.clientY);
+    });
+
     // Initial empty state in tests pane (Feature 29)
     const testsPane = content.querySelector("#res-tab-tests");
     if (testsPane) testsPane.appendChild(this.#testsPlaceholder());
@@ -1040,13 +1050,19 @@ export class ResponseViewer {
   }
 
   /**
-   * Context menu for the rendered body text — Copy the current selection, plus
-   * a "Wrap" toggle when in Styled mode. Copy works in both Styled and Raw.
+   * Context menu for the rendered body text — Copy the current selection and
+   * Select All, plus a "Wrap" toggle when in Styled mode. Copy / Select All work
+   * in both Styled and Raw.
    */
   async #showBodyTextContextMenu(x, y) {
     const selectedText = window.getSelection()?.toString() ?? "";
     const items = [
       { id: "copy", label: t("menu.copy"), enabled: !!selectedText },
+      {
+        id: "selectAll",
+        label: t("menu.selectAll"),
+        enabled: !!this.#bodyPane?.querySelector(".res-body-pre"),
+      },
     ];
     // Styled mode → offer the wrap toggle (Raw is never wrapped via this menu)
     if (this.#renderMode !== "raw") {
@@ -1083,6 +1099,8 @@ export class ResponseViewer {
       if (selectedText) {
         navigator.clipboard.writeText(selectedText).catch(() => {});
       }
+    } else if (clickedId === "selectAll") {
+      this.#selectAllElement(this.#bodyPane?.querySelector(".res-body-pre"));
     } else if (clickedId === "wrap") {
       // Invert and persist via the shared settings channel; app.js re-applies
       // the setting (which re-renders this pane with the new wrap state).
@@ -1110,6 +1128,44 @@ export class ResponseViewer {
         }),
       );
       if (this.#lastResponse) this.#renderBodyPane(this.#lastResponse);
+    }
+  }
+
+  /**
+   * Select all of `el`'s contents so the next Copy (or ⌘/Ctrl+C) grabs it all.
+   * user-select:none descendants (line numbers / fold carets) are excluded by
+   * Chromium, so they stay out of the resulting selection and copy.
+   */
+  #selectAllElement(el) {
+    if (!el) return;
+    const sel = window.getSelection();
+    if (!sel) return;
+    sel.removeAllRanges();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    sel.addRange(range);
+  }
+
+  /**
+   * Context menu for the verbose Console log — Copy the current selection and
+   * Select All. Mirrors #showBodyTextContextMenu for the read-only console pane.
+   */
+  async #showConsoleContextMenu(x, y) {
+    const selectedText = window.getSelection()?.toString() ?? "";
+    const pre = this.#tabContent?.querySelector(
+      "#res-tab-console .res-console-pre",
+    );
+    const items = [
+      { id: "copy", label: t("menu.copy"), enabled: !!selectedText },
+      { id: "selectAll", label: t("menu.selectAll"), enabled: !!pre },
+    ];
+    const clickedId = await window.hippo.ui.contextMenu.show({ items, x, y });
+    if (clickedId === "copy") {
+      if (selectedText) {
+        navigator.clipboard.writeText(selectedText).catch(() => {});
+      }
+    } else if (clickedId === "selectAll") {
+      this.#selectAllElement(pre);
     }
   }
 
