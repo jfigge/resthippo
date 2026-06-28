@@ -716,7 +716,7 @@ export class ResponseViewer {
     const bar = document.createElement("div");
     bar.className = "res-status-bar";
     bar.innerHTML = `
-      <span class="res-status-badge" aria-label="${t("response.status.httpStatusAria")}"></span>
+      <span class="res-status-badge" role="status" aria-label="${t("response.status.httpStatusAria")}"></span>
       <span class="res-status-text"></span>
       <span class="res-tests-badge" title="${t("response.status.testsTitle")}" hidden></span>
       <span class="res-captured-badge" title="${t("response.status.capturedTitle")}" hidden></span>

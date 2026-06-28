@@ -1446,6 +1446,7 @@
     "checking": "Suche nach Updates…",
     "failed": "Update-Prüfung fehlgeschlagen",
     "failedMsg": "Updates konnten nicht geprüft werden. Bitte versuchen Sie es später erneut.",
-    "devBuild": "Updates sind nur in installierten Versionen verfügbar."
+    "devBuild": "Updates sind nur in installierten Versionen verfügbar.",
+    "storeManaged": "Updates werden über den App Store bereitgestellt."
   }
 }

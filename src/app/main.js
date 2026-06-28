@@ -56,6 +56,7 @@ const { registerWebSocketIPC } = require("./ipc/websocket");
 const { registerOAuthIPC } = require("./ipc/oauth");
 const updater = require("./updater");
 const cliLauncher = require("./cli-launcher");
+const { isMas, isStoreBuild, distribution } = require("./store-build");
 const { ENV_ALLOW_PREFIX, isAllowedEnvName, readEnv } = require("./env-access");
 
 const isDev = process.argv.includes("--dev");
@@ -1251,6 +1252,10 @@ ipcMain.handle("import:file:open", async () => {
 // missing — an existing file is read at send time, so there's nothing to
 // re-attach. Returns the subset of `paths` that don't resolve to a file.
 ipcMain.handle("import:files:check", async (_event, paths) => {
+  // Mac App Store sandbox: can't stat arbitrary cURL `-F @path` paths. Report none
+  // missing (safe degradation — the importer just skips the warning). See
+  // store-build.js. Direct + Microsoft Store builds keep the check.
+  if (isMas()) return [];
   if (!Array.isArray(paths)) return [];
   const missing = [];
   for (const p of paths) {
@@ -2023,6 +2028,9 @@ function collectAppInfo() {
     platform: `${process.platform} ${process.arch}`,
     os: os.release(),
     locale: app.getLocale(),
+    // "store" for Mac App Store / Microsoft Store builds (self-updates handled by
+    // the store), "direct" for the GitHub-release builds. See store-build.js.
+    distribution: distribution(),
   };
 }
 
@@ -2428,12 +2436,18 @@ function buildMenu() {
               _mainWin.webContents.send("menu:keyboard-shortcuts");
           },
         },
-        {
-          // On-demand update check (Feature 36). Triggered directly in main —
-          // the updater pushes its result to the renderer for the toast / status.
-          label: m("menu.checkUpdates", "Check for Updates…"),
-          click: () => updater.checkForUpdates({ manual: true }),
-        },
+        // On-demand update check (Feature 36). Triggered directly in main — the
+        // updater pushes its result to the renderer for the toast / status.
+        // Omitted in store builds: the App Store / Microsoft Store deliver their
+        // own updates and the in-app updater is disabled (see store-build.js).
+        ...(isStoreBuild()
+          ? []
+          : [
+              {
+                label: m("menu.checkUpdates", "Check for Updates…"),
+                click: () => updater.checkForUpdates({ manual: true }),
+              },
+            ]),
         {
           // Voluntary tip jar — opens the donation page in the browser. Passive:
           // no accelerator, no badge, never nags (Feature 53).

@@ -84,9 +84,11 @@ export class SettingsPopup {
     );
   #onUpdaterNotAvailable = (e) =>
     this.#setUpdateStatus(
-      e.detail?.reason === "dev-build"
-        ? t("updater.devBuild")
-        : t("updater.upToDate"),
+      e.detail?.reason === "store-build"
+        ? t("updater.storeManaged")
+        : e.detail?.reason === "dev-build"
+          ? t("updater.devBuild")
+          : t("updater.upToDate"),
     );
   #onUpdaterDownloaded = () => this.#setUpdateStatus(t("updater.ready"));
   #onUpdaterError = () => this.#setUpdateStatus(t("updater.failed"));
@@ -1077,6 +1079,19 @@ export class SettingsPopup {
         });
     } catch {
       /* leave the version line blank if the metadata can't be read */
+    }
+    // Store builds (Mac App Store / Microsoft Store) self-update through the
+    // store, so the in-app updater is disabled: hide the auto-check toggle and
+    // the Check-for-Updates button, and explain it on the status line.
+    if (window.hippo?.isStoreBuild) {
+      this.#el
+        ?.querySelector("#setting-auto-update")
+        ?.closest(".settings-row")
+        ?.setAttribute("hidden", "");
+      this.#el
+        ?.querySelector("#setting-check-updates")
+        ?.setAttribute("hidden", "");
+      this.#setUpdateStatus(t("updater.storeManaged"));
     }
   }
 

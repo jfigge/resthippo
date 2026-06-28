@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Inherited App Sandbox entitlements for the nested helper executables of the
+  Mac App Store build (electron-builder build.mas.entitlementsInherit). The
+  helpers inherit the main app's sandbox container; com.apple.security.inherit
+  is the single key that grants that, alongside app-sandbox.
+-->
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    <key>com.apple.security.inherit</key>
+    <true/>
+  </dict>
+</plist>

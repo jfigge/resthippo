@@ -65,6 +65,13 @@ RELEASE_ENV_VARS := CSC_LINK CSC_KEY_PASSWORD CSC_IDENTITY_AUTO_DISCOVERY \
                     APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID \
                     APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER \
                     WIN_CSC_LINK WIN_CSC_KEY_PASSWORD
+# Store-build identity (Microsoft Store appx publisher reserved in Partner
+# Center). Same export-if-set discipline as the signing vars: absent ⇒ the
+# `dist-appx` target graceful-skips, never fails. The Mac App Store provisioning
+# profiles are FILES (src/packaging/*.provisionprofile), not env vars; `dist-mas`
+# gates on their presence. See release.env.example / STORE-PUBLISHING.md.
+STORE_ENV_VARS := APPX_IDENTITY_NAME APPX_PUBLISHER APPX_PUBLISHER_DISPLAY_NAME
+RELEASE_ENV_VARS += $(STORE_ENV_VARS)
 -include $(WORKSPACE)/release.env
 $(foreach v,$(RELEASE_ENV_VARS),$(if $(strip $(value $(v))),$(eval export $(v)),$(eval unexport $(v))))
 
@@ -111,6 +118,32 @@ KC_SERVER := http://localhost:8080
 # regardless of release.env or inherited CI secrets. Paired per-recipe with
 # `-c.mac.notarize=false` to also force notarization off.
 UNSIGNED_ENV := env $(foreach v,$(filter-out CSC_IDENTITY_AUTO_DISCOVERY,$(RELEASE_ENV_VARS)),-u $(v)) CSC_IDENTITY_AUTO_DISCOVERY=false
+
+# Mac App Store builds must sign with the Apple Distribution / Mac Installer
+# Distribution (and, for mas-dev, Apple Development) identities. LOCALLY those live
+# in the login keychain, but release.env exports CSC_LINK = the Developer ID .p12
+# (for the dmg / Developer-ID builds) — which is INVALID for MAS: electron-builder
+# would sign only with it and fall back to an UNLAUNCHABLE ad-hoc signature
+# (TeamIdentifier=not set → "Launchd job spawn failed"). So locally we strip that
+# CSC_LINK and let keychain auto-discovery pick the MAS certs. In CI the store-mas
+# job provides the real MAS certs via CSC_LINK / CSC_INSTALLER_LINK and sets
+# MAS_PROVISIONING_PROFILE_BASE64 — detect that marker and DON'T strip there.
+ifeq ($(strip $(MAS_PROVISIONING_PROFILE_BASE64)),)
+MAS_SIGN_ENV := env -u CSC_LINK -u CSC_KEY_PASSWORD CSC_IDENTITY_AUTO_DISCOVERY=true
+else
+MAS_SIGN_ENV :=
+endif
+
+# electron-builder applies ONE qualifier to BOTH the app AND the .pkg installer
+# identity searches (macPackager.sign passes mas.identity as the qualifier to the
+# installer's findIdentity too). So mas.identity="Apple Distribution" wrongly filters
+# the installer search — whose cert is "3rd Party Mac Developer Installer: …", which
+# does not contain that string → "Cannot find valid 3rd Party Mac Developer Installer".
+# The qualifier also feeds through process.env.CSC_NAME. With the login keychain
+# holding 4 duplicate "Developer ID Application" entries that sort first, auto-pick
+# grabs the wrong app cert. Fix BOTH by pinning CSC_NAME to the team-qualified name
+# common to the Apple Distribution AND Mac Installer certs (override per-account).
+MAS_CSC_NAME ?= Jason Figge (2C564TQ2FY)
 
 # Force an ABSOLUTE entitlements path for codesign. app-builder-lib (26.x) passes
 # a custom `mac.entitlements` value straight through to codesign without resolving
@@ -193,7 +226,7 @@ lint:
 	@echo "--------------------------------"
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
-test: test-js test-cookies test-auth test-net test-scripting test-content-type test-ipc test-oauth test-export test-components test-import test-data-store test-quick-access test-i18n test-diagnostics test-renderer-components test-renderer-e2e test-scripts test-license-headers
+test: test-js test-cookies test-auth test-net test-scripting test-content-type test-ipc test-store-build test-oauth test-export test-components test-import test-data-store test-quick-access test-i18n test-diagnostics test-renderer-components test-renderer-e2e test-a11y test-scripts test-license-headers
 
 # Guard: every first-party src/ JS+CSS file and build script must carry the
 # Apache 2.0 header. Run by `make test` (CI) and the pre-commit hook. Fix any
@@ -236,6 +269,11 @@ test-content-type:
 test-ipc:
 	@echo "Running IPC channel handler/preload parity tests..."
 	@node --test $(APP_DIR)/tests/ipc-parity.test.js
+	@echo "--------------------------------"
+
+test-store-build:
+	@echo "Running store-build flag tests (MAS / Microsoft Store gating)..."
+	@node --test $(APP_DIR)/tests/store-build.test.js
 	@echo "--------------------------------"
 
 test-oauth:
@@ -286,6 +324,15 @@ test-renderer-components:
 test-renderer-e2e:
 	@echo "Running renderer request->response E2E tests (jsdom)..."
 	@node --test $(WEB_DIR)/scripts/tests/renderer-e2e.test.js
+	@echo "--------------------------------"
+
+# axe-core accessibility (WCAG) regression gate over the static shell + the three
+# renderer panels (jsdom). Ratchets against a11y.baseline.json — a new violation
+# fails; regenerate after an intentional change with
+# UPDATE_A11Y_BASELINE=1 node --test src/web/scripts/tests/a11y.test.js
+test-a11y:
+	@echo "Running accessibility (axe-core / WCAG) tests (jsdom)..."
+	@node --test $(WEB_DIR)/scripts/tests/a11y.test.js
 	@echo "--------------------------------"
 
 test-scripts:
@@ -422,6 +469,61 @@ dist-win: build-setup build-install
 	@cd ${BUILD_DIR}/src; npx electron-builder --win --publish never
 	@echo "  → ${BUILD_DIR}/src/dist/"
 	@echo "--------------------------------"
+
+# ─── Store distributions (Mac App Store / Microsoft Store) ────────────────────
+# Each target graceful-skips (exit 0) when its gating artifact/identity is absent,
+# so `make dist-mas`/`dist-appx` run cleanly before the Apple/Microsoft accounts
+# exist (local dry-runs, CI without store creds). Real builds need:
+#   • dist-mas  — Apple Distribution + Mac Installer Distribution certs in the
+#                 keychain and a MAS distribution provisioning profile dropped at
+#                 src/packaging/embedded.provisionprofile.
+#   • mas-dev   — a MAS *development* profile at src/packaging/development.provisionprofile
+#                 (a locally-runnable sandbox smoke-test build; never submitted).
+#   • dist-appx — a Windows host and the reserved Partner Center identity
+#                 (APPX_IDENTITY_NAME / APPX_PUBLISHER).
+# Store packages are uploaded manually (Transporter / Partner Center); they are
+# NOT attached to the public GitHub Release. See STORE-PUBLISHING.md.
+
+# Gate BEFORE the build so a credential-less run skips instantly. The gate and the
+# build run as ONE shell line (`; \` after the `fi`, then `&&` between steps) so
+# that `exit 0` aborts the whole target — a separate `@`-line would get its own
+# shell and make would carry on to build-setup regardless (same single-shell idiom
+# as staple-dmg above).
+dist-mas:
+	@if [ ! -f "$(SRC_DIR)/packaging/embedded.provisionprofile" ]; then \
+		echo "No MAS provisioning profile (src/packaging/embedded.provisionprofile) — skipping Mac App Store build."; \
+		exit 0; \
+	fi; \
+	$(MAKE) build-setup build-install && \
+	echo "Building Mac App Store package (.pkg)..." && \
+	( cd ${BUILD_DIR}/src && $(MAS_SIGN_ENV) CSC_NAME="$(MAS_CSC_NAME)" npx electron-builder --mac mas --universal --publish never -c.mac.notarize=false ) && \
+	echo "  → ${BUILD_DIR}/src/dist/  (upload the .pkg via Transporter)" && \
+	echo "--------------------------------"
+
+mas-dev:
+	@if [ ! -f "$(SRC_DIR)/packaging/development.provisionprofile" ]; then \
+		echo "No MAS development profile (src/packaging/development.provisionprofile) — skipping MAS dev build."; \
+		exit 0; \
+	fi; \
+	$(MAKE) build-setup build-install && \
+	echo "Building Mac App Store DEV package (local sandbox smoke-test)..." && \
+	( cd ${BUILD_DIR}/src && $(MAS_SIGN_ENV) npx electron-builder --mac mas-dev --publish never -c.mac.notarize=false ) && \
+	echo "  → ${BUILD_DIR}/src/dist/" && \
+	echo "--------------------------------"
+
+dist-appx:
+	@if [ -z "$$APPX_IDENTITY_NAME" ] || [ -z "$$APPX_PUBLISHER" ]; then \
+		echo "APPX_IDENTITY_NAME / APPX_PUBLISHER unset — skipping Microsoft Store build."; \
+		exit 0; \
+	fi; \
+	$(MAKE) build-setup build-install && \
+	echo "Building Microsoft Store package (.appx — x64 + arm64)..." && \
+	( cd ${BUILD_DIR}/src && npx electron-builder --win appx --x64 --arm64 --publish never \
+		-c.appx.identityName="$$APPX_IDENTITY_NAME" \
+		-c.appx.publisher="$$APPX_PUBLISHER" \
+		$(if $(strip $(APPX_PUBLISHER_DISPLAY_NAME)),-c.appx.publisherDisplayName="$$APPX_PUBLISHER_DISPLAY_NAME",) ) && \
+	echo "  → ${BUILD_DIR}/src/dist/  (upload the .appx in Partner Center)" && \
+	echo "--------------------------------"
 
 # ─── Notarize & staple the DMGs ───────────────────────────────────────────────
 # electron-builder notarizes/staples the .app (it submits the zipped app), but
@@ -623,6 +725,9 @@ help:
 	@echo "    dist-mac      Build macOS installer"
 	@echo "    dist-linux    Build Linux installer"
 	@echo "    dist-win      Build Windows installer"
+	@echo "    dist-mas      Build Mac App Store package (.pkg; skips without provisioning profile)"
+	@echo "    mas-dev       Build a local MAS sandbox smoke-test (skips without dev profile)"
+	@echo "    dist-appx     Build Microsoft Store package (.appx; skips without APPX_* identity)"
 	@echo "    vendor-yaml   Bundle yaml npm pkg → web/scripts/vendor/yaml.js"
 	@echo "    vendor-prism  Bundle Prism.js → web/scripts/vendor/prism.js"
 	@echo "    vendor-markdown  Bundle marked+DOMPurify → web/scripts/vendor/markdown.js"
@@ -635,6 +740,7 @@ help:
 	@echo "    test-js       Run JavaScript store tests only"
 	@echo "    test-cookies  Run cookie jar / store tests only"
 	@echo "    test-oauth    Run OAuth 2.0 unit tests only"
+	@echo "    test-a11y     Run accessibility (axe-core / WCAG) tests only"
 	@echo "    clean         Remove build and dist directories"
 	@echo "    version       Print version string"
 	@echo "    info          Print full build information"
@@ -1007,12 +1113,13 @@ mock-down:
         install \
         fmt fmt-check \
         lint \
-        test test-js test-cookies test-auth test-content-type test-ipc test-oauth test-export test-components test-import \
+        test test-js test-cookies test-auth test-content-type test-ipc test-store-build test-oauth test-export test-components test-import \
         test-data-store test-diagnostics test-renderer-components test-renderer-e2e test-e2e \
         debug \
         build build-mac build-linux build-win \
         build-setup build-install \
         dist dist-mac dist-linux dist-win staple-dmg \
+        dist-mas mas-dev dist-appx \
         release \
         sync-mac sync-win \
         vendor-yaml vendor-prism vendor-markdown vendor-graphql vendor-jq \

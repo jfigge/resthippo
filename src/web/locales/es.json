@@ -1446,6 +1446,7 @@
     "checking": "Buscando actualizaciones…",
     "failed": "Error al buscar actualizaciones",
     "failedMsg": "No se pudieron buscar actualizaciones. Inténtalo de nuevo más tarde.",
-    "devBuild": "Las actualizaciones solo están disponibles en versiones instaladas."
+    "devBuild": "Las actualizaciones solo están disponibles en versiones instaladas.",
+    "storeManaged": "Las actualizaciones se gestionan a través de la tienda de aplicaciones."
   }
 }

@@ -147,6 +147,14 @@ contextBridge.exposeInMainWorld("hippo", {
   platform: process.platform,
 
   /**
+   * True in a sandboxed store build (Mac App Store / Microsoft Store), where the
+   * self-updater and the `hippo` CLI launcher are unavailable. Read directly from
+   * the Electron-set process globals (no IPC needed). The renderer uses it to hide
+   * the auto-update toggle in Settings → About. See src/app/store-build.js.
+   */
+  isStoreBuild: process.mas === true || process.windowsStore === true,
+
+  /**
    * Internationalization — the main process resolves the active locale
    * (persisted preference → OS locale → English) and returns the bundled
    * catalog plus the English fallback. The renderer awaits load() once at

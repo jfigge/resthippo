@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@michaelhomer/jqjs": "^1.6.0",
+    "axe-core": "^4.12.1",
     "dompurify": "^3.4.7",
     "electron": "^42.1.0",
     "electron-builder": "~26.8.1",
@@ -82,6 +83,49 @@
             "x64"
           ]
         }
+      ]
+    },
+    "mas": {
+      "type": "distribution",
+      "category": "public.app-category.developer-tools",
+      "icon": "web/resthippo-mac-icon.png",
+      "notarize": false,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "entitlements": "packaging/entitlements.mas.plist",
+      "entitlementsInherit": "packaging/entitlements.mas.inherit.plist",
+      "provisioningProfile": "packaging/embedded.provisionprofile",
+      "target": [
+        {
+          "target": "pkg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ]
+    },
+    "masDev": {
+      "type": "development",
+      "notarize": false,
+      "entitlements": "packaging/entitlements.mas.plist",
+      "entitlementsInherit": "packaging/entitlements.mas.inherit.plist",
+      "provisioningProfile": "packaging/development.provisionprofile"
+    },
+    "appx": {
+      "identityName": "FILL-LATER-PartnerCenter-IdentityName",
+      "publisher": "CN=FILL-LATER-PartnerCenter-Publisher",
+      "publisherDisplayName": "Jason Figge",
+      "applicationId": "RestHippo",
+      "backgroundColor": "#1d1f23",
+      "showNameOnTiles": true,
+      "languages": [
+        "en-US",
+        "de-DE",
+        "es-ES",
+        "fr-FR",
+        "it-IT",
+        "ja-JP",
+        "zh-CN"
       ]
     },
     "linux": {

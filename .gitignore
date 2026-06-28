@@ -2,6 +2,7 @@
 build/
 dist/
 data/
+certs/
 data.backup/
 data-docs/
 .docs-build/
@@ -49,6 +50,10 @@ keys/
 *.p8
 *.p12
 *.pfx
+
+# Mac App Store provisioning profiles (per-developer, embed a team-specific cert)
+# dropped into src/packaging for `make dist-mas` / `mas-dev`. Never commit them.
+*.provisionprofile
 
 # ── Data and local test files ─────────────────────────────────────────────────
 data/collections.json
