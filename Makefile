@@ -517,8 +517,8 @@ dist-appx:
 		exit 0; \
 	fi; \
 	$(MAKE) build-setup build-install && \
-	echo "Building Microsoft Store package (.appx)..." && \
-	( cd ${BUILD_DIR}/src && npx electron-builder --win appx --publish never \
+	echo "Building Microsoft Store package (.appx — x64 + arm64)..." && \
+	( cd ${BUILD_DIR}/src && npx electron-builder --win appx --x64 --arm64 --publish never \
 		-c.appx.identityName="$$APPX_IDENTITY_NAME" \
 		-c.appx.publisher="$$APPX_PUBLISHER" \
 		$(if $(strip $(APPX_PUBLISHER_DISPLAY_NAME)),-c.appx.publisherDisplayName="$$APPX_PUBLISHER_DISPLAY_NAME",) ) && \
