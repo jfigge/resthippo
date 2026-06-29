@@ -645,23 +645,23 @@ describe("locked-session save does not wipe secrets (end-to-end)", () => {
       // Build Stores (bootstrap configures master-password, locked) then unlock to seed.
       const stores = new Stores(dir);
       crypto.setMasterKey(prep.key);
-      stores.environmentStore().saveEnvironments({
+      stores.environmentStore().saveEnvironments("coll-1", {
         globalVariables: [{ name: "api", value: "s3cret", secure: true }],
       });
       const onDisk = JSON.parse(
-        fs.readFileSync(paths.environmentsPath(), "utf8"),
+        fs.readFileSync(paths.environmentsFile("coll-1"), "utf8"),
       );
       assert.ok(onDisk.globalVariables[0].value.startsWith("encm:v1:"));
 
       // Lock, read (value blanks + marks), then save back the blanked list.
       crypto.lock();
-      const read = stores.environmentStore().getEnvironments();
+      const read = stores.environmentStore().getEnvironments("coll-1");
       assert.equal(read.globalVariables[0].value, "");
-      stores.environmentStore().saveEnvironments(read);
+      stores.environmentStore().saveEnvironments("coll-1", read);
 
       // The on-disk ciphertext must survive the locked save.
       const after = JSON.parse(
-        fs.readFileSync(paths.environmentsPath(), "utf8"),
+        fs.readFileSync(paths.environmentsFile("coll-1"), "utf8"),
       );
       assert.equal(
         after.globalVariables[0].value,

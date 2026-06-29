@@ -754,6 +754,107 @@ describe("Stores factory", () => {
   });
 });
 
+// ── Legacy per-collection environments migration ──────────────────────────────
+
+describe("Stores — legacy environments migration", () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+  afterEach(() => rmTmpDir(tmpDir));
+
+  /** Write a legacy workspace-wide environments/index.json directly to disk. */
+  function writeLegacyEnv(globalValue) {
+    const paths = new Paths(tmpDir);
+    fs.mkdirSync(paths.environmentsDir(), { recursive: true });
+    fs.writeFileSync(
+      paths.environmentsPath(),
+      JSON.stringify({
+        globalVariables: [
+          { name: "legacy", value: globalValue, secure: false },
+        ],
+        activeEnvironmentId: "env-1",
+        environments: [{ id: "env-1", name: "Legacy", variables: [] }],
+      }),
+    );
+    return paths;
+  }
+
+  test("copies the legacy file into every collection and retires it", () => {
+    // Register two collections, then drop a legacy workspace env file in place.
+    const s1 = new Stores(tmpDir);
+    s1.collectionStore().saveManifest({
+      version: 2,
+      collections: [
+        { id: "coll-a", name: "Alpha" },
+        { id: "coll-b", name: "Beta" },
+      ],
+      activeCollectionId: "coll-a",
+      settings: {},
+    });
+    const paths = writeLegacyEnv("v1");
+
+    // Constructing a fresh Stores triggers the one-time migration.
+    const s2 = new Stores(tmpDir);
+    for (const id of ["coll-a", "coll-b"]) {
+      const env = s2.environmentStore().getEnvironments(id);
+      assert.equal(
+        env.globalVariables.find((v) => v.name === "legacy").value,
+        "v1",
+      );
+      assert.equal(env.environments[0].name, "Legacy");
+    }
+
+    // The legacy file is retired so the migration cannot run again.
+    assert.equal(fs.existsSync(paths.environmentsPath()), false);
+    assert.equal(fs.existsSync(`${paths.environmentsPath()}.migrated`), true);
+  });
+
+  test("is idempotent and never clobbers an edited per-collection set", () => {
+    const s1 = new Stores(tmpDir);
+    s1.collectionStore().saveManifest({
+      version: 2,
+      collections: [{ id: "coll-a", name: "Alpha" }],
+      activeCollectionId: "coll-a",
+      settings: {},
+    });
+    writeLegacyEnv("v1");
+
+    const s2 = new Stores(tmpDir); // migrates
+    // The user edits the collection's env after migration.
+    s2.environmentStore().saveEnvironments("coll-a", {
+      globalVariables: [{ name: "legacy", value: "edited", secure: false }],
+      activeEnvironmentId: null,
+      environments: [],
+    });
+
+    // A later launch must NOT re-seed from the (now retired) legacy file.
+    const s3 = new Stores(tmpDir);
+    const env = s3.environmentStore().getEnvironments("coll-a");
+    assert.equal(
+      env.globalVariables.find((v) => v.name === "legacy").value,
+      "edited",
+    );
+  });
+
+  test("leaves the legacy file in place when there are no collections yet", () => {
+    const s1 = new Stores(tmpDir);
+    s1.collectionStore().saveManifest({
+      version: 2,
+      collections: [],
+      activeCollectionId: null,
+      settings: {},
+    });
+    const paths = writeLegacyEnv("v1");
+
+    new Stores(tmpDir); // migration is a no-op with no collections to seed
+
+    assert.equal(fs.existsSync(paths.environmentsPath()), true);
+    assert.equal(fs.existsSync(`${paths.environmentsPath()}.migrated`), false);
+  });
+});
+
 // ── Utility ───────────────────────────────────────────────────────────────────
 
 /** Collect all requestRef IDs from a tree nodes array (recursive). */

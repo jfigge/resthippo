@@ -319,14 +319,17 @@ contextBridge.exposeInMainWorld("hippo", {
     },
 
     /**
-     * Global + named environment variables.
-     * Shape: { version:1, globalVariables:{}, activeEnvironmentId:null, environments:[{id,name,variables}] }
+     * A collection's global + named environment variables (scoped per
+     * collection — pass the target collection's ID).
+     * Shape: { version:1, globalVariables:[], activeEnvironmentId:null, environments:[{id,name,variables}] }
      */
     environments: {
-      /** @returns {Promise<object>} */
-      get: () => ipcRenderer.invoke("store:environments:get"),
-      /** @param {object} data @returns {Promise<void>} */
-      save: (data) => ipcRenderer.invoke("store:environments:save", data),
+      /** @param {string} collectionId @returns {Promise<object>} */
+      get: (collectionId) =>
+        ipcRenderer.invoke("store:environments:get", collectionId),
+      /** @param {string} collectionId @param {object} data @returns {Promise<void>} */
+      save: (collectionId, data) =>
+        ipcRenderer.invoke("store:environments:save", collectionId, data),
     },
 
     /**

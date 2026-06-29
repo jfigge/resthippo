@@ -720,13 +720,13 @@ test("write failure with no registered sink still logs and does not reject", asy
   }
 });
 
-test("saveEnvironments: forwards the document and returns true on success", async () => {
+test("saveEnvironments: forwards the collection id + document and returns true on success", async () => {
   const mock = makeRestHippoMock();
   mock.install();
   const doc = { version: 1, globalVariables: { a: "1" }, environments: [] };
 
   const { result, errors } = await withWriteHandler(() =>
-    store.saveEnvironments(doc),
+    store.saveEnvironments("coll-1", doc),
   );
 
   assert.equal(result, true);
@@ -735,7 +735,8 @@ test("saveEnvironments: forwards the document and returns true on success", asyn
     0,
     "a successful save never fires the toast sink",
   );
-  assert.deepEqual(mock.one("environments.save").args, [doc]);
+  // Environments are scoped per collection, so the id is forwarded ahead of the doc.
+  assert.deepEqual(mock.one("environments.save").args, ["coll-1", doc]);
 });
 
 test("saveEnvironments: a main-process error envelope is surfaced", async () => {
@@ -750,12 +751,29 @@ test("saveEnvironments: a main-process error envelope is surfaced", async () => 
   });
 
   const { result, errors } = await withWriteHandler(() =>
-    store.saveEnvironments({ version: 1, environments: [] }),
+    store.saveEnvironments("coll-1", { version: 1, environments: [] }),
   );
 
   assert.equal(result, false, "the envelope is detected as a failure");
   assert.equal(errors[0].label, "Save environments");
   assert.match(errors[0].message, /EACCES/);
+});
+
+test("loadEnvironments: forwards the collection id and returns the document", async () => {
+  const mock = makeRestHippoMock();
+  mock.install();
+  const doc = {
+    version: 1,
+    globalVariables: [{ name: "host", value: "x", secure: false }],
+    activeEnvironmentId: null,
+    environments: [],
+  };
+  mock.setReturn("environments.get", doc);
+
+  const result = await store.loadEnvironments("coll-1");
+
+  assert.deepEqual(result, doc);
+  assert.deepEqual(mock.one("environments.get").args, ["coll-1"]);
 });
 
 test("upsertCookie: a thrown channel returns false and is surfaced", async () => {

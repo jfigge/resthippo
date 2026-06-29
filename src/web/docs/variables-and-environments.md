@@ -28,7 +28,8 @@ Folder  ▸  Collection  ▸  Environment  ▸  Global
 (most specific)                        (most general)
 ```
 
-- **Global** — available everywhere, in every collection.
+- **Global** — available to every request in the **active collection** (each
+  collection has its own Global set — see [Environments](#environments) below).
 - **Environment** — defined in the active environment (see below). Switching
   environments swaps these values.
 - **Collection** — defined on a collection, shared by every request in it.
@@ -56,6 +57,13 @@ An **environment** is a named set of variables you can switch between — the
 classic use is one environment per deployment (Local, Staging, Production), each
 with its own `baseUrl`, credentials, and IDs.
 
+**Environments belong to the collection.** Each collection has its own **Global**
+set and its own list of named environments, with its own active selection. When
+you switch the active collection, the environment picker and the active
+environment switch with it — so a `Staging` environment in one collection is
+entirely independent of a `Staging` in another. A brand-new collection starts
+with an empty Global set and no named environments.
+
 Click the **environment picker** in the collections toolbar (it shows the active
 environment, e.g. `LOCAL`) to open a quick-switch menu. It lists **Global**
 followed by every named environment, with a check beside the active one — pick
@@ -67,7 +75,8 @@ it never opens the editor.)
 
 ![The environments editor](images/environments-popup.png)
 
-- **Global** is always first; its variables are available everywhere.
+- **Global** is always first; its variables are available to every request in
+  the active collection.
 - Below it are your named environments. Click one to **make it active** — a
   check marks the active environment, and all `{{variables}}` resolve against it.
 - **+** adds an environment; drag to reorder; double-click to rename; the trash

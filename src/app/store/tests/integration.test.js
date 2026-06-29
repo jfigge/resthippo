@@ -120,22 +120,22 @@ describe("EnvironmentStore — first-run defaults", () => {
   test("getEnvironments default carries no hand-written version field", () => {
     // Versioning lives solely in the schemaVersion envelope stamped by io.js /
     // migrations.js — store payloads no longer hand-write a `version` field.
-    const env = envStore.getEnvironments();
+    const env = envStore.getEnvironments("coll-1");
     assert.equal(env.version, undefined);
   });
 
   test("getEnvironments returns empty environments list by default", () => {
-    const env = envStore.getEnvironments();
+    const env = envStore.getEnvironments("coll-1");
     assert.deepEqual(env.environments, []);
   });
 
   test("getEnvironments returns empty global variables by default", () => {
-    const env = envStore.getEnvironments();
+    const env = envStore.getEnvironments("coll-1");
     assert.deepEqual(env.globalVariables, []);
   });
 
   test("getEnvironments returns null activeEnvironmentId by default", () => {
-    const env = envStore.getEnvironments();
+    const env = envStore.getEnvironments("coll-1");
     assert.equal(env.activeEnvironmentId, null);
   });
 });
@@ -159,8 +159,8 @@ describe("EnvironmentStore — save and load round-trip", () => {
       activeEnvironmentId: null,
       environments: [],
     };
-    envStore.saveEnvironments(data);
-    const loaded = envStore.getEnvironments();
+    envStore.saveEnvironments("coll-1", data);
+    const loaded = envStore.getEnvironments("coll-1");
     assert.equal(
       loaded.globalVariables.find((v) => v.name === "baseUrl").value,
       "https://api.example.com",
@@ -194,8 +194,8 @@ describe("EnvironmentStore — save and load round-trip", () => {
         },
       ],
     };
-    envStore.saveEnvironments(data);
-    const loaded = envStore.getEnvironments();
+    envStore.saveEnvironments("coll-1", data);
+    const loaded = envStore.getEnvironments("coll-1");
     assert.equal(loaded.environments.length, 3);
     assert.equal(loaded.activeEnvironmentId, "env-staging");
     assert.equal(
@@ -205,24 +205,24 @@ describe("EnvironmentStore — save and load round-trip", () => {
   });
 
   test("overwrites previous data on repeated saves", () => {
-    envStore.saveEnvironments({
+    envStore.saveEnvironments("coll-1", {
       version: 1,
       globalVariables: [{ name: "x", value: "1", secure: false }],
       activeEnvironmentId: null,
       environments: [],
     });
-    envStore.saveEnvironments({
+    envStore.saveEnvironments("coll-1", {
       version: 1,
       globalVariables: [{ name: "x", value: "2", secure: false }],
       activeEnvironmentId: null,
       environments: [],
     });
-    const loaded = envStore.getEnvironments();
+    const loaded = envStore.getEnvironments("coll-1");
     assert.equal(loaded.globalVariables.find((v) => v.name === "x").value, "2");
   });
 
   test("persists across separate store instances (cross-session)", () => {
-    envStore.saveEnvironments({
+    envStore.saveEnvironments("coll-1", {
       version: 1,
       globalVariables: [
         { name: "token", value: "session-token", secure: false },
@@ -232,7 +232,7 @@ describe("EnvironmentStore — save and load round-trip", () => {
     });
 
     const freshStore = new Stores(tmpDir).environmentStore();
-    const loaded = freshStore.getEnvironments();
+    const loaded = freshStore.getEnvironments("coll-1");
     assert.equal(
       loaded.globalVariables.find((v) => v.name === "token").value,
       "session-token",
@@ -245,13 +245,13 @@ describe("EnvironmentStore — save and load round-trip", () => {
     for (let i = 0; i < 200; i++) {
       variables.push({ name: `key${i}`, value: `value${i}`, secure: false });
     }
-    envStore.saveEnvironments({
+    envStore.saveEnvironments("coll-1", {
       version: 1,
       globalVariables: variables,
       activeEnvironmentId: null,
       environments: [],
     });
-    const loaded = envStore.getEnvironments();
+    const loaded = envStore.getEnvironments("coll-1");
     assert.equal(loaded.globalVariables.length, 200);
     assert.equal(
       loaded.globalVariables.find((v) => v.name === "key199").value,
@@ -1709,13 +1709,13 @@ describe("Edge cases — boundary conditions", () => {
 
   test("environment with 0 named environments and empty global variables is valid", () => {
     const envStore = stores.environments;
-    envStore.saveEnvironments({
+    envStore.saveEnvironments("coll-1", {
       version: 1,
       globalVariables: [],
       activeEnvironmentId: null,
       environments: [],
     });
-    const loaded = envStore.getEnvironments();
+    const loaded = envStore.getEnvironments("coll-1");
     assert.deepEqual(loaded.globalVariables, []);
     assert.deepEqual(loaded.environments, []);
   });
@@ -1759,7 +1759,7 @@ describe("Secure variables — at-rest encryption (reversible mock)", () => {
   });
 
   test("environment secure value is ciphertext on disk, plaintext on read", () => {
-    stores.environments.saveEnvironments({
+    stores.environments.saveEnvironments("coll-1", {
       version: 1,
       globalVariables: [
         { name: "base", value: "https://api.example.com", secure: false },
@@ -1776,7 +1776,7 @@ describe("Secure variables — at-rest encryption (reversible mock)", () => {
     });
 
     // On disk: secure values encrypted, non-secure left as plaintext.
-    const raw = readRaw(new Paths(tmpDir).environmentsPath());
+    const raw = readRaw(new Paths(tmpDir).environmentsFile("coll-1"));
     assert.equal(
       raw.globalVariables.find((v) => v.name === "base").value,
       "https://api.example.com",
@@ -1791,7 +1791,7 @@ describe("Secure variables — at-rest encryption (reversible mock)", () => {
     );
 
     // On read: store decrypts back to plaintext, no failure markers.
-    const loaded = stores.environments.getEnvironments();
+    const loaded = stores.environments.getEnvironments("coll-1");
     assert.equal(
       loaded.globalVariables.find((v) => v.name === "apiKey").value,
       "s3cr3t",
@@ -1848,7 +1848,7 @@ describe("Secure variables — at-rest encryption (reversible mock)", () => {
 
   test("clobber guard: a blank decrypt-failed value does not wipe on-disk ciphertext", () => {
     // First save establishes recoverable ciphertext on disk.
-    stores.environments.saveEnvironments({
+    stores.environments.saveEnvironments("coll-1", {
       version: 1,
       globalVariables: [{ name: "apiKey", value: "s3cr3t", secure: true }],
       activeEnvironmentId: null,
@@ -1857,7 +1857,7 @@ describe("Secure variables — at-rest encryption (reversible mock)", () => {
 
     // Simulate the renderer echoing back a value that had failed to decrypt:
     // blank value carrying the per-entry decryptError marker.
-    stores.environments.saveEnvironments({
+    stores.environments.saveEnvironments("coll-1", {
       version: 1,
       globalVariables: [
         {
@@ -1872,7 +1872,7 @@ describe("Secure variables — at-rest encryption (reversible mock)", () => {
     });
 
     // The on-disk ciphertext was preserved, so a healthy read still decrypts it.
-    const loaded = stores.environments.getEnvironments();
+    const loaded = stores.environments.getEnvironments("coll-1");
     assert.equal(
       loaded.globalVariables.find((v) => v.name === "apiKey").value,
       "s3cr3t",
@@ -1881,7 +1881,7 @@ describe("Secure variables — at-rest encryption (reversible mock)", () => {
 
   test("clobber guard also protects a per-named-environment secure value", () => {
     // Establish recoverable ciphertext for a variable inside a named environment.
-    stores.environments.saveEnvironments({
+    stores.environments.saveEnvironments("coll-1", {
       version: 1,
       globalVariables: [],
       activeEnvironmentId: "env-1",
@@ -1895,7 +1895,7 @@ describe("Secure variables — at-rest encryption (reversible mock)", () => {
     });
 
     // Renderer echoes back a blank decrypt-failed value for that named-env var.
-    stores.environments.saveEnvironments({
+    stores.environments.saveEnvironments("coll-1", {
       version: 1,
       globalVariables: [],
       activeEnvironmentId: "env-1",
@@ -1915,7 +1915,7 @@ describe("Secure variables — at-rest encryption (reversible mock)", () => {
       ],
     });
 
-    const loaded = stores.environments.getEnvironments();
+    const loaded = stores.environments.getEnvironments("coll-1");
     assert.equal(
       loaded.environments[0].variables.find((v) => v.name === "token").value,
       "tok-123",
@@ -1923,19 +1923,19 @@ describe("Secure variables — at-rest encryption (reversible mock)", () => {
   });
 
   test("user re-entry overrides on-disk ciphertext (no spurious clobber-guard restore)", () => {
-    stores.environments.saveEnvironments({
+    stores.environments.saveEnvironments("coll-1", {
       version: 1,
       globalVariables: [{ name: "apiKey", value: "old-secret", secure: true }],
       activeEnvironmentId: null,
       environments: [],
     });
-    stores.environments.saveEnvironments({
+    stores.environments.saveEnvironments("coll-1", {
       version: 1,
       globalVariables: [{ name: "apiKey", value: "new-secret", secure: true }],
       activeEnvironmentId: null,
       environments: [],
     });
-    const loaded = stores.environments.getEnvironments();
+    const loaded = stores.environments.getEnvironments("coll-1");
     assert.equal(
       loaded.globalVariables.find((v) => v.name === "apiKey").value,
       "new-secret",
@@ -1943,7 +1943,7 @@ describe("Secure variables — at-rest encryption (reversible mock)", () => {
   });
 
   test("decryptError marker is never persisted to disk", () => {
-    stores.environments.saveEnvironments({
+    stores.environments.saveEnvironments("coll-1", {
       version: 1,
       globalVariables: [
         {
@@ -1956,7 +1956,7 @@ describe("Secure variables — at-rest encryption (reversible mock)", () => {
       activeEnvironmentId: null,
       environments: [],
     });
-    const raw = readRaw(new Paths(tmpDir).environmentsPath());
+    const raw = readRaw(new Paths(tmpDir).environmentsFile("coll-1"));
     assert.ok(
       !("decryptError" in raw.globalVariables.find((v) => v.name === "apiKey")),
     );

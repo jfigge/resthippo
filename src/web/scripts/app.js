@@ -73,6 +73,7 @@ import {
   deleteHistory,
   clearHistory,
   trimHistory,
+  loadEnvironments,
   saveEnvironments,
   setWriteErrorHandler,
 } from "./data-store.js";
@@ -2204,6 +2205,12 @@ async function activateCollection(id) {
     ),
   };
 
+  // Environments are per collection — swap to the target collection's set so the
+  // picker, active environment and Global vars all follow the active collection.
+  currentEnvironments = await loadEnvironments(id);
+  envPicker.load(currentEnvironments);
+  environmentsPopup.update(currentEnvironments);
+
   collPicker.load(currentColls);
   collPopup.update(collPopupState());
   _refreshEditorVariableContext();
@@ -2231,6 +2238,18 @@ async function handleCollAdd({ name }) {
   // Save empty items for the new collection
   await saveCollectionData(newColl.id, []);
 
+  // New collections start with an empty environments set (their own Global, no
+  // named environments, no active selection). Persisting the file now also stops
+  // the one-time migration from ever re-seeding this collection from a lingering
+  // legacy workspace file.
+  const newEnvironments = {
+    version: 1,
+    globalVariables: [],
+    activeEnvironmentId: null,
+    environments: [],
+  };
+  await saveEnvironments(newColl.id, newEnvironments);
+
   // Drain debounced edits before switching away (see _flushRequestEdits).
   await _flushRequestEdits();
 
@@ -2242,6 +2261,7 @@ async function handleCollAdd({ name }) {
     );
   setActiveCollection(newColl.id);
   currentColls = { collections, activeCollectionId: newColl.id };
+  currentEnvironments = newEnvironments;
 
   await saveManifest({ collections, activeCollectionId: newColl.id });
 
@@ -2251,6 +2271,8 @@ async function handleCollAdd({ name }) {
   _clearRequestEditor();
   collPicker.load(currentColls);
   collPopup.update(collPopupState());
+  envPicker.load(currentEnvironments);
+  environmentsPopup.update(currentEnvironments);
 }
 
 /** Rename a collection — updates its display name everywhere without touching its items. */
@@ -2301,6 +2323,10 @@ async function handleCollDelete({ id }) {
         ? { ...coll, variables: variables ?? [], headers: headers ?? [] }
         : coll,
     );
+    // Environments are per collection — load the one we switched to.
+    currentEnvironments = await loadEnvironments(activeId);
+    envPicker.load(currentEnvironments);
+    environmentsPopup.update(currentEnvironments);
   } else {
     setActiveCollection(activeId);
   }
@@ -2404,7 +2430,7 @@ function handleVarsBulkEditorChange({ bulkEditor }) {
 
 async function handleEnvironmentsChanged({ data }) {
   currentEnvironments = data;
-  await saveEnvironments(currentEnvironments);
+  await saveEnvironments(currentColls.activeCollectionId, currentEnvironments);
   environmentsPopup.update(currentEnvironments);
   _refreshEditorVariableContext();
   envPicker.load(currentEnvironments);
@@ -2415,7 +2441,7 @@ async function handleEnvActivate({ id }) {
     ...currentEnvironments,
     activeEnvironmentId: id,
   };
-  await saveEnvironments(currentEnvironments);
+  await saveEnvironments(currentColls.activeCollectionId, currentEnvironments);
   environmentsPopup.update(currentEnvironments);
   _refreshEditorVariableContext();
   envPicker.load(currentEnvironments);
@@ -2435,7 +2461,7 @@ async function handleEnvVarsSave({ id, variables }) {
       ),
     };
   }
-  await saveEnvironments(currentEnvironments);
+  await saveEnvironments(currentColls.activeCollectionId, currentEnvironments);
   _refreshEditorVariableContext();
 }
 
@@ -3384,12 +3410,21 @@ function installRequestEditSendHandlers() {
  * In Electron     → reads via ipcMain from the platform userData directory
  */
 async function initCollections() {
-  const [
-    { items, settings, collections, activeCollectionId, variables, headers },
-    environmentsData,
-  ] = await Promise.all([loadAll(), window.hippo.store.environments.get()]);
+  const {
+    items,
+    settings,
+    collections,
+    activeCollectionId,
+    variables,
+    headers,
+  } = await loadAll();
 
-  if (environmentsData) currentEnvironments = environmentsData;
+  // Environments are now scoped per collection, so they can only be loaded once
+  // we know which collection is active (hence sequenced after loadAll, not in
+  // parallel). First run / no active collection → keep the empty default.
+  if (activeCollectionId) {
+    currentEnvironments = await loadEnvironments(activeCollectionId);
+  }
 
   treeView.setStorageKey(activeCollectionId);
   treeView.setItems(items);
@@ -4904,10 +4939,10 @@ async function mergeRestHippoArchive(archive) {
   // snapshot back over the just-restored variables.
   setActiveVariables(collVars);
 
-  // 3. Environments merge (global + named), then persist.
+  // 3. Environments merge (global + named) into the active collection, then persist.
   const envMerge = mergeEnvironments(currentEnvironments, archive.environments);
   currentEnvironments = envMerge.environments;
-  await saveEnvironments(currentEnvironments);
+  await saveEnvironments(activeId, currentEnvironments);
 
   // 4. Reflect the merged collection variables in memory. saveCollectionData
   // only writes to disk, but the variable resolver and the collection variables

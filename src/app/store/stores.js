@@ -98,6 +98,71 @@ class Stores {
     } catch {
       // ignore — orphan cleanup is non-critical
     }
+
+    // One-time relocation of the legacy workspace-wide environments file into
+    // each collection's own environments.json (environments are now scoped per
+    // collection). Best-effort — never block startup on a migration error.
+    try {
+      this._migrateLegacyEnvironments();
+    } catch (err) {
+      console.warn(
+        `[store] legacy environments migration skipped: ${err.message}`,
+      );
+    }
+  }
+
+  /**
+   * Relocate the legacy single workspace environments file
+   * (environments/index.json) into per-collection environments.json files.
+   *
+   * Environments used to be workspace-global; they are now scoped per
+   * collection. On the first launch after that change, every existing
+   * collection receives an identical copy of the old set (Global + named
+   * environments + active selection), after which they diverge independently.
+   *
+   * Idempotent and crash-safe:
+   *   - Copies the legacy file's RAW contents (ciphertext preserved — no
+   *     decrypt/re-encrypt round-trip that a transient keystore failure could
+   *     turn into a blanked secret; the ciphertext is machine-bound and stays
+   *     valid in place).
+   *   - Skips any collection that already has its own environments.json, so a
+   *     partial run resumes safely and an edited per-collection set is never
+   *     clobbered.
+   *   - Retires the legacy file (→ index.json.migrated) only once every
+   *     collection has been seeded, so the trigger survives a mid-run crash.
+   *   - No collections yet → leaves the legacy file for a later boot.
+   */
+  _migrateLegacyEnvironments() {
+    const legacyPath = this._paths.environmentsPath();
+    const legacy = io.readJSON(legacyPath);
+    if (
+      legacy === null ||
+      typeof legacy !== "object" ||
+      Array.isArray(legacy)
+    ) {
+      return; // no legacy file (already migrated / fresh install)
+    }
+
+    const manifest = this._collectionStore.getManifest();
+    const collections = Array.isArray(manifest?.collections)
+      ? manifest.collections
+      : [];
+    if (collections.length === 0) {
+      return; // no collections to seed yet — retry on a later boot
+    }
+
+    for (const coll of collections) {
+      if (!coll || !io.isValidID(coll.id)) continue;
+      const dest = this._paths.environmentsFile(coll.id);
+      if (io.exists(dest)) continue; // already seeded — never clobber
+      io.ensureDir(this._paths.collectionDir(coll.id));
+      io.writeJSON(dest, legacy);
+    }
+
+    // Every collection seeded — retire the legacy file so this never runs again.
+    const migratedPath = `${legacyPath}.migrated`;
+    io.remove(migratedPath); // best-effort clear of any prior partial
+    io.move(legacyPath, migratedPath);
   }
 
   /** Manifest store — GET/PUT global collections + settings. */

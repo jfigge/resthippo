@@ -54,7 +54,8 @@
  *     deleteHistory(requestId, histId)       → void
  *
  *   Environments + cookies (Electron-only authoritative writes → boolean):
- *     saveEnvironments(data)
+ *     loadEnvironments(collectionId)         → environments document
+ *     saveEnvironments(collectionId, data)
  *     upsertCookie(collectionId, cookie)
  *     deleteCookie(collectionId, ident)
  *     clearCookies(collectionId)
@@ -887,21 +888,43 @@ export async function trimHistory(maxEntries) {
 }
 
 // ── Public: environment variables API ─────────────────────────────────────────
-// Global + named environment variables (distinct from per-collection variables).
-// These are authoritative writes, so they use the loud storeWrite() path: a
-// failure both logs and raises the write-error sink (toast). Electron-only —
-// there is no Go dev-server endpoint, so the dev-server path is a resolving no-op
-// treated as success, mirroring trimHistory().
+// A collection's global + named environment variables (scoped per collection,
+// distinct from per-collection collection-level variables). Writes are
+// authoritative, so they use the loud storeWrite() path: a failure both logs and
+// raises the write-error sink (toast). Electron-only — there is no Go dev-server
+// endpoint, so the dev-server path is a resolving no-op (an empty doc on read,
+// success on write), mirroring trimHistory().
+
+const EMPTY_ENVIRONMENTS = Object.freeze({
+  globalVariables: [],
+  activeEnvironmentId: null,
+  environments: [],
+});
 
 /**
- * Persist the full environments document (global + named variables).
+ * Load a collection's environments document (global + named variables).
+ * @param {string} collectionId
+ * @returns {Promise<object>}  { globalVariables, activeEnvironmentId, environments }
+ */
+export async function loadEnvironments(collectionId) {
+  return storeCall(
+    `loadEnvironments(${collectionId})`,
+    () => window.hippo.store.environments.get(collectionId),
+    () => ({ ...EMPTY_ENVIRONMENTS }),
+    { ...EMPTY_ENVIRONMENTS },
+  );
+}
+
+/**
+ * Persist a collection's full environments document (global + named variables).
+ * @param {string} collectionId
  * @param {object} data  { version, globalVariables, activeEnvironmentId, environments }
  * @returns {Promise<boolean>}  true when the write succeeded
  */
-export async function saveEnvironments(data) {
+export async function saveEnvironments(collectionId, data) {
   return storeWrite(
     "Save environments",
-    () => window.hippo.store.environments.save(data),
+    () => window.hippo.store.environments.save(collectionId, data),
     () => {},
   );
 }

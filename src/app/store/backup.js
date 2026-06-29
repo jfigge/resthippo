@@ -28,12 +28,17 @@
  *     exportedAt: <ISO-8601>,
  *     secretsIncluded: <boolean>,  // legacy flag: true for machine OR password
  *     secretsMode: "none"|"machine"|"password",
+ *     backupFormatVersion: 2,      // envelope layout (per-collection environments)
  *     manifest:     { ...collections/index.json },
- *     environments: { ...environments/index.json } | null,
  *     collections: [
- *       { id, metadata: {...}, tree: {...}, requests: [ {...}, ... ] }
+ *       { id, metadata: {...}, tree: {...}, requests: [ {...}, ... ],
+ *         environments: { ...collections/<id>/environments.json } | null }
  *     ]
  *   }
+ *
+ * Legacy envelopes (no `backupFormatVersion`) instead carry a single top-level
+ * `environments: { ...environments/index.json }`; on import that one set is
+ * distributed to every restored collection.
  *
  * Secret handling (security-critical) — three modes, applied uniformly across
  * all six secret locations (request auth fields, settings proxy URL +
@@ -83,6 +88,12 @@ const { CURRENT_SCHEMA_VERSION } = require("./migrations");
 
 const BACKUP_KIND = "resthippo-backup";
 
+// Backup envelope layout version (distinct from the per-document `schemaVersion`).
+//   1 (or absent) — legacy: one workspace-wide top-level `environments` section.
+//   2             — environments scoped per collection (`collections[].environments`).
+// The importer reads either layout; exports always write the current version.
+const BACKUP_FORMAT_VERSION = 2;
+
 // Secret-handling modes for a backup. Recorded on the envelope as `secretsMode`
 // (with the legacy boolean `secretsIncluded` kept in sync for older readers):
 //   "none"     — secrets redacted (blanked); safe to share.
@@ -131,11 +142,6 @@ class BackupStore {
     const exportedAt = opts.exportedAt ?? new Date().toISOString();
 
     const manifest = this._readManifest(mode, password);
-    const environments = _exportEnvironments(
-      io.readJSON(this._paths.environmentsPath()),
-      mode,
-      password,
-    );
 
     const collections = [];
     for (const id of this._listCollectionIds()) {
@@ -152,17 +158,23 @@ class BackupStore {
         mode,
         password,
       );
-      collections.push({ id, metadata, tree, requests });
+      // This collection's own environments (Global + named) travel with it.
+      const environments = _exportEnvironments(
+        io.readJSON(this._paths.environmentsFile(id)),
+        mode,
+        password,
+      );
+      collections.push({ id, metadata, tree, requests, environments });
     }
 
     return {
       kind: BACKUP_KIND,
       schemaVersion: CURRENT_SCHEMA_VERSION,
+      backupFormatVersion: BACKUP_FORMAT_VERSION,
       exportedAt,
       secretsIncluded: mode !== SECRETS_NONE,
       secretsMode: mode,
       manifest,
-      environments,
       collections,
     };
   }
@@ -314,14 +326,7 @@ class BackupStore {
       io.writeJSON(this._paths.manifestPath(), manifest);
     }
 
-    // ── Environments ──
-    const environments = this._mergeEnvironments(envelope.environments, mode);
-    if (environments) {
-      io.ensureDir(this._paths.environmentsDir());
-      io.writeJSON(this._paths.environmentsPath(), environments);
-    }
-
-    // ── Per-collection files ──
+    // ── Per-collection files (incl. each collection's environments) ──
     // In merge mode, only write collections that are listed in the backup's own
     // manifest.  The exportAll filesystem scan can pick up orphaned collection
     // directories on the source machine that were never registered in its manifest;
@@ -371,6 +376,18 @@ class BackupStore {
         this._paths.treePath(id),
         _ensureTreeHasRequests(id, coll.tree, writtenReqIds),
       );
+
+      // Environments are scoped per collection. A current-format backup carries
+      // each collection's set inline; a legacy backup carries one shared
+      // top-level set that is distributed to every restored collection.
+      const incomingEnv =
+        coll.environments && typeof coll.environments === "object"
+          ? coll.environments
+          : envelope.environments;
+      const environments = this._mergeEnvironments(incomingEnv, mode, id);
+      if (environments) {
+        io.writeJSON(this._paths.environmentsFile(id), environments);
+      }
     }
 
     // New request→collection mappings are now on disk.
@@ -496,14 +513,19 @@ class BackupStore {
   }
 
   /**
-   * Compute the environments document to persist. Replace takes the backup as-is;
-   * merge unions the named environments by id and keeps existing globals/active.
+   * Compute a collection's environments document to persist. Replace takes the
+   * backup as-is; merge unions the named environments by id with the collection's
+   * existing set and keeps its existing globals/active selection.
+   *
+   * @param {object|null} incoming  the backup's environments doc for this collection
+   * @param {"merge"|"replace"} mode
+   * @param {string} collId  the (effective) collection ID being written
    */
-  _mergeEnvironments(incoming, mode) {
+  _mergeEnvironments(incoming, mode, collId) {
     if (!incoming || typeof incoming !== "object") return null;
     if (mode === "replace") return incoming;
 
-    const current = io.readJSON(this._paths.environmentsPath());
+    const current = io.readJSON(this._paths.environmentsFile(collId));
     if (!current || typeof current !== "object") return incoming;
 
     const byId = new Map();
@@ -704,6 +726,7 @@ function _localizeEnvelope(envelope, password) {
     out.manifest = manifest;
   }
 
+  // Legacy top-level environments (old backups distribute this to all collections).
   out.environments = _localizeEnvironments(envelope.environments, password);
 
   if (Array.isArray(envelope.collections)) {
@@ -721,6 +744,10 @@ function _localizeEnvelope(envelope, password) {
         next.requests = coll.requests.map((req) =>
           encryptRequest(importRequestSecrets(req, password)),
         );
+      }
+      // This collection's own environments (current backup format).
+      if (coll.environments && typeof coll.environments === "object") {
+        next.environments = _localizeEnvironments(coll.environments, password);
       }
       return next;
     });
