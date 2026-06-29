@@ -326,7 +326,7 @@
       "layout": "レイアウト",
       "language": "言語",
       "languageSystem": "システムに従う",
-      "hideHeaders": "ヘッダーを非表示",
+      "showHeaders": "ヘッダーを表示",
       "useMethodIcons": "メソッドアイコンを使用",
       "useMethodIconsTitle": "各 HTTP メソッドに名前の代わりにアイコンを表示",
       "showRecents": "最近使用したタブを表示",

@@ -329,7 +329,7 @@
       "layout": "Disposition",
       "language": "Langue",
       "languageSystem": "Système par défaut",
-      "hideHeaders": "Masquer les en-têtes",
+      "showHeaders": "Afficher les en-têtes",
       "useMethodIcons": "Utiliser les icônes de méthode",
       "useMethodIconsTitle": "Afficher une icône pour chaque méthode HTTP au lieu de son nom",
       "showRecents": "Afficher l'onglet des éléments récents",

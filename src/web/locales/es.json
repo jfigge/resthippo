@@ -329,7 +329,7 @@
       "layout": "Disposición",
       "language": "Idioma",
       "languageSystem": "Predeterminado del sistema",
-      "hideHeaders": "Ocultar encabezados",
+      "showHeaders": "Mostrar encabezados",
       "useMethodIcons": "Usar iconos de método",
       "useMethodIconsTitle": "Mostrar un icono para cada método HTTP en lugar de su nombre",
       "showRecents": "Mostrar pestaña de usados recientemente",

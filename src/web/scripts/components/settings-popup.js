@@ -230,11 +230,12 @@ export class SettingsPopup {
             </div>
 
             <div class="settings-row settings-row--toggle" id="setting-remove-headers-row">
-              <label class="settings-label" for="setting-remove-headers">${t("settings.appearance.hideHeaders")}</label>
+              <label class="settings-label" for="setting-remove-headers">${t("settings.appearance.showHeaders")}</label>
               <input
                 class="settings-toggle"
                 id="setting-remove-headers"
                 type="checkbox"
+                checked
               />
             </div>
 
@@ -1162,9 +1163,9 @@ export class SettingsPopup {
   }
 
   /**
-   * Sync the tooltip on the "Remove headers" row to reflect the current state.
-   * Checked → explains where the icon will be after checking the box.
-   * Unchecked   → explains where the settings icon moves when headers are hidden.
+   * Sync the tooltip on the "Show headers" row to reflect the current state.
+   * The toggle is displayed inverted (checked = headers shown), so checked maps
+   * to the "headers shown" tooltip and unchecked to the "headers hidden" one.
    */
   #updateRemoveHeadersTitle() {
     const cb = this.#el.querySelector("#setting-remove-headers");
@@ -1218,7 +1219,9 @@ export class SettingsPopup {
             .layout,
           10,
         ) || 2,
-      removeHeaders: this.#el.querySelector("#setting-remove-headers").checked,
+      // Inverted display: the toggle reads "Show headers", but the persisted
+      // flag stays `removeHeaders` (checked = shown = removeHeaders false).
+      removeHeaders: !this.#el.querySelector("#setting-remove-headers").checked,
       methodIcons: this.#el.querySelector("#setting-method-icons").checked,
       showRecents: this.#el.querySelector("#setting-show-recents").checked,
       showUrlPreview: this.#el.querySelector("#setting-show-url-preview")
@@ -1583,8 +1586,9 @@ export class SettingsPopup {
       this.#selectLayout(settings.layout);
     }
     if (settings.removeHeaders !== undefined) {
+      // Inverted display: checked = "Show headers" = NOT removeHeaders.
       this.#el.querySelector("#setting-remove-headers").checked =
-        settings.removeHeaders;
+        !settings.removeHeaders;
     }
     // Always refresh the tooltip so it matches the current checkbox state
     this.#updateRemoveHeadersTitle();

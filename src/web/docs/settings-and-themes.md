@@ -17,7 +17,7 @@ save step.
 | **Editor font size** | Size of text in the code editors (11, 12, 13, 14, 16, or 18 px).                                                                                            |
 | **UI font**          | The interface typeface — **Inter** (bundled), your **system** font, or SF Pro / Segoe UI / Ubuntu / Roboto.                                                  |
 | **Layout**           | The [panel layout](#layouts) (1–4).                                                                                                                          |
-| **Hide headers**     | Hides the top header bar and moves its controls into the collections panel, for a more compact window.                                                       |
+| **Show headers**     | Shows the top header bar. Turn it off to hide the bar and move its controls into the collections panel, for a more compact window.                           |
 | **Use method icons** | Show HTTP method badges as compact icons instead of text.                                                                                                    |
 | **Show recently used tab** | Show or hide the [Recent](collections.md#favorites-and-recent) tab.                                                                                    |
 | **Show URL preview** | Show the resolved URL (with `{{variables}}` filled in) directly beneath the URL bar.                                                                         |

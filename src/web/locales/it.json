@@ -329,7 +329,7 @@
       "layout": "Disposizione",
       "language": "Lingua",
       "languageSystem": "Predefinito di sistema",
-      "hideHeaders": "Nascondi intestazioni",
+      "showHeaders": "Mostra intestazioni",
       "useMethodIcons": "Usa icone dei metodi",
       "useMethodIconsTitle": "Mostra un'icona per ogni metodo HTTP invece del suo nome",
       "showRecents": "Mostra scheda usati di recente",

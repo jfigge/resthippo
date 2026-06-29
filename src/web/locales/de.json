@@ -329,7 +329,7 @@
       "layout": "Layout",
       "language": "Sprache",
       "languageSystem": "Systemstandard",
-      "hideHeaders": "Header ausblenden",
+      "showHeaders": "Header anzeigen",
       "useMethodIcons": "Methodensymbole verwenden",
       "useMethodIconsTitle": "Für jede HTTP-Methode ein Symbol anstelle ihres Namens anzeigen",
       "showRecents": "Tab „Zuletzt verwendet“ anzeigen",

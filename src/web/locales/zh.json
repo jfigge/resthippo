@@ -326,7 +326,7 @@
       "layout": "布局",
       "language": "语言",
       "languageSystem": "跟随系统",
-      "hideHeaders": "隐藏标题栏",
+      "showHeaders": "显示标题栏",
       "useMethodIcons": "使用方法图标",
       "useMethodIconsTitle": "为每个 HTTP 方法显示图标而非其名称",
       "showRecents": "显示最近使用标签页",
