@@ -111,13 +111,16 @@ export class ScriptsEditor {
   }
 
   /**
-   * Called by the host when the Scripts tab becomes visible. Validation runs on
-   * load while the tab is still hidden, where zero-size rects suppress squiggle
-   * rendering; re-render the markers now that the panes have layout.
+   * Called by the host when the Scripts tab becomes visible. The panes are built
+   * while the tab is still hidden, where zero-size rects both suppress squiggle
+   * rendering and measure the line-number gutter at width 0 — which collapses the
+   * document's left margin, dropping the empty-state placeholder under the gutter
+   * ("// …" overlaps line "1"). Re-measure the layout now that the panes have
+   * size; relayout() re-measures the gutter and re-renders the markers.
    */
   onShown() {
-    this.#preEditor?.refreshMarkers();
-    this.#postEditor?.refreshMarkers();
+    this.#preEditor?.relayout();
+    this.#postEditor?.relayout();
   }
 
   /** Build (or rebuild) the Scripts tab-pane element. */

@@ -2609,9 +2609,11 @@ export class RequestEditor {
     this.#tabContent.querySelectorAll(".req-tab-pane").forEach((pane) => {
       pane.hidden = pane.id !== `req-tab-${tabId}`;
     });
-    // The Scripts editors validate on load while their tab is still hidden,
-    // where zero-size rects suppress squiggle rendering; now that the pane has
-    // layout, re-render any markers so a stored syntax error shows immediately.
+    // The Scripts editors are built while their tab is still hidden, where
+    // zero-size rects suppress squiggle rendering and measure the gutter at
+    // width 0 (collapsing the placeholder under the line numbers); now that the
+    // pane has layout, let it re-measure so markers and the placeholder show
+    // correctly.
     if (tabId === "scripts") this.#scriptsEditor.onShown();
   }
 

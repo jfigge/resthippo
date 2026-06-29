@@ -422,6 +422,18 @@ export class PillCodeEditor {
     this.#renderErrorMarkers();
   }
 
+  /** Re-measure the gutter geometry against the live layout (line-number width,
+   *  the document's left margin, fold carets) and re-render markers. Needed when
+   *  the editor was built while hidden — zero-size rects leave the gutter width
+   *  at 0, so the document's left margin (and the empty-state placeholder, which
+   *  is an inline `::before` sitting after that margin) collapse under the
+   *  absolutely-positioned gutter, garbling line "1". Call once the editor gains
+   *  layout, e.g. when its host tab is first shown. A superset of
+   *  refreshMarkers() — #syncGutter() re-renders the squiggles too. */
+  relayout() {
+    this.#syncGutter();
+  }
+
   /** Global 0-based caret offset within getValue(), or -1 when there is no
    *  collapsed caret inside the document. */
   getCaretOffset() {
