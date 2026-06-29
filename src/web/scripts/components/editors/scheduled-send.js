@@ -118,6 +118,19 @@ export class ScheduledSend {
   }
 
   /**
+   * True when a schedule is live for the loaded request — counting down or,
+   * for an interval, mid-fire between countdowns. Right-clicking the Send
+   * button edits the active type's timing, which is only permitted while the
+   * delay/interval is idle; this gates that editor off while it's running.
+   */
+  isActiveForLoaded() {
+    return (
+      this.#schedule != null &&
+      this.#schedule.requestId === this.#host.getCurrentNodeId()
+    );
+  }
+
+  /**
    * Entry point for a Send trigger (click, ⌘/Ctrl+Enter, or tree double-click).
    * Dispatches by the active type: fire now, or start a cancellable countdown.
    */

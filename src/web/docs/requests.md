@@ -46,7 +46,10 @@ check-marked); the choice is a global default that applies to every request:
 
 Choosing **Delayed** or **Interval** opens a small dialog under the Send button
 with a single field for that type's timing — a delay for Delayed, an interval for
-Interval. Defaults are a **5-second delay** and a **10-second interval**.
+Interval. Defaults are a **5-second delay** and a **10-second interval**. To
+adjust the timing later, **right-click the Send button** while it's in Delayed or
+Interval mode to reopen that same dialog — available only while no countdown is
+running.
 
 Every trigger — clicking **Send**, pressing <kbd>⌘/Ctrl</kbd>+<kbd>Enter</kbd>,
 or double-clicking the request in the tree — runs the active type.

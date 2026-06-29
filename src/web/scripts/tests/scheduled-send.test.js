@@ -46,6 +46,16 @@ const flush = () => new Promise((r) => realSetTimeout(r, 0));
 
 const NODE = { id: "r1", method: "GET", url: "https://api.example.com/x" };
 const sendBtn = (editor) => editor.element.querySelector(".req-send-btn");
+const rightClick = (btn, window) =>
+  btn.dispatchEvent(
+    new window.MouseEvent("contextmenu", { bubbles: true, cancelable: true }),
+  );
+// The timing dialog (#openDurationDialog) is mounted on document.body by
+// PopupManager.openMenu; its single field's value is the timing in seconds.
+const durationDialog = () =>
+  document.querySelector(".req-send-duration-dialog");
+const dialogSeconds = () =>
+  durationDialog()?.querySelector(".req-send-type-duration-input")?.value;
 
 function mount() {
   const window = resetDom();
@@ -154,4 +164,47 @@ test("immediate send: fires synchronously on click, no countdown", async () => {
     !sendBtn(editor).classList.contains("req-send-btn--countdown"),
     "no countdown for an immediate send",
   );
+});
+
+test("right-click in delayed mode (idle) re-opens the delay timing dialog", () => {
+  const { window, editor } = mount();
+  editor.applySettings({ sendType: "delayed", sendDelayMs: 7000 });
+
+  rightClick(sendBtn(editor), window);
+  assert.ok(durationDialog(), "the timing dialog opened");
+  assert.equal(dialogSeconds(), "7", "it shows the active delay (7s)");
+});
+
+test("right-click in interval mode (idle) re-opens the interval timing dialog", () => {
+  const { window, editor } = mount();
+  editor.applySettings({ sendType: "interval", sendIntervalMs: 4000 });
+
+  rightClick(sendBtn(editor), window);
+  assert.ok(durationDialog(), "the timing dialog opened");
+  assert.equal(dialogSeconds(), "4", "it shows the active interval (4s)");
+});
+
+test("right-click while counting down does nothing (editor locked)", () => {
+  const { window, editor } = mount();
+  editor.applySettings({ sendType: "delayed", sendDelayMs: 5000 });
+
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    sendBtn(editor).click(); // arm — now counting down
+    assert.ok(
+      sendBtn(editor).classList.contains("req-send-btn--countdown"),
+      "precondition: the countdown is live",
+    );
+    rightClick(sendBtn(editor), window);
+    assert.equal(durationDialog(), null, "no timing dialog while running");
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("right-click in immediate mode does nothing (no timing to edit)", () => {
+  const { window, editor } = mount();
+  // Default type after load() is immediate.
+  rightClick(sendBtn(editor), window);
+  assert.equal(durationDialog(), null, "immediate has no timing dialog");
 });

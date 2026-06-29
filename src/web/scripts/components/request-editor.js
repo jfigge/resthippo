@@ -1021,6 +1021,18 @@ export class RequestEditor {
         this.#scheduledSend.execute();
       }
     });
+    // Right-click re-opens the active scheduled send's timing dialog in place:
+    // Delayed edits its Delay, Interval its Interval (the same one-field dialog
+    // the send-type menu opens). Immediate carries no timing, so it's a no-op,
+    // and while a delay/interval is live (counting down or mid-loop) the editor
+    // is locked — matching the feature's "only when not running" rule.
+    sendBtn.addEventListener("contextmenu", (e) => {
+      const type = this.#scheduledSend.type;
+      if (type !== "delayed" && type !== "interval") return;
+      e.preventDefault();
+      if (this.#scheduledSend.isActiveForLoaded()) return;
+      this.#openDurationDialog(type);
+    });
     // Idle content (label + active-type subscript glyph) + aria-label.
     this.#setSendButtonIdle(sendBtn);
 
