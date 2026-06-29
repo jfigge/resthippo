@@ -47,7 +47,7 @@ import { ResponseViewer } from "./components/response-viewer.js";
 import { WsConsole } from "./components/ws-console.js";
 import { SettingsPopup } from "./components/settings-popup.js";
 import { CollectionsPopup } from "./components/collections-popup.js";
-import { VariablesPopup } from "./components/variables-popup.js";
+import { VarsEditor } from "./components/vars-editor.js";
 import { EnvironmentsPopup } from "./components/environments-popup.js";
 import { EnvPicker } from "./components/env-picker.js";
 import { CollPicker } from "./components/coll-picker.js";
@@ -124,7 +124,7 @@ import { installWsHandlers } from "./event-bus/ws-handlers.js";
 import { installTimelineHandlers } from "./event-bus/timeline-handlers.js";
 import { installZoomHandlers } from "./event-bus/zoom-handlers.js";
 import { installUpdaterHandlers } from "./event-bus/updater-handlers.js";
-import { installFolderVarsHandler } from "./event-bus/folder-vars-handlers.js";
+import { installRunFolderHandler } from "./event-bus/run-folder-handlers.js";
 import { PopupManager } from "./popup-manager.js";
 import { installKeymap } from "./keymap.js";
 import { KeyboardShortcuts } from "./components/keyboard-shortcuts.js";
@@ -616,6 +616,13 @@ function adaptExistingPanel(id) {
 
 // ─── Components ───────────────────────────────────────────────────────────────
 let treeView, requestEditor, responseViewer;
+// Inline variable editor shown in the request panel when a container (collection
+// or folder) is selected in the tree; toggled against requestEditor.
+let varsEditor;
+// The request panel's header title element + its default text, captured at
+// startup so it can be restored when switching back from the variable editor.
+let _requestPanelTitleEl = null;
+let _requestPanelDefaultTitle = "";
 // wsConsole is a mutable pointer to whichever WsConsole instance is currently
 // visible in the response pane. Starts as the idle placeholder; swaps to a
 // per-connection instance when a connection is opened or resumed.
@@ -635,6 +642,18 @@ function initComponents() {
   panelResponse.mount(responseViewer);
   panelResponse.mount(wsConsole);
   wsConsole.element.style.display = "none";
+
+  // The inline variable editor shares the request panel with the request
+  // editor; only one is visible at a time (toggled by tree selection). Its
+  // persistence callbacks are the same handlers the collections popup uses.
+  varsEditor = new VarsEditor({
+    onSave: handleVarsSave,
+    onBulkEditorChange: handleVarsBulkEditorChange,
+  });
+  panelRequest.mount(varsEditor);
+  varsEditor.element.style.display = "none";
+  _requestPanelTitleEl = panelRequest.element.querySelector(".panel-title");
+  _requestPanelDefaultTitle = _requestPanelTitleEl?.textContent ?? "";
 
   // Stream WebSocket status + frames pushed from the main process into the
   // console (and, for lifecycle states, the editor's Connect button).
@@ -1168,12 +1187,12 @@ function makeSplitter(
  * latest values.
  */
 const settingsPopup = new SettingsPopup();
-// CollectionsPopup / VariablesPopup / EnvironmentsPopup are parent-owned popups
-// that report back to app.js via constructor callbacks (see the "Component ↔ app
-// communication" rule in CLAUDE.md). Their callbacks close over collection /
-// environment handlers defined inside initEventBus(), so they are constructed
-// there — declared here only so initHeader() and applySettings() can reach them.
-let collPopup, varsPopup, environmentsPopup;
+// CollectionsPopup / EnvironmentsPopup are parent-owned popups that report back
+// to app.js via constructor callbacks (see the "Component ↔ app communication"
+// rule in CLAUDE.md). Their callbacks close over collection / environment
+// handlers defined inside initEventBus(), so they are constructed there —
+// declared here only so initHeader() and applySettings() can reach them.
+let collPopup, environmentsPopup;
 // Open the environments editor focused on the active environment — the popup
 // selects data.activeEnvironmentId on open(). Shared by the env-picker's
 // "Manage…" action and the ⌘/Ctrl+E shortcut (see installKeyboardShortcuts).
@@ -1355,7 +1374,6 @@ function buildBusContext() {
     getWsConsole: () => wsConsole,
     getRequestEditor: () => requestEditor,
     settingsPopup,
-    varsPopup,
     // Maps / Sets — mutated via methods, safe to share by reference.
     requestHistory: _requestHistory,
     historyLoaded: _historyLoaded,
@@ -1394,6 +1412,7 @@ function initEventBus() {
   //
   // Tree / collections          (TreeView → app.js)
   //   request-selected      node                          row selected in tree
+  //   container-selected    { nodeId, name, variables }   collection/folder selected → show its variable editor
   //   request-open          { collectionId, requestId }   open from favorites/recents
   //   request-execute       node                          run a request from the tree
   //   favorite-toggle       { node, favorited }
@@ -1401,7 +1420,6 @@ function initEventBus() {
   //   request-cleared       —                             last request removed
   //   collections-changed   items[]                       tree mutated → persist
   //   export-collection     { collection }
-  //   folder-vars-open      { nodeId, folderName, variables }
   //   run-folder            { folderId }                   run every request in a folder, tally tests
   //
   // Request lifecycle           (RequestEditor / app.js ↔ panels)
@@ -1500,10 +1518,6 @@ function initEventBus() {
     onExportAll: () =>
       window.dispatchEvent(new CustomEvent("hippo:export-all-requested")),
   });
-  varsPopup = new VariablesPopup({
-    onSave: handleVarsSave,
-    onBulkEditorChange: handleVarsBulkEditorChange,
-  });
   environmentsPopup = new EnvironmentsPopup({
     onChange: handleEnvironmentsChanged,
     onActivate: handleEnvActivate,
@@ -1526,13 +1540,14 @@ function initEventBus() {
   // they stay in this file, but are split into focused install functions rather
   // than one monolithic body.
   installSelectionHandlers();
+  installContainerSelectionHandler();
   installResponseHandlers();
   installStreamHandlers();
   installTreeQuickAccessHandlers();
   installRequestEditSendHandlers();
 
   // Self-contained groups extracted to their own modules (ctx-driven).
-  installFolderVarsHandler(ctx);
+  installRunFolderHandler(ctx);
   installUpdaterHandlers();
 }
 
@@ -1542,6 +1557,8 @@ function installSelectionHandlers() {
     const node = e.detail;
     const prevNodeId = _selectedNode?.id;
     _selectedNode = node;
+    // A request takes over the center panel from the container variable editor.
+    _showRequestEditor();
     // Set variable context BEFORE load() so pill editors render with correct validation
     _refreshEditorVariableContext(node.id);
     requestEditor.load(node);
@@ -1636,10 +1653,55 @@ function installSelectionHandlers() {
     if (!requestEditor) return;
     const node = e.detail;
     _selectedNode = node;
+    _showRequestEditor();
     _refreshEditorVariableContext(node.id);
     requestEditor.load(node);
     requestEditor.element.querySelector(".req-send-btn")?.click();
   });
+}
+
+/**
+ * Swap the center request panel to the inline variable editor for a selected
+ * container (collection / folder), and set the panel title to its scope. The
+ * authoritative variables come from currentColls for a top-level collection
+ * (handleVarsSave writes them there) and from the tree node for a nested folder.
+ */
+function installContainerSelectionHandler() {
+  window.addEventListener("hippo:container-selected", (e) => {
+    const { nodeId, name, variables } = e.detail;
+    const coll = currentColls.collections.find((c) => c.id === nodeId);
+    const scopeVars = coll ? (coll.variables ?? []) : (variables ?? []);
+    varsEditor.load({
+      scopeId: nodeId,
+      scopeName: name,
+      variables: scopeVars,
+      bulkEditor: currentSettings.varsBulkEditor ?? true,
+    });
+    _showVarsEditor(name);
+  });
+}
+
+/** Show the inline variable editor (hide the request editor); set panel title. */
+function _showVarsEditor(scopeName) {
+  if (requestEditor) requestEditor.element.style.display = "none";
+  varsEditor.element.style.display = "";
+  if (_requestPanelTitleEl)
+    _requestPanelTitleEl.textContent = t("variables.titleScope", {
+      scope: scopeName,
+    });
+}
+
+/**
+ * Show the request editor (hide + flush the variable editor); restore the panel
+ * title. Idempotent — safe to call when the request editor is already showing.
+ */
+function _showRequestEditor() {
+  if (!varsEditor) return;
+  varsEditor.flush();
+  varsEditor.element.style.display = "none";
+  if (requestEditor) requestEditor.element.style.display = "";
+  if (_requestPanelTitleEl)
+    _requestPanelTitleEl.textContent = _requestPanelDefaultTitle;
 }
 
 /** Compact { total, passed, failed } from a test-result array, or null if empty. */
@@ -3555,7 +3617,6 @@ function installKeyboardShortcuts() {
       tabFavorites: () => switchTab("favorites"),
       tabRecents: () => switchTab("recents"),
       editEnvironment: openEnvironmentsEditor,
-      folderVariables: () => treeView?.openSelectedVariables(),
       collectionVariables: openCollectionsEditor,
     },
     { isBlocked: () => popupVisible },
@@ -3696,7 +3757,7 @@ function applySettings(settings) {
   // Editor preferences
   if (requestEditor) requestEditor.applySettings(settings);
   if (responseViewer) responseViewer.applySettings(settings);
-  if (varsPopup) varsPopup.applySettings(settings);
+  if (varsEditor) varsEditor.applySettings(settings);
   if (collPopup) collPopup.applySettings(settings);
   if (environmentsPopup) environmentsPopup.applySettings(settings);
   if (treeView) {

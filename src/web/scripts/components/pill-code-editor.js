@@ -1469,13 +1469,13 @@ export class PillCodeEditor {
     const known = VALIDATED_LANGS.includes(this.#language);
     const v = this.getValue();
     if (!this.#validateOn || !known || !v.trim()) {
-      this.#emitValidity(null);
+      this.#emitValidity(null, []);
       this.#errors = [];
       this.#renderErrorMarkers();
       return;
     }
     const errors = this.#parseErrors(this.#language, v);
-    this.#emitValidity(errors.length === 0);
+    this.#emitValidity(errors.length === 0, errors);
     this.#errors = this.#richErrors ? errors : [];
     this.#renderErrorMarkers();
   }
@@ -1630,12 +1630,15 @@ export class PillCodeEditor {
    * Report validity OUTWARD instead of rendering it inside the editor: fire a
    * `pce:validity` CustomEvent on the root element so an external control can
    * toggle. `detail.state` is true (valid) / false (invalid) / null (empty or
-   * validation off). Bubbles, so an ancestor can listen too.
+   * validation off). `detail.errors` carries the located parse errors
+   * ({ line, col, length, message }; 0 or 1 entry) so a host badge can show the
+   * reason even when rich (squiggle) errors are off. Bubbles, so an ancestor can
+   * listen too.
    */
-  #emitValidity(state) {
+  #emitValidity(state, errors = []) {
     this.#el.dispatchEvent(
       new CustomEvent("pce:validity", {
-        detail: { state, language: this.#language },
+        detail: { state, language: this.#language, errors },
         bubbles: true,
       }),
     );

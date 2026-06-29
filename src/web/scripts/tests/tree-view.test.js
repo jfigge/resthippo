@@ -188,6 +188,52 @@ test("clicking the already-active request does not re-dispatch", () => {
   assert.equal(sel.length, 1, "second click on the active row is a no-op");
 });
 
+test("clicking a folder dispatches hippo:container-selected and marks it active", () => {
+  const tv = mount(TREE());
+  const sel = capture("hippo:container-selected");
+  rowOf(tv, "f1").click();
+  assert.equal(sel.length, 1);
+  assert.equal(sel[0].nodeId, "f1");
+  assert.equal(sel[0].name, "Auth");
+  assert.ok(Array.isArray(sel[0].variables));
+  assert.ok(li(tv, "f1").classList.contains("tree-node--active"));
+});
+
+test("clicking a top-level collection dispatches hippo:container-selected", () => {
+  const tv = mount(TREE());
+  const sel = capture("hippo:container-selected");
+  rowOf(tv, "c1").click();
+  assert.equal(sel.at(-1)?.nodeId, "c1");
+  assert.equal(sel.at(-1)?.name, "API");
+});
+
+test("clicking the already-active container does not re-dispatch", () => {
+  const tv = mount(TREE());
+  const sel = capture("hippo:container-selected");
+  rowOf(tv, "f1").click();
+  rowOf(tv, "f1").click();
+  assert.equal(
+    sel.length,
+    1,
+    "second click on the active container is a no-op",
+  );
+});
+
+test("Enter on a folder row selects it (fires hippo:container-selected)", () => {
+  const tv = mount(TREE());
+  const sel = capture("hippo:container-selected");
+  const row = rowOf(tv, "f1");
+  row.focus();
+  row.dispatchEvent(
+    new globalThis.window.KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+    }),
+  );
+  assert.equal(sel.at(-1)?.nodeId, "f1");
+  assert.ok(li(tv, "f1").classList.contains("tree-node--active"));
+});
+
 test("selectById selects a request programmatically and fires the event", () => {
   const tv = mount(TREE());
   const sel = capture("hippo:request-selected");
@@ -805,14 +851,6 @@ test("context menu 'clear-history' fires hippo:timeline-clear for the request", 
   const cleared = capture("hippo:timeline-clear");
   await contextAction(tv, "r1", "clear-history");
   assert.deepEqual(cleared.at(-1), { requestId: "r1" });
-});
-
-test("context menu 'variables' fires hippo:folder-vars-open for a folder", async () => {
-  const tv = mount(TREE());
-  const opened = capture("hippo:folder-vars-open");
-  await contextAction(tv, "f1", "variables");
-  assert.equal(opened.at(-1)?.nodeId, "f1");
-  assert.equal(opened.at(-1)?.folderName, "Auth");
 });
 
 test("context menu 'add-request' on a folder inserts a new child request", async () => {

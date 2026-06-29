@@ -37,15 +37,18 @@ Folder  ▸  Collection  ▸  Environment  ▸  Global
 So a `baseUrl` set in your **Local** environment overrides a global `baseUrl`,
 and a folder-level override beats them both.
 
-### Collection variables
+### Collection and folder variables
 
-Open the [Collections manager](collections.md#collections) and use the
-**Variables** tab to edit a collection's variables:
+**Click a collection or folder** in the tree to edit its variables right in the
+center panel: the request editor is replaced by an inline variable editor scoped
+to that container, and selecting a request switches the panel back. It offers the
+same bulk-text and key/value modes — and per-variable secure masking — as the
+other variable editors, and saves as you type.
 
 ![Collection variables](images/collection-variables.png)
 
-Folder variables work the same way — right-click a folder and choose
-**Variables**.
+A collection's variables are also editable from the
+[Collections manager](collections.md#collections)'s **Variables** tab.
 
 ## Environments
 

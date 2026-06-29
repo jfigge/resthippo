@@ -22,8 +22,7 @@ to pop up a quick reference to the most common shortcuts inside Rest Hippo.
 | <kbd>⌘/Ctrl</kbd>+<kbd>\\</kbd>                   | Cycle through the panel layouts                         |
 | <kbd>⌘/Ctrl</kbd>+<kbd>,</kbd>                    | Open Settings                                           |
 | <kbd>⌘/Ctrl</kbd>+<kbd>E</kbd>                    | Edit the active environment's variables                 |
-| <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd>  | Edit the selected folder's variables                    |
-| <kbd>⌥⌘</kbd>/<kbd>Ctrl+Alt</kbd>+<kbd>E</kbd>   | Edit the active collection's variables                  |
+| <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd>  | Edit the active collection's variables                  |
 | <kbd>⌘/Ctrl</kbd>+<kbd>K</kbd>                    | Open the keyboard-shortcuts cheat-sheet                 |
 | <kbd>⌘/Ctrl</kbd>+<kbd>/</kbd>                    | Open the User Guide                                     |
 | <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd>   | Import a collection                                     |

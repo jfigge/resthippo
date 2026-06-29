@@ -27,6 +27,7 @@
  * Events dispatched on window (payload shapes are documented in the canonical
  * `hippo:*` registry at the top of initEventBus() in app.js):
  *   hippo:request-selected    node               — user clicked a request
+ *   hippo:container-selected  { nodeId, name, variables } — user clicked a collection/folder
  *   hippo:request-open        { collectionId, requestId } — open from a menu action
  *   hippo:request-execute     node               — run a request from the tree
  *   hippo:favorite-toggle     { node, favorited }
@@ -34,7 +35,6 @@
  *   hippo:request-cleared     —                  — last request deleted; editor should reset
  *   hippo:collections-changed items[]            — tree was mutated (add/remove/move) → persist
  *   hippo:export-collection   { collection }
- *   hippo:folder-vars-open    { nodeId, folderName, variables } — user opened folder vars
  *   hippo:run-folder          { folderId }       — run every request in a folder
  *   hippo:cancel-request      { requestId }      — stop a running request from the tree
  *   hippo:timeline-clear      { requestId }      — clear a request's run history
@@ -538,45 +538,6 @@ export class TreeView {
     li.scrollIntoView({ block: "nearest" });
   }
 
-  /**
-   * Open the folder-scope variable editor for the current selection — the same
-   * popup the context menu's "Variables" item opens. The scope resolves to: the
-   * selected node when it is a container (collection / folder), otherwise its
-   * parent container, otherwise the active collection. No-op when none exists.
-   * Driven by ⇧⌘/Ctrl+E.
-   */
-  openSelectedVariables() {
-    let id = this.#selectedId;
-    let node = id ? findNode(this.#items, id) : null;
-    if (node && node.type !== "collection") {
-      // A request (leaf) is selected — edit its containing folder instead.
-      id = findParentId(this.#items, node.id);
-      node = id ? findNode(this.#items, id) : null;
-    }
-    if (!node && this.#activeCollectionId)
-      node = findNode(this.#items, this.#activeCollectionId);
-    if (node) this.#openNodeVariables(node);
-  }
-
-  /**
-   * Fire the folder-vars-open event for a container node (collection / folder),
-   * which app.js routes to the variables popup. The single source of the event
-   * shape, shared by the "Variables" context-menu item and openSelectedVariables.
-   * @param {{ id:string, name:string, variables?:object[] }} node
-   */
-  #openNodeVariables(node) {
-    window.dispatchEvent(
-      new CustomEvent("hippo:folder-vars-open", {
-        detail: {
-          nodeId: node.id,
-          folderName: node.name,
-          variables: node.variables ?? [],
-        },
-        bubbles: true,
-      }),
-    );
-  }
-
   // ── Toolbar ─────────────────────────────────────────────────────────────
 
   #renderToolbar() {
@@ -991,8 +952,6 @@ export class TreeView {
             "clear-run": () => this.#clearFolderRunCounts(node.id),
             rename: () => this.#renameNode(node.id),
             duplicate: () => this.#duplicateNode(node.id),
-            variables: () =>
-              this.#openNodeVariables(findNode(this.#items, node.id) ?? node),
             "export-collection": () => {
               const liveNode = findNode(this.#items, node.id) ?? node;
               window.dispatchEvent(
@@ -1071,12 +1030,6 @@ export class TreeView {
               id: "rename",
               label: t("tree.menu.rename"),
               accelerator: electronAccelerator("rename"),
-            },
-            { type: "separator" },
-            {
-              id: "variables",
-              label: t("tree.menu.variables"),
-              accelerator: electronAccelerator("folderVariables"),
             },
             { type: "separator" },
             {
@@ -1757,11 +1710,10 @@ export class TreeView {
         this.#setNodeExpanded(li, !expanded);
       };
 
-      // Single click anywhere on the row → select / highlight the row only (no toggle).
+      // Single click anywhere on the row → select the container (highlight +
+      // show its variable editor in the center panel); no expand toggle.
       row.addEventListener("click", () => {
-        this.#activeCollectionId = node.id;
-        this.#selectedId = null;
-        this.#setActiveRow(li);
+        this.#selectContainer(node, li);
       });
 
       // Single (or double) click on the folder icon → also toggle expand/collapse.
@@ -1776,17 +1728,15 @@ export class TreeView {
         toggleExpand();
       });
 
-      // Keyboard: Enter → toggle; Space → select only.
+      // Keyboard: Enter → select + toggle; Space → select only.
       row.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
-          this.#activeCollectionId = node.id;
-          this.#setActiveRow(li);
+          this.#selectContainer(node, li);
           toggleExpand();
         } else if (e.key === " ") {
           e.preventDefault();
-          this.#activeCollectionId = node.id;
-          this.#setActiveRow(li);
+          this.#selectContainer(node, li);
         }
       });
 
@@ -2353,6 +2303,33 @@ export class TreeView {
     // Keep rapid clicks from bubbling into the row's double-click-to-execute.
     btn.addEventListener("dblclick", (e) => e.stopPropagation());
     return btn;
+  }
+
+  /**
+   * Select a container row (collection / folder): highlight it, clear any
+   * selected request, and announce it so app.js swaps the center panel to the
+   * container's inline variable editor. Mirrors #selectRequest — reads the live
+   * node from #items (the click closure may hold a stale object after an edit)
+   * and skips the dispatch when the row is already active.
+   */
+  #selectContainer(node, li) {
+    const alreadyActive = li.classList.contains("tree-node--active");
+    this.#activeCollectionId = node.id;
+    this.#selectedId = null;
+    this.#setActiveRow(li);
+    if (alreadyActive) return;
+
+    const currentNode = findNode(this.#items, node.id) ?? node;
+    window.dispatchEvent(
+      new CustomEvent("hippo:container-selected", {
+        detail: {
+          nodeId: currentNode.id,
+          name: currentNode.name,
+          variables: currentNode.variables ?? [],
+        },
+        bubbles: true,
+      }),
+    );
   }
 
   #selectRequest(node, li) {

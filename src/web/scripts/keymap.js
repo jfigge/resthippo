@@ -221,10 +221,12 @@ export const SHORTCUT_GROUPS = [
         binding: { mod: true, key: "," },
         menuOwned: true,
       },
-      // The ⌘/Ctrl+E family opens the three variable scopes: plain ⌘E the active
-      // environment, ⇧⌘E the selected folder, ⌥⌘E the active collection. All
+      // The ⌘/Ctrl+E family opens two variable scopes: plain ⌘E the active
+      // environment, ⇧⌘E the active collection (the Collections manager). Both
       // renderer-owned; the matching native menu entries advertise them as
-      // display-only accelerators (env-picker "Manage…", tree "Variables").
+      // display-only accelerators (env-picker "Manage…"). (Folder/collection
+      // variables are also edited inline by selecting the container in the
+      // tree — no dedicated shortcut.)
       {
         id: "editEnvironment",
         descKey: "shortcuts.editEnvironment",
@@ -233,16 +235,9 @@ export const SHORTCUT_GROUPS = [
         allowWhileTyping: true,
       },
       {
-        id: "folderVariables",
-        descKey: "shortcuts.folderVariables",
-        binding: { mod: true, shift: true, key: "e" },
-        wire: true,
-        allowWhileTyping: true,
-      },
-      {
         id: "collectionVariables",
         descKey: "shortcuts.collectionVariables",
-        binding: { mod: true, alt: true, key: "e" },
+        binding: { mod: true, shift: true, key: "e" },
         wire: true,
         allowWhileTyping: true,
       },

@@ -24,8 +24,10 @@
  * active one. Selecting an environment activates it; the OS dismisses the menu.
  * The two mouse interactions open different menus:
  *   • primary (left) click    → the environment list (Global + each
- *     environment); selecting one activates it.
- *   • secondary (right) click → just a "Manage…" entry that opens the
+ *     environment) with a check beside the active one, then a separator and a
+ *     "Manage…" entry; selecting an environment activates it, "Manage…" opens
+ *     the environments editor (onManage).
+ *   • secondary (right) click → just the "Manage…" entry that opens the
  *     environments editor (onManage) — no environment rows, no separator.
  *
  * The menu is shown by the main process over the `ui:context-menu:show` IPC
@@ -117,10 +119,11 @@ export class EnvPicker {
    * Open a native OS popup menu anchored under the trigger. With `withManage`
    * false (primary click) the rows are Global (id null) then each named
    * environment with a check beside the active one, upper-cased to match the
-   * trigger; selecting one activates it. With `withManage` true (secondary
-   * click) the menu holds only a "Manage…" entry that opens the environments
-   * editor — no environment rows, no separator. Resolves to the clicked id (or
-   * null when dismissed); we map it back to the activate / manage action.
+   * trigger, followed by a separator and a "Manage…" entry; selecting an
+   * environment activates it, "Manage…" opens the editor. With `withManage`
+   * true (secondary click) the menu holds only the "Manage…" entry — no
+   * environment rows, no separator. Resolves to the clicked id (or null when
+   * dismissed); we map it back to the activate / manage action.
    */
   async #openMenu(btn, withManage = false) {
     // Re-entrancy guard; also a no-op outside Electron (no native menu host).
@@ -131,18 +134,19 @@ export class EnvPicker {
     // Native menu ids are strings; key each environment row by index and map
     // the chosen key back to its (possibly null) environment id.
     const idByKey = new Map();
+    // The "Manage…" entry opens the environments editor. Its accelerator is
+    // display-only (the renderer owns ⌘/Ctrl+E); it just advertises the
+    // shortcut next to the same action this entry triggers.
+    const manageItem = {
+      id: _MANAGE_ID,
+      label: t("env.manage"),
+      accelerator: electronAccelerator("editEnvironment"),
+    };
+
     let items;
     if (withManage) {
-      // Secondary click → just the "Manage…" entry; no environment rows. The
-      // accelerator is display-only (the renderer owns ⌘/Ctrl+E); it just
-      // advertises the shortcut next to the same action this entry triggers.
-      items = [
-        {
-          id: _MANAGE_ID,
-          label: t("env.manage"),
-          accelerator: electronAccelerator("editEnvironment"),
-        },
-      ];
+      // Secondary click → just the "Manage…" entry; no environment rows.
+      items = [manageItem];
     } else {
       const entries = [
         { id: null, name: t("env.global") },
@@ -151,7 +155,7 @@ export class EnvPicker {
           name: e.name,
         })),
       ];
-      items = entries.map((entry, i) => {
+      const envItems = entries.map((entry, i) => {
         const key = `env:${i}`;
         idByKey.set(key, entry.id);
         return {
@@ -161,6 +165,8 @@ export class EnvPicker {
           checked: entry.id === activeId,
         };
       });
+      // Primary click → environment rows, then a separator and "Manage…".
+      items = [...envItems, { type: "separator" }, manageItem];
     }
 
     const r = btn.getBoundingClientRect();

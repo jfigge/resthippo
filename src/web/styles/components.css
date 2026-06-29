@@ -1144,6 +1144,23 @@ html.show-method-icons .req-method-menu-item-label::before {
   color: var(--color-error);
 }
 
+/* The parse-error reason shown next to the "Invalid" verdict — truncated so a
+   long message can't blow out the type bar; the full text rides on the badge's
+   title tooltip. */
+.body-validate-reason {
+  display: inline-block;
+  max-width: 48ch;
+  margin-left: var(--space-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  opacity: 0.85;
+}
+.body-validate-reason:empty {
+  margin-left: 0;
+}
+
 /* Query badge lays out the schema warning + the verdict in a row. */
 .body-graphql-query-badge {
   display: inline-flex;
@@ -5602,6 +5619,19 @@ html.show-method-icons .req-method-menu-item-label::before {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+}
+
+/*
+ * In-panel variant of the variable editor (VarsEditor). Same body as the popup
+ * (it reuses .vars-toolbar / .vars-textarea / .vars-kv-wrap), but fills the
+ * center request panel instead of a modal — mirrors .request-editor's fill.
+ */
+.vars-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

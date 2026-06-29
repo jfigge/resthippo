@@ -41,6 +41,7 @@
 
 import { t } from "../i18n.js";
 import { icon } from "../icons.js";
+import { formatValidationReason } from "./body-validation.js";
 import { Notifications } from "../notifications.js";
 import { AutocompleteDropdown } from "./kv-editor-shared.js";
 import { buildSchemaModel, suggestAtCursor } from "./graphql-schema.js";
@@ -319,19 +320,29 @@ export class GraphQLBodyEditor {
     const varsBadge = document.createElement("span");
     varsBadge.className = "body-validate-badge body-graphql-vars-badge";
     varsBadge.setAttribute("aria-live", "polite");
+    const varsStatus = document.createElement("span");
+    varsStatus.className = "body-validate-status";
+    const varsReason = document.createElement("span");
+    varsReason.className = "body-validate-reason";
+    varsBadge.append(varsStatus, varsReason);
     varsHeader.appendChild(varsBadge);
     varsPane.appendChild(varsHeader);
 
-    const applyVarsValidity = (state) => {
+    const applyVarsValidity = (state, reason = "") => {
       varsBadge.dataset.state = state ?? "";
       if (state === "valid") {
-        varsBadge.textContent = t("request.graphql.valid");
+        varsStatus.textContent = t("request.graphql.valid");
+        varsReason.textContent = "";
         varsBadge.title = t("request.graphql.varsValid");
       } else if (state === "invalid") {
-        varsBadge.textContent = t("request.graphql.invalid");
-        varsBadge.title = t("request.graphql.varsInvalid");
+        varsStatus.textContent = t("request.graphql.invalid");
+        varsReason.textContent = reason;
+        varsBadge.title = reason
+          ? `${t("request.graphql.varsInvalid")}\n${reason}`
+          : t("request.graphql.varsInvalid");
       } else {
-        varsBadge.textContent = "";
+        varsStatus.textContent = "";
+        varsReason.textContent = "";
         varsBadge.title = "";
       }
     };
@@ -348,7 +359,10 @@ export class GraphQLBodyEditor {
     });
     v.element.addEventListener("pce:validity", (e) => {
       const s = e.detail?.state; // true | false | null
-      applyVarsValidity(s == null ? null : s ? "valid" : "invalid");
+      applyVarsValidity(
+        s == null ? null : s ? "valid" : "invalid",
+        formatValidationReason(e.detail?.errors),
+      );
     });
     varsPane.appendChild(v.element);
     wrap.appendChild(varsPane);

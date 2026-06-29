@@ -49,6 +49,7 @@ import {
   textToKvRows,
   disposePillEditors,
 } from "../kv-editor-shared.js";
+import { formatValidationReason } from "../body-validation.js";
 import { icon } from "../../icons.js";
 import { t } from "../../i18n.js";
 
@@ -743,6 +744,13 @@ export class BodyEditor {
       validateBadge.className = "body-validate-badge";
       validateBadge.setAttribute("aria-live", "polite");
       validateBadge.dataset.state = "";
+      // Verdict word + the parse-error reason. Squiggles are off here, so the
+      // reason text is the only cue telling the user what to fix.
+      const statusEl = document.createElement("span");
+      statusEl.className = "body-validate-status";
+      const reasonEl = document.createElement("span");
+      reasonEl.className = "body-validate-reason";
+      validateBadge.append(statusEl, reasonEl);
       this.#bodyTypeBarEl.appendChild(validateBadge);
 
       editor.element.addEventListener("pce:validity", (e) => {
@@ -750,17 +758,24 @@ export class BodyEditor {
         validateBadge.dataset.state =
           state == null ? "" : state ? "valid" : "invalid";
         if (state === true) {
-          validateBadge.textContent = t("request.graphql.valid");
+          statusEl.textContent = t("request.graphql.valid");
+          reasonEl.textContent = "";
           validateBadge.title = t("request.bodyValidate.validTitle", {
             type: type.toUpperCase(),
           });
         } else if (state === false) {
-          validateBadge.textContent = t("request.graphql.invalid");
-          validateBadge.title = t("request.bodyValidate.invalidTitle", {
+          statusEl.textContent = t("request.graphql.invalid");
+          const reason = formatValidationReason(e.detail?.errors);
+          reasonEl.textContent = reason;
+          const invalidTitle = t("request.bodyValidate.invalidTitle", {
             type: type.toUpperCase(),
           });
+          validateBadge.title = reason
+            ? `${invalidTitle}\n${reason}`
+            : invalidTitle;
         } else {
-          validateBadge.textContent = "";
+          statusEl.textContent = "";
+          reasonEl.textContent = "";
           validateBadge.title = "";
         }
       });

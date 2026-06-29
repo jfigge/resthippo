@@ -104,7 +104,10 @@ The **Body** tab lets you choose a body type from the dropdown and edit it:
 | **File**             | Send a file's raw bytes as the body                                  |
 
 For the structured editors (JSON / YAML / XML), Rest Hippo shows a **✓ VALID** /
-**✗ INVALID** badge as you type. The code editor has line numbers and a resize
+**✗ INVALID** badge as you type. When the body is invalid, the badge spells out
+the reason — the line and column plus the parser's message (e.g.
+`3:12  Unexpected token`) — so you know exactly what to fix; the full text is
+also on the badge's tooltip. The code editor has line numbers and a resize
 handle, and its right-click menu offers **Prettify** and **code folding**.
 `{{variables}}` are highlighted inline and resolved at send time.
 

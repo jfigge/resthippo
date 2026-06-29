@@ -44,6 +44,7 @@ import {
   pickerScopes,
   pickerFunctions,
 } from "../components/pill-picker-data.js";
+import { formatValidationReason } from "../components/body-validation.js";
 
 // A context in which {{token}} resolves (collection scope) — drives the
 // known/unknown pill class and the picker's variable list.
@@ -915,6 +916,47 @@ test("PillCodeEditor: invalid JSON content emits pce:validity false, valid emits
   ed.setValue('{"ok": 1}'); // well-formed
   assert.ok(states.includes(true), "well-formed JSON reported valid");
   ed.destroy();
+});
+
+test("PillCodeEditor: invalid content carries a located error on pce:validity for the badge reason", () => {
+  const ed = makePce({ language: "json", richErrors: false });
+  let detail = null;
+  ed.element.addEventListener("pce:validity", (e) => (detail = e.detail));
+  ed.setValue('{"oops": }'); // malformed
+  assert.equal(detail.state, false, "malformed JSON reported invalid");
+  assert.ok(
+    Array.isArray(detail.errors) && detail.errors.length >= 1,
+    "an error is carried even with rich (squiggle) errors off",
+  );
+  const err = detail.errors[0];
+  assert.ok(
+    typeof err.message === "string" && err.message.length > 0,
+    "the error has a human-readable message to show as the reason",
+  );
+  // Valid content carries no errors.
+  ed.setValue('{"ok": 1}');
+  assert.equal(detail.state, true);
+  assert.deepEqual(detail.errors, [], "valid content carries no errors");
+  ed.destroy();
+});
+
+test("formatValidationReason: prefixes line:col when known, falls back to the bare message", () => {
+  assert.equal(
+    formatValidationReason([{ line: 3, col: 12, message: "Unexpected token" }]),
+    "3:12  Unexpected token",
+  );
+  assert.equal(
+    formatValidationReason([{ message: "  bad xml  " }]),
+    "bad xml",
+    "line-less errors trim to just the message",
+  );
+  assert.equal(formatValidationReason([]), "", "no errors → empty reason");
+  assert.equal(formatValidationReason(undefined), "", "nullish → empty reason");
+  assert.equal(
+    formatValidationReason([{ line: 1, col: 1, message: "" }]),
+    "",
+    "blank message → empty reason",
+  );
 });
 
 test("PillCodeEditor: empty content emits pce:validity null (nothing to reject)", () => {

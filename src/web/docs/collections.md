@@ -92,9 +92,12 @@ folder's.)
 | **Generate code…**                                           | requests              | Preview the request as cURL, JavaScript `fetch`, Python `requests`, Go, or HTTPie, then copy |
 | **Copy as cURL**                                             | requests              | Copy an equivalent `curl` command straight to the clipboard    |
 | **Export…**                                                  | collections & folders | [Export](import-export-and-backup.md) the collection or folder subtree |
-| **Variables**                                                | collections & folders | Edit [variables](variables-and-environments.md) for that scope |
 | **Clear Run History**                                        | requests              | Discard the request's saved [timeline](responses.md#timeline)  |
 | **Delete**                                                   | any item              | Remove the item (asks to confirm)                             |
+
+> To edit a container's [variables](variables-and-environments.md), **click** the
+> collection or folder in the tree — its variable editor opens in the center
+> panel, replacing the request editor.
 
 ## Running a whole folder
 
