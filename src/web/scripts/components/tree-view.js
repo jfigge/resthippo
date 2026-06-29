@@ -2403,15 +2403,32 @@ export class TreeView {
    * Called once per node in #createNode for both collections and requests.
    *
    * Behaviour:
+   *  • hover      — injects a drag grip on the row's right edge (removed on leave).
    *  • dragstart  — hides the dragged <li> and inserts the phantom placeholder
    *                 where the item was.
    *  • dragover   — moves the phantom to show where the item would land.
    *  • dragend    — if not a successful in-tree drop, restores the original state.
    *  • Leaving the treeview temporarily restores the item; re-entering resumes.
    *  • Releasing outside the treeview cancels and restores original state.
+   *
+   * A drag may only be initiated from the grip: the row is kept non-draggable
+   * and `draggable` is flipped on only while the grip is pressed (see
+   * #makeDragHandle), then cleared on mouseup (plain click) or dragend.
    */
   #attachDragListeners(node, row, li) {
-    row.draggable = true;
+    row.draggable = false;
+
+    // Show the drag grip on the right edge only while the row is hovered. Using
+    // mouseenter/mouseleave (which ignore descendants) keeps the grip mounted
+    // while the cursor moves onto it.
+    row.addEventListener("mouseenter", () => {
+      if (!row.querySelector(".tree-node-drag-handle")) {
+        row.appendChild(this.#makeDragHandle(row));
+      }
+    });
+    row.addEventListener("mouseleave", () => {
+      row.querySelector(".tree-node-drag-handle")?.remove();
+    });
 
     // ── dragstart ──────────────────────────────────────────────────────────
     row.addEventListener("dragstart", (e) => {
@@ -2489,6 +2506,7 @@ export class TreeView {
 
     // ── dragend ────────────────────────────────────────────────────────────
     row.addEventListener("dragend", () => {
+      row.draggable = false;
       if (!this.#dropHandled) {
         // Drag was cancelled (Escape) or released outside the treeview
         this.#cancelDrag();
@@ -2496,6 +2514,31 @@ export class TreeView {
       // If drop was handled, #moveNode already re-rendered; just clean up state
       this.#finalizeDrag();
     });
+  }
+
+  /**
+   * Build the drag grip injected on a row's right edge while it is hovered.
+   * Dragging is gated to this grip: pressing it flips the row's `draggable`
+   * flag on (so a real reorder can start), and a plain mouseup clears it again;
+   * a click on the grip is swallowed so it never selects/opens the row.
+   * @param {HTMLElement} row — the `.tree-node-row` whose drag this grip arms
+   */
+  #makeDragHandle(row) {
+    const handle = document.createElement("span");
+    handle.className = "tree-node-drag-handle";
+    handle.setAttribute("aria-hidden", "true");
+    handle.title = t("common.dragReorder");
+    handle.innerHTML = icon("drag", { width: 10, height: 16 });
+    handle.addEventListener("mousedown", () => {
+      row.draggable = true;
+    });
+    handle.addEventListener("mouseup", () => {
+      row.draggable = false;
+    });
+    handle.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+    return handle;
   }
 
   /**

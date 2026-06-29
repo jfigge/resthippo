@@ -60,8 +60,9 @@ Inside a collection you build a tree of folders and requests:
 - **New WebSocket Request** — right-click a folder → **Add WebSocket Request**,
   or right-click the **+** button above the tree and choose
   **Add WebSocket Request** (see [WebSockets](websocket.md)).
-- **Reorder / re-nest** — drag a request or folder to move it; a placeholder
-  shows where it will land.
+- **Reorder / re-nest** — hover a request or folder to reveal a drag grip on its
+  right edge, then drag the grip to move it; a placeholder shows where it will
+  land.
 - **Rename** — double-click the name (or right-click → **Rename**).
   <kbd>Enter</kbd> confirms, <kbd>Esc</kbd> cancels.
 - **Filter** — click anywhere in the tree and press <kbd>Cmd</kbd>+<kbd>F</kbd>
@@ -82,18 +83,18 @@ Collections and folders are the same kind of container, so they share one menu;
 a request has its own. (A collection's icon differs, but its actions match a
 folder's.)
 
-| Action                                                       | Applies to            | What it does                                                   |
-| ------------------------------------------------------------ | --------------------- | -------------------------------------------------------------- |
-| **Add Request** / **Add WebSocket Request** / **Add Folder** | collections & folders | Create a child item (also on a request, to insert a sibling after) |
-| **Run All Requests**                                         | collections & folders | [Run every request inside](#running-a-whole-folder) and tally their tests |
-| **Rename**                                                   | any item              | Edit the name inline                                           |
-| **Favorite** / **Unfavorite**                                | requests              | Toggle the [Favorites](#favorites-and-recent) star             |
-| **Duplicate**                                                | any item              | Copy the item (and its contents)                               |
+| Action                                                       | Applies to            | What it does                                                                                 |
+| ------------------------------------------------------------ | --------------------- | -------------------------------------------------------------------------------------------- |
+| **Add Request** / **Add WebSocket Request** / **Add Folder** | collections & folders | Create a child item (also on a request, to insert a sibling after)                           |
+| **Run All Requests**                                         | collections & folders | [Run every request inside](#running-a-whole-folder) and tally their tests                    |
+| **Rename**                                                   | any item              | Edit the name inline                                                                         |
+| **Favorite** / **Unfavorite**                                | requests              | Toggle the [Favorites](#favorites-and-recent) star                                           |
+| **Duplicate**                                                | any item              | Copy the item (and its contents)                                                             |
 | **Generate code…**                                           | requests              | Preview the request as cURL, JavaScript `fetch`, Python `requests`, Go, or HTTPie, then copy |
-| **Copy as cURL**                                             | requests              | Copy an equivalent `curl` command straight to the clipboard    |
-| **Export…**                                                  | collections & folders | [Export](import-export-and-backup.md) the collection or folder subtree |
-| **Clear Run History**                                        | requests              | Discard the request's saved [timeline](responses.md#timeline)  |
-| **Delete**                                                   | any item              | Remove the item (asks to confirm)                             |
+| **Copy as cURL**                                             | requests              | Copy an equivalent `curl` command straight to the clipboard                                  |
+| **Export…**                                                  | collections & folders | [Export](import-export-and-backup.md) the collection or folder subtree                       |
+| **Clear Run History**                                        | requests              | Discard the request's saved [timeline](responses.md#timeline)                                |
+| **Delete**                                                   | any item              | Remove the item (asks to confirm)                                                            |
 
 > To edit a container's [variables](variables-and-environments.md), **click** the
 > collection or folder in the tree — its variable editor opens in the center

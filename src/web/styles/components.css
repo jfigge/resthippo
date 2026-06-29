@@ -253,6 +253,29 @@
   white-space: nowrap;
 }
 
+/* Drag-to-reorder grip — injected on the right edge of a tree row while it is
+   hovered (see #makeDragHandle). Dragging only starts from this grip; the rest
+   of the row stays a plain click target. */
+.tree-node-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-overlay-0);
+  cursor: grab;
+  border-radius: 2px;
+  padding: 0 2px;
+  transition: color var(--transition-fast);
+}
+
+.tree-node-drag-handle:hover {
+  color: var(--color-subtext);
+}
+
+.tree-node-drag-handle:active {
+  cursor: grabbing;
+}
+
 /* In-flight stop control — sits at the row's right edge while the request
    runs. Requests execute concurrently, so any number of rows can spin at
    once. The spinner ring doubles as a cancel button: hovering reveals a stop
