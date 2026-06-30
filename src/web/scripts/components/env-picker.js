@@ -100,7 +100,7 @@ export class EnvPicker {
   /**
    * Open a native OS popup menu anchored under the trigger listing the active
    * collection's environments — Global (id null) then each named environment,
-   * upper-cased to match the trigger, with a check beside the active one.
+   * shown in their stored case, with a check beside the active one.
    * Resolves to the clicked id (or null when dismissed); we map it back to the
    * activate action.
    */
@@ -125,7 +125,7 @@ export class EnvPicker {
       idByKey.set(key, entry.id);
       return {
         id: key,
-        label: String(entry.name ?? "").toUpperCase(),
+        label: String(entry.name ?? ""),
         type: "checkbox",
         checked: entry.id === activeId,
       };

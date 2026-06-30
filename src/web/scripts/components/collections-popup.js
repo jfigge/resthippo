@@ -1068,7 +1068,7 @@ export class CollectionsPopup {
   }
 
   #commitAddEnv(input) {
-    const name = input.value.trim().toUpperCase();
+    const name = input.value.trim();
     if (!name) {
       this.#cancelAddEnv();
       return;

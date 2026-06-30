@@ -6354,7 +6354,6 @@ input[type="checkbox"]:disabled {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-transform: var(--env-picker-uppercase, uppercase);
   min-width: 32px;
   max-width: 120px;
 }
