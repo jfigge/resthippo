@@ -48,7 +48,7 @@ import { formatValidationReason } from "../components/body-validation.js";
 
 // A context in which {{token}} resolves (collection scope) — drives the
 // known/unknown pill class and the picker's variable list.
-const KNOWN_CTX = { collectionVariables: { token: "x" }, folderChain: [] };
+const KNOWN_CTX = { environmentVariables: { token: "x" }, folderChain: [] };
 
 /** Build one editor of each kind with a fresh DOM and a shared context. */
 function makeVpe(opts = {}) {
@@ -106,7 +106,7 @@ for (const [name, make] of EDITORS) {
     resetDom();
     const unknown = new (
       name === "VariablePillEditor" ? VariablePillEditor : PillCodeEditor
-    )({ getContext: () => ({ collectionVariables: {} }) });
+    )({ getContext: () => ({ environmentVariables: {} }) });
     document.body.appendChild(unknown.element);
     unknown.setValue("{{nope}}");
     const up = unknown.element.querySelector(".variable-pill");
@@ -251,7 +251,7 @@ for (const [name, make, inputRootOf] of PICKER_EDITORS) {
 
   test(`${name}: the picker filters variables by the typed prefix`, async () => {
     const ed = make({
-      getContext: () => ({ collectionVariables: { token: 1, other: 1 } }),
+      getContext: () => ({ environmentVariables: { token: 1, other: 1 } }),
     });
     const picker = await openPicker(ed, inputRootOf(ed), "{{tok", "{{tok");
     assert.ok(picker, "the picker mounted");
@@ -305,10 +305,8 @@ for (const [name, make, inputRootOf] of PICKER_EDITORS) {
 test("pickerScopes: groups scopes lowest-priority-first with picker labels", () => {
   const scopes = pickerScopes({
     globalVariables: { g: 1 },
-    environmentVariables: { e: 1 },
-    collectionVariables: { c2: 1, c1: 1 },
+    environmentVariables: { e2: 1, e1: 1 },
     activeEnvironmentName: "Staging",
-    collectionName: "My API",
     folderChain: [
       { variables: { f: 1 } },
       { variables: { f: 2, child: 3 } }, // inner f shadows outer; deduped to one
@@ -316,16 +314,16 @@ test("pickerScopes: groups scopes lowest-priority-first with picker labels", () 
   });
   assert.deepEqual(
     scopes.map((s) => s.label),
-    ["Global", "Staging", "My API", "Folders"],
-    "order + labels (env/collection names override defaults)",
+    ["Global", "Staging", "Folders"],
+    "order + labels (env name overrides default)",
   );
-  assert.deepEqual(scopes[2].variables, ["c1", "c2"], "names sorted");
-  assert.deepEqual(scopes[3].variables, ["child", "f"], "folder names deduped");
+  assert.deepEqual(scopes[1].variables, ["e1", "e2"], "names sorted");
+  assert.deepEqual(scopes[2].variables, ["child", "f"], "folder names deduped");
 });
 
 test("pickerScopes: empty/absent context yields no groups", () => {
   assert.deepEqual(pickerScopes(null), []);
-  assert.deepEqual(pickerScopes({ collectionVariables: {} }), []);
+  assert.deepEqual(pickerScopes({ environmentVariables: {} }), []);
 });
 
 test("pickerFunctions: lists every registered function with its definition", () => {
@@ -661,7 +659,7 @@ test("VariablePillEditor: Delete just before a pill removes the whole pill", () 
 // ── VariablePillEditor: revalidate re-colours pills on a context change ─────────
 
 test("VariablePillEditor: revalidate re-resolves known/unknown against new context", () => {
-  let ctx = { collectionVariables: {} }; // token unknown at first
+  let ctx = { environmentVariables: {} }; // token unknown at first
   const ed = makeVpe({ getContext: () => ctx });
   ed.setValue("{{token}}");
   let pill = ed.element.querySelector(".variable-pill");
@@ -669,7 +667,7 @@ test("VariablePillEditor: revalidate re-resolves known/unknown against new conte
     pill.classList.contains("variable-pill--unknown"),
     "unknown before the context defines it",
   );
-  ctx = { collectionVariables: { token: "x" } }; // now defined
+  ctx = { environmentVariables: { token: "x" } }; // now defined
   ed.revalidate();
   pill = ed.element.querySelector(".variable-pill");
   assert.ok(

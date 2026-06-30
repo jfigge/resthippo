@@ -30,7 +30,7 @@
  *     placeholder: "Value",
  *     ariaLabel:   "Parameter value",
  *     className:   "params-value",
- *     getContext:  () => ({ collectionVariables: {…}, folderChain: […] }),
+ *     getContext:  () => ({ environmentVariables: {…}, folderChain: […] }),
  *     getItems:    () => treeView.getItems(),   // for request-picker params
  *     onInput:     (value) => { row.value = value; },
  *     onEnter:     () => addNewRow(),

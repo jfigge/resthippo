@@ -17,13 +17,13 @@
 /**
  * variable-editor-shared.js — shared machinery for the secure-variable editors.
  *
- * The three variable popups — VariablesPopup, CollectionsPopup and
- * EnvironmentsPopup — all edit the same kind of list: `{ name, value, secure }`
- * rows with an inline reveal (eye) toggle and a per-row secure (lock) toggle,
- * plus a bulk-text mode where each line is `name=value` and a leading `$ `
- * marks the variable secure. This module holds the pieces they share — extracted
- * verbatim from those popups so the row builder and the bulk <→> rows converters
- * live in one place instead of three byte-identical copies.
+ * The variable editors — VariablesPopup, CollectionsPopup (its Environment tab)
+ * and the inline VarsEditor — all edit the same kind of list:
+ * `{ name, value, secure }` rows with an inline reveal (eye) toggle and a per-row
+ * secure (lock) toggle, plus a bulk-text mode where each line is `name=value` and
+ * a leading `$ ` marks the variable secure. This module holds the pieces they
+ * share — extracted so the row builder and the bulk <→> rows converters live in
+ * one place instead of byte-identical copies.
  *
  * This is the secure-variable counterpart to kv-editor-shared.js, which serves
  * the params/headers/body-form `{ name, value, enabled }` rows (a different

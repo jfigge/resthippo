@@ -32,8 +32,8 @@ import { registry } from "./function-registry.js";
 
 /**
  * The picker's variable groups for a resolved context: non-folder scopes lowest
- * priority first (global → environment → collection) with picker labels, then a
- * single de-duplicated "Folders" group for the reachable folder-chain names.
+ * priority first (global → environment) with picker labels, then a single
+ * de-duplicated "Folders" group for the reachable folder-chain names.
  * @param {object|null} ctx
  * @returns {Array<{ label: string, variables: string[] }>}
  */
@@ -41,7 +41,7 @@ export function pickerScopes(ctx) {
   // collectScopes() is the single source of truth for which context keys are
   // scopes and their resolution priority; here we render them lowest-priority
   // first (the reverse) with picker-specific labels.
-  const bySource = { global: null, environment: null, collection: null };
+  const bySource = { global: null, environment: null };
   const folderNames = new Set();
   for (const { source, vars } of collectScopes(ctx)) {
     if (source === "folder") {
@@ -55,12 +55,11 @@ export function pickerScopes(ctx) {
     global: t("env.global"),
     environment:
       ctx?.activeEnvironmentName || t("request.captures.scopeEnvironment"),
-    collection: ctx?.collectionName || t("request.captures.scopeCollection"),
   };
 
   const scopes = [];
-  // Non-folder scopes, lowest priority first: global → environment → collection.
-  for (const source of ["global", "environment", "collection"]) {
+  // Non-folder scopes, lowest priority first: global → environment.
+  for (const source of ["global", "environment"]) {
     const vars = bySource[source];
     if (!vars) continue;
     const names = Object.keys(vars).sort();

@@ -11,7 +11,7 @@ nested as deeply as you like.
 ## Collections
 
 A **collection** is a self-contained group of requests with its own
-[variables](variables-and-environments.md#collection-variables) and an optional
+[environments](variables-and-environments.md#environments) and an optional
 [cookie jar](#cookies). The active collection is shown in the **collection
 selector** in the panel's toolbar (the row with the **+** buttons), on the
 right — a stacked-layers icon plus its name (e.g. **Demo API**) — sitting next
@@ -26,8 +26,8 @@ create, rename, switch, and delete collections:
 - Click a collection row to **make it active**; a check marks the active one.
 - The pencil and trash icons (or a double-click on the name) **rename** and
   **delete** a collection. Deletes ask for confirmation.
-- The **Variables**, **Headers**, and **Cookies** tabs on the right edit that
-  collection's variables, default headers, and stored cookies.
+- The **Environments**, **Headers**, and **Cookies** tabs on the right manage that
+  collection's environments (Global + named), default headers, and stored cookies.
 
 ## Default headers
 

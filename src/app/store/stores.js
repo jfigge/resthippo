@@ -46,6 +46,26 @@ const { EnvironmentStore } = require("./environment-store");
 const { CookieStore } = require("./cookie-store");
 const { BackupStore } = require("./backup");
 
+/**
+ * Merge two raw variable lists ([{ name, value, secure }]) by name; entries in
+ * `overlay` win a name clash. Used to fold a collection's variables onto its
+ * Global set (collection wins). Operates on raw (possibly-encrypted) values.
+ *
+ * @param {Array|undefined} base
+ * @param {Array|undefined} overlay
+ * @returns {Array}
+ */
+function mergeVarsRaw(base, overlay) {
+  const byName = new Map();
+  for (const v of Array.isArray(base) ? base : []) {
+    if (v && typeof v === "object" && v.name) byName.set(v.name, v);
+  }
+  for (const v of Array.isArray(overlay) ? overlay : []) {
+    if (v && typeof v === "object" && v.name) byName.set(v.name, v);
+  }
+  return [...byName.values()];
+}
+
 class Stores {
   /**
    * @param {string} dataDir  Root data directory (e.g. app.getPath('userData')).
@@ -109,6 +129,17 @@ class Stores {
         `[store] legacy environments migration skipped: ${err.message}`,
       );
     }
+
+    // Fold each collection's own variables into its Global environment
+    // (collection-level variables were removed — Global is the collection-wide
+    // tier now). Runs AFTER the env relocation above so a legacy workspace set is
+    // seeded into Global first and the collection's vars then layer on top.
+    // Best-effort — never block startup on a migration error.
+    try {
+      this._foldCollectionVarsIntoGlobal();
+    } catch (err) {
+      console.warn(`[store] collection-variable fold skipped: ${err.message}`);
+    }
   }
 
   /**
@@ -163,6 +194,60 @@ class Stores {
     const migratedPath = `${legacyPath}.migrated`;
     io.remove(migratedPath); // best-effort clear of any prior partial
     io.move(legacyPath, migratedPath);
+  }
+
+  /**
+   * Fold each collection's own variables (`metadata.variables`) into that
+   * collection's Global environment, then clear them.
+   *
+   * Collection-level variables were removed: the per-collection Global
+   * environment is now the collection-wide variable tier. On the first launch
+   * after that change every collection's variables move into its Global set; the
+   * collection variable wins a name clash (it previously outranked Global).
+   *
+   * Reads/writes RAW ciphertext (the at-rest encrypted form is machine-bound and
+   * identical between the metadata and environment scopes — the encrypt kind/id
+   * is log context only — so no decrypt/re-encrypt round-trip is needed and a
+   * transient keystore failure can't blank a secret).
+   *
+   * Idempotent and self-healing: a collection whose `metadata.variables` is
+   * already empty is skipped, so re-runs are no-ops and any later stray
+   * collection variable (e.g. from an old-format import) is folded on the next
+   * launch.
+   */
+  _foldCollectionVarsIntoGlobal() {
+    const manifest = this._collectionStore.getManifest();
+    const collections = Array.isArray(manifest?.collections)
+      ? manifest.collections
+      : [];
+
+    for (const coll of collections) {
+      if (!coll || !io.isValidID(coll.id)) continue;
+      const metaPath = this._paths.metadataPath(coll.id);
+      const meta = io.readJSON(metaPath);
+      if (
+        !meta ||
+        !Array.isArray(meta.variables) ||
+        meta.variables.length === 0
+      ) {
+        continue; // nothing to fold (already migrated / empty)
+      }
+
+      // Merge collection vars into Global, collection winning a name clash.
+      const envPath = this._paths.environmentsFile(coll.id);
+      const env = io.readJSON(envPath) ?? {
+        globalVariables: [],
+        activeEnvironmentId: null,
+        environments: [],
+      };
+      env.globalVariables = mergeVarsRaw(env.globalVariables, meta.variables);
+      io.ensureDir(this._paths.collectionDir(coll.id));
+      io.writeJSON(envPath, env);
+
+      // The collection no longer carries its own variables.
+      meta.variables = [];
+      io.writeJSON(metaPath, meta);
+    }
   }
 
   /** Manifest store — GET/PUT global collections + settings. */

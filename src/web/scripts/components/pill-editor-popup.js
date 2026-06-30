@@ -45,7 +45,7 @@ const TYPE_LABELS = {
  * Config shape (variable):
  *   type       — "variable"
  *   rawValue   — current pill value, e.g. "{{token}}"
- *   getContext — () => { collectionVariables, folderChain }
+ *   getContext — () => { environmentVariables, folderChain }
  *   onCommit   — (newRawValue: string) => void  — called with "{{name}}"
  *
  * Config shape (function):

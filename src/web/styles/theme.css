@@ -431,7 +431,6 @@ body {
   }
 
   .tree-node--active > .tree-node-row,
-  .env-list-item--selected,
   .coll-list-item--selected,
   .settings-layout-option--selected,
   .theme-item--selected {

@@ -21,8 +21,8 @@ to pop up a quick reference to the most common shortcuts inside Rest Hippo.
 | <kbd>⌘/Ctrl</kbd>+<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> | Switch to the Requests / Favorites / Recent tab   |
 | <kbd>⌘/Ctrl</kbd>+<kbd>\\</kbd>                   | Cycle through the panel layouts                         |
 | <kbd>⌘/Ctrl</kbd>+<kbd>,</kbd>                    | Open Settings                                           |
-| <kbd>⌘/Ctrl</kbd>+<kbd>E</kbd>                    | Edit the active environment's variables                 |
-| <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd>  | Edit the active collection's variables                  |
+| <kbd>⌘/Ctrl</kbd>+<kbd>E</kbd>                    | Open the active collection's environments               |
+| <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd>  | Open the Collections manager                            |
 | <kbd>⌘/Ctrl</kbd>+<kbd>K</kbd>                    | Open the keyboard-shortcuts cheat-sheet                 |
 | <kbd>⌘/Ctrl</kbd>+<kbd>/</kbd>                    | Open the User Guide                                     |
 | <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd>   | Import a collection                                     |
@@ -95,7 +95,7 @@ move around entirely with the arrow keys — you don't tab through every row.
 | <kbd>Del</kbd> / <kbd>⌫</kbd>     | Delete the focused request or folder (opens a confirm)  |
 
 The same <kbd>↑</kbd> / <kbd>↓</kbd> / <kbd>Home</kbd> / <kbd>End</kbd> keys move
-between entries in the collections and environments lists.
+between entries in the collections list.
 
 ## Pickers & menus
 
@@ -115,7 +115,7 @@ Dropdown menus and selectors throughout the app are fully keyboard-operable:
 | ---------------- | ---------------------------------------------------- |
 | <kbd>Enter</kbd> | Confirm an inline rename                             |
 | <kbd>Esc</kbd>   | Cancel a rename / close the current popup or dialog  |
-| Double-click     | Rename a request, folder, collection, or environment |
+| Double-click     | Rename a request, folder, or collection              |
 
 ## Accessibility
 

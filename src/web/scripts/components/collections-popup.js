@@ -25,8 +25,13 @@
  *             edit the name inline (Enter confirms, Escape cancels).
  *
  * Right pane: a tabbed panel for the selected collection:
- *             • Variables — the inline key/value editor (bulk-textarea / KV-row
- *               toggle), functioning exactly as before.
+ *             • Environments — the collection's environments. A dropdown selects
+ *               Global (fixed) or any named environment (selecting one makes it
+ *               the active environment, kept in sync with the toolbar env
+ *               picker); [+] adds a named environment, the trash button deletes
+ *               the selected one (with confirmation). Below it the inline
+ *               key/value editor (bulk-textarea / KV-row toggle) edits the
+ *               selected environment's variables.
  *             • Headers    — default headers merged into every request in the
  *               collection (the exact request Headers editor, via HeadersEditor),
  *               overridable per-request by a same-named header.
@@ -35,7 +40,7 @@
  *               through data-store so a save failure surfaces an error toast.
  *
  * Clicking a collection row both activates it (for tree-view data) and loads its
- * variables / headers / cookies into the right pane.
+ * environments / headers / cookies into the right pane.
  *
  * Constructor callbacks (this is a parent-owned popup that reports back to its
  * creator, so it uses callbacks rather than global hippo:* events — see the
@@ -45,7 +50,9 @@
  *   onRename({ id, name })             — rename a collection
  *   onDelete({ id })                   — delete a collection
  *   onSendCookiesChange({ id, sendCookies }) — toggle the cookie-jar attach flag
- *   onVarsSave({ scopeId, variables })   — debounced 500ms auto-save
+ *   onEnvActivate({ id })              — environment selected (null = Global)
+ *   onEnvironmentsChanged({ data })    — environment added / deleted
+ *   onEnvVarsSave({ id, variables })   — debounced 500ms variable auto-save
  *   onHeadersSave({ scopeId, headers })  — debounced 500ms default-header save
  *   onBulkEditorChange({ bulkEditor }) — bulk-textarea / KV-row toggle changed
  *   onExportAll()                      — export every collection to one file
@@ -62,6 +69,7 @@ import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
 import { t, formatDate } from "../i18n.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
+import { deepClone } from "../utils/clone.js";
 import { normalizeVariables } from "./variable-shape.js";
 import {
   variablesToText,
@@ -99,8 +107,20 @@ export class CollectionsPopup {
   /** ID currently shown in the right pane */
   #selectedId = null;
 
-  /** Which right-pane tab is showing: "vars" | "headers" | "cookies" */
-  #activeTab = "vars";
+  /** Which right-pane tab is showing: "env" | "headers" | "cookies" */
+  #activeTab = "env";
+
+  // ── Environments-tab state ─────────────────────────────────────────────────
+  /** The selected collection's environments doc (kept in sync with app.js). */
+  #environments = {
+    globalVariables: [],
+    activeEnvironmentId: null,
+    environments: [],
+  };
+  /** Environment shown in the variable editor (null = Global). */
+  #selectedEnvId = null;
+  /** True while the inline "new environment name" input is showing. */
+  #envAdding = false;
 
   // ── Inline name-edit state ─────────────────────────────────────────────────
   /**
@@ -159,7 +179,9 @@ export class CollectionsPopup {
   #onRename;
   #onDelete;
   #onSendCookiesChange;
-  #onVarsSave;
+  #onEnvActivate;
+  #onEnvironmentsChanged;
+  #onEnvVarsSave;
   #onHeadersSave;
   #onBulkEditorChange;
   #onExportAll;
@@ -171,7 +193,9 @@ export class CollectionsPopup {
    *   onRename?: (payload: { id: string, name: string }) => void,
    *   onDelete?: (payload: { id: string }) => void,
    *   onSendCookiesChange?: (payload: { id: string, sendCookies: boolean }) => void,
-   *   onVarsSave?: (payload: { scopeId: string, variables: Array }) => void,
+   *   onEnvActivate?: (payload: { id: string | null }) => void,
+   *   onEnvironmentsChanged?: (payload: { data: object }) => void,
+   *   onEnvVarsSave?: (payload: { id: string | null, variables: Array }) => void,
    *   onHeadersSave?: (payload: { scopeId: string, headers: Array }) => void,
    *   onBulkEditorChange?: (payload: { bulkEditor: boolean }) => void,
    *   onExportAll?: () => void,
@@ -183,7 +207,9 @@ export class CollectionsPopup {
     onRename,
     onDelete,
     onSendCookiesChange,
-    onVarsSave,
+    onEnvActivate,
+    onEnvironmentsChanged,
+    onEnvVarsSave,
     onHeadersSave,
     onBulkEditorChange,
     onExportAll,
@@ -193,7 +219,9 @@ export class CollectionsPopup {
     this.#onRename = onRename;
     this.#onDelete = onDelete;
     this.#onSendCookiesChange = onSendCookiesChange;
-    this.#onVarsSave = onVarsSave;
+    this.#onEnvActivate = onEnvActivate;
+    this.#onEnvironmentsChanged = onEnvironmentsChanged;
+    this.#onEnvVarsSave = onEnvVarsSave;
     this.#onHeadersSave = onHeadersSave;
     this.#onBulkEditorChange = onBulkEditorChange;
     this.#onExportAll = onExportAll;
@@ -231,17 +259,22 @@ export class CollectionsPopup {
 
   /**
    * Open the popup seeded with the current app state.
-   * @param {{ collections: object[], activeCollectionId: string, bulkEditor?: boolean, variableContext?: object }} state
+   * @param {{ collections: object[], activeCollectionId: string, environments?: object, bulkEditor?: boolean, variableContext?: object, tab?: string }} state
    */
   open({
     collections,
     activeCollectionId,
+    environments,
     bulkEditor = true,
     variableContext,
+    tab = "env",
   }) {
     this.#collections = collections.map((e) => ({ ...e }));
     this.#activeId = activeCollectionId;
     this.#selectedId = activeCollectionId;
+    this.#environments = deepClone(environments ?? this.#environments);
+    this.#selectedEnvId = this.#environments.activeEnvironmentId ?? null;
+    this.#envAdding = false;
     this.#editState = null;
     this.#isBulkMode = bulkEditor;
     this.#el.querySelector(".coll-bulk-toggle").checked = bulkEditor;
@@ -254,18 +287,19 @@ export class CollectionsPopup {
 
     this.setVariableContext(variableContext);
     this.#renderList();
+    this.#renderEnvSelector();
     this.#loadEditorForSelected();
-    this.#showPanel("vars");
+    this.#showPanel(tab);
     PopupManager.open(this);
     this.#applyRemoveHeaders();
   }
 
   /**
    * Refresh the list without closing the popup.
-   * Called by app.js after any collection mutation.
-   * @param {{ collections: object[], activeCollectionId: string, bulkEditor?: boolean, variableContext?: object }} state
+   * Called by app.js after any collection or environment mutation.
+   * @param {{ collections: object[], activeCollectionId: string, environments?: object, bulkEditor?: boolean, variableContext?: object }} state
    */
-  update({ collections, activeCollectionId, variableContext }) {
+  update({ collections, activeCollectionId, environments, variableContext }) {
     const activeChanged = activeCollectionId !== this.#activeId;
     if (variableContext !== undefined) this.setVariableContext(variableContext);
     this.#collections = collections.map((e) => ({ ...e }));
@@ -281,14 +315,33 @@ export class CollectionsPopup {
       this.#selectedId = activeCollectionId;
       this.#editingCookieIdent = null;
       this.#addingCookie = false;
-      this.#loadEditorForSelected();
-      if (this.#activeTab === "cookies") this.#reloadCookies();
-      return;
     }
 
-    // After a collection switch, reload with freshly-loaded variables
-    if (activeChanged && this.#selectedId === activeCollectionId) {
-      this.#loadEditorForSelected();
+    // Sync the environments doc. On a collection switch follow the new
+    // collection's active environment; if the selected env vanished (deleted)
+    // fall back to Global. Otherwise preserve the in-progress selection + edit.
+    if (environments !== undefined) {
+      this.#environments = deepClone(environments);
+      const envExists =
+        this.#selectedEnvId === null ||
+        this.#environments.environments.some(
+          (e) => e.id === this.#selectedEnvId,
+        );
+      const reloadEnv = activeChanged || !selectedExists || !envExists;
+      if (reloadEnv) {
+        this.#selectedEnvId = this.#environments.activeEnvironmentId ?? null;
+        this.#envAdding = false;
+        this.#loadEnvEditor();
+      }
+      this.#renderEnvSelector();
+    }
+
+    if (
+      !selectedExists ||
+      (activeChanged && this.#selectedId === activeCollectionId)
+    ) {
+      // Collection content (headers) for the newly active collection.
+      this.#loadHeadersForSelected();
       if (this.#activeTab === "cookies") this.#reloadCookies();
     }
   }
@@ -328,7 +381,7 @@ export class CollectionsPopup {
         <div class="coll-main">
           <div class="coll-tabs" role="tablist" aria-label="${t("collections.editorAria")}">
             <button class="coll-tab coll-tab--active" role="tab" aria-selected="true"
-                    data-panel="vars" type="button">${t("common.variables")}</button>
+                    data-panel="env" type="button">${t("collections.tabEnvironment")}</button>
             <button class="coll-tab" role="tab" aria-selected="false"
                     data-panel="headers" type="button"
                     title="${t("collections.headersTooltip")}">${t("common.headers")}</button>
@@ -336,8 +389,17 @@ export class CollectionsPopup {
                     data-panel="cookies" type="button">${t("collections.tabCookies")}</button>
           </div>
           <div class="coll-panels">
-            <section class="coll-panel coll-panel--vars"
-                     data-panel="vars" role="tabpanel" aria-label="${t("common.variables")}">
+            <section class="coll-panel coll-panel--env"
+                     data-panel="env" role="tabpanel" aria-label="${t("collections.tabEnvironment")}">
+              <div class="coll-env-bar">
+                <select class="coll-env-select" aria-label="${t("collections.environmentLabel")}"></select>
+                <input type="text" class="coll-name-input coll-env-name-input"
+                       placeholder="${t("environments.namePlaceholder")}"
+                       autocomplete="off" spellcheck="false"
+                       aria-label="${t("environments.nameAria")}" style="display:none">
+                <button class="coll-action-btn coll-env-add-btn" title="${t("environments.addEnvironment")}" aria-label="${t("environments.addEnvironment")}">${ICON_ADD}</button>
+                <button class="coll-action-btn coll-action-btn--danger coll-env-delete-btn" title="${t("environments.delete")}" aria-label="${t("environments.delete")}">${icon("trash", { size: 13 })}</button>
+              </div>
               <div class="coll-vars-toolbar">
                 <label class="params-toolbar-toggle-label coll-bulk-label"
                        title="${t("kv.bulkEditorTitle")}">
@@ -411,6 +473,33 @@ export class CollectionsPopup {
     el.querySelectorAll(".coll-tab").forEach((tab) =>
       tab.addEventListener("click", () => this.#showPanel(tab.dataset.panel)),
     );
+
+    // Environment selector controls
+    el.querySelector(".coll-env-select").addEventListener("change", (e) =>
+      this.#selectEnv(e.target.value || null),
+    );
+    el.querySelector(".coll-env-add-btn").addEventListener("click", () =>
+      this.#startAddEnv(),
+    );
+    el.querySelector(".coll-env-delete-btn").addEventListener("click", () =>
+      this.#confirmDeleteEnv(),
+    );
+    const envNameInput = el.querySelector(".coll-env-name-input");
+    envNameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.#commitAddEnv(envNameInput);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        this.#cancelAddEnv();
+      }
+    });
+    envNameInput.addEventListener("blur", () => {
+      setTimeout(() => {
+        if (this.#envAdding && !this.#committing) this.#cancelAddEnv();
+      }, 120);
+    });
 
     // Variable editor controls
     el.querySelector(".coll-bulk-toggle").addEventListener("change", () =>
@@ -720,11 +809,15 @@ export class CollectionsPopup {
     if (id === this.#selectedId) return;
     this.#flushEditorSave();
     this.#editState = null;
+    this.#envAdding = false;
     this.#selectedId = id;
     this.#editingCookieIdent = null;
     this.#addingCookie = false;
     this.#renderList();
-    this.#loadEditorForSelected();
+    // Selecting a collection activates it; its environments + headers arrive via
+    // the update() round-trip (onSelect → activateCollection → collPopup.update),
+    // which reloads the env editor + headers for the new collection. Loading them
+    // here would briefly show the previous collection's data.
     if (this.#activeTab === "cookies") this.#reloadCookies();
     if (id !== this.#activeId) {
       this.#onSelect?.({ id });
@@ -746,6 +839,12 @@ export class CollectionsPopup {
   // ── Variable editor ────────────────────────────────────────────────────────
 
   #loadEditorForSelected() {
+    this.#loadEnvEditor();
+    this.#loadHeadersForSelected();
+  }
+
+  /** Load the selected environment's variables into the rows/bulk editor. */
+  #loadEnvEditor() {
     const vars = normalizeVariables(this.#getSelectedVars());
 
     clearTimeout(this.#saveTimer);
@@ -757,14 +856,21 @@ export class CollectionsPopup {
       this.#renderRows();
     }
     this.#applyMode();
+  }
 
-    // Load the selected collection's default headers (does not fire onChange).
+  /** Load the selected collection's default headers (does not fire onChange). */
+  #loadHeadersForSelected() {
     this.#httpHeadersEditor?.setHeaders(this.#getSelectedHeaders());
   }
 
+  /** Variables of the selected environment (null id = Global). */
   #getSelectedVars() {
+    if (this.#selectedEnvId === null) {
+      return this.#environments.globalVariables ?? [];
+    }
     return (
-      this.#collections.find((c) => c.id === this.#selectedId)?.variables ?? []
+      this.#environments.environments.find((e) => e.id === this.#selectedEnvId)
+        ?.variables ?? []
     );
   }
 
@@ -881,12 +987,156 @@ export class CollectionsPopup {
   }
 
   #dispatchVarsSave(variables) {
-    if (!this.#selectedId) return;
-    // Update in-memory collection state
-    this.#collections = this.#collections.map((c) =>
-      c.id === this.#selectedId ? { ...c, variables } : c,
+    // Persist into the selected environment (null id = Global). Mutate the
+    // in-memory environments doc so a later collection switch / re-render reads
+    // the latest, then report to app.js (which persists per active collection).
+    if (this.#selectedEnvId === null) {
+      this.#environments = {
+        ...this.#environments,
+        globalVariables: variables,
+      };
+    } else {
+      this.#environments = {
+        ...this.#environments,
+        environments: this.#environments.environments.map((e) =>
+          e.id === this.#selectedEnvId ? { ...e, variables } : e,
+        ),
+      };
+    }
+    this.#onEnvVarsSave?.({ id: this.#selectedEnvId, variables });
+  }
+
+  // ── Environment selector (dropdown + add / delete) ─────────────────────────
+
+  /** Rebuild the environment dropdown (Global + named) and the delete button. */
+  #renderEnvSelector() {
+    const select = this.#el.querySelector(".coll-env-select");
+    const input = this.#el.querySelector(".coll-env-name-input");
+    const deleteBtn = this.#el.querySelector(".coll-env-delete-btn");
+    const addBtn = this.#el.querySelector(".coll-env-add-btn");
+
+    // Toggle the inline "new name" input vs the dropdown.
+    select.style.display = this.#envAdding ? "none" : "";
+    input.style.display = this.#envAdding ? "" : "none";
+    deleteBtn.disabled = this.#envAdding || this.#selectedEnvId === null;
+    addBtn.disabled = this.#envAdding;
+    if (this.#envAdding) return;
+
+    select.innerHTML = "";
+    const globalOpt = document.createElement("option");
+    globalOpt.value = "";
+    globalOpt.textContent = t("env.global");
+    globalOpt.selected = this.#selectedEnvId === null;
+    select.appendChild(globalOpt);
+
+    for (const env of this.#environments.environments ?? []) {
+      const opt = document.createElement("option");
+      opt.value = env.id;
+      opt.textContent = env.name;
+      opt.selected = env.id === this.#selectedEnvId;
+      select.appendChild(opt);
+    }
+  }
+
+  /** Select (and activate) an environment; null = Global. */
+  #selectEnv(id) {
+    if (id === this.#selectedEnvId) return;
+    this.#flushEditorSave();
+    this.#selectedEnvId = id;
+    this.#environments = { ...this.#environments, activeEnvironmentId: id };
+    this.#renderEnvSelector();
+    this.#loadEnvEditor();
+    this.#onEnvActivate?.({ id });
+  }
+
+  /** Show the inline "new environment name" input. */
+  #startAddEnv() {
+    this.#envAdding = true;
+    this.#renderEnvSelector();
+    const input = this.#el.querySelector(".coll-env-name-input");
+    input.value = "";
+    input.classList.remove("coll-name-input--error");
+    requestAnimationFrame(() => {
+      input.focus();
+      input.select();
+    });
+  }
+
+  #cancelAddEnv() {
+    this.#envAdding = false;
+    this.#renderEnvSelector();
+  }
+
+  #commitAddEnv(input) {
+    const name = input.value.trim().toUpperCase();
+    if (!name) {
+      this.#cancelAddEnv();
+      return;
+    }
+    const isDuplicate = (this.#environments.environments ?? []).some(
+      (e) => e.name.toLowerCase() === name.toLowerCase(),
     );
-    this.#onVarsSave?.({ scopeId: this.#selectedId, variables });
+    if (isDuplicate) {
+      input.classList.add("coll-name-input--error");
+      input.title = t("environments.nameExists");
+      clearTimeout(this.#nameErrorTimer);
+      this.#nameErrorTimer = setTimeout(() => {
+        input.classList.remove("coll-name-input--error");
+        input.title = "";
+        this.#nameErrorTimer = null;
+      }, 1500);
+      return;
+    }
+
+    // The blur handler must not cancel while we re-render.
+    this.#committing = true;
+    this.#envAdding = false;
+
+    const id = crypto.randomUUID();
+    const newEnv = { id, name, variables: [] };
+    this.#environments = {
+      ...this.#environments,
+      environments: [...(this.#environments.environments ?? []), newEnv],
+      activeEnvironmentId: id,
+    };
+    this.#selectedEnvId = id;
+    this.#renderEnvSelector();
+    this.#loadEnvEditor();
+    this.#onEnvironmentsChanged?.({ data: deepClone(this.#environments) });
+
+    this.#committing = false;
+  }
+
+  #confirmDeleteEnv() {
+    if (this.#selectedEnvId === null) return; // Global is fixed
+    const env = (this.#environments.environments ?? []).find(
+      (e) => e.id === this.#selectedEnvId,
+    );
+    if (!env) return;
+    PopupManager.confirmDelete({
+      title: t("environments.deleteTitle"),
+      message: t("environments.deleteMessage", { name: env.name }),
+      onConfirm: () => this.#deleteEnv(env),
+    });
+  }
+
+  #deleteEnv(env) {
+    this.#flushEditorSave();
+    this.#environments = {
+      ...this.#environments,
+      environments: this.#environments.environments.filter(
+        (e) => e.id !== env.id,
+      ),
+      activeEnvironmentId:
+        this.#environments.activeEnvironmentId === env.id
+          ? null
+          : this.#environments.activeEnvironmentId,
+    };
+    // Deleting the shown env falls the editor back to Global.
+    this.#selectedEnvId = null;
+    this.#renderEnvSelector();
+    this.#loadEnvEditor();
+    this.#onEnvironmentsChanged?.({ data: deepClone(this.#environments) });
   }
 
   // ── Headers tab (collection default HTTP headers) ─────────────────────────────
