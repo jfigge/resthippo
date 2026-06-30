@@ -146,7 +146,7 @@ async function scanRequestEditor() {
   window.hippo = { isElectron: false };
   const editor = new RequestEditor();
   document.body.appendChild(editor.element);
-  editor.setVariableContext({ collectionVariables: {}, folderChain: [] });
+  editor.setVariableContext({ environmentVariables: {}, folderChain: [] });
   editor.load({
     id: "r",
     method: "GET",

@@ -48,7 +48,6 @@ import { WsConsole } from "./components/ws-console.js";
 import { SettingsPopup } from "./components/settings-popup.js";
 import { CollectionsPopup } from "./components/collections-popup.js";
 import { VarsEditor } from "./components/vars-editor.js";
-import { EnvironmentsPopup } from "./components/environments-popup.js";
 import { EnvPicker } from "./components/env-picker.js";
 import { CollPicker } from "./components/coll-picker.js";
 import {
@@ -56,14 +55,12 @@ import {
   saveCollections,
   updateRequest,
   setActiveItems,
-  setActiveVariables,
   setActiveHeaders,
   saveSettings,
   saveManifest,
   loadCollectionData,
   saveCollectionData,
   setActiveCollection,
-  saveCollectionVariables,
   saveCollectionHeaders,
   deleteRequest,
   deleteCollection,
@@ -73,6 +70,7 @@ import {
   deleteHistory,
   clearHistory,
   trimHistory,
+  loadEnvironments,
   saveEnvironments,
   setWriteErrorHandler,
 } from "./data-store.js";
@@ -1187,31 +1185,23 @@ function makeSplitter(
  * latest values.
  */
 const settingsPopup = new SettingsPopup();
-// CollectionsPopup / EnvironmentsPopup are parent-owned popups that report back
-// to app.js via constructor callbacks (see the "Component ↔ app communication"
-// rule in CLAUDE.md). Their callbacks close over collection / environment
-// handlers defined inside initEventBus(), so they are constructed there —
-// declared here only so initHeader() and applySettings() can reach them.
-let collPopup, environmentsPopup;
-// Open the environments editor focused on the active environment — the popup
-// selects data.activeEnvironmentId on open(). Shared by the env-picker's
-// "Manage…" action and the ⌘/Ctrl+E shortcut (see installKeyboardShortcuts).
-function openEnvironmentsEditor() {
-  environmentsPopup.open(currentEnvironments, {
-    bulkEditor: currentSettings.varsBulkEditor ?? true,
-  });
-}
+// CollectionsPopup is a parent-owned popup that reports back to app.js via
+// constructor callbacks (see the "Component ↔ app communication" rule in
+// CLAUDE.md). Its callbacks close over collection / environment handlers defined
+// inside initEventBus(), so it is constructed there — declared here only so
+// initHeader() and applySettings() can reach it.
+let collPopup;
 const envPicker = new EnvPicker({
-  // Selecting an entry in the picker menu activates it (id null = Global);
-  // "Manage…" opens the full environments editor.
+  // Selecting an entry in the picker menu activates it (id null = Global).
+  // (The "Manage…" item was removed; ⌘/Ctrl+E still opens the editor.)
   onActivate: (id) => handleEnvActivate({ id }),
-  onManage: openEnvironmentsEditor,
 });
-// Open the collections editor on the active collection's variables — collPopup /
-// collPopupState are defined further down but only read when this fires. Shared
-// by the collection picker's "Manage…" action and the ⌥/Alt+⌘/Ctrl+E shortcut.
-function openCollectionsEditor() {
-  collPopup.open(collPopupState());
+// Open the collections editor — collPopup / collPopupState are defined further
+// down but only read when this fires. Shared by the collection picker's
+// "Manage…" action and the keyboard shortcuts. `tab` selects which right-pane
+// tab to focus ("env" | "headers" | "cookies").
+function openCollectionsEditor(tab = "env") {
+  collPopup.open({ ...collPopupState(), tab });
 }
 // Collection selector — the mirror of envPicker.
 const collPicker = new CollPicker({
@@ -1252,6 +1242,8 @@ let currentEnvironments = {
 const collPopupState = () => ({
   collections: currentColls.collections,
   activeCollectionId: currentColls.activeCollectionId,
+  // The active collection's environments (Global + named) for the Environment tab.
+  environments: currentEnvironments,
   bulkEditor: currentSettings.varsBulkEditor ?? true,
   // Context for the Headers tab's value pills to validate {{var}} tokens.
   variableContext: _buildVariableContextForNode(null),
@@ -1509,7 +1501,11 @@ function initEventBus() {
     onRename: handleCollRename,
     onDelete: handleCollDelete,
     onSendCookiesChange: handleCollSendCookies,
-    onVarsSave: handleVarsSave,
+    // The Environment tab edits the active collection's environments; these route
+    // to the same handlers that own currentEnvironments + per-collection persist.
+    onEnvActivate: handleEnvActivate,
+    onEnvironmentsChanged: handleEnvironmentsChanged,
+    onEnvVarsSave: handleEnvVarsSave,
     onHeadersSave: handleCollHeadersSave,
     onBulkEditorChange: handleVarsBulkEditorChange,
     // Export-all routes through the same hippo:export-all-requested handler the
@@ -1517,14 +1513,6 @@ function initEventBus() {
     // the menu share one implementation (ExportModal → runWorkspaceExport).
     onExportAll: () =>
       window.dispatchEvent(new CustomEvent("hippo:export-all-requested")),
-  });
-  environmentsPopup = new EnvironmentsPopup({
-    onChange: handleEnvironmentsChanged,
-    onActivate: handleEnvActivate,
-    onVarsSave: handleEnvVarsSave,
-    // onBulkEditorChange is intentionally left unwired: the prior
-    // hippo:env-bulk-editor-changed event had no listener, so the environments
-    // bulk toggle was never persisted. Preserve that behavior.
   });
 
   // Self-contained handler groups live in their own modules and receive the
@@ -1662,15 +1650,18 @@ function installSelectionHandlers() {
 
 /**
  * Swap the center request panel to the inline variable editor for a selected
- * container (collection / folder), and set the panel title to its scope. The
- * authoritative variables come from currentColls for a top-level collection
- * (handleVarsSave writes them there) and from the tree node for a nested folder.
+ * container (collection / folder), and set the panel title to its scope. A
+ * top-level collection edits its Global environment (the collection-wide tier —
+ * collection-level variables were removed); a nested folder edits its own
+ * variables on the tree node. handleVarsSave routes the save by scope.
  */
 function installContainerSelectionHandler() {
   window.addEventListener("hippo:container-selected", (e) => {
     const { nodeId, name, variables } = e.detail;
-    const coll = currentColls.collections.find((c) => c.id === nodeId);
-    const scopeVars = coll ? (coll.variables ?? []) : (variables ?? []);
+    const isColl = currentColls.collections.some((c) => c.id === nodeId);
+    const scopeVars = isColl
+      ? (currentEnvironments.globalVariables ?? [])
+      : (variables ?? []);
     varsEditor.load({
       scopeId: nodeId,
       scopeName: name,
@@ -2204,6 +2195,11 @@ async function activateCollection(id) {
     ),
   };
 
+  // Environments are per collection — swap to the target collection's set so the
+  // picker, active environment and Global vars all follow the active collection.
+  currentEnvironments = await loadEnvironments(id);
+  envPicker.load(currentEnvironments);
+
   collPicker.load(currentColls);
   collPopup.update(collPopupState());
   _refreshEditorVariableContext();
@@ -2231,6 +2227,18 @@ async function handleCollAdd({ name }) {
   // Save empty items for the new collection
   await saveCollectionData(newColl.id, []);
 
+  // New collections start with an empty environments set (their own Global, no
+  // named environments, no active selection). Persisting the file now also stops
+  // the one-time migration from ever re-seeding this collection from a lingering
+  // legacy workspace file.
+  const newEnvironments = {
+    version: 1,
+    globalVariables: [],
+    activeEnvironmentId: null,
+    environments: [],
+  };
+  await saveEnvironments(newColl.id, newEnvironments);
+
   // Drain debounced edits before switching away (see _flushRequestEdits).
   await _flushRequestEdits();
 
@@ -2242,6 +2250,7 @@ async function handleCollAdd({ name }) {
     );
   setActiveCollection(newColl.id);
   currentColls = { collections, activeCollectionId: newColl.id };
+  currentEnvironments = newEnvironments;
 
   await saveManifest({ collections, activeCollectionId: newColl.id });
 
@@ -2251,6 +2260,7 @@ async function handleCollAdd({ name }) {
   _clearRequestEditor();
   collPicker.load(currentColls);
   collPopup.update(collPopupState());
+  envPicker.load(currentEnvironments);
 }
 
 /** Rename a collection — updates its display name everywhere without touching its items. */
@@ -2301,6 +2311,9 @@ async function handleCollDelete({ id }) {
         ? { ...coll, variables: variables ?? [], headers: headers ?? [] }
         : coll,
     );
+    // Environments are per collection — load the one we switched to.
+    currentEnvironments = await loadEnvironments(activeId);
+    envPicker.load(currentEnvironments);
   } else {
     setActiveCollection(activeId);
   }
@@ -2338,20 +2351,19 @@ async function handleVarsSave({ scopeId, variables }) {
   const isColl = currentColls.collections.some((coll) => coll.id === scopeId);
 
   if (isColl) {
-    // Update in-memory collection state
-    currentColls = {
-      ...currentColls,
-      collections: currentColls.collections.map((coll) =>
-        coll.id === scopeId ? { ...coll, variables } : coll,
-      ),
-    };
-    saveCollectionVariables(scopeId, variables);
-  } else {
-    // It's a folder node — patch the tree and persist collections
-    if (treeView) {
-      treeView.updateNode(scopeId, { variables }, { silent: true });
-      await saveCollections(treeView.getItems());
-    }
+    // A top-level collection's variables now live in its Global environment
+    // (collection-level variables were removed). Route the save there. The
+    // tree only shows the active collection, so scopeId is the active one.
+    await handleEnvVarsSave({ id: null, variables });
+    collPopup.update(collPopupState());
+    envPicker.load(currentEnvironments);
+    return;
+  }
+
+  // It's a folder node — patch the tree and persist collections.
+  if (treeView) {
+    treeView.updateNode(scopeId, { variables }, { silent: true });
+    await saveCollections(treeView.getItems());
   }
 
   // Revalidate pill editors in the request panel for the updated context
@@ -2404,8 +2416,8 @@ function handleVarsBulkEditorChange({ bulkEditor }) {
 
 async function handleEnvironmentsChanged({ data }) {
   currentEnvironments = data;
-  await saveEnvironments(currentEnvironments);
-  environmentsPopup.update(currentEnvironments);
+  await saveEnvironments(currentColls.activeCollectionId, currentEnvironments);
+  collPopup.update(collPopupState());
   _refreshEditorVariableContext();
   envPicker.load(currentEnvironments);
 }
@@ -2415,8 +2427,8 @@ async function handleEnvActivate({ id }) {
     ...currentEnvironments,
     activeEnvironmentId: id,
   };
-  await saveEnvironments(currentEnvironments);
-  environmentsPopup.update(currentEnvironments);
+  await saveEnvironments(currentColls.activeCollectionId, currentEnvironments);
+  collPopup.update(collPopupState());
   _refreshEditorVariableContext();
   envPicker.load(currentEnvironments);
 }
@@ -2435,7 +2447,7 @@ async function handleEnvVarsSave({ id, variables }) {
       ),
     };
   }
-  await saveEnvironments(currentEnvironments);
+  await saveEnvironments(currentColls.activeCollectionId, currentEnvironments);
   _refreshEditorVariableContext();
 }
 
@@ -2475,15 +2487,13 @@ function _buildVariableContextForNode(nodeId, node = null) {
   const activeEnv = currentEnvironments.environments.find(
     (e) => e.id === currentEnvironments.activeEnvironmentId,
   );
-  const collectionVariables = varsArrayToMap(activeColl?.variables);
   const environmentVariables = varsArrayToMap(activeEnv?.variables);
   const globalVariables = varsArrayToMap(currentEnvironments.globalVariables);
 
   return {
-    collectionVariables,
-    secureCollectionVariables: varsArrayToSecureSet(activeColl?.variables),
     // Collection-level default headers (merged into each request before send /
-    // cURL / code-gen, overridable by a same-named request header).
+    // cURL / code-gen, overridable by a same-named request header). The
+    // collection variable scope was removed — Global is the collection-wide tier.
     collectionHeaders: activeColl?.headers ?? [],
     environmentVariables,
     secureEnvironmentVariables: varsArrayToSecureSet(activeEnv?.variables),
@@ -2515,12 +2525,11 @@ function _refreshEditorVariableContext(nodeId) {
   requestEditor.setVariableContext(ctx);
 
   // Feed merged variables to the tree-view so "Generate cURL" resolves correctly.
-  // Collection-level wins over environment which wins over global.
+  // Environment wins over global.
   if (treeView) {
     treeView.setEnvVariables({
       ...ctx.globalVariables,
       ...ctx.environmentVariables,
-      ...ctx.collectionVariables,
     });
     // Collection default headers, so tree-view cURL / code-gen merge them too.
     treeView.setCollectionHeaders(ctx.collectionHeaders);
@@ -2531,15 +2540,17 @@ function _refreshEditorVariableContext(nodeId) {
 
 /**
  * Persist a batch of variable writes (`{ scope, name, value, secure? }`) into
- * the global / environment / collection scopes, reusing the env + collection
- * save handlers (which encrypt `secure` values, refresh the variables UI and
- * route failures to the error sink). One write path for post-response captures
- * (Feature 03) and the pre-/after-request scripts (Feature 25).
+ * the global / environment scopes, reusing the env save handler (which encrypts
+ * `secure` values, refreshes the variables UI and routes failures to the error
+ * sink). One write path for post-response captures (Feature 03) and the pre-/
+ * after-request scripts (Feature 25).
  *
- * Folder-scope writes are not persisted — folder variables are read-only to both
- * mechanisms. Returns the applied list (for a caller-built summary) plus any
- * scope skipped because its target (active env / collection) was inactive, so
- * the caller can phrase its own warning.
+ * The collection variable scope was removed — a legacy `scope:"collection"` write
+ * (from an old capture rule or script) is folded into the Global set. Folder-scope
+ * writes are not persisted — folder variables are read-only to both mechanisms.
+ * Returns the applied list (for a caller-built summary) plus any scope skipped
+ * because its target (active env) was inactive, so the caller can phrase its own
+ * warning.
  *
  * @param {Array<{scope:string,name:string,value:string,secure?:boolean}>} writes
  * @returns {Promise<{applied:Array<{scope,name}>, skipped:Array<{scope,names}>}>}
@@ -2550,10 +2561,12 @@ async function persistVariableWrites(writes) {
   if (!Array.isArray(writes) || writes.length === 0)
     return { applied, skipped };
 
-  // Group writes by scope so each scope is persisted once.
-  const byScope = { environment: [], collection: [], global: [] };
+  // Group writes by scope so each scope is persisted once. A legacy "collection"
+  // target folds into Global (the collection-wide tier now).
+  const byScope = { environment: [], global: [] };
   for (const w of writes) {
-    if (byScope[w.scope]) byScope[w.scope].push(w);
+    const scope = w.scope === "collection" ? "global" : w.scope;
+    if (byScope[scope]) byScope[scope].push(w);
   }
   let envTouched = false;
 
@@ -2594,32 +2607,9 @@ async function persistVariableWrites(writes) {
     }
   }
 
-  // Active collection
-  if (byScope.collection.length) {
-    const activeCollId = currentColls.activeCollectionId;
-    const activeColl = currentColls.collections.find(
-      (c) => c.id === activeCollId,
-    );
-    if (!activeCollId || !activeColl) {
-      skipped.push({
-        scope: "collection",
-        names: _captureNameList(byScope.collection),
-      });
-    } else {
-      const variables = _mergeCaptureWrites(
-        activeColl.variables,
-        byScope.collection,
-      );
-      await handleVarsSave({ scopeId: activeCollId, variables });
-      byScope.collection.forEach((w) =>
-        applied.push({ scope: "coll", name: w.name }),
-      );
-    }
-  }
-
   // Reflect new env/global values in any open popup + the picker.
   if (envTouched) {
-    environmentsPopup.update(currentEnvironments);
+    collPopup.update(collPopupState());
     envPicker.load(currentEnvironments);
   }
   return { applied, skipped };
@@ -2704,16 +2694,13 @@ function _captureNameList(entries) {
 // ── Request scripting (Feature 25) ───────────────────────────────────────
 
 /**
- * Build the flat variable snapshot ({ global, environment, collection, folder }
- * maps + env name) for a request node, mirroring the four resolver scopes — the
- * read-side context handed to a script's `hippo.variables.get` / `environment`.
- * Folder vars are flattened nearest-wins (the same precedence the resolver uses).
+ * Build the flat variable snapshot ({ global, environment, folder } maps + env
+ * name) for a request node, mirroring the resolver scopes — the read-side
+ * context handed to a script's `hippo.variables.get` / `environment`. Folder vars
+ * are flattened nearest-wins (the same precedence the resolver uses).
  * @param {string} nodeId
  */
 function _variableSnapshotForNode(nodeId) {
-  const activeColl = currentColls.collections.find(
-    (c) => c.id === currentColls.activeCollectionId,
-  );
   const activeEnv = currentEnvironments.environments.find(
     (e) => e.id === currentEnvironments.activeEnvironmentId,
   );
@@ -2729,7 +2716,6 @@ function _variableSnapshotForNode(nodeId) {
   return {
     global: varsArrayToMap(currentEnvironments.globalVariables),
     environment: varsArrayToMap(activeEnv?.variables),
-    collection: varsArrayToMap(activeColl?.variables),
     folder,
     envName: activeEnv?.name ?? "",
   };
@@ -2789,7 +2775,6 @@ async function _runAfterResponseScript(node, detail) {
     variables: {
       global: snap.global,
       environment: snap.environment,
-      collection: snap.collection,
       folder: snap.folder,
     },
     assertions,
@@ -3384,12 +3369,21 @@ function installRequestEditSendHandlers() {
  * In Electron     → reads via ipcMain from the platform userData directory
  */
 async function initCollections() {
-  const [
-    { items, settings, collections, activeCollectionId, variables, headers },
-    environmentsData,
-  ] = await Promise.all([loadAll(), window.hippo.store.environments.get()]);
+  const {
+    items,
+    settings,
+    collections,
+    activeCollectionId,
+    variables,
+    headers,
+  } = await loadAll();
 
-  if (environmentsData) currentEnvironments = environmentsData;
+  // Environments are now scoped per collection, so they can only be loaded once
+  // we know which collection is active (hence sequenced after loadAll, not in
+  // parallel). First run / no active collection → keep the empty default.
+  if (activeCollectionId) {
+    currentEnvironments = await loadEnvironments(activeCollectionId);
+  }
 
   treeView.setStorageKey(activeCollectionId);
   treeView.setItems(items);
@@ -3616,8 +3610,10 @@ function installKeyboardShortcuts() {
       tabRequests: () => switchTab("requests"),
       tabFavorites: () => switchTab("favorites"),
       tabRecents: () => switchTab("recents"),
-      editEnvironment: openEnvironmentsEditor,
-      collectionVariables: openCollectionsEditor,
+      // ⌘/Ctrl+E opens the collections editor focused on the Environment tab;
+      // ⌥/Alt+⌘/Ctrl+E opens it on its default (Environment) tab.
+      editEnvironment: () => openCollectionsEditor("env"),
+      collectionVariables: () => openCollectionsEditor("env"),
     },
     { isBlocked: () => popupVisible },
   );
@@ -3759,7 +3755,6 @@ function applySettings(settings) {
   if (responseViewer) responseViewer.applySettings(settings);
   if (varsEditor) varsEditor.applySettings(settings);
   if (collPopup) collPopup.applySettings(settings);
-  if (environmentsPopup) environmentsPopup.applySettings(settings);
   if (treeView) {
     treeView.setDoubleClickExecute(settings.doubleClickExecute ?? false);
     // Quick-access surfaces (favorites / recents). showRecents only gates the
@@ -4877,19 +4872,14 @@ async function mergeRestHippoArchive(archive) {
     archive.items ?? [],
   );
 
-  // 2. Collection-level variables + default headers: add any the archive carries
-  //    that are missing (existing values are never overwritten).
-  let collVars;
+  // 2. Default headers: add any the archive carries that are missing (existing
+  //    values are never overwritten). Collection-level variables were removed —
+  //    they're folded into Global in step 3.
   let collHeaders;
   try {
     const data = await loadCollectionData(activeId);
-    collVars = mergeVariableList(
-      data.variables,
-      archive.collectionVariables,
-    ).list;
     collHeaders = mergeHeaderList(data.headers, archive.collectionHeaders).list;
   } catch {
-    collVars = normalizeVariables(archive.collectionVariables);
     collHeaders = mergeHeaderList([], archive.collectionHeaders).list;
   }
 
@@ -4897,34 +4887,39 @@ async function mergeRestHippoArchive(archive) {
   // Sync the cached default headers BEFORE the write so saveCollectionData's
   // single blob carries the restored headers (it reads them from the cache).
   setActiveHeaders(collHeaders);
-  const saved = await saveCollectionData(activeId, treeMerge.items, collVars);
+  const saved = await saveCollectionData(activeId, treeMerge.items);
   if (!saved) return false; // write-error sink already surfaced the failure
-  // saveCollectionData persists collVars but leaves the in-memory active-variable
-  // cache stale; sync it so a later full saveCollections() can't write the old
-  // snapshot back over the just-restored variables.
-  setActiveVariables(collVars);
 
-  // 3. Environments merge (global + named), then persist.
+  // 3. Environments merge (global + named) into the active collection. An older
+  //    archive's collection-level variables fold into Global (existing wins).
   const envMerge = mergeEnvironments(currentEnvironments, archive.environments);
-  currentEnvironments = envMerge.environments;
-  await saveEnvironments(currentEnvironments);
+  let mergedEnv = envMerge.environments;
+  if (
+    Array.isArray(archive.collectionVariables) &&
+    archive.collectionVariables.length
+  ) {
+    mergedEnv = {
+      ...mergedEnv,
+      globalVariables: mergeVariableList(
+        mergedEnv.globalVariables,
+        archive.collectionVariables,
+      ).list,
+    };
+  }
+  currentEnvironments = mergedEnv;
+  await saveEnvironments(activeId, currentEnvironments);
 
-  // 4. Reflect the merged collection variables in memory. saveCollectionData
-  // only writes to disk, but the variable resolver and the collection variables
-  // editor (CollectionsPopup) read from currentColls — so without this the
-  // restored collection variables wouldn't appear until the next reload.
+  // 4. Reflect the merged default headers in memory (variables live in
+  //    currentEnvironments now, refreshed below via the env picker / context).
   currentColls = {
     ...currentColls,
     collections: currentColls.collections.map((coll) =>
-      coll.id === activeId
-        ? { ...coll, variables: collVars, headers: collHeaders }
-        : coll,
+      coll.id === activeId ? { ...coll, headers: collHeaders } : coll,
     ),
   };
 
   // Refresh every surface that mirrors this state so the restore is visible now.
   collPopup.update(collPopupState());
-  environmentsPopup.update(currentEnvironments);
   envPicker.load(currentEnvironments);
   // Rebuilds the live variable context and feeds the tree-view its merged
   // variables from currentColls + the tree + currentEnvironments.
@@ -5180,31 +5175,27 @@ async function applyImportedCollection(parsed) {
 
   if (treeView) treeView.setItems(newItems);
 
-  // Persist. saveCollectionData no longer throws on a write failure — it routes
-  // the error to the write-error sink (a toast) and returns false — so branch on
-  // the result and bail without claiming success rather than catching.
-  let saved;
-  // Importers return variables already in the canonical array shape, so no
-  // conversion is needed here — just guard against a missing list.
-  const incoming = variables ?? [];
-  if (incoming.length > 0) {
-    // Merge import variables with existing ones — existing values take
-    // precedence. Both are kept in the canonical array shape; conflicts are
-    // resolved by name with the current entry winning. currentRaw comes from
-    // disk and may still be a legacy map, so it is normalized before merging.
-    const { variables: currentRaw } = await loadCollectionData(activeId);
-    const byName = new Map();
-    for (const entry of incoming) byName.set(entry.name, entry);
-    for (const entry of normalizeVariables(currentRaw))
-      byName.set(entry.name, entry);
-    const merged = [...byName.values()];
-    saved = await saveCollectionData(activeId, newItems, merged);
-    if (saved && treeView) treeView.setEnvVariables(varsArrayToMap(merged));
-  } else {
-    saved = await saveCollectionData(activeId, newItems);
-  }
+  // Persist the tree. saveCollectionData no longer throws on a write failure — it
+  // routes the error to the write-error sink (a toast) and returns false — so
+  // branch on the result and bail without claiming success rather than catching.
+  const saved = await saveCollectionData(activeId, newItems);
   // The write-error sink already surfaced the failure; don't report success.
   if (!saved) return false;
+
+  // Imported collection-level variables now land in the active collection's
+  // Global environment (collection-level variables were removed). Existing
+  // Global values win a name clash. Importers return the canonical array shape.
+  const incoming = variables ?? [];
+  if (incoming.length > 0) {
+    const byName = new Map();
+    for (const entry of incoming) byName.set(entry.name, entry);
+    for (const entry of normalizeVariables(currentEnvironments.globalVariables))
+      byName.set(entry.name, entry);
+    const merged = [...byName.values()];
+    await handleEnvVarsSave({ id: null, variables: merged });
+    collPopup.update(collPopupState());
+    envPicker.load(currentEnvironments);
+  }
 
   const count = _countRequests(collection);
   const base = t("app.importedRequests", { count, name: collection.name });

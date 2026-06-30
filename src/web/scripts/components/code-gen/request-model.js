@@ -60,7 +60,7 @@ import { utf8ToBase64 } from "../../utils/base64.js";
  *   }
  *
  * @param {object} node     a request-type tree node (live copy)
- * @param {object} context  variable-resolver context { collectionVariables, folderChain,
+ * @param {object} context  variable-resolver context { environmentVariables, folderChain,
  *                          collectionHeaders }. collectionHeaders ([{enabled,name,value}]) are
  *                          collection-level default headers merged before the node's own headers.
  * @returns {object} the normalized request model

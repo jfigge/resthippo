@@ -202,15 +202,15 @@ function registerStoreIPC({
     ),
   );
 
-  // ── Global + named environment variables ─────────────────────────────────────
+  // ── Global + named environment variables (per collection) ────────────────────
 
-  ipcMain.handle("store:environments:get", () =>
+  ipcMain.handle("store:environments:get", (_event, collectionId) =>
     safeCall(
       "store:environments:get",
-      () => getStores().environmentStore().getEnvironments(),
+      () => getStores().environmentStore().getEnvironments(collectionId),
       {
         version: 1,
-        globalVariables: {},
+        globalVariables: [],
         activeEnvironmentId: null,
         environments: [],
       },
@@ -218,9 +218,9 @@ function registerStoreIPC({
   );
 
   // Authoritative write (user-authored global + named environment variables).
-  ipcMain.handle("store:environments:save", (_event, data) =>
+  ipcMain.handle("store:environments:save", (_event, collectionId, data) =>
     safeCallWrite("store:environments:save", () => {
-      getStores().environmentStore().saveEnvironments(data);
+      getStores().environmentStore().saveEnvironments(collectionId, data);
     }),
   );
 

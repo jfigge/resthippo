@@ -41,7 +41,7 @@ import assert from "node:assert/strict";
 
 import { PillCodeEditor } from "../components/pill-code-editor.js";
 
-const KNOWN_CTX = { collectionVariables: { token: "x" }, folderChain: [] };
+const KNOWN_CTX = { environmentVariables: { token: "x" }, folderChain: [] };
 
 function makePce(opts = {}) {
   resetDom();

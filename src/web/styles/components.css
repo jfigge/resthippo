@@ -1935,9 +1935,7 @@ html.show-method-icons .req-method-menu-item-label::before {
 .coll-kv-header.params-header-row,
 .coll-kv-row.params-row,
 .vars-kv-header.params-header-row,
-.vars-kv-row.params-row,
-.env-kv-header.params-header-row,
-.env-kv-row.params-row {
+.vars-kv-row.params-row {
   grid-template-columns: 1fr 1fr 28px 28px;
 }
 
@@ -5275,6 +5273,7 @@ html.show-method-icons .req-method-menu-item-label::before {
 
 /* ── Right-hand main pane (tabs + panels) ─────────────────────────────────── */
 .coll-main {
+  position: relative; /* anchor for the collection-switch loading overlay */
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
@@ -5293,10 +5292,9 @@ html.show-method-icons .req-method-menu-item-label::before {
   flex-shrink: 0;
 }
 
-/* Collection and environment dialog tabs share a denser tab-button design
-   (smaller padding, bolder active state) than the request/response panes. */
-.coll-tab,
-.env-tab {
+/* Collection dialog tabs use a denser tab-button design (smaller padding,
+   bolder active state) than the request/response panes. */
+.coll-tab {
   padding: var(--space-2) var(--space-4);
   border: none;
   border-bottom: 2px solid transparent;
@@ -5310,13 +5308,11 @@ html.show-method-icons .req-method-menu-item-label::before {
     border-color var(--transition-fast);
 }
 
-.coll-tab:hover,
-.env-tab:hover {
+.coll-tab:hover {
   color: var(--color-text);
 }
 
-.coll-tab--active,
-.env-tab--active {
+.coll-tab--active {
   color: var(--color-accent);
   border-bottom-color: var(--color-accent);
   font-weight: var(--font-weight-semibold);
@@ -5520,6 +5516,37 @@ html.show-method-icons .req-method-menu-item-label::before {
   pointer-events: none;
 }
 
+/* ── Environment selector (Environment panel) ───────────────────────────── */
+.coll-env-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-surface-2);
+  background: var(--color-mantle);
+  flex-shrink: 0;
+  min-height: var(--control-h-md);
+}
+
+.coll-env-select,
+.coll-env-name-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-0);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+
+.coll-env-select:focus,
+.coll-env-name-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
 /* ── Variable editor (Variables panel) ──────────────────────────────────── */
 .coll-vars-toolbar {
   display: flex;
@@ -5655,271 +5682,6 @@ html.show-method-icons .req-method-menu-item-label::before {
   height: 100%;
   overflow: hidden;
   min-height: 0;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ENVIRONMENTS POPUP
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.environments-popup {
-  width: 720px;
-  height: 520px;
-  min-width: 620px;
-  min-height: 420px;
-  max-width: 90vw;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* Master-detail body: left sidebar list + right tabbed panel. */
-.env-popup-body {
-  padding: 0;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: row;
-  overflow: hidden;
-  min-height: 0;
-}
-
-/* ── Left sidebar (environment list + toolbar) ────────────────────────────── */
-.env-sidebar {
-  flex: 0 0 240px;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-mantle);
-  border-right: 1px solid var(--color-surface-2);
-  overflow: hidden;
-  min-height: 0;
-}
-
-.env-sidebar-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border-bottom: 1px solid var(--color-surface-2);
-  flex-shrink: 0;
-}
-
-/* .env-new-btn inherits the shared .icon-btn appearance (matching
-   .env-add-btn); only the cursor is extra. */
-.env-new-btn {
-  cursor: pointer;
-}
-
-/* ── Right-hand main pane (tabs + panels) ─────────────────────────────────── */
-.env-main {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.env-tabs {
-  display: flex;
-  align-items: stretch;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3) 0;
-  border-bottom: 1px solid var(--color-surface-2);
-  background: var(--color-mantle);
-  flex-shrink: 0;
-}
-
-.env-panels {
-  flex: 1 1 auto;
-  display: flex;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.env-panel {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.env-panel[hidden] {
-  display: none;
-}
-
-.env-name-input {
-  flex: 1;
-  height: var(--control-h-md);
-  padding: 0 var(--space-3);
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-  transition: border-color var(--transition-fast);
-  box-sizing: border-box;
-  text-transform: uppercase;
-}
-
-/* Inline name edit sits inside a list row — fill the available width. */
-.env-inline-input {
-  flex: 1;
-  min-width: 0;
-  height: var(--control-h-sm);
-}
-
-.env-name-input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-  background: var(--color-base);
-}
-
-.env-name-input::placeholder {
-  color: var(--color-overlay-0);
-  font-style: italic;
-}
-
-.env-name-input--error {
-  border-color: var(--color-error) !important;
-}
-
-/* ── Environment list ─────────────────────────────────────────────────────── */
-.env-list {
-  list-style: none;
-  padding: var(--space-2) 0;
-  margin: 0;
-}
-
-.env-list-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  margin: 1px var(--space-3);
-  transition: background-color var(--transition-fast);
-}
-
-.env-list-item:hover {
-  background-color: var(--color-surface-1);
-}
-
-.env-list-item--active {
-  background-color: var(--color-surface-0);
-}
-
-.env-list-item--selected {
-  background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
-}
-
-.env-list-item-check {
-  width: 18px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-accent);
-}
-
-.env-list-item-name {
-  flex: 1;
-  text-align: left;
-  font-size: var(--font-size-sm);
-  color: var(--color-text);
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-  /* Environment names always read upper-case, matching the picker trigger/menu. */
-  text-transform: var(--env-picker-uppercase, uppercase);
-}
-
-.env-list-item--active .env-list-item-name {
-  color: var(--color-accent);
-  font-weight: var(--font-weight-semibold);
-}
-
-.env-list-item-name:hover {
-  text-decoration: underline;
-}
-
-.env-list-item-actions {
-  display: flex;
-  gap: var(--space-2);
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.env-list-item:hover .env-list-item-actions,
-.env-list-item--active .env-list-item-actions,
-.env-list-item--selected .env-list-item-actions {
-  opacity: 1;
-}
-
-.env-list-item-drag {
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-  width: 16px;
-  height: 16px;
-}
-
-.env-list-item:hover .env-list-item-drag {
-  opacity: 1;
-}
-
-.env-list-item--dragging {
-  opacity: 0.4;
-}
-
-/* ── Variable editor (Variables panel) ────────────────────────────────────── */
-.env-vars-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--color-surface-2);
-  background: var(--color-mantle);
-  flex-shrink: 0;
-  min-height: var(--control-h-md);
-}
-
-.env-vars-hint {
-  font-size: var(--font-size-xs);
-  color: var(--color-overlay-0);
-  font-style: italic;
-  margin-left: auto;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.env-textarea {
-  flex: 1 1 auto;
-  min-height: 0;
-  resize: none;
-  /* One name=value pair per line — never soft-wrap; scroll horizontally for
-     long values (paired with the textarea's wrap="off"). */
-  white-space: pre;
-  overflow-x: auto;
-}
-
-/* ── KV (table) mode ─────────────────────────────────────────────────────── */
-.env-kv-wrap {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* ── Footer ──────────────────────────────────────────────────────────────── */
-.env-popup-footer {
-  justify-content: flex-end;
 }
 
 /* ── Active environment badge in the nav panel header ────────────────────── */
@@ -6503,14 +6265,14 @@ input[type="checkbox"]:disabled {
 }
 
 /* ── Environment & collection pickers (.env-picker-* / .coll-picker-*) ─────────
-   Two trigger buttons that open the environments / collections editors. The
-   environment picker is an icon+label pill; the collection picker is an
+   Two trigger buttons in the tree-toolbar. The environment picker is a labelled
+   pill styled like the request Send button (accent outline, mono bold) showing
+   the active environment + a dropdown caret; the collection picker is an
    icon-only ghost button matching the .icon-btn settings gear (its active
    collection name is the tooltip — see the ghost override below). They start
    from a shared trigger base, then the collection picker overrides the pill
-   chrome to the borderless ghost style; the .env-picker-trigger--active accent
-   is env-only (a collection is always active, so there's no inactive state to
-   signal). */
+   chrome to the borderless ghost style and the environment picker overrides it
+   to the Send-button look. */
 
 .env-picker-trigger,
 .coll-picker-trigger {
@@ -6560,27 +6322,38 @@ input[type="checkbox"]:disabled {
   background-color: var(--color-surface-2);
 }
 
+/* The environment selector mirrors the request Send button: an accent outline
+   with a mono bold label. The active environment's name (or "Global") shows in
+   the label, with a dropdown caret to its right. */
+.env-picker-trigger {
+  gap: var(--space-2);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+}
+
+/* --active distinguishes a named environment from the Global default; kept as a
+   styling hook though both currently read in the accent colour. */
 .env-picker-trigger--active {
   color: var(--color-accent);
 }
 
-.env-picker-globe,
+.env-picker-caret {
+  width: 8px;
+  height: 5px;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
 .coll-picker-icon {
   flex-shrink: 0;
   line-height: 0;
-}
-
-/* The env globe stays dimmed; the collection icon reads at full strength like
-   the settings gear it now mirrors. */
-.env-picker-globe {
-  opacity: 0.6;
 }
 
 .env-picker-label {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-transform: var(--env-picker-uppercase, uppercase);
   min-width: 32px;
   max-width: 120px;
 }

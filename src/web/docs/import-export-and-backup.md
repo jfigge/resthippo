@@ -44,8 +44,8 @@ requests: method, URL, query and path params, headers, the full **Auth**
 configuration for every scheme, captures, scripts, notes, and bodies.
 
 - **Variables travel referenced-only.** The archive adds an _environments_
-  section (your environments and global variables) and the collection's own
-  variables — but only the ones the exported requests actually reference
+  section (the collection's environments and global variables) and the
+  collection's own variables — but only the ones the exported requests reference
   (`{{name}}`, followed transitively). Anything unused is left out, so exporting a
   single folder never drags in the rest of the collection's variables (or forces a
   password for secrets it doesn't use). A folder's own variables always travel

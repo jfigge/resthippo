@@ -243,12 +243,13 @@ export class CapturesEditor {
       this.#onChange?.();
     });
 
-    // Target scope select
+    // Target scope select. (The collection scope was removed — its variables now
+    // live in Global; a legacy rule with scope "collection" is treated as Global
+    // at write time, so it still works without a dedicated option here.)
     const scope = this.#buildSelect(
       "captures-scope",
       [
         { value: "environment", label: t("request.captures.scopeEnvironment") },
-        { value: "collection", label: t("request.captures.scopeCollection") },
         { value: "global", label: t("env.global") },
       ],
       rule.target?.scope ?? "environment",

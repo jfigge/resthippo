@@ -20,35 +20,39 @@ you send.
 
 ## Scopes
 
-A variable can be defined at four levels. When the same name exists in more than
+A variable can be defined at three levels. When the same name exists in more than
 one, the **most specific scope wins**:
 
 ```
-Folder  ▸  Collection  ▸  Environment  ▸  Global
-(most specific)                        (most general)
+Folder  ▸  Environment  ▸  Global
+(most specific)        (most general)
 ```
 
-- **Global** — available everywhere, in every collection.
+- **Global** — available to every request in the **active collection** (each
+  collection has its own Global set — see [Environments](#environments) below).
+  Global is the collection-wide tier: variables you want every request in the
+  collection to see go here.
 - **Environment** — defined in the active environment (see below). Switching
   environments swaps these values.
-- **Collection** — defined on a collection, shared by every request in it.
 - **Folder** — defined on a folder, scoped to the requests inside it.
 
 So a `baseUrl` set in your **Local** environment overrides a global `baseUrl`,
 and a folder-level override beats them both.
 
-### Collection and folder variables
+### Folder and collection-wide variables
 
-**Click a collection or folder** in the tree to edit its variables right in the
-center panel: the request editor is replaced by an inline variable editor scoped
-to that container, and selecting a request switches the panel back. It offers the
-same bulk-text and key/value modes — and per-variable secure masking — as the
-other variable editors, and saves as you type.
+**Click a folder** in the tree to edit its variables right in the center panel:
+the request editor is replaced by an inline variable editor scoped to that folder,
+and selecting a request switches the panel back. It offers the same bulk-text and
+key/value modes — and per-variable secure masking — as the other variable editors,
+and saves as you type.
 
-![Collection variables](images/collection-variables.png)
+![Folder variables](images/collection-variables.png)
 
-A collection's variables are also editable from the
-[Collections manager](collections.md#collections)'s **Variables** tab.
+**Clicking a collection** edits its **Global** environment in that same inline
+editor — collections no longer have a separate variable set; their collection-wide
+variables are simply the Global environment (also editable from the
+[Collections manager](collections.md#collections)'s **Environments** tab).
 
 ## Environments
 
@@ -56,25 +60,33 @@ An **environment** is a named set of variables you can switch between — the
 classic use is one environment per deployment (Local, Staging, Production), each
 with its own `baseUrl`, credentials, and IDs.
 
+**Environments belong to the collection.** Each collection has its own **Global**
+set and its own list of named environments, with its own active selection. When
+you switch the active collection, the environment picker and the active
+environment switch with it — so a `Staging` environment in one collection is
+entirely independent of a `Staging` in another. A brand-new collection starts
+with an empty Global set and no named environments.
+
 Click the **environment picker** in the collections toolbar (it shows the active
 environment, e.g. `LOCAL`) to open a quick-switch menu. It lists **Global**
 followed by every named environment, with a check beside the active one — pick
 one to **make it active** instantly (all `{{variables}}` resolve against it).
-To **add, rename, delete, or edit** environments you must **right-click** the
-picker: that opens a short menu with a single **Manage…** entry, which opens the
-full environments editor. (A plain click only switches the active environment —
-it never opens the editor.)
 
-![The environments editor](images/environments-popup.png)
+To **add, delete, or edit** environments, open the **Environments** tab of the
+[Collections manager](collections.md#collections) — right-click the environment
+picker and choose **Manage…**, press **⌘/Ctrl + E**, or open the collections
+manager and switch to the **Environments** tab. (A plain click on the picker only
+switches the active environment.)
 
-- **Global** is always first; its variables are available everywhere.
-- Below it are your named environments. Click one to **make it active** — a
-  check marks the active environment, and all `{{variables}}` resolve against it.
-- **+** adds an environment; drag to reorder; double-click to rename; the trash
-  icon deletes.
-- The **Variables** tab on the right edits the selected environment's variables
-  as a key/value grid (or as plain text via **Bulk editor**). Changes save
-  automatically.
+- The **Environment** dropdown at the top selects which environment you're
+  editing: **Global** (always present) or any named environment. Choosing one also
+  makes it the active environment, kept in sync with the toolbar picker.
+- **+** adds a named environment (type its name and press Enter); the **trash**
+  button deletes the selected environment (with a confirmation). Global can't be
+  deleted.
+- Below the selector, the variable editor edits the selected environment's
+  variables as a key/value grid (or as plain text via **Bulk editor**). Changes
+  save automatically.
 
 ### Secure variables
 
@@ -100,7 +112,7 @@ Each capture rule has:
 | --------------- | ---------------------------------------------------------------------- |
 | **Source**      | Where to read from: the **Body**, a **Header**, or the **Status** code |
 | **Path / Name** | For Body, a dot-path like `.data.token`; for Header, the header name   |
-| **Scope**       | Where to write: **Environment**, **Collection**, or **Global**         |
+| **Scope**       | Where to write: **Environment** or **Global**                          |
 | **Variable**    | The variable name to write                                             |
 | **Codes**       | Which response codes the rule fires on (see below)                     |
 | **Secret**      | Mark the captured value secure (encrypted, masked)                     |

@@ -93,10 +93,13 @@ const HARD_TIMEOUT_MS = SCRIPT_TIMEOUT_MS + 1500;
 /** Resolved path to the worker entry that runs runScript() off the main thread. */
 const WORKER_PATH = path.join(__dirname, "sandbox-worker.js");
 
+// The `collection` scope was removed — its variables now live in Global. A
+// legacy script that names "collection" is normalized to "global" in get/set
+// (below) so it keeps working, but "collection" is no longer an advertised scope.
 /** Scopes readable by hippo.variables.get. */
-const ALL_SCOPES = ["global", "environment", "collection", "folder"];
+const ALL_SCOPES = ["global", "environment", "folder"];
 /** Scopes writable by hippo.variables.set — `folder` is read-only in v1. */
-const SET_SCOPES = ["global", "environment", "collection"];
+const SET_SCOPES = ["global", "environment"];
 
 // The `hippo` API is defined as source so it is compiled *inside* the sandbox
 // context (see security model #1). It reads its inputs from the primitive
@@ -274,6 +277,7 @@ const BOOTSTRAP = `
   var hippo = {
     variables: Object.freeze({
       get: function (scope, name) {
+        if (scope === "collection") scope = "global"; // legacy alias
         if (ALL_SCOPES.indexOf(scope) === -1)
           throw new Error("hippo.variables.get: unknown scope '" + scope + "'");
         var m = vars[scope];
@@ -284,6 +288,7 @@ const BOOTSTRAP = `
           : undefined;
       },
       set: function (scope, name, value) {
+        if (scope === "collection") scope = "global"; // legacy alias
         if (scope === "folder")
           throw new Error(
             "hippo.variables.set: the 'folder' scope is read-only",

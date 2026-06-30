@@ -69,7 +69,7 @@ function mount() {
 
   const editor = new RequestEditor();
   document.body.appendChild(editor.element);
-  editor.setVariableContext({ collectionVariables: {}, folderChain: [] });
+  editor.setVariableContext({ environmentVariables: {}, folderChain: [] });
   editor.load(NODE);
 
   const sends = [];

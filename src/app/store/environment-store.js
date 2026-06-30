@@ -15,16 +15,19 @@
  */
 
 /**
- * environment-store.js — Manages global + named environment variables.
+ * environment-store.js — Manages a collection's global + named environment
+ * variables.
  *
- * Data is stored in environments/index.json under the userData root.
+ * Environments are scoped per collection: each collection's set lives in
+ * collections/<collectionId>/environments.json (so switching the active
+ * collection switches its environments + active selection + Global vars).
  * Shape: { globalVariables, activeEnvironmentId, environments:[{id,name,variables}] }
  * Variable collections (globalVariables, each environment's variables) are the
  * canonical array shape: [{ name, value, secure }].
  */
 "use strict";
 
-const { readJSON, writeJSON, ensureDir } = require("./io");
+const { readJSON, writeJSON, ensureDir, validateID } = require("./io");
 const {
   encryptVariables,
   decryptVariables,
@@ -46,13 +49,15 @@ class EnvironmentStore {
   }
 
   /**
-   * Return the environments data.
+   * Return a collection's environments data.
    * Returns a safe default when the file does not exist yet.
    *
+   * @param {string} collId  Collection ID
    * @returns {object}
    */
-  getEnvironments() {
-    const data = readJSON(this._paths.environmentsPath());
+  getEnvironments(collId) {
+    validateID(collId, "collectionId");
+    const data = readJSON(this._paths.environmentsFile(collId));
     if (!data || typeof data !== "object") return { ...DEFAULT_ENVIRONMENTS };
     return {
       ...data,
@@ -79,7 +84,7 @@ class EnvironmentStore {
   }
 
   /**
-   * Persist the environments data.
+   * Persist a collection's environments data.
    *
    * Secure variable values (globalVariables + each environment's variables) are
    * encrypted at rest. The on-disk document is read first so the clobber guard
@@ -87,12 +92,14 @@ class EnvironmentStore {
    * left blank because it had failed to decrypt — a transient keystore failure
    * must never wipe a secret.
    *
+   * @param {string} collId  Collection ID
    * @param {object} data
    */
-  saveEnvironments(data) {
-    ensureDir(this._paths.environmentsDir());
+  saveEnvironments(collId, data) {
+    validateID(collId, "collectionId");
+    ensureDir(this._paths.collectionDir(collId));
 
-    const existing = readJSON(this._paths.environmentsPath()) ?? {};
+    const existing = readJSON(this._paths.environmentsFile(collId)) ?? {};
     const existingEnvById = new Map();
     for (const env of Array.isArray(existing.environments)
       ? existing.environments
@@ -125,7 +132,7 @@ class EnvironmentStore {
         : data.environments,
     };
 
-    writeJSON(this._paths.environmentsPath(), out);
+    writeJSON(this._paths.environmentsFile(collId), out);
   }
 }
 

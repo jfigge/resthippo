@@ -219,12 +219,13 @@ function augmentVariableContext(ctx, writes) {
     ...ctx,
     globalVariables: { ...(ctx.globalVariables ?? {}) },
     environmentVariables: { ...(ctx.environmentVariables ?? {}) },
-    collectionVariables: { ...(ctx.collectionVariables ?? {}) },
   };
   const target = {
     global: next.globalVariables,
     environment: next.environmentVariables,
-    collection: next.collectionVariables,
+    // A legacy collection-scoped write folds into Global (collection-level
+    // variables were removed — Global is the collection-wide tier).
+    collection: next.globalVariables,
   };
   for (const w of writes) {
     if (target[w.scope]) target[w.scope][w.name] = w.value;
@@ -493,7 +494,7 @@ export class RequestEditor {
   #sendTypeTrigger = null;
 
   // ── Variable pill editor support ───────────────────────────────────────────
-  /** Current variable resolution context: { collectionVariables, folderChain, … } */
+  /** Current variable resolution context: { globalVariables, environmentVariables, folderChain, … } */
   #variableContext = null;
   /** Callback returning request items for function popup request-picker params. */
   #getItems = () => [];
@@ -2993,7 +2994,6 @@ export class RequestEditor {
         variables: {
           global: ctx?.globalVariables ?? {},
           environment: ctx?.environmentVariables ?? {},
-          collection: ctx?.collectionVariables ?? {},
           folder: flattenFolderChain(ctx?.folderChain),
         },
         runResults,
@@ -3086,7 +3086,7 @@ export class RequestEditor {
    * Call this whenever the selected request, collection, or folder variables
    * change so that pills are re-validated immediately.
    *
-   * @param {{ collectionVariables?: object, folderChain?: object[] } | null} context
+   * @param {{ environmentVariables?: object, folderChain?: object[] } | null} context
    */
   setVariableContext(context) {
     this.#variableContext = context;

@@ -36,7 +36,7 @@ import { shellSingleQuote } from "../util.js";
 
 // Empty resolver context — no env / folder variables. resolveString returns
 // strings with no {{tokens}} unchanged, so request fields pass through verbatim.
-const CTX = { collectionVariables: {}, folderChain: [] };
+const CTX = { environmentVariables: {}, folderChain: [] };
 
 const GET_NODE = {
   type: "request",
@@ -110,7 +110,7 @@ test("buildRequestModel: disabled params/headers are dropped", () => {
 
 test("buildRequestModel: collection default headers merge before request headers", () => {
   const ctx = {
-    collectionVariables: {},
+    environmentVariables: {},
     folderChain: [],
     collectionHeaders: [{ enabled: true, name: "X-Default", value: "d" }],
   };
@@ -131,7 +131,7 @@ test("buildRequestModel: collection default headers merge before request headers
 
 test("buildRequestModel: an enabled request header overrides a collection default (case-insensitive)", () => {
   const ctx = {
-    collectionVariables: {},
+    environmentVariables: {},
     folderChain: [],
     collectionHeaders: [{ enabled: true, name: "content-type", value: "a" }],
   };
@@ -151,7 +151,7 @@ test("buildRequestModel: an enabled request header overrides a collection defaul
 
 test("buildRequestModel: a disabled request header suppresses the collection default", () => {
   const ctx = {
-    collectionVariables: {},
+    environmentVariables: {},
     folderChain: [],
     collectionHeaders: [{ enabled: true, name: "X-Default", value: "d" }],
   };
@@ -253,7 +253,10 @@ test("buildRequestModel: a GET drops a body even if one is configured", () => {
 });
 
 test("buildRequestModel: {{var}} tokens resolve from the context", () => {
-  const ctx = { collectionVariables: { host: "example.org" }, folderChain: [] };
+  const ctx = {
+    environmentVariables: { host: "example.org" },
+    folderChain: [],
+  };
   const m = buildRequestModel(
     { type: "request", method: "GET", url: "https://{{host}}/v1" },
     ctx,

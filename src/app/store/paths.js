@@ -24,6 +24,7 @@
  *     <collectionId>/
  *       metadata.json                    ← collection id + collection-level variables
  *       tree.json                        ← lightweight nav tree (no request bodies)
+ *       environments.json                ← this collection's global + named environments
  *       cookies.json                     ← persistent cookie jar (captured Set-Cookie)
  *       requests/
  *         <requestId>.json               ← one file per request
@@ -59,6 +60,12 @@ class Paths {
     return path.join(this.collectionsDir(), "index.json");
   }
 
+  /**
+   * Legacy workspace-wide environments file (a single set shared by every
+   * collection). Environments are now per-collection (see `environmentsFile`);
+   * these two remain only so the one-time migration and the legacy-backup reader
+   * can still locate the old file.
+   */
   environmentsDir() {
     return path.join(this.dataDir, "environments");
   }
@@ -103,6 +110,11 @@ class Paths {
   /** Lightweight navigation tree (folder hierarchy + requestRef IDs). */
   treePath(collId) {
     return path.join(this.collectionDir(collId), "tree.json");
+  }
+
+  /** This collection's global + named environment variables. */
+  environmentsFile(collId) {
+    return path.join(this.collectionDir(collId), "environments.json");
   }
 
   /** Per-collection cookie jar (captured Set-Cookie state). */

@@ -100,7 +100,7 @@ function seedWorkspace(stores) {
     ],
   });
 
-  stores.environmentStore().saveEnvironments({
+  stores.environmentStore().saveEnvironments("coll-1", {
     version: 1,
     globalVariables: [
       { name: "region", value: "eu", secure: false },
@@ -175,7 +175,10 @@ describe("BackupStore.exportAll", () => {
 
     assert.ok(env.manifest);
     assert.equal(env.manifest.collections[0].id, "coll-1");
-    assert.equal(env.environments.environments[0].name, "Dev");
+    // Environments now travel inside their collection, not a top-level section.
+    assert.equal(env.environments, undefined);
+    assert.equal(env.backupFormatVersion, 2);
+    assert.equal(env.collections[0].environments.environments[0].name, "Dev");
   });
 
   test("redacts secrets by default", () => {
@@ -281,8 +284,8 @@ describe("BackupStore.importAll", () => {
       assert.equal(manifest.activeCollectionId, "coll-1");
       assert.equal(manifest.settings.proxyUrl, "http://proxy.secret");
 
-      // Environments.
-      const envs = dest.environmentStore().getEnvironments();
+      // Environments (per collection).
+      const envs = dest.environmentStore().getEnvironments("coll-1");
       assert.equal(envs.environments[0].name, "Dev");
       assert.equal(
         envs.globalVariables.find((v) => v.name === "region").value,
@@ -392,7 +395,7 @@ describe("BackupStore.importAll", () => {
       const blob = dest.collectionsStore().getCollections("coll-1");
       assert.ok(findRequest(blob.collections, "req-1"), "request survives");
       assert.equal(
-        dest.environmentStore().getEnvironments().environments[0].name,
+        dest.environmentStore().getEnvironments("coll-1").environments[0].name,
         "Dev",
       );
     } finally {
@@ -435,7 +438,7 @@ describe("BackupStore.importAll", () => {
       assert.equal(manifest.activeCollectionId, "coll-1");
       assert.equal(manifest.settings.proxyUrl, "http://proxy.secret");
       assert.equal(
-        dest.environmentStore().getEnvironments().environments[0].name,
+        dest.environmentStore().getEnvironments("coll-1").environments[0].name,
         "Dev",
       );
 
@@ -644,11 +647,14 @@ describe("BackupStore password mode", () => {
     assert.match(varValue(folder.variables, "folderKey"), /^encp:v2:/);
 
     assert.match(
-      varValue(env.environments.globalVariables, "globalToken"),
+      varValue(env.collections[0].environments.globalVariables, "globalToken"),
       /^encp:v2:/,
     );
     assert.match(
-      varValue(env.environments.environments[0].variables, "envSecret"),
+      varValue(
+        env.collections[0].environments.environments[0].variables,
+        "envSecret",
+      ),
       /^encp:v2:/,
     );
 
@@ -690,7 +696,7 @@ describe("BackupStore password mode", () => {
       const req = findRequest(blob.collections, "req-1");
       assert.equal(req.authBasic.password, "s3cret-pw");
 
-      const envs = dest.environmentStore().getEnvironments();
+      const envs = dest.environmentStore().getEnvironments("coll-1");
       assert.equal(
         varValue(envs.globalVariables, "globalToken"),
         "glob-secret",
@@ -744,6 +750,125 @@ describe("BackupStore password mode", () => {
             .importAll(env, { mode: "replace", password: "wrong" }),
         (err) => err instanceof PasswordError && err.reason === "bad-password",
       );
+    } finally {
+      rmTmpDir(destDir);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-collection environments (backup format v2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("BackupStore — per-collection environments", () => {
+  let tmpDir;
+  let stores;
+
+  // Seed two collections, each with its OWN distinct environments set.
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    stores = new Stores(tmpDir);
+    stores.collectionStore().saveManifest({
+      version: 2,
+      collections: [
+        { id: "coll-a", name: "Alpha" },
+        { id: "coll-b", name: "Beta" },
+      ],
+      activeCollectionId: "coll-a",
+      settings: {},
+    });
+    stores
+      .collectionsStore()
+      .saveCollections("coll-a", { version: 1, collections: [] });
+    stores
+      .collectionsStore()
+      .saveCollections("coll-b", { version: 1, collections: [] });
+    stores.environmentStore().saveEnvironments("coll-a", {
+      globalVariables: [{ name: "who", value: "alpha", secure: false }],
+      activeEnvironmentId: "env-a",
+      environments: [{ id: "env-a", name: "Alpha Dev", variables: [] }],
+    });
+    stores.environmentStore().saveEnvironments("coll-b", {
+      globalVariables: [{ name: "who", value: "beta", secure: false }],
+      activeEnvironmentId: "env-b",
+      environments: [{ id: "env-b", name: "Beta Prod", variables: [] }],
+    });
+  });
+
+  afterEach(() => rmTmpDir(tmpDir));
+
+  test("export embeds each collection's own environments", () => {
+    const env = stores.backupStore().exportAll();
+    assert.equal(env.environments, undefined); // no top-level section
+    const byId = Object.fromEntries(env.collections.map((c) => [c.id, c]));
+    assert.equal(byId["coll-a"].environments.environments[0].name, "Alpha Dev");
+    assert.equal(byId["coll-b"].environments.environments[0].name, "Beta Prod");
+    assert.equal(
+      varValue(byId["coll-a"].environments.globalVariables, "who"),
+      "alpha",
+    );
+    assert.equal(
+      varValue(byId["coll-b"].environments.globalVariables, "who"),
+      "beta",
+    );
+  });
+
+  test("round-trip keeps each collection's environments isolated", () => {
+    const env = stores.backupStore().exportAll();
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      dest.backupStore().importAll(env, { mode: "replace" });
+      assert.equal(
+        varValue(
+          dest.environmentStore().getEnvironments("coll-a").globalVariables,
+          "who",
+        ),
+        "alpha",
+      );
+      assert.equal(
+        varValue(
+          dest.environmentStore().getEnvironments("coll-b").globalVariables,
+          "who",
+        ),
+        "beta",
+      );
+    } finally {
+      rmTmpDir(destDir);
+    }
+  });
+
+  test("legacy backup (top-level environments) seeds every collection on replace", () => {
+    // A pre-v2 backup carried ONE shared top-level `environments` block and no
+    // per-collection environments. On import that single set seeds every
+    // restored collection.
+    const env = stores.backupStore().exportAll();
+    const legacy = {
+      kind: env.kind,
+      schemaVersion: env.schemaVersion,
+      manifest: env.manifest,
+      environments: {
+        globalVariables: [{ name: "who", value: "shared", secure: false }],
+        activeEnvironmentId: null,
+        environments: [{ id: "env-x", name: "Shared", variables: [] }],
+      },
+      collections: env.collections.map((c) => ({
+        id: c.id,
+        metadata: c.metadata,
+        tree: c.tree,
+        requests: c.requests,
+      })),
+    };
+
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      dest.backupStore().importAll(legacy, { mode: "replace" });
+      for (const id of ["coll-a", "coll-b"]) {
+        const got = dest.environmentStore().getEnvironments(id);
+        assert.equal(varValue(got.globalVariables, "who"), "shared");
+        assert.equal(got.environments[0].name, "Shared");
+      }
     } finally {
       rmTmpDir(destDir);
     }

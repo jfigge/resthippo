@@ -43,8 +43,8 @@ small and deliberately sandboxed (see [Sandbox & limits](#sandbox--limits)).
 
 | Member | Parameters | Returns | Available in | Notes |
 | --- | --- | --- | --- | --- |
-| `hippo.variables.get(scope, name)` | `scope`: `"global"` \| `"environment"` \| `"collection"` \| `"folder"` · `name`: string | `string \| undefined` | both | Reads a variable from a specific scope. |
-| `hippo.variables.set(scope, name, value)` | `scope`: `"global"` \| `"environment"` \| `"collection"` · `name`: string · `value`: string | `void` | both | Writes a variable; the value is saved for later requests. `"folder"` is **read-only** — `set` throws. |
+| `hippo.variables.get(scope, name)` | `scope`: `"global"` \| `"environment"` \| `"folder"` · `name`: string | `string \| undefined` | both | Reads a variable from a specific scope. (A legacy `"collection"` is treated as `"global"`.) |
+| `hippo.variables.set(scope, name, value)` | `scope`: `"global"` \| `"environment"` · `name`: string · `value`: string | `void` | both | Writes a variable; the value is saved for later requests. `"folder"` is **read-only** — `set` throws. (A legacy `"collection"` is treated as `"global"`.) |
 | `hippo.request.method` · `.url` · `.headers` · `.body` | — | string · string · object · string | both | **Mutable in the pre-request script** (changes the outgoing request); a read-only snapshot in the after-response script. In the pre-request pane these still contain `{{templates}}` — they are substituted after your script runs. |
 | `hippo.response.status` · `.time` · `.headers` · `.body` | — | number · number (ms) · object · string | **after-response only** | Reading these in a pre-request script throws — the response doesn't exist yet. `.time` is the elapsed response time in milliseconds. |
 | `hippo.response.json()` | — | parsed value | after-response only | Parses the response body as JSON; throws if the body isn't valid JSON. |
@@ -55,9 +55,9 @@ small and deliberately sandboxed (see [Sandbox & limits](#sandbox--limits)).
 | `hippo.expect(value)` | `value`: any | matcher | after-response | Returns a matcher with `.toBe` / `.toEqual` / `.toContain` / `.toBeLessThan` / `.toBeGreaterThan` / `.toMatch` / `.toBeTruthy` / `.toBeFalsy` (and `.not`), each throwing on mismatch. |
 
 > **Scopes** follow the same precedence as everywhere else in Rest Hippo:
-> folder → collection → environment → global. `get` can read any of the four;
-> `set` writes to global, environment, or collection (folder variables are
-> read-only from a script).
+> folder → environment → global. `get` can read any of the three; `set` writes to
+> global or environment (folder variables are read-only from a script). Global is
+> the collection-wide tier.
 
 ## Example: prepare the request (pre-request)
 
@@ -110,7 +110,7 @@ and `json()`.
 // On success, pull an id out of the JSON body and save it for a later request.
 if (hippo.response.status === 200) {
   const body = hippo.response.json();
-  hippo.variables.set("collection", "userId", body.id);
+  hippo.variables.set("global", "userId", body.id);
   hippo.console.log("captured userId", body.id);
 }
 ```

@@ -754,6 +754,190 @@ describe("Stores factory", () => {
   });
 });
 
+// ── Legacy per-collection environments migration ──────────────────────────────
+
+describe("Stores — legacy environments migration", () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+  afterEach(() => rmTmpDir(tmpDir));
+
+  /** Write a legacy workspace-wide environments/index.json directly to disk. */
+  function writeLegacyEnv(globalValue) {
+    const paths = new Paths(tmpDir);
+    fs.mkdirSync(paths.environmentsDir(), { recursive: true });
+    fs.writeFileSync(
+      paths.environmentsPath(),
+      JSON.stringify({
+        globalVariables: [
+          { name: "legacy", value: globalValue, secure: false },
+        ],
+        activeEnvironmentId: "env-1",
+        environments: [{ id: "env-1", name: "Legacy", variables: [] }],
+      }),
+    );
+    return paths;
+  }
+
+  test("copies the legacy file into every collection and retires it", () => {
+    // Register two collections, then drop a legacy workspace env file in place.
+    const s1 = new Stores(tmpDir);
+    s1.collectionStore().saveManifest({
+      version: 2,
+      collections: [
+        { id: "coll-a", name: "Alpha" },
+        { id: "coll-b", name: "Beta" },
+      ],
+      activeCollectionId: "coll-a",
+      settings: {},
+    });
+    const paths = writeLegacyEnv("v1");
+
+    // Constructing a fresh Stores triggers the one-time migration.
+    const s2 = new Stores(tmpDir);
+    for (const id of ["coll-a", "coll-b"]) {
+      const env = s2.environmentStore().getEnvironments(id);
+      assert.equal(
+        env.globalVariables.find((v) => v.name === "legacy").value,
+        "v1",
+      );
+      assert.equal(env.environments[0].name, "Legacy");
+    }
+
+    // The legacy file is retired so the migration cannot run again.
+    assert.equal(fs.existsSync(paths.environmentsPath()), false);
+    assert.equal(fs.existsSync(`${paths.environmentsPath()}.migrated`), true);
+  });
+
+  test("is idempotent and never clobbers an edited per-collection set", () => {
+    const s1 = new Stores(tmpDir);
+    s1.collectionStore().saveManifest({
+      version: 2,
+      collections: [{ id: "coll-a", name: "Alpha" }],
+      activeCollectionId: "coll-a",
+      settings: {},
+    });
+    writeLegacyEnv("v1");
+
+    const s2 = new Stores(tmpDir); // migrates
+    // The user edits the collection's env after migration.
+    s2.environmentStore().saveEnvironments("coll-a", {
+      globalVariables: [{ name: "legacy", value: "edited", secure: false }],
+      activeEnvironmentId: null,
+      environments: [],
+    });
+
+    // A later launch must NOT re-seed from the (now retired) legacy file.
+    const s3 = new Stores(tmpDir);
+    const env = s3.environmentStore().getEnvironments("coll-a");
+    assert.equal(
+      env.globalVariables.find((v) => v.name === "legacy").value,
+      "edited",
+    );
+  });
+
+  test("leaves the legacy file in place when there are no collections yet", () => {
+    const s1 = new Stores(tmpDir);
+    s1.collectionStore().saveManifest({
+      version: 2,
+      collections: [],
+      activeCollectionId: null,
+      settings: {},
+    });
+    const paths = writeLegacyEnv("v1");
+
+    new Stores(tmpDir); // migration is a no-op with no collections to seed
+
+    assert.equal(fs.existsSync(paths.environmentsPath()), true);
+    assert.equal(fs.existsSync(`${paths.environmentsPath()}.migrated`), false);
+  });
+});
+
+// ── Collection-variable fold into Global ──────────────────────────────────────
+
+describe("Stores — collection-variable fold into Global", () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+  afterEach(() => rmTmpDir(tmpDir));
+
+  test("folds metadata.variables into the collection's Global env (collection wins) and clears them", () => {
+    const s1 = new Stores(tmpDir);
+    s1.collectionStore().saveManifest({
+      version: 2,
+      collections: [{ id: "coll-a", name: "Alpha" }],
+      activeCollectionId: "coll-a",
+      settings: {},
+    });
+    // Legacy collection-level variables.
+    s1.collectionsStore().saveCollections("coll-a", {
+      version: 1,
+      variables: [
+        { name: "base", value: "from-coll", secure: false },
+        { name: "shared", value: "coll-wins", secure: false },
+      ],
+      collections: [],
+    });
+    // Pre-existing Global env with a clashing name.
+    s1.environmentStore().saveEnvironments("coll-a", {
+      globalVariables: [
+        { name: "shared", value: "global-loses", secure: false },
+        { name: "g", value: "g1", secure: false },
+      ],
+      activeEnvironmentId: null,
+      environments: [],
+    });
+
+    // A fresh Stores triggers the one-time fold.
+    const s2 = new Stores(tmpDir);
+    const env = s2.environmentStore().getEnvironments("coll-a");
+    const byName = Object.fromEntries(
+      env.globalVariables.map((v) => [v.name, v.value]),
+    );
+    assert.equal(byName.base, "from-coll"); // collection var folded in
+    assert.equal(byName.g, "g1"); // existing global kept
+    assert.equal(byName.shared, "coll-wins"); // collection wins the name clash
+
+    // The collection no longer carries its own variables.
+    assert.deepEqual(
+      s2.collectionsStore().getCollections("coll-a").variables,
+      [],
+    );
+  });
+
+  test("is idempotent — a later launch does not re-fold or clobber an edited Global", () => {
+    const s1 = new Stores(tmpDir);
+    s1.collectionStore().saveManifest({
+      version: 2,
+      collections: [{ id: "coll-a", name: "Alpha" }],
+      activeCollectionId: "coll-a",
+      settings: {},
+    });
+    s1.collectionsStore().saveCollections("coll-a", {
+      version: 1,
+      variables: [{ name: "x", value: "1", secure: false }],
+      collections: [],
+    });
+
+    new Stores(tmpDir); // fold runs once
+    // The user edits Global afterward.
+    new Stores(tmpDir).environmentStore().saveEnvironments("coll-a", {
+      globalVariables: [{ name: "x", value: "edited", secure: false }],
+      activeEnvironmentId: null,
+      environments: [],
+    });
+
+    // A later launch must NOT re-fold (metadata.variables is already empty).
+    const env = new Stores(tmpDir).environmentStore().getEnvironments("coll-a");
+    assert.equal(env.globalVariables.length, 1);
+    assert.equal(env.globalVariables[0].value, "edited");
+  });
+});
+
 // ── Utility ───────────────────────────────────────────────────────────────────
 
 /** Collect all requestRef IDs from a tree nodes array (recursive). */

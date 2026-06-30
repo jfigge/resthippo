@@ -19,58 +19,42 @@
 /**
  * env-picker.js — Environment selector
  *
- * Renders a trigger button that opens a native OS popup menu listing every
- * environment (plus the Global pseudo-environment), with a check beside the
- * active one. Selecting an environment activates it; the OS dismisses the menu.
- * The two mouse interactions open different menus:
- *   • primary (left) click    → the environment list (Global + each
- *     environment) with a check beside the active one, then a separator and a
- *     "Manage…" entry; selecting an environment activates it, "Manage…" opens
- *     the environments editor (onManage).
- *   • secondary (right) click → just the "Manage…" entry that opens the
- *     environments editor (onManage) — no environment rows, no separator.
+ * Renders a Send-button-styled trigger showing the active environment's name
+ * (or "Global") plus a dropdown caret. Clicking opens a native OS popup menu
+ * listing the active collection's environments — Global (the collection-wide
+ * tier) plus each named environment, with a check beside the active one;
+ * selecting one activates it. A right-click opens the same list (and suppresses
+ * the browser context menu).
  *
  * The menu is shown by the main process over the `ui:context-menu:show` IPC
  * channel (window.hippo.ui.contextMenu.show), which resolves with the clicked
  * item's id — so this component only builds the item list and routes the result.
  *
- * Multiple trigger buttons can be bound to one instance so the same picker
- * works in the panel header, the nav-settings bar, and the ctrl-group.
+ * Multiple trigger buttons can be bound to one instance so the same picker works
+ * in more than one toolbar location.
  *
  * Usage:
  *   const envPicker = new EnvPicker({
  *     onActivate: (id) => activateEnv(id),  // id is null for Global
- *     onManage: () => openPopup(),
  *   });
  *   envPicker.bindTrigger(document.getElementById("btn-env-picker"));
  *   envPicker.load(currentEnvironments);
  */
 
 import { t } from "../i18n.js";
-import { electronAccelerator } from "../keymap.js";
+import { icon } from "../icons.js";
 
-const _GLOBE = `<svg class="env-picker-globe" xmlns="http://www.w3.org/2000/svg"
-    width="12" height="12" viewBox="0 0 24 24"
-    fill="none" stroke="currentColor" stroke-width="2"
-    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-  <circle cx="12" cy="12" r="10"/>
-  <line x1="2" y1="12" x2="22" y2="12"/>
-  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-</svg>`;
-
-// Sentinel id for the "Manage…" row — kept distinct from environment ids (which
-// are UUIDs) so the resolved menu id is unambiguous.
-const _MANAGE_ID = "__manage__";
+// Solid down-caret (sized by CSS) marking the trigger as a dropdown — the same
+// affordance the request method / send-type pickers use.
+const _CARET = icon("caret", { size: null, className: "env-picker-caret" });
 
 export class EnvPicker {
   #data = { globalVariables: {}, activeEnvironmentId: null, environments: [] };
-  #onManage;
   #onActivate;
   #triggers = [];
   #open = false;
 
-  constructor({ onManage, onActivate } = {}) {
-    this.#onManage = onManage;
+  constructor({ onActivate } = {}) {
     this.#onActivate = onActivate;
   }
 
@@ -79,25 +63,23 @@ export class EnvPicker {
   bindTrigger(btn) {
     if (!btn) return;
     this.#syncTrigger(btn);
-    // Primary (left) click → quick-switch menu, environments only.
+    // Primary (left) click opens the environment list.
     btn.addEventListener("mousedown", (e) => {
       if (e.button !== 0) return;
       e.preventDefault();
-      this.#openMenu(btn, false);
+      this.#openMenu(btn);
     });
-    // Secondary click (right-click / ctrl-click / two-finger tap) → same menu
-    // plus the "Manage…" entry. `contextmenu` covers all those gestures
-    // cross-platform; preventDefault suppresses the browser menu.
+    // Right-click opens the same list (and suppresses the browser context menu).
     btn.addEventListener("contextmenu", (e) => {
       e.preventDefault();
-      this.#openMenu(btn, true);
+      this.#openMenu(btn);
     });
     this.#triggers.push(btn);
   }
 
   load(data) {
     this.#data = data ?? this.#data;
-    this.#triggers.forEach((t) => this.#syncTrigger(t));
+    this.#triggers.forEach((btn) => this.#syncTrigger(btn));
   }
 
   // ── Private ────────────────────────────────────────────────────────────────
@@ -110,22 +92,19 @@ export class EnvPicker {
   #syncTrigger(btn) {
     const env = this.#activeEnv();
     const label = env?.name ?? t("env.global");
-    btn.innerHTML = `${_GLOBE}<span class="env-picker-label"></span>`;
+    btn.innerHTML = `<span class="env-picker-label"></span>${_CARET}`;
     btn.querySelector(".env-picker-label").textContent = label;
     btn.classList.toggle("env-picker-trigger--active", !!env);
   }
 
   /**
-   * Open a native OS popup menu anchored under the trigger. With `withManage`
-   * false (primary click) the rows are Global (id null) then each named
-   * environment with a check beside the active one, upper-cased to match the
-   * trigger, followed by a separator and a "Manage…" entry; selecting an
-   * environment activates it, "Manage…" opens the editor. With `withManage`
-   * true (secondary click) the menu holds only the "Manage…" entry — no
-   * environment rows, no separator. Resolves to the clicked id (or null when
-   * dismissed); we map it back to the activate / manage action.
+   * Open a native OS popup menu anchored under the trigger listing the active
+   * collection's environments — Global (id null) then each named environment,
+   * shown in their stored case, with a check beside the active one.
+   * Resolves to the clicked id (or null when dismissed); we map it back to the
+   * activate action.
    */
-  async #openMenu(btn, withManage = false) {
+  async #openMenu(btn) {
     // Re-entrancy guard; also a no-op outside Electron (no native menu host).
     if (this.#open || !window.hippo?.ui?.contextMenu?.show) return;
 
@@ -134,40 +113,23 @@ export class EnvPicker {
     // Native menu ids are strings; key each environment row by index and map
     // the chosen key back to its (possibly null) environment id.
     const idByKey = new Map();
-    // The "Manage…" entry opens the environments editor. Its accelerator is
-    // display-only (the renderer owns ⌘/Ctrl+E); it just advertises the
-    // shortcut next to the same action this entry triggers.
-    const manageItem = {
-      id: _MANAGE_ID,
-      label: t("env.manage"),
-      accelerator: electronAccelerator("editEnvironment"),
-    };
-
-    let items;
-    if (withManage) {
-      // Secondary click → just the "Manage…" entry; no environment rows.
-      items = [manageItem];
-    } else {
-      const entries = [
-        { id: null, name: t("env.global") },
-        ...(this.#data.environments ?? []).map((e) => ({
-          id: e.id,
-          name: e.name,
-        })),
-      ];
-      const envItems = entries.map((entry, i) => {
-        const key = `env:${i}`;
-        idByKey.set(key, entry.id);
-        return {
-          id: key,
-          label: String(entry.name ?? "").toUpperCase(),
-          type: "checkbox",
-          checked: entry.id === activeId,
-        };
-      });
-      // Primary click → environment rows, then a separator and "Manage…".
-      items = [...envItems, { type: "separator" }, manageItem];
-    }
+    const entries = [
+      { id: null, name: t("env.global") },
+      ...(this.#data.environments ?? []).map((e) => ({
+        id: e.id,
+        name: e.name,
+      })),
+    ];
+    const items = entries.map((entry, i) => {
+      const key = `env:${i}`;
+      idByKey.set(key, entry.id);
+      return {
+        id: key,
+        label: String(entry.name ?? ""),
+        type: "checkbox",
+        checked: entry.id === activeId,
+      };
+    });
 
     const r = btn.getBoundingClientRect();
     this.#open = true;
@@ -185,10 +147,6 @@ export class EnvPicker {
     }
 
     if (choice == null) return; // dismissed
-    if (choice === _MANAGE_ID) {
-      this.#onManage?.();
-      return;
-    }
     if (idByKey.has(choice)) {
       const id = idByKey.get(choice);
       if (id !== activeId) this.#onActivate?.(id);
