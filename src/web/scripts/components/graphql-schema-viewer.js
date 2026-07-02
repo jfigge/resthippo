@@ -19,6 +19,7 @@
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
+import { copyWithLabelFlash } from "../utils/clipboard.js";
 import { t } from "../i18n.js";
 import Prism from "../vendor/prism.js";
 
@@ -106,12 +107,11 @@ export class GraphQLSchemaViewer {
   /** Copy the SDL to the clipboard, flashing the button label on success. */
   async #copy(btn) {
     try {
-      await navigator.clipboard.writeText(this.#sdl);
       const prev = btn.textContent;
-      btn.textContent = t("common.copied");
-      setTimeout(() => {
-        btn.textContent = prev;
-      }, 1200);
+      await copyWithLabelFlash(this.#sdl, btn, {
+        copiedText: t("common.copied"),
+        restoreText: prev,
+      });
     } catch {
       // Clipboard denied — nothing actionable to surface from a read-only view.
     }

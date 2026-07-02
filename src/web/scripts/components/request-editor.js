@@ -35,6 +35,7 @@ import {
 import { PopupManager } from "../popup-manager.js";
 import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
+import { copyWithIconFlash } from "../utils/clipboard.js";
 import { t } from "../i18n.js";
 import { bindingDisplay } from "../keymap.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
@@ -63,7 +64,6 @@ import {
   buildToolbarToggle,
   buildKvRow,
   wireDeleteAllConfirm,
-  applyBulkMode,
   kvRowsToText,
   headerRowsToText,
   textToKvRows,
@@ -312,7 +312,6 @@ export class RequestEditor {
   #methodSel = null; // method-selector trigger button
   #methodSelLabel = null; // label span inside the method selector
   #sendBtn = null; // HTTP send button (in-flight toggle target)
-  #urlInput = null; // the URL editor's element
   #tabStrip = null; // tab-button strip
   #tabContent = null; // tab-pane container
 
@@ -1074,9 +1073,6 @@ export class RequestEditor {
     this.#methodSel = methodSel;
     this.#methodSelLabel = methodLabel;
     this.#sendBtn = sendBtn;
-    // Keep _urlInput as a compatibility shim pointing at the editor's element
-    // so any external code that reads _urlInput.focus() still works.
-    this.#urlInput = urlEditor.element;
   }
 
   // ── WebSocket URL bar (Feature 32) ────────────────────────────────────────
@@ -1128,7 +1124,6 @@ export class RequestEditor {
     row.append(wsLabel, urlEditor.element, sendGroup);
     bar.appendChild(row);
     this.#el.appendChild(bar);
-    this.#urlInput = urlEditor.element;
     // Apply whatever connection state is current so a re-render shows the right label.
     this.#applyWsState(this.#wsState);
   }
@@ -2369,13 +2364,11 @@ export class RequestEditor {
       // matching what the preview bar displays.
       const text = await this.#buildPreviewUrl();
       if (!text) return;
-      await navigator.clipboard.writeText(text);
-      copyBtn.innerHTML = icon("check", { size: 15 });
-      copyBtn.classList.add("req-url-preview-copy-btn--copied");
-      setTimeout(() => {
-        copyBtn.innerHTML = icon("copy", { size: 15 });
-        copyBtn.classList.remove("req-url-preview-copy-btn--copied");
-      }, 1500);
+      await copyWithIconFlash(text, copyBtn, {
+        checkHtml: icon("check", { size: 15 }),
+        copyHtml: icon("copy", { size: 15 }),
+        cls: "req-url-preview-copy-btn--copied",
+      });
     });
 
     bar.appendChild(input);
@@ -2504,11 +2497,6 @@ export class RequestEditor {
   /** Delegates to the shared {@link wireDeleteAllConfirm} (see kv-editor-shared.js). */
   #wireDeleteAllConfirm(btn, getCount, onDelete) {
     return wireDeleteAllConfirm(btn, getCount, onDelete);
-  }
-
-  /** Delegates to the shared {@link applyBulkMode} (see kv-editor-shared.js). */
-  #applyBulkMode(bulk, textareaEl, kvWrapEl, addBtnEl, delAllBtnEl) {
-    return applyBulkMode(bulk, textareaEl, kvWrapEl, addBtnEl, delAllBtnEl);
   }
 
   // ── Bulk editor shared utilities ─────────────────────────────────────────

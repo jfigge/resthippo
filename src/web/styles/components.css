@@ -364,18 +364,6 @@ mark.tree-highlight {
   font-weight: var(--font-weight-semibold);
 }
 
-/* Info column (label + url subtitle) for request rows */
-.tree-node-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.tree-node-info .tree-node-label {
-  flex: none;
-}
-
 .tree-node-url {
   font-size: var(--font-size-xs, 10px);
   color: var(--color-overlay-0);
@@ -561,108 +549,6 @@ html.show-method-icons .req-method-menu-item-label::before {
   gap: var(--space-3);
   color: var(--color-overlay-0);
   font-size: var(--font-size-sm);
-}
-
-/* ── Tree context menu ────────────────────────────────────────────────────── */
-
-/*
- * POPUP MENU STANDARD — matches .req-method-select visual language:
- *   background : var(--color-surface-1)   (one step up from base)
- *   border     : 1px solid var(--color-surface-2)
- *   radius     : var(--radius-sm)
- *   font       : var(--font-mono), weight 600
- *   hover bg   : var(--color-surface-2)   (one step up from menu bg)
- *
- * Apply these same tokens to any future popup / dropdown menu.
- */
-.tree-ctxmenu {
-  position: fixed;
-  z-index: 101;
-  min-width: 120px;
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-menu);
-  padding: var(--space-2) 0;
-  display: flex;
-  flex-direction: column;
-  animation: ctxmenu-open 0.08s ease-out;
-}
-
-@keyframes ctxmenu-open {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.tree-ctxmenu-item {
-  width: 100%;
-  text-align: left;
-  padding: var(--space-2) var(--space-4);
-  font-family: var(--font-ui);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background-color var(--transition-fast);
-}
-
-.tree-ctxmenu-item:hover {
-  /* One surface step above the menu background */
-  background-color: var(--color-surface-2);
-}
-
-.tree-ctxmenu-item--danger {
-  color: var(--color-error);
-}
-
-.tree-ctxmenu-item--danger:hover {
-  background-color: var(--color-error);
-  color: var(--color-base);
-}
-
-/* Inline-confirm state: the menu item transforms into a button waiting for a
-   second click. It renders as a filled, pill-shaped button inset within the
-   menu row so it looks clearly actionable and distinct from a plain text item. */
-.tree-ctxmenu-item--confirming {
-  /* Inset from the menu edges so the button shape is clearly visible */
-  display: block;
-  width: auto;
-  margin: var(--space-2) var(--space-4);
-  padding: var(--space-2) var(--space-5);
-
-  /* Filled warning-amber appearance */
-  background-color: var(--color-warning);
-  color: var(--color-base);
-  font-weight: var(--font-weight-bold);
-  text-align: center;
-
-  /* Button shape */
-  border-radius: var(--radius-sm);
-  border: none;
-
-  transition: opacity var(--transition-fast);
-}
-
-.tree-ctxmenu-item--confirming:hover {
-  /* Keep the same colour — just dim slightly on hover to signal interactivity */
-  background-color: var(--color-warning);
-  color: var(--color-base);
-  opacity: 0.85;
-}
-
-.tree-ctxmenu-separator {
-  height: 1px;
-  background: var(--color-surface-2);
-  margin: var(--space-2) 0;
 }
 
 /* ── Drag phantom (drop target placeholder) ──────────────────────────────── */
@@ -2803,10 +2689,6 @@ html.show-method-icons .req-method-menu-item-label::before {
   color: var(--color-subtext);
 }
 
-.auth-token-status--ok {
-  color: var(--color-success);
-}
-
 .auth-token-status--error {
   color: var(--color-error);
 }
@@ -4854,8 +4736,7 @@ html.show-method-icons .req-method-menu-item-label::before {
   color: var(--color-subtext);
 }
 
-.secret-modal-intro,
-.secret-modal-warn {
+.secret-modal-intro {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-subtext);
@@ -5684,23 +5565,6 @@ html.show-method-icons .req-method-menu-item-label::before {
   min-height: 0;
 }
 
-/* ── Active environment badge in the nav panel header ────────────────────── */
-.panel-env-label {
-  font-size: var(--font-size-xs);
-  font-weight: 400;
-  color: var(--color-subtext);
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-surface-2);
-  border-radius: var(--radius-sm);
-  padding: 1px var(--space-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 80px;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
    UNIVERSAL CHECKBOX → SLIDER TOGGLE
    Replaces the native checkbox appearance with an animated pill-shaped
@@ -5969,22 +5833,11 @@ input[type="checkbox"]:disabled {
   gap: var(--space-4);
 }
 
-.pill-editor-field-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
 .pill-editor-type-label {
   flex-shrink: 0;
   font-size: var(--font-size-md);
   color: var(--color-subtext);
   min-width: 64px;
-}
-
-.pill-editor-input {
-  flex: 1;
-  min-width: 0;
 }
 
 .pill-editor-error {
@@ -6161,15 +6014,6 @@ input[type="checkbox"]:disabled {
   user-select: none;
 }
 
-.pill-picker-subsection {
-  padding: 2px var(--space-4) 2px var(--space-6);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-overlay-0);
-  pointer-events: none;
-  user-select: none;
-}
-
 .pill-picker-item {
   display: flex;
   align-items: baseline;
@@ -6177,10 +6021,6 @@ input[type="checkbox"]:disabled {
   padding: 4px var(--space-4) 4px var(--space-6);
   cursor: pointer;
   user-select: none;
-}
-
-.pill-picker-item--indented {
-  padding-left: calc(var(--space-6) + var(--space-4));
 }
 
 .pill-picker-item--active {

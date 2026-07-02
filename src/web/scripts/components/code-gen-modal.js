@@ -19,6 +19,7 @@
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
+import { copyWithLabelFlash } from "../utils/clipboard.js";
 import { t } from "../i18n.js";
 import Prism from "../vendor/prism.js";
 import { TARGETS, generateCode } from "./code-gen/index.js";
@@ -132,11 +133,10 @@ export class CodeGenModal {
   /** Copy the active snippet, flashing the button label on success. */
   async #copy(btn) {
     try {
-      await navigator.clipboard.writeText(this.#code);
-      btn.textContent = t("common.copied");
-      setTimeout(() => {
-        btn.textContent = t("common.copy");
-      }, 1200);
+      await copyWithLabelFlash(this.#code, btn, {
+        copiedText: t("common.copied"),
+        restoreText: t("common.copy"),
+      });
     } catch {
       // Clipboard denied — nothing actionable to surface from a read-only view.
     }

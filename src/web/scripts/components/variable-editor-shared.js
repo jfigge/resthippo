@@ -88,6 +88,11 @@ export function variablesToRows(vars) {
   }));
 }
 
+/** Build one blank editor row (fresh id, empty name/value, not secure). */
+export function blankVariableRow() {
+  return { id: crypto.randomUUID(), name: "", value: "", secure: false };
+}
+
 /**
  * Serialise editor rows back to a canonical variables array, dropping rows whose
  * name is blank (whitespace-only).

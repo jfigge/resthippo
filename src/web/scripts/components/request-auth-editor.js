@@ -39,6 +39,7 @@ import { PopupManager } from "../popup-manager.js";
 import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
 import { escapeHtml } from "../utils/html.js";
+import { copyWithIconFlash } from "../utils/clipboard.js";
 import { t } from "../i18n.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
 import { resolveOAuth2Config } from "../auth/utils/resolve-config.js";
@@ -314,10 +315,8 @@ export class RequestAuthEditor {
   // genuinely unrecoverable (offer re-enter).
   #decryptReason = null;
   #authContentEl = null;
-  #authTypeBarEl = null;
   #discoverBtnEl = null;
   #authBulkEl = null; // the label wrapping the Bulk Editor checkbox
-  #authBulkCheckEl = null; // the checkbox input itself
   #authBulkMode = false; // true while bulk textarea is shown
   #authEnabledLabelEl = null; // the label wrapping the Enabled checkbox
 
@@ -364,7 +363,6 @@ export class RequestAuthEditor {
     // ── Type selector bar ─────────────────────────────────────────────────
     const typeBar = document.createElement("div");
     typeBar.className = "params-toolbar body-type-bar";
-    this.#authTypeBarEl = typeBar;
 
     const typeSelect = document.createElement("select");
     typeSelect.className = "body-type-select";
@@ -407,7 +405,7 @@ export class RequestAuthEditor {
     typeBar.appendChild(typeSelect);
 
     // ── Bulk Editor toggle — shown for all auth types except None ─────────
-    const { label: bulkLabel, check: bulkCheck } = buildToolbarToggle({
+    const { label: bulkLabel } = buildToolbarToggle({
       text: " " + t("kv.bulkEditor"),
       title: t("kv.bulkEditorTitle"),
       checked: this.#authBulkMode,
@@ -421,7 +419,6 @@ export class RequestAuthEditor {
       this.#authType === "none",
     );
     this.#authBulkEl = bulkLabel;
-    this.#authBulkCheckEl = bulkCheck;
     typeBar.appendChild(bulkLabel);
 
     // ── Enabled toggle — floated right ────────────────────────────────────
@@ -1098,14 +1095,11 @@ export class RequestAuthEditor {
             this.#activeTokenView === "id"
               ? this.#authOAuth2.idToken
               : this.#authOAuth2.token;
-          await navigator.clipboard.writeText(activeToken);
-          copyBtn.innerHTML = icon("check", { size: 16 });
-          copyBtn.classList.add("auth-token-copy-btn--copied");
-          setTimeout(() => {
-            if (!copyBtn.isConnected) return;
-            copyBtn.innerHTML = copyIconSvg;
-            copyBtn.classList.remove("auth-token-copy-btn--copied");
-          }, 1500);
+          await copyWithIconFlash(activeToken, copyBtn, {
+            checkHtml: icon("check", { size: 16 }),
+            copyHtml: copyIconSvg,
+            cls: "auth-token-copy-btn--copied",
+          });
         } catch {
           Notifications.error(t("auth.oauth2.copyFailed"));
         }
@@ -2085,12 +2079,5 @@ export class RequestAuthEditor {
     this.#activeTokenView = "access";
     this.#renderAuthContent();
     this.#dispatchAuthUpdated();
-  }
-
-  /** Tear down pill editors and dismiss any open autocomplete dropdowns. */
-  destroy() {
-    disposePillEditors(this.#authPillEditors);
-    _scope.hide();
-    _apiKey.hide();
   }
 }

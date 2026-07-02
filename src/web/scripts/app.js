@@ -4738,7 +4738,7 @@ async function runRestHippoWorkspaceExport() {
     }
     for (const h of data.headers ?? []) {
       if (!h || !h.name) continue;
-      const key = `${String(h.name).toLowerCase()} ${h.value ?? ""}`;
+      const key = `${String(h.name).toLowerCase()}\u0000${h.value ?? ""}`;
       if (seenHeader.has(key)) continue;
       seenHeader.add(key);
       collectionHeaders.push(h);

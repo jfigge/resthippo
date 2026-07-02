@@ -40,11 +40,13 @@
 "use strict";
 
 import { icon } from "../icons.js";
+import { debounce } from "../utils/debounce.js";
 import { normalizeVariables } from "./variable-shape.js";
 import {
   variablesToText,
   textToVariables,
   variablesToRows,
+  blankVariableRow,
   rowsToVariables,
   buildVariableRow,
 } from "./variable-editor-shared.js";
@@ -67,7 +69,7 @@ export class VarsEditor {
   /** @type {{ id:string, name:string, value:string, secure:boolean }[]} */
   #rows = [];
 
-  /** @type {number|null} */ #saveTimer = null;
+  #debouncedSave = debounce(() => this.#saveFromBulk(), VarsEditor.#SAVE_MS);
 
   /** Whether the "Remove headers" setting is active. */
   #removeHeaders = false;
@@ -146,9 +148,8 @@ export class VarsEditor {
 
   /** Force any pending debounced save to run now (e.g. when switching away). */
   flush() {
-    if (this.#saveTimer == null) return;
-    clearTimeout(this.#saveTimer);
-    this.#saveTimer = null;
+    if (!this.#debouncedSave.pending()) return;
+    this.#debouncedSave.cancel();
     if (this.#isBulkMode) this.#saveFromBulk();
     else this.#saveFromRows();
   }
@@ -206,7 +207,7 @@ export class VarsEditor {
     this.#bulkToggleEl.addEventListener("change", () =>
       this.#handleBulkToggle(),
     );
-    this.#textareaEl.addEventListener("input", () => this.#scheduleSave());
+    this.#textareaEl.addEventListener("input", () => this.#debouncedSave());
     this.#addBtnEl.addEventListener("click", () => this.#addRow());
 
     return el;
@@ -276,7 +277,7 @@ export class VarsEditor {
   }
 
   #addRow() {
-    const row = { id: crypto.randomUUID(), name: "", value: "", secure: false };
+    const row = blankVariableRow();
     this.#rows.push(row);
     this.#renderRows();
     const rows = this.#kvListEl.querySelectorAll(".vars-kv-row");
@@ -285,14 +286,6 @@ export class VarsEditor {
   }
 
   // ── Save ────────────────────────────────────────────────────────────────────
-
-  #scheduleSave() {
-    clearTimeout(this.#saveTimer);
-    this.#saveTimer = setTimeout(() => {
-      this.#saveTimer = null;
-      this.#saveFromBulk();
-    }, VarsEditor.#SAVE_MS);
-  }
 
   #saveFromBulk() {
     if (!this.#scopeId) return;

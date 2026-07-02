@@ -33,6 +33,7 @@
 
 import { t, formatDate } from "../../i18n.js";
 import { icon } from "../../icons.js";
+import { copyWithIconFlash } from "../../utils/clipboard.js";
 
 const SVG_COPY = icon("copy", { size: 18 });
 const SVG_CHECK = icon("check", { size: 18 });
@@ -417,19 +418,13 @@ export class TimelineView {
       btn.innerHTML = SVG_COPY;
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        navigator.clipboard
-          .writeText(copyText)
-          .then(() => {
-            btn.innerHTML = SVG_CHECK;
-            btn.classList.add("timeline-detail-copy-btn--copied");
-            setTimeout(() => {
-              btn.innerHTML = SVG_COPY;
-              btn.classList.remove("timeline-detail-copy-btn--copied");
-            }, 1500);
-          })
-          .catch(() => {
-            /* clipboard denied — leave the copy icon as-is */
-          });
+        copyWithIconFlash(copyText, btn, {
+          checkHtml: SVG_CHECK,
+          copyHtml: SVG_COPY,
+          cls: "timeline-detail-copy-btn--copied",
+        }).catch(() => {
+          /* clipboard denied — leave the copy icon as-is */
+        });
       });
       row.appendChild(btn);
     }

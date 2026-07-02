@@ -39,11 +39,13 @@
 
 import { PopupManager } from "../popup-manager.js";
 import { icon } from "../icons.js";
+import { debounce } from "../utils/debounce.js";
 import { normalizeVariables } from "./variable-shape.js";
 import {
   variablesToText,
   textToVariables,
   variablesToRows,
+  blankVariableRow,
   rowsToVariables,
   buildVariableRow,
 } from "./variable-editor-shared.js";
@@ -69,7 +71,10 @@ export class VariablesPopup {
   /** @type {{ id:string, name:string, value:string, secure:boolean }[]} */
   #rows = [];
 
-  /** @type {number|null} */ #saveTimer = null;
+  #debouncedSave = debounce(
+    () => this.#saveFromBulk(),
+    VariablesPopup.#SAVE_MS,
+  );
 
   /** Whether the "Remove headers" setting is active. */
   #removeHeaders = false;
@@ -127,7 +132,7 @@ export class VariablesPopup {
 
     const vars = normalizeVariables(variables);
 
-    clearTimeout(this.#saveTimer);
+    this.#debouncedSave.cancel();
 
     this.#isBulkMode = bulkEditor;
     this.#bulkToggleEl.checked = this.#isBulkMode;
@@ -221,7 +226,7 @@ export class VariablesPopup {
     this.#bulkToggleEl.addEventListener("change", () =>
       this.#handleBulkToggle(),
     );
-    this.#textareaEl.addEventListener("input", () => this.#scheduleSave());
+    this.#textareaEl.addEventListener("input", () => this.#debouncedSave());
     el.querySelector(".vars-add-btn").addEventListener("click", () =>
       this.#addRow(),
     );
@@ -301,7 +306,7 @@ export class VariablesPopup {
   }
 
   #addRow() {
-    const row = { id: crypto.randomUUID(), name: "", value: "", secure: false };
+    const row = blankVariableRow();
     this.#rows.push(row);
     this.#renderRows();
     const rows = this.#kvListEl.querySelectorAll(".vars-kv-row");
@@ -310,14 +315,6 @@ export class VariablesPopup {
   }
 
   // ── Save ────────────────────────────────────────────────────────────────────
-
-  #scheduleSave() {
-    clearTimeout(this.#saveTimer);
-    this.#saveTimer = setTimeout(
-      () => this.#saveFromBulk(),
-      VariablesPopup.#SAVE_MS,
-    );
-  }
 
   #saveFromBulk() {
     if (!this.#scopeId) return;
@@ -336,7 +333,7 @@ export class VariablesPopup {
   // ── Close ───────────────────────────────────────────────────────────────────
 
   #doClose() {
-    clearTimeout(this.#saveTimer);
+    this.#debouncedSave.cancel();
     if (this.#isBulkMode) this.#saveFromBulk();
     else this.#saveFromRows();
     PopupManager.close();

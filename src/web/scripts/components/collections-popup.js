@@ -70,11 +70,13 @@ import { escapeHtml } from "../utils/html.js";
 import { t, formatDate } from "../i18n.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
 import { deepClone } from "../utils/clone.js";
+import { debounce } from "../utils/debounce.js";
 import { normalizeVariables } from "./variable-shape.js";
 import {
   variablesToText,
   textToVariables,
   variablesToRows,
+  blankVariableRow,
   rowsToVariables,
   buildVariableRow,
 } from "./variable-editor-shared.js";
@@ -137,8 +139,10 @@ export class CollectionsPopup {
   #isBulkMode = true;
   /** @type {{ id:string, name:string, value:string, secure:boolean }[]} */
   #rows = [];
-  /** @type {number|null} */
-  #saveTimer = null;
+  #debouncedSave = debounce(
+    () => this.#saveFromBulk(),
+    CollectionsPopup.#SAVE_MS,
+  );
 
   static #SAVE_MS = 500;
 
@@ -279,7 +283,7 @@ export class CollectionsPopup {
     this.#isBulkMode = bulkEditor;
     this.#el.querySelector(".coll-bulk-toggle").checked = bulkEditor;
 
-    clearTimeout(this.#saveTimer);
+    this.#debouncedSave.cancel();
 
     this.#editingCookieIdent = null;
     this.#addingCookie = false;
@@ -506,7 +510,7 @@ export class CollectionsPopup {
       this.#handleBulkToggle(),
     );
     el.querySelector(".coll-textarea").addEventListener("input", () =>
-      this.#scheduleSave(),
+      this.#debouncedSave(),
     );
     el.querySelector(".coll-add-btn").addEventListener("click", () =>
       this.#addRow(),
@@ -847,7 +851,7 @@ export class CollectionsPopup {
   #loadEnvEditor() {
     const vars = normalizeVariables(this.#getSelectedVars());
 
-    clearTimeout(this.#saveTimer);
+    this.#debouncedSave.cancel();
 
     if (this.#isBulkMode) {
       this.#el.querySelector(".coll-textarea").value = variablesToText(vars);
@@ -949,7 +953,7 @@ export class CollectionsPopup {
   }
 
   #addRow() {
-    const row = { id: crypto.randomUUID(), name: "", value: "", secure: false };
+    const row = blankVariableRow();
     this.#rows.push(row);
     this.#renderRows();
     const rows = this.#el
@@ -960,14 +964,6 @@ export class CollectionsPopup {
   }
 
   // ── Save ───────────────────────────────────────────────────────────────────
-
-  #scheduleSave() {
-    clearTimeout(this.#saveTimer);
-    this.#saveTimer = setTimeout(
-      () => this.#saveFromBulk(),
-      CollectionsPopup.#SAVE_MS,
-    );
-  }
 
   #saveFromBulk() {
     this.#dispatchVarsSave(
@@ -980,7 +976,7 @@ export class CollectionsPopup {
   }
 
   #flushEditorSave() {
-    clearTimeout(this.#saveTimer);
+    this.#debouncedSave.cancel();
     if (this.#isBulkMode) this.#saveFromBulk();
     else this.#saveFromRows();
     this.#flushHeadersSave();

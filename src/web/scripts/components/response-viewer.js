@@ -61,8 +61,6 @@ const TABS = [
 /**
  * Classify a Content-Type header value into one of the rendering categories.
  * @param {string} ct  - raw Content-Type value (may include charset/boundary)
-
-/**
  * @returns {"image"|"pdf"|"json"|"yaml"|"xml"|"html"|"markdown"|"css"|"javascript"|"other"}
  */
 function classifyContentType(ct) {
@@ -1563,13 +1561,6 @@ export class ResponseViewer {
     this.#search.reapplyActiveSearch();
   }
 
-  /**
-   * Build `offset  hex…  |ascii|` rows into `pre` as DOM, so the offset column
-   * and the hex byte values can be themed independently — the offset span is
-   * coloured with the warn token and the byte span with the info token, while
-   * the ASCII gutter keeps the default text colour. Text nodes carry the
-   * separators so select-all / copy / find still see a faithful plain-text dump.
-   */
   // ── PDF preview overlay (native WebContentsView) ──────────────────────────
 
   /**
@@ -1661,11 +1652,6 @@ export class ResponseViewer {
    * a file. After a restart the cache is gone, so we show an explanatory note.
    * @param {object} response  The cached `#lastResponse`.
    * @returns {HTMLElement}
-   */
-  /**
-   * A small info banner shown atop the in-flight (loading) view when the main
-   * process reports a buffered NDJSON response with live streaming off, pointing
-   * the user at the global setting that enables it (Feature 33).
    */
   #buildTruncationBanner(response) {
     const banner = document.createElement("div");
@@ -1816,7 +1802,6 @@ export class ResponseViewer {
    * listener keeps the bounds in sync as panels resize or the font-size changes.
    *
    * @param {string}      url   - original request URL to load
-   * @param {HTMLElement} pane  - body pane element (used only for the loading placeholder)
    */
   #activateElectronHtmlPreview(url) {
     const pane = this.#previewPane;
@@ -1887,7 +1872,6 @@ export class ResponseViewer {
    * restrictions.
    *
    * @param {string}      url   - original request URL
-   * @param {HTMLElement} pane  - body pane element
    */
   #activateDevHtmlPreview(url) {
     const pane = this.#previewPane;
