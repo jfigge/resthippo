@@ -165,6 +165,21 @@
     document.head.appendChild(s);
   }
 
+  // index.html renders the "still in active development" pre-release banner
+  // statically, so it survives even if this script never runs (fail-safe: an
+  // unfinished app keeps warning). Drop it once the app leaves pre-release —
+  // i.e. the latest stable release reaches 1.0.0. Keyed on the major version,
+  // not GitHub's prerelease flag: the 0.x releases are already flagged
+  // non-prerelease, yet the app as a whole is still pre-1.0.
+  function updatePrereleaseBanner(latest) {
+    var banner = document.querySelector(".prerelease-banner");
+    if (!banner) return;
+    var major = parseInt(String(latest.version).split(".")[0], 10);
+    // display:none (beats the banner's display:flex) also drops it from the a11y
+    // tree, so its role="alert" no longer fires.
+    if (!latest.prerelease && major >= 1) banner.style.display = "none";
+  }
+
   function apply(data) {
     var releases = data.releases || [];
     var latest = releases.find(function (r) { return r.version === data.latest; }) || releases[0];
@@ -177,6 +192,7 @@
     fillCard("dl-list-win", assets, renderWin);
     fillCard("dl-list-linux", assets, renderFlat("64-bit"));
     renderHistory(releases);
+    updatePrereleaseBanner(latest);
   }
 
   // versions.json sits behind a CDN (GitHub Pages / Fastly); a single transient
