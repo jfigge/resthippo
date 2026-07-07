@@ -439,6 +439,21 @@ icons:
 	@node scripts/make-icons.mjs
 	@echo "--------------------------------"
 
+# ─── Docs (PDF) ───────────────────────────────────────────────────────────────
+# Render the in-app user guide (src/web/docs/*.md) into one printable PDF via
+# Chromium's printToPDF, run inside a hidden Electron window. Reuses the same
+# PAGES + Markdown renderer as the website build (scripts/build-docs.mjs), so it
+# can't drift from the shipped guide. Needs deps installed (`make install`) for
+# the bundled Electron + marked. Override the destination with PDF_OUT=…
+PDF_OUT ?= $(BUILD_DIR)/rest-hippo-user-guide.pdf
+
+pdf:
+	@echo "Building user-guide PDF..."
+	@mkdir -p $(dir $(PDF_OUT))
+	@cd $(SRC_DIR) && PDF_OUT="$(PDF_OUT)" npx electron $(WORKSPACE)/scripts/build-pdf.mjs
+	@echo "  → $(PDF_OUT)"
+	@echo "--------------------------------"
+
 # ─── Distribution packages ────────────────────────────────────────────────────
 # `dist` builds every platform, but a given host can only build its own
 # (mac dmg needs macOS, etc.). CI runs dist-mac/linux/win on native runners;
@@ -733,6 +748,7 @@ help:
 	@echo "    vendor-markdown  Bundle marked+DOMPurify → web/scripts/vendor/markdown.js"
 	@echo "    vendor-graphql   Bundle graphql-js → web/scripts/vendor/graphql.js"
 	@echo "    vendor-jq     Bundle jqjs → web/scripts/vendor/jq.js"
+	@echo "    pdf           Render the user guide to a PDF (PDF_OUT=… to override path)"
 	@echo "    fmt           Format JS/CSS/HTML (prettier)"
 	@echo "    fmt-check     Check formatting without writing (prettier --check)"
 	@echo "    lint          Lint JS (eslint)"

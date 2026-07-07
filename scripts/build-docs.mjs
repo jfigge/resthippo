@@ -32,7 +32,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SRC = resolve(ROOT, "src/web/docs");
+export const SRC = resolve(ROOT, "src/web/docs");
 const OUT = resolve(ROOT, "website/docs");
 const SITE_URL = "https://resthippo.com";
 
@@ -55,7 +55,7 @@ if (!markedPath) {
 const { marked } = await import(pathToFileURL(markedPath).href);
 
 // Keep in sync with PAGES in src/web/scripts/components/docs-viewer.js (order + titles).
-const PAGES = [
+export const PAGES = [
   { slug: "overview", file: "README", title: "Overview" },
   { slug: "getting-started", title: "Getting Started" },
   { slug: "collections", title: "Collections & the Tree" },
@@ -120,7 +120,7 @@ function rewriteHref(href) {
   return href;
 }
 
-function renderBody(md) {
+export function renderBody(md) {
   let html = marked.parse(md, { gfm: true });
   // Heading anchors (h2–h6) so cross-page #fragment links resolve.
   html = html.replace(
@@ -136,7 +136,7 @@ function renderBody(md) {
   return html;
 }
 
-const LOGO_SVG = `<svg width="24" height="24" viewBox="0 0 512 512" role="img" aria-label="Rest Hippo"><rect width="512" height="512" rx="114" fill="#6C5CE7"/><circle cx="170" cy="146" r="40" fill="#fff"/><circle cx="342" cy="146" r="40" fill="#fff"/><rect x="144" y="140" width="224" height="190" rx="74" fill="#fff"/><rect x="118" y="260" width="276" height="150" rx="74" fill="#fff"/><circle cx="201" cy="198" r="17" fill="#6C5CE7"/><circle cx="311" cy="198" r="17" fill="#6C5CE7"/><ellipse cx="210" cy="330" rx="14" ry="20" fill="#6C5CE7"/><ellipse cx="302" cy="330" rx="14" ry="20" fill="#6C5CE7"/></svg>`;
+export const LOGO_SVG = `<svg width="24" height="24" viewBox="0 0 512 512" role="img" aria-label="Rest Hippo"><rect width="512" height="512" rx="114" fill="#6C5CE7"/><circle cx="170" cy="146" r="40" fill="#fff"/><circle cx="342" cy="146" r="40" fill="#fff"/><rect x="144" y="140" width="224" height="190" rx="74" fill="#fff"/><rect x="118" y="260" width="276" height="150" rx="74" fill="#fff"/><circle cx="201" cy="198" r="17" fill="#6C5CE7"/><circle cx="311" cy="198" r="17" fill="#6C5CE7"/><ellipse cx="210" cy="330" rx="14" ry="20" fill="#6C5CE7"/><ellipse cx="302" cy="330" rx="14" ry="20" fill="#6C5CE7"/></svg>`;
 
 const STYLE = `
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -225,41 +225,50 @@ ${body}
 }
 
 // ── Build ─────────────────────────────────────────────────────────────────────
-rmSync(OUT, { recursive: true, force: true });
-mkdirSync(OUT, { recursive: true });
+// Only run the website build when invoked directly (`node scripts/build-docs.mjs`).
+// When imported (e.g. by build-pdf.mjs, which reuses PAGES + renderBody), skip the
+// side-effects so importing the module never rewrites website/docs.
+const IS_MAIN =
+  process.argv[1] &&
+  pathToFileURL(process.argv[1]).href === import.meta.url;
 
-for (const p of PAGES) {
-  const mdPath = resolve(SRC, `${p.file ?? p.slug}.md`);
-  if (!existsSync(mdPath)) {
-    console.warn(`! missing ${mdPath} — skipping`);
-    continue;
+if (IS_MAIN) {
+  rmSync(OUT, { recursive: true, force: true });
+  mkdirSync(OUT, { recursive: true });
+
+  for (const p of PAGES) {
+    const mdPath = resolve(SRC, `${p.file ?? p.slug}.md`);
+    if (!existsSync(mdPath)) {
+      console.warn(`! missing ${mdPath} — skipping`);
+      continue;
+    }
+    const body = renderBody(readFileSync(mdPath, "utf8"));
+    writeFileSync(
+      resolve(OUT, outFile(p)),
+      page({ title: p.title, slug: p.slug, body }),
+    );
   }
-  const body = renderBody(readFileSync(mdPath, "utf8"));
-  writeFileSync(
-    resolve(OUT, outFile(p)),
-    page({ title: p.title, slug: p.slug, body }),
+
+  if (existsSync(resolve(SRC, "images"))) {
+    cpSync(resolve(SRC, "images"), resolve(OUT, "images"), { recursive: true });
+  }
+
+  // Sitemap: homepage + top-level marketing/legal pages + every guide page.
+  const urls = [
+    `${SITE_URL}/`,
+    `${SITE_URL}/features.html`,
+    `${SITE_URL}/vs-postman.html`,
+    `${SITE_URL}/privacy.html`,
+    `${SITE_URL}/code-signing-policy.html`,
+    ...PAGES.map((p) => `${SITE_URL}/docs/${outFile(p)}`),
+  ];
+  const sitemap =
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    urls.map((u) => `  <url><loc>${u}</loc></url>`).join("\n") +
+    `\n</urlset>\n`;
+  writeFileSync(resolve(ROOT, "website/sitemap.xml"), sitemap);
+
+  console.log(
+    `Built ${PAGES.length} guide pages → website/docs/, copied images, wrote website/sitemap.xml`,
   );
 }
-
-if (existsSync(resolve(SRC, "images"))) {
-  cpSync(resolve(SRC, "images"), resolve(OUT, "images"), { recursive: true });
-}
-
-// Sitemap: homepage + top-level marketing/legal pages + every guide page.
-const urls = [
-  `${SITE_URL}/`,
-  `${SITE_URL}/features.html`,
-  `${SITE_URL}/vs-postman.html`,
-  `${SITE_URL}/privacy.html`,
-  `${SITE_URL}/code-signing-policy.html`,
-  ...PAGES.map((p) => `${SITE_URL}/docs/${outFile(p)}`),
-];
-const sitemap =
-  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-  urls.map((u) => `  <url><loc>${u}</loc></url>`).join("\n") +
-  `\n</urlset>\n`;
-writeFileSync(resolve(ROOT, "website/sitemap.xml"), sitemap);
-
-console.log(
-  `Built ${PAGES.length} guide pages → website/docs/, copied images, wrote website/sitemap.xml`,
-);
