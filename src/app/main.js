@@ -1797,9 +1797,14 @@ function showAboutDialog() {
   // Carry the (localized) voluntary-donation affordance into the static page.
   // about.html can't reach the renderer's t(), so the label is resolved here via
   // the main-process catalog and the destination travels alongside it; the link
-  // opens through the window-open handler registered below (https-only).
-  query.support = activeLabels()("menu.support", "Support Rest Hippo…");
-  query.donate = DONATE_URL;
+  // opens through the window-open handler registered below (https-only). Omitted
+  // in the Mac App Store build (Apple Guideline 3.1.1 bars external non-IAP
+  // purchase links); shown in Microsoft Store + direct builds. See store-build.js.
+  // Without both params about.html leaves the #support link hidden.
+  if (!isMas()) {
+    query.support = activeLabels()("menu.support", "Support Rest Hippo…");
+    query.donate = DONATE_URL;
+  }
 
   _aboutWin = new BrowserWindow({
     width: 360,
@@ -2448,12 +2453,20 @@ function buildMenu() {
                 click: () => updater.checkForUpdates({ manual: true }),
               },
             ]),
-        {
-          // Voluntary tip jar — opens the donation page in the browser. Passive:
-          // no accelerator, no badge, never nags (Feature 53).
-          label: m("menu.support", "Support Rest Hippo…"),
-          click: openDonateLink,
-        },
+        // Voluntary tip jar — opens the donation page in the browser. Passive:
+        // no accelerator, no badge, never nags (Feature 53). Omitted in the Mac
+        // App Store build: Apple's Guideline 3.1.1 forbids external links to
+        // non-IAP purchase mechanisms, and a passive donation link counts. The
+        // Microsoft Store permits it (policy §10.8), so it stays there and in the
+        // direct builds — hence isMas(), not isStoreBuild(). See store-build.js.
+        ...(isMas()
+          ? []
+          : [
+              {
+                label: m("menu.support", "Support Rest Hippo…"),
+                click: openDonateLink,
+              },
+            ]),
         { type: "separator" },
         { label: m("menu.revealLogs", "Reveal Logs"), click: revealLogs },
         {
