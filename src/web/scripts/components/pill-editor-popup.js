@@ -379,6 +379,25 @@ export class PillEditorPopup {
       this.#revealBtn.addEventListener("click", () => this.#toggleReveal());
     }
 
+    // Double-click the resolved value to select it whole, so Cmd/Ctrl+C (native
+    // Edit ▸ Copy) copies the entire value in one gesture. A native double-click
+    // only selects a word; selecting the full node contents also captures
+    // multi-word and ellipsis-truncated values. Skip the "Undefined" / empty
+    // placeholder so we never help copy a placeholder as if it were a value.
+    // Right-click pops a native Copy / Select All menu over the same value —
+    // stopPropagation keeps app.js's global (editable-only) contextmenu handler
+    // from also firing.
+    if (this.#previewValueEl) {
+      this.#previewValueEl.addEventListener("dblclick", () =>
+        this.#selectPreview(),
+      );
+      this.#previewValueEl.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.#showPreviewContextMenu(e.clientX, e.clientY);
+      });
+    }
+
     // Clear any pending auto-remask timer once the popup is dismissed (via any
     // path — Done, Cancel, Escape, or mask click).
     const onClosed = () => {
@@ -475,6 +494,56 @@ export class PillEditorPopup {
     } else {
       this.#previewValueEl.textContent =
         value === "" ? t("pillEditor.emptyString") : value;
+    }
+  }
+
+  /**
+   * Select the whole resolved value so the user can copy it with Cmd/Ctrl+C.
+   * No-op for the "Undefined" / "(empty string)" placeholders — neither is a
+   * value worth copying. A masked secret selects its `***` mask (copying `***`)
+   * until it is revealed via the eye toggle, at which point the real value is
+   * on screen and copies as-is.
+   */
+  #selectPreview() {
+    if (
+      !this.#previewValueEl ||
+      this.#previewRaw === null ||
+      this.#previewRaw === ""
+    )
+      return;
+    const range = document.createRange();
+    range.selectNodeContents(this.#previewValueEl);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  /**
+   * Native Copy / Select All context menu over the read-only Live Preview value,
+   * mirroring the response viewer's read-only text menus (this pops a real OS
+   * menu via the main process, not a PopupManager DOM menu, so it doesn't
+   * unbalance the popup mask while this modal is open). Copy is enabled only
+   * when text is selected; Select All only when there's a real value to select
+   * (not the "Undefined" / "(empty string)" placeholder). A masked secret copies
+   * as `***` until revealed via the eye toggle.
+   */
+  async #showPreviewContextMenu(x, y) {
+    const selectedText = window.getSelection()?.toString() ?? "";
+    const hasValue = this.#previewRaw !== null && this.#previewRaw !== "";
+    const items = [
+      { id: "copy", label: t("menu.copy"), enabled: !!selectedText },
+      { id: "selectAll", label: t("menu.selectAll"), enabled: hasValue },
+    ];
+    const clickedId = await window.hippo?.ui?.contextMenu?.show({
+      items,
+      x,
+      y,
+    });
+    if (clickedId === "copy") {
+      if (selectedText)
+        navigator.clipboard.writeText(selectedText).catch(() => {});
+    } else if (clickedId === "selectAll") {
+      this.#selectPreview();
     }
   }
 

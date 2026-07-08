@@ -39,7 +39,9 @@ body {
  *  • the response Body content (plain / styled / hex → .res-body-pre; rendered
  *    markdown → .res-body-md; streaming SSE/WebSocket frame text → .ws-frame-body);
  *  • the response Console verbose log (.res-console-pre);
- *  • the response Headers & Cookies tables (cookies reuse .res-headers-table).
+ *  • the response Headers & Cookies tables (cookies reuse .res-headers-table);
+ *  • the pill editor's resolved Live Preview value (.pill-editor-preview-value),
+ *    so a double-click can select it and Cmd/Ctrl+C copies the resolved value.
  * Descendants inherit `text`; line numbers, fold carets and frame timestamps keep
  * their own user-select:none so they stay out of the selection and copy. */
 input,
@@ -51,7 +53,8 @@ textarea,
 .res-body-md,
 .res-console-pre,
 .res-headers-table,
-.ws-frame-body {
+.ws-frame-body,
+.pill-editor-preview-value {
   user-select: text;
   -webkit-user-select: text;
 }

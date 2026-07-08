@@ -21,6 +21,11 @@ Pick a function and Rest Hippo inserts it as a highlighted **pill**. If the
 function takes arguments, the **pill editor** opens so you can fill them in; click
 an existing function pill any time to edit its arguments again.
 
+The pill editor (for both variables and functions) shows a **Live Preview** of
+the resolved value. To copy it, **double-click** the preview value to select it
+and press **Cmd/Ctrl+C**, or **right-click** it for a **Copy / Select All** menu.
+Secret values copy as `***` until you reveal them with the eye toggle.
+
 Under the hood a function pill is just text in the form
 `{{name("arg1", "arg2")}}` — arguments are positional and double-quoted — so you
 can also type one by hand. `{{uuid()}}` takes no arguments; `{{now("Unix")}}`
