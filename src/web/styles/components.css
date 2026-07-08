@@ -3430,6 +3430,11 @@ html.show-method-icons .req-method-menu-item-label::before {
 .res-body-pre {
   margin: 0;
   padding: var(--space-3) var(--space-3);
+  /* Fill the full pane so the empty area below the last line is still part of
+   * the selectable <pre>: a mousedown there anchors the caret at the end of the
+   * last row, so a drag can start anywhere in the response area rather than only
+   * on the exact edge of the last line. */
+  min-height: 100%;
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   line-height: 1.4;

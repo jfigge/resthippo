@@ -265,6 +265,14 @@ export class PillCodeEditor {
       this.#updateErrorHover(e),
     );
     this.#inner.addEventListener("pointerleave", () => this.#setHoverTitle(""));
+    // The editing host is only as tall as its content, so in a taller container
+    // (an embedded editor filling a pane) a press in the empty strip below the
+    // last line — or the thin strip above the first — lands on the non-editable
+    // container and starts no caret or drag-selection. Reproduce the textarea
+    // behaviour by driving it ourselves. See #onContainerMouseDown.
+    this.#el.addEventListener("mousedown", (e) =>
+      this.#onContainerMouseDown(e),
+    );
     this.#onSelectionChange = () => {
       this.#syncPillSelection();
       if (this.#doc.contains(document.getSelection()?.anchorNode)) {
@@ -1244,6 +1252,100 @@ export class PillCodeEditor {
       }
       pill.classList.toggle("variable-pill--selected", selected);
     }
+  }
+
+  // ── Dead-zone click / drag (empty area below the last line) ───────────────
+  // A press that misses the editing host (the container strip below the last
+  // line or above the first) would otherwise do nothing — the browser only
+  // starts a caret/selection from a press that lands inside `#doc`. We anchor
+  // the caret at the end of the last visible line (or the start of the first,
+  // when the press is above the content) and then extend the selection to the
+  // pointer while the button is held, so a drag started there selects text as
+  // if the press had landed at the end of that line.
+  #onContainerMouseDown(e) {
+    if (e.button !== 0) return;
+    // Only the bare container chrome is the dead zone; the document, the gutter
+    // (fold carets) and the inert marker overlay handle their own presses.
+    if (e.target !== this.#el && e.target !== this.#inner) return;
+    // `#el` is the scroll container: a press on its scrollbar also targets it,
+    // but must be left to drive the scroll — not hijacked into a selection.
+    const rect = this.#el.getBoundingClientRect();
+    if (
+      e.clientX - rect.left - this.#el.clientLeft >= this.#el.clientWidth ||
+      e.clientY - rect.top - this.#el.clientTop >= this.#el.clientHeight
+    )
+      return;
+    const anchor = this.#deadZoneAnchor(e.clientY);
+    if (!anchor) return;
+    e.preventDefault();
+    if (!this.#readonly) this.#doc.focus();
+    const sel = window.getSelection();
+    if (!sel) return;
+    sel.collapse(anchor.node, anchor.offset);
+    this.#syncPillSelection();
+    this.#onCaret?.();
+
+    // The browser won't drive selection from a press it never received, so run
+    // the drag ourselves: anchor→pointer on each move, released on mouseup.
+    const onMove = (ev) => {
+      const focus = this.#caretPointAt(ev.clientX, ev.clientY);
+      if (!focus) return;
+      sel.setBaseAndExtent(
+        anchor.node,
+        anchor.offset,
+        focus.node,
+        focus.offset,
+      );
+      this.#syncPillSelection();
+      this.#onCaret?.();
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
+  /** Visible (non-folded) lines, in document order. */
+  #visibleLines() {
+    return this.#lines().filter(
+      (l) => !l.classList.contains("pce-line--hidden"),
+    );
+  }
+
+  /** Caret DOM position for a dead-zone press at viewport `y`: the end of the
+   *  last visible line when at/below the content, the start of the first line
+   *  when above it. Null when there are no visible lines. */
+  #deadZoneAnchor(y) {
+    const lines = this.#visibleLines();
+    if (!lines.length) return null;
+    const first = lines[0];
+    if (y < first.getBoundingClientRect().top)
+      return this.#domPosAtRawCol(first, 0);
+    const last = lines[lines.length - 1];
+    return this.#domPosAtRawCol(last, serializeEditor(last).length);
+  }
+
+  /** Caret DOM position under a viewport point, with `y` clamped into the
+   *  content band so a drag past the last/first line still resolves to a caret.
+   *  Falls back to the nearest line's end/start when the point maps outside the
+   *  document or the platform lacks caretRangeFromPoint (the test harness). */
+  #caretPointAt(x, y) {
+    const lines = this.#visibleLines();
+    if (!lines.length) return null;
+    const firstRect = lines[0].getBoundingClientRect();
+    const lastRect = lines[lines.length - 1].getBoundingClientRect();
+    const clampY = Math.min(
+      Math.max(y, firstRect.top + firstRect.height / 2),
+      lastRect.top + lastRect.height / 2,
+    );
+    const range = document.caretRangeFromPoint?.(x, clampY);
+    if (range && this.#doc.contains(range.startContainer))
+      return { node: range.startContainer, offset: range.startOffset };
+    if (y < firstRect.top) return this.#domPosAtRawCol(lines[0], 0);
+    const last = lines[lines.length - 1];
+    return this.#domPosAtRawCol(last, serializeEditor(last).length);
   }
 
   // ── Change plumbing ───────────────────────────────────────────────────────

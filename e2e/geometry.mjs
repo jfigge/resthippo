@@ -155,3 +155,89 @@ spec("geometry: HTML preview overlay bounds match the real preview pane", async 
     `overlay height (${cmp.rec.height}) ≈ pane height (${cmp.pane.h})`,
   );
 });
+
+// ── selection: a drag from the strip below the last line selects text ───────
+// A PillCodeEditor's editing host (`.pce-doc`) is only as tall as its content,
+// so in an embedded editor filling a pane (e.g. the pre-request script pane)
+// the empty strip below the last line belongs to the non-editable container —
+// a press there would start no caret and no drag-selection. The fix
+// (PillCodeEditor #onContainerMouseDown) anchors the caret at the end of the
+// last line and drives the drag itself. Real layout only: jsdom stubs
+// getBoundingClientRect / caretRangeFromPoint to zero, so it can't be exercised
+// in the unit harness.
+spec(
+  "geometry: dragging from below the last script line selects the text",
+  async (h) => {
+    await h.selectReq("GET", "List users");
+    await h.reqTab("scripts");
+    await h.waitForSel(".scripts-pane .pce-doc");
+
+    // Seed one line of script in the pre-request pane (its editor is the first
+    // .scripts-pane's .pce-doc), leaving empty space below it in the tall pane.
+    await h.focusSel(".scripts-pane .pce-doc");
+    await h.dispatchKey("a", "KeyA", 65, 4 /* Meta = select-all */);
+    await h.insertText("const answer = 42;");
+    await h.waitForText(".scripts-pane .pce-doc", "answer");
+
+    const g = await h.cdp.eval(`(()=>{
+      const pane = document.querySelector('.scripts-pane');
+      const pce = pane.querySelector('.pce');
+      const doc = pane.querySelector('.pce-doc');
+      const lines = [...doc.querySelectorAll('.pce-line')];
+      const last = lines[lines.length - 1];
+      const pceR = pce.getBoundingClientRect();
+      const docR = doc.getBoundingClientRect();
+      const lastR = last.getBoundingClientRect();
+      const deadZone = pceR.bottom - lastR.bottom;
+      return {
+        deadZone,
+        x: docR.left + 40,                       // past the gutter + left padding
+        deadY: lastR.bottom + Math.min(16, deadZone / 2),
+        textY: lastR.top + lastR.height / 2,
+      };
+    })()`);
+
+    assert.ok(
+      g.deadZone > 20,
+      `the pane leaves an empty strip below the last line (${g.deadZone}px) to press in`,
+    );
+
+    // Real press in the dead zone → drag straight up into the line → release.
+    const mouse = (type, x, y, buttons) =>
+      h.cdp.send("Input.dispatchMouseEvent", {
+        type,
+        x,
+        y,
+        button: "left",
+        clickCount: type === "mouseMoved" ? 0 : 1,
+        buttons,
+      });
+    await mouse("mousePressed", g.x, g.deadY, 1);
+    await mouse("mouseMoved", g.x, g.textY, 1);
+    await mouse("mouseReleased", g.x, g.textY, 0);
+
+    const sel = await h.cdp.eval(`(()=>{
+      const s = window.getSelection();
+      const doc = document.querySelector('.scripts-pane .pce-doc');
+      return {
+        text: s.toString(),
+        collapsed: s.isCollapsed,
+        anchorIn: doc.contains(s.anchorNode),
+        focusIn: doc.contains(s.focusNode),
+      };
+    })()`);
+
+    assert.ok(
+      !sel.collapsed,
+      "the press-and-drag from the dead zone produced a non-collapsed selection",
+    );
+    assert.ok(
+      sel.text.length > 0,
+      `the selection covers script text (got "${sel.text}")`,
+    );
+    assert.ok(
+      sel.anchorIn && sel.focusIn,
+      "the selection stays anchored inside the pre-request editor",
+    );
+  },
+);
