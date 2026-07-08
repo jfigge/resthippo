@@ -72,6 +72,10 @@ const VAR_TOKEN_RE = /\{\{([^{}]+)\}\}/g;
  *   referenced-only subset in the archive.
  * @param {Array} [opts.collectionHeaders]  The collection's default headers
  *   ([{ id, name, value, enabled }]); included verbatim (not referenced-filtered).
+ * @param {Array} [opts.collectionProfiles]  The collection's folder-variable
+ *   profile list ([{ id, name }]); included verbatim. Per-folder value overrides
+ *   ride inside the folder nodes (`node.profileValues`), so they need no handling
+ *   here beyond the structuredClone of `items`.
  * @param {{ globalVariables?: Array, environments?: Array }} [opts.environments]
  *   The workspace environment store (decrypted, in-memory).
  * @param {string} opts.exportedAt  ISO timestamp (supplied by the caller; the
@@ -83,6 +87,7 @@ export function buildRestHippoArchive({
   items,
   collectionVariables,
   collectionHeaders,
+  collectionProfiles,
   environments,
   exportedAt,
 } = {}) {
@@ -131,6 +136,14 @@ export function buildRestHippoArchive({
     secretsMode: "none",
     collectionVariables: refdCollVars,
     collectionHeaders: collHeaders,
+    // Folder-variable PROFILES: the collection's named profile list travels in
+    // full (like default headers). Each folder's per-profile value overrides ride
+    // verbatim inside its node (structuredClone of `items`).
+    collectionProfiles: Array.isArray(collectionProfiles)
+      ? collectionProfiles
+          .filter((p) => p && p.id != null)
+          .map((p) => ({ id: String(p.id), name: String(p.name ?? "") }))
+      : [],
     items: nodes,
     environments: {
       globalVariables: refdGlobal,

@@ -1384,6 +1384,15 @@
     "secureTooltip": "Sécurisé (chiffré au repos)",
     "markSecure": "Marquer la variable comme sécurisée"
   },
+  "profiles": {
+    "default": "Par défaut",
+    "selectAria": "Profil de variables",
+    "add": "Ajouter un profil",
+    "delete": "Supprimer le profil",
+    "namePlaceholder": "Nom du profil…",
+    "nameAria": "Nom du nouveau profil",
+    "duplicate": "Un profil nommé « {name} » existe déjà."
+  },
   "passwordPrompt": {
     "exportTitle": "Protéger l'export par mot de passe",
     "exportIntro": "Cette collection contient des secrets (mots de passe, jetons ou variables sécurisées). Choisissez un mot de passe pour les chiffrer ; il sera nécessaire pour importer l'archive.",

@@ -43,6 +43,7 @@ import {
   mergeEnvironments,
   mergeVariableList,
   mergeHeaderList,
+  mergeProfileList,
 } from "../resthippo.js";
 import { buildRestHippoArchive } from "../../export/resthippo.js";
 
@@ -175,6 +176,28 @@ test("mergeHeaderList: adds missing by case-insensitive name, never overwrites e
   const added1 = list.find((h) => h.name === "X-New");
   assert.ok(added1);
   assert.equal(added1.enabled, false); // disabled flag preserved on import
+});
+
+test("mergeProfileList: adds a profile only when both its id AND name are new", () => {
+  const { list, added } = mergeProfileList(
+    [{ id: "p1", name: "Prod" }],
+    [
+      { id: "p1", name: "Prod (renamed)" }, // same id → skip
+      { id: "OTHER", name: "prod" }, // same name (case-insensitive) → skip
+      { id: "p2", name: "Staging" }, // new → add
+    ],
+  );
+  assert.equal(added, 1);
+  assert.deepEqual(list, [
+    { id: "p1", name: "Prod" },
+    { id: "p2", name: "Staging" },
+  ]);
+});
+
+test("mergeProfileList: tolerant of missing inputs and id-less entries", () => {
+  assert.deepEqual(mergeProfileList(null, null), { list: [], added: 0 });
+  const { added } = mergeProfileList([], [{ name: "no-id" }]);
+  assert.equal(added, 0);
 });
 
 test("mergeHeaderList: tolerant of missing/null inputs and blank names", () => {
@@ -388,6 +411,8 @@ test("round-trip: a folder of rich HTTP + WebSocket requests survives export→i
     type: "collection",
     name: "All",
     variables: [{ name: "folderVar", value: "fv", secure: false }],
+    // Folder-variable profile overrides must ride verbatim on the node.
+    profileValues: { prof1: { folderVar: "prod-value" } },
     children: [richHttpRequest(), richWsRequest()],
   };
   const original = structuredClone(folder);

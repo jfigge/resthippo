@@ -71,8 +71,10 @@ export class VariablesPopup {
   /** @type {{ id:string, name:string, value:string, secure:boolean }[]} */
   #rows = [];
 
+  // Debounced for BOTH modes so per-keystroke KV-row edits don't persist +
+  // re-render on every character (flush on close via #doClose).
   #debouncedSave = debounce(
-    () => this.#saveFromBulk(),
+    () => (this.#isBulkMode ? this.#saveFromBulk() : this.#saveFromRows()),
     VariablesPopup.#SAVE_MS,
   );
 
@@ -293,7 +295,7 @@ export class VariablesPopup {
           row,
           rowClass: "vars-kv-row params-row",
           revealMs: VariablesPopup.#REVEAL_MS,
-          onChange: () => this.#saveFromRows(),
+          onChange: () => this.#debouncedSave(),
           onEnter: () => this.#addRow(),
           onDelete: () => {
             this.#rows = this.#rows.filter((r) => r.id !== row.id);

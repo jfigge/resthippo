@@ -378,6 +378,18 @@ export class TreeView {
   }
 
   /**
+   * Read a single node by id from the LIVE tree — no deepClone, unlike
+   * getItems(). For read-only callers (e.g. reading a folder's variables during a
+   * save) that must not pay a whole-tree clone. Do NOT mutate the returned node;
+   * route every change through updateNode() so immutability + persistence hold.
+   * @param {string} id
+   * @returns {object|null}
+   */
+  getNode(id) {
+    return findNode(this.#items, id);
+  }
+
+  /**
    * Update the merged variable map used when generating cURL commands.
    * Call this whenever the active collection or its environments change.
    *

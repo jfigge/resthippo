@@ -54,6 +54,44 @@ editor — collections no longer have a separate variable set; their collection-
 variables are simply the Global environment (also editable from the
 [Collections manager](collections.md#collections)'s **Environments** tab).
 
+### Folder variable profiles
+
+A **profile** is a named alternate set of _values_ for a folder's variables —
+handy when the same requests point at different back-ends (say **Dev**, **Staging**
+and **Prod**) that differ only in a host, key, or token. Profiles are defined once
+and **span the whole collection**, so every folder shares the same profile names
+while keeping its own per-profile values.
+
+Every folder starts with a single **Default** profile — the values you see when no
+profiles exist. Its controls live on the **far right of the folder variable
+editor's toolbar**:
+
+- **＋ (Add profile)** — always shown. It opens a small popup to name a new
+  profile; press **Enter** to create it, or **Escape** / click away to cancel. A
+  new profile is **not** selected automatically.
+- **Profile selector** and **🗑 (Delete profile)** — appear once at least one named
+  profile exists. The selector lists **Default** plus your named profiles; Delete
+  removes the selected profile (Default can't be deleted).
+
+How values behave:
+
+- **Selecting a profile** shows that profile's values. A brand-new profile starts
+  by showing the **Default** values — change any value to pin it for that profile;
+  values you leave untouched keep following the Default.
+- **Adding or removing a variable** (in any profile) changes the folder's variable
+  set for **all** profiles — the Default is updated and every profile picks up the
+  new variable (or drops the removed one). So the _names_ are always shared; only
+  the _values_ differ per profile.
+- **Switching folders** keeps your selected profile; the editor just re-shows the
+  new folder's variables under it.
+
+The selected profile is **live**: requests in the collection resolve their folder
+variables using the active profile's values, so switching profiles switches which
+back-end your requests hit. Profiles are independent of
+[Environments](#environments) — Environments switch the collection-wide (Global)
+values, profiles switch a folder's values; the two compose. A folder's per-profile
+values travel with it in a **Rest Hippo** export/backup.
+
 ## Environments
 
 An **environment** is a named set of variables you can switch between — the

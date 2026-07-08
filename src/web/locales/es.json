@@ -1384,6 +1384,15 @@
     "secureTooltip": "Seguro (cifrado en reposo)",
     "markSecure": "Marcar la variable como segura"
   },
+  "profiles": {
+    "default": "Predeterminado",
+    "selectAria": "Perfil de variables",
+    "add": "Añadir perfil",
+    "delete": "Eliminar perfil",
+    "namePlaceholder": "Nombre del perfil…",
+    "nameAria": "Nombre del nuevo perfil",
+    "duplicate": "Ya existe un perfil llamado «{name}»."
+  },
   "passwordPrompt": {
     "exportTitle": "Proteger la exportación con contraseña",
     "exportIntro": "Esta colección contiene secretos (contraseñas, tokens o variables seguras). Elige una contraseña para cifrarlos; la necesitarás para importar el archivo.",

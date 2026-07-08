@@ -1384,6 +1384,15 @@
     "secureTooltip": "Sicher (verschlüsselt gespeichert)",
     "markSecure": "Variable als sicher markieren"
   },
+  "profiles": {
+    "default": "Standard",
+    "selectAria": "Variablenprofil",
+    "add": "Profil hinzufügen",
+    "delete": "Profil löschen",
+    "namePlaceholder": "Profilname…",
+    "nameAria": "Name des neuen Profils",
+    "duplicate": "Ein Profil mit dem Namen „{name}“ existiert bereits."
+  },
   "passwordPrompt": {
     "exportTitle": "Export mit Passwort schützen",
     "exportIntro": "Diese Sammlung enthält Geheimnisse (Passwörter, Tokens oder sichere Variablen). Wählen Sie ein Passwort, um sie zu verschlüsseln – Sie benötigen es zum Importieren des Archivs.",

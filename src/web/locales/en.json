@@ -1384,6 +1384,15 @@
     "secureTooltip": "Secure (encrypted at rest)",
     "markSecure": "Mark variable secure"
   },
+  "profiles": {
+    "default": "Default",
+    "selectAria": "Variable profile",
+    "add": "Add profile",
+    "delete": "Delete profile",
+    "namePlaceholder": "Profile name…",
+    "nameAria": "New profile name",
+    "duplicate": "A profile named “{name}” already exists."
+  },
   "passwordPrompt": {
     "exportTitle": "Password-Protect Export",
     "exportIntro": "This collection contains secrets (passwords, tokens, or secure variables). Choose a password to encrypt them — you'll need it to import the archive.",

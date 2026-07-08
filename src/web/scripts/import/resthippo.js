@@ -213,6 +213,37 @@ export function mergeHeaderList(targetHeaders, incomingHeaders) {
   return { list, added };
 }
 
+/**
+ * Merge an archive's folder-variable PROFILE list into the collection's, adding
+ * a profile when neither its id NOR its (case-insensitive) name is already
+ * present. Re-importing an export restores the same profiles in place without
+ * duplicating. Folder value-overrides ride verbatim on the nodes and key by the
+ * archive's profile ids, so ids are preserved as-is. Returns a NEW array.
+ *
+ * @param {{id:string,name:string}[]} targetProfiles
+ * @param {{id:string,name:string}[]} incomingProfiles
+ * @returns {{ list: {id:string,name:string}[], added: number }}
+ */
+export function mergeProfileList(targetProfiles, incomingProfiles) {
+  const list = Array.isArray(targetProfiles)
+    ? targetProfiles.filter((p) => p && p.id != null).map((p) => ({ ...p }))
+    : [];
+  const ids = new Set(list.map((p) => String(p.id)));
+  const names = new Set(list.map((p) => String(p.name ?? "").toLowerCase()));
+  let added = 0;
+  for (const p of incomingProfiles ?? []) {
+    if (!p || p.id == null) continue;
+    const id = String(p.id);
+    const name = String(p.name ?? "");
+    if (ids.has(id) || names.has(name.toLowerCase())) continue;
+    list.push({ id, name });
+    ids.add(id);
+    names.add(name.toLowerCase());
+    added += 1;
+  }
+  return { list, added };
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 /** Coerce a header list to canonical { id, name, value, enabled } rows. */

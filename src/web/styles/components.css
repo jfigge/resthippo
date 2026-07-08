@@ -5548,6 +5548,65 @@ html.show-method-icons .req-method-menu-item-label::before {
   user-select: none;
 }
 
+/* ── Folder-variable profile switcher (far right of .vars-toolbar) ─────────── */
+/* margin-left:auto pins the group to the far right in BOTH bulk (hint shown) and
+   KV (hint hidden) modes. Only the [+] shows for a lone Default profile; the
+   selector + delete appear once a named profile exists. */
+.vars-profile-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.vars-profile-select {
+  height: var(--control-h-sm);
+  max-width: 160px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-0);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+}
+
+.vars-profile-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.vars-profile-add-btn,
+.vars-profile-del-btn {
+  cursor: pointer;
+}
+
+.vars-profile-del-btn:hover:not(:disabled) {
+  color: var(--color-error);
+}
+
+.vars-profile-del-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* The [+] "name a new profile" popup — a lightweight anchored box (not a
+   PopupManager modal), so it owns its own mount + outside-click (like PillPicker). */
+.vars-profile-popup {
+  position: fixed;
+  z-index: 900;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-surface-2);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  padding: var(--space-2);
+}
+
+.vars-profile-name-input {
+  width: 200px;
+}
+
 /*
  * The textarea fills all remaining height.
  * resize: none — the outer popup handles resizing; the textarea itself

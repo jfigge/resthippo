@@ -86,6 +86,11 @@ import {
   varsArrayToSecureSet,
 } from "./components/variable-shape.js";
 import {
+  effectiveProfileVars,
+  applyProfileEdit,
+  removeProfileFromFolder,
+} from "./components/folder-profiles.js";
+import {
   makeEntry,
   addRecent,
   addFavorite,
@@ -111,6 +116,7 @@ import {
   mergeEnvironments,
   mergeVariableList,
   mergeHeaderList,
+  mergeProfileList,
 } from "./import/resthippo.js";
 import { ExportModal } from "./components/export-modal.js";
 import { SwaggerImportModal } from "./components/swagger-import-modal.js";
@@ -647,6 +653,9 @@ function initComponents() {
   varsEditor = new VarsEditor({
     onSave: handleVarsSave,
     onBulkEditorChange: handleVarsBulkEditorChange,
+    onProfileAdd: handleProfileAdd,
+    onProfileSelect: handleProfileSelect,
+    onProfileDelete: handleProfileDelete,
   });
   panelRequest.mount(varsEditor);
   varsEditor.element.style.display = "none";
@@ -1681,19 +1690,154 @@ function installSelectionHandlers() {
  */
 function installContainerSelectionHandler() {
   window.addEventListener("hippo:container-selected", (e) => {
-    const { nodeId, name, variables } = e.detail;
+    const { nodeId, name } = e.detail;
     const isColl = currentColls.collections.some((c) => c.id === nodeId);
-    const scopeVars = isColl
-      ? (currentEnvironments.globalVariables ?? [])
-      : (variables ?? []);
-    varsEditor.load({
-      scopeId: nodeId,
-      scopeName: name,
-      variables: scopeVars,
-      bulkEditor: currentSettings.varsBulkEditor ?? true,
-    });
+    if (isColl) {
+      // Top-level collection → edits its Global environment. No profiles here
+      // (the Environment picker is the collection-level value switcher).
+      _varsScope = null;
+      varsEditor.load({
+        scopeId: nodeId,
+        scopeName: name,
+        variables: currentEnvironments.globalVariables ?? [],
+        bulkEditor: currentSettings.varsBulkEditor ?? true,
+        profilesEnabled: false,
+      });
+    } else {
+      // Nested folder → profile-aware editor. Remember the scope so profile
+      // add/select/delete can reload the same folder.
+      _varsScope = { nodeId, name };
+      _loadFolderVars(nodeId, name);
+    }
     _showVarsEditor(name);
   });
+}
+
+// ── Folder-variable profiles ────────────────────────────────────────────────
+// Profiles are collection-wide named alternates for FOLDER variables. Their
+// names + the active selection live on the collection metadata; each folder's
+// per-profile value overrides live on its tree node (`node.profileValues`). See
+// components/folder-profiles.js for the (pure) model. `_varsScope` tracks the
+// folder currently shown in the vars editor so the profile controls can reload
+// it after a profile change.
+
+/** The folder node currently shown in the vars editor, or null. */
+let _varsScope = null;
+
+/** The active collection's metadata entry (holds its profile list + selection). */
+function _activeCollEntry() {
+  return (
+    currentColls.collections.find(
+      (c) => c.id === currentColls.activeCollectionId,
+    ) ?? null
+  );
+}
+
+/** Named profiles [{id,name}] for the active collection (Default is implicit). */
+function _activeProfiles() {
+  return _activeCollEntry()?.variableProfiles ?? [];
+}
+
+/** The active profile id for the collection, or null (= Default). */
+function _activeProfileId() {
+  return _activeCollEntry()?.activeVariableProfileId ?? null;
+}
+
+/** Show a folder in the vars editor under the collection's active profile. */
+function _loadFolderVars(nodeId, name) {
+  const node = _findNodeById(treeView?.getItems() ?? [], nodeId);
+  const activeProfileId = _activeProfileId();
+  varsEditor.load({
+    scopeId: nodeId,
+    scopeName: name,
+    variables: effectiveProfileVars(
+      node?.variables ?? [],
+      node?.profileValues,
+      activeProfileId,
+    ),
+    bulkEditor: currentSettings.varsBulkEditor ?? true,
+    profilesEnabled: true,
+    profiles: _activeProfiles(),
+    activeProfileId,
+  });
+}
+
+/** Patch the active collection's profile metadata and persist the manifest. */
+async function _updateActiveCollProfiles(patch) {
+  const id = currentColls.activeCollectionId;
+  const collections = currentColls.collections.map((c) =>
+    c.id === id ? { ...c, ...patch } : c,
+  );
+  currentColls = { ...currentColls, collections };
+  await saveManifest({ collections, activeCollectionId: id });
+}
+
+/** Remove a deleted profile's overrides from every folder in a tree (recursive). */
+function _pruneProfileFromTree(items, profileId) {
+  return (items ?? []).map((n) => {
+    if (n?.type !== "collection") return n;
+    const next = { ...n };
+    if (n.profileValues) {
+      next.profileValues = removeProfileFromFolder(n.profileValues, profileId);
+    }
+    if (Array.isArray(n.children)) {
+      next.children = _pruneProfileFromTree(n.children, profileId);
+    }
+    return next;
+  });
+}
+
+/** [+] popup committed a new profile name. Created but NOT selected (req 7). */
+async function handleProfileAdd({ name }) {
+  const trimmed = (name ?? "").trim();
+  if (!trimmed || !_activeCollEntry()) return;
+  const profiles = _activeProfiles();
+  if (profiles.some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) {
+    Notifications.warning(t("profiles.duplicate", { name: trimmed }));
+    return;
+  }
+  const variableProfiles = [
+    ...profiles,
+    { id: crypto.randomUUID(), name: trimmed },
+  ];
+  await _updateActiveCollProfiles({ variableProfiles });
+  if (_varsScope) _loadFolderVars(_varsScope.nodeId, _varsScope.name);
+}
+
+/** Profile selector changed (null = Default). Live at send time → re-resolve. */
+async function handleProfileSelect({ profileId }) {
+  if (!_activeCollEntry()) return;
+  await _updateActiveCollProfiles({
+    activeVariableProfileId: profileId || null,
+  });
+  if (_varsScope) _loadFolderVars(_varsScope.nodeId, _varsScope.name);
+  _refreshEditorVariableContext(
+    currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
+  );
+}
+
+/** Delete the active named profile: drop it collection-wide + prune folders. */
+async function handleProfileDelete({ profileId }) {
+  const entry = _activeCollEntry();
+  if (!entry || !profileId) return;
+  const variableProfiles = _activeProfiles().filter((p) => p.id !== profileId);
+  const activeVariableProfileId =
+    entry.activeVariableProfileId === profileId
+      ? null
+      : (entry.activeVariableProfileId ?? null);
+  await _updateActiveCollProfiles({
+    variableProfiles,
+    activeVariableProfileId,
+  });
+  if (treeView) {
+    const items = _pruneProfileFromTree(treeView.getItems(), profileId);
+    treeView.setItems(items);
+    await saveCollections(items);
+  }
+  if (_varsScope) _loadFolderVars(_varsScope.nodeId, _varsScope.name);
+  _refreshEditorVariableContext(
+    currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
+  );
 }
 
 /** Show the inline variable editor (hide the request editor); set panel title. */
@@ -2366,12 +2510,39 @@ async function handleCollDelete({ id }) {
 
 // ── Variable handlers ───────────────────────────────────────────────────────
 
+// Coalesced background persist of the active collection's tree. Each save
+// serializes the WHOLE collection across IPC (a structured clone of every request
+// + body), so a burst of folder-variable edits must never stack them: at most one
+// runs at a time, and any request that arrives while one is in flight just marks
+// the tree dirty. When the current save finishes, one final save runs with the
+// latest tree (`treeView.getItems()` is read at save time, so intermediate clones
+// are never taken). Fire-and-forget — callers don't await.
+let _collSaveInFlight = false;
+let _collSaveDirty = false;
+function _queueSaveCollections() {
+  _collSaveDirty = true;
+  if (_collSaveInFlight) return;
+  _collSaveInFlight = true;
+  (async () => {
+    try {
+      while (_collSaveDirty) {
+        _collSaveDirty = false;
+        await saveCollections(treeView.getItems());
+      }
+    } finally {
+      _collSaveInFlight = false;
+    }
+  })();
+}
+
 /**
  * Persist variables and keep in-memory state in sync.
  * The `scopeId` field doubles as a folder-node ID when it doesn't match any
- * collection — in that case the variables are stored on the tree node.
+ * collection — in that case the variables are stored on the tree node. For a
+ * folder, `profileId` selects which profile the edit belongs to (null = Default);
+ * applyProfileEdit reconciles the Default name set + the profile's overrides.
  */
-async function handleVarsSave({ scopeId, variables }) {
+async function handleVarsSave({ scopeId, profileId = null, variables }) {
   const isColl = currentColls.collections.some((coll) => coll.id === scopeId);
 
   if (isColl) {
@@ -2384,16 +2555,31 @@ async function handleVarsSave({ scopeId, variables }) {
     return;
   }
 
-  // It's a folder node — patch the tree and persist collections.
-  if (treeView) {
-    treeView.updateNode(scopeId, { variables }, { silent: true });
-    await saveCollections(treeView.getItems());
-  }
-
-  // Revalidate pill editors in the request panel for the updated context
-  _refreshEditorVariableContext(
-    currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
+  // It's a folder node — reconcile the edit against the active profile and patch
+  // the LIVE node (getNode: no whole-tree clone), then queue a coalesced
+  // background persist. Every save serializes the whole collection across IPC, so
+  // this stays off the hot path: no await here, and overlapping saves collapse to
+  // one (see _queueSaveCollections).
+  if (!treeView) return;
+  const node = treeView.getNode(scopeId);
+  const { variables: defaultVars, profileValues } = applyProfileEdit(
+    { variables: node?.variables, profileValues: node?.profileValues },
+    profileId,
+    variables,
+    _activeProfiles().map((p) => p.id),
   );
+  treeView.updateNode(
+    scopeId,
+    { variables: defaultVars, profileValues },
+    { silent: true },
+  );
+  _queueSaveCollections();
+
+  // NB: intentionally NOT refreshing the request-editor variable context here.
+  // The request editor is hidden while its folder's variables are being edited,
+  // and rebuilding the context re-validates every pill (the bulk of the old
+  // per-keystroke lag). Selecting a request rebuilds the context for it (see the
+  // hippo:request-selected handler), which is the only time it's visible.
 }
 
 /**
@@ -2497,11 +2683,21 @@ async function handleEnvVarsSave({ id, variables }) {
 function _buildVariableContextForNode(nodeId, node = null) {
   // Variables are stored canonically as arrays; the resolver consumes maps,
   // so flatten each scope (and every folder-chain node) here at the boundary.
+  // Each folder resolves under the collection's ACTIVE profile: its Default
+  // variables with the active profile's value overrides applied (Default names +
+  // secure flags are unchanged). The active profile is live at send time.
+  const activeProfileId = _activeProfileId();
   const folderChain = (
     treeView && nodeId ? buildFolderChain(treeView.getItems(), nodeId) : []
   ).map((folder) => ({
     ...folder,
-    variables: varsArrayToMap(folder.variables),
+    variables: varsArrayToMap(
+      effectiveProfileVars(
+        folder.variables,
+        folder.profileValues,
+        activeProfileId,
+      ),
+    ),
     // Parallel set of secret names — the map above drops the secure flag.
     secureVariables: varsArrayToSecureSet(folder.variables),
   }));
@@ -4716,6 +4912,9 @@ async function runRestHippoCollectionExport(collection) {
     items: [collection],
     collectionVariables,
     collectionHeaders,
+    // Both export paths (per-collection button, tree collection menu) run against
+    // the active collection, so its profile list is the right one to travel.
+    collectionProfiles: _activeProfiles(),
     environments: currentEnvironments,
     exportedAt: new Date().toISOString(),
   });
@@ -4740,6 +4939,10 @@ async function runRestHippoWorkspaceExport() {
   // value so identical rows collapse but distinct ones survive the flatten.
   const collectionHeaders = [];
   const seenHeader = new Set();
+  // Profile names across every collection, deduped by name (the whole workspace
+  // merges into the active collection on import, so profiles pool together).
+  const collectionProfiles = [];
+  const seenProfile = new Set();
   let count = 0;
 
   for (const coll of currentColls.collections ?? []) {
@@ -4755,6 +4958,13 @@ async function runRestHippoWorkspaceExport() {
         : (data.items ?? []);
     items.push(...collItems);
     count += 1;
+    for (const p of coll.variableProfiles ?? []) {
+      if (!p || p.id == null) continue;
+      const key = String(p.name ?? "").toLowerCase();
+      if (seenProfile.has(key)) continue;
+      seenProfile.add(key);
+      collectionProfiles.push({ id: String(p.id), name: String(p.name ?? "") });
+    }
     for (const v of normalizeVariables(data.variables)) {
       if (seenVar.has(v.name)) continue;
       seenVar.add(v.name);
@@ -4773,6 +4983,7 @@ async function runRestHippoWorkspaceExport() {
     items,
     collectionVariables,
     collectionHeaders,
+    collectionProfiles,
     environments: currentEnvironments,
     exportedAt: new Date().toISOString(),
   });
@@ -4938,14 +5149,31 @@ async function mergeRestHippoArchive(archive) {
   currentEnvironments = mergedEnv;
   await saveEnvironments(activeId, currentEnvironments);
 
-  // 4. Reflect the merged default headers in memory (variables live in
+  // 4. Merge the archive's folder-variable profile list into the active
+  //    collection (add-if-missing by id→name; folder overrides on the nodes keep
+  //    their archive profile ids). Persist the manifest when the list grows.
+  const activeEntry = currentColls.collections.find((c) => c.id === activeId);
+  const profileMerge = mergeProfileList(
+    activeEntry?.variableProfiles,
+    archive.collectionProfiles,
+  );
+
+  // 5. Reflect the merged default headers + profiles in memory (variables live in
   //    currentEnvironments now, refreshed below via the env picker / context).
   currentColls = {
     ...currentColls,
     collections: currentColls.collections.map((coll) =>
-      coll.id === activeId ? { ...coll, headers: collHeaders } : coll,
+      coll.id === activeId
+        ? { ...coll, headers: collHeaders, variableProfiles: profileMerge.list }
+        : coll,
     ),
   };
+  if (profileMerge.added > 0) {
+    await saveManifest({
+      collections: currentColls.collections,
+      activeCollectionId: activeId,
+    });
+  }
 
   // Refresh every surface that mirrors this state so the restore is visible now.
   collPopup.update(collPopupState());

@@ -1384,6 +1384,15 @@
     "secureTooltip": "Sicuro (cifrato a riposo)",
     "markSecure": "Contrassegna la variabile come sicura"
   },
+  "profiles": {
+    "default": "Predefinito",
+    "selectAria": "Profilo di variabili",
+    "add": "Aggiungi profilo",
+    "delete": "Elimina profilo",
+    "namePlaceholder": "Nome profilo…",
+    "nameAria": "Nome del nuovo profilo",
+    "duplicate": "Esiste già un profilo denominato «{name}»."
+  },
   "passwordPrompt": {
     "exportTitle": "Proteggi l'esportazione con password",
     "exportIntro": "Questa raccolta contiene segreti (password, token o variabili sicure). Scegli una password per cifrarli: ti servirà per importare l'archivio.",

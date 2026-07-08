@@ -142,8 +142,10 @@ export class CollectionsPopup {
   #isBulkMode = true;
   /** @type {{ id:string, name:string, value:string, secure:boolean }[]} */
   #rows = [];
+  // Debounced for BOTH modes so per-keystroke KV-row edits don't persist +
+  // re-render on every character (flush on close via #flushEditorSave).
   #debouncedSave = debounce(
-    () => this.#saveFromBulk(),
+    () => (this.#isBulkMode ? this.#saveFromBulk() : this.#saveFromRows()),
     CollectionsPopup.#SAVE_MS,
   );
 
@@ -970,7 +972,7 @@ export class CollectionsPopup {
           row,
           rowClass: "coll-kv-row params-row",
           revealMs: CollectionsPopup.#REVEAL_MS,
-          onChange: () => this.#saveFromRows(),
+          onChange: () => this.#debouncedSave(),
           onEnter: () => this.#addRow(),
           onDelete: () => {
             this.#rows = this.#rows.filter((r) => r.id !== row.id);
