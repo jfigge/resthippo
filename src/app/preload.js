@@ -217,6 +217,14 @@ contextBridge.exposeInMainWorld("hippo", {
       save: (id, data) =>
         ipcRenderer.invoke("store:collections:save", id, data),
       /**
+       * Granular save of ONLY the navigation tree (folder structure + folder
+       * variables + profile overrides + requestRef IDs) — for a folder-variable
+       * change. Send a body-stripped tree; request files are left untouched.
+       * @param {string} id @param {object} data @returns {Promise<void>}
+       */
+      saveTree: (id, data) =>
+        ipcRenderer.invoke("store:collections:save-tree", id, data),
+      /**
        * Permanently delete a collection's on-disk directory and all its data
        * (requests, history, responses, cookies, metadata).
        * @param {string} id @returns {Promise<void>}

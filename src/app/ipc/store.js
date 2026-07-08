@@ -107,6 +107,14 @@ function registerStoreIPC({
     }),
   );
 
+  // Granular tree-only save — persists folder structure + folder variables +
+  // profile overrides without touching request files (a folder-variable change).
+  ipcMain.handle("store:collections:save-tree", (_event, id, data) =>
+    safeCallWrite("store:collections:save-tree", () => {
+      getStores().collectionsStore().saveTreeStructure(id, data);
+    }),
+  );
+
   // ── Collection navigation tree ──────────────────────────────────────────────
 
   ipcMain.handle("store:tree:get", (_event, collectionId) =>

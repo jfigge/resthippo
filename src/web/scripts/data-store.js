@@ -509,6 +509,66 @@ export async function saveCollections(items) {
 }
 
 /**
+ * Granularly persist a FOLDER-VARIABLE / profile change for the active
+ * collection: only the navigation tree (folder structure + folder variables +
+ * profile overrides + requestRef IDs) is written — request bodies are stripped
+ * before the IPC and their files are never rewritten. Much lighter than
+ * saveCollections, which serializes + rewrites every request.
+ *
+ * `_activeItems` is still refreshed to the full tree so a later
+ * saveCollectionHeaders/Variables (which rewrite the tree from that cache) can't
+ * clobber this change.
+ *
+ * @param {object[]} items  the full live tree (bodies stripped internally)
+ * @returns {Promise<boolean>} true on success
+ */
+export async function saveTreeStructure(items) {
+  if (!_activeCollectionId) return true;
+  _activeItems = items;
+  const structure = _stripRequestBodies(items);
+  return storeWrite(
+    "Save folder variables",
+    () =>
+      window.hippo.store.collections.saveTree(_activeCollectionId, {
+        collections: structure,
+      }),
+    // Dev-server transport has no granular tree endpoint — fall back to the full
+    // env write (correct, just not granular; only used in the browser dev build).
+    () =>
+      httpWrite(`/api/env?id=${encodeURIComponent(_activeCollectionId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          version: 1,
+          collections: items,
+          variables: _activeVariables,
+          headers: _activeHeaders,
+        }),
+      }),
+  );
+}
+
+/**
+ * Strip request bodies to bare `{ id, type:"request" }` refs, keeping folder
+ * structure + folder variables + profile overrides. Shares node references with
+ * the input (read-only; the IPC layer clones for transfer).
+ */
+function _stripRequestBodies(nodes) {
+  return (Array.isArray(nodes) ? nodes : []).map((n) =>
+    n && n.type === "collection"
+      ? {
+          id: n.id,
+          type: "collection",
+          name: n.name,
+          variables: n.variables ?? [],
+          ...(n.profileValues ? { profileValues: n.profileValues } : {}),
+          children: _stripRequestBodies(n.children),
+        }
+      : { id: n.id, type: "request" },
+  );
+}
+
+/**
  * Persist a single request's edited fields granularly — only that request's file
  * is rewritten (with its undecryptable secrets preserved by the main-side clobber
  * guard), instead of re-encrypting the whole collection. The patch must be the

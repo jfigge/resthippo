@@ -53,6 +53,7 @@ import { CollPicker } from "./components/coll-picker.js";
 import {
   loadAll,
   saveCollections,
+  saveTreeStructure,
   updateRequest,
   setActiveItems,
   setActiveHeaders,
@@ -2510,16 +2511,16 @@ async function handleCollDelete({ id }) {
 
 // ── Variable handlers ───────────────────────────────────────────────────────
 
-// Coalesced background persist of the active collection's tree. Each save
-// serializes the WHOLE collection across IPC (a structured clone of every request
-// + body), so a burst of folder-variable edits must never stack them: at most one
-// runs at a time, and any request that arrives while one is in flight just marks
-// the tree dirty. When the current save finishes, one final save runs with the
-// latest tree (`treeView.getItems()` is read at save time, so intermediate clones
-// are never taken). Fire-and-forget — callers don't await.
+// Coalesced background persist of the active collection's FOLDER-VARIABLE /
+// profile edits. It goes through the GRANULAR tree save (saveTreeStructure),
+// which writes only the navigation tree — no request bodies serialized across
+// IPC, no request files rewritten. A burst of edits must never stack: at most one
+// save runs at a time, and any edit that arrives while one is in flight just
+// marks the tree dirty; when the current save finishes, one final save runs with
+// the latest tree (getItems() is read at save time). Fire-and-forget.
 let _collSaveInFlight = false;
 let _collSaveDirty = false;
-function _queueSaveCollections() {
+function _queueSaveTree() {
   _collSaveDirty = true;
   if (_collSaveInFlight) return;
   _collSaveInFlight = true;
@@ -2527,7 +2528,7 @@ function _queueSaveCollections() {
     try {
       while (_collSaveDirty) {
         _collSaveDirty = false;
-        await saveCollections(treeView.getItems());
+        await saveTreeStructure(treeView.getItems());
       }
     } finally {
       _collSaveInFlight = false;
@@ -2573,7 +2574,7 @@ async function handleVarsSave({ scopeId, profileId = null, variables }) {
     { variables: defaultVars, profileValues },
     { silent: true },
   );
-  _queueSaveCollections();
+  _queueSaveTree();
 
   // NB: intentionally NOT refreshing the request-editor variable context here.
   // The request editor is hidden while its folder's variables are being edited,

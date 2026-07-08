@@ -1586,6 +1586,115 @@ describe("Variable scoping — collections and nested folders", () => {
 // Edge cases — boundary conditions and error paths
 // =============================================================================
 
+describe("Folder-variable profiles — persistence + granular tree save", () => {
+  let tmpDir, stores;
+
+  const reversibleSafeStorage = {
+    isEncryptionAvailable: () => true,
+    encryptString: (s) => Buffer.from(s, "utf8"),
+    decryptString: (buf) => Buffer.from(buf).toString("utf8"),
+  };
+  const readRaw = (p) => JSON.parse(fs.readFileSync(p, "utf8"));
+  const COL = "col-profiles";
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+    stores = makeStores(tmpDir);
+    _setSafeStorage(reversibleSafeStorage);
+  });
+  afterEach(() => {
+    _setSafeStorage(null);
+    rmTmpDir(tmpDir);
+  });
+
+  test("folder profileValues round-trip through saveCollections → getCollections", () => {
+    stores.collections.saveCollections(COL, {
+      version: 1,
+      collections: [
+        {
+          id: "f1",
+          type: "collection",
+          name: "API",
+          variables: [{ name: "host", value: "dev", secure: false }],
+          profileValues: { prod: { host: "prod-host" } },
+          children: [],
+        },
+      ],
+    });
+    const loaded = stores.collections.getCollections(COL);
+    assert.deepEqual(loaded.collections[0].profileValues, {
+      prod: { host: "prod-host" },
+    });
+  });
+
+  test("saveTreeStructure persists folder vars + profiles WITHOUT rewriting request files", () => {
+    stores.collections.saveCollections(COL, {
+      version: 1,
+      collections: [
+        {
+          id: "f1",
+          type: "collection",
+          name: "API",
+          variables: [{ name: "host", value: "dev", secure: false }],
+          children: [makeRequest({ id: "r1", url: "/things" })],
+        },
+      ],
+    });
+    const reqPath = new Paths(tmpDir).requestPath(COL, "r1");
+    const before = fs.readFileSync(reqPath, "utf8");
+
+    // Granular save: change the folder variable + add a profile override; the
+    // request travels as a bare ref (no body).
+    stores.collections.saveTreeStructure(COL, {
+      collections: [
+        {
+          id: "f1",
+          type: "collection",
+          name: "API",
+          variables: [{ name: "host", value: "dev2", secure: false }],
+          profileValues: { prod: { host: "prod2" } },
+          children: [{ id: "r1", type: "request" }],
+        },
+      ],
+    });
+
+    // The request file is byte-identical — no body was rewritten.
+    assert.equal(fs.readFileSync(reqPath, "utf8"), before);
+
+    // Folder var + profile persisted; the request is still present and intact.
+    const folder = stores.collections.getCollections(COL).collections[0];
+    assert.equal(folder.variables.find((v) => v.name === "host").value, "dev2");
+    assert.deepEqual(folder.profileValues, { prod: { host: "prod2" } });
+    const req = folder.children.find((c) => c.id === "r1");
+    assert.ok(req);
+    assert.equal(req.url, "/things");
+  });
+
+  test("a secure variable's profile override is ciphertext on disk, plaintext on read", () => {
+    stores.collections.saveCollections(COL, {
+      version: 1,
+      collections: [
+        {
+          id: "f1",
+          type: "collection",
+          name: "API",
+          variables: [{ name: "apiKey", value: "dev-key", secure: true }],
+          profileValues: { prod: { apiKey: "prod-secret" } },
+          children: [],
+        },
+      ],
+    });
+    const raw = readRaw(new Paths(tmpDir).treePath(COL));
+    assert.ok(isEncrypted(raw.children[0].profileValues.prod.apiKey));
+
+    const loaded = stores.collections.getCollections(COL);
+    assert.equal(
+      loaded.collections[0].profileValues.prod.apiKey,
+      "prod-secret",
+    );
+  });
+});
+
 describe("Edge cases — boundary conditions", () => {
   let tmpDir, stores;
   const COL = "col-edge";

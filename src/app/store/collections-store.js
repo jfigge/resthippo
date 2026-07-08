@@ -47,7 +47,18 @@ const {
   encryptVariables,
   decryptVariables,
   restoreUndecryptableVariables,
+  encryptProfileValues,
+  decryptProfileValues,
 } = require("./crypto");
+
+/** Names of the `secure` variables in a canonical variable list. */
+function _secureNames(variables) {
+  return new Set(
+    (Array.isArray(variables) ? variables : [])
+      .filter((v) => v && v.secure)
+      .map((v) => v.name),
+  );
+}
 const { CollectionRepository } = require("./collection-repository");
 
 class CollectionsStore {
@@ -158,13 +169,25 @@ class CollectionsStore {
   _buildLegacyCollections(collId, nodes) {
     return nodes
       .filter((n) => n.type === "folder")
-      .map((n) => ({
-        id: n.id,
-        type: "collection",
-        name: n.name,
-        variables: decryptVariables(n.variables ?? [], "folder", n.id),
-        children: this._buildLegacyChildren(collId, n.children ?? []),
-      }));
+      .map((n) => this._buildLegacyFolder(collId, n));
+  }
+
+  /** Assemble one internal folder node into a legacyCollDoc (with profileValues). */
+  _buildLegacyFolder(collId, node) {
+    const variables = decryptVariables(node.variables ?? [], "folder", node.id);
+    const folder = {
+      id: node.id,
+      type: "collection",
+      name: node.name,
+      variables,
+      children: this._buildLegacyChildren(collId, node.children ?? []),
+    };
+    const profileValues = decryptProfileValues(
+      node.profileValues,
+      _secureNames(variables),
+    );
+    if (profileValues) folder.profileValues = profileValues;
+    return folder;
   }
 
   /** Recursively build the children array: requestRefs → full request, folders → legacyCollDoc. */
@@ -180,13 +203,7 @@ class CollectionsStore {
         const req = this._repo.readRequest(collId, node.id);
         if (req !== null) result.push(req);
       } else if (node.type === "folder") {
-        result.push({
-          id: node.id,
-          type: "collection",
-          name: node.name,
-          variables: decryptVariables(node.variables ?? [], "folder", node.id),
-          children: this._buildLegacyChildren(collId, node.children ?? []),
-        });
+        result.push(this._buildLegacyFolder(collId, node));
       }
     }
     return result;
@@ -208,14 +225,13 @@ class CollectionsStore {
   // ── Private: decomposition ──────────────────────────────────────────────────
 
   /**
-   * Recursively walk a legacyCollDoc tree, extracting request objects into
-   * `reqFiles` and returning an internalTreeNode (folder/requestRef).
-   *
-   * @param {object} coll    legacyCollDoc
-   * @param {object} reqFiles mutable { reqId → reqData } accumulator
-   * @returns {object} internalTreeNode
+   * Build an internal folder node ({ id, type:"folder", name, variables,
+   * profileValues? }) from a legacyCollDoc — the shared head of both decompose
+   * paths (full save and granular tree save). `children` is left empty for the
+   * caller to fill. Folder variables + secret profile-override values are
+   * encrypted at rest; the clobber guard restores still-recoverable ciphertext.
    */
-  _decomposeCollDoc(coll, reqFiles, existingFolderVars) {
+  _encodeFolderNode(coll, existingFolderVars) {
     const incomingVars = Array.isArray(coll.variables) ? coll.variables : [];
     const node = {
       id: coll.id,
@@ -228,6 +244,24 @@ class CollectionsStore {
       ),
       children: [],
     };
+    const profileValues = encryptProfileValues(
+      coll.profileValues,
+      _secureNames(incomingVars),
+    );
+    if (profileValues) node.profileValues = profileValues;
+    return node;
+  }
+
+  /**
+   * Recursively walk a legacyCollDoc tree, extracting request objects into
+   * `reqFiles` and returning an internalTreeNode (folder/requestRef).
+   *
+   * @param {object} coll    legacyCollDoc
+   * @param {object} reqFiles mutable { reqId → reqData } accumulator
+   * @returns {object} internalTreeNode
+   */
+  _decomposeCollDoc(coll, reqFiles, existingFolderVars) {
+    const node = this._encodeFolderNode(coll, existingFolderVars);
     for (const child of coll.children ?? []) {
       if (child.type === "request") {
         node.children.push({ id: child.id, type: "requestRef" });
@@ -235,6 +269,56 @@ class CollectionsStore {
       } else if (child.type === "collection") {
         node.children.push(
           this._decomposeCollDoc(child, reqFiles, existingFolderVars),
+        );
+      }
+    }
+    return node;
+  }
+
+  // ── Granular tree-only save (folder variables / profiles) ──────────────────
+
+  /**
+   * Persist ONLY the navigation tree — folder structure + folder variables +
+   * profile overrides + requestRef IDs — for a folder-variable / profile change.
+   *
+   * Unlike saveCollections this never touches request files or the collection
+   * metadata, and the caller sends a body-stripped tree, so no request body is
+   * serialized across IPC or rewritten on disk. A variable-only edit never
+   * changes structure, so the resolver's request→collection map stays valid and
+   * is not invalidated.
+   *
+   * @param {string} id    Collection ID
+   * @param {object} data  { collections: [ <legacyCollDoc, requests as refs> ] }
+   */
+  saveTreeStructure(id, data) {
+    validateID(id, "collectionId");
+    const collections = Array.isArray(data?.collections)
+      ? data.collections
+      : [];
+
+    const existingTree = readJSON(this._paths.treePath(id));
+    const existingFolderVars = new Map();
+    this._collectFolderVars(existingTree?.children ?? [], existingFolderVars);
+
+    ensureDir(this._paths.collectionDir(id));
+    const treeNodes = collections.map((coll) =>
+      this._decomposeStructureNode(coll, existingFolderVars),
+    );
+    writeJSON(this._paths.treePath(id), { children: treeNodes });
+  }
+
+  /**
+   * Like _decomposeCollDoc but for the granular path: requests become bare
+   * requestRefs (their files are left untouched), so no body is written.
+   */
+  _decomposeStructureNode(coll, existingFolderVars) {
+    const node = this._encodeFolderNode(coll, existingFolderVars);
+    for (const child of coll.children ?? []) {
+      if (child.type === "request") {
+        node.children.push({ id: child.id, type: "requestRef" });
+      } else if (child.type === "collection") {
+        node.children.push(
+          this._decomposeStructureNode(child, existingFolderVars),
         );
       }
     }

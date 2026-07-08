@@ -710,6 +710,69 @@ function redactVariables(list) {
   });
 }
 
+// ── Folder-variable PROFILE overrides ─────────────────────────────────────────
+// A folder's `profileValues` is `{ [profileId]: { [name]: value } }` — a per-
+// profile override VALUE for each of the folder's variables. An override is a
+// secret exactly when the variable's name is `secure` in the folder's Default set
+// (`secureNames`), so those (and only those) values are encrypted at rest, mirror-
+// ing encryptVariables. Non-secret overrides pass through untouched.
+
+/**
+ * Encrypt the secret override values in a profileValues map before writing.
+ * Already-encrypted values are left as-is (idempotent; safe to re-persist a value
+ * that failed to decrypt). Returns a new map, or undefined for an empty/absent
+ * input so the tree node stays lean.
+ * @param {object} profileValues  { [profileId]: { [name]: value } }
+ * @param {Set<string>} secureNames  names whose override values are secrets
+ */
+function encryptProfileValues(profileValues, secureNames) {
+  if (!profileValues || typeof profileValues !== "object") return undefined;
+  const out = {};
+  for (const [pid, map] of Object.entries(profileValues)) {
+    if (!map || typeof map !== "object") continue;
+    const enc = {};
+    for (const [name, value] of Object.entries(map)) {
+      enc[name] =
+        secureNames.has(name) && !isEncrypted(value)
+          ? encryptString(value)
+          : value;
+    }
+    out[pid] = enc;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/**
+ * Decrypt the secret override values in a profileValues map after reading. A
+ * value that fails to decrypt is KEPT as ciphertext (never blanked), so a later
+ * re-save preserves it — a transient keystore failure can't wipe a profile
+ * override secret (and isEncrypted() stops it being double-encrypted on re-save).
+ * Returns a new map, or undefined for an empty/absent input.
+ * @param {object} profileValues
+ * @param {Set<string>} secureNames
+ */
+function decryptProfileValues(profileValues, secureNames) {
+  if (!profileValues || typeof profileValues !== "object") return undefined;
+  const out = {};
+  for (const [pid, map] of Object.entries(profileValues)) {
+    if (!map || typeof map !== "object") continue;
+    const dec = {};
+    for (const [name, value] of Object.entries(map)) {
+      if (secureNames.has(name) && isEncrypted(value)) {
+        try {
+          dec[name] = decryptString(value);
+        } catch {
+          dec[name] = value; // keep ciphertext — a re-save won't wipe it
+        }
+      } else {
+        dec[name] = value;
+      }
+    }
+    out[pid] = dec;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 /**
  * Re-encryption clobber guard for variable lists (the array twin of the request
  * store's anti-clobber logic).
@@ -1051,5 +1114,7 @@ module.exports = {
   decryptVariables,
   redactVariables,
   restoreUndecryptableVariables,
+  encryptProfileValues,
+  decryptProfileValues,
   restoreUndecryptableSettings,
 };
