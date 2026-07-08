@@ -22,6 +22,13 @@
  * misses created), and the environment/variable merge (matched by id→name; vars
  * added only when missing, existing values never overwritten).
  *
+ * It also carries the full-fidelity ROUND-TRIP guard (build → JSON → merge): a
+ * maximally-rich request/folder must survive export and re-import byte-for-byte.
+ * The archive owes its fidelity to cloning tree nodes verbatim, so this locks in
+ * that neither side ever starts filtering/cherry-picking node fields — a change
+ * that would otherwise silently drop a field (an auth config, a script, captures,
+ * a WebSocket setting, …) from a restored collection with no failing test.
+ *
  * Run with:   node --test import/tests/resthippo.test.js
  */
 
@@ -37,6 +44,7 @@ import {
   mergeVariableList,
   mergeHeaderList,
 } from "../resthippo.js";
+import { buildRestHippoArchive } from "../../export/resthippo.js";
 
 test("detectRestHippo: only matches the native envelope", () => {
   assert.equal(
@@ -261,4 +269,199 @@ test("mergeEnvironments: environment matched by name when id differs", () => {
   assert.equal(environments.environments.length, 1);
   assert.equal(environments.environments[0].id, "e1");
   assert.ok(environments.environments[0].variables.find((v) => v.name === "k"));
+});
+
+// ── Full-fidelity round-trip (build → JSON → merge) ─────────────────────────
+// The native format's promise is "fully restore a collection". These lock that
+// in field-by-field so a future refactor that filters node fields on export,
+// cherry-picks on import, or moves a field off the tree node can't silently
+// drop it from a restored collection without turning a test red.
+
+/** A request touching every stored field: all body kinds, all auth types,
+ *  scripts, tests and captures. (Only one body/auth is ever "active" at a time,
+ *  but a full clone must keep every stored field, so the fixture sets them all.) */
+function richHttpRequest() {
+  return {
+    id: "req-http",
+    type: "request",
+    name: "Everything",
+    method: "POST",
+    url: "{{baseUrl}}/things/{{id}}",
+    params: [{ id: "p1", name: "q", value: "1", enabled: true }],
+    pathParams: [{ id: "pp1", name: "id", value: "42" }],
+    headers: [
+      { id: "h1", name: "X-On", value: "a", enabled: true },
+      { id: "h2", name: "X-Off", value: "b", enabled: false },
+    ],
+    notes: "some **markdown** notes",
+    bodyType: "graphql",
+    bodyText: '{"raw":true}',
+    bodyFormRows: [
+      { id: "fr1", name: "file", value: "x", type: "file", enabled: true },
+    ],
+    bodyFilePath: "/tmp/upload.bin",
+    bodyGraphql: {
+      query: "query($id:ID!){ thing(id:$id){ name } }",
+      variables: '{"id":"42"}',
+    },
+    authEnabled: true,
+    authType: "oauth2",
+    authBasic: { username: "u", password: "p" },
+    authBearer: { token: "{{token}}" },
+    authApiKey: { key: "X-Api-Key", value: "k", addTo: "header" },
+    authDigest: { username: "u", password: "p", algorithm: "MD5" },
+    authNtlm: { username: "u", password: "p", domain: "D", workstation: "W" },
+    authOAuth1: {
+      consumerKey: "ck",
+      consumerSecret: "cs",
+      signatureMethod: "HMAC-SHA1",
+    },
+    authOAuth2: {
+      grantType: "authorization_code",
+      clientId: "id",
+      tokenUrl: "http://t",
+      accessToken: "at",
+    },
+    authAwsIam: {
+      accessKeyId: "ak",
+      secretAccessKey: "sk",
+      region: "us-east-1",
+      service: "s3",
+    },
+    preRequestScript: "hippo.variables.set('global','a','1')",
+    preRequestScriptEnabled: true,
+    afterResponseScript: "hippo.test('ok', hippo.response.status === 200)",
+    afterResponseScriptEnabled: false,
+    scriptSplit: 0.4,
+    assertions: [
+      { id: "a1", source: "status", op: "eq", expected: "200", enabled: true },
+    ],
+    captures: [
+      {
+        id: "c1",
+        from: "body",
+        path: "$.id",
+        scope: "environment",
+        name: "id",
+        enabled: true,
+      },
+    ],
+  };
+}
+
+/** A WebSocket request touching every WS-only field. */
+function richWsRequest() {
+  return {
+    id: "req-ws",
+    type: "request",
+    name: "Socket",
+    protocol: "websocket",
+    url: "wss://{{host}}/ws",
+    headers: [{ id: "h1", name: "Origin", value: "http://x", enabled: true }],
+    wsMessage: '{"ping":true}',
+    wsMessageFormat: "json",
+    wsSubprotocols: ["graphql-ws", "soap"],
+    authEnabled: false,
+    authType: "none",
+  };
+}
+
+/** Export a set of nodes to a native archive, cross the on-disk JSON boundary,
+ *  then re-import into an empty tree. Returns the restored top-level items. */
+function roundTrip(items) {
+  const archive = buildRestHippoArchive({
+    items,
+    collectionVariables: [],
+    collectionHeaders: [],
+    environments: { globalVariables: [], environments: [] },
+    exportedAt: "2026-07-07T00:00:00.000Z",
+  });
+  // The archive is written to disk as JSON, so prove it survives that boundary
+  // too (nothing depends on a non-JSON type).
+  const onDisk = JSON.parse(JSON.stringify(archive));
+  return mergeArchiveIntoTree([], onDisk.items).items;
+}
+
+test("round-trip: a folder of rich HTTP + WebSocket requests survives export→import unchanged", () => {
+  const folder = {
+    id: "f1",
+    type: "collection",
+    name: "All",
+    variables: [{ name: "folderVar", value: "fv", secure: false }],
+    children: [richHttpRequest(), richWsRequest()],
+  };
+  const original = structuredClone(folder);
+
+  const restored = roundTrip([folder]);
+
+  // Byte-for-byte: every folder field (incl. folder-level variables) and every
+  // request field is preserved.
+  assert.deepEqual(restored, [original]);
+});
+
+test("round-trip: every canonical request field is individually preserved (off-node-drift guard)", () => {
+  const original = richHttpRequest();
+  const [restored] = roundTrip([original]);
+
+  // Named per-field so a dropped field points at exactly what regressed, and the
+  // list doubles as the documented canonical request-node field set.
+  const FIELDS = [
+    "method",
+    "url",
+    "params",
+    "pathParams",
+    "headers",
+    "notes",
+    "bodyType",
+    "bodyText",
+    "bodyFormRows",
+    "bodyFilePath",
+    "bodyGraphql",
+    "authEnabled",
+    "authType",
+    "authBasic",
+    "authBearer",
+    "authApiKey",
+    "authDigest",
+    "authNtlm",
+    "authOAuth1",
+    "authOAuth2",
+    "authAwsIam",
+    "preRequestScript",
+    "preRequestScriptEnabled",
+    "afterResponseScript",
+    "afterResponseScriptEnabled",
+    "scriptSplit",
+    "assertions",
+    "captures",
+  ];
+  for (const field of FIELDS) {
+    assert.deepEqual(
+      restored[field],
+      original[field],
+      `request field "${field}" was lost in the export→import round-trip`,
+    );
+  }
+});
+
+test("round-trip: every canonical WebSocket field is individually preserved", () => {
+  const original = richWsRequest();
+  const [restored] = roundTrip([original]);
+
+  for (const field of [
+    "protocol",
+    "url",
+    "headers",
+    "wsMessage",
+    "wsMessageFormat",
+    "wsSubprotocols",
+    "authEnabled",
+    "authType",
+  ]) {
+    assert.deepEqual(
+      restored[field],
+      original[field],
+      `WebSocket field "${field}" was lost in the export→import round-trip`,
+    );
+  }
 });
