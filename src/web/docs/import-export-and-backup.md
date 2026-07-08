@@ -15,9 +15,10 @@ workspace. There are two separate features:
 
 ## Exporting
 
-Export a single collection from its right-click menu (**Export…**), or export
-everything at once — from the **File ▸ Export All Collections…** menu or the
-export button in the [collections manager](collections.md) toolbar:
+Export a single collection from its right-click menu (**Export…**) or the
+**Export** icon on its row in the [collections manager](collections.md), or export
+everything at once from the **Export All** button in the collections manager's
+sidebar toolbar:
 
 ![The export dialog](images/export-modal.png)
 
@@ -67,8 +68,11 @@ configuration for every scheme, captures, scripts, notes, and bodies.
 
 ## Importing
 
-Open **File → Import Collection…** and pick a file. Rest Hippo recognizes the format
-automatically:
+Open the **Collections** dialog and click **Import** — the up-arrow tray icon in
+its sidebar toolbar, next to **Export**. It opens the URL-or-file import described
+under [Import from a URL or file](#import-from-a-url-or-file) below; click
+**Browse…** there to pick a file with the native open dialog. Rest Hippo
+recognizes the format automatically:
 
 - **Rest Hippo v1** native archives (`.json`) — merged in place (see above)
 - **Postman** collections (`.json`)
@@ -76,10 +80,7 @@ automatically:
 - **OpenAPI 3** / Swagger 2.0 specifications (`.json` / `.yaml`)
 - **HAR 1.2** captures (`.har`)
 
-The file picker filters to these formats — `.json`, `.yaml` / `.yml`, and
-`.har`. On macOS, hovering the **Import Collection…** menu item also shows this
-list as a tooltip (native menu tooltips are a macOS-only feature, so on Windows
-and Linux this page is the reference).
+The file picker filters to these formats — `.json`, `.yaml` / `.yml`, and `.har`.
 
 It reconstructs the folder structure, requests, headers, query, auth, and
 variables, and adds them to your workspace as a new collection. A **HAR**
@@ -97,7 +98,8 @@ it blank and set it later in the collection's **Variables**.
 ### Import from cURL
 
 To pull in a single request from a terminal, API docs, or a browser's **Copy as
-cURL**, choose **File → Import from cURL…** and paste the command:
+cURL**, right-click the tree toolbar's **[+]** (New Request) button and choose
+**Import from cURL…**, then paste the command:
 
 ```
 curl https://api.example.com/users \
@@ -118,28 +120,38 @@ ready to send.
 > updated in place; if the request already has content, Rest Hippo asks you to confirm
 > before overwriting it.
 
-### Import from a URL
+### Import from a URL or file
 
-When a document is published online, you don't have to download it first — choose
-**File → Import from URL…** and paste its address:
+Click **Import** in the **Collections** dialog toolbar to open a single field that
+takes **either** a URL **or** a local file path. The title tracks what you type: paste an address and it reads _Import
+from URL_; type a path (or a name ending `.json` / `.yaml` / `.yml` / `.har`) and
+it flips to _Import from file_.
 
 ```
 https://api.example.com/openapi.json
+/Users/you/Downloads/petstore.yaml
 ```
 
-Rest Hippo fetches the document through the desktop app's request engine (not the
-browser), so there are no CORS limits, and a document served from
-`http://localhost` by a service running on your machine works just as well. If it
-sits behind a token, add the optional **Authorization header**: a bare value such
-as `Bearer …` is sent as `Authorization`, or use a `Name: Value` line for a
-custom header (e.g. `X-API-Key: …`).
+**A URL** is fetched through the desktop app's request engine (not the browser),
+so there are no CORS limits, and a document served from `http://localhost` by a
+service running on your machine works just as well. If it sits behind a token,
+add the optional **Authorization header**: a bare value such as `Bearer …` is
+sent as `Authorization`, or use a `Name: Value` line for a custom header (e.g.
+`X-API-Key: …`). The header field is hidden while you're importing a file.
 
-The format is detected automatically — the same set as a file import (Postman,
-Insomnia, OpenAPI 3 / Swagger 2.0, HAR) — and the import then continues exactly
-like one. An **OpenAPI / Swagger** spec still shows the **base-URL variable**
-prompt described above, with its value pre-filled from the host you imported from
-(so a spec with a relative `servers` path still gets a complete, usable base URL);
-every other format imports straight through with no prompt.
+**A file path** is read directly. If you'd rather not type it, click **Browse…**
+to pick the file with the native open dialog — that's also the way to import in
+the Mac App Store build, where typed paths can't be read from the sandbox. A path
+that can't be read shows an inline error and leaves the dialog open so you can fix
+it or switch to **Browse…**.
+
+Either way the format is detected automatically — the same set as a file import
+(Rest Hippo native, Postman, Insomnia, OpenAPI 3 / Swagger 2.0, HAR) — and the
+import then continues exactly like one. An **OpenAPI / Swagger** spec still shows
+the **base-URL variable** prompt described above; imported from a URL, its value
+is pre-filled from the host you imported from (so a spec with a relative
+`servers` path still gets a complete, usable base URL). Every other format
+imports straight through with no prompt.
 
 ## Backup & restore
 

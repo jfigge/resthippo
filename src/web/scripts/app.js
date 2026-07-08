@@ -1387,7 +1387,8 @@ function buildBusContext() {
     clearHistory,
     trimHistory,
     // App-level command handlers (import / export).
-    handleImport,
+    handleImportBrowse,
+    handleFilePathImport,
     handleCurlImport,
     handleUrlImport,
     handleExport,
@@ -1467,10 +1468,10 @@ function initEventBus() {
   //   custom-themes-changed customThemes                  (from preload)
   //   ui-font-change        fontStack                     (from preload/main)
   //
-  // Menu / backup               (preload → app.js)
-  //   import-requested  ·  import-curl-requested  ·  import-url-requested  ·
-  //   export-all-requested  ·  backup-export-requested  ·  backup-import-requested
-  //                                  — all payload-less menu triggers
+  // Menu / backup / import / export        (payload-less triggers)
+  //   backup-export-requested · backup-import-requested   (File menu → preload → app.js)
+  //   import-curl-requested                               (tree [+] menu → renderer)
+  //   import-url-requested · export-all-requested         (Collections dialog buttons → renderer)
   //
   // Keyboard shortcuts / menu commands  (preload → app.js; Feature 47)
   //   new-request  ·  new-collection  ·  new-ws-request  ·  open-settings  ·
@@ -1513,6 +1514,29 @@ function initEventBus() {
     // the menu share one implementation (ExportModal → runWorkspaceExport).
     onExportAll: () =>
       window.dispatchEvent(new CustomEvent("hippo:export-all-requested")),
+    // Import routes through the same hippo:import-url-requested handler the
+    // File ▸ "Import from URL…" menu item fires, so the popup button and the
+    // menu share one implementation (the URL-or-file import modal).
+    onImport: () =>
+      window.dispatchEvent(new CustomEvent("hippo:import-url-requested")),
+    // Per-collection export: activate the target collection first (the export
+    // engine reads the *active* collection's variables / headers / environments
+    // and live tree), then open the same ExportModal the tree-view collection
+    // menu uses. Switching to the collection matches the popup's model, where
+    // picking a row already makes it active.
+    onExportCollection: async ({ id }) => {
+      if (id !== currentColls.activeCollectionId) {
+        await handleCollSelect({ id });
+      }
+      const coll = currentColls.collections.find((c) => c.id === id);
+      handleExport({
+        id,
+        type: "collection",
+        name: coll?.name ?? "",
+        variables: {},
+        children: treeView?.getItems() ?? [],
+      });
+    },
   });
 
   // Self-contained handler groups live in their own modules and receive the
@@ -4823,6 +4847,10 @@ async function saveRestHippoArchive(archive, filename, plainMsg) {
  * main process behind a prompt (re-prompting on a wrong password); plaintext ones
  * merge straight away.
  */
+// Returns true when the archive was merged inline (the caller may close any open
+// import modal), or false when a password-protected archive handed off to the
+// PasswordPrompt — which takes over the single popup slot and owns the lifecycle
+// from there, so the caller must NOT also close it.
 async function applyRestHippoImport(archive) {
   if (archive.secretsMode === "password") {
     PasswordPrompt.open({
@@ -4853,9 +4881,10 @@ async function applyRestHippoImport(archive) {
         return { ok: true };
       },
     });
-    return;
+    return false; // handed off to the password prompt; it owns the popup now
   }
   await mergeRestHippoArchive(archive);
+  return true;
 }
 
 /**
@@ -4935,10 +4964,15 @@ async function mergeRestHippoArchive(archive) {
   return true;
 }
 
-async function handleImport() {
+// Open the native file picker and import the chosen interchange file. The import
+// modal's Browse… button routes here. Returns true when a collection was applied
+// (so the modal closes), false on cancel / failure / password-prompt handoff (so
+// the modal stays open). The renderer sandbox can't read a path, so this native
+// picker is the only import route that works under the Mac App Store sandbox.
+async function handleImportBrowse() {
   if (!window.hippo?.import?.file?.open) {
     Notifications.info(t("app.importDesktopOnly"));
-    return;
+    return false;
   }
 
   let file;
@@ -4949,28 +4983,62 @@ async function handleImport() {
       t("app.importFailed", { message: String(err.message ?? err) }),
       { title: t("app.importTitle") },
     );
-    return;
+    return false;
   }
-  if (!file) return; // user cancelled the file dialog
+  if (!file) return false; // user cancelled the file dialog
 
-  // Native Rest Hippo v1 archives (JSON) take the identity-aware merge path; try
-  // to recognize one before handing off to the lossy interchange parsers.
+  return _importFromContent(file.content);
+}
+
+// Read a typed absolute file path (new import:file:read IPC) and import it. The
+// smart-field import modal routes here when the user types a local path instead
+// of a URL. Read failures (a bad path, or a sandboxed MAS build that returns
+// null) surface urlImport.errPath and return false so the modal stays open for a
+// correction or the Browse… fallback.
+async function handleFilePathImport(path) {
+  if (!window.hippo?.import?.file?.read) {
+    Notifications.info(t("app.importDesktopOnly"));
+    return false;
+  }
+
+  let file;
+  try {
+    file = await window.hippo.import.file.read(path);
+  } catch {
+    file = null;
+  }
+  if (!file) {
+    Notifications.error(t("urlImport.errPath"), {
+      title: t("app.importTitle"),
+    });
+    return false;
+  }
+
+  return _importFromContent(file.content);
+}
+
+// Shared import tail for raw file `content` (from the native picker or a typed
+// path). Native Rest Hippo v1 archives (JSON) take the identity-aware merge path;
+// try to recognize one before handing off to the lossy interchange parsers.
+// Returns true when a collection was applied (or an archive merged inline), false
+// on cancel / parse error / password-prompt handoff — the boolean the import
+// modal uses to decide whether to close.
+async function _importFromContent(content) {
   let maybeArchive = null;
   try {
-    maybeArchive = JSON.parse(file.content);
+    maybeArchive = JSON.parse(content);
   } catch {
     maybeArchive = null;
   }
   if (detectRestHippo(maybeArchive)) {
-    await applyRestHippoImport(maybeArchive);
-    return;
+    return applyRestHippoImport(maybeArchive);
   }
 
-  await _importInspectedContent(file.content, inspectImport(file.content));
+  return _importInspectedContent(content, inspectImport(content));
 }
 
-// Shared tail of the file-import (`handleImport`) and URL-import
-// (`handleUrlImport`) flows. Given raw interchange `content` and its pre-peeked
+// Shared tail of the file-import (`handleImportBrowse` / `handleFilePathImport`)
+// and URL-import (`handleUrlImport`) flows. Given raw interchange `content` and its pre-peeked
 // `info` (from inspectImport): OpenAPI/Swagger specs are relative paths, so it
 // prompts for a base-URL variable (name + value, pre-filled from the spec's
 // server URL) so every imported request can reference {{name}} instead of a
@@ -5166,8 +5234,8 @@ async function handleCurlImport(text) {
 
 // Append a parsed import — `{ collection, variables, warnings }` from any
 // importer — to the active workspace and persist it. Shared by file import
-// (`handleImport`) and cURL paste (`handleCurlImport`). Returns true when the
-// write succeeded, false otherwise.
+// (`_importFromContent`) and cURL paste (`handleCurlImport`). Returns true when
+// the write succeeded, false otherwise.
 async function applyImportedCollection(parsed) {
   const { collection, variables } = parsed;
   const activeId = currentColls.activeCollectionId;

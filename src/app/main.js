@@ -1246,6 +1246,25 @@ ipcMain.handle("import:file:open", async () => {
   return { filename: path.basename(result.filePaths[0]), content };
 });
 
+// Read a file the user TYPED as a path into the import modal's smart field (the
+// renderer sandbox can't read a path itself). Returns { filename, content } for a
+// readable regular file, or null for anything else — a non-string/empty path, a
+// path that isn't a readable file, or a Mac App Store build (which can't reach
+// arbitrary paths; the modal's Browse… button is the sandbox-safe fallback, just
+// as import:files:check returns [] under isMas). Never throws to the renderer.
+ipcMain.handle("import:file:read", async (_event, filePath) => {
+  if (isMas()) return null;
+  if (typeof filePath !== "string" || !filePath.trim()) return null;
+  try {
+    const st = await fs.promises.stat(filePath);
+    if (!st.isFile()) return null;
+    const content = await fs.promises.readFile(filePath, "utf-8");
+    return { filename: path.basename(filePath), content };
+  } catch {
+    return null; // not found / unreadable / permission denied
+  }
+});
+
 // Report which of the given paths are NOT readable files on disk. The cURL
 // importer (`-F name=@file`) references local file paths the renderer cannot
 // stat from its sandbox; it uses this to warn only about files that are actually
@@ -2269,7 +2288,7 @@ function buildMenu() {
           },
         },
         {
-          label: m("menu.newCollection", "New Collection"),
+          label: m("menu.newCollection", "New Folder"),
           accelerator: "CmdOrCtrl+Shift+N",
           click: () => {
             if (_mainWin && !_mainWin.isDestroyed())
@@ -2284,42 +2303,10 @@ function buildMenu() {
               _mainWin.webContents.send("menu:new-ws-request");
           },
         },
-        { type: "separator" },
-        {
-          label: m("menu.importCollection", "Import Collection…"),
-          // toolTip is macOS-only (silently ignored on Windows/Linux); the
-          // same format list is documented in the user guide for those users.
-          toolTip: m(
-            "menu.importCollectionTooltip",
-            "Import a collection from a file — Postman & Insomnia (.json/.yaml), OpenAPI 3 / Swagger 2.0 (.json/.yaml), or HAR 1.2 (.har)",
-          ),
-          accelerator: "CmdOrCtrl+Shift+I",
-          click: () => {
-            if (_mainWin && !_mainWin.isDestroyed())
-              _mainWin.webContents.send("menu:import");
-          },
-        },
-        {
-          label: m("menu.importCurl", "Import from cURL…"),
-          click: () => {
-            if (_mainWin && !_mainWin.isDestroyed())
-              _mainWin.webContents.send("menu:import-curl");
-          },
-        },
-        {
-          label: m("menu.importUrl", "Import from URL…"),
-          click: () => {
-            if (_mainWin && !_mainWin.isDestroyed())
-              _mainWin.webContents.send("menu:import-url");
-          },
-        },
-        {
-          label: m("menu.exportAll", "Export All Collections…"),
-          click: () => {
-            if (_mainWin && !_mainWin.isDestroyed())
-              _mainWin.webContents.send("menu:export-all");
-          },
-        },
+        // Collection import (file / URL / cURL) and export now live in the
+        // Collections dialog (Import / Export buttons) and the tree toolbar's
+        // [+] secondary-click menu (Import from cURL). Only whole-workspace
+        // backup/restore remains in the File menu.
         { type: "separator" },
         {
           label: m("menu.createBackup", "Create Backup…"),

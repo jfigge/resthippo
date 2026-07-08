@@ -62,6 +62,9 @@
     ],
     "mac": {
       "icon": "web/resthippo-mac-icon.png",
+      "extendInfo": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
       "category": "public.app-category.developer-tools",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
@@ -87,6 +90,9 @@
     },
     "mas": {
       "type": "distribution",
+      "extendInfo": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
       "category": "public.app-category.developer-tools",
       "icon": "web/resthippo-mac-icon.png",
       "notarize": false,

@@ -22,39 +22,57 @@ import { escapeHtml } from "../utils/html.js";
 import { t } from "../i18n.js";
 
 /**
- * UrlImportModal — theme-styled modal that imports an interchange document
- * straight from a live URL instead of a local file. It collects the document URL
- * and an optional auth header (a bare token is sent as `Authorization`, or a
- * `Name: Value` line as a custom header) and hands them to the async
- * `onImport(url, header)` callback; `app.js` owns the fetch (via the main-process
- * request engine — no browser CORS), format detection (Postman / Insomnia /
- * OpenAPI / Swagger / HAR), and the rest of the import flow. OpenAPI/Swagger
- * specs additionally prompt for a base-URL variable; every other supported format
- * imports straight through. Mirrors the structure and styling of `CurlImportModal`.
+ * UrlImportModal — theme-styled modal that imports an interchange document from
+ * either a live URL or a local file, chosen by what the single field contains.
+ * As the user types, `#detectMode` classifies the value: an `http(s)://` value
+ * is a URL, a path-shaped value (absolute / home / relative / Windows drive /
+ * UNC, or one ending `.json`/`.yaml`/`.yml`/`.har`) is a file, and anything
+ * empty or ambiguous stays a URL. The title flips live between "Import from URL"
+ * and "Import from file", and the optional auth-header field (URL-only) hides in
+ * file mode. A **Browse…** button opens the native picker as a fallback — the
+ * only route that works under the Mac App Store sandbox, where a typed path
+ * can't be read.
  *
- * `onImport` resolves `true` when the document was fetched and imported (the modal
- * closes) and `false` when the fetch failed or the URL didn't return a supported
- * document (the modal stays open so the user can fix the URL — the failure is
- * surfaced as a notification by `app.js`). An empty or non-http(s) URL is caught
- * locally and shown inline without invoking the callback.
+ * `app.js` owns the work behind each of the three callbacks; every one resolves
+ * `true` to close the modal and `false` to keep it open (the failure is surfaced
+ * as a notification by `app.js`):
+ *   • `onImport(url, header)`  — fetch a URL (main-process request engine, no
+ *     browser CORS) and import it. A bare header token is sent as
+ *     `Authorization`, a `Name: Value` line as a custom header.
+ *   • `onImportFile(path)`     — read a typed absolute file path (new
+ *     `import:file:read` IPC) and import it.
+ *   • `onBrowse()`             — open the native file picker and import the
+ *     chosen file.
+ * In every case the format is auto-detected (Postman / Insomnia / OpenAPI /
+ * Swagger / HAR / native archive); OpenAPI/Swagger additionally prompts for a
+ * base-URL variable. An empty field, or a non-file value that isn't http(s), is
+ * caught locally and shown inline without invoking a callback.
  *
  * Open via the static factory:
- *   UrlImportModal.open(async (url, header) => true | false);
+ *   UrlImportModal.open({ onImport, onImportFile, onBrowse });
  */
 export class UrlImportModal {
   #el;
   #onImport;
+  #onImportFile;
+  #onBrowse;
   #errorEl = null;
   #urlInput = null;
   #headerInput = null;
+  #headerField = null;
+  /** Current field classification: "url" | "file". */
+  #mode = "url";
   #busy = false;
 
-  constructor({ onImport } = {}) {
+  constructor({ onImport, onImportFile, onBrowse } = {}) {
     this.#onImport = onImport;
+    this.#onImportFile = onImportFile;
+    this.#onBrowse = onBrowse;
     this.#el = this.#build();
     this.#errorEl = this.#el.querySelector(".url-import-error");
     this.#urlInput = this.#el.querySelector(".url-import-input");
     this.#headerInput = this.#el.querySelector(".url-import-header-input");
+    this.#headerField = this.#el.querySelector(".url-import-header-field");
     this.#bindEvents();
   }
 
@@ -62,9 +80,12 @@ export class UrlImportModal {
     return this.#el;
   }
 
-  /** Open the URL import modal. */
-  static open(onImport) {
-    const modal = new UrlImportModal({ onImport });
+  /**
+   * Open the import modal.
+   * @param {{ onImport?: Function, onImportFile?: Function, onBrowse?: Function }} handlers
+   */
+  static open(handlers) {
+    const modal = new UrlImportModal(handlers);
     PopupManager.open(modal);
     // PopupManager focuses the first focusable (the close button) on the next
     // frame; override that here so the URL field gets focus instead.
@@ -102,7 +123,7 @@ export class UrlImportModal {
             aria-label="${escapeHtml(t("urlImport.urlLabel"))}"
             placeholder="${escapeHtml(t("urlImport.urlPlaceholder"))}" />
         </label>
-        <label class="backup-field">
+        <label class="backup-field url-import-header-field">
           <span class="backup-field-label">${escapeHtml(t("urlImport.headerLabel"))}</span>
           <input class="settings-input url-import-header-input" type="text"
             spellcheck="false" autocomplete="off" autocapitalize="off"
@@ -112,6 +133,7 @@ export class UrlImportModal {
         <div class="url-import-error backup-error" role="alert" aria-live="polite"></div>
       </div>
       <div class="popup-footer">
+        <button class="btn popup-btn btn--secondary js-browse">${escapeHtml(t("urlImport.browse"))}</button>
         <button class="btn popup-btn btn--secondary js-cancel">${escapeHtml(t("common.cancel"))}</button>
         <button class="btn popup-btn btn--primary js-submit">${escapeHtml(t("urlImport.submit"))}</button>
       </div>
@@ -129,6 +151,9 @@ export class UrlImportModal {
     this.#el
       .querySelector(".js-submit")
       .addEventListener("click", () => this.#submit());
+    this.#el
+      .querySelector(".js-browse")
+      .addEventListener("click", () => this.#browse());
 
     for (const input of [this.#urlInput, this.#headerInput]) {
       input?.addEventListener("keydown", (e) => {
@@ -142,6 +167,49 @@ export class UrlImportModal {
       });
       input?.addEventListener("input", () => this.#clearError());
     }
+
+    // Re-classify the field on every edit so the title + header visibility track
+    // what the user is typing (a URL vs a local path).
+    this.#urlInput?.addEventListener("input", () => this.#updateMode());
+  }
+
+  /**
+   * Classify the field value as a URL or a local file path.
+   *   • `http(s)://…`            → url
+   *   • absolute `/…`, home `~/…`, relative `./`/`../`, Windows drive `C:\`,
+   *     UNC `\\…`, or a name ending `.json`/`.yaml`/`.yml`/`.har` → file
+   *   • empty or anything else   → url (keeps the current title)
+   * @param {string} value
+   * @returns {"url"|"file"}
+   */
+  #detectMode(value) {
+    const v = value.trim();
+    if (!v) return "url";
+    if (/^https?:\/\//i.test(v)) return "url";
+    if (
+      /^\//.test(v) || // absolute POSIX path
+      /^~\//.test(v) || // home-relative path
+      /^\.\.?\//.test(v) || // ./ or ../ relative path
+      /^[a-zA-Z]:[\\/]/.test(v) || // Windows drive (C:\ or C:/)
+      /^\\\\/.test(v) || // UNC \\server\share
+      /\.(json|ya?ml|har)$/i.test(v) // known interchange extension
+    ) {
+      return "file";
+    }
+    return "url";
+  }
+
+  /** Recompute the mode from the field and reflect it in the title + header. */
+  #updateMode() {
+    const mode = this.#detectMode(this.#urlInput.value);
+    if (mode === this.#mode) return;
+    this.#mode = mode;
+    const isFile = mode === "file";
+    const title = isFile ? t("urlImport.titleFile") : t("urlImport.title");
+    this.#el.querySelector(".popup-title").textContent = title;
+    this.#el.setAttribute("aria-label", title);
+    // The auth header only applies to a fetched URL; hide it for a local file.
+    if (this.#headerField) this.#headerField.hidden = isFile;
   }
 
   #clearError() {
@@ -154,31 +222,52 @@ export class UrlImportModal {
 
   async #submit() {
     if (this.#busy) return;
-    const url = this.#urlInput.value.trim();
-    if (!url) {
+    const value = this.#urlInput.value.trim();
+    if (!value) {
       this.#setError(t("urlImport.empty"));
       this.#urlInput.focus();
       return;
     }
-    // Only http(s) is fetchable, and rejecting other schemes (file:, ftp:, …)
-    // keeps a pasted URL from reaching the local filesystem via the request
-    // engine. Loopback / private hosts are intentionally allowed — importing
-    // from a locally-running API server is a legitimate use case.
-    if (!/^https?:\/\//i.test(url)) {
+
+    const isFile = this.#detectMode(value) === "file";
+
+    // A URL must be http(s): rejecting other schemes (file:, ftp:, …) keeps a
+    // pasted URL from reaching the local filesystem via the request engine.
+    // Loopback / private hosts are intentionally allowed — importing from a
+    // locally-running API server is a legitimate use case. A file path skips
+    // this check; it's read via the dedicated import:file:read IPC.
+    if (!isFile && !/^https?:\/\//i.test(value)) {
       this.#setError(t("urlImport.errScheme"));
       this.#urlInput.focus();
       return;
     }
 
-    const header = this.#headerInput.value.trim();
-
     this.#setBusy(true);
     try {
-      // The callback fetches + imports; it returns true to close and false to
-      // keep the modal open (the failure was already surfaced by app.js). For an
-      // OpenAPI/Swagger spec it returns true after closing this modal itself and
+      // Each callback imports and returns true to close / false to keep the modal
+      // open (the failure was already surfaced by app.js). For an OpenAPI/Swagger
+      // spec the URL callback returns true after closing this modal itself and
       // handing off to the base-URL prompt.
-      const ok = await this.#onImport?.(url, header);
+      let ok;
+      if (isFile) {
+        ok = await this.#onImportFile?.(value);
+      } else {
+        ok = await this.#onImport?.(value, this.#headerInput.value.trim());
+      }
+      if (ok) PopupManager.close();
+    } catch {
+      // Defensive: app.js surfaces failures via Notifications; keep the modal.
+    } finally {
+      this.#setBusy(false);
+    }
+  }
+
+  /** Open the native file picker (the sandbox-safe fallback to a typed path). */
+  async #browse() {
+    if (this.#busy) return;
+    this.#setBusy(true);
+    try {
+      const ok = await this.#onBrowse?.();
       if (ok) PopupManager.close();
     } catch {
       // Defensive: app.js surfaces failures via Notifications; keep the modal.
@@ -191,8 +280,10 @@ export class UrlImportModal {
     this.#busy = busy;
     const submit = this.#el.querySelector(".js-submit");
     const cancel = this.#el.querySelector(".js-cancel");
+    const browse = this.#el.querySelector(".js-browse");
     if (submit) submit.disabled = busy;
     if (cancel) cancel.disabled = busy;
+    if (browse) browse.disabled = busy;
     if (this.#urlInput) this.#urlInput.disabled = busy;
     if (this.#headerInput) this.#headerInput.disabled = busy;
   }

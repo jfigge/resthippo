@@ -34,17 +34,10 @@ ipcRenderer.on("hippo:ui-font-change", (_event, direction) => {
   );
 });
 
-ipcRenderer.on("menu:import", () => {
-  window.dispatchEvent(new CustomEvent("hippo:import-requested"));
-});
-
-ipcRenderer.on("menu:import-curl", () => {
-  window.dispatchEvent(new CustomEvent("hippo:import-curl-requested"));
-});
-
-ipcRenderer.on("menu:import-url", () => {
-  window.dispatchEvent(new CustomEvent("hippo:import-url-requested"));
-});
+// Collection import (file / URL / cURL) and "Export All" were removed from the
+// native File menu — those flows now start in the renderer (Collections dialog
+// Import/Export buttons; the tree toolbar's [+] menu for cURL), which dispatch
+// the hippo:* events directly, so no menu:* bridge is needed for them here.
 
 // Edit-menu Undo/Redo (and their ⌘Z/⌘⇧Z accelerators) are routed here instead
 // of using native roles, so the focused multi-line code editor can run its own
@@ -53,10 +46,6 @@ ipcRenderer.on("menu:edit-action", (_event, action) => {
   window.dispatchEvent(
     new CustomEvent("hippo:edit-action", { detail: { action } }),
   );
-});
-
-ipcRenderer.on("menu:export-all", () => {
-  window.dispatchEvent(new CustomEvent("hippo:export-all-requested"));
 });
 
 ipcRenderer.on("menu:backup-export", () => {
@@ -595,6 +584,15 @@ contextBridge.exposeInMainWorld("hippo", {
   import: {
     file: {
       open: () => ipcRenderer.invoke("import:file:open"),
+      /**
+       * Read a file the user typed as a path into the import modal's smart
+       * field. Returns { filename, content } for a readable regular file, or
+       * null for a bad/empty path, an unreadable file, or a Mac App Store build
+       * (where the Browse… native picker is the sandbox-safe fallback).
+       * @param {string} filePath
+       * @returns {Promise<{ filename: string, content: string }|null>}
+       */
+      read: (filePath) => ipcRenderer.invoke("import:file:read", filePath),
       /**
        * Given a list of local file paths, return the subset that are not
        * readable files on disk. Used by the cURL importer to warn only about

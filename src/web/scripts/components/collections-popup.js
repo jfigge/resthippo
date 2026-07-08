@@ -56,6 +56,8 @@
  *   onHeadersSave({ scopeId, headers })  — debounced 500ms default-header save
  *   onBulkEditorChange({ bulkEditor }) — bulk-textarea / KV-row toggle changed
  *   onExportAll()                      — export every collection to one file
+ *   onExportCollection({ id })         — export one collection to a file
+ *   onImport()                         — open the import modal (URL or local file)
  *
  * The cookie jar is owned by the main process, so no cookie callbacks fire for
  * jar reads/writes — the Cookies tab re-reads from IPC whenever it opens or
@@ -88,7 +90,8 @@ import { upsertCookie, deleteCookie, clearCookies } from "../data-store.js";
 const ICON_CHECK = icon("check", { size: 13 });
 const ICON_RENAME = icon("rename", { size: 13 });
 const ICON_ADD = icon("add", { size: 15 });
-const ICON_EXPORT = icon("download", { size: 15 });
+// The sidebar-toolbar add/export/import buttons render their glyphs inline at
+// size 13 (see #build), matching the per-collection row action icons.
 // Cookie edit reuses the rename pencil so the two managers stay visually consistent.
 const ICON_EDIT = ICON_RENAME;
 
@@ -189,6 +192,8 @@ export class CollectionsPopup {
   #onHeadersSave;
   #onBulkEditorChange;
   #onExportAll;
+  #onExportCollection;
+  #onImport;
 
   /**
    * @param {{
@@ -203,6 +208,8 @@ export class CollectionsPopup {
    *   onHeadersSave?: (payload: { scopeId: string, headers: Array }) => void,
    *   onBulkEditorChange?: (payload: { bulkEditor: boolean }) => void,
    *   onExportAll?: () => void,
+   *   onExportCollection?: (payload: { id: string }) => void,
+   *   onImport?: () => void,
    * }} [opts]
    */
   constructor({
@@ -217,6 +224,8 @@ export class CollectionsPopup {
     onHeadersSave,
     onBulkEditorChange,
     onExportAll,
+    onExportCollection,
+    onImport,
   } = {}) {
     this.#onSelect = onSelect;
     this.#onAdd = onAdd;
@@ -229,6 +238,8 @@ export class CollectionsPopup {
     this.#onHeadersSave = onHeadersSave;
     this.#onBulkEditorChange = onBulkEditorChange;
     this.#onExportAll = onExportAll;
+    this.#onExportCollection = onExportCollection;
+    this.#onImport = onImport;
     this.#el = this.#build();
     // Mount the embedded request-style Headers editor into its tab panel.
     this.#httpHeadersEditor = new HeadersEditor({
@@ -377,8 +388,9 @@ export class CollectionsPopup {
       <div class="popup-body coll-popup-body">
         <div class="coll-sidebar">
           <div class="coll-sidebar-toolbar">
-            <button class="icon-btn coll-new-btn" title="${t("collections.addCollection")}" aria-label="${t("collections.addCollection")}">${ICON_ADD}</button>
-            <button class="icon-btn coll-export-all-btn" title="${t("collections.exportAll")}" aria-label="${t("collections.exportAll")}">${ICON_EXPORT}</button>
+            <button class="coll-action-btn coll-new-btn" title="${t("collections.addCollection")}" aria-label="${t("collections.addCollection")}">${icon("add", { size: 13 })}</button>
+            <button class="coll-action-btn coll-import-btn" title="${t("collections.import")}" aria-label="${t("collections.import")}">${icon("upload", { size: 13 })}</button>
+            <button class="coll-action-btn coll-export-all-btn" title="${t("collections.exportAll")}" aria-label="${t("collections.exportAll")}">${icon("download", { size: 13 })}</button>
           </div>
           <ul class="coll-list" role="listbox" aria-label="${t("collections.title")}"></ul>
         </div>
@@ -471,6 +483,11 @@ export class CollectionsPopup {
     // export flow as the File ▸ "Export All Collections…" menu item.
     el.querySelector(".coll-export-all-btn").addEventListener("click", () =>
       this.#onExportAll?.(),
+    );
+    // Import hands off to the creator, which opens the same import modal the
+    // File ▸ "Import from URL…" menu item does (URL or local file path).
+    el.querySelector(".coll-import-btn").addEventListener("click", () =>
+      this.#onImport?.(),
     );
 
     // Tabs
@@ -652,6 +669,18 @@ export class CollectionsPopup {
     const actions = document.createElement("div");
     actions.className = "coll-list-item-actions";
 
+    const exportBtn = document.createElement("button");
+    exportBtn.className = "coll-action-btn";
+    exportBtn.title = t("collections.exportCollection");
+    exportBtn.innerHTML = icon("download", { size: 13 });
+    exportBtn.setAttribute(
+      "aria-label",
+      t("common.exportItem", { name: collection.name }),
+    );
+    exportBtn.addEventListener("click", () =>
+      this.#onExportCollection?.({ id: collection.id }),
+    );
+
     const renameBtn = document.createElement("button");
     renameBtn.className = "coll-action-btn";
     renameBtn.title = t("collections.rename");
@@ -676,6 +705,7 @@ export class CollectionsPopup {
     );
     deleteBtn.addEventListener("click", () => this.#confirmDelete(collection));
 
+    actions.appendChild(exportBtn);
     actions.appendChild(renameBtn);
     actions.appendChild(deleteBtn);
 

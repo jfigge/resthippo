@@ -35,6 +35,7 @@
  *   hippo:request-cleared     —                  — last request deleted; editor should reset
  *   hippo:collections-changed items[]            — tree was mutated (add/remove/move) → persist
  *   hippo:export-collection   { collection }
+ *   hippo:import-curl-requested —                — [+] toolbar menu → open cURL import
  *   hippo:run-folder          { folderId }       — run every request in a folder
  *   hippo:cancel-request      { requestId }      — stop a running request from the tree
  *   hippo:timeline-clear      { requestId }      — clear a request's run history
@@ -1241,14 +1242,17 @@ export class TreeView {
 
   /**
    * Native context menu for the toolbar [+] button (opened on secondary click).
-   * Lets the user pick the protocol; the chosen request is then created in the
-   * same place a plain [+] click would have created one.
+   * Lets the user pick the protocol (the chosen request is created in the same
+   * place a plain [+] click would have) or start a cURL import — the latter fires
+   * the same hippo:import-curl-requested flow the File menu used to trigger.
    */
   async #showNewRequestMenu(x, y) {
     const clickedId = await window.hippo.ui.contextMenu.show({
       items: [
         { id: "add-request", label: t("tree.menu.addRequest") },
         { id: "add-ws-request", label: t("tree.menu.addWsRequest") },
+        { type: "separator" },
+        { id: "import-curl", label: t("tree.menu.importCurl") },
       ],
       x,
       y,
@@ -1256,6 +1260,8 @@ export class TreeView {
     if (clickedId === "add-request") this.#addRequest();
     else if (clickedId === "add-ws-request")
       this.#addRequest({ protocol: "websocket" });
+    else if (clickedId === "import-curl")
+      window.dispatchEvent(new CustomEvent("hippo:import-curl-requested"));
   }
 
   // ── Mutations — context menu actions ────────────────────────────────────

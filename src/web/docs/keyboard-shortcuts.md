@@ -25,7 +25,6 @@ to pop up a quick reference to the most common shortcuts inside Rest Hippo.
 | <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd>  | Open the Collections manager                            |
 | <kbd>⌘/Ctrl</kbd>+<kbd>K</kbd>                    | Open the keyboard-shortcuts cheat-sheet                 |
 | <kbd>⌘/Ctrl</kbd>+<kbd>/</kbd>                    | Open the User Guide                                     |
-| <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd>   | Import a collection                                     |
 
 The navigation keys (focus URL, next/previous request, switch tab) yield to text
 entry — they only fire when you aren't typing in a field. The application menus

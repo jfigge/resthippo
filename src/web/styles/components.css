@@ -4601,6 +4601,14 @@ html.show-method-icons .req-method-menu-item-label::before {
   display: none;
 }
 
+/* The import modal's auth-header field is URL-only; it toggles the native
+   `hidden` attribute in file mode. This override beats `.backup-field`'s
+   `display: flex` so `[hidden]` actually hides it (same trick as the GraphQL
+   schema-warning row above). */
+.url-import-header-field[hidden] {
+  display: none;
+}
+
 /* ── Swagger/OpenAPI import: base-URL variable prompt (reuses backup-body/
    backup-field; only the inputs need to fill the modal width) ──────────── */
 .swagger-import-input {
@@ -5145,12 +5153,9 @@ html.show-method-icons .req-method-menu-item-label::before {
   flex-shrink: 0;
 }
 
-/* .coll-new-btn / .coll-export-all-btn inherit the shared .icon-btn appearance
-   (matching .coll-add-btn); only the cursor is extra. */
-.coll-new-btn,
-.coll-export-all-btn {
-  cursor: pointer;
-}
+/* The sidebar-toolbar add / export / import buttons use the same .coll-action-btn
+   appearance as the per-collection row icons (boxed, surface-2 hover, 13px
+   glyphs); their square size is set alongside the row buttons below. */
 
 /* ── Right-hand main pane (tabs + panels) ─────────────────────────────────── */
 .coll-main {
@@ -5351,11 +5356,23 @@ html.show-method-icons .req-method-menu-item-label::before {
 
 .coll-list-item-actions {
   display: flex;
-  gap: var(--space-2);
+  /* Tighter than the env-bar actions: three per-row buttons (export / rename /
+     delete) need to sit compactly without crowding out the collection name. */
+  gap: var(--space-1);
   flex-shrink: 0;
   /* Show actions only on hover */
   opacity: 0;
   transition: opacity var(--transition-fast);
+}
+
+/* Compact action buttons: the per-row export / rename / delete icons and the
+   sidebar toolbar's add / export / import share one 22px square (narrower +
+   shorter than the base .coll-action-btn used in the env bar), so the toolbar
+   reads the same as a collection row's icons. */
+.coll-list-item-actions .coll-action-btn,
+.coll-sidebar-toolbar .coll-action-btn {
+  width: 22px;
+  height: 22px;
 }
 
 .coll-list-item:hover .coll-list-item-actions,

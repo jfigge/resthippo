@@ -24,9 +24,10 @@
  * Communication" in CLAUDE.md and the hippo:* registry at the top of app.js.
  *
  * @param {object} ctx
- * @param {() => any} ctx.handleImport        open the external-file import flow
+ * @param {(path: string) => Promise<boolean>} ctx.handleFilePathImport  read + import a typed local file path
+ * @param {() => Promise<boolean>} ctx.handleImportBrowse  open the native picker + import the chosen file
  * @param {Function}  ctx.handleCurlImport    save a request parsed from pasted cURL
- * @param {Function}  ctx.handleUrlImport     fetch + import an OpenAPI/Swagger spec from a URL
+ * @param {Function}  ctx.handleUrlImport     fetch + import an interchange document from a URL
  * @param {(collection: object) => void} ctx.handleExport  open the collection export picker
  * @param {(format: string) => any} ctx.runWorkspaceExport export every collection in one file
  */
@@ -36,21 +37,23 @@ import { CurlImportModal } from "../components/curl-import-modal.js";
 import { UrlImportModal } from "../components/url-import-modal.js";
 
 export function installMenuHandlers(ctx) {
-  // Import a collection from an external file (Postman / Insomnia / OpenAPI / HAR).
-  // Triggered by the toolbar button in tree-view or the File > Import menu item.
-  window.addEventListener("hippo:import-requested", () => ctx.handleImport());
-
-  // Import a single request from a pasted cURL command. Triggered by the
-  // File > "Import from cURL" menu item; opens a paste-box modal.
+  // Import a single request from a pasted cURL command. Triggered by the tree
+  // toolbar's [+] secondary-click menu ("Import from cURL"); opens a paste-box
+  // modal. (File-menu import/export items were removed — see main.js.)
   window.addEventListener("hippo:import-curl-requested", () =>
     CurlImportModal.open(ctx.handleCurlImport),
   );
 
-  // Import a collection fetched from a live URL (Postman / Insomnia / OpenAPI /
-  // Swagger / HAR — auto-detected). Triggered by the File > "Import from URL"
-  // menu item; opens a URL + optional-header modal.
+  // Import a collection from a URL or a local file — one smart field routes on
+  // what's typed (Postman / Insomnia / OpenAPI / Swagger / HAR — auto-detected).
+  // Triggered by the Collections dialog's Import button; opens the URL-or-file
+  // modal with a Browse… fallback.
   window.addEventListener("hippo:import-url-requested", () =>
-    UrlImportModal.open(ctx.handleUrlImport),
+    UrlImportModal.open({
+      onImport: ctx.handleUrlImport,
+      onImportFile: ctx.handleFilePathImport,
+      onBrowse: ctx.handleImportBrowse,
+    }),
   );
 
   // Whole-workspace backup create/restore. Triggered by the File menu items,
@@ -71,7 +74,7 @@ export function installMenuHandlers(ctx) {
   );
 
   // Export every collection to one interchange file. Triggered by the
-  // "Export All Collections…" File-menu item.
+  // Collections dialog's "Export All" button.
   window.addEventListener("hippo:export-all-requested", () =>
     ExportModal.openWorkspace((format) => ctx.runWorkspaceExport(format)),
   );
