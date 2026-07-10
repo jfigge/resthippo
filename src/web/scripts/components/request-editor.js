@@ -51,6 +51,7 @@ import { INTROSPECTION_QUERY } from "./graphql-schema.js";
 import { executeIntrospection } from "./graphql-introspection.js";
 import { GraphQLBodyEditor } from "./graphql-body-editor.js";
 import { RequestAuthEditor } from "./request-auth-editor.js";
+import { ProfilePicker } from "./profile-picker.js";
 import { extractScriptRunNames } from "./script-run-refs.js";
 import { REQUEST_PICKER_FNS } from "./request-refs.js";
 import { NotesEditor } from "./editors/notes-editor.js";
@@ -325,6 +326,11 @@ export class RequestEditor {
   #urlPreviewEl = null; // the preview bar element
   #urlPreviewInputEl = null; // the read-only input inside it
   #urlPreviewSeq = 0; // generation counter — guards against stale async results
+  // Variable-profile switcher (only shown when the collection has named profiles).
+  #profilePicker = null; // ProfilePicker (native menu) bound to #profileBtn
+  #profileBtn = null; // the persistent "swap" trigger button
+  #profiles = []; // [{ id, name }] named profiles for the active collection
+  #activeProfileId = null; // active profile id, or null (= Default)
   // Drag-to-reorder (phantom-placeholder pattern; see DragReorderController)
   #paramsDrag = new DragReorderController({
     getItems: () => this.#params,
@@ -524,6 +530,13 @@ export class RequestEditor {
       getItems: () => this.#getItems(),
       ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
       getCurrentNodeId: () => this.#currentNodeId,
+    });
+
+    // Variable-profile switcher. Its trigger (built lazily by #ensureProfileBtn)
+    // is placed by #mountProfileBtn; picking a profile is an app-wide state
+    // change, so it routes out as a global event (see #selectProfile).
+    this.#profilePicker = new ProfilePicker({
+      onActivate: (id) => this.#selectProfile(id),
     });
 
     this.#renderUrlBar();
@@ -1073,6 +1086,9 @@ export class RequestEditor {
     this.#methodSel = methodSel;
     this.#methodSelLabel = methodLabel;
     this.#sendBtn = sendBtn;
+    // Place the profile switcher now that the preview bar + Send button exist
+    // (a protocol switch rebuilds this bar; the button re-homes here).
+    this.#mountProfileBtn();
   }
 
   // ── WebSocket URL bar (Feature 32) ────────────────────────────────────────
@@ -2431,6 +2447,77 @@ export class RequestEditor {
       const url = await this.#buildPreviewUrl();
       if (seq === this.#urlPreviewSeq) this.#urlPreviewInputEl.value = url;
     }
+    // The profile switcher shares the preview bar; re-home it when visibility flips.
+    this.#mountProfileBtn();
+  }
+
+  // ── Variable-profile switcher ────────────────────────────────────────────
+
+  /**
+   * Push the active collection's profile list + selection in from app.js. The
+   * switcher icon shows only when there are named profiles (the Default alone
+   * needs no switcher); its checkmark and placement update here.
+   * @param {{ profiles?: {id:string,name:string}[], activeProfileId?: string|null }} data
+   */
+  setProfiles({ profiles = [], activeProfileId = null } = {}) {
+    this.#profiles = Array.isArray(profiles) ? profiles : [];
+    this.#activeProfileId = activeProfileId ?? null;
+    this.#profilePicker.load({
+      profiles: this.#profiles,
+      activeProfileId: this.#activeProfileId,
+    });
+    this.#mountProfileBtn();
+  }
+
+  /** Build (once) the persistent "swap" trigger button and bind the picker. */
+  #ensureProfileBtn() {
+    if (this.#profileBtn) return this.#profileBtn;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "req-profile-btn";
+    btn.innerHTML = icon("swap", { size: 15 });
+    btn.title = t("profiles.switcherTitle");
+    btn.setAttribute("aria-label", t("profiles.switcherTitle"));
+    btn.setAttribute("aria-haspopup", "menu");
+    this.#profilePicker.bindTrigger(btn);
+    this.#profileBtn = btn;
+    return btn;
+  }
+
+  /**
+   * Show/hide + position the profile switcher. It only appears when named
+   * profiles exist, and sits to the right of the URL preview's Copy button when
+   * the preview is visible, otherwise to the right of the Send button.
+   */
+  #mountProfileBtn() {
+    if (!this.#profiles.length) {
+      this.#profileBtn?.remove();
+      return;
+    }
+    const btn = this.#ensureProfileBtn();
+    // A non-Default active profile gets a subtle emphasis on the icon.
+    btn.classList.toggle("req-profile-btn--active", !!this.#activeProfileId);
+    // isConnected guards the WebSocket bar, where #urlPreviewEl is a stale,
+    // detached reference (that bar has no preview and doesn't reassign it).
+    if (this.#urlPreviewEnabled && this.#urlPreviewEl?.isConnected) {
+      this.#urlPreviewEl.appendChild(btn); // right of the Copy button
+    } else if (this.#sendBtn) {
+      // Right of the Send group (its parent row's last child).
+      const group = this.#sendBtn.closest(".req-send-group");
+      (group?.parentElement ?? this.#sendBtn.parentElement)?.appendChild(btn);
+    } else {
+      // No host (e.g. WebSocket bar) — leave it detached.
+      btn.remove();
+    }
+  }
+
+  /** A profile was chosen in the picker — broadcast the app-wide switch. */
+  #selectProfile(profileId) {
+    window.dispatchEvent(
+      new CustomEvent("hippo:profile-select", {
+        detail: { profileId: profileId ?? null },
+      }),
+    );
   }
 
   #buildParamRow(param, index) {

@@ -1394,7 +1394,8 @@
     "nameAria": "Nombre del nuevo perfil",
     "duplicate": "Ya existe un perfil llamado «{name}».",
     "limit": "Máximo de {max} perfiles alcanzado",
-    "switched": "Perfil activo: {name}"
+    "switched": "Perfil activo: {name}",
+    "switcherTitle": "Cambiar de perfil de variables de la carpeta"
   },
   "passwordPrompt": {
     "exportTitle": "Proteger la exportación con contraseña",

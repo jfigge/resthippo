@@ -1394,7 +1394,8 @@
     "nameAria": "Nom du nouveau profil",
     "duplicate": "Un profil nommé « {name} » existe déjà.",
     "limit": "Maximum de {max} profils atteint",
-    "switched": "Profil actif : {name}"
+    "switched": "Profil actif : {name}",
+    "switcherTitle": "Changer de profil de variables du dossier"
   },
   "passwordPrompt": {
     "exportTitle": "Protéger l'export par mot de passe",

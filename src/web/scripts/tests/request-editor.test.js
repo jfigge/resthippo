@@ -1147,3 +1147,82 @@ test("loading a second request clears the previous params, headers and path para
     "POST",
   );
 });
+
+// ── Variable-profile switcher ─────────────────────────────────────────────────
+
+test("no profile switcher until the collection has named profiles", () => {
+  const { editor } = mountEditor({ id: "r1", method: "GET", url: "https://x" });
+  assert.equal(editor.element.querySelector(".req-profile-btn"), null);
+  editor.setProfiles({ profiles: [], activeProfileId: null });
+  assert.equal(editor.element.querySelector(".req-profile-btn"), null);
+});
+
+test("switcher appears beside the URL-preview Copy button when named profiles exist", () => {
+  const { editor } = mountEditor({ id: "r1", method: "GET", url: "https://x" });
+  editor.setProfiles({
+    profiles: [{ id: "p1", name: "Staging" }],
+    activeProfileId: null,
+  });
+  const btn = editor.element.querySelector(".req-profile-btn");
+  assert.ok(btn, "switcher present");
+  assert.ok(btn.closest(".req-url-preview"), "sits inside the URL preview bar");
+  // Default active → no emphasis; a named profile active → emphasis class.
+  assert.equal(btn.classList.contains("req-profile-btn--active"), false);
+  editor.setProfiles({
+    profiles: [{ id: "p1", name: "Staging" }],
+    activeProfileId: "p1",
+  });
+  assert.equal(
+    editor.element
+      .querySelector(".req-profile-btn")
+      .classList.contains("req-profile-btn--active"),
+    true,
+  );
+});
+
+test("switcher moves next to the Send button when the URL preview is hidden", async () => {
+  const { editor } = mountEditor({ id: "r1", method: "GET", url: "https://x" });
+  editor.setProfiles({
+    profiles: [{ id: "p1", name: "Staging" }],
+    activeProfileId: null,
+  });
+  editor.applySettings({ showUrlPreview: false });
+  await new Promise((r) => setTimeout(r, 0)); // #updateUrlPreview is async
+  const btn = editor.element.querySelector(".req-profile-btn");
+  assert.ok(btn);
+  assert.equal(
+    btn.closest(".req-url-preview"),
+    null,
+    "no longer in the preview bar",
+  );
+  assert.ok(
+    btn.closest(".req-url-bar-row"),
+    "sits in the URL bar row (by Send)",
+  );
+});
+
+test("clicking the switcher and picking a profile dispatches hippo:profile-select", async () => {
+  const { window, editor } = mountEditor({
+    id: "r1",
+    method: "GET",
+    url: "https://x",
+  });
+  editor.setProfiles({
+    profiles: [{ id: "p1", name: "Staging" }],
+    activeProfileId: null,
+  });
+  // Native menu returns the second row (first named profile → index 1).
+  window.hippo.ui = {
+    contextMenu: { show: async ({ items }) => items[1].id },
+  };
+  const selects = [];
+  window.addEventListener("hippo:profile-select", (e) =>
+    selects.push(e.detail?.profileId),
+  );
+  const btn = editor.element.querySelector(".req-profile-btn");
+  btn.dispatchEvent(
+    new window.MouseEvent("mousedown", { button: 0, bubbles: true }),
+  );
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(selects, ["p1"]);
+});

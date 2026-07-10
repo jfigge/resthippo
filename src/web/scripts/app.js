@@ -1457,6 +1457,7 @@ function initEventBus() {
   //   selected request); requestNode is the tree-node snapshot taken at send
   //   time so results route correctly even after the selection moves on.
   //   editor-setting-changed { <settingKey>: value }      e.g. listHeaders
+  //   profile-select        { profileId }                 RequestEditor profile switcher → app.js: activate that profile (null = Default)
   //
   // WebSocket
   //   ws-connect            { url, headers, subprotocols, … }
@@ -1569,10 +1570,20 @@ function initEventBus() {
   installStreamHandlers();
   installTreeQuickAccessHandlers();
   installRequestEditSendHandlers();
+  installProfileSelectHandler();
 
   // Self-contained groups extracted to their own modules (ctx-driven).
   installRunFolderHandler(ctx);
   installUpdaterHandlers();
+}
+
+// A profile chosen in the request editor's switcher activates it — the same path
+// as the vars-editor selector and the ⌥⌘0–9 shortcuts (all funnel through
+// handleProfileSelect, which persists + re-resolves live).
+function installProfileSelectHandler() {
+  window.addEventListener("hippo:profile-select", (e) => {
+    handleProfileSelect({ profileId: e.detail?.profileId ?? null });
+  });
 }
 
 // When a request is selected in the tree, load it into the editor.
@@ -1746,6 +1757,18 @@ function _activeProfileId() {
   return _activeCollEntry()?.activeVariableProfileId ?? null;
 }
 
+/**
+ * Push the active collection's profile list + selection to the request editor so
+ * its profile switcher (the "swap" menu by the URL preview / Send button) shows
+ * the right entries, checks the active one, and hides when no named profiles exist.
+ */
+function _pushProfilesToEditor() {
+  requestEditor?.setProfiles({
+    profiles: _activeProfiles(),
+    activeProfileId: _activeProfileId(),
+  });
+}
+
 /** Show a folder in the vars editor under the collection's active profile. */
 function _loadFolderVars(nodeId, name) {
   const node = _findNodeById(treeView?.getItems() ?? [], nodeId);
@@ -1848,6 +1871,9 @@ async function handleProfileRename({ profileId, name }) {
   );
   await _updateActiveCollProfiles({ variableProfiles });
   if (_varsScope) _loadFolderVars(_varsScope.nodeId, _varsScope.name);
+  // A rename doesn't change values (so no variable-context refresh), but the
+  // request editor's profile menu shows the name — refresh its list.
+  _pushProfilesToEditor();
 }
 
 /** Profile selector changed (null = Default). Live at send time → re-resolve. */
@@ -2814,6 +2840,7 @@ function _refreshEditorVariableContext(nodeId) {
 
   const ctx = _buildVariableContextForNode(id, node);
   requestEditor.setVariableContext(ctx);
+  _pushProfilesToEditor();
 
   // Feed merged variables to the tree-view so "Generate cURL" resolves correctly.
   // Environment wins over global.

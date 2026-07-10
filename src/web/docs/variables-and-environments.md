@@ -95,7 +95,13 @@ How values behave:
 - **Switching folders** keeps your selected profile; the editor just re-shows the
   new folder's variables under it.
 
-You can switch the active profile from anywhere with the keyboard:
+Once a collection has named profiles, a **switch icon** also appears in the
+request editor — to the right of the URL preview's Copy button, or beside the
+Send button when the URL preview is hidden. Click it to open a menu of every
+profile (with its shortcut) and a check beside the active one; pick one to
+activate it.
+
+You can also switch the active profile from anywhere with the keyboard:
 **⌥⌘0**–**⌥⌘9** (**Ctrl+Alt+0**–**9** on Windows / Linux). **0** selects the
 Default and **1**–**9** the first through ninth named profiles, in the order they
 appear in the selector; a number with no matching profile does nothing.

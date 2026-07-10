@@ -96,6 +96,14 @@ const ICONS = {
       '<path d="M8 3a3 3 0 0 0-3 3v3a2 2 0 0 1-2 2 2 2 0 0 1 2 2v3a3 3 0 0 0 3 3"/>' +
       '<path d="M16 3a3 3 0 0 1 3 3v3a2 2 0 0 0 2 2 2 2 0 0 0-2 2v3a3 3 0 0 1-3 3"/>',
   },
+  // Opposing horizontal arrows — the variable-profile "switcher" glyph.
+  swap: {
+    inner:
+      '<path d="M8 3 4 7l4 4"/>' +
+      '<path d="M4 7h16"/>' +
+      '<path d="m16 21 4-4-4-4"/>' +
+      '<path d="M20 17H4"/>',
+  },
   // "Aa" lettering — marks a form-data row as a plain TEXT field. Drawn as a
   // filled glyph (not strokes); inherits the surrounding UI font.
   text: {

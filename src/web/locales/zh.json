@@ -1387,7 +1387,8 @@
     "nameAria": "新配置文件名称",
     "duplicate": "已存在名为“{name}”的配置文件。",
     "limit": "已达到最多 {max} 个配置文件",
-    "switched": "当前配置文件：{name}"
+    "switched": "当前配置文件：{name}",
+    "switcherTitle": "切换文件夹变量配置文件"
   },
   "passwordPrompt": {
     "exportTitle": "用密码保护导出",

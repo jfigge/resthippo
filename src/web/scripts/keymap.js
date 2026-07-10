@@ -346,6 +346,17 @@ export function profileShortcutLabel() {
   return `${formatBinding({ mod: true, alt: true, key: "0" })}–9`;
 }
 
+/**
+ * Electron display-accelerator for the profile-switch slot `n` (0–9), e.g.
+ * "Alt+CmdOrCtrl+3". Used only to advertise the shortcut in the native profile
+ * menu (with `registerAccelerator: false`); the keystroke itself is owned by the
+ * renderer (profileShortcutSlot).
+ * @param {number} n slot 0–9
+ */
+export function profileSlotAccelerator(n) {
+  return `Alt+CmdOrCtrl+${n}`;
+}
+
 /** Pretty-print one key for display (platform-correct glyphs). */
 function formatKey(key) {
   switch (key) {

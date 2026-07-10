@@ -1685,6 +1685,33 @@ html.show-method-icons .req-method-menu-item-label::before {
   color: var(--color-success) !important;
 }
 
+/* Variable-profile switcher — the "swap" trigger placed by the URL preview's
+   Copy button, or (when the preview is hidden) right of the Send button. */
+.req-profile-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  border-radius: var(--radius-sm);
+  color: var(--color-subtext);
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.req-profile-btn:hover {
+  background-color: var(--color-surface-1);
+  color: var(--color-text);
+}
+
+/* A non-Default profile is active — mark the switcher so it's noticeable. */
+.req-profile-btn--active {
+  color: var(--color-accent);
+}
+
 /* Toolbar */
 .params-toolbar {
   display: flex;

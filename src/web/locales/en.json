@@ -1394,7 +1394,8 @@
     "nameAria": "New profile name",
     "duplicate": "A profile named “{name}” already exists.",
     "limit": "Maximum of {max} profiles reached",
-    "switched": "Active profile: {name}"
+    "switched": "Active profile: {name}",
+    "switcherTitle": "Switch folder variables profile"
   },
   "passwordPrompt": {
     "exportTitle": "Password-Protect Export",
