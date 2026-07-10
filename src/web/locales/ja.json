@@ -610,7 +610,8 @@
       "listHeaders": "ヘッダー一覧",
       "suggestionsAria": "ヘッダーの候補",
       "valueSuggestionsAria": "ヘッダー値の候補",
-      "bulkPlaceholder": "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped"
+      "bulkPlaceholder": "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped",
+      "inheritsDefault": "デフォルト値を継承"
     },
     "params": {
       "empty": "パラメーターがありません —  +  をクリックして追加します。",

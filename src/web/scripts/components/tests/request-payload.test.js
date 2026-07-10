@@ -155,6 +155,84 @@ test("collection headers: a disabled request row of the same name suppresses the
   assert.deepEqual(headers, {});
 });
 
+test("collection headers: a blank, non-overridden request row inherits the default (Feature 66)", async () => {
+  const { headers } = await buildRequestPayload(
+    {
+      method: "GET",
+      urlBase: "https://x",
+      collectionHeaders: [
+        { enabled: true, name: "Accept", value: "application/json" },
+      ],
+      headers: [{ enabled: true, name: "Accept", value: "" }],
+    },
+    identity,
+  );
+  // Blank + no `overridden` → the collection default value is used, not cleared.
+  assert.deepEqual(headers, { Accept: "application/json" });
+});
+
+test("collection headers: a blank, non-overridden row with no matching default sends nothing (Feature 66)", async () => {
+  const { headers } = await buildRequestPayload(
+    {
+      method: "GET",
+      urlBase: "https://x",
+      collectionHeaders: [],
+      headers: [{ enabled: true, name: "X-Available", value: "" }],
+    },
+    identity,
+  );
+  // An "available header" placeholder (e.g. from OpenAPI import) is not sent.
+  assert.deepEqual(headers, {});
+});
+
+test("collection headers: a blank, overridden request row suppresses the default (Feature 66)", async () => {
+  const { headers } = await buildRequestPayload(
+    {
+      method: "GET",
+      urlBase: "https://x",
+      collectionHeaders: [
+        { enabled: true, name: "Accept", value: "application/json" },
+      ],
+      headers: [{ enabled: true, name: "accept", value: "", overridden: true }],
+    },
+    identity,
+  );
+  // Explicit blank → suppress the default (case-insensitive match).
+  assert.deepEqual(headers, {});
+});
+
+test("collection headers: a non-blank request row overrides regardless of the overridden flag (Feature 66)", async () => {
+  const { headers } = await buildRequestPayload(
+    {
+      method: "GET",
+      urlBase: "https://x",
+      collectionHeaders: [
+        { enabled: true, name: "Accept", value: "application/json" },
+      ],
+      headers: [{ enabled: true, name: "Accept", value: "text/plain" }],
+    },
+    identity,
+  );
+  assert.deepEqual(headers, { Accept: "text/plain" });
+});
+
+test("collection headers: a raw non-blank value that resolves empty is still a concrete override (Feature 66)", async () => {
+  const { headers } = await buildRequestPayload(
+    {
+      method: "GET",
+      urlBase: "https://x",
+      collectionHeaders: [
+        { enabled: true, name: "Accept", value: "application/json" },
+      ],
+      headers: [{ enabled: true, name: "Accept", value: "{{empty}}" }],
+    },
+    mapResolver({ empty: "" }),
+  );
+  // Raw value is non-blank ({{empty}}) → concrete override → sends the resolved
+  // (empty) value, clearing the default rather than inheriting it.
+  assert.deepEqual(headers, { Accept: "" });
+});
+
 test("collection headers: blank-name rows are skipped", async () => {
   const { headers } = await buildRequestPayload(
     {

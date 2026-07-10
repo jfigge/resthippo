@@ -1994,6 +1994,25 @@ export class RequestEditor {
     let _onValueSelected = null;
     let _onNameConfirmed = null;
 
+    // ── Collection-default inheritance (Feature 66) ───────────────────────
+    // A blank header row inherits the same-named collection default unless it is
+    // an explicit override (`header.overridden`). `findDefault` resolves the
+    // row's current name (case-insensitive) against the active collection
+    // defaults; `syncInherit` (assigned once the row + reset control exist)
+    // keeps the value hint, row state and reset control in step. Both are used
+    // by the name/value input handlers below, so they're declared up front.
+    const findDefault = () => {
+      const nm = (header.name ?? "").trim().toLowerCase();
+      if (!nm) return null;
+      return (
+        (this.#variableContext?.collectionHeaders ?? []).find(
+          (d) =>
+            d.enabled !== false && (d.name ?? "").trim().toLowerCase() === nm,
+        ) ?? null
+      );
+    };
+    let syncInherit = () => {};
+
     // ── Header name combo box ─────────────────────────────────────────────
     const headerInput = document.createElement("input");
     headerInput.type = "text";
@@ -2008,6 +2027,9 @@ export class RequestEditor {
     });
     headerInput.addEventListener("input", () => {
       header.name = headerInput.value;
+      // The name determines which collection default (if any) this row relates
+      // to, so re-evaluate the inherit hint / reset control as it changes.
+      syncInherit();
       this.#dispatchHeadersUpdated();
       if (this.#headerSuggestionsEnabled)
         showHdrDropdown(headerInput, (name) => _onNameConfirmed?.(name));
@@ -2056,6 +2078,11 @@ export class RequestEditor {
       ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
       onInput: (v) => {
         header.value = v;
+        // Editing the value of a row that inherits a collection default promotes
+        // it to an explicit override (it stays one even if later cleared to
+        // blank — that blank then SUPPRESSES the default; Reset is the way back).
+        if (!header.overridden && findDefault()) header.overridden = true;
+        syncInherit();
         this.#dispatchHeadersUpdated();
         // Re-open value suggestions when the user types a trailing comma,
         // allowing them to build a comma-separated multi-value header.
@@ -2080,6 +2107,8 @@ export class RequestEditor {
           : `${current}, ${picked}`;
       valueEditor.setValue(newVal);
       header.value = newVal;
+      if (!header.overridden && findDefault()) header.overridden = true;
+      syncInherit();
       this.#dispatchHeadersUpdated();
       // Re-open the dropdown so the user can keep appending values
       // (they will naturally see it because the value now ends with something
@@ -2142,16 +2171,67 @@ export class RequestEditor {
       true /* capture — fires before VariablePillEditor's bubble-phase listener */,
     );
 
-    return this.#buildKvRow({
+    // ── Reset-to-inherit control (Feature 66) ─────────────────────────────
+    // Lives INSIDE the value cell (not a dedicated grid column) and is shown
+    // ONLY for a row whose name matches a collection default — so rows with no
+    // default keep the plain header layout and every row's delete button stays
+    // aligned. Enabled only while the row explicitly overrides the default;
+    // clicking drops the override so the row inherits the default again.
+    const resetBtn = document.createElement("button");
+    resetBtn.type = "button";
+    resetBtn.className = "icon-btn params-inherit-btn";
+    resetBtn.innerHTML = icon("revert", { size: 14 });
+    resetBtn.title = t("profiles.resetToInherit");
+    resetBtn.setAttribute("aria-label", t("profiles.resetToInherit"));
+    resetBtn.addEventListener("click", () => {
+      if (!header.overridden) return;
+      delete header.overridden;
+      header.value = "";
+      valueEditor.setValue("");
+      syncInherit();
+      this.#dispatchHeadersUpdated();
+    });
+
+    const valueCell = document.createElement("div");
+    valueCell.className = "params-value-cell";
+    valueCell.appendChild(valueEditor.element);
+    valueCell.appendChild(resetBtn);
+
+    const row = this.#buildKvRow({
       item: header,
       index,
       noun: t("request.noun.header"),
       name: headerInput,
-      value: valueEditor.element,
+      value: valueCell,
       drag: this.#headersDrag,
       onToggle: () => this.#dispatchHeadersUpdated(),
       onDelete: () => this.#deleteHeader(header.id),
     });
+
+    // Keep the value hint, row state and reset control in step with the row's
+    // name (does it match a default?) and value (blank vs concrete; overridden?).
+    syncInherit = () => {
+      const def = findDefault();
+      const rawBlank = (header.value ?? "").trim() === "";
+      const inheriting = !!def && rawBlank && !header.overridden;
+      const suppressing = !!def && rawBlank && !!header.overridden;
+      // Inheriting shows the "Inherit default value" hint (rendered as the
+      // editor's standard greyed placeholder ghost, since it's a hint — not a
+      // real value); an explicit blank (suppressing) shows no hint at all — the
+      // enabled reset control is the only cue that it's an override.
+      valueEditor.element.dataset.placeholder = inheriting
+        ? t("request.headers.inheritsDefault")
+        : suppressing
+          ? ""
+          : t("kv.value");
+      // Show the inherit control only when there is a collection default to
+      // inherit; enabled while the row explicitly overrides it.
+      resetBtn.style.display = def ? "" : "none";
+      resetBtn.disabled = !header.overridden;
+    };
+    syncInherit();
+
+    return row;
   }
 
   #addParam() {
@@ -3374,6 +3454,11 @@ export class RequestEditor {
           name: h.name ?? "",
           value: h.value ?? "",
           enabled: h.enabled ?? true,
+          // `overridden` is presence-based (Feature 66): carried only when true
+          // (an explicit value/clear), absent means the row inherits the
+          // same-named collection default. Kept out of the object when falsy so
+          // persistence stays churn-free.
+          ...(h.overridden === true ? { overridden: true } : {}),
         }))
       : [];
     this.#renderHeadersList();

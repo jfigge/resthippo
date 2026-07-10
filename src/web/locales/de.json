@@ -614,7 +614,8 @@
       "listHeaders": "Header auflisten",
       "suggestionsAria": "Header-Vorschläge",
       "valueSuggestionsAria": "Header-Wert-Vorschläge",
-      "bulkPlaceholder": "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped"
+      "bulkPlaceholder": "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped",
+      "inheritsDefault": "Standardwert erben"
     },
     "params": {
       "empty": "Keine Parameter — klicken Sie auf  +,  um einen hinzuzufügen.",

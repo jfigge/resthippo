@@ -189,10 +189,12 @@ export async function resolvePathParamValues(pathParams, rv) {
  *   @param {string}  spec.method        HTTP method (default "GET")
  *   @param {string}  spec.urlBase       base URL, already resolved + (optionally) encoded
  *   @param {Array}   spec.params        [{ enabled, name, value }] query params
- *   @param {Array}   spec.headers       [{ enabled, name, value }] header rows
+ *   @param {Array}   spec.headers       [{ enabled, name, value, overridden? }] header rows.
+ *                                       A blank, non-`overridden` row inherits the same-named
+ *                                       collection default; a blank `overridden` row suppresses it.
  *   @param {Array}   spec.collectionHeaders [{ enabled, name, value }] collection-level
  *                                       default headers, merged BEFORE spec.headers; a same-named
- *                                       enabled request row overrides one, a disabled one suppresses it
+ *                                       request row overrides / suppresses / inherits one (see §2)
  *   @param {boolean} spec.authEnabled   truthy = apply auth (caller normalises its own default)
  *   @param {string}  spec.authType      "none"|"basic"|"bearer"|"apikey"|"digest"|"ntlm"|"aws-iam"|"oauth1"|"oauth2"
  *   @param {object}  spec.authBasic     { username, password }
@@ -235,11 +237,18 @@ export async function buildRequestPayload(spec, rv) {
   }
 
   // ── 2. Headers — collection defaults first, then request rows ──────────────
-  // Collection-level default headers (spec.collectionHeaders) seed the set; an
-  // enabled request header of the same name (case-insensitive) overrides one,
-  // and a DISABLED request row of that name suppresses it (a per-request
-  // opt-out). Header names are case-insensitive, so override/suppress match by
-  // lower-cased name. Auth (below) is applied afterwards and still wins last.
+  // Collection-level default headers (spec.collectionHeaders) seed the set. A
+  // request row of the same name (case-insensitive) then relates to it by the
+  // presence-based rule (mirrors profile overrides — see Feature 66):
+  //   • non-blank value           → overrides the default with that value;
+  //   • blank + `overridden:true` → explicit clear, SUPPRESSES the default;
+  //   • blank + not overridden    → INHERITS the default (or, with no matching
+  //                                 default, sends nothing — an "available
+  //                                 header" placeholder, e.g. from OpenAPI import);
+  //   • DISABLED row              → suppresses the default (per-request opt-out).
+  // The override decision uses the row's raw flag + raw blank-ness, not the
+  // resolved value (a `{{var}}` that resolves empty is still a concrete
+  // override). Auth (below) is applied afterwards and still wins last.
   const headers = {};
   const setHeaderCI = (name, value) => {
     const lower = name.toLowerCase();
@@ -263,11 +272,19 @@ export async function buildRequestPayload(spec, rv) {
   )) {
     deleteHeaderCI((await rv(h.name)).trim());
   }
-  // Enabled request rows override the collection default of the same name.
+  // Enabled request rows: override (concrete value), suppress (explicit blank),
+  // or inherit (blank + not overridden — leave the seeded default untouched).
   for (const h of (spec.headers ?? []).filter(
     (h) => h.enabled && (h.name ?? "").trim(),
   )) {
-    setHeaderCI((await rv(h.name)).trim(), await rv(h.value));
+    const name = (await rv(h.name)).trim();
+    const rawBlank = (h.value ?? "").trim() === "";
+    if (!rawBlank) {
+      setHeaderCI(name, await rv(h.value));
+    } else if (h.overridden) {
+      deleteHeaderCI(name);
+    }
+    // else: blank + not overridden → inherit the collection default (no-op here).
   }
 
   // ── 3. Auth — static header / query value, or pass-through credential bag ──

@@ -88,6 +88,26 @@ As you type a header name, Rest Hippo suggests standard header names
 > [authentication](authentication.md) type, the matching `Authorization` (or
 > custom) header is added automatically at send time.
 
+### Inheriting collection default headers
+
+A collection can define **default headers** applied to every request in it (set
+them in the Collections editor → Headers tab). When a request has a header row of
+the same name, how they combine depends on the value — by *presence*, the same
+way profile overrides work:
+
+- **Blank value** → the request **inherits** the collection default; the value
+  box hints _“Inherits collection default”_. This is why a header imported from
+  an OpenAPI/Swagger spec with no example value doesn’t wipe out your default —
+  it simply falls back to it.
+- **A value you type** → **overrides** the default for this request.
+- **Cleared after editing** (an explicit blank) → **suppresses** the default so
+  nothing is sent; the hint shows _“Collection default suppressed”_, struck
+  through. The **reset** button (↺) on the row drops the override and returns the
+  row to inheriting the default.
+
+(Disabling a row with its checkbox also suppresses its collection default, just
+for that request.)
+
 ## Request body
 
 The **Body** tab lets you choose a body type from the dropdown and edit it:

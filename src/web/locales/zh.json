@@ -610,7 +610,8 @@
       "listHeaders": "列出标头",
       "suggestionsAria": "标头建议",
       "valueSuggestionsAria": "标头值建议",
-      "bulkPlaceholder": "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped"
+      "bulkPlaceholder": "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped",
+      "inheritsDefault": "继承默认值"
     },
     "params": {
       "empty": "暂无参数——点击  +  添加。",
