@@ -219,7 +219,7 @@ test("the Default profile cannot be renamed (button disabled, click is a no-op)"
   assert.equal(renames.length, 0);
 });
 
-test("a named profile locks the KV structure: name read-only, add hidden, secure + delete disabled", () => {
+test("a named profile locks the KV structure: name read-only, add hidden, secure disabled, delete → reset-to-inherit", () => {
   const { ed } = makeEditor();
   loadFolder(ed, { activeProfileId: "p1", bulkEditor: false });
 
@@ -231,15 +231,17 @@ test("a named profile locks the KV structure: name read-only, add hidden, secure
       .classList.contains("vars-kv-row--locked"),
     true,
   );
-  // Secure + delete buttons are shown but disabled on a non-Default profile.
+  // Secure button is shown but disabled on a non-Default profile.
   assert.equal(
     ed.element.querySelector(".vars-kv-row .params-secure-btn").disabled,
     true,
   );
+  // The delete slot becomes the reset-to-inherit control (no plain delete).
   assert.equal(
-    ed.element.querySelector(".vars-kv-row .params-delete-btn").disabled,
-    true,
+    ed.element.querySelector(".vars-kv-row .params-delete-btn"),
+    null,
   );
+  assert.ok(ed.element.querySelector(".vars-kv-row .params-inherit-btn"));
   // Add-variable button is hidden outside the Default profile.
   assert.equal(ed.element.querySelector(".vars-add-btn").style.display, "none");
 });
@@ -253,20 +255,77 @@ test("the Default profile keeps the KV structure editable (name editable, add sh
   assert.equal(ed.element.querySelector(".vars-add-btn").style.display, "");
 });
 
-test("a named profile's blank value field hints that it falls through to the default", () => {
+// Load a named profile whose one variable ("host") starts as an explicit override.
+function loadOverridden(ed) {
+  ed.load({
+    scopeId: "f1",
+    scopeName: "Auth",
+    variables: [
+      { name: "host", value: "prod", secure: false, overridden: true },
+    ],
+    bulkEditor: false,
+    profilesEnabled: true,
+    profiles: PROFILES,
+    activeProfileId: "p1",
+  });
+}
+
+test("an inheriting named-profile value shows the 'inherits default' placeholder + a disabled reset", () => {
   const { ed } = makeEditor();
   loadFolder(ed, { activeProfileId: "p1", bulkEditor: false });
-  assert.equal(
-    ed.element.querySelector(".vars-kv-row .params-value").placeholder,
-    t("profiles.fallThrough"),
-  );
+  const valIn = ed.element.querySelector(".vars-kv-row .params-value");
+  const reset = ed.element.querySelector(".vars-kv-row .params-inherit-btn");
+  assert.equal(valIn.placeholder, t("profiles.inheritsDefault"));
+  assert.ok(reset, "named profile row has a reset-to-inherit control");
+  assert.equal(reset.disabled, true, "nothing to reset while inheriting");
 });
 
-test("the Default profile keeps the generic value placeholder (no fall-through hint)", () => {
+test("the Default profile keeps the generic value placeholder + a real delete (no inherit control)", () => {
   const { ed } = makeEditor();
   loadFolder(ed, { activeProfileId: null, bulkEditor: false });
   assert.equal(
     ed.element.querySelector(".vars-kv-row .params-value").placeholder,
     t("kv.value"),
   );
+  assert.equal(
+    ed.element.querySelector(".vars-kv-row .params-inherit-btn"),
+    null,
+  );
+  assert.ok(ed.element.querySelector(".vars-kv-row .params-delete-btn"));
+});
+
+test("typing a value turns an inheriting row into an explicit override (reset enabled)", () => {
+  const { ed, fire } = makeEditor();
+  loadFolder(ed, { activeProfileId: "p1", bulkEditor: false });
+  const valIn = ed.element.querySelector(".vars-kv-row .params-value");
+  const reset = ed.element.querySelector(".vars-kv-row .params-inherit-btn");
+  valIn.value = "prod.example.com";
+  fire(valIn, "input");
+  assert.equal(reset.disabled, false, "now an override");
+  assert.notEqual(valIn.placeholder, t("profiles.inheritsDefault"));
+});
+
+test("a named-profile save names the explicit overrides so an empty override survives", () => {
+  const { ed, saves, fire } = makeEditor();
+  loadFolder(ed, { activeProfileId: "p1", bulkEditor: false });
+  const valIn = ed.element.querySelector(".vars-kv-row .params-value");
+  valIn.value = "x";
+  fire(valIn, "input");
+  ed.flush();
+  const last = saves.at(-1);
+  assert.equal(last.profileId, "p1");
+  assert.deepEqual(last.overrides, ["host"]);
+});
+
+test("reset-to-inherit drops the override, restores the hint, and saves no overrides", () => {
+  const { ed, saves } = makeEditor();
+  loadOverridden(ed);
+  const reset = ed.element.querySelector(".vars-kv-row .params-inherit-btn");
+  assert.equal(reset.disabled, false);
+  reset.click();
+  const valIn = ed.element.querySelector(".vars-kv-row .params-value");
+  assert.equal(valIn.value, "");
+  assert.equal(valIn.placeholder, t("profiles.inheritsDefault"));
+  assert.equal(reset.disabled, true);
+  assert.deepEqual(saves.at(-1).overrides, []); // host is back to inheriting
 });

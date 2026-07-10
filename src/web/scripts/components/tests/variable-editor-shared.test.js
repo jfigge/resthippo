@@ -164,37 +164,46 @@ test("buildVariableRow: confirmed delete fires onDelete", () => {
   assert.equal(deleted, 1);
 });
 
-test("buildVariableRow: lockStructure disables secure + delete, keeps name read-only and value/reveal editable", () => {
+test("buildVariableRow: lockStructure freezes name/secure and swaps delete for reset-to-inherit; value stays editable", () => {
   resetDom();
   let changes = 0;
-  const row = { id: "r1", name: "token", value: "abc", secure: true };
+  let resets = 0;
+  // Starts as an explicit override so the reset control is active.
+  const row = {
+    id: "r1",
+    name: "token",
+    value: "abc",
+    secure: true,
+    overridden: true,
+  };
   const el = buildVariableRow({
     row,
     rowClass: "vars-kv-row params-row",
     lockStructure: true,
     onChange: () => changes++,
+    onResetInherit: () => resets++,
   });
   document.body.appendChild(el);
 
   const nameIn = el.querySelector(".params-name");
   const valIn = el.querySelector(".params-value");
   const secureBtn = el.querySelector(".params-secure-btn");
-  const del = el.querySelector(".params-delete-btn");
+  const reset = el.querySelector(".params-inherit-btn");
 
   // Name is read-only; the row carries the locked modifier class.
   assert.equal(nameIn.readOnly, true);
   assert.equal(el.classList.contains("vars-kv-row--locked"), true);
 
-  // Secure + delete buttons are rendered but disabled and inert (no listeners).
+  // Secure button is rendered but disabled and inert (no listeners).
   assert.equal(secureBtn.disabled, true);
-  assert.equal(del.disabled, true);
-  // The disabled delete control still shows its (trash) icon, not an empty button.
-  assert.ok(
-    del.querySelector("svg"),
-    "disabled delete button renders its icon",
-  );
   secureBtn.click();
   assert.equal(row.secure, true); // unchanged — click does nothing
+
+  // The delete slot is the reset-to-inherit control (no plain delete), enabled
+  // here because the row starts overridden, and it renders an icon.
+  assert.equal(el.querySelector(".params-delete-btn"), null);
+  assert.ok(reset.querySelector("svg"), "reset control renders its icon");
+  assert.equal(reset.disabled, false);
 
   // The reveal (eye) toggle for a secure value still works.
   const reveal = el.querySelector(".params-reveal-btn");
@@ -207,4 +216,11 @@ test("buildVariableRow: lockStructure disables secure + delete, keeps name read-
   valIn.dispatchEvent(new window.Event("input", { bubbles: true }));
   assert.equal(row.value, "xyz");
   assert.equal(changes, 1);
+
+  // Reset drops the override: value clears, the row inherits, callback fires.
+  reset.click();
+  assert.equal(row.overridden, false);
+  assert.equal(row.value, "");
+  assert.equal(resets, 1);
+  assert.equal(reset.disabled, true);
 });

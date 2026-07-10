@@ -104,6 +104,12 @@ const ICONS = {
       '<path d="m16 21 4-4-4-4"/>' +
       '<path d="M20 17H4"/>',
   },
+  // Counter-clockwise arrow — "reset to inherit" (drop a profile override).
+  revert: {
+    inner:
+      '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>' +
+      '<path d="M3 3v5h5"/>',
+  },
   // "Aa" lettering — marks a form-data row as a plain TEXT field. Drawn as a
   // filled glyph (not strokes); inherits the surrounding UI font.
   text: {

@@ -254,6 +254,17 @@
     "enable": "{noun} aktivieren",
     "disable": "{noun} deaktivieren"
   },
+  "about": {
+    "name": "Rest Hippo",
+    "subtitle": "REST-API-Client",
+    "description": "Ein Desktop-HTTP-Testtool",
+    "credit": "Erstellt von Jason, programmiert von Claude",
+    "versionInfo": "Versionsinformationen",
+    "version": "Version",
+    "branch": "Branch",
+    "commit": "Commit",
+    "devBuild": "Dev-Build"
+  },
   "menu": {
     "cut": "Ausschneiden",
     "copy": "Kopieren",
@@ -1396,7 +1407,8 @@
     "limit": "Maximal {max} Profile erreicht",
     "switched": "Aktives Profil: {name}",
     "switcherTitle": "Ordner-Variablenprofil wechseln",
-    "fallThrough": "Fällt auf Standardwert zurück"
+    "inheritsDefault": "Erbt den Standardwert",
+    "resetToInherit": "Zurücksetzen, um den Standardwert zu erben"
   },
   "passwordPrompt": {
     "exportTitle": "Export mit Passwort schützen",

@@ -135,6 +135,7 @@ import { installRunFolderHandler } from "./event-bus/run-folder-handlers.js";
 import { PopupManager } from "./popup-manager.js";
 import { installKeymap, profileShortcutSlot } from "./keymap.js";
 import { KeyboardShortcuts } from "./components/keyboard-shortcuts.js";
+import { AboutDialog } from "./components/about-dialog.js";
 import * as i18n from "./i18n.js";
 import { t } from "./i18n.js";
 
@@ -1263,10 +1264,12 @@ const collPopupState = () => ({
 });
 
 function initHeader() {
-  // Brand mark (top-left) opens the native About window via the main process.
+  // Brand mark (top-left) opens the in-app About dialog. (When another popup is
+  // up the click-capturing mask covers the header, so no gate is needed here; the
+  // Help ▸ About menu path is gated in installKeyboardShortcuts.)
   document
     .getElementById("btn-about")
-    ?.addEventListener("click", () => window.hippo?.ui?.showAbout?.());
+    ?.addEventListener("click", () => AboutDialog.open());
 
   document.getElementById("btn-settings").addEventListener("click", () => {
     settingsPopup.open(currentSettings);
@@ -1489,7 +1492,7 @@ function initEventBus() {
   //
   // Keyboard shortcuts / menu commands  (preload → app.js; Feature 47)
   //   new-request  ·  new-collection  ·  new-ws-request  ·  open-settings  ·
-  //   keyboard-shortcuts  ·  cycle-layout
+  //   keyboard-shortcuts  ·  cycle-layout  ·  show-about
   //                                  — payload-less; menu accelerator or click
   //   edit-action           { action: "undo" | "redo" }     Edit-menu undo/redo → focused editable
   //
@@ -2640,7 +2643,12 @@ function _queueSaveTree() {
  * folder, `profileId` selects which profile the edit belongs to (null = Default);
  * applyProfileEdit reconciles the Default name set + the profile's overrides.
  */
-async function handleVarsSave({ scopeId, profileId = null, variables }) {
+async function handleVarsSave({
+  scopeId,
+  profileId = null,
+  variables,
+  overrides = null,
+}) {
   const isColl = currentColls.collections.some((coll) => coll.id === scopeId);
 
   if (isColl) {
@@ -2665,6 +2673,7 @@ async function handleVarsSave({ scopeId, profileId = null, variables }) {
     profileId,
     variables,
     _activeProfiles().map((p) => p.id),
+    overrides,
   );
   treeView.updateNode(
     scopeId,
@@ -2782,10 +2791,11 @@ function _buildVariableContextForNode(nodeId, node = null) {
   // Variables are stored canonically as arrays; the resolver consumes maps,
   // so flatten each scope (and every folder-chain node) here at the boundary.
   // Each folder resolves under the collection's ACTIVE profile: its Default
-  // variables with the active profile's value overrides applied (Default names +
-  // secure flags are unchanged). A blank profile value falls through to the
-  // Default's value — resolvedProfileVars, not effectiveProfileVars (which keeps
-  // the blank for the editor). The active profile is live at send time.
+  // variables with the active profile's overrides applied (Default names + secure
+  // flags unchanged). By presence, a variable the profile overrides uses its
+  // stored value (empty included) and one it doesn't inherits the Default —
+  // resolvedProfileVars, not effectiveProfileVars (which blanks inheriting values
+  // for the editor). The active profile is live at send time.
   const activeProfileId = _activeProfileId();
   const folderChain = (
     treeView && nodeId ? buildFolderChain(treeView.getItems(), nodeId) : []
@@ -3918,6 +3928,9 @@ function installKeyboardShortcuts() {
   const openShortcuts = () => {
     if (!popupVisible) KeyboardShortcuts.open();
   };
+  const openAbout = () => {
+    if (!popupVisible) AboutDialog.open();
+  };
   const cycleLayout = () => {
     if (popupVisible) return;
     const next = (_currentLayout % 4) + 1; // 1→2→3→4→1
@@ -3964,6 +3977,7 @@ function installKeyboardShortcuts() {
   window.addEventListener("hippo:new-ws-request", newWsRequest);
   window.addEventListener("hippo:open-settings", openSettings);
   window.addEventListener("hippo:keyboard-shortcuts", openShortcuts);
+  window.addEventListener("hippo:show-about", openAbout);
   window.addEventListener("hippo:cycle-layout", cycleLayout);
 }
 

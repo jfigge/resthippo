@@ -251,6 +251,17 @@
     "enable": "{noun}を有効化",
     "disable": "{noun}を無効化"
   },
+  "about": {
+    "name": "Rest Hippo",
+    "subtitle": "REST API クライアント",
+    "description": "デスクトップ HTTP テストツール",
+    "credit": "作成: Jason、コーディング: Claude",
+    "versionInfo": "バージョン情報",
+    "version": "バージョン",
+    "branch": "ブランチ",
+    "commit": "コミット",
+    "devBuild": "開発ビルド"
+  },
   "menu": {
     "cut": "切り取り",
     "copy": "コピー",
@@ -1389,7 +1400,8 @@
     "limit": "プロファイルは最大{max}個までです",
     "switched": "アクティブなプロファイル: {name}",
     "switcherTitle": "フォルダー変数プロファイルを切り替え",
-    "fallThrough": "デフォルト値にフォールバック"
+    "inheritsDefault": "デフォルト値を継承",
+    "resetToInherit": "リセットしてデフォルト値を継承"
   },
   "passwordPrompt": {
     "exportTitle": "エクスポートをパスワードで保護",

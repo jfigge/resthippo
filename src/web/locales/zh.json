@@ -251,6 +251,17 @@
     "enable": "启用{noun}",
     "disable": "禁用{noun}"
   },
+  "about": {
+    "name": "Rest Hippo",
+    "subtitle": "REST API 客户端",
+    "description": "桌面 HTTP 测试工具",
+    "credit": "由 Jason 创建，Claude 编写",
+    "versionInfo": "版本信息",
+    "version": "版本",
+    "branch": "分支",
+    "commit": "提交",
+    "devBuild": "开发版本"
+  },
   "menu": {
     "cut": "剪切",
     "copy": "复制",
@@ -1389,7 +1400,8 @@
     "limit": "已达到最多 {max} 个配置文件",
     "switched": "当前配置文件：{name}",
     "switcherTitle": "切换文件夹变量配置文件",
-    "fallThrough": "回退到默认值"
+    "inheritsDefault": "继承默认值",
+    "resetToInherit": "重置为继承默认值"
   },
   "passwordPrompt": {
     "exportTitle": "用密码保护导出",

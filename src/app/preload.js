@@ -78,6 +78,10 @@ ipcRenderer.on("menu:keyboard-shortcuts", () => {
   window.dispatchEvent(new CustomEvent("hippo:keyboard-shortcuts"));
 });
 
+ipcRenderer.on("menu:show-about", () => {
+  window.dispatchEvent(new CustomEvent("hippo:show-about"));
+});
+
 ipcRenderer.on("menu:cycle-layout", () => {
   window.dispatchEvent(new CustomEvent("hippo:cycle-layout"));
 });
@@ -756,8 +760,13 @@ contextBridge.exposeInMainWorld("hippo", {
 
     openThemeEditor: () => ipcRenderer.invoke("ui:open-theme-editor"),
 
-    /** Open the native "About Rest Hippo" window (brand-mark click). */
-    showAbout: () => ipcRenderer.invoke("ui:show-about"),
+    /**
+     * Open a vetted https URL in the OS browser — the About dialog's voluntary
+     * donation link. Rejected (returns false) for any non-https scheme.
+     * @param {string} url
+     * @returns {Promise<boolean>}
+     */
+    openExternal: (url) => ipcRenderer.invoke("ui:open-external", url),
   },
 
   /**

@@ -933,6 +933,55 @@ test("copy-as-curl resolves folder variables under the ACTIVE profile, not alway
   assert.match(copied, /prod\.example\.com/);
 });
 
+test("copy-as-curl resolves profile values by presence: absent inherits, explicit-empty sends empty", async () => {
+  const items = [
+    {
+      id: "c1",
+      type: "collection",
+      name: "API",
+      children: [
+        {
+          id: "f1",
+          type: "collection",
+          name: "Auth",
+          variables: [{ name: "token", value: "default-token", secure: false }],
+          // "inherit" has no override for token; "empty" overrides it to "".
+          profileValues: { inherit: {}, empty: { token: "" } },
+          children: [
+            {
+              id: "r2",
+              type: "request",
+              name: "Login",
+              method: "GET",
+              url: "/x?t={{token}}",
+            },
+          ],
+        },
+      ],
+    },
+  ];
+  const tv = mount(items);
+  let copied = "";
+  Object.defineProperty(globalThis.navigator, "clipboard", {
+    value: {
+      writeText: async (txt) => {
+        copied = txt;
+      },
+    },
+    configurable: true,
+  });
+
+  // No override for token → inherits the Default value.
+  tv.setActiveProfileId("inherit");
+  await contextAction(tv, "r2", "copy-as-curl");
+  assert.match(copied, /default-token/);
+
+  // Explicit empty override → sends empty, does NOT inherit.
+  tv.setActiveProfileId("empty");
+  await contextAction(tv, "r2", "copy-as-curl");
+  assert.doesNotMatch(copied, /default-token/);
+});
+
 // ── Keyboard navigation (roving tabindex) ────────────────────────────────────
 
 test("exactly one row owns tabindex=0 (the single tab stop)", () => {

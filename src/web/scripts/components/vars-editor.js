@@ -239,7 +239,9 @@ export class VarsEditor {
       this.#textareaEl.value = variablesToText(vars);
       this.#applyMode();
     } else {
-      this.#rows = variablesToRows(vars);
+      // Build rows from the raw effective vars (not the normalized copy) so a
+      // named profile's per-variable `overridden` flag reaches the row.
+      this.#rows = variablesToRows(Array.isArray(variables) ? variables : vars);
       this.#applyMode();
       this.#renderRows();
     }
@@ -530,11 +532,17 @@ export class VarsEditor {
    */
   #reconcileToStructure(vars) {
     const byName = new Map(vars.map((v) => [v.name, v.value]));
-    return this.#structureVars.map((s) => ({
-      name: s.name,
-      secure: s.secure,
-      value: byName.has(s.name) ? byName.get(s.name) : "",
-    }));
+    return this.#structureVars.map((s) => {
+      const value = byName.has(s.name) ? byName.get(s.name) : "";
+      // The bulk editor can't express an empty override, so a non-blank value is
+      // an override and a blank inherits the Default (presence heuristic).
+      return {
+        name: s.name,
+        secure: s.secure,
+        value,
+        overridden: value !== "",
+      };
+    });
   }
 
   #handleBulkToggle() {
@@ -583,13 +591,10 @@ export class VarsEditor {
           row,
           rowClass: "vars-kv-row params-row",
           revealMs: VarsEditor.#REVEAL_MS,
-          // On a named profile only VALUES are editable — the name + secure +
-          // delete are frozen to the Default's structure.
+          // On a named profile only VALUES are editable — the name + secure are
+          // frozen to the Default's structure, and the delete slot becomes the
+          // "reset to inherit" control (buildVariableRow, driven by lockStructure).
           lockStructure: !editable,
-          // On a named profile a blank value falls through to the Default's value
-          // at send time — hint that in the empty field (the placeholder only
-          // shows while the field is empty, i.e. exactly when it falls through).
-          valuePlaceholder: editable ? undefined : t("profiles.fallThrough"),
           // Debounced: fires per keystroke as the user edits a name/value.
           onChange: () => this.#debouncedSave(),
           onEnter: editable ? () => this.#addRow() : undefined,
@@ -600,6 +605,9 @@ export class VarsEditor {
                 this.#saveFromRows();
               }
             : undefined,
+          // Named profile: dropping an override (reset to inherit) mutates the row
+          // in place; persist the new presence state.
+          onResetInherit: editable ? undefined : () => this.#saveFromRows(),
         }),
       ),
     );
@@ -619,19 +627,27 @@ export class VarsEditor {
 
   #saveFromBulk() {
     if (!this.#scopeId) return;
+    // Bulk text can't express an empty override, so leave `overrides` unset and
+    // let applyProfileEdit fall back to "non-blank value = override".
     this.#dispatchSave(textToVariables(this.#textareaEl.value));
   }
 
   #saveFromRows() {
     if (!this.#scopeId) return;
-    this.#dispatchSave(rowsToVariables(this.#rows));
+    // On a named profile the KV table knows exactly which rows are explicit
+    // overrides (presence) — pass their names so an empty override is preserved.
+    const overrides = this.#canEditStructure
+      ? undefined
+      : this.#rows.filter((r) => r.overridden).map((r) => r.name);
+    this.#dispatchSave(rowsToVariables(this.#rows), overrides);
   }
 
-  #dispatchSave(variables) {
+  #dispatchSave(variables, overrides) {
     this.#onSave?.({
       scopeId: this.#scopeId,
       profileId: this.#activeProfileId,
       variables,
+      overrides,
     });
   }
 }

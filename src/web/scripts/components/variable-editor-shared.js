@@ -78,13 +78,19 @@ export function textToVariables(text) {
   return out;
 }
 
-/** Convert a canonical variables array to an editor rows array (adds row ids). */
+/**
+ * Convert a canonical variables array to an editor rows array (adds row ids).
+ * A per-variable `overridden` flag (folder-variable profiles) is carried through
+ * onto the row when present, so a named-profile row remembers whether its value
+ * is an explicit override or an inherited blank.
+ */
 export function variablesToRows(vars) {
-  return vars.map((v) => ({
+  return (Array.isArray(vars) ? vars : []).map((v) => ({
     id: crypto.randomUUID(),
     name: v.name,
     value: v.value,
     secure: !!v.secure,
+    ...(v.overridden !== undefined ? { overridden: !!v.overridden } : {}),
   }));
 }
 
@@ -118,22 +124,25 @@ export function rowsToVariables(rows) {
  *   onEnter()  — Enter pressed in the name or value input (append a new row)
  *   onDelete() — a confirmed delete (remove this row, re-render, save)
  *
- * When `lockStructure` is true the row's SET is frozen: the name is read-only,
- * and the per-row secure (lock) and delete buttons are shown but disabled. The
- * value input and its reveal (eye) toggle stay editable. Used by named
- * folder-variable profiles, where only the Default profile owns the variable set.
+ * When `lockStructure` is true the row's SET is frozen: the name is read-only and
+ * the per-row secure (lock) toggle is shown but disabled. This is the named
+ * folder-variable profile case, where only the Default profile owns the set. On
+ * such a row the VALUE inherits the Default unless it is an explicit override
+ * (`row.overridden`): an inheriting row shows an "inherits default" placeholder,
+ * and typing a value makes it an override; the delete slot becomes a
+ * "reset to inherit" control (enabled only while overriding) that drops the
+ * override again via `onResetInherit`.
  *
  * @param {object} opts
- * @param {{id:string,name:string,value:string,secure:boolean}} opts.row
+ * @param {{id:string,name:string,value:string,secure:boolean,overridden?:boolean}} opts.row
  * @param {string}  opts.rowClass        — row element class (e.g. "vars-kv-row params-row")
  * @param {number} [opts.revealMs=30000] — auto re-mask delay after reveal
- * @param {boolean} [opts.lockStructure=false] — freeze name + secure + delete (values only)
- * @param {string} [opts.valuePlaceholder] — placeholder for the value input (e.g.
- *                 a named profile's "falls through to default" hint); defaults to
- *                 the generic value placeholder.
+ * @param {boolean} [opts.lockStructure=false] — named profile: freeze name/secure, values inherit-or-override
+ * @param {string} [opts.valuePlaceholder] — placeholder for the value input (non-inheriting rows); defaults to the generic value placeholder
  * @param {() => void} [opts.onChange]
  * @param {() => void} [opts.onEnter]
  * @param {() => void} [opts.onDelete]
+ * @param {() => void} [opts.onResetInherit] — named profile: drop this override (back to inheriting the Default)
  * @returns {HTMLElement}
  */
 export function buildVariableRow({
@@ -145,6 +154,7 @@ export function buildVariableRow({
   onChange,
   onEnter,
   onDelete,
+  onResetInherit,
 }) {
   const el = document.createElement("div");
   el.className = rowClass;
@@ -173,16 +183,36 @@ export function buildVariableRow({
   const valWrap = document.createElement("div");
   valWrap.className = "params-value-wrap";
 
+  // On a named profile (lockStructure) a value INHERITS the Default unless it is
+  // an explicit override. `resetBtn`/`syncInherit` (defined with the delete slot
+  // below) keep the placeholder, row state and reset control in step.
+  const inheritable = lockStructure;
+  let resetBtn = null;
+  const syncInherit = () => {
+    const inheriting = inheritable && !row.overridden;
+    // Inheriting → hint that it falls back to the Default; else the generic (or
+    // caller-supplied) placeholder. The placeholder only shows while empty.
+    valIn.placeholder = inheriting
+      ? t("profiles.inheritsDefault")
+      : (valuePlaceholder ?? t("kv.value"));
+    el.classList.toggle("vars-kv-row--inherited", inheriting);
+    if (resetBtn) resetBtn.disabled = !row.overridden;
+  };
+
   const valIn = document.createElement("input");
   valIn.type = "text";
   valIn.className = "params-input params-value";
-  // The placeholder shows only while the field is empty — on a named profile that
-  // is exactly the "falls through to default" case, so callers pass that hint.
   valIn.placeholder = valuePlaceholder ?? t("kv.value");
   valIn.value = row.value;
   valIn.setAttribute("aria-label", t("vars.value"));
   valIn.addEventListener("input", () => {
     row.value = valIn.value;
+    // First edit on an inheriting row turns it into an explicit override (it stays
+    // one even if cleared to empty — "reset to inherit" is the way back).
+    if (inheritable && !row.overridden) {
+      row.overridden = true;
+      syncInherit();
+    }
     onChange?.();
   });
   valIn.addEventListener("keydown", (e) => {
@@ -257,15 +287,28 @@ export function buildVariableRow({
   }
 
   const del = document.createElement("button");
-  del.className = "icon-btn params-delete-btn";
-  del.title = t("vars.delete");
-  del.setAttribute("aria-label", t("vars.delete"));
-  del.disabled = lockStructure;
+  del.type = "button";
   if (lockStructure) {
-    // Disabled on a non-Default profile: show the resting trash icon without the
-    // confirm behaviour (wireDeleteConfirm normally sets the icon itself).
-    del.innerHTML = icon("trash", { size: 13 });
+    // Named profile: the delete slot RESETS the value to inherit the Default
+    // (drops the override) — the set is owned by the Default, so there's nothing
+    // to delete. Enabled only while this row is an explicit override.
+    del.className = "icon-btn params-inherit-btn";
+    del.innerHTML = icon("revert", { size: 14 });
+    del.title = t("profiles.resetToInherit");
+    del.setAttribute("aria-label", t("profiles.resetToInherit"));
+    del.addEventListener("click", () => {
+      if (!row.overridden) return;
+      row.overridden = false;
+      row.value = "";
+      valIn.value = "";
+      syncInherit();
+      onResetInherit?.();
+    });
+    resetBtn = del;
   } else {
+    del.className = "icon-btn params-delete-btn";
+    del.title = t("vars.delete");
+    del.setAttribute("aria-label", t("vars.delete"));
     wireDeleteConfirm(del, () => onDelete?.());
   }
 
@@ -276,5 +319,6 @@ export function buildVariableRow({
 
   applySecure();
   applyMask();
+  syncInherit();
   return el;
 }

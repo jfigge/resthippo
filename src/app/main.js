@@ -82,7 +82,6 @@ let _devServerProcess = null;
 // Tracks the main BrowserWindow and an optional WebContentsView overlay that
 // renders live HTML responses inside the response body pane.
 let _mainWin = null; // set once createWindow() runs
-let _aboutWin = null; // singleton about window
 let _themeEditorWin = null; // singleton theme editor window
 let _docsWin = null; // singleton user-guide window
 let _htmlPreviewView = null; // WebContentsView instance, created lazily
@@ -1765,7 +1764,10 @@ ipcMain.handle(
   },
 );
 
-// ─── About dialog ─────────────────────────────────────────────────────────────
+// ─── App revision info ────────────────────────────────────────────────────────
+// The About UI now lives in the renderer (components/about-dialog.js), opened from
+// the brand-mark click and the Help ▸ About menu; it reads version/build metadata
+// over app:info:get (collectAppInfo, below). This just parses REVISION_INFO.txt.
 function readRevisionInfo() {
   const candidates = [
     path.join(__dirname, "..", "REVISION_INFO.txt"), // packaged / build/src/
@@ -1785,87 +1787,6 @@ function readRevisionInfo() {
     }
   }
   return null;
-}
-
-function showAboutDialog() {
-  // Bring existing window to front rather than opening a second one
-  if (_aboutWin) {
-    _aboutWin.focus();
-    return;
-  }
-
-  const rev = readRevisionInfo();
-
-  // Read the current theme so the about window matches the app's colour scheme
-  let theme = "grey-dark";
-  try {
-    const manifest = getStores().collectionStore().getManifest();
-    theme = manifest?.settings?.theme ?? "grey-dark";
-  } catch {
-    /* fall back to default theme */
-  }
-
-  // Build query params carrying dynamic data into the static HTML page
-  const query = { theme };
-  if (rev) {
-    if (rev.VERSION) query.version = rev.VERSION;
-    if (rev.BRANCH) query.branch = rev.BRANCH;
-    if (rev.COMMIT) query.commit = rev.COMMIT;
-  }
-
-  // Carry the (localized) voluntary-donation affordance into the static page.
-  // about.html can't reach the renderer's t(), so the label is resolved here via
-  // the main-process catalog and the destination travels alongside it; the link
-  // opens through the window-open handler registered below (https-only). Omitted
-  // in the Mac App Store build (Apple Guideline 3.1.1 bars external non-IAP
-  // purchase links); shown in Microsoft Store + direct builds. See store-build.js.
-  // Without both params about.html leaves the #support link hidden.
-  if (!isMas()) {
-    query.support = activeLabels()("menu.support", "Support Rest Hippo…");
-    query.donate = DONATE_URL;
-  }
-
-  _aboutWin = new BrowserWindow({
-    width: 360,
-    height: 500,
-    resizable: false,
-    minimizable: false,
-    maximizable: false,
-    fullscreenable: false,
-    autoHideMenuBar: true,
-    title: activeLabels()("menu.about", "About Rest Hippo"),
-    icon: appIcon,
-    backgroundColor: "#1e1e2e",
-    parent: _mainWin ?? undefined,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-
-  _aboutWin.loadFile(path.join(__dirname, "..", "web", "about.html"), {
-    query,
-  });
-
-  // The only external link in the About window is the voluntary donation link.
-  // Route its target=_blank open to the OS browser and hand the OS nothing but a
-  // vetted https URL (stricter than the main window's http/https/mailto set —
-  // there is no other link here to allow).
-  _aboutWin.webContents.setWindowOpenHandler(({ url }) => {
-    let scheme = "";
-    try {
-      scheme = new URL(url).protocol;
-    } catch {
-      return { action: "deny" };
-    }
-    if (scheme === "https:") shell.openExternal(url).catch(() => {});
-    return { action: "deny" };
-  });
-
-  _aboutWin.once("closed", () => {
-    _aboutWin = null;
-  });
 }
 
 // ─── Theme editor ─────────────────────────────────────────────────────────────
@@ -1968,7 +1889,21 @@ function showDocsWindow() {
 
 (function initThemeEditorIPC() {
   ipcMain.handle("ui:open-theme-editor", () => showThemeEditor());
-  ipcMain.handle("ui:show-about", () => showAboutDialog());
+  // Open a vetted https URL in the OS browser (the About dialog's voluntary
+  // donation link). https-only — the renderer never hands us anything else here.
+  ipcMain.handle("ui:open-external", (_e, url) => {
+    let scheme = "";
+    try {
+      scheme = new URL(String(url)).protocol;
+    } catch {
+      return false;
+    }
+    if (scheme === "https:") {
+      shell.openExternal(String(url)).catch(() => {});
+      return true;
+    }
+    return false;
+  });
   ipcMain.on("theme:preview", (_e, themeData) => {
     if (_mainWin && !_mainWin.isDestroyed())
       _mainWin.webContents.send("theme:preview", themeData);
@@ -2055,6 +1990,10 @@ function collectAppInfo() {
     // "store" for Mac App Store / Microsoft Store builds (self-updates handled by
     // the store), "direct" for the GitHub-release builds. See store-build.js.
     distribution: distribution(),
+    // Voluntary donation URL for the About dialog's "Support" link, or null when
+    // it must be hidden — the Mac App Store bars external non-IAP purchase links
+    // (Apple Guideline 3.1.1). Shown in Microsoft Store + direct builds.
+    donate: isMas() ? null : DONATE_URL,
   };
 }
 
@@ -2253,7 +2192,13 @@ function buildMenu() {
       label: "Rest Hippo", // app name — proper noun, shown verbatim in every locale
       // keep Rest Hippo app menu first on macOS
       submenu: [
-        { label: m("menu.about", "About Rest Hippo"), click: showAboutDialog },
+        {
+          label: m("menu.about", "About Rest Hippo"),
+          click: () => {
+            if (_mainWin && !_mainWin.isDestroyed())
+              _mainWin.webContents.send("menu:show-about");
+          },
+        },
         {
           label: m("menu.themeEditor", "Theme Editor…"),
           click: showThemeEditor,

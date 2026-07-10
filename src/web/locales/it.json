@@ -254,6 +254,17 @@
     "enable": "Abilita {noun}",
     "disable": "Disabilita {noun}"
   },
+  "about": {
+    "name": "Rest Hippo",
+    "subtitle": "Client API REST",
+    "description": "Uno strumento desktop per test HTTP",
+    "credit": "Creato da Jason, programmato da Claude",
+    "versionInfo": "Informazioni sulla versione",
+    "version": "Versione",
+    "branch": "Branch",
+    "commit": "Commit",
+    "devBuild": "build di sviluppo"
+  },
   "menu": {
     "cut": "Taglia",
     "copy": "Copia",
@@ -1396,7 +1407,8 @@
     "limit": "Numero massimo di {max} profili raggiunto",
     "switched": "Profilo attivo: {name}",
     "switcherTitle": "Cambia profilo variabili cartella",
-    "fallThrough": "Usa il valore predefinito"
+    "inheritsDefault": "Eredita il valore predefinito",
+    "resetToInherit": "Reimposta per ereditare il valore predefinito"
   },
   "passwordPrompt": {
     "exportTitle": "Proteggi l'esportazione con password",

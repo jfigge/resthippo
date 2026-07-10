@@ -29,17 +29,21 @@
  *     flag always come from `node.variables`**, and only a Default edit can add,
  *     remove, or rename a variable (or flip its secure flag). Every named profile
  *     shares that exact name set.
- *   • A named profile stores ONLY values, keyed by name. In the EDITOR a name it
- *     has no stored value for shows **blank** (it is not pre-filled with the
- *     Default) so you can see which values the profile actually overrides. So a
- *     brand-new profile (or a folder never edited under an existing profile)
- *     shows the Default's names with cleared values, ready for the user to fill
- *     in; the values a user leaves unset stay blank.
- *   • At SEND time a blank profile value **falls through to the Default's value**
- *     (`resolvedProfileVars`): a profile only needs to carry the variables that
- *     differ from the Default, and the editor hints "falls through to default"
- *     on each blank field. `effectiveProfileVars` (blank, for the editor) and
- *     `resolvedProfileVars` (fall-through, for sending) are the two views.
+ *   • A named profile stores ONLY values, keyed by name — and does so by
+ *     **presence**: a name PRESENT in `profileValues[profileId]` is an explicit
+ *     override (used verbatim, even when its value is an empty string); a name
+ *     ABSENT from the map **inherits** the Default's value. This is the same
+ *     model Postman uses for scope layering — "unset" and "explicitly empty" are
+ *     distinct, per variable, with no global mode switch.
+ *   • The EDITOR reflects that per row: an inheriting (absent) name shows blank
+ *     with an "inherits default" hint and no override; typing a value (or
+ *     clearing it to empty) makes it an explicit override; a "reset to inherit"
+ *     control drops the override again. `effectiveProfileVars` carries an
+ *     `overridden` flag per variable so the editor can render this.
+ *   • At SEND time (`resolvedProfileVars`) a present name resolves to its stored
+ *     value (empty included), an absent name to the Default's value. So a profile
+ *     only needs to carry the variables that differ, yet can still force a
+ *     genuinely empty value where wanted.
  *   • Editing a named profile can only change VALUES. Names + secure flags are
  *     taken from the Default: a name in the edit that is not in the Default set
  *     is ignored, and a Default name the edit dropped (e.g. deleted in the bulk
@@ -66,57 +70,59 @@ const has = (obj, key) =>
   obj != null && Object.prototype.hasOwnProperty.call(obj, key);
 
 /**
- * The effective `[{name,value,secure}]` to SHOW in the editor for a folder under
- * a given profile. Names + secure flags always come from the Default set. For a
- * named profile the value is that profile's own stored value, or **blank** when
- * it has no stored value for a name — the editor deliberately shows the blank
- * (rather than pre-filling the Default) so you can see which values the profile
- * overrides. For what a blank actually resolves to at send time, see
- * {@link resolvedProfileVars}.
+ * The effective variables to SHOW in the editor for a folder under a given
+ * profile. Names + secure flags always come from the Default set. For the Default
+ * profile this is just the canonical `{name,value,secure}` set. For a named
+ * profile each entry also carries `overridden` — whether the profile has an
+ * explicit value for that name (present in the map). An overriding entry shows its
+ * stored value (empty included); an inheriting entry shows **blank** (the editor
+ * renders an "inherits default" hint rather than pre-filling the Default), so you
+ * can see which values the profile overrides. See {@link resolvedProfileVars} for
+ * what each resolves to at send time.
  *
  * @param {Array|object} defaultVars     The folder's Default profile variables.
  * @param {object} [profileValues]       `{ [profileId]: { [name]: value } }`.
  * @param {string|null} [profileId]      Active profile (null/"" = Default).
- * @returns {{name:string,value:string,secure:boolean}[]}
+ * @returns {{name:string,value:string,secure:boolean,overridden?:boolean}[]}
  */
 export function effectiveProfileVars(defaultVars, profileValues, profileId) {
   const base = normalizeVariables(defaultVars);
-  if (!profileId) return base; // Default profile (blank name)
+  if (!profileId) return base; // Default profile (blank name) — no override concept
   const values = profileValues?.[profileId];
-  return base.map((v) => ({
-    name: v.name,
-    secure: v.secure,
-    value: has(values, v.name) ? values[v.name] : "",
-  }));
+  return base.map((v) => {
+    const overridden = has(values, v.name);
+    return {
+      name: v.name,
+      secure: v.secure,
+      value: overridden ? values[v.name] : "", // inheriting shows blank in the editor
+      overridden,
+    };
+  });
 }
 
 /**
- * The effective `[{name,value,secure}]` to RESOLVE (send / preview / cURL) for a
- * folder under a given profile. Identical to {@link effectiveProfileVars} except
- * a **blank** profile value falls through to the Default's value — so a named
- * profile only needs to carry the variables that differ from the Default, and an
- * empty override never wipes a working Default value at send time. (A profile
- * value the user genuinely wants empty resolves empty on the Default too, so the
- * fall-through is a no-op there.)
+ * The effective `[{name,value,secure}]` to RESOLVE (send / preview / cURL / code
+ * generation) for a folder under a given profile. Names + secure flags always
+ * come from the Default. Values resolve by **presence** (the same distinction the
+ * editor shows): a name the profile has an explicit override for resolves to that
+ * stored value — empty included — while a name it does not override inherits the
+ * Default's value.
  *
- * @param {Array|object} defaultVars     The folder's Default profile variables.
- * @param {object} [profileValues]       `{ [profileId]: { [name]: value } }`.
- * @param {string|null} [profileId]      Active profile (null/"" = Default).
+ * @param {Array|object} defaultVars      The folder's Default profile variables.
+ * @param {object} [profileValues]        `{ [profileId]: { [name]: value } }`.
+ * @param {string|null} [profileId]       Active profile (null/"" = Default).
  * @returns {{name:string,value:string,secure:boolean}[]}
  */
 export function resolvedProfileVars(defaultVars, profileValues, profileId) {
   const base = normalizeVariables(defaultVars);
   if (!profileId) return base; // Default profile (blank name)
   const values = profileValues?.[profileId];
-  return base.map((v) => {
-    const stored = has(values, v.name) ? values[v.name] : "";
-    // Blank (unset or explicitly empty) → fall through to the Default's value.
-    return {
-      name: v.name,
-      secure: v.secure,
-      value: stored !== "" ? stored : v.value,
-    };
-  });
+  return base.map((v) => ({
+    name: v.name,
+    secure: v.secure,
+    // Present (override) → stored value, even ""; absent → inherit the Default.
+    value: has(values, v.name) ? values[v.name] : v.value,
+  }));
 }
 
 /**
@@ -128,16 +134,20 @@ export function resolvedProfileVars(defaultVars, profileValues, profileId) {
  *     names (their stored values are otherwise untouched — they do not follow a
  *     Default value change).
  *   • A named profile  → the variable SET is immutable here (it stays the current
- *     Default). The edited values rebuild that profile's value map by name: a
- *     Default name present in the edit takes its value; a Default name the edit
- *     dropped is restored blank; a name in the edit that is not in the Default
- *     set is ignored. Blank values are left unstored (they render blank anyway),
- *     keeping the map sparse.
+ *     Default). The edit rebuilds that profile's value map by presence: a name
+ *     the edit marks as an OVERRIDE is stored (empty value included); a name it
+ *     does not override is left unstored so it inherits the Default. `overrideNames`
+ *     names the explicit overrides (the KV table knows them exactly); when it is
+ *     omitted — the bulk editor, which can't express an empty override — a name
+ *     falls back to "override iff its edited value is non-blank" (blank → inherit).
+ *     Names outside the Default set are ignored.
  *
  * @param {{variables?:Array, profileValues?:object}} current
  * @param {string|null} profileId          Active profile (null/"" = Default).
  * @param {Array} editedVars               Effective vars emitted by the editor.
  * @param {string[]} [profileIds]          Every named profile id in the collection.
+ * @param {string[]|null} [overrideNames]  Names explicitly overridden (KV table);
+ *                                          null/undefined → bulk fallback (non-blank).
  * @returns {{ variables: Array, profileValues: object }}
  */
 export function applyProfileEdit(
@@ -145,6 +155,7 @@ export function applyProfileEdit(
   profileId,
   editedVars,
   profileIds = [],
+  overrideNames = null,
 ) {
   const edited = normalizeVariables(editedVars);
   const prevDefault = normalizeVariables(current?.variables);
@@ -160,16 +171,21 @@ export function applyProfileEdit(
 
   const names = new Set(variables.map((v) => v.name));
   const editedByName = new Map(edited.map((v) => [v.name, v.value]));
+  const overrideSet = Array.isArray(overrideNames)
+    ? new Set(overrideNames)
+    : null;
   const profileValues = {};
   for (const pid of profileIds) {
     const map = {};
     if (!isDefault && pid === profileId) {
-      // The edited profile: rebuild its values from the Default name set. A name
-      // in the edit takes its value; a Default name the edit dropped is restored
-      // blank; names outside the Default set are ignored. Blank stays unstored.
+      // The edited profile: store only the names the edit marks as overrides
+      // (presence). With an explicit override set an empty override is kept; the
+      // bulk fallback treats any non-blank value as an override. Others inherit.
       for (const name of names) {
-        const val = editedByName.has(name) ? editedByName.get(name) : "";
-        if (val !== "") map[name] = val;
+        if (!editedByName.has(name)) continue;
+        const val = editedByName.get(name);
+        const isOverride = overrideSet ? overrideSet.has(name) : val !== "";
+        if (isOverride) map[name] = val;
       }
     } else {
       // An untouched profile: carry its stored values forward, dropping any for

@@ -43,29 +43,40 @@ const dflt = [
   { name: "key", value: "dev-key", secure: true },
 ];
 
-/** The Default names + secure flags, all values cleared to blank. */
-const dfltCleared = [
-  { name: "host", value: "", secure: false },
-  { name: "key", value: "", secure: true },
-];
-
 test("effectiveProfileVars: Default profile returns the canonical default set", () => {
   assert.deepEqual(effectiveProfileVars(dflt, {}, null), dflt);
   assert.deepEqual(effectiveProfileVars(dflt, {}, ""), dflt);
 });
 
-test("effectiveProfileVars: a new/unseen profile shows the Default names with BLANK values", () => {
-  // No stored values for "prod" → Default names + secure flags, values cleared.
-  assert.deepEqual(effectiveProfileVars(dflt, {}, "prod"), dfltCleared);
-  assert.deepEqual(effectiveProfileVars(dflt, undefined, "prod"), dfltCleared);
+test("effectiveProfileVars: a new/unseen profile shows the Default names, all INHERITING (blank, not overridden)", () => {
+  const inheriting = [
+    { name: "host", value: "", secure: false, overridden: false },
+    { name: "key", value: "", secure: true, overridden: false },
+  ];
+  assert.deepEqual(effectiveProfileVars(dflt, {}, "prod"), inheriting);
+  assert.deepEqual(effectiveProfileVars(dflt, undefined, "prod"), inheriting);
 });
 
-test("effectiveProfileVars: a profile's stored values win; unset names stay blank (no inherit)", () => {
-  const pv = { prod: { host: "prod.example.com" } }; // only host set
+test("effectiveProfileVars: presence marks overrides — a present name (even empty) is overridden; an absent name inherits (blank)", () => {
+  // key is present with an empty value → an EXPLICIT empty override.
+  const pv = { prod: { host: "prod.example.com", key: "" } };
   assert.deepEqual(effectiveProfileVars(dflt, pv, "prod"), [
-    { name: "host", value: "prod.example.com", secure: false },
-    { name: "key", value: "", secure: true }, // unset → blank, NOT the Default value
+    {
+      name: "host",
+      value: "prod.example.com",
+      secure: false,
+      overridden: true,
+    },
+    { name: "key", value: "", secure: true, overridden: true },
   ]);
+  // With key absent it inherits → shown blank + not overridden.
+  assert.deepEqual(
+    effectiveProfileVars(dflt, { prod: { host: "p" } }, "prod"),
+    [
+      { name: "host", value: "p", secure: false, overridden: true },
+      { name: "key", value: "", secure: true, overridden: false },
+    ],
+  );
 });
 
 test("resolvedProfileVars: Default profile resolves to the canonical default set", () => {
@@ -73,23 +84,23 @@ test("resolvedProfileVars: Default profile resolves to the canonical default set
   assert.deepEqual(resolvedProfileVars(dflt, {}, ""), dflt);
 });
 
-test("resolvedProfileVars: a blank profile value FALLS THROUGH to the Default's value", () => {
-  const pv = { prod: { host: "prod.example.com" } }; // only host overridden
+test("resolvedProfileVars: an overridden name uses its value; an ABSENT name inherits the Default", () => {
+  const pv = { prod: { host: "prod.example.com" } }; // key absent
   assert.deepEqual(resolvedProfileVars(dflt, pv, "prod"), [
-    { name: "host", value: "prod.example.com", secure: false }, // override wins
-    { name: "key", value: "dev-key", secure: true }, // unset → the Default value
+    { name: "host", value: "prod.example.com", secure: false }, // override
+    { name: "key", value: "dev-key", secure: true }, // inherit
   ]);
 });
 
-test("resolvedProfileVars: an explicitly-empty override also falls through (empty = fall through)", () => {
-  const pv = { prod: { host: "" } }; // host set to blank
+test("resolvedProfileVars: an explicit EMPTY override resolves empty (does NOT inherit)", () => {
+  const pv = { prod: { host: "" } }; // host present with "" → explicit empty
   assert.deepEqual(resolvedProfileVars(dflt, pv, "prod"), [
-    { name: "host", value: "dev.example.com", secure: false }, // blank → Default
-    { name: "key", value: "dev-key", secure: true },
+    { name: "host", value: "", secure: false }, // explicit empty, not the Default
+    { name: "key", value: "dev-key", secure: true }, // absent → inherit
   ]);
 });
 
-test("resolvedProfileVars: an unseen profile resolves entirely to the Default's values", () => {
+test("resolvedProfileVars: an unseen profile inherits every Default value", () => {
   assert.deepEqual(resolvedProfileVars(dflt, {}, "prod"), dflt);
   assert.deepEqual(resolvedProfileVars(dflt, undefined, "prod"), dflt);
 });
@@ -185,6 +196,48 @@ test("applyProfileEdit: a named-profile value equal to the Default is still stor
     host: "dev.example.com",
     key: "dev-key",
   });
+});
+
+test("applyProfileEdit: an explicit override set stores an EMPTY override (presence, not inheritance)", () => {
+  const current = { variables: dflt, profileValues: { prod: {} } };
+  const edited = [
+    { name: "host", value: "prod.example.com", secure: false },
+    { name: "key", value: "", secure: true }, // blank, but explicitly overridden
+  ];
+  // The KV table passes the exact override names — an empty override is kept.
+  const out = applyProfileEdit(
+    current,
+    "prod",
+    edited,
+    ["prod"],
+    ["host", "key"],
+  );
+  assert.deepEqual(out.profileValues.prod, {
+    host: "prod.example.com",
+    key: "", // stored empty override, NOT dropped to inherit
+  });
+});
+
+test("applyProfileEdit: a name omitted from the override set INHERITS (unstored), regardless of its value", () => {
+  const current = { variables: dflt, profileValues: { prod: { host: "old" } } };
+  const edited = [
+    { name: "host", value: "old", secure: false },
+    { name: "key", value: "typed", secure: true },
+  ];
+  // Only "host" is an override; "key" is not, so it is left unstored (inherit)
+  // even though the edit carries a value for it.
+  const out = applyProfileEdit(current, "prod", edited, ["prod"], ["host"]);
+  assert.deepEqual(out.profileValues.prod, { host: "old" });
+});
+
+test("applyProfileEdit: without an override set (bulk), non-blank overrides and blank inherits", () => {
+  const current = { variables: dflt, profileValues: { prod: {} } };
+  const edited = [
+    { name: "host", value: "prod.example.com", secure: false }, // override
+    { name: "key", value: "", secure: true }, // blank → inherit (bulk can't force empty)
+  ];
+  const out = applyProfileEdit(current, "prod", edited, ["prod"]); // no overrideNames
+  assert.deepEqual(out.profileValues.prod, { host: "prod.example.com" });
 });
 
 test("applyProfileEdit: a profile's unset value does NOT follow a later Default change", () => {

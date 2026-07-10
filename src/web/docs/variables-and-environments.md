@@ -80,24 +80,25 @@ toolbar**:
 
 How values behave:
 
-- **Selecting a profile** shows that profile's own values. A variable you haven't
-  given a value in that profile stays **blank** in the editor — the field shows a
-  _"falls through to default value"_ hint rather than pre-filling the Default, so
-  you can see exactly which values the profile overrides. Opening a folder for the
-  first time under a profile likewise shows the Default's names with cleared values.
-- **A blank profile value falls through to the Default at send time.** You only
-  need to set the variables that _differ_ from the Default; anything left blank in
-  the profile resolves to the Default's value when a request runs (a profile is an
-  overlay of overrides, not a full replacement). Give a variable its own value to
-  override the Default; clear it again to fall back.
+- **A profile overrides only what you set; everything else inherits the Default.**
+  Each variable in a named profile is either **inherited** (you haven't given it a
+  value — it resolves to the Default's value) or an **override** (you've set your
+  own). This is per variable, so a profile is an overlay of just the differences —
+  the same everywhere a variable resolves: sending, the URL preview, generated
+  cURL, and code snippets.
+- **In the editor**, an inheriting field is blank with an _"inherits default
+  value"_ hint; typing a value makes it an override. A **↺ reset** button (in place
+  of the row's delete) drops an override so the variable inherits again — it's
+  enabled only while the row is an override. Because inherit vs. override is tracked
+  per variable, you _can_ deliberately override to an **empty** value (clear an
+  override's text but don't reset it): that sends a genuine blank rather than
+  inheriting. (The **bulk editor** can't tell an empty override from an inherit, so
+  there a blank line means _inherit_; use the table editor to force an empty value.)
 - **The variable set is fixed outside the Default.** On a named profile the editor
-  locks structure — you can edit **values** only; the name fields are read-only
-  and the add / delete / secure controls are disabled. Add, rename, or remove a
-  variable on the **Default** profile and every profile picks up the change (a new
-  variable appears blank; a removed one drops out). In the **bulk editor** on a
-  named profile you can type freely, but on save any line whose name isn't in the
-  Default set is ignored, and a Default variable you deleted is restored with a
-  blank value.
+  locks structure — you can edit **values** only; the name fields are read-only and
+  the secure toggle is disabled. Add, rename, or remove a variable on the
+  **Default** profile and every profile picks up the change (a new variable is
+  inherited everywhere; a removed one drops out).
 - **Switching folders** keeps your selected profile; the editor just re-shows the
   new folder's variables under it.
 

@@ -254,6 +254,17 @@
     "enable": "Enable {noun}",
     "disable": "Disable {noun}"
   },
+  "about": {
+    "name": "Rest Hippo",
+    "subtitle": "REST API Client",
+    "description": "A desktop HTTP testing tool",
+    "credit": "Created by Jason, coded by Claude",
+    "versionInfo": "Version information",
+    "version": "Version",
+    "branch": "Branch",
+    "commit": "Commit",
+    "devBuild": "dev build"
+  },
   "menu": {
     "cut": "Cut",
     "copy": "Copy",
@@ -1396,7 +1407,8 @@
     "limit": "Maximum of {max} profiles reached",
     "switched": "Active profile: {name}",
     "switcherTitle": "Switch folder variables profile",
-    "fallThrough": "Falls through to default value"
+    "inheritsDefault": "Inherits default value",
+    "resetToInherit": "Reset to inherit the default value"
   },
   "passwordPrompt": {
     "exportTitle": "Password-Protect Export",
