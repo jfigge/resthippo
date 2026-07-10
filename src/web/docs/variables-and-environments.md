@@ -71,7 +71,9 @@ toolbar**:
 - **＋ (Add profile)** — always shown. It opens a small popup to name a new
   profile; press **Enter** to create it, or **Escape** / click away to cancel.
   Creating a profile **switches to it** and copies the Default's variable
-  **names** with their values **cleared**, ready for you to fill in.
+  **names** with their values **cleared**, ready for you to fill in. A collection
+  holds up to **nine** named profiles; the ＋ control disables once you reach the
+  limit.
 - **Profile selector** and **🗑 (Delete profile)** — appear once at least one named
   profile exists. The selector lists **Default** plus your named profiles; Delete
   removes the selected profile (Default can't be deleted).
@@ -92,6 +94,11 @@ How values behave:
   blank value.
 - **Switching folders** keeps your selected profile; the editor just re-shows the
   new folder's variables under it.
+
+You can switch the active profile from anywhere with the keyboard:
+**⌥⌘0**–**⌥⌘9** (**Ctrl+Alt+0**–**9** on Windows / Linux). **0** selects the
+Default and **1**–**9** the first through ninth named profiles, in the order they
+appear in the selector; a number with no matching profile does nothing.
 
 The selected profile is **live**: requests in the collection resolve their folder
 variables using the active profile's values, so switching profiles switches which

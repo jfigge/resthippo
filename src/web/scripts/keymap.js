@@ -162,6 +162,15 @@ export const SHORTCUT_GROUPS = [
         wire: true,
         allowWhileTyping: true,
       },
+      // Variable-profile switch (⌥⌘0–9). Display-only here: the digit is a runtime
+      // slot, so app.js handles the whole range via profileShortcutSlot() rather
+      // than a static wired binding. `keysLabel` renders it as one range row.
+      {
+        id: "selectProfile",
+        descKey: "shortcuts.selectProfile",
+        binding: { mod: true, alt: true, key: "0" },
+        keysLabel: profileShortcutLabel,
+      },
     ],
   },
   {
@@ -304,6 +313,39 @@ export function matchesBinding(e, b) {
   return keyMatches(e, b.key);
 }
 
+/**
+ * Match a variable-profile switch shortcut (⌥⌘0–9 on macOS, Ctrl+Alt+0–9 else)
+ * and return the target slot: 0 = the Default profile, 1–9 = the Nth named
+ * profile. Returns -1 when `e` is not such a chord.
+ *
+ * This binding is dynamic (the digit is a runtime index into the collection's
+ * profiles), so it is not a static installKeymap entry — app.js drives it through
+ * a dedicated capture-phase listener. It lives here to keep the binding definition
+ * with the rest of the keymap; the cheat-sheet advertises it as one range row.
+ *
+ * The digit is read from `e.code` (`Digit0`–`Digit9`) rather than `e.key`, since
+ * with ⌥ held macOS composes number keys into symbols (⌥1 → "¡", ⌥8 → "•", …) so
+ * `e.key` is no longer the plain digit — the same reason keyMatches falls back to
+ * `e.code` for Alt chords.
+ * @param {KeyboardEvent} e
+ * @returns {number} 0–9, or -1 when `e` isn't a profile-switch chord
+ */
+export function profileShortcutSlot(e) {
+  const mod = IS_MAC ? e.metaKey : e.ctrlKey;
+  const otherMod = IS_MAC ? e.ctrlKey : e.metaKey;
+  if (!mod || otherMod || !e.altKey || e.shiftKey) return -1;
+  const m = /^Digit([0-9])$/.exec(e.code || "");
+  if (m) return Number(m[1]);
+  // Fallback for environments without a physical `code` (e.g. some test harnesses).
+  if (/^[0-9]$/.test(e.key || "")) return Number(e.key);
+  return -1;
+}
+
+/** Display label for the profile-switch range, e.g. "⌥⌘0–9" / "Ctrl+Alt+0–9". */
+export function profileShortcutLabel() {
+  return `${formatBinding({ mod: true, alt: true, key: "0" })}–9`;
+}
+
 /** Pretty-print one key for display (platform-correct glyphs). */
 function formatKey(key) {
   switch (key) {
@@ -429,7 +471,9 @@ export function shortcutTable() {
     title: t(g.titleKey),
     rows: g.items.map((i) => ({
       desc: t(i.descKey),
-      keys: formatBinding(i.binding),
+      // A dynamic-range binding (e.g. profile switch) supplies its own label; the
+      // rest render their single binding.
+      keys: i.keysLabel ? i.keysLabel() : formatBinding(i.binding),
     })),
   }));
 }

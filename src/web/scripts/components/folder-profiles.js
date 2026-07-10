@@ -47,6 +47,15 @@
 
 import { normalizeVariables } from "./variable-shape.js";
 
+/**
+ * Most NAMED profiles a collection may hold (the Default is implicit and always
+ * present, so this is the cap on user-created profiles). Kept at 9 so the whole
+ * set maps onto the ⌥⌘0–9 switch shortcuts — ⌥⌘0 selects the Default and ⌥⌘1–9
+ * the nine named profiles. Enforced where a profile is created (app.js
+ * `handleProfileAdd`) and mirrored in the editor's [+] control (vars-editor.js).
+ */
+export const MAX_NAMED_PROFILES = 9;
+
 const has = (obj, key) =>
   obj != null && Object.prototype.hasOwnProperty.call(obj, key);
 

@@ -90,6 +90,7 @@ import {
   effectiveProfileVars,
   applyProfileEdit,
   removeProfileFromFolder,
+  MAX_NAMED_PROFILES,
 } from "./components/folder-profiles.js";
 import {
   makeEntry,
@@ -131,7 +132,7 @@ import { installZoomHandlers } from "./event-bus/zoom-handlers.js";
 import { installUpdaterHandlers } from "./event-bus/updater-handlers.js";
 import { installRunFolderHandler } from "./event-bus/run-folder-handlers.js";
 import { PopupManager } from "./popup-manager.js";
-import { installKeymap } from "./keymap.js";
+import { installKeymap, profileShortcutSlot } from "./keymap.js";
 import { KeyboardShortcuts } from "./components/keyboard-shortcuts.js";
 import * as i18n from "./i18n.js";
 import { t } from "./i18n.js";
@@ -1799,6 +1800,12 @@ async function handleProfileAdd({ name }) {
   const trimmed = (name ?? "").trim();
   if (!trimmed || !_activeCollEntry()) return;
   const profiles = _activeProfiles();
+  // Cap named profiles at MAX_NAMED_PROFILES so the set maps onto ⌥⌘1–9. The
+  // editor's [+] is already disabled at the limit; this guards other paths.
+  if (profiles.length >= MAX_NAMED_PROFILES) {
+    Notifications.warning(t("profiles.limit", { max: MAX_NAMED_PROFILES }));
+    return;
+  }
   if (profiles.some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) {
     Notifications.warning(t("profiles.duplicate", { name: trimmed }));
     return;
@@ -1852,6 +1859,31 @@ async function handleProfileSelect({ profileId }) {
   if (_varsScope) _loadFolderVars(_varsScope.nodeId, _varsScope.name);
   _refreshEditorVariableContext(
     currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
+  );
+}
+
+/**
+ * Switch the active collection's variable profile by keyboard SLOT (⌥⌘0–9):
+ * slot 0 = the Default profile, 1–9 = the Nth named profile. Two cases are silent
+ * no-ops: a slot with no matching profile (e.g. ⌥⌘7 with only three profiles), and
+ * a target that is ALREADY active. Only a real switch persists and shows a toast —
+ * the shortcut may fire with no folder open in the vars editor, so the change is
+ * otherwise invisible.
+ */
+function selectProfileBySlot(slot) {
+  if (!_activeCollEntry()) return;
+  let target = null; // null = Default
+  if (slot > 0) {
+    target = _activeProfiles()[slot - 1];
+    if (!target) return; // no profile in that slot
+  }
+  const targetId = target?.id ?? null;
+  if (_activeProfileId() === targetId) return; // already active — do nothing
+  handleProfileSelect({ profileId: targetId });
+  Notifications.info(
+    t("profiles.switched", {
+      name: target ? target.name : t("profiles.default"),
+    }),
   );
 }
 
@@ -3875,6 +3907,23 @@ function installKeyboardShortcuts() {
       collectionVariables: () => openCollectionsEditor("env"),
     },
     { isBlocked: () => popupVisible },
+  );
+
+  // Variable-profile switch (⌥⌘0–9): the digit is a runtime slot into the active
+  // collection's profiles, so this range can't be a static installKeymap entry —
+  // handle it here in the capture phase. Allowed while typing (a collection-wide
+  // state change, like the tab-switch shortcuts), gated behind popups.
+  window.addEventListener(
+    "keydown",
+    (e) => {
+      if (popupVisible) return;
+      const slot = profileShortcutSlot(e);
+      if (slot < 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      selectProfileBySlot(slot);
+    },
+    { capture: true },
   );
 
   window.addEventListener("hippo:new-request", newRequest);

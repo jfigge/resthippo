@@ -19,6 +19,7 @@ to pop up a quick reference to the most common shortcuts inside Rest Hippo.
 | <kbd>⌥⌘</kbd>/<kbd>Ctrl+Alt</kbd>+<kbd>↑</kbd>    | Select the previous request                             |
 | <kbd>⌥⌘</kbd>/<kbd>Ctrl+Alt</kbd>+<kbd>↓</kbd>    | Select the next request                                 |
 | <kbd>⌘/Ctrl</kbd>+<kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> | Switch to the Requests / Favorites / Recent tab   |
+| <kbd>⌥⌘</kbd>/<kbd>Ctrl+Alt</kbd>+<kbd>0</kbd>–<kbd>9</kbd> | Switch the active collection's variable profile (0 = Default, 1–9 = named profiles) |
 | <kbd>⌘/Ctrl</kbd>+<kbd>\\</kbd>                   | Cycle through the panel layouts                         |
 | <kbd>⌘/Ctrl</kbd>+<kbd>,</kbd>                    | Open Settings                                           |
 | <kbd>⌘/Ctrl</kbd>+<kbd>E</kbd>                    | Open the active collection's environments               |

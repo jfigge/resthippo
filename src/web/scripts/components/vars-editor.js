@@ -75,6 +75,7 @@ import {
 } from "./variable-editor-shared.js";
 import { escapeHtml } from "../utils/html.js";
 import { t } from "../i18n.js";
+import { MAX_NAMED_PROFILES } from "./folder-profiles.js";
 
 export class VarsEditor {
   /** @type {HTMLElement} */ #el;
@@ -383,6 +384,14 @@ export class VarsEditor {
       this.#profileRenameBtnEl.disabled = !this.#activeProfileId;
       this.#profileDelBtnEl.disabled = !this.#activeProfileId;
     }
+
+    // Cap creation at MAX_NAMED_PROFILES (⌥⌘1–9 map to the nine slots). At the
+    // limit the [+] is disabled and its tooltip explains why.
+    const atLimit = this.#profiles.length >= MAX_NAMED_PROFILES;
+    this.#profileAddBtnEl.disabled = atLimit;
+    this.#profileAddBtnEl.title = atLimit
+      ? t("profiles.limit", { max: MAX_NAMED_PROFILES })
+      : t("profiles.add");
   }
 
   /** Toggle the [+] popup that names a NEW profile (Enter adds, Esc/away cancels). */

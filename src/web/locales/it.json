@@ -1392,7 +1392,9 @@
     "delete": "Elimina profilo",
     "namePlaceholder": "Nome profilo…",
     "nameAria": "Nome del nuovo profilo",
-    "duplicate": "Esiste già un profilo denominato «{name}»."
+    "duplicate": "Esiste già un profilo denominato «{name}».",
+    "limit": "Numero massimo di {max} profili raggiunto",
+    "switched": "Profilo attivo: {name}"
   },
   "passwordPrompt": {
     "exportTitle": "Proteggi l'esportazione con password",
@@ -1419,6 +1421,7 @@
     "tabRequests": "Mostra la scheda Richieste",
     "tabFavorites": "Mostra la scheda Preferiti",
     "tabRecents": "Mostra la scheda Recenti",
+    "selectProfile": "Cambia profilo variabili (0 = Predefinito)",
     "find": "Cerca nella risposta o filtra la barra laterale",
     "filter": "Filtra il corpo della risposta (JSON / YAML / XML)",
     "selectBody": "Seleziona tutto il corpo della risposta",

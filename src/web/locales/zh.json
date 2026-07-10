@@ -1385,7 +1385,9 @@
     "delete": "删除配置文件",
     "namePlaceholder": "配置文件名称…",
     "nameAria": "新配置文件名称",
-    "duplicate": "已存在名为“{name}”的配置文件。"
+    "duplicate": "已存在名为“{name}”的配置文件。",
+    "limit": "已达到最多 {max} 个配置文件",
+    "switched": "当前配置文件：{name}"
   },
   "passwordPrompt": {
     "exportTitle": "用密码保护导出",
@@ -1412,6 +1414,7 @@
     "tabRequests": "显示“请求”标签页",
     "tabFavorites": "显示“收藏”标签页",
     "tabRecents": "显示“最近”标签页",
+    "selectProfile": "切换变量配置文件（0 = 默认）",
     "find": "在响应中查找，或筛选侧边栏",
     "filter": "筛选响应正文 (JSON / YAML / XML)",
     "selectBody": "选择整个响应正文",

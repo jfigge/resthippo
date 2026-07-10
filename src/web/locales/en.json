@@ -1392,7 +1392,9 @@
     "delete": "Delete profile",
     "namePlaceholder": "Profile name…",
     "nameAria": "New profile name",
-    "duplicate": "A profile named “{name}” already exists."
+    "duplicate": "A profile named “{name}” already exists.",
+    "limit": "Maximum of {max} profiles reached",
+    "switched": "Active profile: {name}"
   },
   "passwordPrompt": {
     "exportTitle": "Password-Protect Export",
@@ -1419,6 +1421,7 @@
     "tabRequests": "Show the Requests tab",
     "tabFavorites": "Show the Favorites tab",
     "tabRecents": "Show the Recent tab",
+    "selectProfile": "Switch variable profile (0 = Default)",
     "find": "Find in response, or filter the sidebar",
     "filter": "Filter the response body (JSON / YAML / XML)",
     "selectBody": "Select the entire response body",

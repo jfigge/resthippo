@@ -98,6 +98,10 @@ export function installZoomHandlers(ctx) {
     "keydown",
     (e) => {
       if (!(e.ctrlKey || e.metaKey)) return;
+      // Font zoom is ⌘/Ctrl + (+|-|0). Ignore Alt-modified combos so ⌥⌘0 /
+      // Ctrl+Alt+0 (the Default variable-profile switch) doesn't also reset the
+      // font — on macOS ⌥ composes the digit away, but Windows/Linux keep "0".
+      if (e.altKey) return;
 
       // Allow normal key combos inside editable inputs/textareas.
       const tag = e.target?.tagName ?? "";

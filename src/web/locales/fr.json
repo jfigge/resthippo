@@ -1392,7 +1392,9 @@
     "delete": "Supprimer le profil",
     "namePlaceholder": "Nom du profil…",
     "nameAria": "Nom du nouveau profil",
-    "duplicate": "Un profil nommé « {name} » existe déjà."
+    "duplicate": "Un profil nommé « {name} » existe déjà.",
+    "limit": "Maximum de {max} profils atteint",
+    "switched": "Profil actif : {name}"
   },
   "passwordPrompt": {
     "exportTitle": "Protéger l'export par mot de passe",
@@ -1419,6 +1421,7 @@
     "tabRequests": "Afficher l’onglet Requêtes",
     "tabFavorites": "Afficher l’onglet Favoris",
     "tabRecents": "Afficher l’onglet Récents",
+    "selectProfile": "Changer de profil de variables (0 = Par défaut)",
     "find": "Rechercher dans la réponse ou filtrer la barre latérale",
     "filter": "Filtrer le corps de la réponse (JSON / YAML / XML)",
     "selectBody": "Sélectionner tout le corps de la réponse",

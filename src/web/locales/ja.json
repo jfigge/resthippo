@@ -1385,7 +1385,9 @@
     "delete": "プロファイルを削除",
     "namePlaceholder": "プロファイル名…",
     "nameAria": "新しいプロファイル名",
-    "duplicate": "「{name}」という名前のプロファイルは既に存在します。"
+    "duplicate": "「{name}」という名前のプロファイルは既に存在します。",
+    "limit": "プロファイルは最大{max}個までです",
+    "switched": "アクティブなプロファイル: {name}"
   },
   "passwordPrompt": {
     "exportTitle": "エクスポートをパスワードで保護",
@@ -1412,6 +1414,7 @@
     "tabRequests": "「リクエスト」タブを表示",
     "tabFavorites": "「お気に入り」タブを表示",
     "tabRecents": "「最近」タブを表示",
+    "selectProfile": "変数プロファイルを切り替え（0 = デフォルト）",
     "find": "レスポンス内を検索、またはサイドバーを絞り込み",
     "filter": "レスポンス本文を絞り込み (JSON / YAML / XML)",
     "selectBody": "レスポンス本文全体を選択",
