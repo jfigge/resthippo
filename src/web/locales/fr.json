@@ -1388,6 +1388,7 @@
     "default": "Par défaut",
     "selectAria": "Profil de variables",
     "add": "Ajouter un profil",
+    "rename": "Renommer le profil",
     "delete": "Supprimer le profil",
     "namePlaceholder": "Nom du profil…",
     "nameAria": "Nom du nouveau profil",

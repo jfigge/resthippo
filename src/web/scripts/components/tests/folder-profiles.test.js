@@ -17,10 +17,11 @@
 /**
  * components/tests/folder-profiles.test.js
  *
- * The pure model for folder-variable profiles: effective (default + override)
- * resolution, edit reconciliation (value edits vs. structural add/delete), and
- * the folder-switch / profile-set re-alignment. Mirrors the spec's behavioural
- * requirements (new profile mirrors default; add/delete syncs every profile).
+ * The pure model for folder-variable profiles: effective (Default names + a
+ * profile's own values) resolution, and edit reconciliation. Only the Default
+ * profile owns the variable set; a named profile stores VALUES only, an unset
+ * value is blank (no inheritance), and a named-profile edit can never change the
+ * set (out-of-set names ignored, dropped Default names restored blank).
  *
  * Run with:   node --test components/tests/folder-profiles.test.js
  */
@@ -41,25 +42,32 @@ const dflt = [
   { name: "key", value: "dev-key", secure: true },
 ];
 
+/** The Default names + secure flags, all values cleared to blank. */
+const dfltCleared = [
+  { name: "host", value: "", secure: false },
+  { name: "key", value: "", secure: true },
+];
+
 test("effectiveProfileVars: Default profile returns the canonical default set", () => {
   assert.deepEqual(effectiveProfileVars(dflt, {}, null), dflt);
   assert.deepEqual(effectiveProfileVars(dflt, {}, ""), dflt);
 });
 
-test("effectiveProfileVars: a new/uninitialised profile mirrors the Default values [req 9]", () => {
-  // No stored overrides for "prod" → shows the Default names AND values.
-  assert.deepEqual(effectiveProfileVars(dflt, {}, "prod"), dflt);
+test("effectiveProfileVars: a new/unseen profile shows the Default names with BLANK values", () => {
+  // No stored values for "prod" → Default names + secure flags, values cleared.
+  assert.deepEqual(effectiveProfileVars(dflt, {}, "prod"), dfltCleared);
+  assert.deepEqual(effectiveProfileVars(dflt, undefined, "prod"), dfltCleared);
 });
 
-test("effectiveProfileVars: overrides win, secure + missing names fall back to Default", () => {
-  const pv = { prod: { host: "prod.example.com" } }; // only host overridden
+test("effectiveProfileVars: a profile's stored values win; unset names stay blank (no inherit)", () => {
+  const pv = { prod: { host: "prod.example.com" } }; // only host set
   assert.deepEqual(effectiveProfileVars(dflt, pv, "prod"), [
     { name: "host", value: "prod.example.com", secure: false },
-    { name: "key", value: "dev-key", secure: true }, // falls back to Default value + secure
+    { name: "key", value: "", secure: true }, // unset → blank, NOT the Default value
   ]);
 });
 
-test("applyProfileEdit: Default edit rewrites the Default values, profiles keep their own", () => {
+test("applyProfileEdit: Default edit rewrites the Default set; profiles keep their own values", () => {
   const current = {
     variables: dflt,
     profileValues: { prod: { host: "prod.example.com", key: "prod-key" } },
@@ -73,21 +81,21 @@ test("applyProfileEdit: Default edit rewrites the Default values, profiles keep 
     out.variables.find((v) => v.name === "host").value,
     "dev2.example.com",
   );
-  // prod keeps its independent values (existing names untouched).
+  // prod keeps its independent values (surviving names untouched by a Default edit).
   assert.deepEqual(out.profileValues.prod, {
     host: "prod.example.com",
     key: "prod-key",
   });
 });
 
-test("applyProfileEdit: editing a named profile writes the profile, NOT the Default value", () => {
+test("applyProfileEdit: editing a named profile writes the profile, NOT the Default", () => {
   const current = { variables: dflt, profileValues: { prod: {} } };
   const edited = [
     { name: "host", value: "prod.example.com", secure: false }, // prod-only value
     { name: "key", value: "prod-key", secure: true },
   ];
   const out = applyProfileEdit(current, "prod", edited, ["prod"]);
-  // Default values are preserved (not overwritten by the prod edit).
+  // Default is untouched (a named-profile edit can't change values or the set).
   assert.deepEqual(out.variables, dflt);
   assert.deepEqual(out.profileValues.prod, {
     host: "prod.example.com",
@@ -95,81 +103,90 @@ test("applyProfileEdit: editing a named profile writes the profile, NOT the Defa
   });
 });
 
-test("applyProfileEdit: adding a variable in a profile updates the Default set; every profile inherits it [req 11]", () => {
+test("applyProfileEdit: a named-profile edit can NOT add a variable (out-of-set name ignored)", () => {
   const current = {
     variables: dflt,
-    profileValues: {
-      prod: { host: "p", key: "pk" },
-      stg: { host: "s", key: "sk" },
-    },
+    profileValues: { prod: { host: "p", key: "pk" } },
   };
-  // User (with "prod" active) adds a new var "region" = "us-east-1".
+  // With "prod" active the user tries to add a new var "region" — only the
+  // Default profile owns the set, so the addition is ignored.
   const edited = [
     { name: "host", value: "p", secure: false },
     { name: "key", value: "pk", secure: true },
     { name: "region", value: "us-east-1", secure: false },
   ];
-  const out = applyProfileEdit(current, "prod", edited, ["prod", "stg"]);
-  // Default gains "region" (seeded from the only value available — the edit).
+  const out = applyProfileEdit(current, "prod", edited, ["prod"]);
   assert.deepEqual(
     out.variables.map((v) => v.name),
-    ["host", "key", "region"],
+    ["host", "key"], // region NOT added
   );
-  assert.equal(
-    out.variables.find((v) => v.name === "region").value,
-    "us-east-1",
-  );
-  // region equals the Default → not pinned in any profile (they inherit it), but
-  // both profiles SHOW it, and their existing overrides are intact.
   assert.equal(out.profileValues.prod.region, undefined);
-  assert.equal(out.profileValues.stg.region, undefined);
-  assert.equal(
-    effectiveProfileVars(out.variables, out.profileValues, "prod").find(
-      (v) => v.name === "region",
-    ).value,
-    "us-east-1",
-  );
-  assert.equal(out.profileValues.prod.host, "p");
-  assert.equal(out.profileValues.stg.host, "s");
+  assert.deepEqual(out.profileValues.prod, { host: "p", key: "pk" });
 });
 
-test("applyProfileEdit: a profile value equal to the Default is left inheriting (sparse)", () => {
-  const current = { variables: dflt, profileValues: { prod: { host: "p" } } };
-  // User (prod) sets host back to the Default value → the override is dropped.
+test("applyProfileEdit: a Default name dropped by a named-profile edit is restored blank", () => {
+  const current = {
+    variables: dflt,
+    profileValues: { prod: { host: "p", key: "pk" } },
+  };
+  // Bulk-editor on "prod" deletes the "key" line — the variable is restored (the
+  // set is immutable outside Default) but its prod value clears to blank.
+  const edited = [{ name: "host", value: "p", secure: false }];
+  const out = applyProfileEdit(current, "prod", edited, ["prod"]);
+  assert.deepEqual(
+    out.variables.map((v) => v.name),
+    ["host", "key"], // key restored in the Default set
+  );
+  assert.deepEqual(out.profileValues.prod, { host: "p" }); // key value cleared
+  assert.equal(
+    effectiveProfileVars(out.variables, out.profileValues, "prod").find(
+      (v) => v.name === "key",
+    ).value,
+    "", // shows blank
+  );
+});
+
+test("applyProfileEdit: a named-profile value equal to the Default is still stored (no inherit)", () => {
+  const current = { variables: dflt, profileValues: { prod: {} } };
   const edited = [
-    { name: "host", value: "dev.example.com", secure: false },
+    { name: "host", value: "dev.example.com", secure: false }, // same string as Default
     { name: "key", value: "dev-key", secure: true },
   ];
   const out = applyProfileEdit(current, "prod", edited, ["prod"]);
-  assert.deepEqual(out.profileValues.prod, {}); // host un-pinned; key never pinned
+  // No inheritance anymore: the values are the profile's own, stored verbatim.
+  assert.deepEqual(out.profileValues.prod, {
+    host: "dev.example.com",
+    key: "dev-key",
+  });
 });
 
-test("applyProfileEdit: an un-overridden profile value follows a later Default change", () => {
-  // prod overrides only host; key is un-pinned (inherits).
+test("applyProfileEdit: a profile's unset value does NOT follow a later Default change", () => {
+  // prod sets only host; key is unset (blank).
   let current = { variables: dflt, profileValues: { prod: { host: "p" } } };
-  // Later, Default's key changes.
+  // Later, the Default's key value changes.
   const edited = [
     { name: "host", value: "dev.example.com", secure: false },
     { name: "key", value: "rotated-key", secure: true },
   ];
   current = applyProfileEdit(current, null, edited, ["prod"]);
-  // prod still only pins host; its shown key follows the new Default.
+  // prod still only stores host; its unset key stays blank (does not follow Default).
   assert.deepEqual(current.profileValues.prod, { host: "p" });
   assert.equal(
     effectiveProfileVars(current.variables, current.profileValues, "prod").find(
       (v) => v.name === "key",
     ).value,
-    "rotated-key",
+    "",
   );
 });
 
-test("applyProfileEdit: deleting a variable drops it from the Default + every profile", () => {
+test("applyProfileEdit: deleting a variable on the Default drops it from every profile", () => {
   const current = {
     variables: dflt,
     profileValues: { prod: { host: "p", key: "pk" } },
   };
-  const edited = [{ name: "host", value: "p", secure: false }]; // key removed
-  const out = applyProfileEdit(current, "prod", edited, ["prod"]);
+  // The delete happens on the Default profile (the only one that owns the set).
+  const edited = [{ name: "host", value: "dev.example.com", secure: false }];
+  const out = applyProfileEdit(current, null, edited, ["prod"]);
   assert.deepEqual(
     out.variables.map((v) => v.name),
     ["host"],

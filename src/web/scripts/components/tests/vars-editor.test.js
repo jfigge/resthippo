@@ -40,14 +40,20 @@ function makeEditor() {
   const window = resetDom();
   const saves = [];
   const bulkChanges = [];
+  const renames = [];
   const ed = new VarsEditor({
     onSave: (p) => saves.push(p),
     onBulkEditorChange: (p) => bulkChanges.push(p),
+    onProfileRename: (p) => renames.push(p),
   });
   document.body.appendChild(ed.element);
   const fire = (el, type) =>
     el.dispatchEvent(new window.Event(type, { bubbles: true }));
-  return { ed, saves, bulkChanges, fire };
+  const key = (el, k) =>
+    el.dispatchEvent(
+      new window.KeyboardEvent("keydown", { key: k, bubbles: true }),
+    );
+  return { ed, saves, bulkChanges, renames, fire, key };
 }
 
 test("bulk-mode edit + flush dispatches the parsed variables for the scope", () => {
@@ -71,7 +77,7 @@ test("bulk-mode edit + flush dispatches the parsed variables for the scope", () 
   ]);
 });
 
-test("KV-mode row edit saves immediately (no debounce) for the scope", () => {
+test("KV-mode row edit dispatches the row variables for the scope (debounced; flush forces it)", () => {
   const { ed, saves, fire } = makeEditor();
   ed.load({
     scopeId: "c1",
@@ -82,7 +88,8 @@ test("KV-mode row edit saves immediately (no debounce) for the scope", () => {
 
   const valIn = ed.element.querySelector(".vars-kv-row .params-value");
   valIn.value = "2";
-  fire(valIn, "input");
+  fire(valIn, "input"); // schedules a debounced save
+  ed.flush(); // force it now
 
   assert.equal(saves.at(-1).scopeId, "c1");
   assert.deepEqual(saves.at(-1).variables, [
@@ -150,4 +157,97 @@ test("flush is a no-op when there is no pending save", () => {
   });
   ed.flush();
   assert.equal(saves.length, 0);
+});
+
+// ── Folder profiles: rename + structure lock ─────────────────────────────────
+
+const PROFILES = [{ id: "p1", name: "Prod" }];
+
+function loadFolder(ed, { activeProfileId = null, bulkEditor = true } = {}) {
+  ed.load({
+    scopeId: "f1",
+    scopeName: "Auth",
+    variables: [{ name: "host", value: "", secure: false }],
+    bulkEditor,
+    profilesEnabled: true,
+    profiles: PROFILES,
+    activeProfileId,
+  });
+}
+
+test("rename popup pre-fills the active profile name and commits via onProfileRename", () => {
+  const { ed, renames, key } = makeEditor();
+  loadFolder(ed, { activeProfileId: "p1" });
+
+  const renameBtn = ed.element.querySelector(".vars-profile-rename-btn");
+  assert.equal(renameBtn.disabled, false); // enabled for a named profile
+  renameBtn.click();
+
+  const input = document.querySelector(".vars-profile-name-input");
+  assert.ok(input, "rename popup opened");
+  assert.equal(input.value, "Prod"); // defaulted to the current name
+
+  input.value = "Production";
+  key(input, "Enter");
+  assert.deepEqual(renames.at(-1), { profileId: "p1", name: "Production" });
+  // popup closed after commit
+  assert.equal(document.querySelector(".vars-profile-name-input"), null);
+});
+
+test("Escape cancels a rename without firing onProfileRename", () => {
+  const { ed, renames, key } = makeEditor();
+  loadFolder(ed, { activeProfileId: "p1" });
+
+  ed.element.querySelector(".vars-profile-rename-btn").click();
+  const input = document.querySelector(".vars-profile-name-input");
+  input.value = "Nope";
+  key(input, "Escape");
+
+  assert.equal(renames.length, 0);
+  assert.equal(document.querySelector(".vars-profile-name-input"), null);
+});
+
+test("the Default profile cannot be renamed (button disabled, click is a no-op)", () => {
+  const { ed, renames } = makeEditor();
+  loadFolder(ed, { activeProfileId: null }); // Default active
+
+  const renameBtn = ed.element.querySelector(".vars-profile-rename-btn");
+  assert.equal(renameBtn.disabled, true);
+  renameBtn.click();
+  assert.equal(document.querySelector(".vars-profile-name-input"), null);
+  assert.equal(renames.length, 0);
+});
+
+test("a named profile locks the KV structure: name read-only, add hidden, secure + delete disabled", () => {
+  const { ed } = makeEditor();
+  loadFolder(ed, { activeProfileId: "p1", bulkEditor: false });
+
+  const nameIn = ed.element.querySelector(".vars-kv-row .params-name");
+  assert.equal(nameIn.readOnly, true);
+  assert.equal(
+    ed.element
+      .querySelector(".vars-kv-row")
+      .classList.contains("vars-kv-row--locked"),
+    true,
+  );
+  // Secure + delete buttons are shown but disabled on a non-Default profile.
+  assert.equal(
+    ed.element.querySelector(".vars-kv-row .params-secure-btn").disabled,
+    true,
+  );
+  assert.equal(
+    ed.element.querySelector(".vars-kv-row .params-delete-btn").disabled,
+    true,
+  );
+  // Add-variable button is hidden outside the Default profile.
+  assert.equal(ed.element.querySelector(".vars-add-btn").style.display, "none");
+});
+
+test("the Default profile keeps the KV structure editable (name editable, add shown)", () => {
+  const { ed } = makeEditor();
+  loadFolder(ed, { activeProfileId: null, bulkEditor: false });
+
+  const nameIn = ed.element.querySelector(".vars-kv-row .params-name");
+  assert.equal(nameIn.readOnly, false);
+  assert.equal(ed.element.querySelector(".vars-add-btn").style.display, "");
 });

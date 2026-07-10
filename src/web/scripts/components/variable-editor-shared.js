@@ -118,10 +118,16 @@ export function rowsToVariables(rows) {
  *   onEnter()  — Enter pressed in the name or value input (append a new row)
  *   onDelete() — a confirmed delete (remove this row, re-render, save)
  *
+ * When `lockStructure` is true the row's SET is frozen: the name is read-only,
+ * and the per-row secure (lock) and delete buttons are shown but disabled. The
+ * value input and its reveal (eye) toggle stay editable. Used by named
+ * folder-variable profiles, where only the Default profile owns the variable set.
+ *
  * @param {object} opts
  * @param {{id:string,name:string,value:string,secure:boolean}} opts.row
  * @param {string}  opts.rowClass        — row element class (e.g. "vars-kv-row params-row")
  * @param {number} [opts.revealMs=30000] — auto re-mask delay after reveal
+ * @param {boolean} [opts.lockStructure=false] — freeze name + secure + delete (values only)
  * @param {() => void} [opts.onChange]
  * @param {() => void} [opts.onEnter]
  * @param {() => void} [opts.onDelete]
@@ -131,12 +137,14 @@ export function buildVariableRow({
   row,
   rowClass,
   revealMs = 30000,
+  lockStructure = false,
   onChange,
   onEnter,
   onDelete,
 }) {
   const el = document.createElement("div");
   el.className = rowClass;
+  if (lockStructure) el.classList.add("vars-kv-row--locked");
   el.dataset.id = row.id;
 
   const nameIn = document.createElement("input");
@@ -146,6 +154,7 @@ export function buildVariableRow({
   nameIn.value = row.name;
   nameIn.setAttribute("aria-label", t("vars.name"));
   nameIn.setAttribute("autocomplete", "off");
+  nameIn.readOnly = lockStructure;
   nameIn.addEventListener("input", () => {
     row.name = nameIn.value;
     onChange?.();
@@ -224,22 +233,35 @@ export function buildVariableRow({
     secure.setAttribute("aria-label", label);
     secure.setAttribute("aria-pressed", String(!!row.secure));
   };
-  secure.addEventListener("click", () => {
-    row.secure = !row.secure;
-    if (!row.secure) {
-      revealed = false;
-      clearTimeout(revealTimer);
-    }
-    applySecure();
-    applyMask();
-    onChange?.();
-  });
+  // On a locked row (a non-Default profile) the secure + delete controls are
+  // shown but disabled (only the Default profile owns the variable SET); the
+  // value input + reveal toggle stay editable.
+  secure.disabled = lockStructure;
+  if (!lockStructure) {
+    secure.addEventListener("click", () => {
+      row.secure = !row.secure;
+      if (!row.secure) {
+        revealed = false;
+        clearTimeout(revealTimer);
+      }
+      applySecure();
+      applyMask();
+      onChange?.();
+    });
+  }
 
   const del = document.createElement("button");
   del.className = "icon-btn params-delete-btn";
   del.title = t("vars.delete");
   del.setAttribute("aria-label", t("vars.delete"));
-  wireDeleteConfirm(del, () => onDelete?.());
+  del.disabled = lockStructure;
+  if (lockStructure) {
+    // Disabled on a non-Default profile: show the resting trash icon without the
+    // confirm behaviour (wireDeleteConfirm normally sets the icon itself).
+    del.innerHTML = icon("trash", { size: 13 });
+  } else {
+    wireDeleteConfirm(del, () => onDelete?.());
+  }
 
   el.appendChild(nameIn);
   el.appendChild(valWrap);

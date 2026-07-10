@@ -36,11 +36,18 @@
  * profile exists; the selector + delete appear once at least one named profile
  * is defined. The [+] opens a small anchored popup to name a new profile (Enter
  * adds, Escape / outside-click cancels). All the model logic (which values a
- * profile shows, how add/delete syncs the Default) lives in app.js +
+ * profile shows, how the Default owns the set) lives in app.js +
  * folder-profiles.js; this component only renders the controls and reports
  * intent. The variable rows always show the EFFECTIVE values for the active
  * profile (computed by the creator and passed to `load`), and every save carries
  * the active `profileId` so the creator can route it to the right profile.
+ *
+ * Only the Default profile owns the variable SET. On a named profile the editor
+ * locks structure: the KV table's name inputs are read-only, the per-row secure
+ * + delete buttons are disabled, and the [+] add-variable button is hidden — only
+ * VALUES can change. The bulk-text editor stays fully editable (type anything),
+ * but its content is reconciled back to the Default's names on save / mode-toggle
+ * (out-of-set names dropped, missing names restored blank).
  *
  * Constructor callbacks (this is a parent-owned panel that reports back to its
  * creator, so it uses callbacks rather than global hippo:* events — see the
@@ -48,6 +55,7 @@
  *   onSave({ scopeId, profileId, variables }) — debounced 500ms auto-save
  *   onBulkEditorChange({ bulkEditor })        — bulk-textarea / KV-row toggle changed
  *   onProfileAdd({ name })                    — [+] popup committed a new profile name
+ *   onProfileRename({ profileId, name })      — rename popup committed a new name
  *   onProfileSelect({ profileId })            — profile selector changed (null = Default)
  *   onProfileDelete({ profileId })            — delete pressed for the active named profile
  */
@@ -80,6 +88,7 @@ export class VarsEditor {
   // ── Profile controls (folder scope only) ───────────────────────────────────
   /** @type {HTMLElement} */ #profileControlsEl;
   /** @type {HTMLSelectElement} */ #profileSelectEl;
+  /** @type {HTMLButtonElement} */ #profileRenameBtnEl;
   /** @type {HTMLButtonElement} */ #profileAddBtnEl;
   /** @type {HTMLButtonElement} */ #profileDelBtnEl;
   #profilesEnabled = false;
@@ -87,6 +96,12 @@ export class VarsEditor {
   /** @type {string|null} */ #activeProfileId = null;
   /** @type {HTMLElement|null} */ #profilePopupEl = null;
   /** @type {(() => void)|null} */ #profilePopupCleanup = null;
+
+  // Only the Default profile (blank name → null id) owns the variable SET. On a
+  // named profile the names + secure flags are frozen to the Default's structure
+  // (captured below at load time) and only VALUES are editable.
+  #canEditStructure = true;
+  /** @type {{name:string,secure:boolean}[]} */ #structureVars = [];
 
   /** @type {string|null} */ #scopeId = null;
 
@@ -121,6 +136,8 @@ export class VarsEditor {
   #onBulkEditorChange;
   /** @type {(payload: { name: string }) => void} */
   #onProfileAdd;
+  /** @type {(payload: { profileId: string, name: string }) => void} */
+  #onProfileRename;
   /** @type {(payload: { profileId: string|null }) => void} */
   #onProfileSelect;
   /** @type {(payload: { profileId: string }) => void} */
@@ -131,6 +148,7 @@ export class VarsEditor {
    *   onSave?: (payload: { scopeId: string, profileId: string|null, variables: Array }) => void,
    *   onBulkEditorChange?: (payload: { bulkEditor: boolean }) => void,
    *   onProfileAdd?: (payload: { name: string }) => void,
+   *   onProfileRename?: (payload: { profileId: string, name: string }) => void,
    *   onProfileSelect?: (payload: { profileId: string|null }) => void,
    *   onProfileDelete?: (payload: { profileId: string }) => void,
    * }} [opts]
@@ -139,12 +157,14 @@ export class VarsEditor {
     onSave,
     onBulkEditorChange,
     onProfileAdd,
+    onProfileRename,
     onProfileSelect,
     onProfileDelete,
   } = {}) {
     this.#onSave = onSave;
     this.#onBulkEditorChange = onBulkEditorChange;
     this.#onProfileAdd = onProfileAdd;
+    this.#onProfileRename = onProfileRename;
     this.#onProfileSelect = onProfileSelect;
     this.#onProfileDelete = onProfileDelete;
     this.#el = this.#build();
@@ -199,12 +219,17 @@ export class VarsEditor {
     this.#profilesEnabled = profilesEnabled;
     this.#profiles = Array.isArray(profiles) ? profiles : [];
     this.#activeProfileId = activeProfileId ?? null;
+    // The set is editable only on the Default profile (null id). Names + secure
+    // flags in the effective vars are always the Default's — capture them so the
+    // KV table can stay locked to that structure on a named profile.
+    this.#canEditStructure = !this.#activeProfileId;
     this.#el.setAttribute(
       "aria-label",
       t("variables.titleScope", { scope: scopeName }),
     );
 
     const vars = normalizeVariables(variables);
+    this.#structureVars = vars.map((v) => ({ name: v.name, secure: v.secure }));
 
     this.#isBulkMode = bulkEditor;
     this.#bulkToggleEl.checked = this.#isBulkMode;
@@ -259,6 +284,7 @@ export class VarsEditor {
         <span class="vars-hint">${t("kv.varsHint")}</span>
         <div class="vars-profile-controls" style="display:none">
           <select class="vars-profile-select" aria-label="${t("profiles.selectAria")}"></select>
+          <button class="icon-btn vars-profile-rename-btn" title="${t("profiles.rename")}" aria-label="${t("profiles.rename")}">${icon("rename", { size: 14 })}</button>
           <button class="icon-btn vars-profile-add-btn" title="${t("profiles.add")}" aria-label="${t("profiles.add")}">${icon("add", { size: 15 })}</button>
           <button class="icon-btn vars-profile-del-btn" title="${t("profiles.delete")}" aria-label="${t("profiles.delete")}">${icon("trash", { size: 13 })}</button>
         </div>
@@ -286,6 +312,7 @@ export class VarsEditor {
     this.#addBtnEl = el.querySelector(".vars-add-btn");
     this.#profileControlsEl = el.querySelector(".vars-profile-controls");
     this.#profileSelectEl = el.querySelector(".vars-profile-select");
+    this.#profileRenameBtnEl = el.querySelector(".vars-profile-rename-btn");
     this.#profileAddBtnEl = el.querySelector(".vars-profile-add-btn");
     this.#profileDelBtnEl = el.querySelector(".vars-profile-del-btn");
 
@@ -305,6 +332,9 @@ export class VarsEditor {
     this.#profileAddBtnEl.addEventListener("click", () =>
       this.#toggleProfileNamePopup(),
     );
+    this.#profileRenameBtnEl.addEventListener("click", () =>
+      this.#toggleProfileRenamePopup(),
+    );
     this.#profileDelBtnEl.addEventListener("click", () => {
       if (this.#activeProfileId) {
         this.#onProfileDelete?.({ profileId: this.#activeProfileId });
@@ -318,9 +348,10 @@ export class VarsEditor {
 
   /**
    * Show/populate the profile switcher. The whole group is hidden for the
-   * collection scope; the selector + delete stay hidden until at least one named
-   * profile exists (only the [+] shows for a lone Default). Delete is disabled
-   * while the Default profile is the active selection (Default can't be deleted).
+   * collection scope; the selector + rename + delete stay hidden until at least
+   * one named profile exists (only the [+] shows for a lone Default). Rename and
+   * delete are disabled while the Default profile is the active selection (the
+   * Default profile can neither be renamed nor deleted).
    */
   #renderProfileControls() {
     if (!this.#profilesEnabled) {
@@ -332,6 +363,7 @@ export class VarsEditor {
 
     const hasNamed = this.#profiles.length > 0;
     this.#profileSelectEl.style.display = hasNamed ? "" : "none";
+    this.#profileRenameBtnEl.style.display = hasNamed ? "" : "none";
     this.#profileDelBtnEl.style.display = hasNamed ? "" : "none";
 
     if (hasNamed) {
@@ -347,28 +379,62 @@ export class VarsEditor {
       }
       this.#profileSelectEl.innerHTML = opts.join("");
       this.#profileSelectEl.value = active;
-      // Default (empty selection) is not deletable.
+      // Default (empty selection) is neither renamable nor deletable.
+      this.#profileRenameBtnEl.disabled = !this.#activeProfileId;
       this.#profileDelBtnEl.disabled = !this.#activeProfileId;
     }
   }
 
+  /** Toggle the [+] popup that names a NEW profile (Enter adds, Esc/away cancels). */
   #toggleProfileNamePopup() {
     if (this.#profilePopupEl) {
       this.#closeProfilePopup();
-    } else {
-      this.#openProfileNamePopup();
+      return;
     }
+    this.#openProfileNamePopup({
+      anchor: this.#profileAddBtnEl,
+      ariaLabel: t("profiles.add"),
+      onCommit: (name) => this.#onProfileAdd?.({ name }),
+    });
   }
 
-  /** Small anchored popup that names a new profile (Enter adds, Esc/away cancels). */
-  #openProfileNamePopup() {
+  /**
+   * Toggle the RENAME popup for the active named profile — the same anchored box,
+   * pre-filled with (and selecting) the current name. The Default profile (empty
+   * selection) can't be renamed, so this is a no-op there.
+   */
+  #toggleProfileRenamePopup() {
+    if (this.#profilePopupEl) {
+      this.#closeProfilePopup();
+      return;
+    }
+    const id = this.#activeProfileId;
+    if (!id) return; // Default profile can't be renamed
+    const current = this.#profiles.find((p) => p.id === id);
+    this.#openProfileNamePopup({
+      anchor: this.#profileRenameBtnEl,
+      ariaLabel: t("profiles.rename"),
+      initialValue: current?.name ?? "",
+      onCommit: (name) => this.#onProfileRename?.({ profileId: id, name }),
+    });
+  }
+
+  /**
+   * Small anchored popup that captures a profile name (Enter commits with the
+   * trimmed value, Esc / outside-click cancels). Shared by the add and rename
+   * flows: `initialValue` pre-fills + selects the text, `onCommit(name)` receives
+   * the trimmed non-empty result.
+   *
+   * @param {{ anchor: HTMLElement, ariaLabel: string, initialValue?: string,
+   *   onCommit: (name: string) => void }} opts
+   */
+  #openProfileNamePopup({ anchor, ariaLabel, initialValue = "", onCommit }) {
     this.#closeProfilePopup();
-    const anchor = this.#profileAddBtnEl;
 
     const pop = document.createElement("div");
     pop.className = "vars-profile-popup";
     pop.setAttribute("role", "dialog");
-    pop.setAttribute("aria-label", t("profiles.add"));
+    pop.setAttribute("aria-label", ariaLabel);
     pop.innerHTML = `<input type="text" class="settings-input vars-profile-name-input"
       placeholder="${escapeHtml(t("profiles.namePlaceholder"))}"
       aria-label="${escapeHtml(t("profiles.nameAria"))}"
@@ -376,7 +442,7 @@ export class VarsEditor {
     document.body.appendChild(pop);
     this.#profilePopupEl = pop;
 
-    // Anchor below the [+] button, right-aligned to it, clamped to the viewport.
+    // Anchor below the trigger button, right-aligned to it, clamped to viewport.
     const r = anchor.getBoundingClientRect();
     pop.style.position = "fixed";
     pop.style.top = `${Math.round(r.bottom + 4)}px`;
@@ -388,10 +454,11 @@ export class VarsEditor {
     pop.style.left = `${left}px`;
 
     const input = pop.querySelector("input");
+    input.value = initialValue;
     const commit = () => {
       const name = input.value.trim();
       this.#closeProfilePopup();
-      if (name) this.#onProfileAdd?.({ name });
+      if (name) onCommit?.(name);
     };
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
@@ -404,7 +471,8 @@ export class VarsEditor {
       }
     });
 
-    // Outside pointer-down cancels (the [+] toggle handles a click on the anchor).
+    // Outside pointer-down cancels (the trigger's own toggle handles a click on
+    // the anchor itself).
     const onDown = (e) => {
       if (!pop.contains(e.target) && !anchor.contains(e.target)) {
         this.#closeProfilePopup();
@@ -415,7 +483,12 @@ export class VarsEditor {
     this.#profilePopupCleanup = () =>
       document.removeEventListener("pointerdown", onDown, true);
 
-    requestAnimationFrame(() => input.focus());
+    requestAnimationFrame(() => {
+      input.focus();
+      // Rename: select the whole current name with the caret at the right end.
+      if (initialValue)
+        input.setSelectionRange(0, input.value.length, "forward");
+    });
   }
 
   #closeProfilePopup() {
@@ -434,7 +507,25 @@ export class VarsEditor {
     this.#textareaEl.style.display = bulk ? "" : "none";
     this.#kvWrapEl.style.display = bulk ? "none" : "";
     if (this.#hintEl) this.#hintEl.style.display = bulk ? "" : "none";
-    if (this.#addBtnEl) this.#addBtnEl.style.display = bulk ? "none" : "";
+    // Add-variable only in KV mode, and only where the set is editable (Default).
+    if (this.#addBtnEl)
+      this.#addBtnEl.style.display =
+        bulk || !this.#canEditStructure ? "none" : "";
+  }
+
+  /**
+   * Map parsed vars onto the locked Default structure (names + secure flags),
+   * taking each name's value from `vars` (blank when absent) and dropping any
+   * name not in the structure — the KV-table counterpart of applyProfileEdit's
+   * named-profile reconciliation. Only meaningful when `#canEditStructure` false.
+   */
+  #reconcileToStructure(vars) {
+    const byName = new Map(vars.map((v) => [v.name, v.value]));
+    return this.#structureVars.map((s) => ({
+      name: s.name,
+      secure: s.secure,
+      value: byName.has(s.name) ? byName.get(s.name) : "",
+    }));
   }
 
   #handleBulkToggle() {
@@ -444,8 +535,12 @@ export class VarsEditor {
       // Table → Bulk: serialise rows to text
       this.#textareaEl.value = variablesToText(rowsToVariables(this.#rows));
     } else if (!nowBulk && this.#isBulkMode) {
-      // Bulk → Table: parse text to rows
-      this.#rows = variablesToRows(textToVariables(this.#textareaEl.value));
+      // Bulk → Table: parse text to rows. On a named profile the set is frozen
+      // to the Default structure, so reconcile the typed values against it
+      // (out-of-set names dropped, missing names restored blank).
+      let vars = textToVariables(this.#textareaEl.value);
+      if (!this.#canEditStructure) vars = this.#reconcileToStructure(vars);
+      this.#rows = variablesToRows(vars);
     }
 
     this.#isBulkMode = nowBulk;
@@ -472,26 +567,33 @@ export class VarsEditor {
       this.#kvListEl.appendChild(empty);
       return;
     }
+    const editable = this.#canEditStructure;
     this.#rows.forEach((row) =>
       this.#kvListEl.appendChild(
         buildVariableRow({
           row,
           rowClass: "vars-kv-row params-row",
           revealMs: VarsEditor.#REVEAL_MS,
+          // On a named profile only VALUES are editable — the name + secure +
+          // delete are frozen to the Default's structure.
+          lockStructure: !editable,
           // Debounced: fires per keystroke as the user edits a name/value.
           onChange: () => this.#debouncedSave(),
-          onEnter: () => this.#addRow(),
-          onDelete: () => {
-            this.#rows = this.#rows.filter((r) => r.id !== row.id);
-            this.#renderRows();
-            this.#saveFromRows();
-          },
+          onEnter: editable ? () => this.#addRow() : undefined,
+          onDelete: editable
+            ? () => {
+                this.#rows = this.#rows.filter((r) => r.id !== row.id);
+                this.#renderRows();
+                this.#saveFromRows();
+              }
+            : undefined,
         }),
       ),
     );
   }
 
   #addRow() {
+    if (!this.#canEditStructure) return; // only the Default profile owns the set
     const row = blankVariableRow();
     this.#rows.push(row);
     this.#renderRows();

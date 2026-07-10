@@ -1388,6 +1388,7 @@
     "default": "Predefinito",
     "selectAria": "Profilo di variabili",
     "add": "Aggiungi profilo",
+    "rename": "Rinomina profilo",
     "delete": "Elimina profilo",
     "namePlaceholder": "Nome profilo…",
     "nameAria": "Nome del nuovo profilo",

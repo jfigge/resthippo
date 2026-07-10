@@ -655,6 +655,7 @@ function initComponents() {
     onSave: handleVarsSave,
     onBulkEditorChange: handleVarsBulkEditorChange,
     onProfileAdd: handleProfileAdd,
+    onProfileRename: handleProfileRename,
     onProfileSelect: handleProfileSelect,
     onProfileDelete: handleProfileDelete,
   });
@@ -1788,7 +1789,12 @@ function _pruneProfileFromTree(items, profileId) {
   });
 }
 
-/** [+] popup committed a new profile name. Created but NOT selected (req 7). */
+/**
+ * [+] popup committed a new profile name. The new profile is created and made
+ * ACTIVE: it clones the Default's variable names with cleared values (an unset
+ * profile value renders blank — see effectiveProfileVars), so the editor shows
+ * the Default's names ready for the user to fill in this profile's values.
+ */
 async function handleProfileAdd({ name }) {
   const trimmed = (name ?? "").trim();
   if (!trimmed || !_activeCollEntry()) return;
@@ -1797,10 +1803,42 @@ async function handleProfileAdd({ name }) {
     Notifications.warning(t("profiles.duplicate", { name: trimmed }));
     return;
   }
-  const variableProfiles = [
-    ...profiles,
-    { id: crypto.randomUUID(), name: trimmed },
-  ];
+  const id = crypto.randomUUID();
+  const variableProfiles = [...profiles, { id, name: trimmed }];
+  await _updateActiveCollProfiles({
+    variableProfiles,
+    activeVariableProfileId: id,
+  });
+  if (_varsScope) _loadFolderVars(_varsScope.nodeId, _varsScope.name);
+  _refreshEditorVariableContext(
+    currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
+  );
+}
+
+/**
+ * Rename an existing named profile. Names span the whole collection and are keyed
+ * to the profile id (folder `profileValues` are id-keyed, so a rename touches only
+ * the collection's profile list). The Default profile has no id and can't be
+ * renamed; a blank or duplicate name is rejected.
+ */
+async function handleProfileRename({ profileId, name }) {
+  const trimmed = (name ?? "").trim();
+  if (!profileId || !trimmed || !_activeCollEntry()) return;
+  const profiles = _activeProfiles();
+  const current = profiles.find((p) => p.id === profileId);
+  if (!current || current.name === trimmed) return;
+  if (
+    profiles.some(
+      (p) =>
+        p.id !== profileId && p.name.toLowerCase() === trimmed.toLowerCase(),
+    )
+  ) {
+    Notifications.warning(t("profiles.duplicate", { name: trimmed }));
+    return;
+  }
+  const variableProfiles = profiles.map((p) =>
+    p.id === profileId ? { ...p, name: trimmed } : p,
+  );
   await _updateActiveCollProfiles({ variableProfiles });
   if (_varsScope) _loadFolderVars(_varsScope.nodeId, _varsScope.name);
 }

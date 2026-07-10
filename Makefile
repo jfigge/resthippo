@@ -318,7 +318,7 @@ test-diagnostics:
 
 test-renderer-components:
 	@echo "Running renderer component render tests (editor + viewer + notifications + pill editors, jsdom)..."
-	@node --test $(WEB_DIR)/scripts/tests/request-editor.test.js $(WEB_DIR)/scripts/tests/request-auth-editor.test.js $(WEB_DIR)/scripts/tests/response-viewer.test.js $(WEB_DIR)/scripts/tests/notifications.test.js $(WEB_DIR)/scripts/tests/pill-editors.test.js $(WEB_DIR)/scripts/tests/pill-caret.test.js $(WEB_DIR)/scripts/tests/scheduled-send.test.js $(WEB_DIR)/scripts/tests/tree-view.test.js $(WEB_DIR)/scripts/tests/popup-manager.test.js $(WEB_DIR)/scripts/tests/graphql-schema-viewer.test.js $(WEB_DIR)/scripts/components/tests/variable-editor-shared.test.js $(WEB_DIR)/scripts/event-bus/tests/zoom-handlers.test.js
+	@node --test $(WEB_DIR)/scripts/tests/request-editor.test.js $(WEB_DIR)/scripts/tests/request-auth-editor.test.js $(WEB_DIR)/scripts/tests/response-viewer.test.js $(WEB_DIR)/scripts/tests/notifications.test.js $(WEB_DIR)/scripts/tests/pill-editors.test.js $(WEB_DIR)/scripts/tests/pill-caret.test.js $(WEB_DIR)/scripts/tests/scheduled-send.test.js $(WEB_DIR)/scripts/tests/tree-view.test.js $(WEB_DIR)/scripts/tests/popup-manager.test.js $(WEB_DIR)/scripts/tests/graphql-schema-viewer.test.js $(WEB_DIR)/scripts/components/tests/variable-editor-shared.test.js $(WEB_DIR)/scripts/components/tests/vars-editor.test.js $(WEB_DIR)/scripts/event-bus/tests/zoom-handlers.test.js
 	@echo "--------------------------------"
 
 test-renderer-e2e:

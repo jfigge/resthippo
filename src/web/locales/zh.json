@@ -1381,6 +1381,7 @@
     "default": "默认",
     "selectAria": "变量配置文件",
     "add": "添加配置文件",
+    "rename": "重命名配置文件",
     "delete": "删除配置文件",
     "namePlaceholder": "配置文件名称…",
     "nameAria": "新配置文件名称",

@@ -62,26 +62,34 @@ and **Prod**) that differ only in a host, key, or token. Profiles are defined on
 and **span the whole collection**, so every folder shares the same profile names
 while keeping its own per-profile values.
 
-Every folder starts with a single **Default** profile — the values you see when no
-profiles exist. Its controls live on the **far right of the folder variable
-editor's toolbar**:
+Every folder starts with a single **Default** profile — the plain variables you
+edit when no named profiles exist. The **Default profile owns the variable set**:
+it is the only profile where you can add, rename, remove, or mark a variable
+secure. Its controls live on the **far right of the folder variable editor's
+toolbar**:
 
 - **＋ (Add profile)** — always shown. It opens a small popup to name a new
-  profile; press **Enter** to create it, or **Escape** / click away to cancel. A
-  new profile is **not** selected automatically.
+  profile; press **Enter** to create it, or **Escape** / click away to cancel.
+  Creating a profile **switches to it** and copies the Default's variable
+  **names** with their values **cleared**, ready for you to fill in.
 - **Profile selector** and **🗑 (Delete profile)** — appear once at least one named
   profile exists. The selector lists **Default** plus your named profiles; Delete
   removes the selected profile (Default can't be deleted).
 
 How values behave:
 
-- **Selecting a profile** shows that profile's values. A brand-new profile starts
-  by showing the **Default** values — change any value to pin it for that profile;
-  values you leave untouched keep following the Default.
-- **Adding or removing a variable** (in any profile) changes the folder's variable
-  set for **all** profiles — the Default is updated and every profile picks up the
-  new variable (or drops the removed one). So the _names_ are always shared; only
-  the _values_ differ per profile.
+- **Selecting a profile** shows that profile's own values. A variable you haven't
+  given a value in that profile stays **blank** — profiles do not inherit the
+  Default's values. Opening a folder for the first time under a profile likewise
+  shows the Default's names with cleared values.
+- **The variable set is fixed outside the Default.** On a named profile the editor
+  locks structure — you can edit **values** only; the name fields are read-only
+  and the add / delete / secure controls are disabled. Add, rename, or remove a
+  variable on the **Default** profile and every profile picks up the change (a new
+  variable appears blank; a removed one drops out). In the **bulk editor** on a
+  named profile you can type freely, but on save any line whose name isn't in the
+  Default set is ignored, and a Default variable you deleted is restored with a
+  blank value.
 - **Switching folders** keeps your selected profile; the editor just re-shows the
   new folder's variables under it.
 

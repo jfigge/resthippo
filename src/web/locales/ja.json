@@ -1381,6 +1381,7 @@
     "default": "デフォルト",
     "selectAria": "変数プロファイル",
     "add": "プロファイルを追加",
+    "rename": "プロファイルの名前を変更",
     "delete": "プロファイルを削除",
     "namePlaceholder": "プロファイル名…",
     "nameAria": "新しいプロファイル名",

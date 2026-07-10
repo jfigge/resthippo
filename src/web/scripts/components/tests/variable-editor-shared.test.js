@@ -163,3 +163,48 @@ test("buildVariableRow: confirmed delete fires onDelete", () => {
   del.click(); // confirm
   assert.equal(deleted, 1);
 });
+
+test("buildVariableRow: lockStructure disables secure + delete, keeps name read-only and value/reveal editable", () => {
+  resetDom();
+  let changes = 0;
+  const row = { id: "r1", name: "token", value: "abc", secure: true };
+  const el = buildVariableRow({
+    row,
+    rowClass: "vars-kv-row params-row",
+    lockStructure: true,
+    onChange: () => changes++,
+  });
+  document.body.appendChild(el);
+
+  const nameIn = el.querySelector(".params-name");
+  const valIn = el.querySelector(".params-value");
+  const secureBtn = el.querySelector(".params-secure-btn");
+  const del = el.querySelector(".params-delete-btn");
+
+  // Name is read-only; the row carries the locked modifier class.
+  assert.equal(nameIn.readOnly, true);
+  assert.equal(el.classList.contains("vars-kv-row--locked"), true);
+
+  // Secure + delete buttons are rendered but disabled and inert (no listeners).
+  assert.equal(secureBtn.disabled, true);
+  assert.equal(del.disabled, true);
+  // The disabled delete control still shows its (trash) icon, not an empty button.
+  assert.ok(
+    del.querySelector("svg"),
+    "disabled delete button renders its icon",
+  );
+  secureBtn.click();
+  assert.equal(row.secure, true); // unchanged — click does nothing
+
+  // The reveal (eye) toggle for a secure value still works.
+  const reveal = el.querySelector(".params-reveal-btn");
+  assert.equal(valIn.classList.contains("params-value--masked"), true);
+  reveal.click();
+  assert.equal(valIn.classList.contains("params-value--masked"), false);
+
+  // Value stays editable and still fires onChange.
+  valIn.value = "xyz";
+  valIn.dispatchEvent(new window.Event("input", { bubbles: true }));
+  assert.equal(row.value, "xyz");
+  assert.equal(changes, 1);
+});

@@ -1388,6 +1388,7 @@
     "default": "Default",
     "selectAria": "Variable profile",
     "add": "Add profile",
+    "rename": "Rename profile",
     "delete": "Delete profile",
     "namePlaceholder": "Profile name…",
     "nameAria": "New profile name",
