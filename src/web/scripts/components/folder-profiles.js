@@ -29,17 +29,23 @@
  *     flag always come from `node.variables`**, and only a Default edit can add,
  *     remove, or rename a variable (or flip its secure flag). Every named profile
  *     shares that exact name set.
- *   • A named profile stores ONLY values, keyed by name. A name it has no stored
- *     value for shows **blank** — it does NOT inherit the Default value. So a
+ *   • A named profile stores ONLY values, keyed by name. In the EDITOR a name it
+ *     has no stored value for shows **blank** (it is not pre-filled with the
+ *     Default) so you can see which values the profile actually overrides. So a
  *     brand-new profile (or a folder never edited under an existing profile)
  *     shows the Default's names with cleared values, ready for the user to fill
  *     in; the values a user leaves unset stay blank.
+ *   • At SEND time a blank profile value **falls through to the Default's value**
+ *     (`resolvedProfileVars`): a profile only needs to carry the variables that
+ *     differ from the Default, and the editor hints "falls through to default"
+ *     on each blank field. `effectiveProfileVars` (blank, for the editor) and
+ *     `resolvedProfileVars` (fall-through, for sending) are the two views.
  *   • Editing a named profile can only change VALUES. Names + secure flags are
  *     taken from the Default: a name in the edit that is not in the Default set
  *     is ignored, and a Default name the edit dropped (e.g. deleted in the bulk
  *     editor) is restored with a blank value.
  *   • The active profile is live at send time: resolution uses
- *     `effectiveProfileVars(...)` for each folder in the chain.
+ *     `resolvedProfileVars(...)` for each folder in the chain (blank → Default).
  *
  * The Default profile is represented by a null / empty `profileId`; named
  * profiles carry a UUID. Every function here is pure (no DOM, no persistence).
@@ -60,11 +66,13 @@ const has = (obj, key) =>
   obj != null && Object.prototype.hasOwnProperty.call(obj, key);
 
 /**
- * The effective `[{name,value,secure}]` shown (and resolved) for a folder under
+ * The effective `[{name,value,secure}]` to SHOW in the editor for a folder under
  * a given profile. Names + secure flags always come from the Default set. For a
  * named profile the value is that profile's own stored value, or **blank** when
- * it has no stored value for a name (an unset profile variable is blank — it does
- * not inherit the Default value).
+ * it has no stored value for a name — the editor deliberately shows the blank
+ * (rather than pre-filling the Default) so you can see which values the profile
+ * overrides. For what a blank actually resolves to at send time, see
+ * {@link resolvedProfileVars}.
  *
  * @param {Array|object} defaultVars     The folder's Default profile variables.
  * @param {object} [profileValues]       `{ [profileId]: { [name]: value } }`.
@@ -80,6 +88,35 @@ export function effectiveProfileVars(defaultVars, profileValues, profileId) {
     secure: v.secure,
     value: has(values, v.name) ? values[v.name] : "",
   }));
+}
+
+/**
+ * The effective `[{name,value,secure}]` to RESOLVE (send / preview / cURL) for a
+ * folder under a given profile. Identical to {@link effectiveProfileVars} except
+ * a **blank** profile value falls through to the Default's value — so a named
+ * profile only needs to carry the variables that differ from the Default, and an
+ * empty override never wipes a working Default value at send time. (A profile
+ * value the user genuinely wants empty resolves empty on the Default too, so the
+ * fall-through is a no-op there.)
+ *
+ * @param {Array|object} defaultVars     The folder's Default profile variables.
+ * @param {object} [profileValues]       `{ [profileId]: { [name]: value } }`.
+ * @param {string|null} [profileId]      Active profile (null/"" = Default).
+ * @returns {{name:string,value:string,secure:boolean}[]}
+ */
+export function resolvedProfileVars(defaultVars, profileValues, profileId) {
+  const base = normalizeVariables(defaultVars);
+  if (!profileId) return base; // Default profile (blank name)
+  const values = profileValues?.[profileId];
+  return base.map((v) => {
+    const stored = has(values, v.name) ? values[v.name] : "";
+    // Blank (unset or explicitly empty) → fall through to the Default's value.
+    return {
+      name: v.name,
+      secure: v.secure,
+      value: stored !== "" ? stored : v.value,
+    };
+  });
 }
 
 /**

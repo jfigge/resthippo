@@ -1395,7 +1395,8 @@
     "duplicate": "Ya existe un perfil llamado «{name}».",
     "limit": "Máximo de {max} perfiles alcanzado",
     "switched": "Perfil activo: {name}",
-    "switcherTitle": "Cambiar de perfil de variables de la carpeta"
+    "switcherTitle": "Cambiar de perfil de variables de la carpeta",
+    "fallThrough": "Recurre al valor predeterminado"
   },
   "passwordPrompt": {
     "exportTitle": "Proteger la exportación con contraseña",

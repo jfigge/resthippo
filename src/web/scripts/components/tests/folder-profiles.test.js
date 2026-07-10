@@ -33,6 +33,7 @@ import assert from "node:assert/strict";
 
 import {
   effectiveProfileVars,
+  resolvedProfileVars,
   applyProfileEdit,
   removeProfileFromFolder,
 } from "../folder-profiles.js";
@@ -65,6 +66,32 @@ test("effectiveProfileVars: a profile's stored values win; unset names stay blan
     { name: "host", value: "prod.example.com", secure: false },
     { name: "key", value: "", secure: true }, // unset → blank, NOT the Default value
   ]);
+});
+
+test("resolvedProfileVars: Default profile resolves to the canonical default set", () => {
+  assert.deepEqual(resolvedProfileVars(dflt, {}, null), dflt);
+  assert.deepEqual(resolvedProfileVars(dflt, {}, ""), dflt);
+});
+
+test("resolvedProfileVars: a blank profile value FALLS THROUGH to the Default's value", () => {
+  const pv = { prod: { host: "prod.example.com" } }; // only host overridden
+  assert.deepEqual(resolvedProfileVars(dflt, pv, "prod"), [
+    { name: "host", value: "prod.example.com", secure: false }, // override wins
+    { name: "key", value: "dev-key", secure: true }, // unset → the Default value
+  ]);
+});
+
+test("resolvedProfileVars: an explicitly-empty override also falls through (empty = fall through)", () => {
+  const pv = { prod: { host: "" } }; // host set to blank
+  assert.deepEqual(resolvedProfileVars(dflt, pv, "prod"), [
+    { name: "host", value: "dev.example.com", secure: false }, // blank → Default
+    { name: "key", value: "dev-key", secure: true },
+  ]);
+});
+
+test("resolvedProfileVars: an unseen profile resolves entirely to the Default's values", () => {
+  assert.deepEqual(resolvedProfileVars(dflt, {}, "prod"), dflt);
+  assert.deepEqual(resolvedProfileVars(dflt, undefined, "prod"), dflt);
 });
 
 test("applyProfileEdit: Default edit rewrites the Default set; profiles keep their own values", () => {

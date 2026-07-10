@@ -586,6 +586,10 @@ export class VarsEditor {
           // On a named profile only VALUES are editable — the name + secure +
           // delete are frozen to the Default's structure.
           lockStructure: !editable,
+          // On a named profile a blank value falls through to the Default's value
+          // at send time — hint that in the empty field (the placeholder only
+          // shows while the field is empty, i.e. exactly when it falls through).
+          valuePlaceholder: editable ? undefined : t("profiles.fallThrough"),
           // Debounced: fires per keystroke as the user edits a name/value.
           onChange: () => this.#debouncedSave(),
           onEnter: editable ? () => this.#addRow() : undefined,

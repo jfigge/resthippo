@@ -81,9 +81,15 @@ toolbar**:
 How values behave:
 
 - **Selecting a profile** shows that profile's own values. A variable you haven't
-  given a value in that profile stays **blank** — profiles do not inherit the
-  Default's values. Opening a folder for the first time under a profile likewise
-  shows the Default's names with cleared values.
+  given a value in that profile stays **blank** in the editor — the field shows a
+  _"falls through to default value"_ hint rather than pre-filling the Default, so
+  you can see exactly which values the profile overrides. Opening a folder for the
+  first time under a profile likewise shows the Default's names with cleared values.
+- **A blank profile value falls through to the Default at send time.** You only
+  need to set the variables that _differ_ from the Default; anything left blank in
+  the profile resolves to the Default's value when a request runs (a profile is an
+  overlay of overrides, not a full replacement). Give a variable its own value to
+  override the Default; clear it again to fall back.
 - **The variable set is fixed outside the Default.** On a named profile the editor
   locks structure — you can edit **values** only; the name fields are read-only
   and the add / delete / secure controls are disabled. Add, rename, or remove a

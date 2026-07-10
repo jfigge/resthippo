@@ -1395,7 +1395,8 @@
     "duplicate": "Esiste già un profilo denominato «{name}».",
     "limit": "Numero massimo di {max} profili raggiunto",
     "switched": "Profilo attivo: {name}",
-    "switcherTitle": "Cambia profilo variabili cartella"
+    "switcherTitle": "Cambia profilo variabili cartella",
+    "fallThrough": "Usa il valore predefinito"
   },
   "passwordPrompt": {
     "exportTitle": "Proteggi l'esportazione con password",

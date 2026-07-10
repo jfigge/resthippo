@@ -35,6 +35,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { VarsEditor } from "../vars-editor.js";
+import { t } from "../../i18n.js";
 
 function makeEditor() {
   const window = resetDom();
@@ -250,4 +251,22 @@ test("the Default profile keeps the KV structure editable (name editable, add sh
   const nameIn = ed.element.querySelector(".vars-kv-row .params-name");
   assert.equal(nameIn.readOnly, false);
   assert.equal(ed.element.querySelector(".vars-add-btn").style.display, "");
+});
+
+test("a named profile's blank value field hints that it falls through to the default", () => {
+  const { ed } = makeEditor();
+  loadFolder(ed, { activeProfileId: "p1", bulkEditor: false });
+  assert.equal(
+    ed.element.querySelector(".vars-kv-row .params-value").placeholder,
+    t("profiles.fallThrough"),
+  );
+});
+
+test("the Default profile keeps the generic value placeholder (no fall-through hint)", () => {
+  const { ed } = makeEditor();
+  loadFolder(ed, { activeProfileId: null, bulkEditor: false });
+  assert.equal(
+    ed.element.querySelector(".vars-kv-row .params-value").placeholder,
+    t("kv.value"),
+  );
 });

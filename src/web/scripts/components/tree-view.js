@@ -55,6 +55,7 @@ import {
   collectTemplateVariables,
 } from "./variable-resolver.js";
 import { varsArrayToMap } from "./variable-shape.js";
+import { resolvedProfileVars } from "./folder-profiles.js";
 import { computeDropPos } from "./drag-drop.js";
 import {
   findParentId,
@@ -112,6 +113,9 @@ export class TreeView {
 
   /** @type {object} — merged (global + environment) variable map for cURL / code-gen resolution */
   #envVariables = {};
+
+  /** @type {string|null} — active folder-variable profile (null = Default); cURL / code-gen resolve folder variables under it */
+  #activeProfileId = null;
 
   /** @type {Array} — active collection default headers, merged into cURL / code-gen */
   #collectionHeaders = [];
@@ -397,6 +401,17 @@ export class TreeView {
    */
   setEnvVariables(vars) {
     this.#envVariables = vars && typeof vars === "object" ? vars : {};
+  }
+
+  /**
+   * Set the active folder-variable profile (null/"" = Default). cURL / code-gen
+   * resolve each folder's variables under this profile — blank profile values
+   * fall through to the Default (see resolvedProfileVars). Call whenever the
+   * active profile or collection changes, mirroring setEnvVariables.
+   * @param {string|null} profileId
+   */
+  setActiveProfileId(profileId) {
+    this.#activeProfileId = profileId || null;
   }
 
   /**
@@ -1644,14 +1659,23 @@ export class TreeView {
   /**
    * Build the folder chain for variable resolution, converting each node's
    * canonical array `.variables` into the { name: value } map the resolver
-   * consumes. The resolver context is the boundary where arrays flatten to maps.
+   * consumes. Each folder resolves under the active profile (blank profile values
+   * fall through to the Default), so generated cURL / code matches what a send
+   * under that profile would produce — not always the Default. The resolver
+   * context is the boundary where arrays flatten to maps.
    * @param {string} nodeId
    * @returns {object[]}  folder-chain nodes with map-shaped `.variables`
    */
   #resolverFolderChain(nodeId) {
     return buildFolderChain(this.#items, nodeId).map((folder) => ({
       ...folder,
-      variables: varsArrayToMap(folder.variables),
+      variables: varsArrayToMap(
+        resolvedProfileVars(
+          folder.variables,
+          folder.profileValues,
+          this.#activeProfileId,
+        ),
+      ),
     }));
   }
 

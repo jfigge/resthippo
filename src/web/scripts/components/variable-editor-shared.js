@@ -128,6 +128,9 @@ export function rowsToVariables(rows) {
  * @param {string}  opts.rowClass        — row element class (e.g. "vars-kv-row params-row")
  * @param {number} [opts.revealMs=30000] — auto re-mask delay after reveal
  * @param {boolean} [opts.lockStructure=false] — freeze name + secure + delete (values only)
+ * @param {string} [opts.valuePlaceholder] — placeholder for the value input (e.g.
+ *                 a named profile's "falls through to default" hint); defaults to
+ *                 the generic value placeholder.
  * @param {() => void} [opts.onChange]
  * @param {() => void} [opts.onEnter]
  * @param {() => void} [opts.onDelete]
@@ -138,6 +141,7 @@ export function buildVariableRow({
   rowClass,
   revealMs = 30000,
   lockStructure = false,
+  valuePlaceholder,
   onChange,
   onEnter,
   onDelete,
@@ -172,7 +176,9 @@ export function buildVariableRow({
   const valIn = document.createElement("input");
   valIn.type = "text";
   valIn.className = "params-input params-value";
-  valIn.placeholder = t("kv.value");
+  // The placeholder shows only while the field is empty — on a named profile that
+  // is exactly the "falls through to default" case, so callers pass that hint.
+  valIn.placeholder = valuePlaceholder ?? t("kv.value");
   valIn.value = row.value;
   valIn.setAttribute("aria-label", t("vars.value"));
   valIn.addEventListener("input", () => {

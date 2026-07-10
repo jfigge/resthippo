@@ -1395,7 +1395,8 @@
     "duplicate": "A profile named “{name}” already exists.",
     "limit": "Maximum of {max} profiles reached",
     "switched": "Active profile: {name}",
-    "switcherTitle": "Switch folder variables profile"
+    "switcherTitle": "Switch folder variables profile",
+    "fallThrough": "Falls through to default value"
   },
   "passwordPrompt": {
     "exportTitle": "Password-Protect Export",

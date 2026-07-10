@@ -882,6 +882,57 @@ test("context menu 'generate-code' on a request runs without throwing", async ()
   });
 });
 
+test("copy-as-curl resolves folder variables under the ACTIVE profile, not always the Default", async () => {
+  const items = [
+    {
+      id: "c1",
+      type: "collection",
+      name: "API",
+      children: [
+        {
+          id: "f1",
+          type: "collection",
+          name: "Auth",
+          variables: [
+            { name: "host", value: "default.example.com", secure: false },
+          ],
+          profileValues: { p1: { host: "prod.example.com" } },
+          children: [
+            {
+              id: "r2",
+              type: "request",
+              name: "Login",
+              method: "POST",
+              url: "{{host}}/login",
+            },
+          ],
+        },
+      ],
+    },
+  ];
+  const tv = mount(items);
+  let copied = "";
+  Object.defineProperty(globalThis.navigator, "clipboard", {
+    value: {
+      writeText: async (txt) => {
+        copied = txt;
+      },
+    },
+    configurable: true,
+  });
+
+  // Default profile → the Default value.
+  tv.setActiveProfileId(null);
+  await contextAction(tv, "r2", "copy-as-curl");
+  assert.match(copied, /default\.example\.com/);
+  assert.doesNotMatch(copied, /prod\.example\.com/);
+
+  // Named profile active → its overriding value resolves into the cURL.
+  tv.setActiveProfileId("p1");
+  await contextAction(tv, "r2", "copy-as-curl");
+  assert.match(copied, /prod\.example\.com/);
+});
+
 // ── Keyboard navigation (roving tabindex) ────────────────────────────────────
 
 test("exactly one row owns tabindex=0 (the single tab stop)", () => {

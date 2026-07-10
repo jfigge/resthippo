@@ -1395,7 +1395,8 @@
     "duplicate": "Ein Profil mit dem Namen „{name}“ existiert bereits.",
     "limit": "Maximal {max} Profile erreicht",
     "switched": "Aktives Profil: {name}",
-    "switcherTitle": "Ordner-Variablenprofil wechseln"
+    "switcherTitle": "Ordner-Variablenprofil wechseln",
+    "fallThrough": "Fällt auf Standardwert zurück"
   },
   "passwordPrompt": {
     "exportTitle": "Export mit Passwort schützen",

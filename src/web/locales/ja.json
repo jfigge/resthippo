@@ -1388,7 +1388,8 @@
     "duplicate": "「{name}」という名前のプロファイルは既に存在します。",
     "limit": "プロファイルは最大{max}個までです",
     "switched": "アクティブなプロファイル: {name}",
-    "switcherTitle": "フォルダー変数プロファイルを切り替え"
+    "switcherTitle": "フォルダー変数プロファイルを切り替え",
+    "fallThrough": "デフォルト値にフォールバック"
   },
   "passwordPrompt": {
     "exportTitle": "エクスポートをパスワードで保護",

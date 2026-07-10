@@ -88,6 +88,7 @@ import {
 } from "./components/variable-shape.js";
 import {
   effectiveProfileVars,
+  resolvedProfileVars,
   applyProfileEdit,
   removeProfileFromFolder,
   MAX_NAMED_PROFILES,
@@ -2782,14 +2783,16 @@ function _buildVariableContextForNode(nodeId, node = null) {
   // so flatten each scope (and every folder-chain node) here at the boundary.
   // Each folder resolves under the collection's ACTIVE profile: its Default
   // variables with the active profile's value overrides applied (Default names +
-  // secure flags are unchanged). The active profile is live at send time.
+  // secure flags are unchanged). A blank profile value falls through to the
+  // Default's value — resolvedProfileVars, not effectiveProfileVars (which keeps
+  // the blank for the editor). The active profile is live at send time.
   const activeProfileId = _activeProfileId();
   const folderChain = (
     treeView && nodeId ? buildFolderChain(treeView.getItems(), nodeId) : []
   ).map((folder) => ({
     ...folder,
     variables: varsArrayToMap(
-      effectiveProfileVars(
+      resolvedProfileVars(
         folder.variables,
         folder.profileValues,
         activeProfileId,
@@ -2849,6 +2852,9 @@ function _refreshEditorVariableContext(nodeId) {
       ...ctx.globalVariables,
       ...ctx.environmentVariables,
     });
+    // Active profile, so tree-view cURL / code-gen resolve folder variables under
+    // it (not always the Default) — matching a send under the same profile.
+    treeView.setActiveProfileId(_activeProfileId());
     // Collection default headers, so tree-view cURL / code-gen merge them too.
     treeView.setCollectionHeaders(ctx.collectionHeaders);
   }
