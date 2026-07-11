@@ -1163,8 +1163,6 @@
       "responseAccessToken": "Access token",
       "responseIdToken": "Id token",
       "responseBoth": "Les deux",
-      "state": "State",
-      "statePlaceholder": "Chaîne aléatoire pour la protection CSRF",
       "credentials": "Identifiants",
       "credentialsAria": "Méthode de transmission des identifiants",
       "credentialsHeader": "En en-tête basic auth",

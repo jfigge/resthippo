@@ -19,9 +19,11 @@
  *
  * In-memory token cache with per-entry expiry tracking and optional refresh.
  *
- * Tokens are keyed by a stable "config key" derived from the OAuth config
- * (grant type + client ID + token URL) so that different requests sharing
- * identical configurations can share cached tokens without re-fetching.
+ * Tokens are keyed by a stable "config key" derived from every OAuth config
+ * field that can change the minted token (grant type, client identity, the
+ * endpoint URLs, scope, the password / token-exchange inputs, …) so that
+ * different requests sharing an identical configuration can share cached tokens
+ * without re-fetching, while a change to any credential input misses the cache.
  *
  * Security notes:
  *   • Tokens are held in memory only — never written to disk by this module.
@@ -128,18 +130,35 @@ class TokenStore {
   keyFor(config) {
     const parts = [
       config.grantType ?? "",
+      config.clientType ?? "",
       config.clientId ?? "",
       fingerprint(config.clientSecret ?? ""),
       config.authUrl ?? "",
       config.accessTokenUrl ?? "",
+      config.deviceAuthorizationUrl ?? "",
+      config.redirectUri ?? "",
       config.scope ?? "",
       config.username ?? "",
+      // Resource-Owner-Password mints a token from the password; fingerprint it
+      // so changing only the password invalidates the cached token instead of
+      // returning the one minted from the old password. The raw value is never
+      // embedded in the key.
+      fingerprint(config.password ?? ""),
       config.audience ?? "",
       config.resource ?? "",
-      // Token-exchange swaps a different token per subject; fingerprint it so
-      // distinct subject tokens never share a cached result. The raw value is
-      // never embedded in the key.
+      config.credentials ?? "",
+      // Implicit response_type selects which token(s) the IdP returns
+      // (access_token / id_token / both), so it identifies a distinct result.
+      config.responseType ?? "",
+      // Token-exchange mints a different token per subject/actor and per
+      // requested/token-type discriminator; fingerprint the two secret token
+      // inputs so distinct values never share a cached result, and include the
+      // type selectors. The raw token values are never embedded in the key.
       fingerprint(config.subjectToken ?? ""),
+      config.subjectTokenType ?? "",
+      fingerprint(config.actorToken ?? ""),
+      config.actorTokenType ?? "",
+      config.requestedTokenType ?? "",
     ];
     return parts.join("|");
   }

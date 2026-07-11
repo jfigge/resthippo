@@ -112,20 +112,34 @@ class OAuthExecutor {
   }
 
   /**
-   * Uncached acquisition: try a stored refresh token first, then fall back to
-   * the full grant flow. Caches a successful result. Runs under the #inFlight
+   * Uncached acquisition: try a refresh token first, then fall back to the full
+   * grant flow. Caches a successful result. Runs under the #inFlight
    * de-duplication so only one of N concurrent callers reaches the network.
+   *
+   * The refresh token comes from the cached entry (the normal expiry path) or,
+   * when `refreshTokenHint` is supplied, from the caller — forceRefresh() clears
+   * the cache before this runs, so it passes the component's stored refresh token
+   * through explicitly to keep a manual "Refresh Token" a silent exchange rather
+   * than a full re-grant (which would reopen the browser popup for auth-code).
    *
    * @param {object} config
    * @param {string} cacheKey
+   * @param {string} [refreshTokenHint] - refresh token to prefer over the cache
    * @returns {Promise<import('./types/oauth-types').OAuthResult>}
    */
-  async #refreshOrGrant(config, cacheKey) {
-    // ── Attempt refresh if we have a stored refresh token ─────────────────
-    const cached = tokenStore.get(cacheKey);
-    if (cached?.refreshToken) {
-      const refreshResult = await refreshTokenFlow(config, cached.refreshToken);
+  async #refreshOrGrant(config, cacheKey, refreshTokenHint) {
+    // ── Attempt refresh if we have a refresh token (hint wins over cache) ──
+    const refreshToken =
+      refreshTokenHint?.trim() || tokenStore.get(cacheKey)?.refreshToken;
+    if (refreshToken) {
+      const refreshResult = await refreshTokenFlow(config, refreshToken);
       if (refreshResult.success) {
+        // RFC 6749 §6: the refresh response MAY omit a new refresh_token, in
+        // which case the client keeps using the current one. Carry it forward so
+        // a non-rotating IdP doesn't lose its refresh token after one refresh
+        // (which would force the next refresh back into a full grant / popup).
+        if (!refreshResult.refreshToken)
+          refreshResult.refreshToken = refreshToken;
         tokenStore.set(cacheKey, refreshResult);
         return refreshResult;
       }
@@ -145,9 +159,17 @@ class OAuthExecutor {
   }
 
   /**
-   * Force a fresh token acquisition, bypassing the cache.
+   * Force a fresh token acquisition, bypassing the *cached access token*.
    *
-   * @param {object} config - authOAuth2 state
+   * This backs the manual "Get Token" / "Refresh Token" button. "Force" means
+   * "don't hand back the token already in the cache", not "always run the full
+   * grant": when the config carries a refresh token (`config.refreshToken`, the
+   * component's stored value) it is preferred, so "Refresh Token" performs a
+   * silent `refresh_token` exchange instead of reopening the browser popup. It
+   * falls back to the full grant only when there is no refresh token or the
+   * refresh fails.
+   *
+   * @param {object} config - authOAuth2 state (may include `refreshToken`)
    * @returns {Promise<import('./types/oauth-types').OAuthResult>}
    */
   async forceRefresh(config) {
@@ -158,9 +180,11 @@ class OAuthExecutor {
     // refresh-token rotation (OAuth 2.1) two concurrent token requests
     // invalidate each other and fail with invalid_grant. So serialize behind any
     // in-flight promise (awaiting its outcome, which we then discard), clear the
-    // cache it may have populated, and only then start the fresh grant. Register
-    // the chained promise as the new in-flight entry so concurrent callers
-    // coalesce onto this forced refresh instead of starting yet another.
+    // cache it may have populated, and only then start the fresh acquisition.
+    // The cache clear drops the cached refresh token too, so pass the config's
+    // stored refresh token through as the hint to keep the exchange silent.
+    // Register the chained promise as the new in-flight entry so concurrent
+    // callers coalesce onto this forced refresh instead of starting yet another.
     const prior = this.#inFlight.get(cacheKey);
     const fresh = (async () => {
       if (prior) {
@@ -171,7 +195,7 @@ class OAuthExecutor {
         }
       }
       tokenStore.clear(cacheKey);
-      return this.#refreshOrGrant(config, cacheKey);
+      return this.#refreshOrGrant(config, cacheKey, config.refreshToken);
     })().finally(() => {
       if (this.#inFlight.get(cacheKey) === fresh) {
         this.#inFlight.delete(cacheKey);

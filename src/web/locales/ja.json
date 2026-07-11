@@ -1156,8 +1156,6 @@
       "responseAccessToken": "アクセストークン",
       "responseIdToken": "ID トークン",
       "responseBoth": "両方",
-      "state": "State",
-      "statePlaceholder": "CSRF 対策用のランダム文字列",
       "credentials": "資格情報",
       "credentialsAria": "資格情報の送信方法",
       "credentialsHeader": "Basic 認証ヘッダーとして",

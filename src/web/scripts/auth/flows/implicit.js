@@ -81,13 +81,14 @@ export async function implicitFlow(config) {
 
   // ── OIDC nonce (replay protection for id_token) ───────────────────────────
   // Per OIDC Core §3.2.2.1, when an id_token is requested the client MUST send
-  // a nonce and verify the echoed claim. A user-provided value is honoured
-  // (advanced override) but otherwise we generate a fresh cryptographic nonce.
+  // a nonce and verify the echoed claim. We always mint a fresh cryptographic
+  // nonce here: the nonce lives in the single-use TTL registry so the returned
+  // claim can be validate-and-consumed, and there is deliberately no user
+  // override (a raw user-supplied value would never be in the registry and so
+  // could never validate). If a nonce field is ever added, it must be registered
+  // in the TTL registry (utils/nonce.js) at generation time, not passed raw.
   const wantsIdToken = responseType.includes("id_token");
-  let nonce = null;
-  if (wantsIdToken) {
-    nonce = config.nonce?.trim() || generateNonce();
-  }
+  const nonce = wantsIdToken ? generateNonce() : null;
 
   // ── Build authorization URL ───────────────────────────────────────────────
   const authParams = {

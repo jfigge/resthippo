@@ -1156,8 +1156,6 @@
       "responseAccessToken": "访问令牌",
       "responseIdToken": "ID 令牌",
       "responseBoth": "两者",
-      "state": "State",
-      "statePlaceholder": "用于 CSRF 防护的随机字符串",
       "credentials": "凭据",
       "credentialsAria": "凭据传输方式",
       "credentialsHeader": "作为 basic auth 标头",

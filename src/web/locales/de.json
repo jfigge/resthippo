@@ -1163,8 +1163,6 @@
       "responseAccessToken": "Access-Token",
       "responseIdToken": "ID-Token",
       "responseBoth": "Beide",
-      "state": "State",
-      "statePlaceholder": "Zufälliger String zum CSRF-Schutz",
       "credentials": "Anmeldedaten",
       "credentialsAria": "Übertragungsmethode der Anmeldedaten",
       "credentialsHeader": "Als Basic-Auth-Header",

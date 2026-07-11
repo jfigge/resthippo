@@ -365,6 +365,54 @@ await test("access token is non-enumerable (does not appear in JSON.stringify)",
   );
 });
 
+await test("keyFor: changing an identity-affecting field yields a different key", async () => {
+  const base = {
+    grantType: "password",
+    clientId: "cid",
+    clientSecret: "cs",
+    accessTokenUrl: "https://token.example.com",
+    username: "user",
+    password: "hunter2",
+  };
+  const baseKey = tokenStore.keyFor(base);
+  // The password (finding #1's acceptance criterion) and the other identity
+  // inputs must each perturb the key so a cached token minted from the old value
+  // is never returned after the value changes.
+  for (const patch of [
+    { password: "hunter3" },
+    { clientType: "public" },
+    { credentials: "body" },
+    { redirectUri: "https://app/cb" },
+    { deviceAuthorizationUrl: "https://device.example.com" },
+    { responseType: "id_token" },
+    { subjectToken: "st" },
+    { actorToken: "at" },
+  ]) {
+    const [field] = Object.keys(patch);
+    assert.notEqual(
+      tokenStore.keyFor({ ...base, ...patch }),
+      baseKey,
+      `changing ${field} must change the cache key`,
+    );
+  }
+  // An identical config still maps to a stable key (cache hits still work).
+  assert.equal(tokenStore.keyFor({ ...base }), baseKey);
+});
+
+await test("keyFor: the raw password is never embedded in the key", async () => {
+  const key = tokenStore.keyFor({
+    grantType: "password",
+    clientId: "cid",
+    username: "user",
+    password: "super-secret-pw",
+    accessTokenUrl: "https://token.example.com",
+  });
+  assert.ok(
+    !key.includes("super-secret-pw"),
+    "password must be fingerprinted, not embedded verbatim",
+  );
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Config validation
 // ───────────��─────────────────────────────────────────────────────────────────
@@ -906,6 +954,156 @@ await test("refresh token flow: missing refresh token returns error", async () =
   assert.equal(result.error?.code, OAuthErrorCode.CONFIGURATION_ERROR);
 });
 
+// forceRefresh() backs the manual "Refresh Token" button. When the config
+// carries a stored refresh token it must perform a silent refresh_token
+// exchange — not the full auth-code grant, which reopens the browser popup.
+await test("forceRefresh prefers a silent refresh_token exchange when the config carries a refresh token", async () => {
+  tokenStore.clearAll();
+  const bodies = [];
+  _mockResponse = (desc) => {
+    bodies.push(desc.body ?? "");
+    return {
+      status: 200,
+      statusText: "OK",
+      body: JSON.stringify({
+        access_token: "refreshed",
+        refresh_token: "rotated",
+        token_type: "Bearer",
+        expires_in: 3600,
+      }),
+    };
+  };
+  const result = await oauthExecutor.forceRefresh({
+    grantType: "authorization_code",
+    clientId: "cid",
+    clientSecret: "cs",
+    accessTokenUrl: "https://token.example.com",
+    authUrl: "https://auth.example.com/authorize",
+    refreshToken: "stored-rt", // the component's stored refresh token
+  });
+  assert.equal(result.success, true);
+  assert.equal(result.accessToken, "refreshed");
+  assert.equal(
+    bodies.length,
+    1,
+    "exactly one token request (the silent refresh)",
+  );
+  assert.ok(
+    bodies[0].includes("grant_type=refresh_token"),
+    "must exchange the refresh token, not run the full auth-code grant",
+  );
+  assert.ok(
+    bodies[0].includes("refresh_token=stored-rt"),
+    "must send the config's stored refresh token",
+  );
+  _mockResponse = null;
+  tokenStore.clearAll();
+});
+
+await test("forceRefresh falls back to the full grant when no refresh token is present", async () => {
+  tokenStore.clearAll();
+  const bodies = [];
+  _mockResponse = (desc) => {
+    bodies.push(desc.body ?? "");
+    return {
+      status: 200,
+      body: JSON.stringify({
+        access_token: "granted",
+        token_type: "Bearer",
+        expires_in: 3600,
+      }),
+    };
+  };
+  const result = await oauthExecutor.forceRefresh({
+    grantType: "client_credentials",
+    clientId: "cid",
+    clientSecret: "cs",
+    accessTokenUrl: "https://token.example.com",
+    // no refreshToken
+  });
+  assert.equal(result.success, true);
+  assert.equal(result.accessToken, "granted");
+  assert.equal(bodies.length, 1);
+  assert.ok(
+    bodies[0].includes("grant_type=client_credentials"),
+    "no refresh token → run the configured grant",
+  );
+  _mockResponse = null;
+  tokenStore.clearAll();
+});
+
+await test("forceRefresh retains the refresh token when the refresh response omits one (RFC 6749 §6)", async () => {
+  tokenStore.clearAll();
+  _mockResponse = () => ({
+    status: 200,
+    // A non-rotating IdP: new access token, but no new refresh_token.
+    body: JSON.stringify({
+      access_token: "refreshed",
+      token_type: "Bearer",
+      expires_in: 3600,
+    }),
+  });
+  const config = {
+    grantType: "authorization_code",
+    clientId: "cid",
+    clientSecret: "cs",
+    accessTokenUrl: "https://token.example.com",
+    authUrl: "https://auth.example.com/authorize",
+    refreshToken: "keep-me",
+  };
+  const result = await oauthExecutor.forceRefresh(config);
+  assert.equal(result.success, true);
+  assert.equal(
+    result.refreshToken,
+    "keep-me",
+    "the prior refresh token must be carried forward, not dropped",
+  );
+  // …and it must be cached, so a subsequent acquisition can refresh silently.
+  assert.equal(
+    tokenStore.get(tokenStore.keyFor(config))?.refreshToken,
+    "keep-me",
+  );
+  _mockResponse = null;
+  tokenStore.clearAll();
+});
+
+await test("forceRefresh falls back to the full grant when the silent refresh fails", async () => {
+  tokenStore.clearAll();
+  const bodies = [];
+  _mockResponse = (desc) => {
+    bodies.push(desc.body ?? "");
+    // First request (the refresh) is rejected; second (the grant) succeeds.
+    if (bodies.length === 1) {
+      return {
+        status: 400,
+        body: JSON.stringify({ error: "invalid_grant" }),
+      };
+    }
+    return {
+      status: 200,
+      body: JSON.stringify({
+        access_token: "regranted",
+        token_type: "Bearer",
+        expires_in: 3600,
+      }),
+    };
+  };
+  const result = await oauthExecutor.forceRefresh({
+    grantType: "client_credentials",
+    clientId: "cid",
+    clientSecret: "cs",
+    accessTokenUrl: "https://token.example.com",
+    refreshToken: "expired-rt",
+  });
+  assert.equal(result.success, true);
+  assert.equal(result.accessToken, "regranted");
+  assert.equal(bodies.length, 2, "a failed refresh falls through to the grant");
+  assert.ok(bodies[0].includes("grant_type=refresh_token"));
+  assert.ok(bodies[1].includes("grant_type=client_credentials"));
+  _mockResponse = null;
+  tokenStore.clearAll();
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Device Authorization grant — validation + polling (RFC 8628)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -982,6 +1180,31 @@ await test("device flow: succeeds after authorization_pending", async () => {
   const result = await deviceCodeFlow(DEVICE_CFG, { sleep: noSleep });
   assert.equal(result.success, true);
   assert.equal(result.accessToken, "dev-access");
+});
+
+await test("device flow: authorization_pending refreshes the prompt with a real status", async () => {
+  _mockResponse = deviceMock([
+    { status: 400, body: JSON.stringify({ error: "authorization_pending" }) },
+    {
+      status: 200,
+      body: JSON.stringify({ access_token: "t", token_type: "Bearer" }),
+    },
+  ]);
+  const statuses = [];
+  const spyPrompt = () => ({
+    update: (patch) => statuses.push(patch?.status),
+    close: () => {},
+  });
+  const result = await deviceCodeFlow(DEVICE_CFG, {
+    sleep: noSleep,
+    prompt: spyPrompt,
+  });
+  assert.equal(result.success, true);
+  // The pending poll must push a real waiting status, not a no-op `undefined`.
+  assert.ok(
+    statuses.length >= 1 && statuses.every((s) => typeof s === "string" && s),
+    "authorization_pending must update the prompt with a non-empty status string",
+  );
 });
 
 await test("device flow: backs off on slow_down then succeeds", async () => {

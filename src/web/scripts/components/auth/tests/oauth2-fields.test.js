@@ -80,7 +80,6 @@ const EXPECTED_FULL = {
     "redirectUri",
     "scope",
     "responseType",
-    "state",
     "audience",
     "headerPrefix",
   ],
@@ -134,7 +133,6 @@ test("oauth2VisibleFields: authorization_code shows clientType, and hides client
     "authUrl",
     "redirectUri",
     "scope",
-    "state",
     "credentials",
     "audience",
     "resource",
@@ -191,7 +189,6 @@ test("oauth2AdvancedKeys matches the documented advanced-field set", () => {
     "requestedTokenType",
     "resource",
     "responseType",
-    "state",
   ]);
 });
 

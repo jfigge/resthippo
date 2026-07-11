@@ -249,15 +249,6 @@ export const OAUTH2_FIELDS = [
     ],
   },
   {
-    key: "state",
-    labelKey: "auth.oauth2.state",
-    placeholderKey: "auth.oauth2.statePlaceholder",
-    type: "pill",
-    default: "",
-    advanced: true,
-    visibleFor: is(...AUTH_OR_IMPLICIT),
-  },
-  {
     key: "credentials",
     labelKey: "auth.oauth2.credentials",
     ariaLabelKey: "auth.oauth2.credentialsAria",

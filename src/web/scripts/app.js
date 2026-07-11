@@ -265,7 +265,6 @@ function _buildSnapshot(node) {
     if (o.scope) lines.push(`scope: ${o.scope}`);
     if (o.responseType) lines.push(`responseType: ${o.responseType}`);
     if (o.redirectUri) lines.push(`redirectUri: ${o.redirectUri}`);
-    if (o.state) lines.push(`state: ${o.state}`);
     if (o.credentials) lines.push(`credentials: ${o.credentials}`);
     if (o.audience) lines.push(`audience: ${o.audience}`);
     if (o.resource) lines.push(`resource: ${o.resource}`);

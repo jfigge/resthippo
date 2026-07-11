@@ -37,6 +37,7 @@
 
 "use strict";
 
+import { t } from "../../i18n.js";
 import { postTokenRequest } from "../network/electron-network.js";
 import { applyClientAuth } from "./token-request.js";
 import { mergeExtraParams } from "../utils/params.js";
@@ -180,7 +181,7 @@ export async function deviceCodeFlow(config, opts = {}) {
 
       switch (resp.error) {
         case "authorization_pending":
-          handle.update?.({ status: undefined });
+          handle.update?.({ status: t("auth.oauth2.device.waiting") });
           continue;
         case "slow_down":
           intervalMs += SLOW_DOWN_BACKOFF_S * 1_000;

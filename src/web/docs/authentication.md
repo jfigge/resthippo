@@ -100,8 +100,10 @@ Token** (for delegation), **Requested Token Type**, **Audience**, and
 URLs and the available scopes.
 
 **Advanced** — expand the **Advanced** section for fine control over
-**Response Type**, **State**, where credentials go (`header` vs `body`),
-**Audience**, **Resource**, **Origin**, and a custom **Header Prefix**.
+**Response Type**, where credentials go (`header` vs `body`), **Audience**,
+**Resource**, **Origin**, and a custom **Header Prefix**. The CSRF `state` (and,
+for OIDC, the `nonce`) is always generated fresh per request and verified on the
+callback — there is nothing to configure.
 
 > Authorization Code flows use **PKCE** by default for public clients, so you can
 > authenticate against modern providers without embedding a client secret.

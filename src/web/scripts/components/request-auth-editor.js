@@ -262,7 +262,6 @@ export class RequestAuthEditor {
     refreshToken: "", // stored refresh token
     expiresAt: null, // ms timestamp when stored token expires (null = unknown)
     // Advanced fields
-    state: "",
     credentials: "header", // "header" | "body"
     headerPrefix: "",
     audience: "",
