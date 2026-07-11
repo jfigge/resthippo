@@ -774,6 +774,61 @@ function decryptProfileValues(profileValues, secureNames) {
 }
 
 /**
+ * The set of variable names that are `secure` in a canonical variable list
+ * (`[{ name, value, secure }]`). A profile override is a secret exactly when its
+ * name is in this set, so every walk that handles `profileValues` derives it from
+ * the folder's own `variables` — the `name`/`secure` fields are plaintext even
+ * when the value is at-rest ciphertext, so this works on raw-on-disk nodes too.
+ * @param {Array} variables
+ * @returns {Set<string>}
+ */
+function secureNamesOf(variables) {
+  return new Set(
+    (Array.isArray(variables) ? variables : [])
+      .filter((v) => v && typeof v === "object" && v.secure)
+      .map((v) => v.name),
+  );
+}
+
+/**
+ * Map `fn` over only the SECRET override values in a profileValues map (those
+ * whose name is in `secureNames`); non-secret overrides pass through untouched.
+ * Returns a new map. The single chokepoint shared by redact / portable-export /
+ * portable-import so the "what is a secret override" rule lives in one place.
+ * @param {object} profileValues  { [profileId]: { [name]: value } }
+ * @param {Set<string>} secureNames
+ * @param {(v: string) => string} fn
+ */
+function _mapProfileSecrets(profileValues, secureNames, fn) {
+  if (!profileValues || typeof profileValues !== "object") return profileValues;
+  const out = {};
+  for (const [pid, map] of Object.entries(profileValues)) {
+    if (!map || typeof map !== "object") {
+      out[pid] = map;
+      continue;
+    }
+    const conv = {};
+    for (const [name, value] of Object.entries(map)) {
+      conv[name] = secureNames.has(name) ? fn(value) : value;
+    }
+    out[pid] = conv;
+  }
+  return out;
+}
+
+/**
+ * Blank every secret override value in a profileValues map (export without
+ * secrets). Non-secret overrides are preserved; the override key is kept so the
+ * profile structure survives, only its value is dropped. Mirrors
+ * {@link redactVariables}.
+ * @param {object} profileValues
+ * @param {Set<string>} secureNames
+ */
+function redactProfileValues(profileValues, secureNames) {
+  return _mapProfileSecrets(profileValues, secureNames, () => "");
+}
+
+/**
  * Re-encryption clobber guard for variable lists (the array twin of the request
  * store's anti-clobber logic).
  *
@@ -1069,6 +1124,34 @@ function importVariableSecrets(list, password) {
   });
 }
 
+/**
+ * Re-encrypt every secret override value in a profileValues map under a password
+ * for a portable export (the profileValues twin of {@link exportVariableSecrets}).
+ * `secureNames` names which override values are secrets; non-secret overrides are
+ * left as-is.
+ * @param {object} profileValues
+ * @param {Set<string>} secureNames
+ * @param {string} password
+ */
+function exportProfileValueSecrets(profileValues, secureNames, password) {
+  return _mapProfileSecrets(profileValues, secureNames, (v) =>
+    _toPortable(v, password),
+  );
+}
+
+/**
+ * Decrypt (password) or clear (no password) every secret override value in a
+ * profileValues map on import (the twin of {@link importVariableSecrets}).
+ * @param {object} profileValues
+ * @param {Set<string>} secureNames
+ * @param {string} [password]
+ */
+function importProfileValueSecrets(profileValues, secureNames, password) {
+  return _mapProfileSecrets(profileValues, secureNames, (v) =>
+    _fromPortable(v, password),
+  );
+}
+
 module.exports = {
   DecryptError,
   PasswordError,
@@ -1100,6 +1183,8 @@ module.exports = {
   importSettingsSecrets,
   exportVariableSecrets,
   importVariableSecrets,
+  exportProfileValueSecrets,
+  importProfileValueSecrets,
   isAvailable,
   isEncrypted,
   encryptString,
@@ -1114,7 +1199,9 @@ module.exports = {
   decryptVariables,
   redactVariables,
   restoreUndecryptableVariables,
+  secureNamesOf,
   encryptProfileValues,
   decryptProfileValues,
+  redactProfileValues,
   restoreUndecryptableSettings,
 };

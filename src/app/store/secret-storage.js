@@ -578,7 +578,7 @@ class SecretStorage {
 // document with `fn` applied to each. They share the same per-shape taxonomy so
 // the two passes can never drift.
 
-const { REQUEST_SECRET_PATHS, SETTINGS_SECRET_KEYS } = crypto;
+const { REQUEST_SECRET_PATHS, SETTINGS_SECRET_KEYS, secureNamesOf } = crypto;
 
 function collectSettings(settings) {
   if (!settings || typeof settings !== "object") return [];
@@ -651,12 +651,52 @@ function mapEnvironments(doc, fn) {
   };
 }
 
-// Tree folder nodes carry `variables`; recurse children.
+// A folder's secret profile overrides (`profileValues[pid][name]`) are secrets
+// exactly when `name` is `secure` in the folder's own variables. Only those
+// values are collected / mapped — mirroring collectVariables / mapVariables, with
+// `secureNames` derived from the sibling variable list (secure/name are plaintext
+// even on the raw-on-disk node, so this holds pre-decrypt).
+function collectProfileValues(profileValues, secureNames) {
+  if (!profileValues || typeof profileValues !== "object") return [];
+  const out = [];
+  for (const map of Object.values(profileValues)) {
+    if (!map || typeof map !== "object") continue;
+    for (const [name, value] of Object.entries(map)) {
+      if (secureNames.has(name)) out.push(value);
+    }
+  }
+  return out;
+}
+
+function mapProfileValues(profileValues, fn, secureNames) {
+  if (!profileValues || typeof profileValues !== "object") return profileValues;
+  const out = {};
+  for (const [pid, map] of Object.entries(profileValues)) {
+    if (!map || typeof map !== "object") {
+      out[pid] = map;
+      continue;
+    }
+    const conv = {};
+    for (const [name, value] of Object.entries(map)) {
+      conv[name] = secureNames.has(name) ? fn(value) : value;
+    }
+    out[pid] = conv;
+  }
+  return out;
+}
+
+// Tree folder nodes carry `variables` + `profileValues` secrets; recurse children.
 function collectTree(nodes) {
   const out = [];
   for (const node of Array.isArray(nodes) ? nodes : []) {
     if (!node || typeof node !== "object") continue;
     out.push(...collectVariables(node.variables));
+    out.push(
+      ...collectProfileValues(
+        node.profileValues,
+        secureNamesOf(node.variables),
+      ),
+    );
     out.push(...collectTree(node.children));
   }
   return out;
@@ -670,6 +710,15 @@ function mapTree(nodes, fn) {
       ...node,
       ...(node.variables !== undefined
         ? { variables: mapVariables(node.variables, fn) }
+        : {}),
+      ...(node.profileValues !== undefined
+        ? {
+            profileValues: mapProfileValues(
+              node.profileValues,
+              fn,
+              secureNamesOf(node.variables),
+            ),
+          }
         : {}),
       ...(node.children !== undefined
         ? { children: mapTree(node.children, fn) }

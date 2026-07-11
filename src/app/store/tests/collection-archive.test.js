@@ -143,3 +143,80 @@ test("encrypt does not mutate the input archive", () => {
   assert.equal(archive.items[0].children[0].authBasic.password, "s3cr3t");
   assert.equal(archive.secretsMode, undefined);
 });
+
+// A folder profile override is a secret when its name is `secure` in the folder's
+// variables. The secure var below has an EMPTY default value, so the override is
+// the ONLY secret in the archive — the case the pre-fix walk could not detect or
+// seal (a plaintext override would have leaked into the "safe" password archive).
+function archiveOverrideOnlySecret() {
+  return {
+    format: "resthippo",
+    kind: "resthippo-collection",
+    collectionVariables: [{ name: "c", value: "plain", secure: false }],
+    items: [
+      {
+        id: "f1",
+        type: "collection",
+        name: "API",
+        variables: [{ name: "apiKey", value: "", secure: true }],
+        profileValues: { prod: { apiKey: "prod-secret" } },
+        children: [],
+      },
+    ],
+    environments: { globalVariables: [], environments: [] },
+  };
+}
+
+test("archiveHasSecrets: true when the only secret is a profile override", () => {
+  assert.equal(archiveHasSecrets(archiveOverrideOnlySecret()), true);
+});
+
+test("archiveHasSecrets: a NON-secure profile override is not a secret", () => {
+  const archive = {
+    items: [
+      {
+        id: "f1",
+        type: "collection",
+        name: "API",
+        variables: [{ name: "host", value: "dev", secure: false }],
+        profileValues: { prod: { host: "prod-host" } },
+        children: [],
+      },
+    ],
+    collectionVariables: [],
+    environments: { globalVariables: [], environments: [] },
+  };
+  assert.equal(archiveHasSecrets(archive), false);
+});
+
+test("encrypt → decrypt round-trips a folder profile override", () => {
+  const password = "correct horse battery staple";
+  const enc = encryptArchiveSecrets(archiveOverrideOnlySecret(), password);
+
+  // The override is now portable ciphertext (not plaintext) in the archive.
+  assert.ok(isPasswordEncrypted(enc.items[0].profileValues.prod.apiKey));
+  assert.ok(!JSON.stringify(enc).includes("prod-secret"));
+
+  const dec = decryptArchiveSecrets(enc, password);
+  assert.equal(dec.items[0].profileValues.prod.apiKey, "prod-secret");
+});
+
+test("encrypt leaves a NON-secret profile override in plaintext", () => {
+  const archive = {
+    items: [
+      {
+        id: "f1",
+        type: "collection",
+        name: "API",
+        variables: [{ name: "host", value: "dev", secure: false }],
+        profileValues: { prod: { host: "prod-host" } },
+        children: [],
+      },
+    ],
+    // A secret elsewhere so the export runs the password path at all.
+    collectionVariables: [{ name: "x", value: "y", secure: true }],
+    environments: { globalVariables: [], environments: [] },
+  };
+  const enc = encryptArchiveSecrets(archive, "pw");
+  assert.equal(enc.items[0].profileValues.prod.host, "prod-host");
+});

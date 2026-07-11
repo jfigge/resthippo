@@ -61,6 +61,12 @@ const {
   lock,
   isLocked,
   reencryptValue,
+  secureNamesOf,
+  encryptProfileValues,
+  decryptProfileValues,
+  redactProfileValues,
+  exportProfileValueSecrets,
+  importProfileValueSecrets,
 } = require("../crypto");
 
 const nodeCrypto = require("node:crypto");
@@ -1134,5 +1140,69 @@ describe("restoreUndecryptableVariables under a locked session", () => {
       onDisk,
     );
     assert.equal(out[0].value, onDisk[0].value); // ciphertext survives the save
+  });
+});
+
+describe("profileValues secret helpers (secureNames-driven)", () => {
+  it("secureNamesOf collects only the secure variable names", () => {
+    const names = secureNamesOf([
+      { name: "host", value: "h", secure: false },
+      { name: "apiKey", value: "k", secure: true },
+      { name: "token", value: "t", secure: true },
+    ]);
+    assert.deepEqual([...names].sort(), ["apiKey", "token"]);
+    assert.deepEqual([...secureNamesOf(undefined)], []);
+  });
+
+  it("redactProfileValues blanks only secret-named overrides", () => {
+    const secure = secureNamesOf([{ name: "apiKey", value: "", secure: true }]);
+    const out = redactProfileValues(
+      { prod: { apiKey: "secret", host: "prod-host" } },
+      secure,
+    );
+    assert.equal(out.prod.apiKey, "");
+    assert.equal(out.prod.host, "prod-host"); // non-secret untouched
+  });
+
+  it("export/import round-trips a secret override under a password", () => {
+    const secure = secureNamesOf([{ name: "apiKey", value: "", secure: true }]);
+    const enc = exportProfileValueSecrets(
+      { prod: { apiKey: "s3cret", host: "prod-host" } },
+      secure,
+      "pw",
+    );
+    assert.ok(isPasswordEncrypted(enc.prod.apiKey));
+    assert.equal(enc.prod.host, "prod-host"); // non-secret stays plaintext
+
+    const dec = importProfileValueSecrets(enc, secure, "pw");
+    assert.equal(dec.prod.apiKey, "s3cret");
+    assert.equal(dec.prod.host, "prod-host");
+  });
+
+  it("import without a password clears the secret override to empty", () => {
+    const secure = secureNamesOf([{ name: "apiKey", value: "", secure: true }]);
+    const enc = exportProfileValueSecrets(
+      { prod: { apiKey: "s3cret" } },
+      secure,
+      "pw",
+    );
+    const dec = importProfileValueSecrets(enc, secure, undefined);
+    assert.equal(dec.prod.apiKey, "");
+  });
+
+  it("encrypt/decryptProfileValues round-trips at rest (app-key backend)", () => {
+    const APP_KEY = nodeCrypto.randomBytes(32);
+    configure({ mode: "app-key", appKey: APP_KEY });
+    try {
+      const secure = secureNamesOf([
+        { name: "apiKey", value: "", secure: true },
+      ]);
+      const enc = encryptProfileValues({ prod: { apiKey: "s3cret" } }, secure);
+      assert.ok(enc.prod.apiKey.startsWith("enck:v1:"));
+      const dec = decryptProfileValues(enc, secure);
+      assert.equal(dec.prod.apiKey, "s3cret");
+    } finally {
+      resetCrypto();
+    }
   });
 });

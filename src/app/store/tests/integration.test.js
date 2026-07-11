@@ -37,9 +37,11 @@ const path = require("path");
 const { Stores } = require("../stores");
 const { Paths } = require("../paths");
 const { Resolver } = require("../resolver");
+const { SecretStorage } = require("../secret-storage");
 const { validateID } = require("../io");
 const io = require("../io");
-const { _setSafeStorage, isEncrypted } = require("../crypto");
+const crypto = require("../crypto");
+const { _setSafeStorage, isEncrypted } = crypto;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1692,6 +1694,47 @@ describe("Folder-variable profiles — persistence + granular tree save", () => 
       loaded.collections[0].profileValues.prod.apiKey,
       "prod-secret",
     );
+  });
+
+  test("an override-only secret survives an os-keychain → app-key backend switch", () => {
+    // The secure var's default value is empty, so the profile override is the
+    // ONLY ciphertext on disk — the exact case the pre-fix migration walk
+    // skipped (it walked node.variables but not node.profileValues).
+    stores.collections.saveCollections(COL, {
+      version: 1,
+      collections: [
+        {
+          id: "f1",
+          type: "collection",
+          name: "API",
+          variables: [{ name: "apiKey", value: "", secure: true }],
+          profileValues: { prod: { apiKey: "prod-secret" } },
+          children: [],
+        },
+      ],
+    });
+
+    const paths = new Paths(tmpDir);
+    const raw = readRaw(paths.treePath(COL));
+    assert.ok(isEncrypted(raw.children[0].profileValues.prod.apiKey));
+
+    // Migrate the at-rest backend os-keychain → app-key.
+    const ss = new SecretStorage(paths);
+    const appKey = ss.ensureAppKey();
+    crypto.configure({ mode: "os-keychain", appKey });
+    assert.ok(ss.reencryptAll("app-key").ok);
+    crypto.configure({ mode: "app-key", appKey });
+
+    // Re-encrypted to enck: on disk, and still reads back as plaintext.
+    const raw2 = readRaw(paths.treePath(COL));
+    assert.ok(
+      raw2.children[0].profileValues.prod.apiKey.startsWith("enck:v1:"),
+    );
+    const folder = stores.collections.getCollections(COL).collections[0];
+    assert.equal(folder.profileValues.prod.apiKey, "prod-secret");
+
+    // Restore the pinned os-keychain default for any following test.
+    crypto.configure({ mode: "os-keychain", appKey: null, masterKey: null });
   });
 });
 

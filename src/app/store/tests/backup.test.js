@@ -874,3 +874,112 @@ describe("BackupStore — per-collection environments", () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Folder profile-override secrets
+//
+// A folder's profileValues override is a secret when its name is `secure` in the
+// folder's variables. The secure var here has an EMPTY default value, so the
+// override is the ONLY secret in the workspace — the case the pre-fix tree walk
+// skipped (none-mode leaked ciphertext; password-mode lost it cross-machine).
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("BackupStore — folder profile-override secrets", () => {
+  let srcDir;
+  let src;
+
+  function seedWithOverride(stores) {
+    stores.collectionStore().saveManifest({
+      version: 2,
+      collections: [{ id: "coll-1", name: "My Collection" }],
+      activeCollectionId: "coll-1",
+      settings: {},
+    });
+    stores.collectionsStore().saveCollections("coll-1", {
+      version: 1,
+      collections: [
+        {
+          id: "folder-1",
+          type: "collection",
+          name: "Folder",
+          variables: [{ name: "apiKey", value: "", secure: true }],
+          profileValues: { prod: { apiKey: "prod-override-secret" } },
+          children: [],
+        },
+      ],
+    });
+  }
+
+  beforeEach(() => {
+    srcDir = makeTmpDir();
+    src = new Stores(srcDir);
+    seedWithOverride(src);
+  });
+  afterEach(() => rmTmpDir(srcDir));
+
+  test("none-mode export blanks the override — no plaintext or ciphertext leaks", () => {
+    const env = src.backupStore().exportAll(); // default: none
+    assert.ok(!JSON.stringify(env).includes("prod-override-secret"));
+    const folder = findFolder(env.collections[0].tree.children, "folder-1");
+    assert.equal(folder.profileValues.prod.apiKey, "");
+  });
+
+  test("password export stores the override as portable ciphertext (no leak)", () => {
+    const env = src.backupStore().exportAll({ mode: "password", password: PW });
+    const folder = findFolder(env.collections[0].tree.children, "folder-1");
+    assert.match(folder.profileValues.prod.apiKey, /^encp:v2:/);
+    assert.ok(!JSON.stringify(env).includes("prod-override-secret"));
+  });
+
+  test("password backup round-trips the override across machines", () => {
+    const env = src.backupStore().exportAll({ mode: "password", password: PW });
+
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      dest.backupStore().importAll(env, { mode: "replace", password: PW });
+      const folder = findFolder(
+        dest.collectionsStore().getCollections("coll-1").collections,
+        "folder-1",
+      );
+      assert.equal(folder.profileValues.prod.apiKey, "prod-override-secret");
+    } finally {
+      rmTmpDir(destDir);
+    }
+  });
+
+  test("password import without a password clears the override", () => {
+    const env = src.backupStore().exportAll({ mode: "password", password: PW });
+
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      dest.backupStore().importAll(env, { mode: "replace" }); // no password
+      const folder = findFolder(
+        dest.collectionsStore().getCollections("coll-1").collections,
+        "folder-1",
+      );
+      // Cleared to "" (kept as an empty override, not carrying ciphertext).
+      assert.equal(folder.profileValues?.prod?.apiKey ?? "", "");
+    } finally {
+      rmTmpDir(destDir);
+    }
+  });
+
+  test("machine-mode backup carries the override verbatim and re-imports it", () => {
+    const env = src.backupStore().exportAll({ includeSecrets: true }); // machine
+
+    const destDir = makeTmpDir();
+    try {
+      const dest = new Stores(destDir);
+      dest.backupStore().importAll(env, { mode: "replace" });
+      const folder = findFolder(
+        dest.collectionsStore().getCollections("coll-1").collections,
+        "folder-1",
+      );
+      assert.equal(folder.profileValues.prod.apiKey, "prod-override-secret");
+    } finally {
+      rmTmpDir(destDir);
+    }
+  });
+});

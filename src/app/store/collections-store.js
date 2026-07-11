@@ -49,16 +49,8 @@ const {
   restoreUndecryptableVariables,
   encryptProfileValues,
   decryptProfileValues,
+  secureNamesOf,
 } = require("./crypto");
-
-/** Names of the `secure` variables in a canonical variable list. */
-function _secureNames(variables) {
-  return new Set(
-    (Array.isArray(variables) ? variables : [])
-      .filter((v) => v && v.secure)
-      .map((v) => v.name),
-  );
-}
 const { CollectionRepository } = require("./collection-repository");
 
 class CollectionsStore {
@@ -184,7 +176,7 @@ class CollectionsStore {
     };
     const profileValues = decryptProfileValues(
       node.profileValues,
-      _secureNames(variables),
+      secureNamesOf(variables),
     );
     if (profileValues) folder.profileValues = profileValues;
     return folder;
@@ -246,7 +238,7 @@ class CollectionsStore {
     };
     const profileValues = encryptProfileValues(
       coll.profileValues,
-      _secureNames(incomingVars),
+      secureNamesOf(incomingVars),
     );
     if (profileValues) node.profileValues = profileValues;
     return node;

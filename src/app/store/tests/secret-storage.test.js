@@ -672,3 +672,129 @@ describe("locked-session save does not wipe secrets (end-to-end)", () => {
     }
   });
 });
+
+// A folder profile override (`profileValues[pid][name]`) is a secret when its
+// name is `secure` in the folder's variables. Give the secure variable an EMPTY
+// default value so the variable list contributes NO ciphertext — the override is
+// then the ONLY secret on disk, exactly the case the pre-fix collectTree/mapTree
+// walk skipped (permanent loss on a backend switch; mis-inferred mode on recovery).
+describe("profile-override secret (the only secret) survives mode switches", () => {
+  afterEach(() => {
+    crypto._setSafeStorage(null);
+    resetCrypto();
+  });
+
+  function seedOverrideOnly(dir, mode, keys) {
+    const paths = new Paths(dir);
+    crypto.configure({ mode, ...keys });
+    fs.mkdirSync(paths.collectionDir("c1"), { recursive: true });
+    fs.writeFileSync(
+      paths.treePath("c1"),
+      JSON.stringify({
+        children: [
+          {
+            id: "f1",
+            type: "folder",
+            name: "API",
+            variables: [{ name: "apiKey", value: "", secure: true }],
+            profileValues: {
+              prod: { apiKey: crypto.encryptString("prod-secret") },
+            },
+            children: [],
+          },
+        ],
+      }),
+    );
+    return paths;
+  }
+
+  const override = (paths) =>
+    JSON.parse(fs.readFileSync(paths.treePath("c1"), "utf8")).children[0]
+      .profileValues.prod.apiKey;
+
+  it("re-encrypts app-key → master-password → app-key with no loss", () => {
+    const dir = makeTmpDir();
+    try {
+      const APP_KEY = nodeCrypto.randomBytes(32);
+      const MK = nodeCrypto.randomBytes(32);
+      const paths = seedOverrideOnly(dir, "app-key", { appKey: APP_KEY });
+      const ss = new SecretStorage(paths);
+
+      // enck: → encm:
+      crypto.configure({ mode: "app-key", appKey: APP_KEY, masterKey: MK });
+      assert.ok(ss.reencryptAll("master-password").ok);
+      assert.ok(override(paths).startsWith("encm:v1:"));
+      crypto.configure({ mode: "master-password", masterKey: MK });
+      assert.equal(crypto.decryptString(override(paths)), "prod-secret");
+
+      // encm: → enck: (round trip back)
+      crypto.configure({
+        mode: "master-password",
+        appKey: APP_KEY,
+        masterKey: MK,
+      });
+      assert.ok(ss.reencryptAll("app-key").ok);
+      assert.ok(override(paths).startsWith("enck:v1:"));
+      crypto.configure({ mode: "app-key", appKey: APP_KEY, masterKey: null });
+      assert.equal(crypto.decryptString(override(paths)), "prod-secret");
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("re-encrypts app-key → os-keychain with no loss", () => {
+    const dir = makeTmpDir();
+    try {
+      crypto._setSafeStorage(SAFE_STORAGE_MOCK);
+      const APP_KEY = nodeCrypto.randomBytes(32);
+      const paths = seedOverrideOnly(dir, "app-key", { appKey: APP_KEY });
+      const ss = new SecretStorage(paths);
+
+      crypto.configure({ mode: "app-key", appKey: APP_KEY });
+      assert.ok(ss.reencryptAll("os-keychain").ok);
+      assert.ok(override(paths).startsWith("enc:v1:"));
+      crypto.configure({ mode: "os-keychain" });
+      assert.equal(crypto.decryptString(override(paths)), "prod-secret");
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("aborts non-destructively when the override can't be decrypted", () => {
+    const dir = makeTmpDir();
+    try {
+      const MK = nodeCrypto.randomBytes(32);
+      const paths = seedOverrideOnly(dir, "master-password", { masterKey: MK });
+      const before = fs.readFileSync(paths.treePath("c1"), "utf8");
+      const ss = new SecretStorage(paths);
+      // Drop the master key → the encm: override can't be read to migrate.
+      crypto.configure({ mode: "master-password", masterKey: null });
+      const res = ss.reencryptAll("app-key");
+      assert.equal(res.ok, false);
+      assert.ok(res.failures.some((f) => f.file === "tree/c1"));
+      // The tree file is untouched — the override ciphertext is preserved.
+      assert.equal(fs.readFileSync(paths.treePath("c1"), "utf8"), before);
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("_inferMode boots master-password for an override-only encm: install", () => {
+    const dir = makeTmpDir();
+    try {
+      const MK = nodeCrypto.randomBytes(32);
+      // Seal the override under master-password; no config file exists, so
+      // bootstrap must INFER the mode from the on-disk override ciphertext alone.
+      const paths = seedOverrideOnly(dir, "master-password", { masterKey: MK });
+      resetCrypto();
+
+      const { mode, locked } = new SecretStorage(paths).bootstrap();
+      assert.equal(mode, "master-password");
+      assert.equal(locked, true);
+      // The regression guard: no fresh app key was minted over the secret.
+      assert.ok(!fs.existsSync(paths.secretKeyPath()));
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+});

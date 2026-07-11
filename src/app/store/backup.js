@@ -74,15 +74,20 @@ const {
   redactRequest,
   redactSettings,
   redactVariables,
+  redactProfileValues,
   exportRequestSecrets,
   exportSettingsSecrets,
   exportVariableSecrets,
+  exportProfileValueSecrets,
   importRequestSecrets,
   importSettingsSecrets,
   importVariableSecrets,
+  importProfileValueSecrets,
   encryptRequest,
   encryptSettings,
   encryptVariables,
+  encryptProfileValues,
+  secureNamesOf,
 } = require("./crypto");
 const { CURRENT_SCHEMA_VERSION } = require("./migrations");
 
@@ -697,11 +702,33 @@ function _exportTreeNodes(nodes, mode, password) {
     if (Array.isArray(node.variables)) {
       out.variables = _exportVarList(node.variables, mode, password);
     }
+    if (node.profileValues && typeof node.profileValues === "object") {
+      out.profileValues = _exportProfileValues(
+        node.profileValues,
+        secureNamesOf(node.variables),
+        mode,
+        password,
+      );
+    }
     if (Array.isArray(node.children)) {
       out.children = _exportTreeNodes(node.children, mode, password);
     }
     return out;
   });
+}
+
+/**
+ * Transform a folder's secret profile overrides for export per mode: blanked in
+ * `none`, portable `encp:` in `password`, at-rest ciphertext verbatim in
+ * `machine`. Non-secret overrides always pass through untouched.
+ */
+function _exportProfileValues(profileValues, secureNames, mode, password) {
+  if (mode === SECRETS_NONE)
+    return redactProfileValues(profileValues, secureNames);
+  if (mode === SECRETS_PASSWORD) {
+    return exportProfileValueSecrets(profileValues, secureNames, password);
+  }
+  return profileValues; // machine: ciphertext verbatim
 }
 
 // ── Import-side password localisation ─────────────────────────────────────────
@@ -792,11 +819,31 @@ function _localizeTreeNodes(nodes, password) {
     if (Array.isArray(node.variables)) {
       out.variables = _localizeVarList(node.variables, password);
     }
+    if (node.profileValues && typeof node.profileValues === "object") {
+      out.profileValues = _localizeProfileValues(
+        node.profileValues,
+        secureNamesOf(node.variables),
+        password,
+      );
+    }
     if (Array.isArray(node.children)) {
       out.children = _localizeTreeNodes(node.children, password);
     }
     return out;
   });
+}
+
+/**
+ * Localize a folder's portable (`encp:`) profile overrides to this machine's
+ * at-rest backend: decrypt with the password (or clear without one) then
+ * re-encrypt the secret values under the active keystore. Mirrors
+ * {@link _localizeVarList}.
+ */
+function _localizeProfileValues(profileValues, secureNames, password) {
+  return encryptProfileValues(
+    importProfileValueSecrets(profileValues, secureNames, password),
+    secureNames,
+  );
 }
 
 /**

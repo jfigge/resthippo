@@ -40,6 +40,9 @@ const {
   importRequestSecrets,
   exportVariableSecrets,
   importVariableSecrets,
+  exportProfileValueSecrets,
+  importProfileValueSecrets,
+  secureNamesOf,
 } = require("./crypto");
 
 /**
@@ -58,7 +61,14 @@ function archiveHasSecrets(archive) {
       if (!n || typeof n !== "object") return false;
       if (n.type === "request") return requestHasSecret(n);
       if (n.type === "collection")
-        return varsHaveSecret(n.variables) || nodesHaveSecret(n.children);
+        return (
+          varsHaveSecret(n.variables) ||
+          profileValuesHaveSecret(
+            n.profileValues,
+            secureNamesOf(n.variables),
+          ) ||
+          nodesHaveSecret(n.children)
+        );
       return false;
     });
 
@@ -95,6 +105,26 @@ function varsHaveSecret(list) {
   );
 }
 
+/** True when any secret-named profile override carries a non-empty value. */
+function profileValuesHaveSecret(profileValues, secureNames) {
+  if (
+    !profileValues ||
+    typeof profileValues !== "object" ||
+    !secureNames.size
+  ) {
+    return false;
+  }
+  for (const map of Object.values(profileValues)) {
+    if (!map || typeof map !== "object") continue;
+    for (const [name, value] of Object.entries(map)) {
+      if (secureNames.has(name) && typeof value === "string" && value !== "") {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 /**
  * Re-encrypt every secret field in the archive under `password` (portable
  * `encp:v2:`), tagging the envelope `secretsMode: "password"`.
@@ -115,6 +145,7 @@ function encryptArchiveSecrets(archive, password) {
       archive.items,
       (req) => exportRequestSecrets(req, password),
       (list) => exportVariableSecrets(list, password),
+      (pv, secureNames) => exportProfileValueSecrets(pv, secureNames, password),
     ),
     environments: mapEnvSecrets(archive.environments, (list) =>
       exportVariableSecrets(list, password),
@@ -145,6 +176,7 @@ function decryptArchiveSecrets(archive, password) {
       archive.items,
       (req) => importRequestSecrets(req, password),
       (list) => importVariableSecrets(list, password),
+      (pv, secureNames) => importProfileValueSecrets(pv, secureNames, password),
     ),
     environments: mapEnvSecrets(archive.environments, (list) =>
       importVariableSecrets(list, password),
@@ -154,17 +186,25 @@ function decryptArchiveSecrets(archive, password) {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/** Walk items applying `reqFn` to requests and `varFn` to folder variables. */
-function mapNodeSecrets(nodes, reqFn, varFn) {
+/**
+ * Walk items applying `reqFn` to requests, `varFn` to folder variables, and
+ * `profFn(profileValues, secureNames)` to a folder's secret profile overrides
+ * (its `secureNames` derived from the folder's own variables).
+ */
+function mapNodeSecrets(nodes, reqFn, varFn, profFn) {
   return (Array.isArray(nodes) ? nodes : []).map((n) => {
     if (!n || typeof n !== "object") return n;
     if (n.type === "request") return reqFn(n);
     if (n.type === "collection") {
-      return {
+      const out = {
         ...n,
         variables: varFn(n.variables),
-        children: mapNodeSecrets(n.children, reqFn, varFn),
+        children: mapNodeSecrets(n.children, reqFn, varFn, profFn),
       };
+      if (n.profileValues !== undefined) {
+        out.profileValues = profFn(n.profileValues, secureNamesOf(n.variables));
+      }
+      return out;
     }
     return n;
   });
