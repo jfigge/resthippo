@@ -1071,6 +1071,77 @@ test("round-trip: form-data file field + path variables survive a Postman cycle"
   assert.equal(file.contentType, "application/pdf");
 });
 
+// ── Round-trip: single-file body (Feature 58) ────────────────────────────────
+
+function fileBodyCollection() {
+  return {
+    id: "c1",
+    type: "collection",
+    name: "Files API",
+    variables: [],
+    children: [
+      {
+        type: "request",
+        name: "Upload",
+        method: "POST",
+        url: "https://api.example.com/upload",
+        params: [],
+        headers: [],
+        bodyType: "file",
+        bodyFilePath: "/tmp/upload.bin",
+      },
+    ],
+  };
+}
+
+test("round-trip: file body survives a Rest Hippo → Postman → Rest Hippo cycle", () => {
+  const postmanJson = exportToPostman(fileBodyCollection(), []);
+  // Export writes the v2.1-correct { mode:"file", file:{ src } } shape.
+  const exported = findPostmanRequest(
+    JSON.parse(postmanJson).item,
+    "Upload",
+  ).request;
+  assert.equal(exported.body.mode, "file");
+  assert.equal(exported.body.file.src, "/tmp/upload.bin");
+
+  const { collection: reimported } = parsePostman(JSON.parse(postmanJson));
+  const req = findRequest(reimported, "Upload");
+  assert.equal(req.bodyType, "file");
+  assert.equal(req.bodyFilePath, "/tmp/upload.bin");
+});
+
+test("round-trip: real Postman top-level body.src file path still imports", () => {
+  const fixture = {
+    info: {
+      name: "Legacy",
+      schema:
+        "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    },
+    item: [
+      {
+        name: "Upload",
+        request: {
+          method: "POST",
+          url: "https://api.example.com/upload",
+          body: { mode: "file", src: "/tmp/legacy.bin" },
+        },
+      },
+    ],
+  };
+  const { collection } = parsePostman(fixture);
+  const req = findRequest(collection, "Upload");
+  assert.equal(req.bodyType, "file");
+  assert.equal(req.bodyFilePath, "/tmp/legacy.bin");
+});
+
+test("round-trip: file body survives a Rest Hippo → Insomnia → Rest Hippo cycle", () => {
+  const insomniaJson = exportToInsomnia(fileBodyCollection(), []);
+  const { collection: reimported } = parseInsomnia(JSON.parse(insomniaJson));
+  const req = findRequest(reimported, "Upload");
+  assert.equal(req.bodyType, "file");
+  assert.equal(req.bodyFilePath, "/tmp/upload.bin");
+});
+
 // ── Shared canonical-shape builders (import/shape.js) ─────────────────────────
 
 test("shape.buildAuth: neutral descriptor → canonical Rest Hippo auth fields", () => {

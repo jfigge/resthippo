@@ -487,8 +487,10 @@ export async function buildRequestPayload(spec, rv) {
       }
       case "file":
         if (spec.bodyFile) {
-          // Electron exposes the real filesystem path via File.path.
-          // In a plain browser context this will be undefined/empty.
+          // The renderer resolves the real filesystem path (Electron removed
+          // File.path in v32; body-editor.js uses window.hippo.getPathForFile)
+          // and hands it here as { path, type } — only the path crosses IPC and
+          // the main process reads the bytes.
           bodyFilePath = spec.bodyFile.path ?? "";
           if (!hasContentType(headers))
             headers["Content-Type"] =

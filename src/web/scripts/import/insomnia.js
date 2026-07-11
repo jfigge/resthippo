@@ -22,6 +22,7 @@ import {
   rawBody,
   graphqlBody,
   formBody,
+  fileBody,
   splitUrlQuery,
   objRows,
 } from "./shape.js";
@@ -161,6 +162,10 @@ function parseBody(body) {
       ),
     );
   }
+  // A single-file body: Insomnia tags it application/octet-stream and carries
+  // the path in `fileName` (mirrors export/insomnia.js). Must precede the plain
+  // `body.text` fallback so a file body isn't misread as an empty text body.
+  if (mime.includes("octet-stream")) return fileBody(body.fileName);
   if (body.text) return rawBody("text", body.text);
   return noBody();
 }

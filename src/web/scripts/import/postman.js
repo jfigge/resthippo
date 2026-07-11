@@ -211,7 +211,9 @@ function parseBody(body, warnings) {
       return graphqlBody(gql.query, gql.variables);
     }
     case "file":
-      return fileBody(body.src);
+      // Postman v2.1 nests the path under body.file.src (what our own exporter
+      // writes); some older exports used a top-level body.src. Accept both.
+      return fileBody(body.file?.src ?? body.src);
     default:
       return noBody();
   }

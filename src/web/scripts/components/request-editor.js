@@ -1299,7 +1299,14 @@ export class RequestEditor {
       payload = await buildRequestPayload(
         {
           method: "GET",
-          urlBase: encodeBaseUrl(await rv(rawUrl)),
+          // Substitute :id / {id} path params before encoding, exactly as the
+          // HTTP send does, so a WS URL with tokens connects to the real path.
+          urlBase: encodeBaseUrl(
+            applyPathParams(
+              await rv(rawUrl),
+              await resolvePathParamValues(this.#pathParams, rv),
+            ),
+          ),
           params: this.#params,
           headers: this.#headers,
           collectionHeaders: this.#variableContext?.collectionHeaders ?? [],
@@ -3001,7 +3008,11 @@ export class RequestEditor {
         bodyType: bodyVals.bodyType,
         bodyText: scriptedBodyText ?? bodyVals.bodyText,
         bodyFormRows: bodyVals.bodyFormRows,
-        bodyFile: bodyVals.bodyFile,
+        // Pass the resolved path (survives reload), not the File object whose
+        // .path was removed in Electron 32. buildRequestPayload reads { path, type }.
+        bodyFile: bodyVals.bodyFilePath
+          ? { path: bodyVals.bodyFilePath, type: bodyVals.bodyFile?.type }
+          : null,
         bodyGraphql: this.#graphql.getValue(),
       },
       rv,

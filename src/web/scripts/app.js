@@ -4533,7 +4533,9 @@ async function _executeForFolderRun(node, ctx) {
       bodyType: node.bodyType,
       bodyText: node.bodyText,
       bodyFormRows: node.bodyFormRows,
-      bodyFile: node.bodyFile ?? null,
+      // A saved request stores the file body as a path string (bodyFilePath),
+      // not a File object; hand buildRequestPayload the { path } shape it reads.
+      bodyFile: node.bodyFilePath ? { path: node.bodyFilePath } : null,
       bodyGraphql: node.bodyGraphql,
     },
     rv,
