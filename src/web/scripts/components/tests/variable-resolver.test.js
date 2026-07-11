@@ -181,6 +181,44 @@ test("buildFunctionToken is the inverse of parseFunctionCall", () => {
   assert.deepEqual(parsed.rawArgs, ["ISO", "utc"]);
 });
 
+test("function-pill args round-trip through braces (edit → save → reload)", () => {
+  // A value with literal braces must survive: buildFunctionToken escapes them so
+  // the {{…}} grammar stays well-formed, and tokenize must recognise the whole
+  // token (not drop it to literal text) on reload.
+  const token = buildFunctionToken("base64", ["a}b{c"]);
+  assert.equal(token, '{{base64("a\\}b\\{c")}}');
+
+  const toks = tokenize(`prefix ${token} suffix`);
+  assert.deepEqual(
+    toks.map((tk) => tk.type),
+    ["text", "variable", "text"],
+  );
+  // Parsing the reloaded token content recovers the original arg verbatim.
+  assert.deepEqual(parseFunctionCall(toks[1].content), {
+    name: "base64",
+    rawArgs: ["a}b{c"],
+  });
+});
+
+test("function-pill args round-trip through backslashes and quotes too", () => {
+  const token = buildFunctionToken("hmac", ['a\\b"c', "plain"]);
+  const toks = tokenize(token);
+  assert.equal(toks.length, 1);
+  assert.equal(toks[0].type, "variable");
+  assert.deepEqual(parseFunctionCall(toks[0].content).rawArgs, [
+    'a\\b"c',
+    "plain",
+  ]);
+});
+
+test("tokenize grammar stays a superset — plain tokens unchanged, raw braces still split", () => {
+  assert.deepEqual(tokenize("{{host}}"), [
+    { type: "variable", content: "host" },
+  ]);
+  // A raw (unescaped) brace inside still terminates the body, exactly as before.
+  assert.deepEqual(tokenize("{{a}b}}"), [{ type: "text", content: "{{a}b}}" }]);
+});
+
 // ── resolveString (synchronous {{name}} substitution) ────────────────────────
 
 test("resolveString substitutes known vars and leaves unknowns intact", () => {

@@ -83,7 +83,9 @@ export function buildRequestModel(node, context) {
 
   // Append enabled, non-blank query parameters (resolved + encoded).
   const params = Array.isArray(node.params) ? node.params : [];
-  const enabledParams = params.filter((p) => p.enabled && p.name.trim());
+  const enabledParams = params.filter(
+    (p) => p.enabled && (p.name ?? "").trim(),
+  );
   let url = baseUrl;
   if (enabledParams.length) {
     const qs = enabledParams
@@ -121,7 +123,7 @@ export function buildRequestModel(node, context) {
       .filter((h) => !h.enabled && (h.name ?? "").trim())
       .forEach((h) => deleteHeaderCI(rv(h.name).trim()));
     node.headers
-      .filter((h) => h.enabled && h.name.trim())
+      .filter((h) => h.enabled && (h.name ?? "").trim())
       .forEach((h) => setHeaderCI(rv(h.name).trim(), rv(h.value)));
   } else if (node.headers && typeof node.headers === "object") {
     Object.entries(node.headers).forEach(([k, v]) => {
@@ -168,7 +170,7 @@ export function buildRequestModel(node, context) {
     switch (bodyType) {
       case "form-data": {
         const rows = (node.bodyFormRows ?? []).filter(
-          (r) => r.enabled && r.name.trim(),
+          (r) => r.enabled && (r.name ?? "").trim(),
         );
         if (rows.length > 0) {
           body = {
@@ -190,7 +192,7 @@ export function buildRequestModel(node, context) {
       }
       case "form-urlencoded": {
         const rows = (node.bodyFormRows ?? []).filter(
-          (r) => r.enabled && r.name.trim(),
+          (r) => r.enabled && (r.name ?? "").trim(),
         );
         if (rows.length > 0) {
           body = {

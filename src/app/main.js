@@ -89,6 +89,7 @@ let _htmlPreviewAdded = false; // whether the view is currently a child of conte
 let _pdfPreviewView = null; // WebContentsView for native PDF preview, created lazily
 let _pdfPreviewAdded = false; // whether the PDF view is currently a child of contentView
 let _pdfPreviewPath = null; // temp .pdf file currently loaded in the PDF view
+let _rejectionDialogOpen = false; // guards against stacking unhandledRejection dialogs
 
 // ─── Single-instance lock ───────────────────────────────────────────────────────
 // The storage layer's safety model is "single-process, single-writer": atomic
@@ -718,6 +719,10 @@ registerContextMenu({ ipcMain, getMainWin: () => _mainWin });
           // Enables Chromium's bundled PDF viewer on THIS isolated view only —
           // the main window keeps plugins disabled.
           plugins: true,
+          // Ephemeral, non-default partition — like the HTML preview view, the
+          // untrusted PDF renders in its own isolated session rather than the
+          // app's default session.
+          partition: "preview-pdf",
         },
       });
     }
@@ -1184,6 +1189,20 @@ function createWindow(savedState = _WINDOW_STATE_DEFAULTS) {
     _mainWin = null;
     _htmlPreviewView = null;
     _htmlPreviewAdded = false;
+    // Reset the PDF-preview singletons too: like the HTML view they were bound
+    // to this (now-destroyed) window. Leaving them dangling would let a
+    // recreated main window reuse a WebContentsView tied to the dead window and
+    // leak the temp .pdf. _ensureView() recreates them lazily on next preview.
+    _pdfPreviewView = null;
+    _pdfPreviewAdded = false;
+    if (_pdfPreviewPath) {
+      try {
+        io.remove(_pdfPreviewPath);
+      } catch {
+        /* best-effort temp cleanup */
+      }
+      _pdfPreviewPath = null;
+    }
   });
 
   // ── Persist window size across sessions ────────────────────────────────────
@@ -2121,9 +2140,16 @@ function showFatalErrorDialog(err) {
  * @param {Error} err
  */
 function showRejectionDialog(err) {
+  // Coalesce: keep at most one rejection notice on screen. Each dialog is
+  // non-modal, so a rejection thrown in a loop would otherwise stack an
+  // unbounded pile of them. Subsequent rejections are still logged by the
+  // caller — they're just not re-surfaced until the current notice is
+  // dismissed, at which point a genuinely new failure can show again.
+  if (_rejectionDialogOpen) return;
+  _rejectionDialogOpen = true;
   try {
     const m = activeLabels();
-    dialog.showMessageBox(
+    const shown = dialog.showMessageBox(
       _mainWin && !_mainWin.isDestroyed() ? _mainWin : undefined,
       {
         type: "warning",
@@ -2137,8 +2163,12 @@ function showRejectionDialog(err) {
         detail: err.message,
       },
     );
+    Promise.resolve(shown).finally(() => {
+      _rejectionDialogOpen = false;
+    });
   } catch {
     /* best-effort notice */
+    _rejectionDialogOpen = false;
   }
 }
 

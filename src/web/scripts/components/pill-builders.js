@@ -44,6 +44,7 @@ import {
   parseFunctionCall,
   buildFunctionToken,
   parseFnArgs,
+  reTokenExact,
 } from "./variable-resolver.js";
 import { PillEditorPopup } from "./pill-editor-popup.js";
 import { registry } from "./function-registry.js";
@@ -68,7 +69,7 @@ function _functionPillTitle(name, rawArgs, getItems) {
   return buildFunctionToken(name, rawArgs);
 }
 
-const TOKEN_RE = /^\{\{([^{}]+)\}\}$/;
+const TOKEN_RE = reTokenExact();
 
 /**
  * Build a variable pill for `{{name}}`.

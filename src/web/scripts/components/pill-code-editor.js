@@ -49,6 +49,7 @@ import {
   parseFunctionCall,
   buildFunctionToken,
   parseFnArgs,
+  reTokenExact,
 } from "./variable-resolver.js";
 import { makeVariablePill, makeFunctionPill } from "./pill-builders.js";
 import { PillPickerController } from "./pill-picker-controller.js";
@@ -1227,7 +1228,7 @@ export class PillCodeEditor {
     const before = text.slice(0, range.startOffset);
     const openIdx = before.lastIndexOf("{{");
     if (openIdx === -1) return;
-    const m = /^\{\{([^{}]+)\}\}$/.exec(rawToken);
+    const m = reTokenExact().exec(rawToken);
     if (!m) return this.#picker.close();
     const content = m[1].trim();
     const pill = this.#makeToken(content, this.#getContext());

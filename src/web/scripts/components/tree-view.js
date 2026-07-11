@@ -1221,7 +1221,7 @@ export class TreeView {
       const folder = {
         id: crypto.randomUUID(),
         type: "collection",
-        name: "New Folder",
+        name: t("tree.newCollection"),
         children: [],
       };
       this.#collapsedIds.delete(parentId);
@@ -1256,11 +1256,19 @@ export class TreeView {
    */
   #addRequest({ protocol } = {}) {
     // Prefer the parent folder of the currently selected request so the new
-    // request lands as a sibling. Fall back to the last-active collection.
+    // request lands as a sibling. A root-level request has no parent folder:
+    // findParentId returns null (distinct from undefined = "not found"), so
+    // create the new request as a root sibling instead of coalescing null away
+    // and burying it in the last-active collection.
+    const parentOfSelected = this.#selectedId
+      ? findParentId(this.#items, this.#selectedId)
+      : undefined;
+    if (parentOfSelected === null) {
+      this.#addRequestAfter(this.#selectedId, { protocol });
+      return;
+    }
     const targetId =
-      (this.#selectedId
-        ? findParentId(this.#items, this.#selectedId)
-        : undefined) ??
+      parentOfSelected ??
       this.#activeCollectionId ??
       this.#items.find((n) => n.type === "collection")?.id;
     if (!targetId) return;
@@ -1329,7 +1337,7 @@ export class TreeView {
     const folder = {
       id: crypto.randomUUID(),
       type: "collection",
-      name: "New Folder",
+      name: t("tree.newCollection"),
       children: [],
     };
     this.#collapsedIds.delete(collectionId);
@@ -1362,7 +1370,7 @@ export class TreeView {
     const folder = {
       id: crypto.randomUUID(),
       type: "collection",
-      name: "New Folder",
+      name: t("tree.newCollection"),
       children: [],
     };
     this.#items = insertNodeAfter(this.#items, nodeId, folder);
@@ -1476,7 +1484,15 @@ export class TreeView {
     }
 
     this.#items = removeNode(this.#items, nodeId);
-    if (this.#activeCollectionId === nodeId) this.#activeCollectionId = null;
+    // Clear the active collection when it (or any ancestor of it) was removed —
+    // an exact-id match alone leaves #activeCollectionId dangling at a node that
+    // no longer exists in the tree, so validate against the live tree instead.
+    if (
+      this.#activeCollectionId != null &&
+      !findNode(this.#items, this.#activeCollectionId)
+    ) {
+      this.#activeCollectionId = null;
+    }
     if (selectedWillBeDeleted) this.#selectedId = null;
     this.#syncButtonState();
     this.#rerender();

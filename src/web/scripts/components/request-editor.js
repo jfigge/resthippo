@@ -1169,7 +1169,7 @@ export class RequestEditor {
     this.#wsMessageEl = this.#wsSubprotoEl = null;
     this.#syncWsFormatButtons = null;
     // Keep the active tab valid for the new protocol.
-    const ids = this.#tabsForProtocol().map((t) => t.id);
+    const ids = this.#tabsForProtocol().map((tab) => tab.id);
     if (!ids.includes(this.#activeTab)) this.#activeTab = ids[0];
     this.#el.innerHTML = "";
     this.#renderUrlBar();
@@ -2312,14 +2312,20 @@ export class RequestEditor {
    */
   #reconcilePathParamsFromUrl() {
     const tokens = detectPathParams(this.#url);
-    const sig = (arr) => arr.map((t) => `${t.style}:${t.name}`).join("\n");
+    const sig = (arr) =>
+      arr.map((tok) => `${tok.style}:${tok.name}`).join("\n");
     const before = sig(this.#pathParams);
     const byName = new Map(this.#pathParams.map((p) => [p.name, p]));
-    this.#pathParams = tokens.map((t) => {
-      const existing = byName.get(t.name);
+    this.#pathParams = tokens.map((tok) => {
+      const existing = byName.get(tok.name);
       return existing
-        ? { ...existing, style: t.style }
-        : { id: crypto.randomUUID(), name: t.name, value: "", style: t.style };
+        ? { ...existing, style: tok.style }
+        : {
+            id: crypto.randomUUID(),
+            name: tok.name,
+            value: "",
+            style: tok.style,
+          };
     });
     return sig(this.#pathParams) !== before;
   }
@@ -3164,22 +3170,22 @@ export class RequestEditor {
    * @returns {string[]}
    */
   #gatherRequestTemplates() {
-    const t = [this.#urlPillEditor.getValue() ?? ""];
+    const tpls = [this.#urlPillEditor.getValue() ?? ""];
     for (const p of this.#params) {
       if (p.enabled) {
-        t.push(p.name ?? "", p.value ?? "");
+        tpls.push(p.name ?? "", p.value ?? "");
       }
     }
     // Path-param values may contain {{var}}/functions; names are plain tokens.
     for (const pp of this.#pathParams) {
-      t.push(pp.value ?? "");
+      tpls.push(pp.value ?? "");
     }
     for (const h of this.#headers) {
       if (h.enabled) {
-        t.push(h.name ?? "", h.value ?? "");
+        tpls.push(h.name ?? "", h.value ?? "");
       }
     }
-    t.push(...this.#auth.gatherTemplates());
+    tpls.push(...this.#auth.gatherTemplates());
     // Only scan fields that will actually be sent — avoids false-positive
     // warnings for inactive body data retained while switching body types.
     const noBodyMethods = new Set(["GET", "HEAD"]);
@@ -3190,13 +3196,13 @@ export class RequestEditor {
         case "yaml":
         case "xml":
         case "text":
-          t.push(body.bodyText ?? "");
+          tpls.push(body.bodyText ?? "");
           break;
         case "form-data":
         case "form-urlencoded":
           for (const r of body.bodyFormRows) {
             if (r.enabled) {
-              t.push(r.name ?? "", r.value ?? "");
+              tpls.push(r.name ?? "", r.value ?? "");
             }
           }
           break;
@@ -3204,7 +3210,7 @@ export class RequestEditor {
           break; // "no-body" / "file" — nothing to scan
       }
     }
-    return t.filter(Boolean);
+    return tpls.filter(Boolean);
   }
 
   /**
@@ -3396,13 +3402,13 @@ export class RequestEditor {
     {
       const stored = Array.isArray(node.pathParams) ? node.pathParams : [];
       const byName = new Map(stored.map((p) => [p.name, p]));
-      this.#pathParams = detectPathParams(url).map((t) => {
-        const prev = byName.get(t.name);
+      this.#pathParams = detectPathParams(url).map((tok) => {
+        const prev = byName.get(tok.name);
         return {
           id: prev?.id ?? crypto.randomUUID(),
-          name: t.name,
+          name: tok.name,
           value: prev?.value ?? "",
-          style: t.style,
+          style: tok.style,
         };
       });
     }
@@ -3605,12 +3611,12 @@ export class RequestEditor {
   #parseBulkKVColon(text) {
     const out = {};
     for (const line of text.split("\n")) {
-      const t = line.trim();
-      if (!t) continue;
-      const colon = t.indexOf(":");
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const colon = trimmed.indexOf(":");
       if (colon === -1) continue;
-      const key = t.slice(0, colon).trim();
-      const value = t.slice(colon + 1).trim();
+      const key = trimmed.slice(0, colon).trim();
+      const value = trimmed.slice(colon + 1).trim();
       if (key) out[key] = value;
     }
     return out;

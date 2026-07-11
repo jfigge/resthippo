@@ -747,7 +747,9 @@ async function exportSelected() {
 
 async function importTheme() {
   const data = await window.themeEditor.importTheme();
-  if (!data || typeof data.vars !== "object") return;
+  // `typeof null === "object"`, so guard against a null `vars` too — otherwise
+  // `data.vars[key]` below throws inside this un-caught click handler.
+  if (!data || typeof data.vars !== "object" || data.vars === null) return;
   const newTheme = {
     id: crypto.randomUUID(),
     name: String(data.name ?? t("themeEditor.importedThemeName")),

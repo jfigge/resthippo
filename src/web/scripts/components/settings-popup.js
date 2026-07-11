@@ -1282,11 +1282,15 @@ export class SettingsPopup {
         .checked,
       showTestsTab: this.#el.querySelector("#setting-show-tests-tab").checked,
       showNotesTab: this.#el.querySelector("#setting-show-notes-tab").checked,
-      pickerDebounceMs:
-        parseInt(
+      pickerDebounceMs: (() => {
+        // `|| 200` would coerce a legitimate 0 (min="0", disables the debounce)
+        // back to the default, so a finite value — including 0 — is kept as-is.
+        const parsed = parseInt(
           this.#el.querySelector("#setting-picker-debounce").value,
           10,
-        ) || 200,
+        );
+        return Number.isFinite(parsed) ? parsed : 200;
+      })(),
       proxyEnabled: this.#el.querySelector("#setting-proxy-enabled").checked,
       proxyUrl: this.#el.querySelector("#setting-proxy-url").value.trim(),
       proxyAuthEnabled: this.#el.querySelector("#setting-proxy-auth-enabled")

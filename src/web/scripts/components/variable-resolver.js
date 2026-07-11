@@ -36,6 +36,35 @@
 import { logicMap } from "./function-logic-map.js";
 
 /**
+ * Token grammar — shared by every {{…}} parser in the pill subsystem.
+ *
+ * A token is `{{` <body> `}}`. The body is one-or-more of:
+ *   • a backslash escape — `\` followed by ANY single character, or
+ *   • any single character that is neither a raw `{`/`}` nor a `\`.
+ * The escape branch is what lets a function-pill *argument* value carry a
+ * literal brace (`{{base64("a}b")}}` serialises the arg as `"a\}b"`) without
+ * the inner `}` prematurely closing the token — see buildFunctionToken()
+ * (escapes) and parseFunctionCall() (unescapes). A raw, unescaped `{`/`}`
+ * still terminates the body, so the outer delimiters stay unambiguous.
+ *
+ * The two branches are mutually exclusive on their first character (escape
+ * always starts with `\`, the char branch never does), so matching is linear —
+ * no ambiguous alternation that could backtrack catastrophically on a long run
+ * of backslashes. For every token without a backslash the body is identical to
+ * the historical `[^{}]+`, so existing saved templates tokenise unchanged; only
+ * backslash-escaped braces are newly recognised (the sole divergence is a
+ * hand-written token whose content ends in a lone `\` right before `}}`, which
+ * this app never emits). Factories return fresh RegExp objects so callers never
+ * share a stateful `lastIndex`.
+ */
+const TOKEN_BODY = String.raw`(?:\\[\s\S]|[^{}\\])+`;
+/** Fresh global regex matching each `{{ … }}` token in a string. */
+export const reTokenGlobal = () =>
+  new RegExp(`\\{\\{(${TOKEN_BODY})\\}\\}`, "g");
+/** Fresh regex asserting a string is exactly one `{{ … }}` token. */
+export const reTokenExact = () => new RegExp(`^\\{\\{(${TOKEN_BODY})\\}\\}$`);
+
+/**
  * Return true when `content` (the text inside {{…}}) is a function call.
  * @param {string} content
  */
@@ -66,10 +95,10 @@ export function parseFunctionCall(content) {
   if (!argsStr) return { name, rawArgs: [] };
 
   // Split by comma, respecting double-quoted strings with backslash escapes —
-  // the inverse of buildFunctionToken() below (which escapes `\` and `"`).
+  // the inverse of buildFunctionToken() below (which escapes `\` `"` `{` `}`).
   const unquote = (arg) =>
     arg.length >= 2 && arg.startsWith('"') && arg.endsWith('"')
-      ? arg.slice(1, -1).replace(/\\(["\\])/g, "$1")
+      ? arg.slice(1, -1).replace(/\\(["\\{}])/g, "$1")
       : arg;
   const rawArgs = [];
   let current = "";
@@ -100,8 +129,11 @@ export function parseFunctionCall(content) {
 
 /**
  * Build a `{{name(...)}}` function-call token from a name and positional args.
- * Each arg is serialized as a double-quoted string literal with backslash and
- * quote escaping — the inverse of parseFunctionCall().
+ * Each arg is serialized as a double-quoted string literal with backslash,
+ * quote, and brace escaping — the inverse of parseFunctionCall(). Braces are
+ * escaped (after backslashes, so the introduced escapes aren't doubled) so an
+ * argument value containing `{`/`}` round-trips through the {{…}} grammar
+ * instead of prematurely closing the token.
  *
  * @param {string} name
  * @param {string[]} [rawArgs]
@@ -110,7 +142,13 @@ export function parseFunctionCall(content) {
 export function buildFunctionToken(name, rawArgs = []) {
   if (!rawArgs.length) return `{{${name}()}}`;
   const argStrs = rawArgs
-    .map((a) => `"${String(a).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`)
+    .map(
+      (a) =>
+        `"${String(a)
+          .replace(/\\/g, "\\\\")
+          .replace(/"/g, '\\"')
+          .replace(/([{}])/g, "\\$1")}"`,
+    )
     .join(", ");
   return `{{${name}(${argStrs})}}`;
 }
@@ -239,7 +277,7 @@ export function collectScopeNames(context) {
  */
 export function tokenize(text) {
   const tokens = [];
-  const re = /\{\{([^{}]+)\}\}/g;
+  const re = reTokenGlobal();
   let lastIndex = 0;
   let match;
 
@@ -387,7 +425,7 @@ export async function resolveStringAsync(template, context) {
  */
 export function collectTemplateVariables(templates, context) {
   const seen = new Map();
-  const re = /\{\{([^{}]+)\}\}/g;
+  const re = reTokenGlobal();
 
   for (const tpl of templates) {
     if (!tpl) continue;
@@ -416,7 +454,7 @@ export function collectTemplateVariables(templates, context) {
  */
 export function resolveString(template, context) {
   if (!template || !context) return template ?? "";
-  return template.replace(/\{\{([^{}]+)\}\}/g, (_match, name) => {
+  return template.replace(reTokenGlobal(), (_match, name) => {
     const result = resolveVariable(name.trim(), context);
     return result.found ? String(result.value) : `{{${name}}}`;
   });

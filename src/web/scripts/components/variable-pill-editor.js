@@ -49,6 +49,8 @@ import {
   parseFunctionCall,
   buildFunctionToken,
   parseFnArgs,
+  reTokenGlobal,
+  reTokenExact,
 } from "./variable-resolver.js";
 import { makeVariablePill, makeFunctionPill } from "./pill-builders.js";
 import { PillPickerController } from "./pill-picker-controller.js";
@@ -251,7 +253,7 @@ export class VariablePillEditor {
     const beforeText = text.slice(0, openIdx);
     const afterText = text.slice(startOffset);
 
-    const m = /^\{\{([^{}]+)\}\}$/.exec(rawToken);
+    const m = reTokenExact().exec(rawToken);
     let pill = null;
     if (m) {
       const content = m[1].trim();
@@ -339,7 +341,7 @@ export class VariablePillEditor {
 
   #scanAndConvertAll() {
     const ctx = this.#getContext();
-    const VAR_RE = /\{\{([^{}]+)\}\}/g;
+    const VAR_RE = reTokenGlobal();
 
     // Text pasted/dropped while the caret was inside a guard span lands inside
     // that (mask-exempt) span; pull it back into a top-level text node first so
