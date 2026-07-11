@@ -77,6 +77,7 @@ const {
 const {
   parseChallenge,
   selectDigestChallenge,
+  negotiateQop,
   buildAuthorization: buildDigestAuthorization,
 } = require("../auth/digest");
 const {
@@ -104,6 +105,21 @@ const CREDENTIAL_HEADERS = new Set([
 /** Mask a credential header value for the verbose console; pass others through. */
 function redactHeader(name, value) {
   return CREDENTIAL_HEADERS.has(name.toLowerCase()) ? "<redacted>" : value;
+}
+
+// A URL's origin (scheme://host[:port]) carries no secrets; its userinfo, path,
+// query and fragment can (an API key in the query string, credentials in the
+// userinfo, an access_token). The stdout `[http:execute] →` line is teed into
+// the rotating diagnostics log that Export Diagnostics bundles, so only the
+// origin is logged there — the full URL still shows in the per-request Console
+// the user opts into, which is where they need to see their own target.
+/** A secret-free scheme://host[:port] view of a URL for stdout/diagnostics logging. */
+function redactUrl(url) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return "(invalid URL)";
+  }
 }
 
 // Mirror Node's own header validation (checkInvalidHeaderChar / checkIsHttpToken)
@@ -493,7 +509,7 @@ function registerHttpEngine({
       useCookieJar = true,
     } = desc;
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       // ── Parse URL ──────────────────────────────────────────────────────────
       let parsed;
       try {
@@ -560,10 +576,20 @@ function registerHttpEngine({
           consoleLog,
           startTime,
           redirects,
-        ).then((result) => {
-          ntlmAgent.destroy();
-          resolve(result);
-        });
+        ).then(
+          (result) => {
+            ntlmAgent.destroy();
+            resolve(result);
+          },
+          (err) => {
+            // A synchronous throw on a later leg (e.g. re-signing a redirected
+            // URL) must still tear down the keep-alive agent — its destroy()
+            // otherwise lived only on the success path and would leak — and
+            // reject so the outer promise settles instead of hanging.
+            ntlmAgent.destroy();
+            reject(err);
+          },
+        );
         return;
       }
 
@@ -941,14 +967,29 @@ function registerHttpEngine({
           // Cookie (mirrors browsers / curl). The cookie jar is re-applied per
           // host on the next leg, so only a user-set header is at risk here.
           let redirectHeaders = headers;
+          // Signed-auth identity material is re-applied by the recursion for the
+          // NEW host: SigV4 and OAuth 1.0a re-sign unconditionally, and a Digest
+          // 401 from the new host would re-send `username=`. Stripping only the
+          // literal Authorization/Cookie headers is not enough — on a
+          // cross-origin hop the signing descriptors themselves must be cleared,
+          // or the redirect would sign for (and leak the AWS AccessKeyId /
+          // oauth_consumer_key+token / Digest username to) a host the user never
+          // targeted. NTLM is exempt: it only negotiates on the first leg
+          // (redirects === 0), so a redirected leg never re-runs it.
+          let redirectAwsIam = awsIam;
+          let redirectOauth1 = oauth1;
+          let redirectAuthDigest = authDigest;
           if (crossOrigin) {
             redirectHeaders = Object.fromEntries(
               Object.entries(headers).filter(
                 ([k]) => !CREDENTIAL_HEADERS.has(k.toLowerCase()),
               ),
             );
+            redirectAwsIam = null;
+            redirectOauth1 = null;
+            redirectAuthDigest = null;
             consoleLog.push(
-              "* Crossing origins — dropping Authorization/Cookie for the redirect",
+              "* Crossing origins — dropping Authorization/Cookie and AWS/OAuth1/Digest signing for the redirect",
             );
           }
 
@@ -972,11 +1013,14 @@ function registerHttpEngine({
               body: keepBody ? body : null,
               bodyFilePath: keepBody ? bodyFilePath : null,
               multipart: keepBody ? multipart : null,
+              awsIam: redirectAwsIam,
+              oauth1: redirectOauth1,
+              authDigest: redirectAuthDigest,
             },
             consoleLog,
             startTime,
             redirects + 1,
-          ).then(resolve);
+          ).then(resolve, reject);
           return;
         }
 
@@ -993,6 +1037,28 @@ function registerHttpEngine({
               rawHeaderValues(res.rawHeaders, "www-authenticate"),
             ),
           );
+          // Digest qop=auth-int hashes the ENTITY body. A plain (non-AWS)
+          // multipart send streams its parts from disk and never buffered them,
+          // so bodyBuffer is null here and the hash would be over an empty body
+          // → auth failure against an auth-int server. Only when the challenge
+          // actually negotiates auth-int, rebuild the exact bytes (deterministic,
+          // so they match what the retry leg re-streams). SigV4 multipart already
+          // buffers, so bodyBuffer is set for that combo and this is skipped.
+          let entityBody = bodyBuffer;
+          if (
+            challenge &&
+            entityBody == null &&
+            multipart &&
+            negotiateQop(challenge) === "auth-int"
+          ) {
+            try {
+              entityBody = buildMultipartBody(multipart).toBuffer();
+            } catch (e) {
+              consoleLog.push(
+                `* Digest auth-int multipart buffering error: ${e.message}`,
+              );
+            }
+          }
           const digestHeader = challenge
             ? buildDigestAuthorization({
                 method: effectiveMethod,
@@ -1000,7 +1066,7 @@ function registerHttpEngine({
                 username: authDigest.username,
                 password: authDigest.password || "",
                 challenge,
-                entityBody: bodyBuffer,
+                entityBody,
               })
             : null;
           if (digestHeader) {
@@ -1034,7 +1100,7 @@ function registerHttpEngine({
               consoleLog,
               startTime,
               redirects,
-            ).then(resolve);
+            ).then(resolve, reject);
             return;
           }
           // Unsatisfiable challenge (no Digest offer, missing realm/nonce, or an
@@ -1097,7 +1163,7 @@ function registerHttpEngine({
               consoleLog,
               startTime,
               redirects,
-            ).then(resolve);
+            ).then(resolve, reject);
             return;
           }
           // No usable Type 2 challenge — fall through and surface the 401.
@@ -1836,7 +1902,14 @@ function registerHttpEngine({
         ? `* Disable SSL validation`
         : `* Enable SSL validation`,
     );
-    console.log("[http:execute] →", descriptor.method, descriptor.url);
+    // Log only the origin to stdout: this line is teed into the rotating
+    // diagnostics log, so a query-string API key / userinfo secret must not
+    // land on disk. The full URL still appears in the per-request Console.
+    console.log(
+      "[http:execute] →",
+      descriptor.method,
+      redactUrl(descriptor.url),
+    );
     // Resolve per-host TLS material once (mTLS client certs, custom CA, verify
     // overrides). Threaded onto the descriptor so every redirect/auth leg reuses
     // it; null when nothing is configured, leaving default behaviour unchanged.

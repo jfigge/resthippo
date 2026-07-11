@@ -30,6 +30,19 @@ const { WebSocketHub } = require("../net/websocket");
 const io = require("../store/io");
 
 /**
+ * A secret-free scheme://host[:port] view of a ws:// / wss:// URL for the
+ * diagnostics log — strips userinfo, path, query and fragment (any of which can
+ * carry an access token). Falls back to a placeholder on an unparseable URL.
+ */
+function redactWsUrl(url) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return "(invalid URL)";
+  }
+}
+
+/**
  * @param {object} deps
  * @param {Electron.IpcMain} deps.ipcMain
  * @param {Electron.App} deps.app
@@ -49,7 +62,10 @@ function registerWebSocketIPC({ ipcMain, app }) {
   ipcMain.handle("ws:open", (event, opts = {}) => {
     const id = io.newUUID();
     const sender = event.sender;
-    console.log("[ws:open] →", opts.url);
+    // Log only the host: this line is teed into the rotating diagnostics log
+    // that Export Diagnostics bundles, so a `wss://user:pass@host` credential
+    // or a `?access_token=…` query secret must never reach disk.
+    console.log("[ws:open] →", redactWsUrl(opts.url));
     hub.open(
       id,
       { ...opts, senderId: sender.id },

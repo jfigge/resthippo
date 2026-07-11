@@ -114,6 +114,26 @@ function selectDigestChallenge(rawValues) {
 }
 
 /**
+ * Negotiate the qop token this client will use for a parsed challenge:
+ * prefer "auth", fall back to "auth-int", else null (the legacy RFC 2069 form
+ * with no qop). Exposed so the request engine can tell *in advance* whether it
+ * must buffer the entity body — `auth-int` hashes it, and a streamed body would
+ * otherwise be gone by the time the 401 challenge is answered. Single source of
+ * truth: `buildAuthorization` uses this same helper, so the preference order can
+ * never drift between the pre-flight decision and the header it produces.
+ *
+ * @param {object|null} challenge  parsed via parseChallenge()
+ * @returns {"auth"|"auth-int"|null}
+ */
+function negotiateQop(challenge) {
+  if (!challenge || !challenge.qop) return null;
+  const offered = challenge.qop.split(",").map((s) => s.trim().toLowerCase());
+  if (offered.includes("auth")) return "auth";
+  if (offered.includes("auth-int")) return "auth-int";
+  return null;
+}
+
+/**
  * Build an `Authorization: Digest …` header value answering `challenge`.
  *
  * Returns null when the challenge cannot be satisfied (missing realm/nonce, or
@@ -155,12 +175,7 @@ function buildAuthorization({
   const ncVal = ncNum.toString(16).padStart(8, "0");
 
   // qop negotiation: prefer "auth"; fall back to "auth-int"; else legacy 2069.
-  let qop = null;
-  if (challenge.qop) {
-    const offered = challenge.qop.split(",").map((s) => s.trim().toLowerCase());
-    if (offered.includes("auth")) qop = "auth";
-    else if (offered.includes("auth-int")) qop = "auth-int";
-  }
+  const qop = negotiateQop(challenge);
 
   let ha1 = _hash(hashName, `${username}:${realm}:${password}`);
   if (isSess) ha1 = _hash(hashName, `${ha1}:${nonce}:${cnonceVal}`);
@@ -203,6 +218,7 @@ function buildAuthorization({
 module.exports = {
   parseChallenge,
   selectDigestChallenge,
+  negotiateQop,
   buildAuthorization,
   _hashName,
 };

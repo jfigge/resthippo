@@ -47,6 +47,11 @@ const fs = require("fs");
 const zlib = require("zlib");
 
 const ntlm = require("../../auth/ntlm");
+const aws4 = require("aws4");
+const {
+  parseChallenge,
+  buildAuthorization: buildDigest,
+} = require("../../auth/digest");
 
 // ── Load main.js under a stubbed Electron, capturing its IPC handlers ─────────
 const handlers = {};
@@ -603,6 +608,190 @@ test("credential request headers are redacted in the verbose console", async () 
   );
 });
 
+// ── Cross-origin redirect: no signed-auth identity leaks to the new host ────────
+//
+// The literal Authorization/Cookie strip only covers headers. SigV4 and OAuth
+// 1.0a re-sign unconditionally, and a Digest 401 from the new host would answer
+// with `username=`, so on a cross-origin hop the *signing descriptors* must be
+// cleared too — otherwise the redirect re-signs for (and leaks the AWS key /
+// oauth token / Digest username to) a host the user never targeted.
+
+test("a cross-origin redirect does not re-sign with AWS SigV4 for the new host", async () => {
+  let aAuth = "unset";
+  let bAuth = "unset";
+  let bAmzDate = "unset";
+  await withServer(
+    (req, res) => {
+      // Redirect destination (different port → different origin): record any
+      // identity material the redirected leg carried here.
+      bAuth = req.headers.authorization ?? null;
+      bAmzDate = req.headers["x-amz-date"] ?? null;
+      res.writeHead(200, {});
+      res.end("arrived");
+    },
+    async (baseB) => {
+      await withServer(
+        (req, res) => {
+          // Targeted origin: SigV4 legitimately signs for THIS host.
+          aAuth = req.headers.authorization ?? null;
+          res.writeHead(302, { Location: `${baseB}/end` });
+          res.end();
+        },
+        async (baseA) => {
+          const r = await run({
+            method: "GET",
+            url: `${baseA}/start`,
+            awsIam: {
+              accessKeyId: "AKIDEXAMPLE",
+              secretAccessKey: "secret",
+              service: "s3",
+              region: "us-east-1",
+            },
+          });
+          assert.equal(r.body, "arrived");
+          assert.match(
+            String(aAuth),
+            /^AWS4-HMAC-SHA256 /,
+            "the targeted host received a SigV4 signature",
+          );
+          assert.equal(
+            bAuth,
+            null,
+            "no signature was re-computed for the redirect host",
+          );
+          assert.equal(
+            bAmzDate,
+            null,
+            "no AWS date/identity header reached the redirect host",
+          );
+        },
+      );
+    },
+  );
+});
+
+test("a cross-origin redirect does not re-sign with OAuth 1.0a for the new host", async () => {
+  let bAuth = "unset";
+  await withServer(
+    (req, res) => {
+      bAuth = req.headers.authorization ?? null;
+      res.writeHead(200, {});
+      res.end("arrived");
+    },
+    async (baseB) => {
+      await withServer(
+        (req, res) => {
+          res.writeHead(302, { Location: `${baseB}/end` });
+          res.end();
+        },
+        async (baseA) => {
+          const r = await run({
+            method: "GET",
+            url: `${baseA}/start`,
+            oauth1: {
+              consumerKey: "consumer-key",
+              consumerSecret: "cs",
+              token: "oauth-token",
+              tokenSecret: "ts",
+            },
+          });
+          assert.equal(r.body, "arrived");
+          assert.equal(
+            bAuth,
+            null,
+            "no oauth_consumer_key/oauth_token reached the redirect host",
+          );
+        },
+      );
+    },
+  );
+});
+
+test("a cross-origin redirect does not answer a Digest 401 at the new host", async () => {
+  let bHits = 0;
+  let bSawUsername = false;
+  await withServer(
+    (req, res) => {
+      bHits++;
+      if (/username=/.test(req.headers.authorization || "")) {
+        bSawUsername = true;
+      }
+      res.writeHead(401, {
+        "WWW-Authenticate": 'Digest realm="b", qop="auth", nonce="n"',
+      });
+      res.end("challenge");
+    },
+    async (baseB) => {
+      await withServer(
+        (req, res) => {
+          res.writeHead(302, { Location: `${baseB}/protected` });
+          res.end();
+        },
+        async (baseA) => {
+          const r = await run({
+            method: "GET",
+            url: `${baseA}/start`,
+            authDigest: { username: "user", password: "pw" },
+          });
+          assert.equal(
+            r.status,
+            401,
+            "the 401 surfaces without a cross-origin digest retry",
+          );
+          assert.equal(
+            bHits,
+            1,
+            "the new host is not re-hit with digest credentials",
+          );
+          assert.equal(
+            bSawUsername,
+            false,
+            "the Digest username never reaches the new host",
+          );
+        },
+      );
+    },
+  );
+});
+
+test("the http:execute stdout line logs only the origin, not query-string secrets", async () => {
+  await withServer(
+    (req, res) => {
+      res.writeHead(200, {});
+      res.end("ok");
+    },
+    async (base) => {
+      // The `[http:execute] →` line is teed into the persisted diagnostics log,
+      // so capture what it emits and assert the secret-bearing query never lands.
+      const orig = console.log;
+      const lines = [];
+      console.log = (...args) => lines.push(args.join(" "));
+      try {
+        await run({
+          method: "GET",
+          url: `${base}/x?api_key=SUPERSECRET&token=abc`,
+        });
+      } finally {
+        console.log = orig;
+      }
+      const joined = lines.join("\n");
+      assert.match(joined, /\[http:execute\] →/, "the execute line was logged");
+      assert.ok(
+        !joined.includes("SUPERSECRET"),
+        "the query-string secret is not written to stdout/diagnostics",
+      );
+      assert.ok(
+        !joined.includes("api_key"),
+        "the query string is stripped entirely",
+      );
+      assert.ok(
+        joined.includes(base),
+        "the origin (scheme://host:port) is kept",
+      );
+    },
+  );
+});
+
 // ── Digest auth (RFC 2617 / 7616) one-shot retry ───────────────────────────────
 
 test("answers a Digest 401 by recomputing Authorization and retrying once", async () => {
@@ -655,6 +844,96 @@ test("a persistently-rejecting Digest server surfaces the 401 without looping", 
         hits,
         2,
         "exactly one retry — the _digestRetried guard holds",
+      );
+    },
+  );
+});
+
+test("Digest qop=auth-int over multipart hashes the real entity body", async () => {
+  // A plain (non-AWS) multipart send streams its parts from disk, so the entity
+  // was never buffered when the 401 lands. For qop=auth-int (which hashes the
+  // body) the engine must rebuild the exact bytes to compute the response, not
+  // fall back to an empty entity — else it authenticates against the wrong hash.
+  const tmpFile = path.join(userDataDir, "authint-upload.txt");
+  fs.writeFileSync(tmpFile, "the-entity-body-bytes");
+  const challengeValue =
+    'Digest realm="test", qop="auth-int", nonce="abc123def", opaque="op"';
+  let leg2Auth = null;
+  let leg2Body = null;
+  await withServer(
+    (req, res) => {
+      const auth = req.headers.authorization || "";
+      const chunks = [];
+      req.on("data", (c) => chunks.push(c));
+      req.on("end", () => {
+        if (!/^Digest /i.test(auth)) {
+          res.writeHead(401, { "WWW-Authenticate": challengeValue });
+          return res.end("challenge");
+        }
+        leg2Auth = auth;
+        leg2Body = Buffer.concat(chunks);
+        res.writeHead(200, {});
+        res.end("authed");
+      });
+    },
+    async (base) => {
+      const r = await run({
+        method: "POST",
+        url: `${base}/upload`,
+        authDigest: { username: "user", password: "pw" },
+        multipart: {
+          boundary: "----AuthIntBoundary",
+          parts: [
+            { kind: "text", name: "field", value: "v" },
+            {
+              kind: "file",
+              name: "f",
+              filePath: tmpFile,
+              filename: "a.txt",
+              contentType: "text/plain",
+            },
+          ],
+        },
+      });
+      assert.equal(r.status, 200);
+      assert.ok(leg2Auth, "the retry carried a Digest Authorization header");
+
+      // Recompute the expected header from the SAME primitives the engine used —
+      // the client-chosen cnonce/nc (echoed in the header) and the exact bytes
+      // the server received — and require an exact match.
+      const cnonce = /cnonce="([^"]*)"/.exec(leg2Auth)[1];
+      const nc = parseInt(/\bnc=([0-9a-fA-F]+)/.exec(leg2Auth)[1], 16);
+      const expected = buildDigest({
+        method: "POST",
+        uri: "/upload",
+        username: "user",
+        password: "pw",
+        challenge: parseChallenge(challengeValue),
+        entityBody: leg2Body,
+        cnonce,
+        nc,
+      });
+      assert.equal(
+        leg2Auth,
+        expected,
+        "the auth-int response hashes the real entity body",
+      );
+
+      // The pre-fix behaviour hashed Buffer.alloc(0); prove that would NOT match.
+      const wrongEmpty = buildDigest({
+        method: "POST",
+        uri: "/upload",
+        username: "user",
+        password: "pw",
+        challenge: parseChallenge(challengeValue),
+        entityBody: null,
+        cnonce,
+        nc,
+      });
+      assert.notEqual(
+        leg2Auth,
+        wrongEmpty,
+        "an empty-entity hash would have failed the server",
       );
     },
   );
@@ -741,6 +1020,57 @@ test("an unparseable URL resolves as status 0 / TypeError", async () => {
   const r = await run({ method: "GET", url: "ht!tp://%%%not a url" });
   assert.equal(r.status, 0);
   assert.equal(r.error?.name, "TypeError");
+});
+
+test("a synchronous throw on a non-first (redirect) leg rejects instead of hanging", async () => {
+  // The nested legs (NTLM negotiate, redirect, digest retry, NTLM challenge)
+  // each `doRequest(...).then(resolve)`; without a reject handler a synchronous
+  // throw on a later leg (e.g. re-signing a redirected URL) leaves the outer
+  // http:execute promise unsettled → a stuck renderer spinner. Force exactly
+  // that: make SigV4 signing throw ONLY on the redirected leg (path /final), so
+  // the first leg signs fine and the second leg throws. Same-origin keeps awsIam
+  // in play across the hop. Without the fix this test hangs; with it, the
+  // rejection settles as a normal status:0 error result.
+  const origSign = aws4.sign;
+  aws4.sign = (opts, creds) => {
+    if (opts.path && opts.path.startsWith("/final")) {
+      throw new Error("boom: cannot sign the redirected leg");
+    }
+    return origSign(opts, creds);
+  };
+  try {
+    await withServer(
+      (req, res) => {
+        if (req.url === "/start") {
+          res.writeHead(302, { Location: "/final" });
+          return res.end();
+        }
+        res.writeHead(200, {});
+        res.end("should-not-arrive");
+      },
+      async (base) => {
+        const r = await run({
+          method: "GET",
+          url: `${base}/start`,
+          awsIam: {
+            accessKeyId: "AKIDEXAMPLE",
+            secretAccessKey: "secret",
+            service: "s3",
+            region: "us-east-1",
+          },
+        });
+        assert.equal(
+          r.status,
+          0,
+          "the throw settles as a failure result, not a hang",
+        );
+        assert.ok(r.error, "carries an error object");
+        assert.match(r.error.message, /boom/, "surfaces the underlying throw");
+      },
+    );
+  } finally {
+    aws4.sign = origSign;
+  }
 });
 
 // ── Live streaming (Feature 33) ────────────────────────────────────────────────
