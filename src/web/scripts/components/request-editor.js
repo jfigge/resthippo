@@ -2530,12 +2530,16 @@ export class RequestEditor {
       "req-url-preview--hidden",
       !this.#urlPreviewEnabled,
     );
+    // The profile switcher shares the preview bar; re-home it when visibility flips.
+    this.#mountProfileBtn();
+    // When the preview is hidden nothing reads its value, so skip the full async
+    // resolve (variable resolver + response caches) that every URL/param
+    // keystroke would otherwise run into a CSS-hidden input.
+    if (!this.#urlPreviewEnabled) return;
     if (this.#urlPreviewInputEl) {
       const url = await this.#buildPreviewUrl();
       if (seq === this.#urlPreviewSeq) this.#urlPreviewInputEl.value = url;
     }
-    // The profile switcher shares the preview bar; re-home it when visibility flips.
-    this.#mountProfileBtn();
   }
 
   // ── Variable-profile switcher ────────────────────────────────────────────

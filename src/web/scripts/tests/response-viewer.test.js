@@ -327,6 +327,42 @@ test("disabling Code folding drops the fold gutter but keeps line numbers", asyn
   );
 });
 
+test("toggling wrap flips the class in place without re-rendering the body", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "application/json" },
+      body: '{"a":1,"b":2}',
+    }),
+  );
+
+  const pre = viewer.element.querySelector(".res-body-pre");
+  assert.ok(pre, "styled body rendered");
+  assert.ok(
+    !pre.classList.contains("res-body-pre--no-wrap"),
+    "wrap is on by default",
+  );
+
+  // Turning wrap off must NOT rebuild the pane (which would re-parse/-highlight);
+  // the very same <pre> node survives and only gains the no-wrap class.
+  viewer.applySettings({ wrapResponseText: false });
+  assert.equal(
+    viewer.element.querySelector(".res-body-pre"),
+    pre,
+    "the same <pre> node is reused (no re-render)",
+  );
+  assert.ok(
+    pre.classList.contains("res-body-pre--no-wrap"),
+    "no-wrap class applied by the class flip",
+  );
+
+  // And back on again — still the same node, class removed.
+  viewer.applySettings({ wrapResponseText: true });
+  assert.equal(viewer.element.querySelector(".res-body-pre"), pre);
+  assert.ok(!pre.classList.contains("res-body-pre--no-wrap"));
+});
+
 test("find-in-response skips the line-number gutter", async () => {
   const { window, viewer } = mountViewer();
   // Pretty-prints to 3 lines, so "1" appears once as a line number (line 1) and

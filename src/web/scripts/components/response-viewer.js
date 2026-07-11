@@ -678,11 +678,24 @@ export class ResponseViewer {
     if (settings.wrapResponseText !== undefined) {
       const changed = this.#wrapResponseText !== settings.wrapResponseText;
       this.#wrapResponseText = settings.wrapResponseText;
-      // Re-render so the wrap class on the body pane and cookie values reflect
-      // the new value
-      if (changed && this.#lastResponse) {
-        this.#renderBodyPane(this.#lastResponse);
-        this.#renderCookiesPane(this.#lastResponse.cookies);
+      // Wrap is a pure presentation flip: a CSS class on the already-rendered
+      // body <pre> and on the cookie value cells. Re-parsing/-highlighting the
+      // whole body (as the line-number / fold toggles must) is wasted work here.
+      if (changed) {
+        const pre = this.#bodyPane?.querySelector(".res-body-pre");
+        // Raw mode ignores wrap (see #renderBodyPane); Styled unwraps when off.
+        pre?.classList.toggle(
+          "res-body-pre--no-wrap",
+          this.#renderMode !== "raw" && !this.#wrapResponseText,
+        );
+        this.#tabContent
+          ?.querySelectorAll(".res-cookie-value")
+          .forEach((cell) =>
+            cell.classList.toggle(
+              "res-cookie-value--wrap",
+              this.#wrapResponseText,
+            ),
+          );
       }
     }
     if (settings.responseBodyLineNumbers !== undefined) {
@@ -1101,7 +1114,7 @@ export class ResponseViewer {
       this.#selectAllElement(this.#bodyPane?.querySelector(".res-body-pre"));
     } else if (clickedId === "wrap") {
       // Invert and persist via the shared settings channel; app.js re-applies
-      // the setting (which re-renders this pane with the new wrap state).
+      // the setting, which flips the wrap class in place (no body re-render).
       window.dispatchEvent(
         new CustomEvent("hippo:settings-changed", {
           detail: { wrapResponseText: !this.#wrapResponseText },

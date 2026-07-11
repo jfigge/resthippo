@@ -118,9 +118,9 @@ ipcRenderer.on("updater:not-available", (_event, detail) => {
     new CustomEvent("hippo:updater-not-available", { detail }),
   );
 });
-ipcRenderer.on("updater:progress", (_event, detail) => {
-  window.dispatchEvent(new CustomEvent("hippo:updater-progress", { detail }));
-});
+// No per-chunk download-progress bridge: the renderer shows no live percentage,
+// so mirroring each tick into a DOM event was pure churn. The Settings → About
+// status line tracks checking/available/downloaded milestones instead.
 ipcRenderer.on("updater:downloaded", (_event, detail) => {
   window.dispatchEvent(new CustomEvent("hippo:updater-downloaded", { detail }));
 });

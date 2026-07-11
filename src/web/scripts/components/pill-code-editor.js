@@ -182,8 +182,10 @@ export class PillCodeEditor {
   });
   #hlTimer = null;
   #valTimer = null;
+  #gutterTimer = null; // debounces the per-keystroke gutter re-measure (reflow)
   #placeholder;
   #ro = null; // ResizeObserver — re-measures the gutter on mount / relayout
+  #isFocused = false; // caret is in this editor — gates document-wide selectionchange
 
   // ── Undo / redo (snapshot-based) ──────────────────────────────────────────
   // The native contenteditable undo stack is unusable here: highlight repaints
@@ -273,7 +275,12 @@ export class PillCodeEditor {
     this.#el.addEventListener("mousedown", (e) =>
       this.#onContainerMouseDown(e),
     );
+    // selectionchange is document-wide: every caret move anywhere fires it for
+    // each mounted editor. Only re-scan this editor's pills (querySelectorAll +
+    // comparePoint over every pill) when the caret is actually in this editor —
+    // matching VariablePillEditor's #isFocused guard.
     this.#onSelectionChange = () => {
+      if (!this.#isFocused) return;
       this.#syncPillSelection();
       if (this.#doc.contains(document.getSelection()?.anchorNode)) {
         this.#scheduleHighlight();
@@ -281,6 +288,16 @@ export class PillCodeEditor {
       }
     };
     document.addEventListener("selectionchange", this.#onSelectionChange);
+    // Track focus so the guard above can bail cheaply, and drop stale pill
+    // highlights when focus leaves (no selectionchange fires to clear them).
+    this.#doc.addEventListener("focus", () => {
+      this.#isFocused = true;
+    });
+    this.#doc.addEventListener("blur", () => {
+      this.#isFocused = false;
+      for (const pill of this.#doc.querySelectorAll(".variable-pill--selected"))
+        pill.classList.remove("variable-pill--selected");
+    });
 
     // offsetTop reads 0 while detached; re-measure the gutter once the control
     // is laid out (mount) and whenever the document reflows (wrap, content).
@@ -315,6 +332,7 @@ export class PillCodeEditor {
   destroy() {
     clearTimeout(this.#hlTimer);
     clearTimeout(this.#valTimer);
+    clearTimeout(this.#gutterTimer);
     this.#picker.close();
     this.#ro?.disconnect();
     document.removeEventListener("selectionchange", this.#onSelectionChange);
@@ -1038,8 +1056,10 @@ export class PillCodeEditor {
     this.#convertAtCaret();
     this.#recordHistory(); // checkpoint before #histValue advances in #emit path
     this.#emit();
-    this.#syncGutter();
-    this.#applyFolds();
+    // Gutter is deferred like highlight/validation: #syncGutter reads layout per
+    // line (forces reflow), so measuring on every keystroke is wasteful. Plain
+    // typing rarely moves line tops; structural edits sync synchronously below.
+    this.#scheduleGutter();
     this.#scheduleHighlight();
     this.#scheduleValidate();
     this.#picker.schedule();
@@ -1454,6 +1474,18 @@ export class PillCodeEditor {
       const collapsed = this.#collapsed.has(i);
       caret.textContent = isOpener ? (collapsed ? "▸" : "▾") : "";
     });
+  }
+
+  /** Debounced gutter re-measure for the keystroke path (see #onInputEvent).
+   *  Runs #applyFolds, which recomputes folds and re-measures the gutter. All
+   *  the synchronous callers (setValue, mode toggles, fold toggle, structural
+   *  edits) still update immediately — only fast typing is coalesced. */
+  #scheduleGutter() {
+    clearTimeout(this.#gutterTimer);
+    this.#gutterTimer = setTimeout(() => {
+      this.#gutterTimer = null;
+      this.#applyFolds();
+    }, 120);
   }
 
   // ── Syntax highlight (pill masking; caret line stays clean) ───────────────

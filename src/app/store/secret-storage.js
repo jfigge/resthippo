@@ -452,11 +452,15 @@ class SecretStorage {
   reencryptAll(targetBackend) {
     const files = this._secretFiles();
 
-    // Pass 1 — validate decryptability under the current backend.
+    // Pass 1 — validate decryptability under the current backend. Cache each
+    // parsed doc: validation only reads, so pass 2 can reuse it instead of
+    // re-reading every file off disk.
     const failures = [];
+    const docs = new Map(); // f.path → parsed doc (unchanged by validation)
     for (const f of files) {
       const doc = io.readJSON(f.path);
       if (!doc) continue;
+      docs.set(f.path, doc);
       for (const value of f.collect(doc)) {
         if (!crypto.isEncrypted(value)) continue;
         try {
@@ -469,13 +473,17 @@ class SecretStorage {
     if (failures.length) return { ok: false, failures };
 
     // Pass 2 — convert + write. (Pass 1 proved every value decrypts, so these
-    // reencryptValue calls won't throw.)
+    // reencryptValue calls won't throw.) Skip the write when the transform
+    // changed nothing: files with no secrets (or an idempotent no-op) serialize
+    // identically, while re-sealing a real secret always changes its ciphertext,
+    // so any file that actually holds secrets is still rewritten.
     for (const f of files) {
-      const doc = io.readJSON(f.path);
+      const doc = docs.get(f.path);
       if (!doc) continue;
       const next = f.transform(doc, (v) =>
         crypto.reencryptValue(v, targetBackend),
       );
+      if (JSON.stringify(next) === JSON.stringify(doc)) continue;
       io.writeJSON(f.path, next);
     }
     return { ok: true, failures: [] };

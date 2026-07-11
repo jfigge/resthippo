@@ -925,6 +925,7 @@ let _splitter2 = null;
  * @param {number} layout  1–4
  */
 function applyLayout(layout) {
+  const changed = layout !== _currentLayout;
   _currentLayout = layout;
   getAppMain().dataset.layout = String(layout);
   applyGridVars();
@@ -933,10 +934,18 @@ function applyLayout(layout) {
   _splitter2?.setFlow(mode === "landscape" ? "row" : "column");
   placeRemoveHeaderControls(layout, currentSettings.removeHeaders ?? false);
   // Broadcast so panels that adapt their own internal splits to the layout can
-  // react (e.g. RequestEditor flips the GraphQL Query/Variables split).
-  window.dispatchEvent(
-    new CustomEvent("hippo:layout-changed", { detail: { layout } }),
-  );
+  // react (e.g. RequestEditor flips the GraphQL Query/Variables split). Only
+  // when the layout number actually changed: applySettings calls applyLayout on
+  // every invocation (each font-zoom step, every theme preview), and
+  // re-broadcasting an unchanged layout needlessly re-runs those listeners. The
+  // only listener (GraphQL editor) reads the layout directly on mount, so a
+  // skipped startup broadcast (default layout == the initial _currentLayout) is
+  // harmless.
+  if (changed) {
+    window.dispatchEvent(
+      new CustomEvent("hippo:layout-changed", { detail: { layout } }),
+    );
+  }
 }
 
 /**
@@ -1504,7 +1513,6 @@ function initEventBus() {
   //   updater-checking      { manual }
   //   updater-available     { version, manual }            found → downloading in background
   //   updater-not-available { manual, reason? }            only toasted on a manual check
-  //   updater-progress      { percent, transferred, total, bytesPerSecond }
   //   updater-downloaded    { version }                    ready → "Restart to install"
   //   updater-error         { message, manual }            only toasted on a manual check
   // ────────────────────────────────────────────────────────────────────────────

@@ -38,6 +38,13 @@ import { wrapSecretField } from "./secret-field.js";
 import { LAYOUT_ICONS } from "./layout-icons.js";
 import { t, LOCALE_OPTIONS } from "../i18n.js";
 import { reportCliResult } from "../cli-command.js";
+import { debounce } from "../utils/debounce.js";
+
+// Trailing delay before a typed field commits. Text/number/textarea controls
+// fire on every keystroke; without this a 30-char proxy URL would trigger 30
+// full manifest writes + whole-app re-applies. Discrete controls (checkboxes,
+// selects, the layout picker) still emit immediately so they apply live.
+const SETTINGS_SAVE_DEBOUNCE_MS = 250;
 
 export class SettingsPopup {
   /** @type {HTMLElement} */
@@ -45,6 +52,19 @@ export class SettingsPopup {
 
   // historyCount value at the time the popup was opened — used to revert on X/Escape.
   #openHistoryCount = 5;
+
+  // Snapshot of #readValues() at open() — the dirty baseline. Closing with no
+  // real edit skips both the save and the history sweep. #lastEmittedJson dedups
+  // redundant emits (e.g. a field typed back to its previous value).
+  #baselineJson = "";
+  #lastEmittedJson = "";
+
+  // Debounced emit for the per-keystroke text/number/textarea controls. Coalesces
+  // a burst of keystrokes into a single hippo:settings-changed (one save + apply).
+  #emitDebounced = debounce(
+    () => this.#emitChange(),
+    SETTINGS_SAVE_DEBOUNCE_MS,
+  );
 
   // Live secret-storage backend state ({ mode, locked, available, hasPassword }),
   // fetched from main on open / when the Security panel is shown.
@@ -71,6 +91,14 @@ export class SettingsPopup {
   #onPopupClosed = () => {
     document.removeEventListener("keydown", this.#onKeyDown);
     this.#unwireUpdaterStatus();
+    // Flush a still-pending keystroke on any close path that didn't already do so
+    // (X / Escape / mask click) — historically every keystroke persisted, so the
+    // last one must survive the close. The footer Close cancels first, so nothing
+    // is pending here for that path.
+    if (this.#emitDebounced.pending()) {
+      this.#emitDebounced.cancel();
+      this.#emitChange();
+    }
   };
 
   // Auto-update status-line handlers (Feature 36). Stable references so they can
@@ -722,7 +750,7 @@ export class SettingsPopup {
         "input[type='text'], input[type='number'], input[type='url'], textarea",
       )
       .forEach((control) => {
-        control.addEventListener("input", () => this.#emitChange());
+        control.addEventListener("input", () => this.#emitDebounced());
       });
 
     // Update the "Remove headers" tooltip whenever the checkbox is toggled
@@ -765,16 +793,24 @@ export class SettingsPopup {
       PopupManager.close();
     });
 
-    // Close button (footer) — commit historyCount and trigger history trimming.
+    // Close button (footer) — commit historyCount and trigger history trimming,
+    // but only when something actually changed. Opening and closing untouched
+    // must write nothing and must not sweep on-disk history.
     this.#el.querySelector(".js-close").addEventListener("click", () => {
+      this.#emitDebounced.cancel(); // flush below via #emitChange, not the timer
       const historyCount = this.#readHistoryCount();
-      this.#emitChange(historyCount);
-      window.dispatchEvent(
-        new CustomEvent("hippo:history-trim", {
-          detail: { historyCount },
-          bubbles: true,
-        }),
-      );
+      const historyChanged = historyCount !== this.#openHistoryCount;
+      // #emitChange self-dedups: with historyCount it always commits; without,
+      // it emits only a not-yet-flushed field edit and is a no-op otherwise.
+      this.#emitChange(historyChanged ? historyCount : undefined);
+      if (historyChanged) {
+        window.dispatchEvent(
+          new CustomEvent("hippo:history-trim", {
+            detail: { historyCount },
+            bubbles: true,
+          }),
+        );
+      }
       PopupManager.close();
     });
   }
@@ -1183,6 +1219,12 @@ export class SettingsPopup {
    */
   #emitChange(historyCount) {
     const detail = this.#readValues();
+    const json = JSON.stringify(detail);
+    // Dedup: a plain emit (no historyCount commit) whose values match the last
+    // one dispatched is a no-op — skip the full save + whole-app re-apply. An
+    // explicit historyCount always emits (it's a deliberate commit at Close).
+    if (historyCount === undefined && json === this.#lastEmittedJson) return;
+    this.#lastEmittedJson = json;
     if (historyCount !== undefined) detail.historyCount = historyCount;
     window.dispatchEvent(
       new CustomEvent("hippo:settings-changed", {
@@ -1356,8 +1398,8 @@ export class SettingsPopup {
     // Wire edits.
     row
       .querySelector(".cert-host")
-      .addEventListener("input", () => this.#emitChange());
-    pass.addEventListener("input", () => this.#emitChange());
+      .addEventListener("input", () => this.#emitDebounced());
+    pass.addEventListener("input", () => this.#emitDebounced());
     const formatSel = row.querySelector(".cert-format");
     formatSel.addEventListener("change", () => {
       this.#syncCertFormat(row);
@@ -1503,6 +1545,12 @@ export class SettingsPopup {
     this.#openHistoryCount = settings.historyCount ?? 5;
     this.refreshThemeList(settings.customThemes ?? []);
     this.#applyValues(settings);
+    // Snapshot the opened state so a close with no real edit writes nothing, and
+    // seed the dedup baseline so an unchanged re-emit is skipped. Any stale
+    // pending emit from a previous open is dropped.
+    this.#emitDebounced.cancel();
+    this.#baselineJson = JSON.stringify(this.#readValues());
+    this.#lastEmittedJson = this.#baselineJson;
     this.#showPanel("appearance");
     // About panel (Feature 36): refresh the version line and clear any stale
     // status from a previous open, then track updater events while open.

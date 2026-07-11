@@ -108,14 +108,9 @@ function initUpdater(getWindow, logger) {
   autoUpdater.on("update-not-available", () =>
     pushUpdaterEvent("updater:not-available", { manual: _manual }),
   );
-  autoUpdater.on("download-progress", (p) =>
-    pushUpdaterEvent("updater:progress", {
-      percent: p?.percent ?? 0,
-      transferred: p?.transferred ?? 0,
-      total: p?.total ?? 0,
-      bytesPerSecond: p?.bytesPerSecond ?? 0,
-    }),
-  );
+  // download-progress is intentionally not forwarded: the renderer has no live
+  // progress UI, so per-chunk IPC + DOM dispatch was wasted work. Milestones
+  // (checking / available / downloaded / error) are what the UI reacts to.
   autoUpdater.on("update-downloaded", (info) =>
     pushUpdaterEvent("updater:downloaded", { version: info?.version }),
   );
