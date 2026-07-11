@@ -34,13 +34,15 @@ import { t } from "../i18n.js";
  * can't be read.
  *
  * `app.js` owns the work behind each of the three callbacks; every one resolves
- * `true` to close the modal and `false` to keep it open (the failure is surfaced
- * as a notification by `app.js`):
+ * `true` to close the modal and a falsy value to keep it open (that failure is
+ * surfaced as a notification by `app.js`). `onImportFile` may additionally
+ * resolve `{ error }` to keep the modal open with that message shown inline:
  *   • `onImport(url, header)`  — fetch a URL (main-process request engine, no
  *     browser CORS) and import it. A bare header token is sent as
  *     `Authorization`, a `Name: Value` line as a custom header.
  *   • `onImportFile(path)`     — read a typed absolute file path (new
- *     `import:file:read` IPC) and import it.
+ *     `import:file:read` IPC) and import it; resolves `{ error }` on a read
+ *     failure (a bad path) so the modal renders that message inline.
  *   • `onBrowse()`             — open the native file picker and import the
  *     chosen file.
  * In every case the format is auto-detected (Postman / Insomnia / OpenAPI /
@@ -244,13 +246,22 @@ export class UrlImportModal {
 
     this.#setBusy(true);
     try {
-      // Each callback imports and returns true to close / false to keep the modal
-      // open (the failure was already surfaced by app.js). For an OpenAPI/Swagger
-      // spec the URL callback returns true after closing this modal itself and
-      // handing off to the base-URL prompt.
+      // Each callback imports and resolves `true` to close. The file callback may
+      // instead resolve `{ error }` for a read failure (a bad path) — rendered
+      // inline beside the field so the user can fix it in place; any other falsy
+      // value keeps the modal open with the failure already surfaced as a toast by
+      // app.js. For an OpenAPI/Swagger spec the URL callback returns true after
+      // closing this modal itself and handing off to the base-URL prompt.
       let ok;
       if (isFile) {
-        ok = await this.#onImportFile?.(value);
+        const res = await this.#onImportFile?.(value);
+        if (res && res.error) {
+          this.#setError(res.error);
+          this.#urlInput.focus();
+          ok = false;
+        } else {
+          ok = res;
+        }
       } else {
         ok = await this.#onImport?.(value, this.#headerInput.value.trim());
       }

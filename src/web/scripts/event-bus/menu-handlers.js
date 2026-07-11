@@ -24,7 +24,7 @@
  * Communication" in CLAUDE.md and the hippo:* registry at the top of app.js.
  *
  * @param {object} ctx
- * @param {(path: string) => Promise<boolean>} ctx.handleFilePathImport  read + import a typed local file path
+ * @param {(path: string) => Promise<boolean|{error: string}>} ctx.handleFilePathImport  read + import a typed local file path ({error} → shown inline)
  * @param {() => Promise<boolean>} ctx.handleImportBrowse  open the native picker + import the chosen file
  * @param {Function}  ctx.handleCurlImport    save a request parsed from pasted cURL
  * @param {Function}  ctx.handleUrlImport     fetch + import an interchange document from a URL

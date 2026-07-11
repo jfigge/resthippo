@@ -5355,9 +5355,11 @@ async function handleImportBrowse() {
 
 // Read a typed absolute file path (new import:file:read IPC) and import it. The
 // smart-field import modal routes here when the user types a local path instead
-// of a URL. Read failures (a bad path, or a sandboxed MAS build that returns
-// null) surface urlImport.errPath and return false so the modal stays open for a
-// correction or the Browse… fallback.
+// of a URL. A read failure (a bad path, or a sandboxed MAS build that returns
+// null) resolves to `{ error }` so the import modal renders urlImport.errPath
+// INLINE — beside the field the user just typed — and stays open for a
+// correction or the Browse… fallback. (A file that reads but doesn't parse is a
+// different class of failure: _importFromContent surfaces it as a toast.)
 async function handleFilePathImport(path) {
   if (!window.hippo?.import?.file?.read) {
     Notifications.info(t("app.importDesktopOnly"));
@@ -5370,12 +5372,7 @@ async function handleFilePathImport(path) {
   } catch {
     file = null;
   }
-  if (!file) {
-    Notifications.error(t("urlImport.errPath"), {
-      title: t("app.importTitle"),
-    });
-    return false;
-  }
+  if (!file) return { error: t("urlImport.errPath") };
 
   return _importFromContent(file.content);
 }
