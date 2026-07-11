@@ -53,6 +53,15 @@ let _confirmEl = null;
 /** Whether the confirmClose dialog is currently visible */
 let _confirmOpen = false;
 
+/**
+ * Cancel-and-teardown for the currently-open one-shot dialog (confirm / notify /
+ * warn), or null when none is open. Routes through that dialog's own `dismiss()`
+ * with cancel semantics so any awaiting caller settles and its keydown listener
+ * is removed — a bare PopupManager.close() would do neither. Consumed by the
+ * resize handler; cleared inside dismiss() so it is never stale.
+ */
+let _activeOneShotCancel = null;
+
 /** Whether the overlay mask is currently visible (used to coalesce open/close events). */
 let _maskVisible = false;
 
@@ -110,6 +119,12 @@ function _closeConfirmIfOpen() {
 
 window.addEventListener("resize", () => {
   _closeConfirmIfOpen();
+  // A one-shot dialog (confirm / notify / warn) must settle as a cancel through
+  // its own dismiss() — that removes its document keydown listener and resolves
+  // any awaiting caller (e.g. _askKeepWsAlive). PopupManager.close() would do
+  // neither, leaking the listener and stranding the await. dismiss() restores
+  // the popup that was active beneath it; if one remains, close it too.
+  if (_activeOneShotCancel) _activeOneShotCancel();
   if (_activePopup) PopupManager.close();
 });
 
@@ -223,14 +238,22 @@ function _showOneShotDialog({
 
   // Snapshot and replace the active popup slot
   const prevActivePopup = _activePopup;
+  let dismissed = false;
 
   /**
    * Tear down this dialog cleanly, then optionally invoke a callback.
-   * Safe to call from any dismissal path (button, keyboard, mask).
+   * Safe to call from any dismissal path (button, keyboard, mask, resize) and
+   * idempotent — the first call wins, so the promise settles exactly once and
+   * the keydown listener is removed on every path.
    * @param {(() => void) | undefined} afterFn  called after teardown begins
    */
   function dismiss(afterFn) {
+    if (dismissed) return;
+    dismissed = true;
     document.removeEventListener("keydown", onKey);
+    // Only clear the shared cancel slot if it still points at this dialog — a
+    // nested one-shot may have replaced it.
+    if (_activeOneShotCancel === cancel) _activeOneShotCancel = null;
     _activePopup = prevActivePopup;
     if (!_activePopup) _hideMask();
     dlg.classList.remove("popup--visible");
@@ -245,6 +268,13 @@ function _showOneShotDialog({
     }, 400);
     if (typeof afterFn === "function") afterFn();
   }
+
+  // Cancel-and-teardown for the resize path: dismisses with the caller's cancel
+  // handler so an awaiting caller settles exactly as Escape / an outside click.
+  function cancel() {
+    dismiss(onDismiss);
+  }
+  _activeOneShotCancel = cancel;
 
   // Register as the active popup so mask clicks delegate correctly. An outside
   // click routes through onDismiss (the cancel path) just like Escape below.

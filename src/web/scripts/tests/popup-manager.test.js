@@ -70,6 +70,11 @@ function clickAction(action) {
     .dispatchEvent(new MouseEvent("click", { bubbles: true }));
 }
 
+/** Fire a window resize — the event the manager listens for to tear down. */
+function resizeWindow() {
+  window.dispatchEvent(new Event("resize"));
+}
+
 test("confirm: Escape invokes onCancel, not onConfirm", () => {
   let confirmed = false;
   let cancelled = false;
@@ -149,6 +154,86 @@ test("confirm: buttons still resolve their own callbacks", () => {
   });
   clickAction("cancel");
   assert.equal(result, "cancel");
+});
+
+test("confirm: window resize dismisses as cancel and settles an awaiting caller", async () => {
+  const choice = new Promise((resolve) => {
+    PopupManager.confirm({
+      message: "Keep the connection open?",
+      onConfirm: () => resolve("keep"),
+      onCancel: () => resolve("close"),
+    });
+  });
+
+  resizeWindow();
+
+  // Without the fix, resize called PopupManager.close() (no callback) and this
+  // await hung forever.
+  assert.equal(await choice, "close");
+});
+
+test("confirm: resize removes the keydown listener (no stale onCancel on a later Escape)", () => {
+  let cancels = 0;
+  PopupManager.confirm({
+    message: "Proceed?",
+    onConfirm: () => {},
+    onCancel: () => {
+      cancels += 1;
+    },
+  });
+
+  resizeWindow();
+  assert.equal(cancels, 1, "resize must run onCancel exactly once");
+
+  // The orphaned onKey listener (pre-fix) would fire a second, stale onCancel.
+  pressKey("Escape");
+  assert.equal(
+    cancels,
+    1,
+    "a later Escape must not re-fire the settled callback",
+  );
+});
+
+test("confirm: resize settles the callback exactly once even if a button is clicked after", () => {
+  let result = null;
+  PopupManager.confirm({
+    message: "Proceed?",
+    onConfirm: () => {
+      result = "confirm";
+    },
+    onCancel: () => {
+      result = "cancel";
+    },
+  });
+
+  resizeWindow();
+  assert.equal(result, "cancel");
+
+  // dismiss() is idempotent — a stray confirm click after teardown is a no-op.
+  const dlg = activeDialog();
+  if (dlg) {
+    const btn = dlg.querySelector("[data-action='confirm']");
+    if (btn) btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  }
+  assert.equal(result, "cancel", "the settled cancel must not be overwritten");
+});
+
+test("notify: window resize dismisses without throwing", () => {
+  PopupManager.notify({ title: "Heads up", message: "Something happened." });
+  assert.doesNotThrow(() => resizeWindow());
+});
+
+test("warnVariables: window resize dismisses without proceeding", () => {
+  let proceeded = false;
+  PopupManager.warnVariables({
+    variables: [{ name: "host", found: false, value: null }],
+    onAction: () => {
+      proceeded = true;
+    },
+  });
+
+  resizeWindow();
+  assert.equal(proceeded, false, "resize must not trigger the proceed action");
 });
 
 test("confirmDelete: Escape dismisses safely without deleting (no onCancel supplied)", () => {
