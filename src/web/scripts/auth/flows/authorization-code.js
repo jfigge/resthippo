@@ -91,7 +91,10 @@ export async function authorizationCodeFlow(config) {
   if (config.nonce?.trim()) authParams.nonce = config.nonce.trim();
   if (config.origin?.trim()) authParams.origin = config.origin.trim();
 
-  // Advanced params surfaced from the UI
+  // Advanced OIDC params — reserved. There is no dedicated UI field or bulk key
+  // for these yet, so they are undefined unless set programmatically on the
+  // config; kept as guarded pass-throughs (harmless when absent) for future UI
+  // wiring or custom callers.
   if (config.prompt?.trim()) authParams.prompt = config.prompt.trim();
   if (config.loginHint?.trim()) authParams.login_hint = config.loginHint.trim();
   if (config.acrValues?.trim()) authParams.acr_values = config.acrValues.trim();

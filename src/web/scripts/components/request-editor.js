@@ -1696,11 +1696,6 @@ export class RequestEditor {
     );
   }
 
-  /** Delegates to the shared {@link buildToolbarToggle} (see kv-editor-shared.js). */
-  #buildToolbarToggle(o) {
-    return buildToolbarToggle(o);
-  }
-
   /**
    * Build the shared scaffold for the Params and Headers editors. Both are a
    * `.params-editor` containing a `.params-toolbar` (Bulk Editor toggle, Add,
@@ -1741,7 +1736,7 @@ export class RequestEditor {
     toolbar.className = "params-toolbar";
 
     // Bulk Editor toggle — leftmost in toolbar
-    const { label: bulkLabel } = this.#buildToolbarToggle({
+    const { label: bulkLabel } = buildToolbarToggle({
       text: " " + t("kv.bulkEditor"),
       title: t("kv.bulkEditorTitle"),
       checked: o.bulkMode,
@@ -1768,7 +1763,7 @@ export class RequestEditor {
 
     // Inline confirm: first click → "Confirm?"; second click → delete all.
     // Escape or clicking outside the button cancels.
-    const deleteAllCleanup = this.#wireDeleteAllConfirm(
+    const deleteAllCleanup = wireDeleteAllConfirm(
       delAllBtn,
       o.getCount,
       o.onDeleteAll,
@@ -1853,7 +1848,7 @@ export class RequestEditor {
       bulkPlaceholder: "name=value\nparam1=foo\nparam2=bar\n# disabled=row",
       bulkAriaLabel: t("request.params.bulkAria"),
       onBulkInput: (value) => {
-        this.#params = this.#textToKvRows(value);
+        this.#params = textToKvRows(value);
         this.#updateUrlPreview();
         this.#dispatchParamsUpdated();
       },
@@ -1875,7 +1870,7 @@ export class RequestEditor {
   // ── Headers editor ──────────────────────────────────────────────────
   #buildHeadersEditor() {
     // Right-side toggle: show standard header-name suggestions
-    const { label: listHdrLabel } = this.#buildToolbarToggle({
+    const { label: listHdrLabel } = buildToolbarToggle({
       text: " " + t("request.headers.listHeaders"),
       title: t("request.headers.suggestTitle"),
       id: "list-headers-toggle",
@@ -1916,7 +1911,7 @@ export class RequestEditor {
         "Header-Name: value\nContent-Type: application/json\nAuthorization: Bearer token\n# X-Disabled: skipped",
       bulkAriaLabel: t("request.headers.bulkAria"),
       onBulkInput: (value) => {
-        this.#headers = this.#textToHeaderRows(value);
+        this.#headers = textToHeaderRows(value);
         this.#dispatchHeadersUpdated();
       },
       drag: this.#headersDrag,
@@ -1963,19 +1958,14 @@ export class RequestEditor {
     this.#dispatchHeadersUpdated();
   }
 
-  /** Delegates to the shared {@link disposePillEditors} (see kv-editor-shared.js). */
-  #disposePillEditors(editors) {
-    return disposePillEditors(editors);
-  }
-
   #renderHeadersList() {
     if (!this.#headersListEl) return;
-    this.#disposePillEditors(this.#headerPillEditors);
+    disposePillEditors(this.#headerPillEditors);
 
     // In bulk mode just keep the textarea in sync
     if (this.#headersBulkMode) {
       if (this.#headersBulkEl)
-        this.#headersBulkEl.value = this.#headerRowsToText(this.#headers);
+        this.#headersBulkEl.value = headerRowsToText(this.#headers);
       return;
     }
 
@@ -2204,7 +2194,7 @@ export class RequestEditor {
     valueCell.appendChild(valueEditor.element);
     valueCell.appendChild(resetBtn);
 
-    const row = this.#buildKvRow({
+    const row = buildKvRow({
       item: header,
       index,
       noun: t("request.noun.header"),
@@ -2270,12 +2260,12 @@ export class RequestEditor {
 
   #renderParamsList() {
     if (!this.#paramsListEl) return;
-    this.#disposePillEditors(this.#paramPillEditors);
+    disposePillEditors(this.#paramPillEditors);
 
     // In bulk mode just keep the textarea in sync and update the URL preview
     if (this.#paramsBulkMode) {
       if (this.#paramsBulkEl)
-        this.#paramsBulkEl.value = this.#kvRowsToText(this.#params);
+        this.#paramsBulkEl.value = kvRowsToText(this.#params);
       this.#updateUrlPreview();
       return;
     }
@@ -2371,7 +2361,7 @@ export class RequestEditor {
     statusIcon.setAttribute("aria-label", t("request.pathParams.label"));
     statusIcon.innerHTML = icon("braces", { size: 14 });
 
-    return this.#buildKvRow({
+    return buildKvRow({
       item: pp,
       noun: t("request.noun.pathParameter"),
       name: nameInput,
@@ -2650,7 +2640,7 @@ export class RequestEditor {
     valueEditor.setValue(param.value);
     this.#paramPillEditors.push(valueEditor);
 
-    return this.#buildKvRow({
+    return buildKvRow({
       item: param,
       index,
       noun: t("request.noun.parameter"),
@@ -2665,51 +2655,17 @@ export class RequestEditor {
     });
   }
 
-  // ── Shared UI helpers ─────────────────────────────────────────────────────
-
-  /** Delegates to the shared {@link buildKvRow} (see kv-editor-shared.js). */
-  #buildKvRow(opts) {
-    return buildKvRow(opts);
-  }
-
-  /** Delegates to the shared {@link wireDeleteAllConfirm} (see kv-editor-shared.js). */
-  #wireDeleteAllConfirm(btn, getCount, onDelete) {
-    return wireDeleteAllConfirm(btn, getCount, onDelete);
-  }
-
-  // ── Bulk editor shared utilities ─────────────────────────────────────────
-
-  /** Delegates to the shared {@link kvRowsToText} (see kv-editor-shared.js). */
-  #kvRowsToText(rows) {
-    return kvRowsToText(rows);
-  }
-
-  /** Delegates to the shared {@link headerRowsToText} (see kv-editor-shared.js). */
-  #headerRowsToText(rows) {
-    return headerRowsToText(rows);
-  }
-
-  /** Delegates to the shared {@link textToKvRows} (see kv-editor-shared.js). */
-  #textToKvRows(text) {
-    return textToKvRows(text);
-  }
-
-  /** Delegates to the shared {@link textToHeaderRows} (see kv-editor-shared.js). */
-  #textToHeaderRows(text) {
-    return textToHeaderRows(text);
-  }
-
   // ── Params bulk editor ────────────────────────────────────────────────────
 
   #handleParamsBulkToggle(nowBulk) {
     if (nowBulk && !this.#paramsBulkMode) {
       // KV → Bulk: serialise current rows into the textarea
       if (this.#paramsBulkEl)
-        this.#paramsBulkEl.value = this.#kvRowsToText(this.#params);
+        this.#paramsBulkEl.value = kvRowsToText(this.#params);
     } else if (!nowBulk && this.#paramsBulkMode) {
       // Bulk → KV: parse textarea back to rows
       if (this.#paramsBulkEl)
-        this.#params = this.#textToKvRows(this.#paramsBulkEl.value);
+        this.#params = textToKvRows(this.#paramsBulkEl.value);
     }
     this.#paramsBulkMode = nowBulk;
     this.#applyParamsBulkMode();
@@ -2735,10 +2691,10 @@ export class RequestEditor {
   #handleHeadersBulkToggle(nowBulk) {
     if (nowBulk && !this.#headersBulkMode) {
       if (this.#headersBulkEl)
-        this.#headersBulkEl.value = this.#headerRowsToText(this.#headers);
+        this.#headersBulkEl.value = headerRowsToText(this.#headers);
     } else if (!nowBulk && this.#headersBulkMode) {
       if (this.#headersBulkEl)
-        this.#headers = this.#textToHeaderRows(this.#headersBulkEl.value);
+        this.#headers = textToHeaderRows(this.#headersBulkEl.value);
     }
     this.#headersBulkMode = nowBulk;
     this.#applyHeadersBulkMode();
@@ -2890,9 +2846,9 @@ export class RequestEditor {
     //       content now so in-progress edits (e.g. uncommitted IME) are
     //       captured even if the `input` event hasn't fired yet.
     if (this.#paramsBulkMode && this.#paramsBulkEl)
-      this.#params = this.#textToKvRows(this.#paramsBulkEl.value);
+      this.#params = textToKvRows(this.#paramsBulkEl.value);
     if (this.#headersBulkMode && this.#headersBulkEl)
-      this.#headers = this.#textToHeaderRows(this.#headersBulkEl.value);
+      this.#headers = textToHeaderRows(this.#headersBulkEl.value);
     this.#bodyEditor.flushBulk();
 
     // ── Pre-request script (Feature 25) ───────────────────────────────────
@@ -3541,9 +3497,9 @@ export class RequestEditor {
       id: snapshot.id,
       method: snapshot.method ?? "GET",
       url: snapshot.url ?? "",
-      params: this.#textToKvRows(snapshot.params ?? ""),
+      params: textToKvRows(snapshot.params ?? ""),
       pathParams: Array.isArray(snapshot.pathParams) ? snapshot.pathParams : [],
-      headers: this.#textToHeaderRows(snapshot.headers ?? ""),
+      headers: textToHeaderRows(snapshot.headers ?? ""),
       authType: snapshot.authType ?? "none",
       authEnabled: snapshot.authEnabled ?? true,
       bodyType: snapshot.bodyType ?? "no-body",
@@ -3607,7 +3563,7 @@ export class RequestEditor {
     }
 
     if (node.bodyType === "form-data" || node.bodyType === "form-urlencoded") {
-      node.bodyFormRows = this.#textToKvRows(snapshot.body ?? "");
+      node.bodyFormRows = textToKvRows(snapshot.body ?? "");
     } else if (node.bodyType === "file") {
       node.bodyFilePath = snapshot.body ?? "";
     } else if (node.bodyType === "graphql") {

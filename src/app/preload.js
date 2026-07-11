@@ -255,9 +255,6 @@ contextBridge.exposeInMainWorld("hippo", {
     requests: {
       /** @param {string} id @returns {Promise<object|null>} */
       get: (id) => ipcRenderer.invoke("store:requests:get", id),
-      /** @param {string} collectionId @param {object} data @returns {Promise<object>} */
-      create: (collectionId, data) =>
-        ipcRenderer.invoke("store:requests:create", collectionId, data),
       /** @param {string} id @param {object} patch @returns {Promise<object>} */
       update: (id, patch) =>
         ipcRenderer.invoke("store:requests:update", id, patch),

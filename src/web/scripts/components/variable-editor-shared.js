@@ -17,8 +17,8 @@
 /**
  * variable-editor-shared.js — shared machinery for the secure-variable editors.
  *
- * The variable editors — VariablesPopup, CollectionsPopup (its Environment tab)
- * and the inline VarsEditor — all edit the same kind of list:
+ * The variable editors — CollectionsPopup (its Environment tab) and the inline
+ * VarsEditor — both edit the same kind of list:
  * `{ name, value, secure }` rows with an inline reveal (eye) toggle and a per-row
  * secure (lock) toggle, plus a bulk-text mode where each line is `name=value` and
  * a leading `$ ` marks the variable secure. This module holds the pieces they

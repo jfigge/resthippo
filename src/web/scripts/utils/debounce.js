@@ -19,7 +19,7 @@
  *
  * Replaces the hand-rolled `clearTimeout(this.#saveTimer); this.#saveTimer =
  * setTimeout(…)` autosave pattern that was copy-pasted across the variable
- * editors (vars-editor, variables-popup, collections-popup). Returns the
+ * editors (vars-editor, collections-popup). Returns the
  * debounced function with two extras the callers need:
  *   - `.cancel()`  — drop a pending call without running it (used when a popup
  *                    reloads/switches data, or flushes-then-saves on close).

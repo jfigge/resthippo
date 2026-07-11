@@ -17,8 +17,8 @@
 /**
  * tests/variable-editor-shared.test.js
  *
- * Unit tests for the secure-variable editor machinery shared by VariablesPopup,
- * CollectionsPopup and EnvironmentsPopup: the bulk-text <→> rows converters
+ * Unit tests for the secure-variable editor machinery shared by CollectionsPopup
+ * (its Environment tab) and the inline VarsEditor: the bulk-text <→> rows converters
  * (pure) and the buildVariableRow DOM builder (under jsdom).
  *
  * Run with:   node --test components/tests/variable-editor-shared.test.js

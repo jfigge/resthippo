@@ -96,24 +96,6 @@ class TokenEntry {
     if (this.expiresAt === null) return true; // no expiry info → assume valid
     return Date.now() < this.expiresAt - EXPIRY_BUFFER_MS;
   }
-
-  /** True if the token has hard-expired (no buffer applied). */
-  isExpired() {
-    if (this.expiresAt === null) return false;
-    return Date.now() >= this.expiresAt;
-  }
-
-  /** Convert back to a partial OAuthResult for display purposes (no token values). */
-  toDisplayInfo() {
-    return {
-      tokenType: this.tokenType,
-      scope: this.scope,
-      expiresAt: this.expiresAt,
-      expiresIn: this.expiresIn,
-      hasRefresh: !!this._refreshToken,
-      hasIdToken: !!this._idToken,
-    };
-  }
 }
 
 // ── TokenStore ───────────────────────────────────────────────────────────────
@@ -138,8 +120,7 @@ class TokenStore {
    * The key incorporates every field that can produce a *different* token from
    * the IdP, so distinct configurations never collide on the same cached entry.
    * The clientSecret is included via a non-reversible fingerprint — its raw
-   * value is never embedded in the key (which may be surfaced by `keys()` for
-   * diagnostics).
+   * value is never embedded in the key.
    *
    * @param {object} config - authOAuth2 state
    * @returns {string}
@@ -157,7 +138,7 @@ class TokenStore {
       config.resource ?? "",
       // Token-exchange swaps a different token per subject; fingerprint it so
       // distinct subject tokens never share a cached result. The raw value is
-      // never embedded in the key (it may be surfaced by keys() for diagnostics).
+      // never embedded in the key.
       fingerprint(config.subjectToken ?? ""),
     ];
     return parts.join("|");
@@ -211,15 +192,6 @@ class TokenStore {
   /** Remove all cached tokens. */
   clearAll() {
     this.#cache.clear();
-  }
-
-  /**
-   * Return all cache keys (for diagnostic purposes — does NOT expose token values).
-   *
-   * @returns {string[]}
-   */
-  keys() {
-    return [...this.#cache.keys()];
   }
 }
 

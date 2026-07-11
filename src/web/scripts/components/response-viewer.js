@@ -502,9 +502,14 @@ export class ResponseViewer {
 
     // Post-response captures (Feature 03): show a small marker on the status bar
     // summarising how many variables were captured. Count only — never values.
-    window.addEventListener("hippo:captures-applied", (e) =>
-      this.#showCapturedBadge(e.detail?.count ?? 0),
-    );
+    window.addEventListener("hippo:captures-applied", (e) => {
+      // Route by requestId like every other lifecycle path: a background request
+      // finishing its captures must not paint its badge over a different
+      // selected request (the count is value-free, but a wrong-request marker is
+      // still misleading). Events without a requestId target the selection.
+      if (!isSelected(e.detail?.requestId)) return;
+      this.#showCapturedBadge(e.detail?.count ?? 0);
+    });
 
     // Test assertions (Feature 29): fill the Tests tab + status badge once the
     // after-response sandbox returns. The response itself was rendered a moment
@@ -1317,15 +1322,6 @@ export class ResponseViewer {
     // Raw:    verbatim plain text for every type.
     // HTML preview (iframe / WebContentsView) is handled by the Preview tab.
 
-    const pre = document.createElement("pre");
-    pre.className = "res-body-pre";
-    pre.tabIndex = 0;
-
-    // Wrap setting only affects Styled mode; leave Raw untouched.
-    if (this.#renderMode !== "raw" && !this.#wrapResponseText) {
-      pre.classList.add("res-body-pre--no-wrap");
-    }
-
     let prismLang = null;
     let displayText;
 
@@ -1358,7 +1354,6 @@ export class ResponseViewer {
 
     // Styled JSON/XML/YAML/HTML/CSS/JS get a collapsible, line-based render with
     // a fold gutter; everything else is a single highlighted (or plain) block.
-    this.#search.setFoldReveal(null);
     const foldable =
       this.#renderMode !== "raw" &&
       (category === "json" ||
@@ -1369,18 +1364,22 @@ export class ResponseViewer {
         category === "javascript");
 
     if (foldable) {
-      renderFoldableCode(pre, displayText, prismLang, {
-        folding: this.#showCodeFolding,
-        lineNumbers: this.#showLineNumbers,
-        setFoldReveal: (fn) => this.#search.setFoldReveal(fn),
-      });
-    } else if (prismLang) {
-      appendCodeBlock(pre, displayText, prismLang);
+      // Shared with #renderFilteredText via #appendFoldableBody so the styled
+      // foldable render can't drift between the two paths.
+      this.#appendFoldableBody(pane, displayText, prismLang);
     } else {
-      pre.textContent = displayText;
+      const pre = document.createElement("pre");
+      pre.className = "res-body-pre";
+      pre.tabIndex = 0;
+      // Wrap setting only affects Styled mode; leave Raw untouched.
+      if (this.#renderMode !== "raw" && !this.#wrapResponseText) {
+        pre.classList.add("res-body-pre--no-wrap");
+      }
+      this.#search.setFoldReveal(null);
+      if (prismLang) appendCodeBlock(pre, displayText, prismLang);
+      else pre.textContent = displayText;
+      pane.appendChild(pre);
     }
-
-    pane.appendChild(pre);
 
     // An active body filter owns the rendered body — re-apply it over the
     // freshly-built original (it re-applies the find query itself). Otherwise
@@ -1403,13 +1402,31 @@ export class ResponseViewer {
     pane.innerHTML = "";
     pane.classList.remove("res-tab-pane--fill");
 
+    const prismLang =
+      category === "json" ? "json" : category === "yaml" ? "yaml" : "markup";
+    this.#appendFoldableBody(pane, text, prismLang);
+
+    // Re-apply an active find query against the freshly-filtered text.
+    this.#search.reapplyActiveSearch();
+  }
+
+  /**
+   * Build the styled, foldable body <pre> shared by #renderBodyPane's styled
+   * branch and #renderFilteredText, so the two can't drift. Creates the pre,
+   * applies the no-wrap class, registers the search fold-reveal hook, renders
+   * the line-based foldable body, and appends it to `pane`. The caller
+   * re-applies any active search/filter afterward (that step differs between the
+   * two — #renderBodyPane defers to the body filter first).
+   *
+   * @param {HTMLElement} pane      the (cleared) body pane to append into
+   * @param {string} text          body text (already pretty-printed by caller)
+   * @param {string} prismLang     Prism language id
+   */
+  #appendFoldableBody(pane, text, prismLang) {
     const pre = document.createElement("pre");
     pre.className = "res-body-pre";
     pre.tabIndex = 0;
     if (!this.#wrapResponseText) pre.classList.add("res-body-pre--no-wrap");
-
-    const prismLang =
-      category === "json" ? "json" : category === "yaml" ? "yaml" : "markup";
     this.#search.setFoldReveal(null);
     renderFoldableCode(pre, text, prismLang, {
       folding: this.#showCodeFolding,
@@ -1417,9 +1434,7 @@ export class ResponseViewer {
       setFoldReveal: (fn) => this.#search.setFoldReveal(fn),
     });
     pane.appendChild(pre);
-
-    // Re-apply an active find query against the freshly-filtered text.
-    this.#search.reapplyActiveSearch();
+    return pre;
   }
 
   // ── Binary rendering (images / PDF / hex) ─────────────────────────────────

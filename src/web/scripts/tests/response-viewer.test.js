@@ -327,6 +327,52 @@ test("disabling Code folding drops the fold gutter but keeps line numbers", asyn
   );
 });
 
+test("a small styled body is syntax-highlighted, but an oversized one is plain", async () => {
+  // Small JSON → Prism tokens present (highlighting runs).
+  {
+    const { window, viewer } = mountViewer();
+    await showResponse(
+      window,
+      baseResponse({
+        headers: { "content-type": "application/json" },
+        body: '{"a":1,"b":2}',
+      }),
+    );
+    const pre = viewer.element.querySelector(".res-body-pre--foldable");
+    assert.ok(pre, "foldable body rendered");
+    assert.ok(
+      pre.querySelector(".token"),
+      "a small body is highlighted (Prism token spans present)",
+    );
+  }
+
+  // A body over the 2 MB highlight cap keeps the foldable structure but skips
+  // the synchronous Prism pass — so it renders as plain text (no token spans),
+  // never stalling the main thread on a multi-megabyte highlight.
+  {
+    const { window, viewer } = mountViewer();
+    const huge = "a".repeat(2 * 1024 * 1024 + 100);
+    await showResponse(
+      window,
+      baseResponse({
+        headers: { "content-type": "application/json" },
+        body: `["${huge}"]`,
+      }),
+    );
+    const pre = viewer.element.querySelector(".res-body-pre--foldable");
+    assert.ok(pre, "an oversized body still uses the foldable structure");
+    assert.equal(
+      pre.querySelector(".token"),
+      null,
+      "no Prism token spans — highlighting was skipped past the size cap",
+    );
+    assert.ok(
+      pre.textContent.includes(huge),
+      "the full body text is still present (plain, searchable, copyable)",
+    );
+  }
+});
+
 test("toggling wrap flips the class in place without re-rendering the body", async () => {
   const { window, viewer } = mountViewer();
   await showResponse(
@@ -997,6 +1043,40 @@ test("the live stream toolbar shows state + counts but no Stop/Save buttons", as
   );
 });
 
+test("a stream-end racing ahead of the marker still reaches a terminal state", async () => {
+  const { window, viewer } = mountViewer();
+  await startLoading(window, "s1");
+
+  // A very short stream: its end frame arrives while the stream is only *armed*
+  // (before the streaming marker activates the live log). It must be held, not
+  // dropped, or the log would hang forever on "streaming…".
+  window.dispatchEvent(
+    new window.CustomEvent("hippo:stream-end", {
+      detail: { streamId: "s1", totalBytes: 12, eventCount: 3, elapsed: 40 },
+    }),
+  );
+  await new Promise((r) => setTimeout(r, 0));
+
+  // Now the streaming marker activates the pane; the held end frame is applied.
+  await showResponse(
+    window,
+    baseResponse({
+      headers: { "content-type": "text/event-stream" },
+      streaming: true,
+      streamId: "s1",
+      sse: true,
+    }),
+  );
+
+  const dot = viewer.element.querySelector(".res-stream-dot");
+  assert.ok(dot, "the stream pane rendered");
+  assert.equal(
+    dot.dataset.state,
+    "ended",
+    "the early terminal frame drove the log to 'ended', not stuck on 'streaming'",
+  );
+});
+
 // ── Body filter bar (Cmd/Ctrl+Shift+F → jq / yq / XPath) ────────────────────
 // Driven through the viewer UI: the keyboard shortcut opens ResponseFilter, a
 // typed expression transforms the styled body in place (the pure transform is
@@ -1359,6 +1439,43 @@ test("a captures-applied with a zero count leaves the badge hidden", async () =>
     true,
     "nothing captured → no badge",
   );
+});
+
+test("a background request's captures don't paint the badge over the selected one", async () => {
+  const { window, viewer } = mountViewer();
+  // Select request A and show its response.
+  window.dispatchEvent(
+    new window.CustomEvent("hippo:request-selected", { detail: { id: "A" } }),
+  );
+  await showResponse(window, baseResponse({ body: "{}", requestId: "A" }));
+
+  const badge = viewer.element.querySelector(".res-captured-badge");
+  assert.equal(
+    badge.hidden,
+    true,
+    "no captured badge before any capture fires",
+  );
+
+  // Background request B finishes its captures while A is shown — must not bleed.
+  window.dispatchEvent(
+    new window.CustomEvent("hippo:captures-applied", {
+      detail: { count: 3, requestId: "B" },
+    }),
+  );
+  assert.equal(
+    badge.hidden,
+    true,
+    "B's captured badge does not bleed onto the selected request A",
+  );
+
+  // A's own captures still show.
+  window.dispatchEvent(
+    new window.CustomEvent("hippo:captures-applied", {
+      detail: { count: 2, requestId: "A" },
+    }),
+  );
+  assert.equal(badge.hidden, false, "A's own captured badge is shown");
+  assert.match(badge.textContent, /2/, "it reports A's captured count");
 });
 
 // ── After-response script console (hippo:script-console) ─────────────────────

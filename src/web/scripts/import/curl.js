@@ -20,10 +20,12 @@ import {
   buildAuth,
   noBody,
   rawBody,
+  rawBodyFromMime,
   formBody,
   authFromHeaderValue,
   splitUrlQuery,
   parseUrlencodedRows,
+  requestName,
 } from "./shape.js";
 
 /**
@@ -176,17 +178,6 @@ function splitHeaderLine(line) {
   };
 }
 
-/** Derive a readable request name from a URL and method (e.g. "POST /login"). */
-function requestName(method, base) {
-  try {
-    const u = new URL(base);
-    const path = u.pathname && u.pathname !== "/" ? u.pathname : u.host;
-    return `${method} ${path}`;
-  } catch {
-    return `${method} ${base || "Request"}`.trim();
-  }
-}
-
 /**
  * Resolve a `-d`/`--data*` payload to a canonical body. An explicit
  * `Content-Type` header decides the raw language / form encoding; with none,
@@ -199,10 +190,8 @@ function bodyFromData(dataText, contentType) {
   if (ct.includes("x-www-form-urlencoded")) {
     return formBody("form-urlencoded", parseUrlencodedRows(dataText));
   }
-  if (ct.includes("json")) return rawBody("json", dataText);
-  if (ct.includes("xml")) return rawBody("xml", dataText);
-  if (ct.includes("yaml") || ct.includes("yml"))
-    return rawBody("yaml", dataText);
+  const raw = rawBodyFromMime(ct, dataText);
+  if (raw) return raw;
   if (ct) return rawBody("text", dataText);
   if (/^[^=&\s]+=[^&]*(?:&[^=&\s]+=[^&]*)*$/.test(dataText)) {
     return formBody("form-urlencoded", parseUrlencodedRows(dataText));

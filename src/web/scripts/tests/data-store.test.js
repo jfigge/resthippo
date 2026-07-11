@@ -402,7 +402,7 @@ test("updateRequest: returns false when the channel throws (so the caller falls 
   assert.equal(result, false);
 });
 
-test("setActiveItems: syncs the cache so a later variable save can't clobber granular edits", async () => {
+test("setActiveItems: syncs the cache so a later full write can't clobber granular edits", async () => {
   const mock = makeRestHippoMock();
   mock.install();
   await loadActive(mock, { id: "active" }); // _activeItems starts []
@@ -410,42 +410,15 @@ test("setActiveItems: syncs the cache so a later variable save can't clobber gra
   // A granular edit happened; the renderer mirrors the new tree into the cache.
   store.setActiveItems([{ id: "r1", url: "/edited" }]);
 
-  await store.saveCollectionVariables("active", { token: "abc" });
+  // A later full write (saveCollectionHeaders) must carry the synced items, not
+  // the stale [].
+  await store.saveCollectionHeaders("active", [
+    { id: "h1", name: "X-Default", value: "d", enabled: true },
+  ]);
 
-  // The variable save (a full write) must carry the synced items, not the stale [].
   const save = mock.of("collections.save").find((c) => c.args[0] === "active");
   assert.ok(save, "collections.save targeted the active collection");
   assert.deepEqual(save.args[1].collections, [{ id: "r1", url: "/edited" }]);
-  assert.deepEqual(save.args[1].variables, { token: "abc" });
-});
-
-test("saveCollectionVariables: for a non-active collection, reads-then-writes its env", async () => {
-  const mock = makeRestHippoMock();
-  mock.install();
-  await loadActive(mock, { id: "active-coll" });
-
-  mock.setReturn("collections.get", {
-    version: 1,
-    collections: [{ id: "keep" }],
-    variables: {},
-  });
-  await store.saveCollectionVariables("other-coll", { token: "abc" });
-
-  // Round-trips through collections.get (to preserve existing items) then collections.save.
-  assert.equal(
-    mock.of("collections.get").some((c) => c.args[0] === "other-coll"),
-    true,
-  );
-  const save = mock
-    .of("collections.save")
-    .find((c) => c.args[0] === "other-coll");
-  assert.ok(save, "collections.save targeted the non-active collection");
-  assert.deepEqual(save.args[1], {
-    version: 1,
-    collections: [{ id: "keep" }],
-    variables: { token: "abc" },
-    headers: [],
-  });
 });
 
 test("saveCollectionHeaders: active collection writes default headers, preserving items + variables", async () => {
@@ -1143,15 +1116,4 @@ test("saveCollectionData: preserves on-disk variables for a non-active collectio
   await store.saveCollectionData("other", [{ id: "r1" }]); // no variables arg
   const save = mock.of("collections.save").find((c) => c.args[0] === "other");
   assert.deepEqual(save.args[1].variables, { disk: "1" });
-});
-
-test("saveCollectionVariables: writes through the cache for the active collection", async () => {
-  const mock = makeRestHippoMock();
-  mock.install();
-  await loadActive(mock, { id: "coll-1" });
-
-  await store.saveCollectionVariables("coll-1", { t: "x" });
-  const save = mock.of("collections.save").pop();
-  assert.equal(save.args[0], "coll-1");
-  assert.deepEqual(save.args[1].variables, { t: "x" });
 });

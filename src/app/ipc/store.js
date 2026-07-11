@@ -140,14 +140,10 @@ function registerStoreIPC({
     ),
   );
 
-  // Authoritative writes. (Both channels are wired but currently unused by the
-  // renderer, which persists requests via the per-collection env blob.)
-  ipcMain.handle("store:requests:create", (_event, collectionId, req) =>
-    safeCallWrite("store:requests:create", () =>
-      getStores().requestStore().createRequest(collectionId, req),
-    ),
-  );
-
+  // Authoritative granular write: store:requests:update patches a single request
+  // in place (used by the renderer's updateRequest for granular edits). New
+  // requests have no dedicated channel — they land via the per-collection blob
+  // written by store:collections:save.
   ipcMain.handle("store:requests:update", (_event, id, patch) =>
     safeCallWrite("store:requests:update", () =>
       getStores().requestStore().updateRequest(id, patch),

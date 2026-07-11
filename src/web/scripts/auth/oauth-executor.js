@@ -31,9 +31,6 @@
  *
  *   // Acquire a token (uses cache / refresh automatically)
  *   const result = await oauthExecutor.acquireToken(authOAuth2Config);
- *
- *   // Inject bearer header into an outgoing request descriptor
- *   const descriptor = oauthExecutor.injectBearerToken(requestDescriptor, result.accessToken);
  */
 
 "use strict";
@@ -191,27 +188,6 @@ class OAuthExecutor {
    */
   clearToken(config) {
     tokenStore.clear(tokenStore.keyFor(config));
-  }
-
-  /**
-   * Inject an Authorization: Bearer header into a request descriptor.
-   *
-   * Does NOT mutate the original descriptor — returns a new object.
-   *
-   * @param {object} descriptor  - Request descriptor { method, url, headers, body, … }
-   * @param {string} token       - Access token
-   * @param {string} [prefix]    - Token prefix, default "Bearer"
-   * @returns {object}           New descriptor with Authorization header set
-   */
-  injectBearerToken(descriptor, token, prefix = "Bearer") {
-    if (!token) return descriptor;
-    return {
-      ...descriptor,
-      headers: {
-        ...(descriptor.headers ?? {}),
-        Authorization: `${prefix} ${token}`,
-      },
-    };
   }
 
   // ── Internal routing ───────────���────────────────────────────────────────

@@ -216,30 +216,10 @@ export class BodyEditor {
     this.#bodyFormDeleteAllCleanup?.();
   }
 
-  // ── Thin delegators (kept so the ported method bodies read verbatim) ───────
+  // The Params/Headers/body-form KV machinery lives in kv-editor-shared.js and is
+  // imported above; this component calls those helpers directly.
   #dispatchBodyUpdated() {
     this.#onChange?.();
-  }
-  #buildKvRow(opts) {
-    return buildKvRow(opts);
-  }
-  #buildToolbarToggle(o) {
-    return buildToolbarToggle(o);
-  }
-  #wireDeleteAllConfirm(btn, getCount, onDelete) {
-    return wireDeleteAllConfirm(btn, getCount, onDelete);
-  }
-  #applyBulkMode(bulk, textareaEl, kvWrapEl, addBtnEl, delAllBtnEl) {
-    return applyBulkMode(bulk, textareaEl, kvWrapEl, addBtnEl, delAllBtnEl);
-  }
-  #kvRowsToText(rows) {
-    return kvRowsToText(rows);
-  }
-  #textToKvRows(text) {
-    return textToKvRows(text);
-  }
-  #disposePillEditors(editors) {
-    return disposePillEditors(editors);
   }
 
   // ── Body editor ──────────────────────────────────────────────────────────
@@ -292,14 +272,12 @@ export class BodyEditor {
       "body-form-toolbar-group body-form-toolbar-group--hidden";
     this.#bodyFormToolbarGroupEl = formToolbarGroup;
 
-    const { label: bfBulkLabel, check: bfBulkCheck } = this.#buildToolbarToggle(
-      {
-        text: " " + t("kv.bulkEditor"),
-        title: t("kv.bulkEditorTitle"),
-        checked: this.#bodyFormBulkMode,
-        onChange: (checked) => this.#handleBodyFormBulkToggle(checked),
-      },
-    );
+    const { label: bfBulkLabel, check: bfBulkCheck } = buildToolbarToggle({
+      text: " " + t("kv.bulkEditor"),
+      title: t("kv.bulkEditorTitle"),
+      checked: this.#bodyFormBulkMode,
+      onChange: (checked) => this.#handleBodyFormBulkToggle(checked),
+    });
     this.#bodyFormBulkCheckEl = bfBulkCheck;
 
     const addBtn = document.createElement("button");
@@ -324,7 +302,7 @@ export class BodyEditor {
     delAllBtn.title = t("request.fields.deleteAll");
     delAllBtn.textContent = t("kv.deleteAll");
 
-    this.#bodyFormDeleteAllCleanup = this.#wireDeleteAllConfirm(
+    this.#bodyFormDeleteAllCleanup = wireDeleteAllConfirm(
       delAllBtn,
       () => this.#bodyFormRows.length,
       () => {
@@ -359,7 +337,7 @@ export class BodyEditor {
     const el = this.#bodyContentEl;
     if (!el) return;
     el.innerHTML = "";
-    this.#disposePillEditors(this.#bodyFormPillEditors);
+    disposePillEditors(this.#bodyFormPillEditors);
     // Tear down any PillCodeEditors from the previous body type (removes their
     // document selectionchange + ResizeObserver listeners). The WebSocket
     // message editor lives in a different tab/protocol and is never present here.
@@ -577,7 +555,7 @@ export class BodyEditor {
       leading = typeToggle;
     }
 
-    return this.#buildKvRow({
+    return buildKvRow({
       item: row,
       noun: t("request.noun.field"),
       name: nameEditor.element,
@@ -654,7 +632,7 @@ export class BodyEditor {
    */
   #bodyFormToBulkText() {
     if (this.#bodyType !== "form-data") {
-      return this.#kvRowsToText(this.#bodyFormRows);
+      return kvRowsToText(this.#bodyFormRows);
     }
     return this.#bodyFormRows
       .map((r) => {
@@ -674,7 +652,7 @@ export class BodyEditor {
    */
   #bodyFormFromBulkText(text) {
     if (this.#bodyType !== "form-data") {
-      return this.#textToKvRows(text);
+      return textToKvRows(text);
     }
     const prevFiles = this.#bodyFormRows.filter((r) => r.kind === "file");
     const out = [];
@@ -922,7 +900,7 @@ export class BodyEditor {
     this.#bodyFormBulkMode = nowBulk;
     this.#applyBodyFormBulkMode();
     if (!nowBulk) {
-      this.#disposePillEditors(this.#bodyFormPillEditors);
+      disposePillEditors(this.#bodyFormPillEditors);
       // Re-render the KV list so it reflects any edits made in bulk mode
       if (this.#bfListEl) {
         this.#bfListEl.innerHTML = "";
@@ -944,7 +922,7 @@ export class BodyEditor {
   }
 
   #applyBodyFormBulkMode() {
-    this.#applyBulkMode(
+    applyBulkMode(
       this.#bodyFormBulkMode,
       this.#bodyFormBulkEl,
       this.#bodyFormKvWrapEl,

@@ -51,6 +51,7 @@ export class StreamView {
   #armedStreamId = null; // id from request-loading, before we know it will stream
   #streamConsole = null; // reused WsConsole instance acting as the live log
   #streamPending = []; // stream-data items buffered before the marker activates
+  #pendingTerminal = null; // an end/error frame that raced ahead of the marker
   #streamBytes = 0; // running total bytes received
   #streamEvents = 0; // running event/line count
   #streamEnded = false; // the stream has finished (end / error / abort)
@@ -140,6 +141,16 @@ export class StreamView {
     this.#streamPending = [];
     for (const d of pending) {
       if (d.streamId === this.#streamId) this.#appendStreamItem(d);
+    }
+
+    // A terminal frame (end/error) can race ahead of this marker — the marker is
+    // dispatched at headers-received, but a very short stream may already have
+    // ended. Apply it now, after the buffered data, so the log reaches its
+    // terminal state instead of hanging on "streaming…".
+    const terminal = this.#pendingTerminal;
+    this.#pendingTerminal = null;
+    if (terminal && terminal.d.streamId === this.#streamId) {
+      this.#finishStream(terminal.d, terminal.opts);
     }
   }
 
@@ -252,13 +263,23 @@ export class StreamView {
   }
 
   onStreamEnd(d) {
-    if (!d || d.streamId !== this.#streamId || this.#streamEnded) return;
-    this.#finishStream(d, { aborted: d.aborted === true });
+    if (!d || this.#streamEnded) return;
+    if (this.#streaming && d.streamId === this.#streamId) {
+      this.#finishStream(d, { aborted: d.aborted === true });
+    } else if (d.streamId != null && d.streamId === this.#armedStreamId) {
+      // Raced ahead of the streaming marker — hold it for startStream to apply
+      // (see the arm/buffer note on #streamPending; terminal frames need it too).
+      this.#pendingTerminal = { d, opts: { aborted: d.aborted === true } };
+    }
   }
 
   onStreamError(d) {
-    if (!d || d.streamId !== this.#streamId || this.#streamEnded) return;
-    this.#finishStream(d, { error: d });
+    if (!d || this.#streamEnded) return;
+    if (this.#streaming && d.streamId === this.#streamId) {
+      this.#finishStream(d, { error: d });
+    } else if (d.streamId != null && d.streamId === this.#armedStreamId) {
+      this.#pendingTerminal = { d, opts: { error: d } };
+    }
   }
 
   /**
@@ -360,6 +381,14 @@ export class StreamView {
   /**
    * Tear down the live-stream UI/state. With { abort:true } a still-running
    * stream's underlying request is aborted in the main process first.
+   *
+   * Abort — not just hide. The viewer has a single stream pane and no
+   * per-request frame buffer, so it cannot keep rendering a stream in the
+   * background or re-attach to one on return. So selecting a different request
+   * (or starting/superseding one) ends the live stream's network request rather
+   * than leaking a producer with no consumer. This is the intended
+   * single-stream-pane semantics; switching to hide-without-abort would require
+   * a re-attach mechanism first.
    */
   teardownStream({ abort = false } = {}) {
     if (abort && this.#streaming && !this.#streamEnded && this.#streamId) {
@@ -369,6 +398,7 @@ export class StreamView {
     this.#streamId = null;
     this.#armedStreamId = null;
     this.#streamPending = [];
+    this.#pendingTerminal = null;
     this.#streamEnded = false;
     this.#streamAborted = false;
     this.#streamBodyRef = null;

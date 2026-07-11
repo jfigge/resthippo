@@ -249,6 +249,25 @@ export function parseUrlencodedRows(text) {
   );
 }
 
+/**
+ * Derive a readable request name from a method + URL (e.g. "POST /login"): the
+ * URL path, or the host for a root path, falling back to the raw URL when it
+ * isn't parseable. Shared by the cURL and HAR importers.
+ *
+ * @param {string} method
+ * @param {string} url
+ * @returns {string}
+ */
+export function requestName(method, url) {
+  try {
+    const u = new URL(url);
+    const path = u.pathname && u.pathname !== "/" ? u.pathname : u.host;
+    return `${method} ${path}`;
+  } catch {
+    return `${method} ${url || "Request"}`.trim();
+  }
+}
+
 /** The canonical "no body" shape. */
 export function noBody() {
   return { bodyType: "no-body" };
@@ -263,6 +282,24 @@ export function noBody() {
  */
 export function rawBody(bodyType, text) {
   return { bodyType, bodyText: text ?? "" };
+}
+
+/**
+ * Map a Content-Type / mimeType onto a Rest Hippo *raw* body (json / xml / yaml), or
+ * null when the type isn't one of those raw languages — the caller then applies
+ * its own fallback (plain text, a form parse, or "no body"). Shared by the cURL /
+ * HAR / Insomnia importers so the language sniff can't drift.
+ *
+ * @param {string} contentType
+ * @param {string|undefined} text
+ * @returns {{ bodyType: string, bodyText: string } | null}
+ */
+export function rawBodyFromMime(contentType, text) {
+  const ct = (contentType ?? "").toLowerCase();
+  if (ct.includes("json")) return rawBody("json", text);
+  if (ct.includes("xml")) return rawBody("xml", text);
+  if (ct.includes("yaml") || ct.includes("yml")) return rawBody("yaml", text);
+  return null;
 }
 
 /** A single-file body referencing a path on disk (no inline content). */

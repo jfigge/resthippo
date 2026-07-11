@@ -20,11 +20,13 @@ import {
   buildAuth,
   noBody,
   rawBody,
+  rawBodyFromMime,
   formBody,
   authFromHeaderValue,
   splitUrlQuery,
   parseUrlencodedRows,
   objRows,
+  requestName,
 } from "./shape.js";
 
 /**
@@ -47,17 +49,6 @@ function hostOf(url) {
     return new URL(url).host || "Requests";
   } catch {
     return "Requests";
-  }
-}
-
-/** A readable request name from method + URL path (e.g. "GET /users/1"). */
-function requestName(method, url) {
-  try {
-    const u = new URL(url);
-    const path = u.pathname && u.pathname !== "/" ? u.pathname : u.host;
-    return `${method} ${path}`;
-  } catch {
-    return `${method} ${url || "Request"}`.trim();
   }
 }
 
@@ -99,10 +90,8 @@ function bodyFromPostData(postData, warnings) {
   const txt = typeof postData.text === "string" ? postData.text : "";
   if (mime.includes("x-www-form-urlencoded"))
     return formBody("form-urlencoded", parseUrlencodedRows(txt));
-  if (mime.includes("json")) return rawBody("json", txt);
-  if (mime.includes("xml")) return rawBody("xml", txt);
-  if (mime.includes("yaml") || mime.includes("yml"))
-    return rawBody("yaml", txt);
+  const raw = rawBodyFromMime(mime, txt);
+  if (raw) return raw;
   if (txt) return rawBody("text", txt);
   return noBody();
 }

@@ -208,12 +208,9 @@ function isEncrypted(value) {
 }
 
 /**
- * Encrypt a plaintext secret using the OS keystore.
- * Returns `plaintext` unchanged when encryption is unavailable or the value is
- * already encrypted (idempotent).
- *
- * @param {string} plaintext
- * @returns {string}
+ * One-shot guard so the "OS keystore unavailable → secrets stored UNENCRYPTED"
+ * warning (see _rawEncryptTo below) is logged at most once per process rather
+ * than on every save.
  */
 let _warnedUnavailable = false;
 

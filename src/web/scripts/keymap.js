@@ -230,23 +230,15 @@ export const SHORTCUT_GROUPS = [
         binding: { mod: true, key: "," },
         menuOwned: true,
       },
-      // The ⌘/Ctrl+E family opens two variable scopes: plain ⌘E the active
-      // environment, ⇧⌘E the active collection (the Collections manager). Both
-      // renderer-owned; the matching native menu entries advertise them as
-      // display-only accelerators (env-picker "Manage…"). (Folder/collection
-      // variables are also edited inline by selecting the container in the
-      // tree — no dedicated shortcut.)
+      // ⌘/Ctrl+E opens the active environment for editing (the Collections
+      // manager's Environment tab). Renderer-owned; the matching native menu
+      // entry advertises it as a display-only accelerator (env-picker "Manage…").
+      // (Folder/collection variables are edited inline by selecting the container
+      // in the tree — no dedicated shortcut.)
       {
         id: "editEnvironment",
         descKey: "shortcuts.editEnvironment",
         binding: { mod: true, key: "e" },
-        wire: true,
-        allowWhileTyping: true,
-      },
-      {
-        id: "collectionVariables",
-        descKey: "shortcuts.collectionVariables",
-        binding: { mod: true, shift: true, key: "e" },
         wire: true,
         allowWhileTyping: true,
       },
@@ -260,11 +252,7 @@ export const SHORTCUT_GROUPS = [
         id: "userGuide",
         descKey: "shortcuts.userGuide",
         binding: { mod: true, key: "/" },
-      },
-      {
-        id: "import",
-        descKey: "shortcuts.import",
-        binding: { mod: true, shift: true, key: "i" },
+        menuOwned: true,
       },
     ],
   },

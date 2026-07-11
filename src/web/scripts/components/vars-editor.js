@@ -17,8 +17,9 @@
 /**
  * vars-editor.js — Key/Value variable editor mounted in the center panel
  *
- * The in-window counterpart to VariablesPopup: the same flat key/value variable
- * editor, but rendered inline in the request panel (replacing the request editor)
+ * The in-window counterpart to the CollectionsPopup Environment tab: the same
+ * flat key/value variable editor, but rendered inline in the request panel
+ * (replacing the request editor)
  * while a container — a collection or folder — is the active tree selection,
  * rather than in a modal dialog. The popup chrome (header / footer / close /
  * PopupManager) is dropped; the editor body fills the panel.

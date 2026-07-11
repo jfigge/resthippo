@@ -43,7 +43,6 @@
  *     loadCollectionData(collectionId)       → { items, variables, headers }
  *     saveCollectionData(collectionId, items, variables?)
  *     setActiveCollection(collectionId)
- *     saveCollectionVariables(collectionId, variables)
  *     saveCollectionHeaders(collectionId, headers)
  *
  *   Granular (request + history):
@@ -602,8 +601,8 @@ export async function updateRequest(id, patch) {
 /**
  * Keep the active-collection items mirror in step with the renderer's tree after
  * a granular request edit (which does not itself touch the cache). Without this a
- * later saveCollectionVariables() — which re-pairs the cached items with new
- * variables and does a full write — would clobber the granular edits with a stale
+ * later saveCollectionHeaders() — which re-pairs the cached items with new
+ * headers and does a full write — would clobber the granular edits with a stale
  * snapshot. In-memory only; no persistence.
  *
  * @param {object[]} items
@@ -613,22 +612,8 @@ export function setActiveItems(items) {
 }
 
 /**
- * Mirror updated collection-level variables into the in-memory active-collection
- * cache, WITHOUT persisting (saveCollectionData writes the disk blob but does not
- * touch this cache). Without this, a later full saveCollections() — which re-pairs
- * the cached items with `_activeVariables` — would write a stale variable snapshot
- * and clobber freshly-merged variables (e.g. just after a Rest Hippo v1 import).
- * In-memory only; no persistence.
- *
- * @param {object} variables  canonical variable array (or legacy map)
- */
-export function setActiveVariables(variables) {
-  _activeVariables = variables;
-}
-
-/**
  * Mirror updated collection-level default headers into the in-memory active-
- * collection cache, WITHOUT persisting — the companion to setActiveVariables.
+ * collection cache, WITHOUT persisting — the companion to setActiveItems.
  * A subsequent full saveCollections()/saveCollectionData() re-pairs the cached
  * items with `_activeHeaders`, so syncing here keeps a Rest Hippo import's
  * just-restored headers from being clobbered by a stale snapshot.
@@ -726,32 +711,6 @@ export function setActiveCollection(collectionId) {
   _activeVariables = {};
   _activeHeaders = [];
   _manifest = { ..._manifest, activeCollectionId: collectionId };
-}
-
-/**
- * Persist key/value variables for a specific collection.
- * @param {string} collectionId
- * @param {object} variables
- */
-export async function saveCollectionVariables(collectionId, variables) {
-  if (collectionId === _activeCollectionId) {
-    _activeVariables = variables;
-    return _saveCollectionFile(
-      _activeCollectionId,
-      _activeItems,
-      variables,
-      _activeHeaders,
-      "Save variables",
-    );
-  }
-  const { items, headers } = await _loadCollectionFile(collectionId);
-  return _saveCollectionFile(
-    collectionId,
-    items,
-    variables,
-    headers,
-    "Save variables",
-  );
 }
 
 /**

@@ -20,6 +20,7 @@ import {
   buildAuth,
   noBody,
   rawBody,
+  rawBodyFromMime,
   graphqlBody,
   formBody,
   fileBody,
@@ -139,9 +140,8 @@ function parseBody(body) {
       return graphqlBody(body.text, "");
     }
   }
-  if (mime.includes("json")) return rawBody("json", body.text);
-  if (mime.includes("xml")) return rawBody("xml", body.text);
-  if (mime.includes("yaml")) return rawBody("yaml", body.text);
+  const raw = rawBodyFromMime(mime, body.text);
+  if (raw) return raw;
   if (mime.includes("x-www-form-urlencoded")) {
     return formBody(
       "form-urlencoded",

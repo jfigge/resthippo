@@ -216,8 +216,8 @@ export function collectScopes(context) {
 
 /**
  * Flatten every scope in `context` to a de-duplicated list of variable names in
- * resolution-priority order (folder chain → collection → environment → global;
- * first occurrence wins). Names within each scope are sorted alphabetically.
+ * resolution-priority order (folder chain → environment → global; first
+ * occurrence wins). Names within each scope are sorted alphabetically.
  *
  * @param {object | null} context
  * @returns {string[]}
@@ -382,7 +382,7 @@ export async function resolveStringAsync(template, context) {
  * multiple strings.
  *
  * @param {string[]} templates
- * @param {{ environmentVariables?: object, folderChain?: object[] } | null} context
+ * @param {{ globalVariables?: object, environmentVariables?: object, folderChain?: object[] } | null} context
  * @returns {Array<{ name: string, found: boolean, value: string|null }>}
  */
 export function collectTemplateVariables(templates, context) {
@@ -411,7 +411,7 @@ export function collectTemplateVariables(templates, context) {
  * left as-is ({{varName}}) so the caller can still see what was unresolved.
  *
  * @param {string} template
- * @param {{ environmentVariables?: object, folderChain?: object[] } | null} context
+ * @param {{ globalVariables?: object, environmentVariables?: object, folderChain?: object[] } | null} context
  * @returns {string}
  */
 export function resolveString(template, context) {

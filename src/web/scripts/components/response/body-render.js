@@ -62,12 +62,18 @@ export function fillHighlighted(
 
 /**
  * Append a `<code class="language-…">` block to a <pre>, highlighted via
- * fillHighlighted.
+ * fillHighlighted. Pass `grammar: null` to force a plain-text block while
+ * keeping the language class (used to skip highlighting on oversized bodies).
  */
-export function appendCodeBlock(pre, text, prismLang) {
+export function appendCodeBlock(
+  pre,
+  text,
+  prismLang,
+  grammar = Prism.languages[prismLang],
+) {
   const code = document.createElement("code");
   code.className = `language-${prismLang}`;
-  fillHighlighted(code, text, prismLang);
+  fillHighlighted(code, text, prismLang, grammar);
   pre.appendChild(code);
 }
 
@@ -156,13 +162,22 @@ export function renderFoldableCode(
   prismLang,
   { folding, lineNumbers, setFoldReveal },
 ) {
-  const grammar = prismLang ? Prism.languages[prismLang] : null;
+  // Syntax highlighting runs synchronously on the main thread, so cap it by
+  // size: above ~2 MB, a single Prism.highlight() over the whole body (the
+  // >MAX_FOLD_LINES fallback) — or a huge single minified line on the per-line
+  // path — can stall the renderer for hundreds of ms. Past the cap we keep the
+  // structure (folds, line numbers, search, copy) but render code as plain text.
+  const MAX_HIGHLIGHT_BYTES = 2 * 1024 * 1024;
+  const grammar =
+    prismLang && text.length <= MAX_HIGHLIGHT_BYTES
+      ? Prism.languages[prismLang]
+      : null;
   const lines = text.split("\n");
 
   // Very large bodies: skip the per-line machinery and fall back to one block.
   const MAX_FOLD_LINES = 5000;
   if (lines.length > MAX_FOLD_LINES) {
-    appendCodeBlock(pre, text, prismLang);
+    appendCodeBlock(pre, text, prismLang, grammar);
     return;
   }
 

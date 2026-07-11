@@ -1457,7 +1457,7 @@ function initEventBus() {
   //   test-results          { requestId, results, summary }  after-response assertions (app.js → ResponseViewer): fill the Tests tab + status badge
   //
   // Response captures
-  //   captures-applied      { count }                        app.js → ResponseViewer: response-capture rules wrote N variables → refresh
+  //   captures-applied      { count, requestId }             app.js → ResponseViewer: response-capture rules wrote N variables → refresh
   //
   // Live HTTP streaming (Feature 33)  (preload http:stream:* → app.js → ResponseViewer)
   //   stream-data           { streamId, kind, index, ts, event?|data?, totalBytes, count }
@@ -2673,7 +2673,7 @@ async function handleVarsSave({
   // the LIVE node (getNode: no whole-tree clone), then queue a coalesced
   // background persist. Every save serializes the whole collection across IPC, so
   // this stays off the hot path: no await here, and overlapping saves collapse to
-  // one (see _queueSaveCollections).
+  // one (see _queueSaveTree).
   if (!treeView) return;
   const node = treeView.getNode(scopeId);
   const { variables: defaultVars, profileValues } = applyProfileEdit(
@@ -3014,7 +3014,10 @@ async function _applyCapturesForNode(node, detail) {
     );
     window.dispatchEvent(
       new CustomEvent("hippo:captures-applied", {
-        detail: { count: applied.length },
+        // requestId lets the viewer route the badge like every other lifecycle
+        // event — a background request's captures must not bleed onto whatever
+        // request is currently selected.
+        detail: { count: applied.length, requestId: node?.id ?? null },
       }),
     );
   }
@@ -3222,7 +3225,7 @@ async function _persistRequestEdits(patches) {
     return [id, changed ? migPatch : patch];
   });
   // Keep the data-store items mirror in step with the tree so a later
-  // saveCollectionVariables() (full write) can't clobber these edits.
+  // saveCollectionHeaders() (full write) can't clobber these edits.
   setActiveItems(treeView.getItems());
   for (const [id, patch] of migrated) {
     const ok = await updateRequest(id, patch);
@@ -3955,10 +3958,8 @@ function installKeyboardShortcuts() {
       tabRequests: () => switchTab("requests"),
       tabFavorites: () => switchTab("favorites"),
       tabRecents: () => switchTab("recents"),
-      // ⌘/Ctrl+E opens the collections editor focused on the Environment tab;
-      // ⌥/Alt+⌘/Ctrl+E opens it on its default (Environment) tab.
+      // ⌘/Ctrl+E opens the collections editor focused on the Environment tab.
       editEnvironment: () => openCollectionsEditor("env"),
-      collectionVariables: () => openCollectionsEditor("env"),
     },
     { isBlocked: () => popupVisible },
   );

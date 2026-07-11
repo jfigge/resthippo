@@ -48,6 +48,7 @@ import {
   buildToolbarToggle,
   buildKvRow,
   wireDeleteAllConfirm,
+  applyBulkMode,
   headerRowsToText,
   textToHeaderRows,
   disposePillEditors,
@@ -278,10 +279,13 @@ export class HeadersEditor {
 
   #applyBulkMode() {
     const bulk = this.#bulkMode;
-    if (this.#bulkEl) this.#bulkEl.style.display = bulk ? "" : "none";
-    if (this.#kvWrapEl) this.#kvWrapEl.style.display = bulk ? "none" : "";
-    if (this.#addBtnEl) this.#addBtnEl.style.display = bulk ? "none" : "";
-    if (this.#delAllBtnEl) this.#delAllBtnEl.style.display = bulk ? "none" : "";
+    applyBulkMode(
+      bulk,
+      this.#bulkEl,
+      this.#kvWrapEl,
+      this.#addBtnEl,
+      this.#delAllBtnEl,
+    );
     // Hide the "List Headers" toggle (and its spacer) in bulk mode.
     if (this.#listHdrSpacerEl)
       this.#listHdrSpacerEl.style.display = bulk ? "none" : "";

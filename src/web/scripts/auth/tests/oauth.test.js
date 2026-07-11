@@ -47,6 +47,7 @@ import {
   extractImplicitToken,
 } from "../utils/url.js";
 import { tokenStore } from "../tokens/token-store.js";
+import { oauthExecutor } from "../oauth-executor.js";
 import {
   OAuthError,
   OAuthErrorCode,
@@ -903,42 +904,6 @@ await test("refresh token flow: missing refresh token returns error", async () =
   );
   assert.equal(result.success, false);
   assert.equal(result.error?.code, OAuthErrorCode.CONFIGURATION_ERROR);
-});
-
-// ───��─────────────────────────────────────────────────────────────────────────
-// Bearer token injection
-// ─────────────────────────────────────────────────────────────────────────────
-
-group("Bearer token injection (OAuthExecutor)");
-
-import { oauthExecutor } from "../oauth-executor.js";
-
-await test("injectBearerToken adds Authorization header", async () => {
-  const desc = {
-    method: "GET",
-    url: "https://api.example.com/data",
-    headers: {},
-  };
-  const result = oauthExecutor.injectBearerToken(desc, "mytoken");
-  assert.equal(result.headers["Authorization"], "Bearer mytoken");
-});
-
-await test("injectBearerToken does not mutate original descriptor", async () => {
-  const desc = { method: "GET", url: "https://api.example.com", headers: {} };
-  oauthExecutor.injectBearerToken(desc, "token");
-  assert.equal(desc.headers["Authorization"], undefined);
-});
-
-await test("injectBearerToken uses custom prefix", async () => {
-  const desc = { method: "GET", url: "https://api.example.com", headers: {} };
-  const result = oauthExecutor.injectBearerToken(desc, "mytoken", "Token");
-  assert.equal(result.headers["Authorization"], "Token mytoken");
-});
-
-await test("injectBearerToken returns original descriptor when token is empty", async () => {
-  const desc = { method: "GET", url: "https://api.example.com", headers: {} };
-  const result = oauthExecutor.injectBearerToken(desc, "");
-  assert.equal(result, desc);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
