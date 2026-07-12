@@ -363,8 +363,12 @@ export class TimelineView {
       url || t("response.timeline.emptyValue"),
     );
 
-    // Parameters (already bulk-edit format)
-    const paramsBulk = (snapshot.params ?? "").trim();
+    // Parameters (already bulk-edit format). A well-formed snapshot stores these
+    // as bulk-edit strings; guard the type so a malformed/legacy entry whose
+    // params is an array (the editor's row shape) can't throw .trim() out of the
+    // render and blank the whole timeline detail.
+    const paramsBulk =
+      typeof snapshot.params === "string" ? snapshot.params.trim() : "";
     this.#appendDetailSection(
       container,
       t("response.timeline.parameters"),
@@ -376,8 +380,9 @@ export class TimelineView {
       this.#appendDetailBulkLines(container, paramsBulk);
     }
 
-    // Headers (already bulk-edit format)
-    const headersBulk = (snapshot.headers ?? "").trim();
+    // Headers (already bulk-edit format) — same string guard as params above.
+    const headersBulk =
+      typeof snapshot.headers === "string" ? snapshot.headers.trim() : "";
     this.#appendDetailSection(
       container,
       t("response.timeline.headers"),

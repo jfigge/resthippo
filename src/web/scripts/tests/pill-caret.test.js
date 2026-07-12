@@ -185,3 +185,79 @@ test("undo restores the pre-edit value and redo re-applies it", () => {
   assert.equal(ed.getValue(), "hello world", "redo re-applies it");
   ed.destroy();
 });
+
+// ── Property sweeps ─────────────────────────────────────────────────────────
+// Rather than one example each, drive an invariant across a corpus that mixes
+// plain text, newlines, variable pills, function pills (with and without args),
+// and adjacent/edge pills — the compositions where the serialized ≠ rendered
+// length accounting has historically slipped.
+
+const CORPUS = [
+  "",
+  "plain",
+  "a\nb\nc",
+  "{{token}}",
+  "AB{{token}}CD",
+  "{{token}}{{token}}", // adjacent pills, no separating text
+  "x{{token}}\n{{token}}y", // pills spanning a line break
+  "{{now()}}", // zero-arg function pill
+  '{{base64("hi")}}', // function pill with a quoted arg
+  "lead {{missingVar}} tail", // unknown variable still round-trips
+];
+
+test("property: setValue → getValue is the identity for every canonical form", () => {
+  const ed = makePce();
+  for (const v of CORPUS) {
+    ed.setValue(v);
+    assert.equal(
+      ed.getValue(),
+      v,
+      `round-trip failed for ${JSON.stringify(v)}`,
+    );
+  }
+  ed.destroy();
+});
+
+test("property: a caret at end always reports the full serialized length", () => {
+  // Each value ends in a unique sentinel letter so caretAfter lands at the very
+  // end; the offset must equal getValue().length (pills counted at raw width).
+  const cases = [
+    "{{token}}Z",
+    "{{token}}{{token}}Q",
+    "P{{now()}}W",
+    'K{{base64("hi")}}Y',
+    "m\n{{token}}N", // end-of-doc after a newline + pill
+  ];
+  const ed = makePce();
+  for (const v of cases) {
+    ed.setValue(v);
+    caretAfter(ed.element, v[v.length - 1]); // the unique trailing sentinel
+    assert.equal(
+      ed.getCaretOffset(),
+      ed.getValue().length,
+      `end-caret offset for ${JSON.stringify(v)}`,
+    );
+  }
+  ed.destroy();
+});
+
+test("property: replaceRange composes as value.slice(0,s) + text + value.slice(e)", () => {
+  const edits = [
+    { v: "hello world", s: 0, e: 5, t: "bye" }, // replace head
+    { v: "hello world", s: 6, e: 11, t: "" }, // delete tail word
+    { v: "abc", s: 3, e: 3, t: "{{token}}" }, // append a pill
+    { v: "AB{{token}}CD", s: 2, e: 11, t: "" }, // delete exactly the pill
+    { v: "AB{{token}}CD", s: 0, e: 2, t: "{{token}}" }, // swap leading text for a pill
+  ];
+  const ed = makePce();
+  for (const { v, s, e, t } of edits) {
+    ed.setValue(v);
+    ed.replaceRange(s, e, t);
+    assert.equal(
+      ed.getValue(),
+      v.slice(0, s) + t + v.slice(e),
+      `replaceRange(${s},${e},${JSON.stringify(t)}) on ${JSON.stringify(v)}`,
+    );
+  }
+  ed.destroy();
+});
