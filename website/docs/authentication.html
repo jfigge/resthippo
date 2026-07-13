@@ -192,8 +192,10 @@ Token</strong> (for delegation), <strong>Requested Token Type</strong>, <strong>
 <code>.well-known/openid-configuration</code> and auto-populate the authorization and token
 URLs and the available scopes.</p>
 <p><strong>Advanced</strong> — expand the <strong>Advanced</strong> section for fine control over
-<strong>Response Type</strong>, <strong>State</strong>, where credentials go (<code>header</code> vs <code>body</code>),
-<strong>Audience</strong>, <strong>Resource</strong>, <strong>Origin</strong>, and a custom <strong>Header Prefix</strong>.</p>
+<strong>Response Type</strong>, where credentials go (<code>header</code> vs <code>body</code>), <strong>Audience</strong>,
+<strong>Resource</strong>, <strong>Origin</strong>, and a custom <strong>Header Prefix</strong>. The CSRF <code>state</code> (and,
+for OIDC, the <code>nonce</code>) is always generated fresh per request and verified on the
+callback — there is nothing to configure.</p>
 <blockquote>
 <p>Authorization Code flows use <strong>PKCE</strong> by default for public clients, so you can
 authenticate against modern providers without embedding a client secret.</p>

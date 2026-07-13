@@ -95,8 +95,10 @@ password-protected) that restores in place; the standard interchange formats
 environments, and settings — with a choice of how to handle secrets.</li>
 </ul>
 <h2 id="exporting">Exporting</h2>
-<p>Export a single collection from its right-click menu (<strong>Export…</strong>), or export
-everything at once:</p>
+<p>Export a single collection from its right-click menu (<strong>Export…</strong>) or the
+<strong>Export</strong> icon on its row in the <a href="collections.html">collections manager</a>, or export
+everything at once from the <strong>Export All</strong> button in the collections manager&#39;s
+sidebar toolbar:</p>
 <p><img src="images/export-modal.png" alt="The export dialog"></p>
 <p>Choose a format:</p>
 <table>
@@ -138,8 +140,8 @@ requests: method, URL, query and path params, headers, the full <strong>Auth</st
 configuration for every scheme, captures, scripts, notes, and bodies.</p>
 <ul>
 <li><strong>Variables travel referenced-only.</strong> The archive adds an <em>environments</em>
-section (your environments and global variables) and the collection&#39;s own
-variables — but only the ones the exported requests actually reference
+section (the collection&#39;s environments and global variables) and the
+collection&#39;s own variables — but only the ones the exported requests reference
 (<code>{{name}}</code>, followed transitively). Anything unused is left out, so exporting a
 single folder never drags in the rest of the collection&#39;s variables (or forces a
 password for secrets it doesn&#39;t use). A folder&#39;s own variables always travel
@@ -160,8 +162,11 @@ missing — an existing value is never overwritten. A password-protected archive
 prompts for its password on import.</li>
 </ul>
 <h2 id="importing">Importing</h2>
-<p>Open <strong>File → Import Collection…</strong> and pick a file. Rest Hippo recognizes the format
-automatically:</p>
+<p>Open the <strong>Collections</strong> dialog and click <strong>Import</strong> — the up-arrow tray icon in
+its sidebar toolbar, next to <strong>Export</strong>. It opens the URL-or-file import described
+under <a href="#import-from-a-url-or-file">Import from a URL or file</a> below; click
+<strong>Browse…</strong> there to pick a file with the native open dialog. Rest Hippo
+recognizes the format automatically:</p>
 <ul>
 <li><strong>Rest Hippo v1</strong> native archives (<code>.json</code>) — merged in place (see above)</li>
 <li><strong>Postman</strong> collections (<code>.json</code>)</li>
@@ -169,18 +174,22 @@ automatically:</p>
 <li><strong>OpenAPI 3</strong> / Swagger 2.0 specifications (<code>.json</code> / <code>.yaml</code>)</li>
 <li><strong>HAR 1.2</strong> captures (<code>.har</code>)</li>
 </ul>
-<p>The file picker filters to these formats — <code>.json</code>, <code>.yaml</code> / <code>.yml</code>, and
-<code>.har</code>. On macOS, hovering the <strong>Import Collection…</strong> menu item also shows this
-list as a tooltip (native menu tooltips are a macOS-only feature, so on Windows
-and Linux this page is the reference).</p>
+<p>The file picker filters to these formats — <code>.json</code>, <code>.yaml</code> / <code>.yml</code>, and <code>.har</code>.</p>
 <p>It reconstructs the folder structure, requests, headers, query, auth, and
 variables, and adds them to your workspace as a new collection. A <strong>HAR</strong>
 capture (a browser&#39;s &quot;Save all as HAR&quot;, or a proxy export) is imported request
 by request — grouped into a folder per host — so you can replay real traffic;
 only the requests are imported, not the recorded responses.</p>
+<p><strong>OpenAPI / Swagger</strong> specs describe their operations as relative paths, so
+importing one first asks for a <strong>base-URL variable</strong>: a name (default <code>baseUrl</code>)
+and a value. Every imported request is prefixed with that variable — e.g.
+<code>{{baseUrl}}/pets/{{petId}}</code> — so the host lives in one editable place. The value
+is pre-filled from the spec&#39;s <code>servers</code> / <code>host</code> when it has one; otherwise leave
+it blank and set it later in the collection&#39;s <strong>Variables</strong>.</p>
 <h3 id="import-from-curl">Import from cURL</h3>
 <p>To pull in a single request from a terminal, API docs, or a browser&#39;s <strong>Copy as
-cURL</strong>, choose <strong>File → Import from cURL…</strong> and paste the command:</p>
+cURL</strong>, right-click the tree toolbar&#39;s <strong>[+]</strong> (New Request) button and choose
+<strong>Import from cURL…</strong>, then paste the command:</p>
 <pre><code>curl https://api.example.com/users \
   -H &#39;Authorization: Bearer ...&#39; \
   -d &#39;{&quot;name&quot;:&quot;Ada&quot;}&#39;
@@ -198,6 +207,32 @@ instead of dropping the raw text into the field. A brand-new, empty request is
 updated in place; if the request already has content, Rest Hippo asks you to confirm
 before overwriting it.</p>
 </blockquote>
+<h3 id="import-from-a-url-or-file">Import from a URL or file</h3>
+<p>Click <strong>Import</strong> in the <strong>Collections</strong> dialog toolbar to open a single field that
+takes <strong>either</strong> a URL <strong>or</strong> a local file path. The title tracks what you type: paste an address and it reads <em>Import
+from URL</em>; type a path (or a name ending <code>.json</code> / <code>.yaml</code> / <code>.yml</code> / <code>.har</code>) and
+it flips to <em>Import from file</em>.</p>
+<pre><code>https://api.example.com/openapi.json
+/Users/you/Downloads/petstore.yaml
+</code></pre>
+<p><strong>A URL</strong> is fetched through the desktop app&#39;s request engine (not the browser),
+so there are no CORS limits, and a document served from <code>http://localhost</code> by a
+service running on your machine works just as well. If it sits behind a token,
+add the optional <strong>Authorization header</strong>: a bare value such as <code>Bearer …</code> is
+sent as <code>Authorization</code>, or use a <code>Name: Value</code> line for a custom header (e.g.
+<code>X-API-Key: …</code>). The header field is hidden while you&#39;re importing a file.</p>
+<p><strong>A file path</strong> is read directly. If you&#39;d rather not type it, click <strong>Browse…</strong>
+to pick the file with the native open dialog — that&#39;s also the way to import in
+the Mac App Store build, where typed paths can&#39;t be read from the sandbox. A path
+that can&#39;t be read shows an inline error and leaves the dialog open so you can fix
+it or switch to <strong>Browse…</strong>.</p>
+<p>Either way the format is detected automatically — the same set as a file import
+(Rest Hippo native, Postman, Insomnia, OpenAPI 3 / Swagger 2.0, HAR) — and the
+import then continues exactly like one. An <strong>OpenAPI / Swagger</strong> spec still shows
+the <strong>base-URL variable</strong> prompt described above; imported from a URL, its value
+is pre-filled from the host you imported from (so a spec with a relative
+<code>servers</code> path still gets a complete, usable base URL). Every other format
+imports straight through with no prompt.</p>
 <h2 id="backup--restore">Backup &amp; restore</h2>
 <p>A <strong>backup</strong> captures your complete workspace in one file. Open it from the
 app&#39;s File menu (<strong>Back up…</strong> / <strong>Restore…</strong>).</p>

@@ -89,7 +89,7 @@ nested as deeply as you like.</p>
 <p><img src="images/tree-view.png" alt="The collections tree"></p>
 <h2 id="collections">Collections</h2>
 <p>A <strong>collection</strong> is a self-contained group of requests with its own
-<a href="variables-and-environments.html#collection-variables">variables</a> and an optional
+<a href="variables-and-environments.html#environments">environments</a> and an optional
 <a href="#cookies">cookie jar</a>. The active collection is shown in the <strong>collection
 selector</strong> in the panel&#39;s toolbar (the row with the <strong>+</strong> buttons), on the
 right — a stacked-layers icon plus its name (e.g. <strong>Demo API</strong>) — sitting next
@@ -102,9 +102,27 @@ create, rename, switch, and delete collections:</p>
 <li>Click a collection row to <strong>make it active</strong>; a check marks the active one.</li>
 <li>The pencil and trash icons (or a double-click on the name) <strong>rename</strong> and
 <strong>delete</strong> a collection. Deletes ask for confirmation.</li>
-<li>The <strong>Variables</strong> and <strong>Cookies</strong> tabs on the right edit that collection&#39;s
-variables and stored cookies.</li>
+<li>The <strong>Environments</strong>, <strong>Headers</strong>, and <strong>Cookies</strong> tabs on the right manage that
+collection&#39;s environments (Global + named), default headers, and stored cookies.</li>
 </ul>
+<h2 id="default-headers">Default headers</h2>
+<p>The <strong>Headers</strong> tab in the Collections manager sets headers that apply to
+<strong>every request in the collection</strong> — handy for a shared <code>Accept</code>,
+<code>X-Api-Version</code>, or a base <code>Authorization</code>. It is the same editor as a request&#39;s
+<a href="requests.html#headers">Headers tab</a>: a list / bulk-text toggle, drag to reorder,
+and the standard-header name/value suggestions.</p>
+<p>These defaults are merged into each request automatically — at <strong>Send</strong>, <strong>Copy
+as cURL</strong>, and <strong>Generate code</strong> time:</p>
+<ul>
+<li>A request header with the <strong>same name</strong> (case-insensitive) <strong>overrides</strong> the
+collection default for that request.</li>
+<li>A <strong>disabled</strong> request header of that name <strong>suppresses</strong> the collection
+default for that request (a per-request opt-out).</li>
+<li>Authentication headers (e.g. a Bearer token) are still applied last and win
+over a collection default <code>Authorization</code>.</li>
+</ul>
+<p><code>{{variable}}</code> tokens work in header values, resolved with the same
+<a href="variables-and-environments.html">variable scopes</a> as a request.</p>
 <h2 id="folders-and-requests">Folders and requests</h2>
 <p>Inside a collection you build a tree of folders and requests:</p>
 <ul>
@@ -114,8 +132,9 @@ variables and stored cookies.</li>
 <li><strong>New WebSocket Request</strong> — right-click a folder → <strong>Add WebSocket Request</strong>,
 or right-click the <strong>+</strong> button above the tree and choose
 <strong>Add WebSocket Request</strong> (see <a href="websocket.html">WebSockets</a>).</li>
-<li><strong>Reorder / re-nest</strong> — drag a request or folder to move it; a placeholder
-shows where it will land.</li>
+<li><strong>Reorder / re-nest</strong> — hover a request or folder to reveal a drag grip on its
+right edge, then drag the grip to move it; a placeholder shows where it will
+land.</li>
 <li><strong>Rename</strong> — double-click the name (or right-click → <strong>Rename</strong>).
 <kbd>Enter</kbd> confirms, <kbd>Esc</kbd> cancels.</li>
 <li><strong>Filter</strong> — click anywhere in the tree and press <kbd>Cmd</kbd>+<kbd>F</kbd>
@@ -181,11 +200,6 @@ folder&#39;s.)</p>
 <td><a href="import-export-and-backup.html">Export</a> the collection or folder subtree</td>
 </tr>
 <tr>
-<td><strong>Variables</strong></td>
-<td>collections &amp; folders</td>
-<td>Edit <a href="variables-and-environments.html">variables</a> for that scope</td>
-</tr>
-<tr>
 <td><strong>Clear Run History</strong></td>
 <td>requests</td>
 <td>Discard the request&#39;s saved <a href="responses.html#timeline">timeline</a></td>
@@ -196,6 +210,11 @@ folder&#39;s.)</p>
 <td>Remove the item (asks to confirm)</td>
 </tr>
 </tbody></table>
+<blockquote>
+<p>To edit a container&#39;s <a href="variables-and-environments.html">variables</a>, <strong>click</strong> the
+collection or folder in the tree — its variable editor opens in the center
+panel, replacing the request editor.</p>
+</blockquote>
 <h2 id="running-a-whole-folder">Running a whole folder</h2>
 <p>Right-click a collection or folder and choose <strong>Run All Requests</strong> to send every
 request inside it — including those in nested sub-folders — one after another.

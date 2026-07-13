@@ -95,48 +95,123 @@ available in the current scope. Pick one and Rest Hippo inserts it as a highligh
 <a href="requests.html#url"><strong>Show URL preview</strong></a> on, you can see the resolved URL before
 you send.</p>
 <h2 id="scopes">Scopes</h2>
-<p>A variable can be defined at four levels. When the same name exists in more than
+<p>A variable can be defined at three levels. When the same name exists in more than
 one, the <strong>most specific scope wins</strong>:</p>
-<pre><code>Folder  ▸  Collection  ▸  Environment  ▸  Global
-(most specific)                        (most general)
+<pre><code>Folder  ▸  Environment  ▸  Global
+(most specific)        (most general)
 </code></pre>
 <ul>
-<li><strong>Global</strong> — available everywhere, in every collection.</li>
+<li><strong>Global</strong> — available to every request in the <strong>active collection</strong> (each
+collection has its own Global set — see <a href="#environments">Environments</a> below).
+Global is the collection-wide tier: variables you want every request in the
+collection to see go here.</li>
 <li><strong>Environment</strong> — defined in the active environment (see below). Switching
 environments swaps these values.</li>
-<li><strong>Collection</strong> — defined on a collection, shared by every request in it.</li>
 <li><strong>Folder</strong> — defined on a folder, scoped to the requests inside it.</li>
 </ul>
 <p>So a <code>baseUrl</code> set in your <strong>Local</strong> environment overrides a global <code>baseUrl</code>,
 and a folder-level override beats them both.</p>
-<h3 id="collection-variables">Collection variables</h3>
-<p>Open the <a href="collections.html#collections">Collections manager</a> and use the
-<strong>Variables</strong> tab to edit a collection&#39;s variables:</p>
-<p><img src="images/collection-variables.png" alt="Collection variables"></p>
-<p>Folder variables work the same way — right-click a folder and choose
-<strong>Variables</strong>.</p>
+<h3 id="folder-and-collection-wide-variables">Folder and collection-wide variables</h3>
+<p><strong>Click a folder</strong> in the tree to edit its variables right in the center panel:
+the request editor is replaced by an inline variable editor scoped to that folder,
+and selecting a request switches the panel back. It offers the same bulk-text and
+key/value modes — and per-variable secure masking — as the other variable editors,
+and saves as you type.</p>
+<p><img src="images/collection-variables.png" alt="Folder variables"></p>
+<p><strong>Clicking a collection</strong> edits its <strong>Global</strong> environment in that same inline
+editor — collections no longer have a separate variable set; their collection-wide
+variables are simply the Global environment (also editable from the
+<a href="collections.html#collections">Collections manager</a>&#39;s <strong>Environments</strong> tab).</p>
+<h3 id="folder-variable-profiles">Folder variable profiles</h3>
+<p>A <strong>profile</strong> is a named alternate set of <em>values</em> for a folder&#39;s variables —
+handy when the same requests point at different back-ends (say <strong>Dev</strong>, <strong>Staging</strong>
+and <strong>Prod</strong>) that differ only in a host, key, or token. Profiles are defined once
+and <strong>span the whole collection</strong>, so every folder shares the same profile names
+while keeping its own per-profile values.</p>
+<p>Every folder starts with a single <strong>Default</strong> profile — the plain variables you
+edit when no named profiles exist. The <strong>Default profile owns the variable set</strong>:
+it is the only profile where you can add, rename, remove, or mark a variable
+secure. Its controls live on the <strong>far right of the folder variable editor&#39;s
+toolbar</strong>:</p>
+<ul>
+<li><strong>＋ (Add profile)</strong> — always shown. It opens a small popup to name a new
+profile; press <strong>Enter</strong> to create it, or <strong>Escape</strong> / click away to cancel.
+Creating a profile <strong>switches to it</strong> and copies the Default&#39;s variable
+<strong>names</strong> with their values <strong>cleared</strong>, ready for you to fill in. A collection
+holds up to <strong>nine</strong> named profiles; the ＋ control disables once you reach the
+limit.</li>
+<li><strong>Profile selector</strong> and <strong>🗑 (Delete profile)</strong> — appear once at least one named
+profile exists. The selector lists <strong>Default</strong> plus your named profiles; Delete
+removes the selected profile (Default can&#39;t be deleted).</li>
+</ul>
+<p>How values behave:</p>
+<ul>
+<li><strong>A profile overrides only what you set; everything else inherits the Default.</strong>
+Each variable in a named profile is either <strong>inherited</strong> (you haven&#39;t given it a
+value — it resolves to the Default&#39;s value) or an <strong>override</strong> (you&#39;ve set your
+own). This is per variable, so a profile is an overlay of just the differences —
+the same everywhere a variable resolves: sending, the URL preview, generated
+cURL, and code snippets.</li>
+<li><strong>In the editor</strong>, an inheriting field is blank with an <em>&quot;inherits default
+value&quot;</em> hint; typing a value makes it an override. A <strong>↺ reset</strong> button (in place
+of the row&#39;s delete) drops an override so the variable inherits again — it&#39;s
+enabled only while the row is an override. Because inherit vs. override is tracked
+per variable, you <em>can</em> deliberately override to an <strong>empty</strong> value (clear an
+override&#39;s text but don&#39;t reset it): that sends a genuine blank rather than
+inheriting. (The <strong>bulk editor</strong> can&#39;t tell an empty override from an inherit, so
+there a blank line means <em>inherit</em>; use the table editor to force an empty value.)</li>
+<li><strong>The variable set is fixed outside the Default.</strong> On a named profile the editor
+locks structure — you can edit <strong>values</strong> only; the name fields are read-only and
+the secure toggle is disabled. Add, rename, or remove a variable on the
+<strong>Default</strong> profile and every profile picks up the change (a new variable is
+inherited everywhere; a removed one drops out).</li>
+<li><strong>Switching folders</strong> keeps your selected profile; the editor just re-shows the
+new folder&#39;s variables under it.</li>
+</ul>
+<p>Once a collection has named profiles, a <strong>switch icon</strong> also appears in the
+request editor — to the right of the URL preview&#39;s Copy button, or beside the
+Send button when the URL preview is hidden. Click it to open a menu of every
+profile (with its shortcut) and a check beside the active one; pick one to
+activate it.</p>
+<p>You can also switch the active profile from anywhere with the keyboard:
+<strong>⌥⌘0</strong>–<strong>⌥⌘9</strong> (<strong>Ctrl+Alt+0</strong>–<strong>9</strong> on Windows / Linux). <strong>0</strong> selects the
+Default and <strong>1</strong>–<strong>9</strong> the first through ninth named profiles, in the order they
+appear in the selector; a number with no matching profile does nothing.</p>
+<p>The selected profile is <strong>live</strong>: requests in the collection resolve their folder
+variables using the active profile&#39;s values, so switching profiles switches which
+back-end your requests hit. Profiles are independent of
+<a href="#environments">Environments</a> — Environments switch the collection-wide (Global)
+values, profiles switch a folder&#39;s values; the two compose. A folder&#39;s per-profile
+values travel with it in a <strong>Rest Hippo</strong> export/backup.</p>
 <h2 id="environments">Environments</h2>
 <p>An <strong>environment</strong> is a named set of variables you can switch between — the
 classic use is one environment per deployment (Local, Staging, Production), each
 with its own <code>baseUrl</code>, credentials, and IDs.</p>
+<p><strong>Environments belong to the collection.</strong> Each collection has its own <strong>Global</strong>
+set and its own list of named environments, with its own active selection. When
+you switch the active collection, the environment picker and the active
+environment switch with it — so a <code>Staging</code> environment in one collection is
+entirely independent of a <code>Staging</code> in another. A brand-new collection starts
+with an empty Global set and no named environments.</p>
 <p>Click the <strong>environment picker</strong> in the collections toolbar (it shows the active
 environment, e.g. <code>LOCAL</code>) to open a quick-switch menu. It lists <strong>Global</strong>
 followed by every named environment, with a check beside the active one — pick
-one to <strong>make it active</strong> instantly (all <code>{{variables}}</code> resolve against it).
-To <strong>add, rename, delete, or edit</strong> environments you must <strong>right-click</strong> the
-picker: that opens the same menu plus a <strong>Manage…</strong> entry, which opens the full
-environments editor. (A plain click only switches the active environment — it
-never opens the editor.)</p>
-<p><img src="images/environments-popup.png" alt="The environments editor"></p>
+one to <strong>make it active</strong> instantly (all <code>{{variables}}</code> resolve against it).</p>
+<p>To <strong>add, delete, or edit</strong> environments, open the <strong>Environments</strong> tab of the
+<a href="collections.html#collections">Collections manager</a> — right-click the environment
+picker and choose <strong>Manage…</strong>, press <strong>⌘/Ctrl + E</strong>, or open the collections
+manager and switch to the <strong>Environments</strong> tab. (A plain click on the picker only
+switches the active environment.)</p>
 <ul>
-<li><strong>Global</strong> is always first; its variables are available everywhere.</li>
-<li>Below it are your named environments. Click one to <strong>make it active</strong> — a
-check marks the active environment, and all <code>{{variables}}</code> resolve against it.</li>
-<li><strong>+</strong> adds an environment; drag to reorder; double-click to rename; the trash
-icon deletes.</li>
-<li>The <strong>Variables</strong> tab on the right edits the selected environment&#39;s variables
-as a key/value grid (or as plain text via <strong>Bulk editor</strong>). Changes save
-automatically.</li>
+<li>The <strong>Environment</strong> dropdown at the top selects which environment you&#39;re
+editing: <strong>Global</strong> (always present) or any named environment. Choosing one also
+makes it the active environment, kept in sync with the toolbar picker.</li>
+<li><strong>+</strong> adds a named environment (type its name and press Enter); the <strong>trash</strong>
+button deletes the selected environment (with a confirmation). Global can&#39;t be
+deleted.</li>
+<li>Below the selector, the variable editor edits the selected environment&#39;s
+variables as a key/value grid (or as plain text via <strong>Bulk editor</strong>). Changes
+save automatically.</li>
 </ul>
 <h3 id="secure-variables">Secure variables</h3>
 <p>Mark a variable <strong>secure</strong> (the lock icon) to <strong>encrypt it at rest</strong> and mask it
@@ -168,7 +243,7 @@ token — no copy-paste.</p>
 </tr>
 <tr>
 <td><strong>Scope</strong></td>
-<td>Where to write: <strong>Environment</strong>, <strong>Collection</strong>, or <strong>Global</strong></td>
+<td>Where to write: <strong>Environment</strong> or <strong>Global</strong></td>
 </tr>
 <tr>
 <td><strong>Variable</strong></td>

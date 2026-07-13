@@ -101,8 +101,8 @@ always persisted and there&#39;s no unsaved state to lose.</p>
 <p>Type the request URL into the bar. You can drop
 <a href="variables-and-environments.html"><code>{{variables}}</code></a> anywhere in it — for example
 <code>{{baseUrl}}/users/{{userId}}</code>. When <strong>Show URL preview</strong> is on (Settings →
-Appearance), Rest Hippo shows the fully-resolved URL beneath the params, so you can
-confirm exactly what will be sent.</p>
+Appearance), Rest Hippo shows the fully-resolved URL directly beneath the URL bar,
+so you can confirm exactly what will be sent.</p>
 <p>Press <kbd>Enter</kbd> in the URL bar to send the request, or click <strong>Send</strong>.
 While a request is in flight the button becomes <strong>Stop</strong> — click it to abort.</p>
 <h3 id="send-type">Send type</h3>
@@ -135,7 +135,10 @@ check-marked); the choice is a global default that applies to every request:</p>
 </tbody></table>
 <p>Choosing <strong>Delayed</strong> or <strong>Interval</strong> opens a small dialog under the Send button
 with a single field for that type&#39;s timing — a delay for Delayed, an interval for
-Interval. Defaults are a <strong>5-second delay</strong> and a <strong>10-second interval</strong>.</p>
+Interval. Defaults are a <strong>5-second delay</strong> and a <strong>10-second interval</strong>. To
+adjust the timing later, <strong>right-click the Send button</strong> while it&#39;s in Delayed or
+Interval mode to reopen that same dialog — available only while no countdown is
+running.</p>
 <p>Every trigger — clicking <strong>Send</strong>, pressing <kbd>⌘/Ctrl</kbd>+<kbd>Enter</kbd>,
 or double-clicking the request in the tree — runs the active type.</p>
 <p>While a delayed or interval countdown is ticking, the button reads <strong>Cancel</strong>
@@ -166,6 +169,24 @@ text mode.</p>
 <a href="authentication.html">authentication</a> type, the matching <code>Authorization</code> (or
 custom) header is added automatically at send time.</p>
 </blockquote>
+<h3 id="inheriting-collection-default-headers">Inheriting collection default headers</h3>
+<p>A collection can define <strong>default headers</strong> applied to every request in it (set
+them in the Collections editor → Headers tab). When a request has a header row of
+the same name, how they combine depends on the value — by <em>presence</em>, the same
+way profile overrides work:</p>
+<ul>
+<li><strong>Blank value</strong> → the request <strong>inherits</strong> the collection default; the value
+box hints <em>“Inherits collection default”</em>. This is why a header imported from
+an OpenAPI/Swagger spec with no example value doesn’t wipe out your default —
+it simply falls back to it.</li>
+<li><strong>A value you type</strong> → <strong>overrides</strong> the default for this request.</li>
+<li><strong>Cleared after editing</strong> (an explicit blank) → <strong>suppresses</strong> the default so
+nothing is sent; the hint shows <em>“Collection default suppressed”</em>, struck
+through. The <strong>reset</strong> button (↺) on the row drops the override and returns the
+row to inheriting the default.</li>
+</ul>
+<p>(Disabling a row with its checkbox also suppresses its collection default, just
+for that request.)</p>
 <h2 id="request-body">Request body</h2>
 <p>The <strong>Body</strong> tab lets you choose a body type from the dropdown and edit it:</p>
 <p><img src="images/body-json.png" alt="A JSON request body"></p>
@@ -214,7 +235,10 @@ custom) header is added automatically at send time.</p>
 </tr>
 </tbody></table>
 <p>For the structured editors (JSON / YAML / XML), Rest Hippo shows a <strong>✓ VALID</strong> /
-<strong>✗ INVALID</strong> badge as you type. The code editor has line numbers and a resize
+<strong>✗ INVALID</strong> badge as you type. When the body is invalid, the badge spells out
+the reason — the line and column plus the parser&#39;s message (e.g.
+<code>3:12  Unexpected token</code>) — so you know exactly what to fix; the full text is
+also on the badge&#39;s tooltip. The code editor has line numbers and a resize
 handle, and its right-click menu offers <strong>Prettify</strong> and <strong>code folding</strong>.
 <code>{{variables}}</code> are highlighted inline and resolved at send time.</p>
 <p>The <strong>Form Data</strong> and <strong>Form URL Encoded</strong> editors use the same key/value grid
