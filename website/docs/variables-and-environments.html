@@ -94,23 +94,28 @@ available in the current scope. Pick one and Rest Hippo inserts it as a highligh
 <p>At send time, every <code>{{name}}</code> is replaced with its resolved value. With
 <a href="requests.html#url"><strong>Show URL preview</strong></a> on, you can see the resolved URL before
 you send.</p>
-<h2 id="scopes">Scopes</h2>
-<p>A variable can be defined at three levels. When the same name exists in more than
-one, the <strong>most specific scope wins</strong>:</p>
-<pre><code>Folder  ▸  Environment  ▸  Global
-(most specific)        (most general)
+<h2 id="scopes-and-resolution-order">Scopes and resolution order</h2>
+<p>The same variable name can be defined at several levels. At send time Rest Hippo
+resolves each <code>{{name}}</code> by walking scopes from <strong>most specific to most general</strong>
+and taking the <strong>first</strong> one that defines the name:</p>
+<pre><code>request&#39;s folder  ▸  parent folder(s)  ▸  collection environment  ▸  collection Global
+(nearest ancestor first) ───────────────────────────────────────▸       (most general)
 </code></pre>
-<ul>
-<li><strong>Global</strong> — available to every request in the <strong>active collection</strong> (each
-collection has its own Global set — see <a href="#environments">Environments</a> below).
-Global is the collection-wide tier: variables you want every request in the
-collection to see go here.</li>
-<li><strong>Environment</strong> — defined in the active environment (see below). Switching
-environments swaps these values.</li>
-<li><strong>Folder</strong> — defined on a folder, scoped to the requests inside it.</li>
-</ul>
-<p>So a <code>baseUrl</code> set in your <strong>Local</strong> environment overrides a global <code>baseUrl</code>,
-and a folder-level override beats them both.</p>
+<ol>
+<li><strong>Folder</strong> — variables on the request&#39;s <strong>own folder</strong> win first. If the name
+isn&#39;t there, Rest Hippo keeps walking <strong>up the folder hierarchy</strong> — each parent
+folder in turn, <strong>nearest ancestor first</strong> — so an inner folder overrides a
+value set on an outer one.</li>
+<li><strong>Collection environment</strong> — the active <a href="#environments">environment</a>&#39;s
+variables, checked after the whole folder chain. Switching environments swaps
+these values.</li>
+<li><strong>Collection Global</strong> — the collection-wide set, checked last. Variables every
+request in the collection should see go here (each collection has its own
+Global set — see <a href="#environments">Environments</a> below).</li>
+</ol>
+<p>So a <code>baseUrl</code> set on the request&#39;s folder overrides one on a parent folder,
+which overrides the active <strong>environment</strong>&#39;s <code>baseUrl</code>, which in turn overrides
+the collection <strong>Global</strong> value — first match wins, nearest scope first.</p>
 <h3 id="folder-and-collection-wide-variables">Folder and collection-wide variables</h3>
 <p><strong>Click a folder</strong> in the tree to edit its variables right in the center panel:
 the request editor is replaced by an inline variable editor scoped to that folder,
@@ -123,11 +128,17 @@ editor — collections no longer have a separate variable set; their collection-
 variables are simply the Global environment (also editable from the
 <a href="collections.html#collections">Collections manager</a>&#39;s <strong>Environments</strong> tab).</p>
 <h3 id="folder-variable-profiles">Folder variable profiles</h3>
+<p><strong>Folder variables</strong> give you <em>targeted</em> custom variables — scoped to just the
+requests under a folder — and a <strong>profile</strong> lets you flip those values without
+editing them. That makes profiles ideal for <strong>custom, exploratory testing</strong>: keep
+several value sets side by side and switch between them with a single keystroke.</p>
 <p>A <strong>profile</strong> is a named alternate set of <em>values</em> for a folder&#39;s variables —
 handy when the same requests point at different back-ends (say <strong>Dev</strong>, <strong>Staging</strong>
-and <strong>Prod</strong>) that differ only in a host, key, or token. Profiles are defined once
-and <strong>span the whole collection</strong>, so every folder shares the same profile names
-while keeping its own per-profile values.</p>
+and <strong>Prod</strong>) that differ only in a host, key, or token. Profiles name value-sets
+for a <strong>folder&#39;s</strong> variables only — they never rename or re-value environment or
+Global variables (that&#39;s what <a href="#environments">environments</a> are for). Profiles are
+defined once and <strong>span the whole collection</strong>, so every folder shares the same
+profile names while keeping its own per-profile values.</p>
 <p>Every folder starts with a single <strong>Default</strong> profile — the plain variables you
 edit when no named profiles exist. The <strong>Default profile owns the variable set</strong>:
 it is the only profile where you can add, rename, remove, or mark a variable
@@ -173,10 +184,11 @@ request editor — to the right of the URL preview&#39;s Copy button, or beside 
 Send button when the URL preview is hidden. Click it to open a menu of every
 profile (with its shortcut) and a check beside the active one; pick one to
 activate it.</p>
-<p>You can also switch the active profile from anywhere with the keyboard:
-<strong>⌥⌘0</strong>–<strong>⌥⌘9</strong> (<strong>Ctrl+Alt+0</strong>–<strong>9</strong> on Windows / Linux). <strong>0</strong> selects the
-Default and <strong>1</strong>–<strong>9</strong> the first through ninth named profiles, in the order they
-appear in the selector; a number with no matching profile does nothing.</p>
+<p>You can also switch the active profile from anywhere with the keyboard — hold
+<strong>⌥⌘</strong> (Cmd+Opt; <strong>Ctrl+Alt</strong> on Windows / Linux) and press the profile&#39;s number:
+<strong>⌥⌘0</strong>–<strong>⌥⌘9</strong>, where <strong>0</strong> selects the Default and <strong>1</strong>–<strong>9</strong> the first through
+ninth named profiles, in the order they appear in the selector. A number with no
+matching profile does nothing.</p>
 <p>The selected profile is <strong>live</strong>: requests in the collection resolve their folder
 variables using the active profile&#39;s values, so switching profiles switches which
 back-end your requests hit. Profiles are independent of
@@ -184,9 +196,12 @@ back-end your requests hit. Profiles are independent of
 values, profiles switch a folder&#39;s values; the two compose. A folder&#39;s per-profile
 values travel with it in a <strong>Rest Hippo</strong> export/backup.</p>
 <h2 id="environments">Environments</h2>
-<p>An <strong>environment</strong> is a named set of variables you can switch between — the
-classic use is one environment per deployment (Local, Staging, Production), each
-with its own <code>baseUrl</code>, credentials, and IDs.</p>
+<p>An <strong>environment</strong> is a named set of a collection&#39;s variables you can switch
+between. It&#39;s how you break a collection&#39;s variables down by <strong>deployment stage</strong>:
+define one environment each for <strong>Local</strong>, <strong>Dev</strong>, <strong>QA</strong>, and <strong>Production</strong>, and
+the collection&#39;s variables — <code>baseUrl</code>, credentials, IDs — flip to that stage&#39;s
+values in a single click. (Environments switch the collection-wide set; to switch
+a <em>folder&#39;s</em> values instead, use its <a href="#folder-variable-profiles">profiles</a>.)</p>
 <p><strong>Environments belong to the collection.</strong> Each collection has its own <strong>Global</strong>
 set and its own list of named environments, with its own active selection. When
 you switch the active collection, the environment picker and the active
