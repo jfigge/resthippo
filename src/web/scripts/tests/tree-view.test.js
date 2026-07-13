@@ -169,6 +169,36 @@ test("setItems replaces the whole tree and re-renders", () => {
   assert.deepEqual(labels(tv), ["Other"]);
 });
 
+test("setItems drops a stale add-target so New Request targets the new tree", () => {
+  const tv = mount(TREE());
+  // Click a collection row: #activeCollectionId = "c1", #selectedId = null.
+  rowOf(tv, "c1").click();
+  // Simulate deleting the active collection and switching to another one
+  // (app.js: setActiveCollection → treeView.setItems(newCollectionData)).
+  tv.setItems([{ id: "c9", type: "collection", name: "Other", children: [] }]);
+  // New Request must land under the visible collection, not no-op against the
+  // now-deleted "c1" the stale pointer used to reference.
+  const [, newReq] = toolbarBtns(tv);
+  assert.ok(!newReq.disabled, "enabled — a collection exists");
+  newReq.click();
+  const c9 = tv.getItems().find((n) => n.id === "c9");
+  assert.equal(c9.children.length, 1, "a request was inserted under c9");
+  assert.equal(c9.children[0].name, t("tree.newRequest"));
+});
+
+test("setItems drops a stale add-target so New Collection is not a no-op", () => {
+  const tv = mount(TREE());
+  // Click a collection row: #activeCollectionId = "c1", #selectedId = null —
+  // the exact stale state that made "add folder" silently do nothing.
+  rowOf(tv, "c1").click();
+  tv.setItems([{ id: "c9", type: "collection", name: "Other", children: [] }]);
+  const [newColl] = toolbarBtns(tv);
+  newColl.click();
+  // With no selection the folder button appends a top-level collection; the
+  // stale "c1" pointer would have made insertChild a no-op instead.
+  assert.equal(tv.getItems().length, 2, "a new collection was added");
+});
+
 // ── Selection ───────────────────────────────────────────────────────────────
 
 test("clicking a request dispatches hippo:request-selected and marks it active", () => {

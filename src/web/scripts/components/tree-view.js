@@ -367,6 +367,21 @@ export class TreeView {
    */
   setItems(items) {
     this.#items = Array.isArray(items) ? items : [];
+    // Drop the add-target / selection pointers if they no longer resolve in the
+    // new tree. setItems swaps in a *different* collection's data (e.g. after
+    // deleting the active collection), so a pointer left over from the previous
+    // tree dangles — "New Request"/"New Collection" would then target a missing
+    // parent and silently no-op (insertChild returns the tree unchanged). Mirror
+    // the same guard used in the in-tree delete path.
+    if (
+      this.#activeCollectionId != null &&
+      !findNode(this.#items, this.#activeCollectionId)
+    ) {
+      this.#activeCollectionId = null;
+    }
+    if (this.#selectedId != null && !findNode(this.#items, this.#selectedId)) {
+      this.#selectedId = null;
+    }
     // Loading a collection's tree always shows the Requests surface.
     this.#activeTab = "requests";
     this.#syncButtonState();
