@@ -345,14 +345,16 @@ jobs:
           # Always kept as a run artifact (manual Partner Center fallback).
           retention-days: 5
 
-      # The PUSH to the Microsoft Store, gated identically to the MAS submit: tag
-      # release only AND the STORE_SUBMIT_ENABLED kill-switch on. DORMANT until
-      # Partner Center is set up — the whole store-appx job is already gated on
-      # vars.APPX_IDENTITY_NAME being set, which presupposes a reserved product. Uses
-      # the Microsoft Store Developer CLI (msstore) with a Partner Center Azure-AD app
-      # (tenant/client/secret). Untested until those exist; wire the secrets then.
+      # The PUSH to the Microsoft Store, gated like the MAS submit (tag release only
+      # AND the STORE_SUBMIT_ENABLED kill-switch on) PLUS its own readiness gate:
+      # vars.MS_STORE_PRODUCT_ID must be set. STORE_SUBMIT_ENABLED is a shared switch
+      # across both stores, so without this extra gate turning on MAS auto-submit would
+      # also arm this step and hard-fail the run while Partner Center is still DORMANT.
+      # The MS_STORE_PRODUCT_ID gate lets it skip cleanly until the Azure-AD app
+      # (tenant/client/secret) + product id are wired. Uses the Microsoft Store
+      # Developer CLI (msstore). Untested until those exist; wire the secrets then.
       - name: Submit to Microsoft Store
-        if: startsWith(github.ref, 'refs/tags/') && vars.STORE_SUBMIT_ENABLED == 'true'
+        if: startsWith(github.ref, 'refs/tags/') && vars.STORE_SUBMIT_ENABLED == 'true' && vars.MS_STORE_PRODUCT_ID != ''
         shell: pwsh
         env:
           MS_STORE_TENANT_ID: ${{ secrets.MS_STORE_TENANT_ID }}
