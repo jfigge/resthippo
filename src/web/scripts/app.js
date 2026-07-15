@@ -125,6 +125,8 @@ import { ExportModal } from "./components/export-modal.js";
 import { SwaggerImportModal } from "./components/swagger-import-modal.js";
 import { PasswordPrompt } from "./components/password-prompt.js";
 import { buildCustomThemeCss } from "./utils/theme-css.js";
+import { coalesce } from "./utils/coalesce.js";
+import { ResponseCache } from "./components/response-cache.js";
 import { installMenuHandlers } from "./event-bus/menu-handlers.js";
 import { installSettingsHandlers } from "./event-bus/settings-handlers.js";
 import { installWsHandlers } from "./event-bus/ws-handlers.js";
@@ -201,23 +203,13 @@ let _selectedNode = null;
 // Response caches fed into variable context for function pills. Keyed by BOTH
 // the request's id (the canonical reference new pills store) and its name (so
 // legacy name-based tokens and the name-keyed hippo.run() script API still hit).
-// See _cacheResponse() and request-refs.js.
-let _responseCache = {};
-let _responseHeaders = {};
-let _responseStatus = {};
+// The keying rule now lives in the importable, tested ResponseCache class; this
+// module keeps the thin _cacheResponse() wrapper so its call sites are unchanged.
+const _respCache = new ResponseCache();
 
-/**
- * Seed the response caches for a request under both its id and its name, so a
- * reference stored either way resolves. `ref` is anything carrying `{id, name}`
- * (a tree node or a resolveRequestRef() result).
- */
+/** Seed the response caches for a request (see ResponseCache.set). */
 function _cacheResponse(ref, body, headers, status) {
-  for (const key of [ref?.id, ref?.name]) {
-    if (!key) continue;
-    _responseCache[key] = body;
-    _responseHeaders[key] = headers;
-    _responseStatus[key] = status;
-  }
+  _respCache.set(ref, body, headers, status);
 }
 // Debounced granular request-edit persistence (see _scheduleRequestSave).
 let _requestSaveTimer = null;
@@ -2640,23 +2632,10 @@ async function handleCollDelete({ id }) {
 // save runs at a time, and any edit that arrives while one is in flight just
 // marks the tree dirty; when the current save finishes, one final save runs with
 // the latest tree (getItems() is read at save time). Fire-and-forget.
-let _collSaveInFlight = false;
-let _collSaveDirty = false;
-function _queueSaveTree() {
-  _collSaveDirty = true;
-  if (_collSaveInFlight) return;
-  _collSaveInFlight = true;
-  (async () => {
-    try {
-      while (_collSaveDirty) {
-        _collSaveDirty = false;
-        await saveTreeStructure(treeView.getItems());
-      }
-    } finally {
-      _collSaveInFlight = false;
-    }
-  })();
-}
+// Coalesced background persist: overlapping edits collapse to one in-flight
+// save that always runs once more with the latest tree (getItems() is read at
+// save time). The coalescing primitive is the importable, tested utils/coalesce.
+const _queueSaveTree = coalesce(() => saveTreeStructure(treeView.getItems()));
 
 /**
  * Persist variables and keep in-memory state in sync.
@@ -2857,9 +2836,9 @@ function _buildVariableContextForNode(nodeId, node = null) {
     collectionName: activeColl?.name ?? "",
     activeEnvironmentName: activeEnv?.name ?? "",
     requestName: node?.name ?? "",
-    responseCache: _responseCache,
-    responseHeaders: _responseHeaders,
-    responseStatus: _responseStatus,
+    responseCache: _respCache.bodies,
+    responseHeaders: _respCache.headers,
+    responseStatus: _respCache.statuses,
   };
 }
 
