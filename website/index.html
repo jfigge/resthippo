@@ -658,6 +658,17 @@
 
     footer p { color: var(--overlay-0); font-size: 0.83rem; line-height: 1.8; }
 
+    .cc-referral {
+      color: var(--subtext);
+      text-decoration: none;
+      border-bottom: 1px dotted var(--overlay-0);
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .cc-referral:hover {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
     /* ── Responsive ────────────────────────────────────────────────────────── */
 
     @media (max-width: 640px) {
@@ -1088,7 +1099,8 @@
       <a href="mailto:resthippo411@gmail.com" style="color:var(--accent);text-decoration:none">Contact</a>
     </p>
     <p>Copyright &copy; 2026 Jason Figge. Released under the Apache 2.0 License.<br>
-    Built with Electron &amp; Vanilla JS. No telemetry, no accounts, fully offline.</p>
+    Built with Electron &amp; Vanilla JS. No telemetry, no accounts, fully offline.<br>
+    <p style="margin-top:14px">Crafted with <a href="https://claude.ai/referral/BGxM2qFalQ" rel="noopener noreferrer" style="color:var(--subtext);text-decoration:underline dotted var(--overlay-0);text-underline-offset:3px">Claude&nbsp;Code — try it free for a week</a>.</p>
   </div>
 </footer>
 
