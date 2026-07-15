@@ -51,6 +51,10 @@ const {
   isPasswordEncrypted,
   encryptWithPassword,
   decryptWithPassword,
+  createPortableCipher,
+  deriveKey,
+  newMasterKdf,
+  deriveMasterKey,
   exportRequestSecrets,
   importRequestSecrets,
   exportSettingsSecrets,
@@ -707,6 +711,87 @@ describe("restoreUndecryptableVariables (clobber guard)", () => {
 // object-level portable transforms for requests, settings, and variables.
 
 const PW = "correct horse battery staple";
+
+describe("deriveMasterKey (memory-hard KDF with legacy dispatch)", () => {
+  it("newMasterKdf produces a scrypt descriptor; derivation is deterministic + password-bound", () => {
+    const kdf = newMasterKdf();
+    assert.equal(kdf.algo, "scrypt");
+    assert.ok(kdf.salt && kdf.N && kdf.r && kdf.p);
+    const k1 = deriveMasterKey("pw", kdf);
+    const k2 = deriveMasterKey("pw", kdf);
+    assert.equal(k1.length, 32);
+    assert.ok(k1.equals(k2), "same inputs → same key");
+    assert.ok(!deriveMasterKey("other", kdf).equals(k1), "password-bound");
+  });
+
+  it("a LEGACY pbkdf2 descriptor (no algo) derives EXACTLY what deriveKey would", () => {
+    // The backward-compat guarantee: existing encm: secrets sealed under the old
+    // PBKDF2 key stay decryptable after the scrypt switch.
+    const salt = nodeCrypto.randomBytes(16);
+    const legacyKdf = { salt: salt.toString("base64"), iterations: 210000 };
+    assert.ok(
+      deriveMasterKey("pw", legacyKdf).equals(deriveKey("pw", salt, 210000)),
+    );
+  });
+
+  it("an explicit algo:'pbkdf2' descriptor also uses PBKDF2", () => {
+    const salt = nodeCrypto.randomBytes(16);
+    const kdf = {
+      algo: "pbkdf2",
+      salt: salt.toString("base64"),
+      iterations: 100000,
+    };
+    assert.ok(deriveMasterKey("pw", kdf).equals(deriveKey("pw", salt, 100000)));
+  });
+});
+
+describe("createPortableCipher (backup envelope key)", () => {
+  const saltHexOf = (v) => {
+    // encp:v2: base64( iterations[4] | salt[16] | iv|tag|ct )
+    const blob = Buffer.from(v.slice("encp:v2:".length), "base64");
+    return blob.subarray(4, 4 + 16).toString("hex");
+  };
+
+  it("seals many values under ONE shared salt, each independently decryptable", () => {
+    const cipher = createPortableCipher(PW);
+    const a = cipher.seal("secret-A");
+    const b = cipher.seal("secret-B");
+    assert.ok(isPasswordEncrypted(a) && isPasswordEncrypted(b));
+    // One derivation for the whole backup → both values embed the same salt.
+    assert.equal(saltHexOf(a), saltHexOf(b));
+    // Yet each still decrypts with the plain password alone (no envelope state).
+    assert.equal(decryptWithPassword(a, PW), "secret-A");
+    assert.equal(decryptWithPassword(b, PW), "secret-B");
+  });
+
+  it("uses a fresh IV per value (identical plaintext → different ciphertext)", () => {
+    const cipher = createPortableCipher(PW);
+    assert.notEqual(cipher.seal("same"), cipher.seal("same"));
+  });
+
+  it("open() round-trips and rejects a wrong password", () => {
+    const cipher = createPortableCipher(PW);
+    const sealed = cipher.seal("hello");
+    assert.equal(cipher.open(sealed), "hello");
+    const wrong = createPortableCipher("nope");
+    assert.throws(
+      () => wrong.open(sealed),
+      (e) => e.code === "bad-password",
+    );
+  });
+
+  it("open() also reads legacy per-value blobs (encryptWithPassword)", () => {
+    const legacy = encryptWithPassword("legacy-secret", PW);
+    assert.equal(createPortableCipher(PW).open(legacy), "legacy-secret");
+  });
+
+  it("rejects an empty password", () => {
+    assert.throws(
+      () => createPortableCipher(""),
+      (e) => e.code === "malformed",
+    );
+  });
+});
 
 describe("isPasswordEncrypted", () => {
   it("recognises the encp:v2: and legacy encp:v1: prefixes", () => {

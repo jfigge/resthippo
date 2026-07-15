@@ -87,7 +87,6 @@ function defaultModeFor(platform, keystoreAvailable) {
 // A fixed constant sealed under the master key; decrypting it back proves the
 // entered password is correct (the GCM tag does the verification). Never secret.
 const VERIFIER_PLAINTEXT = "resthippo:secret-storage:verifier:v1";
-const MASTER_SALT_LEN = 16;
 
 class SecretStorage {
   /**
@@ -180,25 +179,24 @@ class SecretStorage {
 
   /**
    * Derive a master key for a NEW password, returning the key plus the kdf + a
-   * verifier token to persist. (Mode is flipped separately, after migration.)
+   * verifier token to persist. Uses a memory-hard scrypt kdf (crypto.newMasterKdf)
+   * — existing passwords keep their stored PBKDF2 descriptor and still verify via
+   * crypto.deriveMasterKey. (Mode is flipped separately, after migration.)
    * @param {string} password
-   * @returns {{ key: Buffer, kdf: {salt:string, iterations:number}, verifier: string }}
+   * @returns {{ key: Buffer, kdf: object, verifier: string }}
    */
   prepareMasterPassword(password) {
-    const salt = nodeCrypto.randomBytes(MASTER_SALT_LEN);
-    const iterations = crypto.PBKDF2_ITERATIONS;
-    const key = crypto.deriveKey(password, salt, iterations);
+    const kdf = crypto.newMasterKdf();
+    const key = crypto.deriveMasterKey(password, kdf);
     const verifier = crypto._aesGcmEncrypt(VERIFIER_PLAINTEXT, key);
-    return {
-      key,
-      kdf: { salt: salt.toString("base64"), iterations },
-      verifier: verifier.toString("base64"),
-    };
+    return { key, kdf, verifier: verifier.toString("base64") };
   }
 
   /**
    * Verify a password against a stored kdf + verifier, returning the derived key
-   * on success or null on a wrong password / malformed config.
+   * on success or null on a wrong password / malformed config. Dispatches on the
+   * stored kdf (scrypt for new configs, PBKDF2 for legacy ones), so both remain
+   * verifiable.
    * @param {string} password
    * @param {object} config  a config carrying { kdf, verifier }
    * @returns {Buffer|null}
@@ -206,8 +204,7 @@ class SecretStorage {
   verifyMasterPassword(password, config) {
     if (!config || !config.kdf || !config.verifier) return null;
     try {
-      const salt = Buffer.from(config.kdf.salt, "base64");
-      const key = crypto.deriveKey(password, salt, config.kdf.iterations);
+      const key = crypto.deriveMasterKey(password, config.kdf);
       const got = crypto._aesGcmDecrypt(
         Buffer.from(config.verifier, "base64"),
         key,

@@ -88,6 +88,7 @@ const {
   encryptVariables,
   encryptProfileValues,
   secureNamesOf,
+  createPortableCipher,
 } = require("./crypto");
 const { CURRENT_SCHEMA_VERSION } = require("./migrations");
 
@@ -140,10 +141,19 @@ class BackupStore {
    */
   exportAll(opts = {}) {
     const mode = _resolveExportMode(opts);
-    const password = opts.password;
-    if (mode === SECRETS_PASSWORD && !password) {
+    const rawPassword = opts.password;
+    if (mode === SECRETS_PASSWORD && !rawPassword) {
       throw new Error("a password is required for a password-protected backup");
     }
+    // One envelope cipher for the whole backup: every secret shares a single key
+    // derivation instead of a fresh 210k-iteration PBKDF2 per value (which froze
+    // the main thread on large workspaces). Threaded through every _export*
+    // helper in place of the raw password; non-password modes pass the raw value
+    // (unused). See crypto.createPortableCipher.
+    const password =
+      mode === SECRETS_PASSWORD
+        ? createPortableCipher(rawPassword)
+        : rawPassword;
     const exportedAt = opts.exportedAt ?? new Date().toISOString();
 
     const manifest = this._readManifest(mode, password);
@@ -218,7 +228,14 @@ class BackupStore {
       envelope.secretsMode ??
       (envelope.secretsIncluded ? SECRETS_MACHINE : SECRETS_NONE);
     if (secretsMode === SECRETS_PASSWORD) {
-      envelope = _localizeEnvelope(envelope, opts.password);
+      // One envelope cipher memoizes the key derivation across all values, so a
+      // backup whose values share a salt (see crypto.createPortableCipher)
+      // imports with a single PBKDF2 derivation. A falsy password keeps the
+      // clear-to-"" no-password path.
+      const cipher = opts.password
+        ? createPortableCipher(opts.password)
+        : opts.password;
+      envelope = _localizeEnvelope(envelope, cipher);
     }
 
     const collections = Array.isArray(envelope.collections)

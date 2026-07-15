@@ -304,6 +304,30 @@ describe("master-password verifier", () => {
     const key = ss.verifyMasterPassword("hunter2", config);
     assert.ok(Buffer.isBuffer(key) && key.equals(prep.key));
   });
+
+  it("a NEW password uses the memory-hard scrypt kdf", () => {
+    const ss = new SecretStorage(new Paths(makeTmpDir()));
+    const prep = ss.prepareMasterPassword("hunter2");
+    assert.equal(prep.kdf.algo, "scrypt");
+    assert.ok(prep.kdf.N && prep.kdf.r && prep.kdf.p && prep.kdf.salt);
+  });
+
+  it("still verifies a LEGACY pbkdf2 config (backward compatibility)", () => {
+    // Simulate a pre-scrypt setup: a config whose verifier was sealed under a
+    // PBKDF2-derived key. deriveMasterKey must re-derive the same key so the
+    // verifier (and every existing encm: secret) still opens.
+    const ss = new SecretStorage(new Paths(makeTmpDir()));
+    const salt = nodeCrypto.randomBytes(16);
+    const legacyKdf = { salt: salt.toString("base64"), iterations: 210000 };
+    const key = crypto.deriveMasterKey("legacy-pw", legacyKdf);
+    const verifier = crypto
+      ._aesGcmEncrypt("resthippo:secret-storage:verifier:v1", key)
+      .toString("base64");
+    const config = { kdf: legacyKdf, verifier };
+    assert.equal(ss.verifyMasterPassword("wrong", config), null);
+    const got = ss.verifyMasterPassword("legacy-pw", config);
+    assert.ok(Buffer.isBuffer(got) && got.equals(key));
+  });
 });
 
 describe("reencryptAll migration", () => {

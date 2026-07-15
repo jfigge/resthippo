@@ -665,6 +665,27 @@ describe("BackupStore password mode", () => {
     assert.match(env.manifest.settings.proxyUrl, /^encp:v2:/);
   });
 
+  test("all secrets in a password export share ONE envelope salt (single derivation)", () => {
+    const env = src.backupStore().exportAll({ mode: "password", password: PW });
+    // Every portable blob in the serialized envelope.
+    const blobs = JSON.stringify(env).match(/encp:v2:[A-Za-z0-9+/=]+/g) ?? [];
+    assert.ok(
+      blobs.length >= 4,
+      `expected several portable secrets, got ${blobs.length}`,
+    );
+    // encp:v2: base64( iterations[4] | salt[16] | … ) — pull the salt.
+    const saltOf = (v) =>
+      Buffer.from(v.slice("encp:v2:".length), "base64")
+        .subarray(4, 4 + 16)
+        .toString("hex");
+    const salts = new Set(blobs.map(saltOf));
+    assert.equal(
+      salts.size,
+      1,
+      "every value should derive from one shared envelope salt (one PBKDF2 run)",
+    );
+  });
+
   test("never leaks a plaintext secret in a password export", () => {
     const serialized = JSON.stringify(
       src.backupStore().exportAll({ mode: "password", password: PW }),

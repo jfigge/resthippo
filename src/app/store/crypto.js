@@ -149,6 +149,56 @@ function deriveKey(password, salt, iterations) {
   return nodeCrypto.pbkdf2Sync(password, salt, iterations, KEY_LEN, "sha256");
 }
 
+// ── Master-password KDF (memory-hard) ─────────────────────────────────────────
+// scrypt is in Node core (no new dependency) and is far more GPU/ASIC-resistant
+// than PBKDF2 at comparable wall-clock cost. Parameters for a NEW master
+// password: N=2^16, r=8, p=1 → ~64 MiB working set and a few hundred ms on the
+// unlock path (a one-time user action). Existing master-password setups keep
+// their PBKDF2 kdf descriptor and stay decryptable (deriveMasterKey dispatches
+// on kdf.algo) — only a newly-set / re-set password uses scrypt.
+const MASTER_KDF_SALT_LEN = 16;
+const SCRYPT_PARAMS = Object.freeze({ N: 2 ** 16, r: 8, p: 1 });
+const SCRYPT_MAXMEM = 256 * 1024 * 1024;
+
+/**
+ * Build the kdf descriptor to persist for a NEW master password (scrypt).
+ * @returns {{ algo: "scrypt", salt: string, N: number, r: number, p: number }}
+ */
+function newMasterKdf() {
+  const salt = nodeCrypto.randomBytes(MASTER_KDF_SALT_LEN);
+  return {
+    algo: "scrypt",
+    salt: salt.toString("base64"),
+    N: SCRYPT_PARAMS.N,
+    r: SCRYPT_PARAMS.r,
+    p: SCRYPT_PARAMS.p,
+  };
+}
+
+/**
+ * Derive the master key from a password + a stored kdf descriptor, dispatching
+ * on `kdf.algo`. A legacy descriptor with no algo (or algo === "pbkdf2") uses
+ * PBKDF2 at its stored iteration count, so existing `encm:` secrets stay
+ * decryptable; `algo === "scrypt"` uses memory-hard scrypt.
+ *
+ * @param {string} password
+ * @param {{algo?: string, salt: string, iterations?: number, N?: number, r?: number, p?: number}} kdf
+ * @returns {Buffer} 256-bit key
+ */
+function deriveMasterKey(password, kdf) {
+  const salt = Buffer.from(kdf.salt, "base64");
+  if (kdf.algo === "scrypt") {
+    return nodeCrypto.scryptSync(password, salt, KEY_LEN, {
+      N: kdf.N,
+      r: kdf.r,
+      p: kdf.p,
+      maxmem: SCRYPT_MAXMEM,
+    });
+  }
+  // Legacy / explicit PBKDF2 (no algo field on pre-scrypt configs).
+  return deriveKey(password, salt, kdf.iterations);
+}
+
 /**
  * Tagged error thrown when an encrypted value cannot be turned back into
  * plaintext — either because the OS keystore is unavailable for data that was
@@ -975,10 +1025,12 @@ function encryptWithPassword(plaintext, password) {
  *
  * @param {string} value
  * @param {string} password
+ * @param {Map<string,Buffer>} [cache] - optional (salt,iterations)→key memo so a
+ *   backup whose values share one salt (see createPortableCipher) derives once.
  * @returns {string} plaintext
  * @throws {PasswordError}
  */
-function decryptWithPassword(value, password) {
+function decryptWithPassword(value, password, cache = null) {
   if (!isPasswordEncrypted(value)) return value;
   if (typeof password !== "string" || password.length === 0) {
     throw new PasswordError("bad-password");
@@ -1012,7 +1064,12 @@ function decryptWithPassword(value, password) {
   const salt = blob.subarray(offset, offset + SALT_LEN);
   // The remainder is iv|tag|ct — exactly what _aesGcmDecrypt expects.
   const body = blob.subarray(offset + SALT_LEN);
-  const key = deriveKey(password, salt, iterations);
+  const cacheKey = cache ? `${iterations}:${salt.toString("base64")}` : null;
+  let key = cacheKey ? cache.get(cacheKey) : undefined;
+  if (key === undefined) {
+    key = deriveKey(password, salt, iterations);
+    if (cacheKey) cache.set(cacheKey, key);
+  }
   try {
     return _aesGcmDecrypt(body, key);
   } catch {
@@ -1028,6 +1085,87 @@ function decryptWithPassword(value, password) {
 // secret is either decrypted back to plaintext (password supplied) or CLEARED to
 // "" (no password); clearing keeps the surrounding structure (e.g. a variable's
 // `secure` flag) while dropping only the value.
+
+/**
+ * Build a reusable portable cipher for one whole backup: ONE random salt + ONE
+ * derived key shared across every value (an envelope key), so an export of N
+ * secrets runs ONE PBKDF2 derivation instead of N — no more multi-second
+ * main-thread freeze on a large workspace. Each value still embeds the shared
+ * salt + iteration count (the unchanged encp:v2: wire format), so it stays
+ * independently decryptable by decryptWithPassword() with the password alone;
+ * each value gets a fresh random GCM IV, so sharing the key is safe (no IV
+ * reuse). The seal key is derived lazily on first seal() so an import-only
+ * cipher never pays for it; open() memoizes derived keys by (salt, iterations),
+ * so a backup whose values share one salt also imports with a single derivation.
+ *
+ * Pass the returned object anywhere a `password` is accepted by the export* /
+ * import* transforms below (they are password-polymorphic via _cipherFrom).
+ *
+ * @param {string} password
+ * @returns {{ __portableCipher: true, password: string, seal: Function, open: Function }}
+ */
+function createPortableCipher(password) {
+  if (typeof password !== "string" || password.length === 0) {
+    throw new PasswordError("malformed");
+  }
+  const openCache = new Map();
+  let sealState = null; // { key, salt, iterBuf }, built on first seal()
+  return {
+    __portableCipher: true,
+    password,
+    seal(plaintext) {
+      if (!plaintext) return plaintext;
+      if (isPasswordEncrypted(plaintext)) return plaintext;
+      if (!sealState) {
+        const iterations = PBKDF2_ITERATIONS;
+        const salt = nodeCrypto.randomBytes(SALT_LEN);
+        const key = deriveKey(password, salt, iterations);
+        const iterBuf = Buffer.alloc(ITER_LEN);
+        iterBuf.writeUInt32BE(iterations, 0);
+        sealState = { key, salt, iterBuf };
+        // A same-cipher round-trip (rare) then reuses the key on the open side.
+        openCache.set(`${iterations}:${salt.toString("base64")}`, key);
+      }
+      const body = _aesGcmEncrypt(plaintext, sealState.key);
+      return (
+        PASSWORD_PREFIX_V2 +
+        Buffer.concat([sealState.iterBuf, sealState.salt, body]).toString(
+          "base64",
+        )
+      );
+    },
+    open(value) {
+      return decryptWithPassword(value, password, openCache);
+    },
+  };
+}
+
+/**
+ * Normalise a `password`-or-cipher argument to a portable cipher. A cipher
+ * (from createPortableCipher) is returned as-is — the envelope-key fast path. A
+ * raw password string (used by direct callers and unit tests) is wrapped in a
+ * legacy per-value cipher: seal derives a fresh salt per value, open derives
+ * per value, exactly as before. A falsy password yields a cipher whose empty
+ * `.password` signals the no-password import (clear-to-"") case.
+ *
+ * @param {string|{__portableCipher:true}} passwordOrCipher
+ */
+function _cipherFrom(passwordOrCipher) {
+  if (
+    passwordOrCipher &&
+    typeof passwordOrCipher === "object" &&
+    passwordOrCipher.__portableCipher
+  ) {
+    return passwordOrCipher;
+  }
+  const password = passwordOrCipher;
+  return {
+    __portableCipher: true,
+    password,
+    seal: (plain) => encryptWithPassword(plain, password),
+    open: (value) => decryptWithPassword(value, password),
+  };
+}
 
 /**
  * Take one at-rest secret to its portable (password-encrypted) form. Keystore
@@ -1047,7 +1185,9 @@ function _toPortable(value, password) {
       throw err;
     }
   }
-  return encryptWithPassword(plain, password);
+  // `password` may be a raw string (legacy per-value) or a shared backup cipher
+  // (envelope key) — _cipherFrom normalises both.
+  return _cipherFrom(password).seal(plain);
 }
 
 /**
@@ -1057,8 +1197,9 @@ function _toPortable(value, password) {
  */
 function _fromPortable(value, password) {
   if (!isPasswordEncrypted(value)) return value;
-  if (!password) return "";
-  return decryptWithPassword(value, password);
+  const cipher = _cipherFrom(password);
+  if (!cipher.password) return ""; // no-password import → clear the value
+  return cipher.open(value);
 }
 
 /** Re-encrypt a request's secret fields under a password for a portable export. */
@@ -1172,6 +1313,10 @@ module.exports = {
   // Low-level primitives reused by the secret-storage module (key file, verifier).
   PBKDF2_ITERATIONS,
   deriveKey,
+  // Master-password KDF: memory-hard scrypt for new passwords, PBKDF2 dispatch
+  // for legacy configs (see deriveMasterKey).
+  newMasterKdf,
+  deriveMasterKey,
   _aesGcmEncrypt,
   _aesGcmDecrypt,
   // Migration: re-encrypt one value to an explicit target backend (NOT encryptString).
@@ -1179,6 +1324,8 @@ module.exports = {
   isPasswordEncrypted,
   encryptWithPassword,
   decryptWithPassword,
+  // Backup envelope key: one derivation shared across every value in a backup.
+  createPortableCipher,
   exportRequestSecrets,
   importRequestSecrets,
   exportSettingsSecrets,
