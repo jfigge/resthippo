@@ -54,7 +54,10 @@ spec("geometry: drag drop-position follows the real row rect", async (h) => {
   })()`);
 
   assert.ok(!r.error, r.error);
-  assert.ok(r.height > 0, "real row has a non-zero height (jsdom stubs it to 0)");
+  assert.ok(
+    r.height > 0,
+    "real row has a non-zero height (jsdom stubs it to 0)",
+  );
   assert.ok(r.phantomMounted, "drag phantom mounted on dragstart");
   assert.equal(r.top, "before", "top of the row → drop before");
   assert.equal(r.bottom, "after", "bottom of the row → drop after");
@@ -63,98 +66,127 @@ spec("geometry: drag drop-position follows the real row rect", async (h) => {
 // ── caret: the {{ pill picker anchors at the real caret rect ────────────────
 // caretCoords() reads Range.getClientRects() — all zero under jsdom, so the
 // picker anchoring can only be verified against real layout.
-spec("geometry: the {{ picker anchors at the real caret position", async (h) => {
-  await h.selectReq("GET", "List users");
-  await h.waitForSel(".req-url-input");
+spec(
+  "geometry: the {{ picker anchors at the real caret position",
+  async (h) => {
+    await h.selectReq("GET", "List users");
+    await h.waitForSel(".req-url-input");
 
-  // Caret at the end of the URL editor; capture its real viewport rect.
-  const caret = await h.cdp.eval(`(()=>{
+    // Caret at the end of the URL editor; capture its real viewport rect.
+    const caret = await h.cdp.eval(`(()=>{
     const el = document.querySelector('.req-url-input'); el.focus();
     const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
     const s = getSelection(); s.removeAllRanges(); s.addRange(r);
     const cr = r.getBoundingClientRect();
     return { left: cr.left, top: cr.top, bottom: cr.bottom, height: cr.height };
   })()`);
-  assert.ok(
-    caret.height > 0 || caret.bottom > caret.top,
-    "real caret rect has height (jsdom stubs it to 0)",
-  );
+    assert.ok(
+      caret.height > 0 || caret.bottom > caret.top,
+      "real caret rect has height (jsdom stubs it to 0)",
+    );
 
-  await h.insertText("{{");
-  await h.waitForSel(".pill-picker");
-  const picker = await h.cdp.eval(`(()=>{
+    await h.insertText("{{");
+    await h.waitForSel(".pill-picker");
+    const picker = await h.cdp.eval(`(()=>{
     const r = document.querySelector('.pill-picker').getBoundingClientRect();
     return { left: r.left, top: r.top, width: r.width, height: r.height };
   })()`);
 
-  assert.ok(picker.width > 0 && picker.height > 0, "picker has real layout size");
-  assert.ok(picker.top > 0, "picker is positioned (not at the 0,0 jsdom origin)");
-  assert.ok(
-    Math.abs(picker.left - caret.left) < 80,
-    `picker left (${picker.left}) anchors near the caret left (${caret.left})`,
-  );
-  await h.escape();
-});
+    assert.ok(
+      picker.width > 0 && picker.height > 0,
+      "picker has real layout size",
+    );
+    assert.ok(
+      picker.top > 0,
+      "picker is positioned (not at the 0,0 jsdom origin)",
+    );
+    assert.ok(
+      Math.abs(picker.left - caret.left) < 80,
+      `picker left (${picker.left}) anchors near the caret left (${caret.left})`,
+    );
+    await h.escape();
+  },
+);
 
 // ── overlay: HTML-preview bounds equal the real preview pane rect ───────────
-// #computeBounds rounds previewPane.getBoundingClientRect(); we record what the
-// viewer passes to the native preview bridge and compare to the real pane rect.
-spec("geometry: HTML preview overlay bounds match the real preview pane", async (h) => {
-  // Record (and neutralise) the native preview bridge BEFORE activating it, so
-  // no real WebContentsView is created and we capture the computed bounds.
-  const installed = await h.cdp.eval(`(()=>{
-    const html = window.hippo && window.hippo.preview && window.hippo.preview.html;
-    if (!html) return false;
-    window.__pv = [];
-    for (const m of ['loadUrl','show','resize','hide','destroy']) {
-      html[m] = (...a) => {
-        window.__pv.push({ m, bounds: a.find(x => x && typeof x === 'object' && 'width' in x) || null });
-        return Promise.resolve();
-      };
-    }
-    return true;
-  })()`);
-  assert.ok(installed, "preview bridge present to instrument");
+// #computeBounds rounds previewPane.getBoundingClientRect() and the viewer sends
+// that to the native preview bridge, which positions a WebContentsView over the
+// pane. The bridge crosses a SEALED contextBridge — `window.hippo` is frozen and
+// non-configurable, so the page cannot intercept or wrap the call to record the
+// argument. Instead we read the bounds where they actually land: the live
+// overlay's own size. capturePage() (exposed as preview.html.capture) returns a
+// PNG whose pixel dimensions are the view's bounds × devicePixelRatio; dividing
+// back yields the CSS-px bounds the viewer computed, which must match the pane.
+spec(
+  "geometry: HTML preview overlay bounds match the real preview pane",
+  async (h) => {
+    const hasBridge = await h.cdp.eval(
+      `!!(window.hippo && window.hippo.preview && window.hippo.preview.html && window.hippo.preview.html.capture)`,
+    );
+    assert.ok(hasBridge, "HTML preview bridge (with capture) is present");
 
-  await h.selectReqByName("HTML page");
-  await h.waitForText(".req-url-input", "/mimes/text/html");
-  const resp = await h.send();
-  assert.equal(resp.status, 200, "HTML page returns 200");
+    await h.selectReqByName("HTML page");
+    await h.waitForText(".req-url-input", "/mimes/text/html");
+    const resp = await h.send();
+    assert.equal(resp.status, 200, "HTML page returns 200");
 
-  // The Preview tab is revealed for HTML responses; switch to it to activate.
-  await h.waitFor(
-    `(()=>{const b=document.querySelector('.res-tab-btn[data-tab="preview"]');return b && !b.hidden})()`,
-    { label: "Preview tab visible for HTML response" },
-  );
-  await h.resTab("preview");
+    // The Preview tab is revealed for HTML responses; switch to it to activate.
+    await h.waitFor(
+      `(()=>{const b=document.querySelector('.res-tab-btn[data-tab="preview"]');return b && !b.hidden})()`,
+      { label: "Preview tab visible for HTML response" },
+    );
+    await h.resTab("preview");
 
-  await h.waitFor(`window.__pv && window.__pv.some(e => e.bounds)`, {
-    label: "preview overlay bounds recorded",
-  });
-
-  const cmp = await h.cdp.eval(`(()=>{
+    // Poll the live overlay until it exists, has painted and reports a real size.
+    // (capture() is async, so we poll it directly via cdp.eval — which awaits the
+    // promise — rather than through waitFor, whose `!!(expr)` wrap would treat the
+    // pending promise as truthy and return before the value resolved.) The main
+    // process only captures when the WebContentsView is created and attached, so a
+    // decoded width > 1 proves the overlay went live over the pane.
+    const readBounds = `(async () => {
+    const dpr = window.devicePixelRatio || 1;
+    const dataUrl = await window.hippo.preview.html.capture();
+    if (typeof dataUrl !== 'string') return { ready: false };
+    // PNG IHDR: width/height are big-endian u32 at byte offsets 16 and 20.
+    const comma = dataUrl.indexOf(',') + 1;
+    const bin = atob(dataUrl.slice(comma, comma + 64));
+    const u32 = (o) => (((bin.charCodeAt(o) << 24) | (bin.charCodeAt(o+1) << 16) | (bin.charCodeAt(o+2) << 8) | bin.charCodeAt(o+3)) >>> 0);
+    const overlay = { width: Math.round(u32(16) / dpr), height: Math.round(u32(20) / dpr) };
     const r = document.querySelector('#res-tab-preview').getBoundingClientRect();
-    const rec = [...window.__pv].reverse().find(e => e.bounds)?.bounds;
-    return {
-      pane: { w: Math.max(1, Math.round(r.width)), h: Math.max(1, Math.round(r.height)) },
-      rec,
-    };
-  })()`);
+    const pane = { w: Math.max(1, Math.round(r.width)), h: Math.max(1, Math.round(r.height)) };
+    return { ready: overlay.width > 1 && overlay.height > 1, overlay, pane };
+  })()`;
 
-  assert.ok(cmp.rec, "a bounds object was passed to the preview bridge");
-  assert.ok(
-    cmp.pane.w > 1 && cmp.pane.h > 1,
-    "real preview pane has a non-zero rect (jsdom stubs it to 0)",
-  );
-  assert.ok(
-    Math.abs(cmp.rec.width - cmp.pane.w) <= 2,
-    `overlay width (${cmp.rec.width}) ≈ pane width (${cmp.pane.w})`,
-  );
-  assert.ok(
-    Math.abs(cmp.rec.height - cmp.pane.h) <= 2,
-    `overlay height (${cmp.rec.height}) ≈ pane height (${cmp.pane.h})`,
-  );
-});
+    let cmp = null;
+    const deadline = Date.now() + 8000;
+    while (Date.now() < deadline) {
+      cmp = await h.cdp.eval(readBounds);
+      if (cmp && cmp.ready) break;
+      await h.sleep(120);
+    }
+    assert.ok(
+      cmp && cmp.ready,
+      "HTML preview overlay went live and reported a size",
+    );
+
+    assert.ok(
+      cmp.pane.w > 1 && cmp.pane.h > 1,
+      "real preview pane has a non-zero rect (jsdom stubs it to 0)",
+    );
+    assert.ok(
+      Math.abs(cmp.overlay.width - cmp.pane.w) <= 2,
+      `overlay width (${cmp.overlay.width}) ≈ pane width (${cmp.pane.w})`,
+    );
+    assert.ok(
+      Math.abs(cmp.overlay.height - cmp.pane.h) <= 2,
+      `overlay height (${cmp.overlay.height}) ≈ pane height (${cmp.pane.h})`,
+    );
+
+    // Leave Preview so the native overlay is hidden and does not float over the
+    // response pane during later specs.
+    await h.resTab("body");
+  },
+);
 
 // ── selection: a drag from the strip below the last line selects text ───────
 // A PillCodeEditor's editing host (`.pce-doc`) is only as tall as its content,
