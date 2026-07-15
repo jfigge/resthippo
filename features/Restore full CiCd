@@ -1,0 +1,1 @@
+Restore full cross-platform CI/CD: uncomment the macOS and Windows entries in the build matrix of .github/workflows/ci.yml, then run gh workflow enable Release. Confirm both CI and Release are active afterward.

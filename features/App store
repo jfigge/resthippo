@@ -1,0 +1,14 @@
+
+Mac App Store + Microsoft Store builds — done
+
+The full config/code layer is in place and graceful-skips until you supply the external accounts/certs (you're starting from scratch, so nothing builds yet — but nothing fails either). make test (full suite, 254-file license guar and the i18ncompleteness + no-hardist-mac/dist-win DMGyte unchanged.
+                     What I built:
+- build.mas / build.mdedicated sections, nrget arrays.
+- Two new MAS entitle(src/packaging/entitl — the App Sandbox set, deliberately without disable-library-validble-memory (App Storerejects them) and without network.server (I verified OAuth uses popup-navigation inteback server).
+- Updater gating in main.js via isStoreBuild() (process.mas ||  process.windowsStore)up check, omits the"Check for Updates…" menu item, and adds a distribution field tocollectAppInfo(). Thes the update controlsand shows a store-managed note (translated into all 7 locales). - make dist-mas / masell recipes that skipinstantly when their cert/identity is absent (verified: all threcleanly with no wasten a real build error.
+- STORE-PUBLISHING.md — the from-scratch checklist, plus updatedrelease.env.example a
+                                                                One clarification worPI Electron" appliesonly to the Mac App Store — electron-builder auto-downloads the sandboxed MAS Electro the normal full-trustElectron via the Desktop Bridge; no reduced-API variant exists there.
+
+⚠️ Three new untracked files — since you commit with git commit -a     (which skips untracke committing or they'llbe dropped:                                                            src/packaging/entitle
+src/packaging/entitlements.mas.inherit.plist                           STORE-PUBLISHING.md
+                                                                       Your next move (exterle — create the AppStore Connect record + Apple Distribution & Mac Installer Distribution certs + a MAS provisisrc/packaging/embedded.provisionprofile; Microsoft — register Partner  Center (~$19), reserventity into build.appx. Both flows are spelled out step-by-step in STORE-PUBLISHING.md. Once a provisioning profile u a local sandboxsmoke-test before you ever submit.

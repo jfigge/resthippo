@@ -57,8 +57,6 @@ keys/
 
 # ── Data and local test files ─────────────────────────────────────────────────
 data/collections.json
-features/
-CLAUDE.md
 
 # ── Docs screenshot originals ─────────────────────────────────────────────────
 # Full-resolution PNGs from the .docs-build pipeline. The copies bundled under
