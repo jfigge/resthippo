@@ -64,29 +64,40 @@ spec("geometry: drag drop-position follows the real row rect", async (h) => {
 });
 
 // ── caret: the {{ pill picker anchors at the real caret rect ────────────────
-// caretCoords() reads Range.getClientRects() — all zero under jsdom, so the
-// picker anchoring can only be verified against real layout.
+// The picker anchors at the caret via caretCoords()/#caretRect(), which reads
+// the LIVE selection's Range.getClientRects() — all zero under jsdom, so the
+// anchoring can only be verified against real layout. Measure the caret the
+// same way the app does: a freshly *built* collapsed Range has no client rects
+// in Chromium (its bounding rect is 0×0); only the live text cursor — the
+// selection left behind by real typing — is laid out and reports a rect.
 spec(
   "geometry: the {{ picker anchors at the real caret position",
   async (h) => {
     await h.selectReq("GET", "List users");
     await h.waitForSel(".req-url-input");
 
-    // Caret at the end of the URL editor; capture its real viewport rect.
-    const caret = await h.cdp.eval(`(()=>{
+    // Put the caret at the end of the URL editor, then type the {{ trigger so
+    // the picker opens anchored at the live cursor.
+    await h.cdp.eval(`(()=>{
     const el = document.querySelector('.req-url-input'); el.focus();
     const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
     const s = getSelection(); s.removeAllRanges(); s.addRange(r);
-    const cr = r.getBoundingClientRect();
+  })()`);
+    await h.insertText("{{");
+    await h.waitForSel(".pill-picker");
+
+    // Capture the live caret rect (the same rect #caretRect() reads to place the
+    // picker) — real geometry, unlike a synthesized collapsed range.
+    const caret = await h.cdp.eval(`(()=>{
+    const r = window.getSelection().getRangeAt(0).cloneRange(); r.collapse(true);
+    const cr = r.getClientRects()[0] || r.getBoundingClientRect();
     return { left: cr.left, top: cr.top, bottom: cr.bottom, height: cr.height };
   })()`);
     assert.ok(
-      caret.height > 0 || caret.bottom > caret.top,
-      "real caret rect has height (jsdom stubs it to 0)",
+      caret.height > 0,
+      "the live caret rect has real height (jsdom stubs it to 0)",
     );
 
-    await h.insertText("{{");
-    await h.waitForSel(".pill-picker");
     const picker = await h.cdp.eval(`(()=>{
     const r = document.querySelector('.pill-picker').getBoundingClientRect();
     return { left: r.left, top: r.top, width: r.width, height: r.height };
@@ -103,6 +114,10 @@ spec(
     assert.ok(
       Math.abs(picker.left - caret.left) < 80,
       `picker left (${picker.left}) anchors near the caret left (${caret.left})`,
+    );
+    assert.ok(
+      Math.abs(picker.top - caret.bottom) < 40,
+      `picker top (${picker.top}) drops from the caret baseline (${caret.bottom})`,
     );
     await h.escape();
   },
@@ -206,8 +221,10 @@ spec(
 
     // Seed one line of script in the pre-request pane (its editor is the first
     // .scripts-pane's .pce-doc), leaving empty space below it in the tall pane.
+    // The editor opens empty, so type straight in — do NOT ⌘A "select-all"
+    // first: over CDP a synthetic ⌘A reaches the native menu and opens the
+    // About dialog, whose overlay then swallows the drag press below.
     await h.focusSel(".scripts-pane .pce-doc");
-    await h.dispatchKey("a", "KeyA", 65, 4 /* Meta = select-all */);
     await h.insertText("const answer = 42;");
     await h.waitForText(".scripts-pane .pce-doc", "answer");
 
