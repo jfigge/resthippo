@@ -3065,6 +3065,19 @@ export class RequestEditor {
       }
     }
 
+    // ── Capture the variables this run actually resolved ──────────────────
+    // The Timeline snapshot stores the request template with {{placeholders}}
+    // intact; the concrete values they resolved to are otherwise lost. Collect
+    // every referenced variable (function pills are skipped by the collector),
+    // keep only the ones that resolved and are NOT secret, and ride them along
+    // so the history record can show name=value for this run.
+    const usedVariables = collectTemplateVariables(
+      this.#gatherRequestTemplates(),
+      ctx,
+    )
+      .filter((v) => v.found && !v.secure)
+      .map((v) => ({ name: v.name, value: v.value }));
+
     window.dispatchEvent(
       new CustomEvent("hippo:send-request", {
         detail: {
@@ -3079,6 +3092,7 @@ export class RequestEditor {
           authDigest,
           authNtlm,
           oauth1,
+          variables: usedVariables,
         },
         bubbles: true,
       }),

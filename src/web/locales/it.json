@@ -811,6 +811,7 @@
       "parameters": "Parametri",
       "headers": "Intestazioni",
       "auth": "Autenticazione",
+      "variables": "Variabili",
       "copyTitle": "Copia {label} negli appunti",
       "none": "nessuno",
       "emptyValue": "(nessuno)"

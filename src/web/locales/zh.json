@@ -807,6 +807,7 @@
       "parameters": "参数",
       "headers": "标头",
       "auth": "认证",
+      "variables": "变量",
       "copyTitle": "将{label}复制到剪贴板",
       "none": "无",
       "emptyValue": "(无)"

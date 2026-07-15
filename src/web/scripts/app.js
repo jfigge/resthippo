@@ -2001,6 +2001,10 @@ async function _recordRunHistory(node, detail, testResults = []) {
   const nowMs = Date.now();
   const reqUrl = detail.request?.url ?? "";
   const reqNode = _buildSnapshot(node);
+  // Resolved (non-secret) variables for this run — see requestSnapshot.variables.
+  reqNode.variables = Array.isArray(detail.request?.variables)
+    ? detail.request.variables
+    : [];
   const testSummary = _testSummary(testResults);
   const resp = {
     request: detail.request ?? {},
@@ -2082,6 +2086,10 @@ async function _recordRunError(node, detail) {
   const nowMs = Date.now();
   const reqUrl = detail.request?.url ?? "";
   const reqNode = _buildSnapshot(node);
+  // Resolved (non-secret) variables for this run — see requestSnapshot.variables.
+  reqNode.variables = Array.isArray(detail.request?.variables)
+    ? detail.request.variables
+    : [];
   const resp = {
     request: detail.request ?? {},
     error: {
@@ -2162,6 +2170,9 @@ function installResponseHandlers() {
           node,
           requestUrl: e.detail.request?.url ?? "",
           method: e.detail.request?.method ?? "",
+          variables: Array.isArray(e.detail.request?.variables)
+            ? e.detail.request.variables
+            : [],
           status: e.detail.status ?? 0,
           statusText: e.detail.statusText ?? "",
           headers: e.detail.headers ?? {},
@@ -2294,6 +2305,10 @@ function installStreamHandlers() {
 
     const histId = crypto.randomUUID();
     const reqNode = _buildSnapshot(node);
+    // Resolved (non-secret) variables for this run — see requestSnapshot.variables.
+    reqNode.variables = Array.isArray(pending.variables)
+      ? pending.variables
+      : [];
     const resp = {
       request: { url: pending.requestUrl, method: pending.method ?? "" },
       status: pending.status ?? 0,
@@ -3525,6 +3540,10 @@ function installRequestEditSendHandlers() {
       url: descriptor.url,
       headers: descriptor.headers ?? {},
       body: typeof descriptor.body === "string" ? descriptor.body : null,
+      // Non-secret variables this run resolved (name=value), captured by the
+      // editor at send time. Carried through to the Timeline history record so a
+      // past run shows the concrete values behind its {{placeholders}}.
+      variables: Array.isArray(descriptor.variables) ? descriptor.variables : [],
     };
 
     // One id per send. It is the stream id (Feature 33) AND the abort handle for

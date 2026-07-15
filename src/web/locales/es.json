@@ -811,6 +811,7 @@
       "parameters": "Parámetros",
       "headers": "Encabezados",
       "auth": "Autenticación",
+      "variables": "Variables",
       "copyTitle": "Copiar {label} al portapapeles",
       "none": "ninguno",
       "emptyValue": "(ninguno)"

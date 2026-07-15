@@ -162,6 +162,38 @@ spec("environments-resolve", async (h) => {
   await h.waitForText("#res-tab-body", "/echo/users/42");
 });
 
+// ── Timeline captures resolved (non-secret) variables ────────────────────────────
+// The "API key" request references {{baseUrl}} (a plain env var) and {{apiKey}}
+// (secure in the seeded Local env). After a run, the Timeline snapshot's Variables
+// section must list the plain variable's resolved value as name=value, and must
+// NOT leak the secret's resolved value — the full capture → thread → render path.
+spec("timeline-variables", async (h) => {
+  await h.selectReq("GET", "API key");
+  await h.waitForText(".req-url-input", "/echo");
+  const r = await h.send();
+  assert.equal(r.status, 200, "API key request returned 200");
+
+  // Entering the Timeline tab rebuilds the detail from the just-recorded run.
+  await h.resTab("timeline");
+  await h.waitForText(".timeline-detail", "baseUrl=http://localhost:8888", {
+    label: "Variables section lists the resolved baseUrl",
+    timeout: 8000,
+  });
+
+  // The secret apiKey's RESOLVED value must appear nowhere in the snapshot detail
+  // (excluded from Variables; auth keeps the {{apiKey}} placeholder, not the value).
+  const detail = await h.text(".timeline-detail");
+  assert.ok(
+    !detail.includes("demo-api-key-xyz789"),
+    `secret value must not be captured (detail: ${detail})`,
+  );
+  // The section exposes a copy-all affordance.
+  assert.ok(
+    (await h.count(".timeline-detail-copy-btn")) >= 1,
+    "timeline detail exposes a copy button",
+  );
+});
+
 // ── Collection variables popup ───────────────────────────────────────────────────
 spec("collection-variables-popup", async (h) => {
   await h.clickSel("#btn-collection");

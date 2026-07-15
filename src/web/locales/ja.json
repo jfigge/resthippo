@@ -807,6 +807,7 @@
       "parameters": "パラメーター",
       "headers": "ヘッダー",
       "auth": "認証",
+      "variables": "変数",
       "copyTitle": "{label}をクリップボードにコピー",
       "none": "なし",
       "emptyValue": "(なし)"

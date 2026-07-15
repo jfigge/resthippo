@@ -245,9 +245,20 @@ test("collectTemplateVariables reports found/unfound across templates, deduped",
   const ctx = { environmentVariables: { host: "h" } };
   const out = collectTemplateVariables(["{{host}}/{{host}}", "{{gone}}"], ctx);
   assert.deepEqual(out, [
-    { name: "host", found: true, value: "h" },
-    { name: "gone", found: false, value: null },
+    { name: "host", found: true, value: "h", secure: false },
+    { name: "gone", found: false, value: null, secure: false },
   ]);
+});
+
+test("collectTemplateVariables surfaces the secure flag of the winning scope", () => {
+  const ctx = {
+    environmentVariables: { token: "s3cret", host: "h" },
+    secureEnvironmentVariables: new Set(["token"]),
+  };
+  const out = collectTemplateVariables(["{{token}} {{host}}"], ctx);
+  const byName = Object.fromEntries(out.map((v) => [v.name, v]));
+  assert.equal(byName.token.secure, true, "secret variable marked secure");
+  assert.equal(byName.host.secure, false, "plain variable not secure");
 });
 
 // ── resolveStringAsync (functions + variables) ───────────────────────────────

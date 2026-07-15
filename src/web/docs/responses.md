@@ -125,8 +125,9 @@ shows whether that run passed.
 
 The **Timeline** tab keeps a short history of the request's recent runs. Each
 entry records the status, timing, a pass/fail count for any assertions that ran,
-and a snapshot of what was sent — method, URL, parameters, headers, and auth — so
-you can compare runs and reopen an earlier response. [Streaming
+and a snapshot of what was sent — method, URL, parameters, headers, auth, and the
+variable values the run resolved — so you can compare runs and reopen an earlier
+response. [Streaming
 runs](#streaming-responses) appear here too, recorded as a summary (duration,
 event/byte counts, and the last events) rather than a body:
 
@@ -141,6 +142,14 @@ event/byte counts, and the last events) rather than a body:
   whole history.
 - **Right-click the Timeline tab** itself to switch to it and get a quick
   **Delete All History** — the same as clearing from an entry's menu.
+
+The snapshot's **Variables** section lists the concrete `name=value` pairs that
+the run's `{{placeholders}}` resolved to at the moment it was sent — useful when
+you need to know what a value actually was on a past run. Select any value to copy
+it, or use the copy icon at the top-right of the section to copy every variable at
+once in the [bulk-editor](variables-and-environments.md#using-variables) format.
+Secret variables are
+never captured, and only the variables the request actually referenced are shown.
 
 How many runs are kept is configurable in
 [Settings → History](settings-and-themes.md#history).

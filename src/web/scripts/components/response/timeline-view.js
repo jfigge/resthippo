@@ -398,6 +398,25 @@ export class TimelineView {
     const authCopy = this.#buildAuthCopyText(snapshot);
     this.#appendDetailSection(container, t("response.timeline.auth"), authCopy);
     this.#appendDetailAuth(container, snapshot);
+
+    // Variables — the non-secret variables this run resolved, as name=value
+    // lines suitable for pasting into the bulk variable editor. Absent on runs
+    // recorded before this was captured, and on runs that used no variables.
+    const vars = Array.isArray(snapshot.variables) ? snapshot.variables : [];
+    const varsBulk = vars
+      .filter((v) => v && v.name)
+      .map((v) => `${v.name}=${v.value ?? ""}`)
+      .join("\n");
+    this.#appendDetailSection(
+      container,
+      t("response.timeline.variables"),
+      varsBulk || null,
+    );
+    if (!varsBulk) {
+      this.#appendDetailNone(container);
+    } else {
+      this.#appendDetailBulkLines(container, varsBulk);
+    }
   }
 
   #buildAuthCopyText(snapshot) {

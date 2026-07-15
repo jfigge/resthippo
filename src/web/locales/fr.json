@@ -811,6 +811,7 @@
       "parameters": "Paramètres",
       "headers": "En-têtes",
       "auth": "Authentification",
+      "variables": "Variables",
       "copyTitle": "Copier {label} dans le presse-papiers",
       "none": "aucun",
       "emptyValue": "(aucun)"

@@ -811,6 +811,7 @@
       "parameters": "Parameter",
       "headers": "Header",
       "auth": "Authentifizierung",
+      "variables": "Variablen",
       "copyTitle": "{label} in die Zwischenablage kopieren",
       "none": "keine",
       "emptyValue": "(keine)"

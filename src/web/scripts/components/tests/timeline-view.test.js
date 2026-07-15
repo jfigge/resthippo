@@ -225,6 +225,52 @@ test("a snapshot with array-typed params/headers renders without throwing", () =
   );
 });
 
+// ── Variables section ──────────────────────────────────────────────────────────
+
+test("the Variables section renders resolved name=value rows with a copy button", () => {
+  const { view, pane } = makeView();
+  view.update(
+    [
+      entry(
+        "h1",
+        {},
+        {
+          // url/params/headers/auth left empty so the Variables section owns the
+          // only copy button and the only detail-kv rows in the panel.
+          requestNode: snapshot({
+            url: "",
+            variables: [
+              { name: "baseUrl", value: "http://x" },
+              { name: "token", value: "abc" },
+            ],
+          }),
+        },
+      ),
+    ],
+    "req-1",
+  );
+  const detail = pane.querySelector(".timeline-detail");
+  const kv = [...detail.querySelectorAll(".timeline-detail-kv")].map(
+    (el) => el.textContent,
+  );
+  assert.ok(kv.includes("baseUrl=http://x"), "first variable rendered");
+  assert.ok(kv.includes("token=abc"), "second variable rendered");
+  assert.equal(
+    detail.querySelectorAll(".timeline-detail-copy-btn").length,
+    1,
+    "Variables section has a copy-all button",
+  );
+});
+
+test("the Variables section shows 'none' when the run captured no variables", () => {
+  const { view, pane } = makeView();
+  view.update([entry("h1", {}, { requestNode: snapshot({ url: "" }) })], "req-1");
+  const detail = pane.querySelector(".timeline-detail");
+  // params, headers, auth, and variables each render the "none" placeholder.
+  assert.equal(detail.querySelectorAll(".timeline-detail-none").length, 4);
+  assert.equal(detail.querySelectorAll(".timeline-detail-copy-btn").length, 0);
+});
+
 // ── clear-history guard ────────────────────────────────────────────────────────
 
 test("clearAll dispatches hippo:timeline-clear for the current request", () => {

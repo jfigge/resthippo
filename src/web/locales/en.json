@@ -811,6 +811,7 @@
       "parameters": "Parameters",
       "headers": "Headers",
       "auth": "Auth",
+      "variables": "Variables",
       "copyTitle": "Copy {label} to clipboard",
       "none": "none",
       "emptyValue": "(none)"

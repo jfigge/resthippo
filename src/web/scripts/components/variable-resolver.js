@@ -421,7 +421,7 @@ export async function resolveStringAsync(template, context) {
  *
  * @param {string[]} templates
  * @param {{ globalVariables?: object, environmentVariables?: object, folderChain?: object[] } | null} context
- * @returns {Array<{ name: string, found: boolean, value: string|null }>}
+ * @returns {Array<{ name: string, found: boolean, value: string|null, secure: boolean }>}
  */
 export function collectTemplateVariables(templates, context) {
   const seen = new Map();
@@ -435,8 +435,13 @@ export function collectTemplateVariables(templates, context) {
       const name = match[1].trim();
       if (!name || seen.has(name)) continue;
       if (isFunctionCall(name)) continue; // function pills resolve at send time, not here
-      const { found, value } = resolveVariable(name, context);
-      seen.set(name, { name, found, value: found ? String(value) : null });
+      const { found, value, secure } = resolveVariable(name, context);
+      seen.set(name, {
+        name,
+        found,
+        value: found ? String(value) : null,
+        secure: !!secure,
+      });
     }
   }
 
