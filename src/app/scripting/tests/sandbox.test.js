@@ -585,6 +585,24 @@ describe("runScriptIsolated (worker_threads isolate)", () => {
     assert.ok(Date.now() - start < 1500, "host timer should not be starved");
   });
 
+  it("contains an over-allocating script via the worker heap limit (fails closed, no host OOM)", async () => {
+    // Unbounded allocation the in-vm wall-clock timeout does not bound by size.
+    // The worker's resourceLimits abort it (or the timeout trips) before it can
+    // exhaust the host — either way we get a fail-closed error, not a crash.
+    const code = "const a = []; for (;;) { a.push(new Array(1e6).fill(7)); }";
+    const r = await runScriptIsolated({ phase: "pre", code, request: {} });
+    assert.notEqual(
+      r.error,
+      null,
+      "an over-allocating script must fail closed",
+    );
+    assert.equal(r.request, null); // no mutation survives a failed run
+    // The host thread is unharmed — a macrotask timer still fires promptly.
+    const start = Date.now();
+    await new Promise((res) => setTimeout(res, 50));
+    assert.ok(Date.now() - start < 1500, "host timer should not be starved");
+  });
+
   it("evaluates the no-code assertion grid through the isolate (post phase)", async () => {
     const r = await runScriptIsolated({
       phase: "post",

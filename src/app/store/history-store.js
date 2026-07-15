@@ -119,19 +119,39 @@ class HistoryStore {
     // stable id tiebreak so paging is deterministic across calls.
     entries.sort(byNewestFirst);
 
-    // Apply cursor: skip everything up to and including the cursor entry.
+    // Apply cursor: resume just AFTER the last item already consumed. The
+    // cursor encodes that item's `timestamp|id`, so the resume point is
+    // resolved by ORDERING (first entry strictly older than the cursor) rather
+    // than by locating that exact entry. If the cursor entry was deleted or
+    // trimmed between page fetches, paging still continues from the right place
+    // instead of silently rewinding to the newest entry (an infinite loop).
     let startIdx = 0;
     if (cursor) {
-      const idx = entries.findIndex((e) => e.id === cursor);
-      startIdx = idx >= 0 ? idx + 1 : 0;
+      const sep = cursor.indexOf("|");
+      if (sep >= 0) {
+        const cursorObj = {
+          timestamp: cursor.slice(0, sep),
+          id: cursor.slice(sep + 1),
+        };
+        // byNewestFirst(cursor, e) < 0 ⟺ e is strictly older than the cursor.
+        const idx = entries.findIndex((e) => byNewestFirst(cursorObj, e) < 0);
+        startIdx = idx >= 0 ? idx : entries.length;
+      } else {
+        // Legacy plain-id cursor (pre-composite): match by id; if the entry is
+        // gone, stop rather than rewind to page 1.
+        const idx = entries.findIndex((e) => e.id === cursor);
+        startIdx = idx >= 0 ? idx + 1 : entries.length;
+      }
     }
 
     const page = entries.slice(startIdx, startIdx + limit);
 
-    // nextCursor = ID of the last item in this page (empty = no more pages).
+    // nextCursor = `timestamp|id` of the last item in this page (empty = no
+    // more pages). Opaque to callers; the format is an internal detail.
     let nextCursor = "";
     if (startIdx + limit < entries.length && page.length > 0) {
-      nextCursor = page[page.length - 1].id;
+      const last = page[page.length - 1];
+      nextCursor = `${last.timestamp ?? ""}|${last.id ?? ""}`;
     }
 
     return { items: page, nextCursor };

@@ -70,6 +70,7 @@ class SseParser {
     this._retry = undefined; // `retry:` reconnection time seen in this event, if any
     this._max = maxItemBytes; // per-event/per-line size cap (string length)
     this._truncated = false; // the in-progress event hit the cap
+    this._bomChecked = false; // whether the one-time leading-BOM strip has run
   }
 
   /**
@@ -78,6 +79,14 @@ class SseParser {
    * @returns {Array<{ event: string, data: string, id: string, retry?: number }>}
    */
   feed(chunk) {
+    // WHATWG SSE: ignore a single leading U+FEFF (BOM) at the very start of the
+    // stream. The UTF-8 decoder emits it as one leading "﻿" char; without
+    // this the first field name becomes "﻿data" and the first event's data
+    // (or type) is silently dropped. Run once, on the first non-empty chunk.
+    if (!this._bomChecked && chunk.length > 0) {
+      this._bomChecked = true;
+      if (chunk.charCodeAt(0) === 0xfeff) chunk = chunk.slice(1);
+    }
     // A CR that ended the previous chunk may be the first half of a CRLF whose
     // LF leads this one — drop that LF so the line break counts once.
     if (this._pendingCR) {

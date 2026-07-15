@@ -200,6 +200,31 @@ function bodyFromData(dataText, contentType) {
 }
 
 /**
+ * Transform a `--data-urlencode` argument into a pre-percent-encoded
+ * `name=value` (or bare value) token, following curl's rules: curl URL-encodes
+ * ONLY the value part, leaving the name literal. Encoding here means the later
+ * `&`-join + URLSearchParams parse round-trips the value instead of mis-splitting
+ * one that itself contains `&`/`=` (e.g. `q=a&b=c` must stay a single `q` param,
+ * not become `q=a` + `b=c`).
+ *   name=value → name=<enc(value)>
+ *   =value     → <enc(value)>        (no name)
+ *   value      → <enc(value)>        (whole arg is the value, no name)
+ * The file forms (`@file`, `name@file`) can't be read by the importer; their
+ * literal text is encoded as-is (best-effort) rather than silently mis-parsed.
+ *
+ * @param {string} token
+ * @returns {string}
+ */
+function encodeDataUrlencode(token) {
+  const t = token ?? "";
+  const eq = t.indexOf("=");
+  if (eq === -1) return encodeURIComponent(t);
+  const name = t.slice(0, eq);
+  const enc = encodeURIComponent(t.slice(eq + 1));
+  return name ? `${name}=${enc}` : enc;
+}
+
+/**
  * Map a `-F`/`--form` part (`name=value`, `name=@file`, `name=<file`). A file
  * field produces a file row; whether to warn that its path needs re-attaching is
  * decided later, by `warnMissingFormFiles` (it depends on the file existing on
@@ -301,8 +326,12 @@ export function parseCurl(text) {
         case "--data-raw":
         case "--data-ascii":
         case "--data-binary":
-        case "--data-urlencode":
           dataParts.push(value() ?? "");
+          break;
+        case "--data-urlencode":
+          // curl percent-encodes the value part; do the same so a value with
+          // `&`/`=` survives the later urlencoded parse as one field.
+          dataParts.push(encodeDataUrlencode(value() ?? ""));
           break;
         case "--form":
           formParts.push(value() ?? "");

@@ -51,6 +51,7 @@ import {
   formBody,
   authFromHeaderValue,
   splitUrlQuery,
+  MAX_IMPORT_FOLDER_DEPTH,
 } from "../shape.js";
 import { exportToPostman } from "../../export/postman.js";
 import { exportToInsomnia } from "../../export/insomnia.js";
@@ -1611,6 +1612,26 @@ test("curl: -G sends -d data as query params, leaving no body", () => {
   ]);
 });
 
+test("curl: --data-urlencode keeps an `&`/`=` value as ONE query param (-G)", () => {
+  const req = parseCurl(
+    "curl -G https://search.test/q --data-urlencode 'q=a&b=c'",
+  ).collection.children[0];
+  assert.equal(req.method, "GET");
+  // The whole `a&b=c` is a single value, not mis-split into `q=a` + `b=c`.
+  assert.deepEqual(req.params, [{ enabled: true, name: "q", value: "a&b=c" }]);
+});
+
+test("curl: --data-urlencode POST body keeps a special-char value in one field", () => {
+  const req = parseCurl(
+    "curl -X POST https://api.test/x --data-urlencode 'filter=a&b'",
+  ).collection.children[0];
+  assert.equal(req.method, "POST");
+  assert.equal(req.bodyType, "form-urlencoded");
+  assert.deepEqual(req.bodyFormRows, [
+    { enabled: true, name: "filter", value: "a&b" },
+  ]);
+});
+
 test("curl: no Content-Type with key=value data → form-urlencoded; -X overrides default", () => {
   const req = parseCurl("curl -X PUT https://api.test/x -d a=1 -d b=2")
     .collection.children[0];
@@ -1890,4 +1911,39 @@ test("parseImport: a non-string Postman schema is unrecognized, not a crash", ()
   assert.throws(() => parseImport(JSON.stringify({ info: { schema: 123 } })), {
     message: /Unrecognized format/,
   });
+});
+
+test("parsePostman: excessively deep folder nesting is truncated, not a stack overflow", () => {
+  // A chain far deeper than the cap — without a depth bound the recursion would
+  // overflow the stack and abort the entire import.
+  let node = {
+    name: "leaf",
+    request: { method: "GET", url: "https://x.test/" },
+  };
+  for (let i = 0; i < MAX_IMPORT_FOLDER_DEPTH + 200; i++) {
+    node = { name: `f${i}`, item: [node] };
+  }
+  let result;
+  assert.doesNotThrow(() => {
+    result = parsePostman({ info: { name: "Deep" }, item: [node] });
+  });
+  assert.ok(
+    result.warnings.some((w) => /truncated/i.test(w)),
+    "a truncation warning is emitted",
+  );
+});
+
+test("parseInsomniaV5: excessively deep folder nesting is truncated, not a stack overflow", () => {
+  let node = { name: "leaf", url: "https://x.test/", method: "GET" };
+  for (let i = 0; i < MAX_IMPORT_FOLDER_DEPTH + 200; i++) {
+    node = { name: `f${i}`, children: [node] };
+  }
+  let result;
+  assert.doesNotThrow(() => {
+    result = parseInsomniaV5({
+      type: "collection.insomnia.rest/5.0",
+      collection: [node],
+    });
+  });
+  assert.ok(result.warnings.some((w) => /truncated/i.test(w)));
 });

@@ -602,6 +602,50 @@ describe("variable helpers — decrypt failure branch (throwing mock)", () => {
   });
 });
 
+describe("profileValues helpers — round-trip + decrypt-failure resilience", () => {
+  const reversibleSafeStorage = {
+    isEncryptionAvailable: () => true,
+    encryptString: (s) => Buffer.from(s, "utf8"),
+    decryptString: (buf) => Buffer.from(buf).toString("utf8"),
+  };
+  const throwingSafeStorage = {
+    isEncryptionAvailable: () => true,
+    encryptString: (s) => Buffer.from(s, "utf8"),
+    decryptString: () => {
+      throw new Error("boom");
+    },
+  };
+
+  afterEach(() => {
+    _setSafeStorage(null);
+  });
+
+  it("encryptProfileValues → decryptProfileValues round-trips secure overrides", () => {
+    _setSafeStorage(reversibleSafeStorage);
+    const secure = new Set(["token"]);
+    const profileValues = { "prof-1": { token: "s3cr3t", base: "https://x" } };
+    const enc = encryptProfileValues(profileValues, secure);
+    assert.ok(isEncrypted(enc["prof-1"].token)); // secure value sealed
+    assert.equal(enc["prof-1"].base, "https://x"); // non-secure untouched
+    const dec = decryptProfileValues(enc, secure);
+    assert.equal(dec["prof-1"].token, "s3cr3t");
+    assert.equal(dec["prof-1"].base, "https://x");
+  });
+
+  it("keeps ciphertext (does not wipe) when a keystore decrypt fails", () => {
+    _setSafeStorage(throwingSafeStorage);
+    const secure = new Set(["token"]);
+    const profileValues = { "prof-1": { token: "enc:v1:abc" } };
+    let dec;
+    // A DecryptError is swallowed so a re-save can't wipe the secret; any
+    // OTHER error would now rethrow (guarding against a masked programming bug).
+    assert.doesNotThrow(() => {
+      dec = decryptProfileValues(profileValues, secure);
+    });
+    assert.equal(dec["prof-1"].token, "enc:v1:abc");
+  });
+});
+
 describe("restoreUndecryptableVariables (clobber guard)", () => {
   it("restores ciphertext for a blank, decryptError-marked entry the caller echoed back", () => {
     // Simulates: read failed to decrypt (value blanked + marked), the renderer

@@ -76,13 +76,15 @@ export function escapeHtmlAttr(value) {
 }
 
 /**
- * Escape a value for safe insertion into HTML text or a double-quoted attribute.
- * The four-character superset (`&`, `<`, `>`, `"`) — the default for injecting
- * caller data into `innerHTML`, where you don't want to track which context the
- * value lands in.
+ * Escape a value for safe insertion into HTML text OR any quoted attribute.
+ * The five-character superset (`&`, `<`, `>`, `"`, `'`) — the default for
+ * injecting caller data into `innerHTML`. Escaping `'` as well makes it
+ * context-agnostic (safe inside single- or double-quoted attributes), so a
+ * value like `' onmouseover=…` cannot break out even if a template happens to
+ * use single quotes.
  * @param {unknown} value
  * @returns {string}
  */
 export function escapeHtml(value) {
-  return escapeHtmlText(value).replace(/"/g, "&quot;");
+  return escapeHtmlText(value).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }

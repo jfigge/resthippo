@@ -38,6 +38,16 @@
 const OAUTH1_SIG_METHODS = new Set(["HMAC-SHA1", "HMAC-SHA256", "PLAINTEXT"]);
 
 /**
+ * Maximum folder-nesting depth honoured by the recursive importers. A crafted
+ * export nested tens of thousands of folders deep would otherwise overflow the
+ * call stack and abort the entire import; past this the over-deep subtree is
+ * dropped with a warning, keeping the "best-effort, never throws on
+ * malformed-but-parseable input" contract. Generous — real collections nest a
+ * handful of levels. (Mirrors export/redact.js's MAX_REDACT_DEPTH.)
+ */
+export const MAX_IMPORT_FOLDER_DEPTH = 100;
+
+/**
  * Coerce a value to an array of plain objects. A malformed-but-parseable import
  * may carry a non-array where a list is expected, or null elements inside it —
  * filtering here keeps every per-format parser to its "never throws on

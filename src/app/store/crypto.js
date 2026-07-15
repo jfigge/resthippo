@@ -758,8 +758,13 @@ function decryptProfileValues(profileValues, secureNames) {
       if (secureNames.has(name) && isEncrypted(value)) {
         try {
           dec[name] = decryptString(value);
-        } catch {
-          dec[name] = value; // keep ciphertext — a re-save won't wipe it
+        } catch (err) {
+          // Keep ciphertext on a genuine decrypt failure (e.g. transient
+          // keystore unavailability) so a re-save won't wipe the secret — but
+          // rethrow any non-DecryptError so a real bug isn't silently masked,
+          // matching decryptVariables/decryptRequest/decryptSettings.
+          if (!(err instanceof DecryptError)) throw err;
+          dec[name] = value;
         }
       } else {
         dec[name] = value;

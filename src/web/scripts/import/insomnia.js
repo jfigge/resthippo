@@ -26,6 +26,7 @@ import {
   fileBody,
   splitUrlQuery,
   objRows,
+  MAX_IMPORT_FOLDER_DEPTH,
 } from "./shape.js";
 
 // Insomnia keeps the query string both on the URL and in `parameters`. Strip the
@@ -215,15 +216,25 @@ export function parseInsomniaV5(data) {
   // V5 discriminates folders from requests by the presence of a `children`
   // array. Non-HTTP items (WebSocket, gRPC, Socket.IO) lack both `children`
   // and `method` and are skipped.
-  function buildNode(item) {
+  function buildNode(item, depth = 0) {
     if (!item || typeof item !== "object") return null;
     if (Array.isArray(item.children)) {
+      // Bound recursion so a deeply-nested export can't overflow the stack and
+      // abort the whole import; drop the over-deep subtree and warn.
+      if (depth >= MAX_IMPORT_FOLDER_DEPTH) {
+        warnings.push(
+          `Folder nesting deeper than ${MAX_IMPORT_FOLDER_DEPTH} levels was truncated on import.`,
+        );
+        return null;
+      }
       return {
         id: crypto.randomUUID(),
         type: "collection",
         name: item.name ?? "Folder",
         variables: [],
-        children: objRows(item.children).map(buildNode).filter(Boolean),
+        children: objRows(item.children)
+          .map((c) => buildNode(c, depth + 1))
+          .filter(Boolean),
       };
     }
 
@@ -256,7 +267,9 @@ export function parseInsomniaV5(data) {
       type: "collection",
       name: data.name ?? "Imported Collection",
       variables: [],
-      children: objRows(data.collection).map(buildNode).filter(Boolean),
+      children: objRows(data.collection)
+        .map((it) => buildNode(it, 0))
+        .filter(Boolean),
     },
     variables,
     warnings,
@@ -323,7 +336,7 @@ export function parseInsomnia(data) {
     );
   }
 
-  function buildNode(resource) {
+  function buildNode(resource, depth = 0) {
     if (resource._type === "request") {
       const { url, params } = parseUrlAndParams(
         resource.url,
@@ -348,6 +361,15 @@ export function parseInsomnia(data) {
     }
 
     if (resource._type === "request_group") {
+      // Bound recursion: the parentId graph is a forest (deep nesting, not a
+      // cycle), so a very deep chain would overflow the stack and abort the
+      // whole import — drop the over-deep subtree and warn instead.
+      if (depth >= MAX_IMPORT_FOLDER_DEPTH) {
+        warnings.push(
+          `Folder nesting deeper than ${MAX_IMPORT_FOLDER_DEPTH} levels was truncated on import.`,
+        );
+        return null;
+      }
       return {
         id: crypto.randomUUID(),
         type: "collection",
@@ -355,7 +377,7 @@ export function parseInsomnia(data) {
         variables: [],
         children: (childrenOf.get(resource._id) ?? [])
           .filter((r) => r._type === "request" || r._type === "request_group")
-          .map(buildNode)
+          .map((r) => buildNode(r, depth + 1))
           .filter(Boolean),
       };
     }
@@ -365,7 +387,7 @@ export function parseInsomnia(data) {
 
   const children = (childrenOf.get(wsId) ?? [])
     .filter((r) => r._type === "request" || r._type === "request_group")
-    .map(buildNode)
+    .map((r) => buildNode(r, 0))
     .filter(Boolean);
 
   return {

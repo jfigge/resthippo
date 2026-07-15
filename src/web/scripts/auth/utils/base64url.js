@@ -53,3 +53,20 @@ export function base64UrlDecode(b64url) {
   if (pad) b64 += "=".repeat(4 - pad);
   return atob(b64);
 }
+
+/**
+ * Decode a base64url string to a UTF-8 JavaScript string. Unlike
+ * {@link base64UrlDecode} (which returns a Latin-1 "one char per byte" binary
+ * string), this reinterprets the bytes as UTF-8 — required for JWT parts, whose
+ * JSON claims may contain multi-byte characters (e.g. a `name` of "José"). The
+ * binary form corrupts such claims and can even make JSON.parse throw.
+ *
+ * @param {string} b64url
+ * @returns {string} UTF-8 decoded string
+ */
+export function base64UrlDecodeToString(b64url) {
+  const binary = base64UrlDecode(b64url);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}

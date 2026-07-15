@@ -140,6 +140,34 @@ function isValidUrl(value) {
 }
 
 /**
+ * Whether an OAuth endpoint URL uses a transport safe to carry credentials or
+ * authorization codes. OAuth 2.0 (RFC 6749 §3.1) mandates TLS; plain http is
+ * accepted ONLY for loopback so local development IdPs (e.g. Keycloak on
+ * http://localhost) keep working. A non-http(s) or unparseable value is
+ * rejected.
+ *
+ * @param {string} value
+ * @returns {boolean}
+ */
+function isSecureOAuthUrl(value) {
+  let u;
+  try {
+    u = new URL(value);
+  } catch {
+    return false;
+  }
+  if (u.protocol === "https:") return true;
+  if (u.protocol !== "http:") return false;
+  const h = u.hostname.toLowerCase();
+  return (
+    h === "localhost" ||
+    h.endsWith(".localhost") ||
+    h === "127.0.0.1" ||
+    h === "[::1]"
+  );
+}
+
+/**
  * Validate that a config object has the minimum required fields for the
  * chosen grant type.  Returns the first validation error message or null.
  *
@@ -159,7 +187,10 @@ export function validateOAuthConfig(config) {
   if (!g) return "Grant type is required.";
 
   if (g !== GrantType.IMPLICIT) {
-    if (!config.accessTokenUrl?.trim()) return "Access Token URL is required.";
+    const accessTokenUrl = config.accessTokenUrl?.trim();
+    if (!accessTokenUrl) return "Access Token URL is required.";
+    if (!isSecureOAuthUrl(accessTokenUrl))
+      return "Access Token URL must use https:// (http is allowed only for localhost).";
   }
 
   switch (g) {
@@ -172,6 +203,8 @@ export function validateOAuthConfig(config) {
       if (!config.authUrl?.trim()) return "Auth URL is required.";
       if (!isValidUrl(config.authUrl.trim()))
         return "Auth URL is not a valid URL.";
+      if (!isSecureOAuthUrl(config.authUrl.trim()))
+        return "Auth URL must use https:// (http is allowed only for localhost).";
       break;
 
     case GrantType.PASSWORD:
@@ -184,6 +217,8 @@ export function validateOAuthConfig(config) {
       if (!config.authUrl?.trim()) return "Auth URL is required.";
       if (!isValidUrl(config.authUrl.trim()))
         return "Auth URL is not a valid URL.";
+      if (!isSecureOAuthUrl(config.authUrl.trim()))
+        return "Auth URL must use https:// (http is allowed only for localhost).";
       if (!config.clientId?.trim()) return "Client ID is required.";
       break;
 
@@ -193,6 +228,8 @@ export function validateOAuthConfig(config) {
         return "Device Authorization URL is required.";
       if (!isValidUrl(config.deviceAuthorizationUrl.trim()))
         return "Device Authorization URL is not a valid URL.";
+      if (!isSecureOAuthUrl(config.deviceAuthorizationUrl.trim()))
+        return "Device Authorization URL must use https:// (http is allowed only for localhost).";
       break;
 
     case GrantType.TOKEN_EXCHANGE:

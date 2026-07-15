@@ -88,7 +88,21 @@ export function varsArrayToMap(input) {
       if (!entry || typeof entry !== "object") continue;
       const name = String(entry.name ?? "").trim();
       if (!name) continue;
-      out[name] = entry.value;
+      // Guard the `__proto__` accessor: a plain `out[name] = …` for a
+      // "__proto__" variable (which can arrive in an imported collection)
+      // invokes the setter and re-parents the map. Define it as an own data
+      // property instead — same result as the object-spread branch below, with
+      // no prototype pollution.
+      if (name === "__proto__") {
+        Object.defineProperty(out, name, {
+          value: entry.value,
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        });
+      } else {
+        out[name] = entry.value;
+      }
     }
     return out;
   }

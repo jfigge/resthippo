@@ -34,7 +34,6 @@
 "use strict";
 
 const fs = require("fs");
-const path = require("path");
 const nodeCrypto = require("crypto");
 const io = require("./io");
 const crypto = require("./crypto");
@@ -42,6 +41,26 @@ const crypto = require("./crypto");
 const CONFIG_VERSION = 1;
 const MODES = ["app-key", "os-keychain", "master-password"];
 const DEFAULT_MODE = "app-key";
+
+/**
+ * Raised when the app-key file exists on disk but does not hold a valid 32-byte
+ * key (truncated, externally edited, partially written). We MUST NOT treat this
+ * as "absent" and mint a fresh key over it — doing so orphans every `enck:`
+ * secret in the workspace irrecoverably. Callers surface this as a recovery
+ * prompt instead.
+ */
+class AppKeyCorruptError extends Error {
+  constructor(keyPath) {
+    super(
+      `App-key file at ${keyPath} exists but is not a valid 32-byte key; ` +
+        `refusing to regenerate it (that would orphan all stored secrets). ` +
+        `Restore the file from a backup or remove it deliberately to reset.`,
+    );
+    this.name = "AppKeyCorruptError";
+    this.code = "APP_KEY_CORRUPT";
+    this.keyPath = keyPath;
+  }
+}
 
 /**
  * Pick the backend for a fresh install with no existing managed ciphertext.
@@ -98,36 +117,49 @@ class SecretStorage {
 
   // ── App key (0600 file) ──────────────────────────────────────────────────
 
-  /** Read the app-key bytes (Buffer), or null when the key file is absent. */
+  /**
+   * Read the app-key bytes (Buffer), or null when the key file is genuinely
+   * absent (ENOENT). If the file EXISTS but is not a valid 32-byte key, throw
+   * {@link AppKeyCorruptError} rather than returning null — collapsing
+   * "absent" and "corrupt" to null is what let ensureAppKey() silently mint a
+   * fresh key over a damaged file and orphan every secret.
+   */
   readAppKey() {
+    const keyPath = this._paths.secretKeyPath();
+    let b64;
     try {
-      const b64 = fs.readFileSync(this._paths.secretKeyPath(), "utf8").trim();
-      const key = Buffer.from(b64, "base64");
-      return key.length === 32 ? key : null;
+      b64 = fs.readFileSync(keyPath, "utf8").trim();
     } catch (err) {
-      if (err.code === "ENOENT") return null;
-      throw err;
+      if (err.code === "ENOENT") return null; // truly absent — safe to mint
+      throw err; // I/O error — surface it, don't guess "absent"
     }
+    const key = Buffer.from(b64, "base64");
+    if (key.length !== 32) throw new AppKeyCorruptError(keyPath);
+    return key;
   }
 
   /**
-   * Return the app key, generating + persisting a fresh one if absent.
+   * Return the app key, generating + persisting a fresh one only if genuinely
+   * absent. If the key file exists but is corrupt, readAppKey() throws
+   * {@link AppKeyCorruptError} and we propagate it — regenerating would orphan
+   * every stored secret.
    *
-   * The key file is written 0600 and explicitly chmod'd — io.atomicWrite can't
-   * guarantee the mode (it opens with the default 0666 & ~umask), so this uses a
-   * dedicated write. On Windows the mode is a no-op; the app-key file has no real
-   * OS protection there (that's what os-keychain/DPAPI is for) — documented in the
-   * Security help text.
+   * The key is written durably via io.atomicWrite (tmp → fsync → rename →
+   * fsync-dir) so a crash/ENOSPC mid-write can't leave a truncated key that the
+   * next launch would see as corrupt; the 0600 mode is applied with an explicit
+   * chmod after the rename (atomicWrite opens the temp with 0666 & ~umask). On
+   * Windows the mode is a no-op; the app-key file has no real OS protection
+   * there (that's what os-keychain/DPAPI is for) — documented in the Security
+   * help text.
    */
   ensureAppKey() {
-    const existing = this.readAppKey();
+    const existing = this.readAppKey(); // throws on present-but-corrupt
     if (existing) return existing;
     const key = nodeCrypto.randomBytes(32);
     const keyPath = this._paths.secretKeyPath();
-    io.ensureDir(path.dirname(keyPath));
-    fs.writeFileSync(keyPath, key.toString("base64"), { mode: 0o600 });
+    io.atomicWrite(keyPath, key.toString("base64"));
     try {
-      fs.chmodSync(keyPath, 0o600); // the open-time mode is masked by umask
+      fs.chmodSync(keyPath, 0o600); // atomicWrite's temp opens 0666 & ~umask
     } catch {
       /* best-effort (e.g. Windows) */
     }
@@ -759,4 +791,10 @@ function mapRequest(req, fn) {
   return out;
 }
 
-module.exports = { SecretStorage, MODES, DEFAULT_MODE, defaultModeFor };
+module.exports = {
+  SecretStorage,
+  MODES,
+  DEFAULT_MODE,
+  defaultModeFor,
+  AppKeyCorruptError,
+};

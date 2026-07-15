@@ -92,6 +92,17 @@ const STAGE_TIMEOUT_MS = 2000;
 const HARD_TIMEOUT_MS = SCRIPT_TIMEOUT_MS + 1500;
 /** Resolved path to the worker entry that runs runScript() off the main thread. */
 const WORKER_PATH = path.join(__dirname, "sandbox-worker.js");
+/**
+ * Heap caps for the isolate. The in-vm wall-clock timeout only bounds time, not
+ * memory — a script like `const a=[]; for(;;) a.push(new Array(1e7))` allocates
+ * gigabytes within the 1 s window. These limits make V8 abort the worker (an
+ * `error` event) instead of letting it OOM the whole process. Generous for a
+ * request pre/post script (real scripts are KB-scale) yet firmly bounded.
+ */
+const WORKER_RESOURCE_LIMITS = Object.freeze({
+  maxOldGenerationSizeMb: 64,
+  maxYoungGenerationSizeMb: 16,
+});
 
 // The `collection` scope was removed — its variables now live in Global. A
 // legacy script that names "collection" is normalized to "global" in get/set
@@ -750,21 +761,35 @@ function runScriptIsolated(
     }, hardTimeoutMs);
 
     try {
-      worker = new Worker(WORKER_PATH);
+      worker = new Worker(WORKER_PATH, {
+        resourceLimits: WORKER_RESOURCE_LIMITS,
+      });
     } catch {
-      // Couldn't spawn an isolate — degrade to an in-process run (still bounds
-      // synchronous loops via the in-vm timeout; only the async-DoS edge case is
-      // unprotected) rather than failing the feature outright.
-      finish(runScript(opts));
+      // The isolate is the security boundary — a detached async loop or an
+      // over-allocating script must be contained by the throwaway worker, not
+      // run on the main thread. If a worker can't even be spawned, FAIL CLOSED
+      // rather than executing the (possibly imported/untrusted) script
+      // in-process where its async loop would wedge the main process.
+      finish(
+        failClosedResult(opts.phase, {
+          name: "InternalError",
+          message: "script isolate unavailable (worker could not be spawned)",
+        }),
+      );
       return;
     }
     worker.once("message", (msg) => finish(msg && msg.result));
     worker.once("error", () => {
-      // The worker itself crashed (e.g. failed to load) — user-script errors are
-      // caught inside the worker and posted as normal results, so reaching here
-      // means the isolate is unavailable. Degrade to an in-process run rather
-      // than failing the script (still bounds synchronous loops).
-      finish(runScript(opts));
+      // The worker crashed (failed to load, or was aborted by the heap limit
+      // above) — user-script errors are caught inside the worker and posted as
+      // normal results, so reaching here means the isolate failed. FAIL CLOSED
+      // rather than re-running the untrusted script unprotected in-process.
+      finish(
+        failClosedResult(opts.phase, {
+          name: "InternalError",
+          message: "script isolate failed",
+        }),
+      );
     });
     worker.once("exit", (code) => {
       // Only meaningful if the worker died before posting a result; a normal

@@ -619,6 +619,56 @@ describe("HistoryStore", () => {
     assert.equal(page3.nextCursor, "");
   });
 
+  test("listHistory resumes past a deleted cursor entry instead of rewinding", () => {
+    // Newest-first order will be hist-del-10 … hist-del-1.
+    for (let i = 1; i <= 10; i++) {
+      histStore.addHistory(REQ, {
+        id: `hist-del-${i}`,
+        timestamp: new Date(Date.UTC(2026, 0, i)).toISOString(),
+        status: 200,
+        durationMs: i,
+      });
+    }
+    const page1 = histStore.listHistory(REQ, { limit: 4 }); // 10,9,8,7
+    const boundaryId = page1.items[page1.items.length - 1].id; // hist-del-7
+    // Delete the exact entry the cursor points at, between page fetches.
+    histStore.deleteHistory(REQ, boundaryId);
+
+    const page2 = histStore.listHistory(REQ, {
+      limit: 4,
+      cursor: page1.nextCursor,
+    });
+    // Must NOT rewind to the newest entries (the old id-only cursor did).
+    const ids1 = new Set(page1.items.map((e) => e.id));
+    for (const item of page2.items) {
+      assert.ok(
+        !ids1.has(item.id),
+        `${item.id} must not repeat after cursor-entry deletion`,
+      );
+    }
+    // Resumes at the next-older entry: the boundary (7) is gone, so 6 leads.
+    assert.equal(page2.items[0].id, "hist-del-6");
+  });
+
+  test("legacy plain-id cursor whose entry is gone stops instead of rewinding", () => {
+    for (let i = 1; i <= 6; i++) {
+      histStore.addHistory(REQ, {
+        id: `hist-leg-${i}`,
+        timestamp: new Date(Date.UTC(2026, 1, i)).toISOString(),
+        status: 200,
+        durationMs: i,
+      });
+    }
+    // A pre-composite cursor is a bare id (no "|" separator). If its entry is
+    // gone we stop rather than silently restart from the newest entry.
+    const page = histStore.listHistory(REQ, {
+      limit: 3,
+      cursor: "hist-leg-does-not-exist",
+    });
+    assert.deepEqual(page.items, []);
+    assert.equal(page.nextCursor, "");
+  });
+
   test("addHistory + getHistoryResponse round-trips response", () => {
     const response = {
       headers: { "content-type": "application/json" },

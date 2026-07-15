@@ -1491,4 +1491,244 @@ await test("rejects an unsigned token (alg:none, missing alg, or no signature)",
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PKCE known-answer vector (RFC 7636 Appendix B)
+// ─────────────────────────────────────────────────────────────────────────────
+
+group("PKCE S256 known-answer (RFC 7636 Appendix B)");
+
+await test("generateCodeChallenge matches the published S256 vector", async () => {
+  // A broken base64url/SHA-256 wiring would still emit a valid-looking string
+  // and pass a format-only check while breaking real IdP interop.
+  const challenge = await generateCodeChallenge(
+    "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+  );
+  assert.equal(challenge, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// base64url UTF-8 decoding (JWT claims may contain multi-byte characters)
+// ─────────────────────────────────────────────────────────────────────────────
+
+group("base64url UTF-8 decoding");
+
+import { base64UrlDecodeToString } from "../utils/base64url.js";
+
+await test("base64UrlDecodeToString round-trips multi-byte UTF-8", async () => {
+  const s = "José: 日本語 — café";
+  const enc = base64UrlEncode(new TextEncoder().encode(s));
+  assert.equal(base64UrlDecodeToString(enc), s);
+});
+
+await test("decodeIdTokenPayload reads a non-ASCII claim without mojibake", async () => {
+  const tok = `${_b64url({ alg: "RS256" })}.${_b64url({ sub: "u1", name: "José", nonce: "abc" })}.sig`;
+  const payload = decodeIdTokenPayload(tok);
+  assert.equal(payload.name, "José"); // Latin-1 decode gave "JosÃ©" before the fix
+  assert.equal(payload.nonce, "abc");
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Token cache key — vendor extra params must discriminate
+// ─────────────────────────────────────────────────────────────────────────────
+
+group("Token cache key (extra params)");
+
+await test("keyFor folds extraParams / extraTokenParams so vendor params don't collide", async () => {
+  const base = {
+    grantType: "client_credentials",
+    clientId: "cid",
+    accessTokenUrl: "https://idp.example.com/token",
+  };
+  // Two configs differing ONLY in a vendor param must not share a cached token.
+  assert.notEqual(
+    tokenStore.keyFor({ ...base, extraParams: { organization: "org-a" } }),
+    tokenStore.keyFor({ ...base, extraParams: { organization: "org-b" } }),
+  );
+  // Order-independent: same entries in any order → same key.
+  assert.equal(
+    tokenStore.keyFor({ ...base, extraParams: { a: "1", b: "2" } }),
+    tokenStore.keyFor({ ...base, extraParams: { b: "2", a: "1" } }),
+  );
+  // extraTokenParams discriminate too.
+  assert.notEqual(
+    tokenStore.keyFor({ ...base, extraTokenParams: { resource: "r1" } }),
+    tokenStore.keyFor({ ...base, extraTokenParams: { resource: "r2" } }),
+  );
+  // No extra params → stable, equal key.
+  assert.equal(tokenStore.keyFor(base), tokenStore.keyFor({ ...base }));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// validateOAuthConfig — transport (HTTPS) enforcement
+// ─────────────────────────────────────────────────────────────────────────────
+
+group("validateOAuthConfig — HTTPS enforcement");
+
+await test("rejects plain-http endpoints but allows https and loopback", async () => {
+  const cc = (accessTokenUrl) => ({
+    grantType: "client_credentials",
+    clientId: "cid",
+    accessTokenUrl,
+  });
+  assert.match(
+    validateOAuthConfig(cc("http://idp.example.com/token")) || "",
+    /https/,
+  );
+  assert.equal(validateOAuthConfig(cc("https://idp.example.com/token")), null);
+  assert.equal(validateOAuthConfig(cc("http://localhost:8090/token")), null);
+  assert.equal(validateOAuthConfig(cc("http://127.0.0.1:8090/token")), null);
+
+  // authorization_code authUrl over http is rejected.
+  assert.match(
+    validateOAuthConfig({
+      grantType: "authorization_code",
+      clientId: "cid",
+      accessTokenUrl: "https://idp.example.com/token",
+      authUrl: "http://idp.example.com/authorize",
+    }) || "",
+    /Auth URL must use https/,
+  );
+
+  // device_code deviceAuthorizationUrl over http is rejected.
+  assert.match(
+    validateOAuthConfig({
+      grantType: "device_code",
+      clientId: "cid",
+      accessTokenUrl: "https://idp.example.com/token",
+      deviceAuthorizationUrl: "http://idp.example.com/device",
+    }) || "",
+    /Device Authorization URL must use https/,
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Authorization Code flow — CSRF (state mismatch) rejection
+// ─────────────────────────────────────────────────────────────────────────────
+
+group("Authorization Code flow — CSRF state mismatch");
+
+await test("rejects a callback whose state does not match, without exchanging the code", async () => {
+  let tokenRequested = false;
+  window.hippo.oauth = {
+    openPopup: async (authUrl, redirectUri) =>
+      // Echo a DIFFERENT state than the one the flow issued.
+      ({ url: `${redirectUri}?code=AUTHCODE&state=WRONG-STATE` }),
+  };
+  _mockResponse = () => {
+    tokenRequested = true;
+    return { status: 200, statusText: "OK", body: "{}" };
+  };
+
+  const result = await authorizationCodeFlow({
+    grantType: "authorization_code",
+    clientType: "public",
+    clientId: "cid",
+    authUrl: "https://idp.example.com/authorize",
+    accessTokenUrl: "https://idp.example.com/token",
+    redirectUri: "https://app.example.com/callback",
+  });
+  assert.equal(result.success, false, "state mismatch must fail the flow");
+  assert.equal(
+    tokenRequested,
+    false,
+    "must NOT exchange the code after a state mismatch",
+  );
+  window.hippo.oauth = undefined;
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Implicit flow — driven end-to-end with a mocked popup
+// ─────────────────────────────────────────────────────────────────────────────
+
+group("Implicit flow (mocked popup)");
+
+import { implicitFlow } from "../flows/implicit.js";
+
+const _implicitConfig = (extra) => ({
+  grantType: "implicit",
+  clientId: "cid",
+  authUrl: "https://idp.example.com/authorize",
+  redirectUri: "https://app.example.com/callback",
+  ...extra,
+});
+
+await test("implicit: happy path returns the access token and verifies the id_token nonce", async () => {
+  window.hippo.oauth = {
+    openPopup: async (authUrl, redirectUri) => {
+      const u = new URL(authUrl);
+      const state = u.searchParams.get("state");
+      const nonce = u.searchParams.get("nonce"); // echo the flow's own nonce
+      const idToken = `${_b64url({ alg: "RS256" })}.${_b64url({ sub: "u1", nonce })}.sig`;
+      return {
+        url: `${redirectUri}#access_token=AT&token_type=Bearer&expires_in=3600&id_token=${idToken}&state=${state}`,
+      };
+    },
+  };
+  const result = await implicitFlow(_implicitConfig({ responseType: "both" }));
+  assert.equal(result.success, true);
+  assert.equal(result.accessToken, "AT");
+  window.hippo.oauth = undefined;
+});
+
+await test("implicit: rejects a mismatched id_token nonce (replay guard)", async () => {
+  window.hippo.oauth = {
+    openPopup: async (authUrl, redirectUri) => {
+      const state = new URL(authUrl).searchParams.get("state");
+      const idToken = `${_b64url({ alg: "RS256" })}.${_b64url({ sub: "u1", nonce: "WRONG-NONCE" })}.sig`;
+      return {
+        url: `${redirectUri}#access_token=AT&id_token=${idToken}&state=${state}`,
+      };
+    },
+  };
+  const result = await implicitFlow(_implicitConfig({ responseType: "both" }));
+  assert.equal(result.success, false, "nonce mismatch must fail");
+  window.hippo.oauth = undefined;
+});
+
+await test("implicit: rejects when an id_token was requested but not returned", async () => {
+  window.hippo.oauth = {
+    openPopup: async (authUrl, redirectUri) => {
+      const state = new URL(authUrl).searchParams.get("state");
+      return {
+        url: `${redirectUri}#access_token=AT&token_type=Bearer&state=${state}`,
+      };
+    },
+  };
+  const result = await implicitFlow(_implicitConfig({ responseType: "both" }));
+  assert.equal(
+    result.success,
+    false,
+    "missing id_token must fail when requested",
+  );
+  window.hippo.oauth = undefined;
+});
+
+await test("implicit: rejects a callback with a mismatched CSRF state", async () => {
+  window.hippo.oauth = {
+    openPopup: async (authUrl, redirectUri) => ({
+      url: `${redirectUri}#access_token=AT&token_type=Bearer&state=WRONG`,
+    }),
+  };
+  const result = await implicitFlow(_implicitConfig({ responseType: "token" }));
+  assert.equal(result.success, false, "state mismatch must fail");
+  window.hippo.oauth = undefined;
+});
+
+await test("implicit: a plain token response (no id_token requested) succeeds", async () => {
+  window.hippo.oauth = {
+    openPopup: async (authUrl, redirectUri) => {
+      const state = new URL(authUrl).searchParams.get("state");
+      return {
+        url: `${redirectUri}#access_token=AT&token_type=Bearer&expires_in=3600&state=${state}`,
+      };
+    },
+  };
+  const result = await implicitFlow(_implicitConfig({ responseType: "token" }));
+  assert.equal(result.success, true);
+  assert.equal(result.accessToken, "AT");
+  window.hippo.oauth = undefined;
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 console.log("\n✓ All tests passed\n");

@@ -126,13 +126,17 @@ function hostBypassesProxy(host, port, bypass) {
     if (entry === "*") return true;
 
     // Optional ":port" suffix — when present it must match the request port.
-    // (Skip IPv6 literals, which contain their own colons.)
+    // Only split a trailing ":digits" as a port when the remaining host has no
+    // further colon: that leaves ALL IPv6 literals intact (compressed `::1`
+    // AND fully-expanded `2001:db8:0:0:0:0:0:1`, which the old `::`-only guard
+    // wrongly truncated to a bogus host at its last colon).
     let entryPort = "";
-    if (!entry.includes("::")) {
-      const colon = entry.lastIndexOf(":");
-      if (colon > 0 && /^\d+$/.test(entry.slice(colon + 1))) {
+    const colon = entry.lastIndexOf(":");
+    if (colon > 0 && /^\d+$/.test(entry.slice(colon + 1))) {
+      const head = entry.slice(0, colon);
+      if (!head.includes(":")) {
         entryPort = entry.slice(colon + 1);
-        entry = entry.slice(0, colon);
+        entry = head;
       }
     }
     if (entryPort && entryPort !== p) continue;

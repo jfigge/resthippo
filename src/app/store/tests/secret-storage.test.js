@@ -33,7 +33,11 @@ const path = require("path");
 const nodeCrypto = require("node:crypto");
 
 const { Paths } = require("../paths");
-const { SecretStorage, defaultModeFor } = require("../secret-storage");
+const {
+  SecretStorage,
+  defaultModeFor,
+  AppKeyCorruptError,
+} = require("../secret-storage");
 const { Stores } = require("../stores");
 const crypto = require("../crypto");
 
@@ -235,6 +239,56 @@ describe("app-key file", () => {
       ss.deleteAppKey();
       assert.ok(!fs.existsSync(paths.secretKeyPath()));
       assert.doesNotThrow(() => ss.deleteAppKey()); // idempotent
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("readAppKey() throws AppKeyCorruptError on a present-but-invalid key file", () => {
+    const dir = makeTmpDir();
+    try {
+      const paths = new Paths(dir);
+      const ss = new SecretStorage(paths);
+      const keyPath = paths.secretKeyPath();
+      fs.mkdirSync(path.dirname(keyPath), { recursive: true });
+      // A truncated / externally-mangled key: valid base64 but not 32 bytes.
+      fs.writeFileSync(keyPath, Buffer.from("too-short").toString("base64"));
+      assert.throws(() => ss.readAppKey(), AppKeyCorruptError);
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("ensureAppKey() refuses to regenerate over a corrupt key (no silent data loss)", () => {
+    const dir = makeTmpDir();
+    try {
+      const paths = new Paths(dir);
+      const ss = new SecretStorage(paths);
+      const keyPath = paths.secretKeyPath();
+      fs.mkdirSync(path.dirname(keyPath), { recursive: true });
+      const corruptBytes = Buffer.from("corrupt-15-bytes").toString("base64");
+      fs.writeFileSync(keyPath, corruptBytes);
+
+      // Must throw rather than mint a fresh key — regenerating would orphan
+      // every enck: secret in the workspace.
+      assert.throws(() => ss.ensureAppKey(), AppKeyCorruptError);
+      // The original (corrupt) bytes are preserved on disk for recovery.
+      assert.equal(fs.readFileSync(keyPath, "utf8"), corruptBytes);
+    } finally {
+      rmTmpDir(dir);
+    }
+  });
+
+  it("ensureAppKey() mints a durable, valid key only when genuinely absent", () => {
+    const dir = makeTmpDir();
+    try {
+      const paths = new Paths(dir);
+      const ss = new SecretStorage(paths);
+      assert.ok(!fs.existsSync(paths.secretKeyPath()));
+      const key = ss.ensureAppKey();
+      assert.equal(key.length, 32);
+      // A second read sees the same durably-written key (no temp-file leftover).
+      assert.ok(ss.readAppKey().equals(key));
     } finally {
       rmTmpDir(dir);
     }

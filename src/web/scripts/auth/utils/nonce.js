@@ -33,7 +33,7 @@
 "use strict";
 
 import { createTtlRegistry } from "./ttl-registry.js";
-import { base64UrlDecode } from "./base64url.js";
+import { base64UrlDecodeToString } from "./base64url.js";
 
 const _nonces = createTtlRegistry();
 
@@ -82,10 +82,10 @@ export function decodeIdTokenPayload(idToken) {
   // A signed JWT has three segments and a non-empty signature.
   if (parts.length !== 3 || !parts[2]) return null;
   try {
-    const header = JSON.parse(base64UrlDecode(parts[0]));
+    const header = JSON.parse(base64UrlDecodeToString(parts[0]));
     const alg = typeof header.alg === "string" ? header.alg.toLowerCase() : "";
     if (!alg || alg === "none") return null; // unsigned — never trust it
-    return JSON.parse(base64UrlDecode(parts[1]));
+    return JSON.parse(base64UrlDecodeToString(parts[1]));
   } catch {
     return null;
   }

@@ -53,6 +53,25 @@ function fingerprint(value) {
   return (h >>> 0).toString(16);
 }
 
+/**
+ * Order-independent fingerprint of an extra-params object (config.extraParams /
+ * config.extraTokenParams). These carry vendor params — `organization`,
+ * `tenant`, `audience`-like discriminators — that change the minted token, so
+ * two configs differing only here must NOT share a cached entry. Non-objects
+ * fingerprint to "".
+ *
+ * @param {unknown} obj
+ * @returns {string}
+ */
+function fingerprintParams(obj) {
+  if (!obj || typeof obj !== "object") return "";
+  const entries = Object.entries(obj)
+    .filter(([k]) => k)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([k, v]) => `${k}=${v == null ? "" : String(v)}`);
+  return fingerprint(entries.join("&"));
+}
+
 // ── TokenEntry ───────────────────────────────────────────────────────────────
 
 class TokenEntry {
@@ -159,6 +178,11 @@ class TokenStore {
       fingerprint(config.actorToken ?? ""),
       config.actorTokenType ?? "",
       config.requestedTokenType ?? "",
+      // Vendor extra params sent on the authorization/token request can change
+      // the minted token (e.g. `organization`/`tenant`); fold them in so a
+      // config differing only here never collides on another's cached token.
+      fingerprintParams(config.extraParams),
+      fingerprintParams(config.extraTokenParams),
     ];
     return parts.join("|");
   }

@@ -25,6 +25,7 @@ import {
   formBody,
   splitUrlQuery,
   objRows,
+  MAX_IMPORT_FOLDER_DEPTH,
 } from "./shape.js";
 
 /** Assemble Postman's string- or object-form URL into a single URL string. */
@@ -249,16 +250,27 @@ function parseVariables(list) {
   return out;
 }
 
-function parseItem(item, warnings) {
+function parseItem(item, warnings, depth = 0) {
   if (!item || typeof item !== "object") return null;
   if (Array.isArray(item.item)) {
+    // Bound recursion so a crafted export nested tens of thousands of folders
+    // deep can't overflow the stack and abort the WHOLE import — drop the
+    // over-deep subtree and warn, staying best-effort (matches redact.js).
+    if (depth >= MAX_IMPORT_FOLDER_DEPTH) {
+      warnings?.push(
+        `Folder nesting deeper than ${MAX_IMPORT_FOLDER_DEPTH} levels was truncated on import.`,
+      );
+      return null;
+    }
     return {
       id: crypto.randomUUID(),
       type: "collection",
       name: item.name ?? "Folder",
       // Folder-scoped variables survive the round-trip (export writes them too).
       variables: parseVariables(item.variable),
-      children: item.item.map((it) => parseItem(it, warnings)).filter(Boolean),
+      children: item.item
+        .map((it) => parseItem(it, warnings, depth + 1))
+        .filter(Boolean),
     };
   }
 

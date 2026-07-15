@@ -166,4 +166,20 @@ describe("hostBypassesProxy", () => {
   it("ignores a trailing root dot on the host", () => {
     assert.equal(hostBypassesProxy("example.com.", 443, "example.com"), true);
   });
+
+  it("matches IPv6 literals without truncating them at a colon", () => {
+    // Compressed form (has `::`).
+    assert.equal(hostBypassesProxy("fe80::1", 80, "fe80::1"), true);
+    // Fully-expanded form (NO `::`) — the old port-split guard truncated this
+    // to "2001:db8:0:0:0:0:0" and never matched.
+    assert.equal(
+      hostBypassesProxy("2001:db8:0:0:0:0:0:1", 80, "2001:db8:0:0:0:0:0:1"),
+      true,
+    );
+    // A different expanded IPv6 must NOT match.
+    assert.equal(
+      hostBypassesProxy("2001:db8:0:0:0:0:0:2", 80, "2001:db8:0:0:0:0:0:1"),
+      false,
+    );
+  });
 });
