@@ -64,7 +64,7 @@ function run(cmd, args) {
 // its output "<input-basename>.png" in the target directory, so we move it to
 // the requested path.
 function renderMaster(size, outPath) {
-  const dir = mkdtempSync(path.join(tmpdir(), "wurl-ql-"));
+  const dir = mkdtempSync(path.join(tmpdir(), "resthippo-ql-"));
   try {
     run("qlmanage", ["-t", "-s", String(size), "-o", dir, SVG]);
     const produced = path.join(dir, `${path.basename(SVG)}.png`);
@@ -111,7 +111,7 @@ function buildIco(entries) {
 }
 
 console.log(`Rendering master ${MASTER}×${MASTER} from ${path.relative(repoRoot, SVG)}…`);
-const work = mkdtempSync(path.join(tmpdir(), "wurl-icons-"));
+const work = mkdtempSync(path.join(tmpdir(), "resthippo-icons-"));
 try {
   const master = path.join(work, `master-${MASTER}.png`);
   renderMaster(MASTER, master);

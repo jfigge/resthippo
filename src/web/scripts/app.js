@@ -3543,7 +3543,9 @@ function installRequestEditSendHandlers() {
       // Non-secret variables this run resolved (name=value), captured by the
       // editor at send time. Carried through to the Timeline history record so a
       // past run shows the concrete values behind its {{placeholders}}.
-      variables: Array.isArray(descriptor.variables) ? descriptor.variables : [],
+      variables: Array.isArray(descriptor.variables)
+        ? descriptor.variables
+        : [],
     };
 
     // One id per send. It is the stream id (Feature 33) AND the abort handle for

@@ -264,7 +264,10 @@ test("the Variables section renders resolved name=value rows with a copy button"
 
 test("the Variables section shows 'none' when the run captured no variables", () => {
   const { view, pane } = makeView();
-  view.update([entry("h1", {}, { requestNode: snapshot({ url: "" }) })], "req-1");
+  view.update(
+    [entry("h1", {}, { requestNode: snapshot({ url: "" }) })],
+    "req-1",
+  );
   const detail = pane.querySelector(".timeline-detail");
   // params, headers, auth, and variables each render the "none" placeholder.
   assert.equal(detail.querySelectorAll(".timeline-detail-none").length, 4);
