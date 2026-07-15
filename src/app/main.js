@@ -1264,18 +1264,34 @@ ipcMain.handle("import:file:open", async () => {
   return { filename: path.basename(result.filePaths[0]), content };
 });
 
+// Upper bound on a renderer-driven import read. This handler reads a path the
+// renderer supplies straight into memory, so cap it: a huge (or hostile) path
+// can't then spike main-process memory. Real interchange files
+// (Postman/Insomnia/OpenAPI/HAR) are a few MB at most — 64 MiB is generous.
+const MAX_IMPORT_FILE_BYTES = 64 * 1024 * 1024;
+
 // Read a file the user TYPED as a path into the import modal's smart field (the
 // renderer sandbox can't read a path itself). Returns { filename, content } for a
 // readable regular file, or null for anything else — a non-string/empty path, a
-// path that isn't a readable file, or a Mac App Store build (which can't reach
-// arbitrary paths; the modal's Browse… button is the sandbox-safe fallback, just
-// as import:files:check returns [] under isMas). Never throws to the renderer.
+// path that isn't a readable file, an over-large file, or a Mac App Store build
+// (which can't reach arbitrary paths; the modal's Browse… button is the
+// sandbox-safe fallback, just as import:files:check returns [] under isMas).
+// Never throws to the renderer.
 ipcMain.handle("import:file:read", async (_event, filePath) => {
   if (isMas()) return null;
   if (typeof filePath !== "string" || !filePath.trim()) return null;
   try {
     const st = await fs.promises.stat(filePath);
     if (!st.isFile()) return null;
+    // Reject an over-large file BEFORE reading it into memory (defense-in-depth
+    // against a compromised/buggy renderer pointing at a giant path).
+    if (st.size > MAX_IMPORT_FILE_BYTES) {
+      logger.warn(
+        "import:file:read",
+        `refusing ${st.size}-byte file (cap ${MAX_IMPORT_FILE_BYTES})`,
+      );
+      return null;
+    }
     const content = await fs.promises.readFile(filePath, "utf-8");
     return { filename: path.basename(filePath), content };
   } catch {

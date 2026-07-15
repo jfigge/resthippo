@@ -28,6 +28,29 @@
 "use strict";
 
 const { loadCatalog } = require("../i18n");
+const { validateID } = require("../store/io");
+
+/**
+ * Defense-in-depth: reject a renderer-supplied path-segment id at the IPC trust
+ * boundary before it reaches the store. Collection / request / history ids
+ * become filename components downstream, so a traversal attempt (`../`, an
+ * absolute path, a NUL byte) must never reach the filesystem. The store layer
+ * validates too; checking here means the guarantee holds even if a store method
+ * is later refactored to skip its own check. `validateID` throws
+ * `{ code: "INVALID_ID" }`, which safeCall/safeCallWrite convert to the quiet
+ * fallback / structured `{ __hippoError }` envelope respectively — so a bad id
+ * is rejected without the renderer seeing an unhandled rejection.
+ *
+ * Only true path-segment ids are validated here. The cookie identifier, numeric
+ * limits, and JSON payloads (patch / entry / cookie / data) are NOT path
+ * components and are validated (or ignored) by the store as data.
+ *
+ * @param {unknown} id
+ * @param {string} label
+ */
+function requireId(id, label) {
+  validateID(id, label);
+}
 
 /**
  * @param {object} deps
@@ -86,6 +109,7 @@ function registerStoreIPC({
   // quiet safeCall path (a failed cleanup is not user-actionable data loss).
   ipcMain.handle("store:collections:delete", (_event, id) =>
     safeCall("store:collections:delete", () => {
+      requireId(id, "collectionId");
       getStores().collectionStore().deleteCollection(id);
     }),
   );
@@ -96,13 +120,17 @@ function registerStoreIPC({
   ipcMain.handle("store:collections:get", (_event, id) =>
     safeCall(
       "store:collections:get",
-      () => getStores().collectionsStore().getCollections(id),
+      () => {
+        requireId(id, "collectionId");
+        return getStores().collectionsStore().getCollections(id);
+      },
       { version: 1, collections: [] },
     ),
   );
 
   ipcMain.handle("store:collections:save", (_event, id, data) =>
     safeCallWrite("store:collections:save", () => {
+      requireId(id, "collectionId");
       getStores().collectionsStore().saveCollections(id, data);
     }),
   );
@@ -111,6 +139,7 @@ function registerStoreIPC({
   // profile overrides without touching request files (a folder-variable change).
   ipcMain.handle("store:collections:save-tree", (_event, id, data) =>
     safeCallWrite("store:collections:save-tree", () => {
+      requireId(id, "collectionId");
       getStores().collectionsStore().saveTreeStructure(id, data);
     }),
   );
@@ -120,7 +149,10 @@ function registerStoreIPC({
   ipcMain.handle("store:tree:get", (_event, collectionId) =>
     safeCall(
       "store:tree:get",
-      () => getStores().treeStore().getTree(collectionId),
+      () => {
+        requireId(collectionId, "collectionId");
+        return getStores().treeStore().getTree(collectionId);
+      },
       { children: [] },
     ),
   );
@@ -128,6 +160,7 @@ function registerStoreIPC({
   // Authoritative write (nav tree is source of truth for folder structure).
   ipcMain.handle("store:tree:save", (_event, collectionId, tree) =>
     safeCallWrite("store:tree:save", () => {
+      requireId(collectionId, "collectionId");
       getStores().treeStore().saveTree(collectionId, tree);
     }),
   );
@@ -135,9 +168,10 @@ function registerStoreIPC({
   // ── Granular request CRUD ───────────────────────────────────────────────────
 
   ipcMain.handle("store:requests:get", (_event, id) =>
-    safeCall("store:requests:get", () =>
-      getStores().requestStore().getRequest(id),
-    ),
+    safeCall("store:requests:get", () => {
+      requireId(id, "requestId");
+      return getStores().requestStore().getRequest(id);
+    }),
   );
 
   // Authoritative granular write: store:requests:update patches a single request
@@ -145,9 +179,10 @@ function registerStoreIPC({
   // requests have no dedicated channel — they land via the per-collection blob
   // written by store:collections:save.
   ipcMain.handle("store:requests:update", (_event, id, patch) =>
-    safeCallWrite("store:requests:update", () =>
-      getStores().requestStore().updateRequest(id, patch),
-    ),
+    safeCallWrite("store:requests:update", () => {
+      requireId(id, "requestId");
+      return getStores().requestStore().updateRequest(id, patch);
+    }),
   );
 
   // Best-effort reclamation of a request's backing file AFTER the tree (source of
@@ -155,6 +190,7 @@ function registerStoreIPC({
   // failure (incl. ENOENT for an already-removed file) is not data loss.
   ipcMain.handle("store:requests:delete", (_event, id) =>
     safeCall("store:requests:delete", () => {
+      requireId(id, "requestId");
       getStores().requestStore().deleteRequest(id);
     }),
   );
@@ -168,36 +204,46 @@ function registerStoreIPC({
   ipcMain.handle("store:history:list", (_event, requestId, options) =>
     safeCall(
       "store:history:list",
-      () =>
-        getStores()
+      () => {
+        requireId(requestId, "requestId");
+        return getStores()
           .historyStore()
-          .listHistory(requestId, options ?? {}),
+          .listHistory(requestId, options ?? {});
+      },
       { items: [], nextCursor: "" },
     ),
   );
 
   ipcMain.handle("store:history:add", (_event, requestId, entry, response) =>
-    safeCall("store:history:add", () =>
-      getStores().historyStore().addHistory(requestId, entry, response),
-    ),
+    safeCall("store:history:add", () => {
+      requireId(requestId, "requestId");
+      return getStores().historyStore().addHistory(requestId, entry, response);
+    }),
   );
 
   ipcMain.handle("store:history:response:get", (_event, requestId, historyId) =>
-    safeCall("store:history:response:get", () =>
-      getStores().historyStore().getHistoryResponse(requestId, historyId),
-    ),
+    safeCall("store:history:response:get", () => {
+      requireId(requestId, "requestId");
+      requireId(historyId, "historyId");
+      return getStores()
+        .historyStore()
+        .getHistoryResponse(requestId, historyId);
+    }),
   );
 
   ipcMain.handle("store:history:delete", (_event, requestId, historyId) =>
-    safeCall("store:history:delete", () =>
-      getStores().historyStore().deleteHistory(requestId, historyId),
-    ),
+    safeCall("store:history:delete", () => {
+      requireId(requestId, "requestId");
+      requireId(historyId, "historyId");
+      return getStores().historyStore().deleteHistory(requestId, historyId);
+    }),
   );
 
   ipcMain.handle("store:history:clear", (_event, requestId) =>
-    safeCall("store:history:clear", () =>
-      getStores().historyStore().clearHistory(requestId),
-    ),
+    safeCall("store:history:clear", () => {
+      requireId(requestId, "requestId");
+      return getStores().historyStore().clearHistory(requestId);
+    }),
   );
 
   ipcMain.handle("store:history:trim", (_event, maxEntries) =>
@@ -211,7 +257,10 @@ function registerStoreIPC({
   ipcMain.handle("store:environments:get", (_event, collectionId) =>
     safeCall(
       "store:environments:get",
-      () => getStores().environmentStore().getEnvironments(collectionId),
+      () => {
+        requireId(collectionId, "collectionId");
+        return getStores().environmentStore().getEnvironments(collectionId);
+      },
       {
         version: 1,
         globalVariables: [],
@@ -224,6 +273,7 @@ function registerStoreIPC({
   // Authoritative write (user-authored global + named environment variables).
   ipcMain.handle("store:environments:save", (_event, collectionId, data) =>
     safeCallWrite("store:environments:save", () => {
+      requireId(collectionId, "collectionId");
       getStores().environmentStore().saveEnvironments(collectionId, data);
     }),
   );
@@ -235,7 +285,10 @@ function registerStoreIPC({
   ipcMain.handle("store:cookies:list", (_event, collectionId) =>
     safeCall(
       "store:cookies:list",
-      () => getStores().cookieStore().listCookies(collectionId),
+      () => {
+        requireId(collectionId, "collectionId");
+        return getStores().cookieStore().listCookies(collectionId);
+      },
       [],
     ),
   );
@@ -243,18 +296,21 @@ function registerStoreIPC({
   // Authoritative writes (user edits to the persistent cookie jar via the manager).
   ipcMain.handle("store:cookies:upsert", (_event, collectionId, cookie) =>
     safeCallWrite("store:cookies:upsert", () => {
+      requireId(collectionId, "collectionId");
       getStores().cookieStore().upsertCookie(collectionId, cookie);
     }),
   );
 
   ipcMain.handle("store:cookies:delete", (_event, collectionId, ident) =>
     safeCallWrite("store:cookies:delete", () => {
+      requireId(collectionId, "collectionId");
       getStores().cookieStore().deleteCookie(collectionId, ident);
     }),
   );
 
   ipcMain.handle("store:cookies:clear", (_event, collectionId) =>
     safeCallWrite("store:cookies:clear", () => {
+      requireId(collectionId, "collectionId");
       getStores().cookieStore().clearJar(collectionId);
     }),
   );

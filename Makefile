@@ -268,7 +268,7 @@ test-content-type:
 
 test-ipc:
 	@echo "Running IPC channel handler/preload parity tests..."
-	@node --test $(APP_DIR)/tests/ipc-parity.test.js
+	@node --test $(APP_DIR)/tests/ipc-parity.test.js $(APP_DIR)/tests/ipc-store.test.js
 	@echo "--------------------------------"
 
 test-store-build:
