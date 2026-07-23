@@ -196,6 +196,18 @@
   "overrides": {
     "@electron/asar": "^4.1.2",
     "@electron/get": "^5.0.0",
+    "minimatch@^3.0.0": {
+      "brace-expansion": "^1.1.16"
+    },
+    "minimatch@^5.0.0": {
+      "brace-expansion": "^2.1.2"
+    },
+    "minimatch@^9.0.0": {
+      "brace-expansion": "^2.1.2"
+    },
+    "minimatch@^10.0.0": {
+      "brace-expansion": "^5.0.7"
+    },
     "node-gyp": {
       "undici": "^6.27.0"
     }
