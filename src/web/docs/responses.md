@@ -3,9 +3,14 @@
 [← Back to contents](README.md)
 
 When a request returns, the right panel fills in. The **status bar** at the top
-shows the status code and text, the elapsed time, and the response size — plus a
-**captured** badge if any [captures](variables-and-environments.md#captures) ran,
-and a green/red **test** badge if any [assertions](#tests) ran.
+shows the status code and text, the date and time of the run, and directly
+beneath it the elapsed time and the response size — plus a **captured** badge if any
+[captures](variables-and-environments.md#captures) ran, and a green/red **test**
+badge if any [assertions](#tests) ran.
+
+The date and time always describe the run you are looking at: replay a past run
+from the [Timeline](#timeline) and the status bar shows when *that* run happened,
+not when you replayed it.
 
 ![A JSON response](images/overview.png)
 

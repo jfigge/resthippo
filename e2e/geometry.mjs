@@ -290,3 +290,78 @@ spec(
     );
   },
 );
+
+// ── status bar: the run's date/time fits over the elapsed/size pair ──────────
+// The meta column is two stacked lines (the run's date and time, then elapsed +
+// size). jsdom has no layout, so only real CSS can prove the second line stays
+// INSIDE the bar's 40px design height and stays trailing-aligned with the other
+// — the constraint the feature was specified with.
+spec(
+  "geometry: the run date/time fits inside the status bar's height",
+  async (h) => {
+    await h.selectReq("GET", "List users");
+    await h.waitForText(".req-url-input", "/echo");
+    const r = await h.send();
+    assert.equal(r.status, 200, "mock /echo returns 200");
+    await h.waitForSel(".res-run-at");
+
+    const g = await h.cdp.eval(`(()=>{
+      const bar = document.querySelector('.res-status-bar');
+      const meta = bar.querySelector('.res-meta');
+      const metrics = meta.querySelector('.res-meta-metrics');
+      const runAt = meta.querySelector('.res-run-at');
+      const rect = (el) => { const b = el.getBoundingClientRect();
+        return { top: b.top, bottom: b.bottom, left: b.left, right: b.right, height: b.height, width: b.width }; };
+      const cs = getComputedStyle(bar);
+      return {
+        bar: rect(bar),
+        meta: rect(meta),
+        metrics: rect(metrics),
+        runAt: rect(runAt),
+        runAtText: runAt.textContent,
+        padTop: parseFloat(cs.paddingTop),
+        padBottom: parseFloat(cs.paddingBottom),
+        minHeight: parseFloat(cs.minHeight),
+      };
+    })()`);
+
+    assert.ok(g.runAtText.trim().length > 0, "the run is dated");
+
+    // 1. The bar keeps its design height — the second line did not grow it.
+    //    (min-height is the design floor; exceeding it means content pushed the
+    //    bar taller, which is exactly what the two-line meta must not do.)
+    assert.ok(
+      g.bar.height <= g.minHeight,
+      `status bar stays at its ${g.minHeight}px design height (got ${g.bar.height}px; meta column ${g.meta.height}px)`,
+    );
+
+    // 2. Both lines sit inside the bar itself, with padding to spare — the
+    //    column borrows a couple of px of the bar's vertical padding (negative
+    //    block margins, see .res-meta) so the rows can be spaced apart, and must
+    //    not eat all of it or reach the bar's overflow:hidden clip edge.
+    assert.ok(
+      g.meta.top >= g.bar.top + 2 && g.meta.bottom <= g.bar.bottom - 2,
+      `the meta column stays well inside the bar (meta ${g.meta.top}–${g.meta.bottom}, bar ${g.bar.top}–${g.bar.bottom}, padding ${g.padTop}/${g.padBottom})`,
+    );
+
+    // 3. The date/time really is ABOVE the elapsed/size line, not beside it,
+    //    and the two rows are visibly separated rather than touching.
+    const rowGap = g.metrics.top - g.runAt.bottom;
+    assert.ok(
+      rowGap >= 2,
+      `the two meta rows are separated (gap ${rowGap}px, want >= 2)`,
+    );
+
+    // 4. Alignment: both lines share the same trailing edge.
+    assert.ok(
+      Math.abs(g.runAt.right - g.metrics.right) <= 1,
+      `both meta lines are trailing-aligned (metrics right ${g.metrics.right}, run-at right ${g.runAt.right})`,
+    );
+
+    // 5. The stacked column must not widen the bar's content past its own box.
+    assert.ok(
+      g.meta.right <= g.bar.right + 0.5,
+      "the meta column stays within the status bar horizontally",
+    );
+  },
+);

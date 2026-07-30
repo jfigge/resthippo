@@ -34,7 +34,8 @@ function setup({ selectedId = "r1" } = {}) {
   resetDom();
   const calls = { view: [], deleteHistory: [], clearHistory: [], dispatch: [] };
   const ctx = {
-    viewTimelineResponse: (url, response) => calls.view.push({ url, response }),
+    viewTimelineResponse: (url, response, timestamp) =>
+      calls.view.push({ url, response, timestamp }),
     requestHistory: new Map(),
     historyLoaded: new Set(),
     deleteHistory: (rid, hid) => calls.deleteHistory.push([rid, hid]),
@@ -51,8 +52,19 @@ function setup({ selectedId = "r1" } = {}) {
 test("timeline-select forwards the url + response to the viewer (non-destructive)", () => {
   const { calls, fire } = setup();
   const response = { status: 200 };
-  fire("hippo:timeline-select", { requestUrl: "http://x/", response });
-  assert.deepEqual(calls.view, [{ url: "http://x/", response }]);
+  const timestamp = Date.UTC(2026, 0, 2, 3, 4, 5);
+  fire("hippo:timeline-select", {
+    requestUrl: "http://x/",
+    response,
+    timestamp,
+  });
+  assert.deepEqual(calls.view, [{ url: "http://x/", response, timestamp }]);
+});
+
+test("timeline-select without a timestamp forwards null (viewer dates it itself)", () => {
+  const { calls, fire } = setup();
+  fire("hippo:timeline-select", { requestUrl: "http://x/", response: {} });
+  assert.equal(calls.view[0].timestamp, null);
 });
 
 test("timeline-delete-entry removes the in-memory entry, deletes on disk, and re-renders", () => {

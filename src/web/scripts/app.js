@@ -1335,7 +1335,7 @@ function _buildHint(errName, msg) {
 // response/error event is not re-persisted). Shared by the timeline-select
 // (view-only) handler in event-bus/timeline-handlers.js and the in-file
 // timeline-restore handler (view + replay into the editor).
-function _viewTimelineResponse(requestUrl, response) {
+function _viewTimelineResponse(requestUrl, response, timestamp = null) {
   _skipNextHistory = true;
   if (response?.error) {
     window.dispatchEvent(
@@ -1347,13 +1347,16 @@ function _viewTimelineResponse(requestUrl, response) {
           hint: response.error.hint ?? "",
           elapsed: response.elapsed ?? 0,
           consoleLog: response.consoleLog ?? [],
+          // The history entry owns the run's timestamp; pass it so the status
+          // bar dates the replay with when it ran, not with now.
+          timestamp,
         },
       }),
     );
   } else {
     window.dispatchEvent(
       new CustomEvent("hippo:response-received", {
-        detail: { ...response, request: { url: requestUrl } },
+        detail: { ...response, request: { url: requestUrl }, timestamp },
       }),
     );
   }
@@ -2421,7 +2424,12 @@ function installTreeQuickAccessHandlers() {
   // Restoring (the right-click action) replays the snapshot back into the editor
   // — the one destructive timeline action — then shows its response.
   window.addEventListener("hippo:timeline-restore", (e) => {
-    const { requestNode, requestUrl = "", response } = e.detail;
+    const {
+      requestNode,
+      requestUrl = "",
+      response,
+      timestamp = null,
+    } = e.detail;
     const restoredNode = requestEditor.loadSnapshot(requestNode);
     if (restoredNode?.id) {
       const { id, ...nodeFields } = restoredNode;
@@ -2429,7 +2437,7 @@ function installTreeQuickAccessHandlers() {
       _selectedNode = { ..._selectedNode, id, ...nodeFields };
       _scheduleRequestSave(id, nodeFields);
     }
-    _viewTimelineResponse(requestUrl, response);
+    _viewTimelineResponse(requestUrl, response, timestamp);
   });
 }
 

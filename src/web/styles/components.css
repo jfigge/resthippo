@@ -2994,12 +2994,44 @@ html.show-method-icons .req-method-menu-item-label::before {
   flex: 1;
 }
 
+/* Run metrics, stacked: the run's date/time on the first line, elapsed + size
+   beneath it, both trailing-aligned so the columns read down the right edge.
+
+   Height budget: the bar's 40px min-height less its 8px+8px padding and 1px
+   bottom border (border-box) leaves 23px of content box, and the two rows must
+   not push past it or the bar grows. 23px is too tight for both comfortable
+   line boxes AND a visible gap between the rows, so the column borrows a few px
+   back from the bar's generous vertical padding: the negative block margin
+   shrinks its OUTER height in the flex row (12.65 + 3 + 11.5 - 6 ≈ 21px, inside
+   the 23px budget) while the text renders ~2px into the padding on each side.
+   Nothing clips — the bar clips at its padding edge, ~6px further out — and no
+   sibling in the bar moves, since they are centered against an unchanged 40px.
+   Keep the geometry e2e spec ("the run date/time fits inside the status bar's
+   height") green when touching these numbers. */
 .res-meta {
   display: flex;
-  gap: var(--space-4);
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  margin-block: -3px;
   color: var(--color-overlay-0);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.res-meta-metrics {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.res-run-at {
+  font-size: calc(var(--font-size-xs) - 1px);
+  opacity: 1;
+  font-weight: bold;
+  color: var(--color-subtext);
 }
 
 /* Post-response capture marker (Feature 03) — count only, never values. */
@@ -5703,6 +5735,12 @@ html.show-method-icons .req-method-menu-item-label::before {
   margin-left: auto;
   white-space: nowrap;
   user-select: none;
+  /* Same yield-first rule as .vars-hint — truncate rather than overflow the
+     popup when it is dragged narrow. */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .coll-bulk-label {
@@ -5785,6 +5823,15 @@ html.show-method-icons .req-method-menu-item-label::before {
   margin-left: auto;
   white-space: nowrap;
   user-select: none;
+  /* Lowest-priority item in the toolbar: when the panel is too narrow the hint
+     gives up space (truncating to an ellipsis, then to nothing) rather than
+     shoving the profile controls off the right edge. min-width:0 is what
+     defeats the flex min-content floor — without it a nowrap span refuses to
+     shrink below its full text width. */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Folder-variable profile switcher (far right of .vars-toolbar) ─────────── */
