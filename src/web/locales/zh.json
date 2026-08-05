@@ -751,7 +751,8 @@
       "capturedTitle": "从此响应捕获的变量",
       "testsTitle": "测试结果",
       "elapsedTitle": "耗时",
-      "sizeTitle": "响应大小"
+      "sizeTitle": "响应大小",
+      "runAtTitle": "本次运行的日期和时间"
     },
     "tests": {
       "summary": "{passed} 通过 · {failed} 失败",

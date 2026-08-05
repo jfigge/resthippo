@@ -25,7 +25,7 @@
  * context (`ctx`, built by buildBusContext() in app.js).
  *
  * @param {object} ctx
- * @param {(requestUrl: string, response: object) => void} ctx.viewTimelineResponse
+ * @param {(requestUrl: string, response: object, timestamp?: number|null) => void} ctx.viewTimelineResponse
  * @param {Map} ctx.requestHistory                per-request in-memory history
  * @param {Set} ctx.historyLoaded                 request ids whose history is loaded
  * @param {Function} ctx.deleteHistory            delete one on-disk history entry
@@ -38,8 +38,8 @@ export function installTimelineHandlers(ctx) {
   // the live request editor untouched (the snapshot is shown in the timeline
   // detail panel instead).
   window.addEventListener("hippo:timeline-select", (e) => {
-    const { requestUrl = "", response } = e.detail;
-    ctx.viewTimelineResponse(requestUrl, response);
+    const { requestUrl = "", response, timestamp = null } = e.detail;
+    ctx.viewTimelineResponse(requestUrl, response, timestamp);
   });
 
   // Remove a single timeline entry (the ✕ on a timeline row). Updates the

@@ -751,7 +751,8 @@
       "capturedTitle": "このレスポンスから取得した変数",
       "testsTitle": "テスト結果",
       "elapsedTitle": "経過時間",
-      "sizeTitle": "レスポンスサイズ"
+      "sizeTitle": "レスポンスサイズ",
+      "runAtTitle": "この実行の日時"
     },
     "tests": {
       "summary": "{passed} 件成功 · {failed} 件失敗",

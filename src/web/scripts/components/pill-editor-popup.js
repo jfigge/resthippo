@@ -57,6 +57,10 @@ const TYPE_LABELS = {
  *   getItems   — () => Array<{id, name}> for request-picker params
  *   getPreview — async (args: string[]) => string  for live preview
  *   onCommit   — (newRawToken: string) => void
+ *
+ * Dismissal: Cancel / the header ✕ / an outside (mask) click / Escape all close
+ * without committing. Escape is handled once at document level for the popup's
+ * lifetime (see #bindEvents), so it works wherever focus sits inside the dialog.
  */
 export class PillEditorPopup {
   #el;
@@ -78,6 +82,7 @@ export class PillEditorPopup {
   #previewSecure = false; // whether the resolved variable is stored as a secret
   #secretRevealed = false; // whether the secret is currently shown in clear text
   #secretRevealTimer = null; // auto-remask timer handle
+  #onKeyDown = null; // document-level Escape handler, live while the popup is open
   static #REVEAL_MS = 30000; // secrets auto-remask 30s after reveal
 
   constructor({
@@ -331,11 +336,6 @@ export class PillEditorPopup {
           this.#tryCommit();
           return;
         }
-        if (e.key === "Escape") {
-          e.preventDefault();
-          PopupManager.close();
-          return;
-        }
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
           e.preventDefault();
           const idx = this.#varNames.indexOf(this.#selectedVarName);
@@ -357,9 +357,6 @@ export class PillEditorPopup {
           if (e.key === "Enter") {
             e.preventDefault();
             this.#tryCommit();
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            PopupManager.close();
           }
         });
       }
@@ -398,10 +395,25 @@ export class PillEditorPopup {
       });
     }
 
-    // Clear any pending auto-remask timer once the popup is dismissed (via any
-    // path — Done, Cancel, Escape, or mask click).
+    // Escape cancels the editor from ANYWHERE inside it — the footer buttons,
+    // the Live Preview, or a function editor with no parameters (nothing there
+    // is focusable, so a per-field handler would never fire). Capture-phase on
+    // document so it wins over any focused control; torn down in onClosed below
+    // so it never outlives the popup.
+    this.#onKeyDown = (e) => {
+      if (e.key !== "Escape" || !this.#el.isConnected) return;
+      e.preventDefault();
+      e.stopPropagation();
+      PopupManager.close();
+    };
+    document.addEventListener("keydown", this.#onKeyDown, true);
+
+    // Clear any pending auto-remask timer, and drop the Escape listener, once
+    // the popup is dismissed (via any path — Done, Cancel, Escape, mask click,
+    // or a window resize).
     const onClosed = () => {
       this.#clearRevealTimer();
+      document.removeEventListener("keydown", this.#onKeyDown, true);
       window.removeEventListener("hippo:popup-closed", onClosed);
     };
     window.addEventListener("hippo:popup-closed", onClosed);

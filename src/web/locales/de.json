@@ -755,7 +755,8 @@
       "capturedTitle": "Aus dieser Antwort erfasste Variablen",
       "testsTitle": "Testergebnisse",
       "elapsedTitle": "Verstrichene Zeit",
-      "sizeTitle": "Antwortgröße"
+      "sizeTitle": "Antwortgröße",
+      "runAtTitle": "Datum und Uhrzeit dieses Laufs"
     },
     "tests": {
       "summary": "{passed} bestanden · {failed} fehlgeschlagen",

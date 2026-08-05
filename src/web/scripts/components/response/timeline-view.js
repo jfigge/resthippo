@@ -250,6 +250,10 @@ export class TimelineView {
         detail: {
           requestUrl: entry.requestUrl ?? "",
           response: entry.response,
+          // When this run happened — the status bar dates the replayed response
+          // with it instead of "now" (the entry owns the timestamp, not the
+          // response payload).
+          timestamp: entry.timestamp ?? null,
         },
       }),
     );
@@ -290,6 +294,7 @@ export class TimelineView {
           requestNode: entry.requestNode,
           requestUrl: entry.requestUrl ?? "",
           response: entry.response,
+          timestamp: entry.timestamp ?? null,
         },
       }),
     );

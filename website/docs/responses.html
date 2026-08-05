@@ -21,7 +21,7 @@
   <meta name="twitter:image" content="https://resthippo.com/og-image.png" />
   <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#1c1c1c;--mantle:#161616;--crust:#101010;--surface-0:#2a2a2a;--surface-1:#383838;--overlay-0:#686868;--text:#e8e8e8;--subtext:#b0b0b0;--accent:#d0d0d0;--green:#80c080}
+:root{--bg:#1c1c1c;--mantle:#161616;--crust:#101010;--surface-0:#2a2a2a;--surface-1:#383838;--overlay-0:#686868;--text:#e8e8e8;--subtext:#b0b0b0;--brand:#6C5CE7;--accent:#a49af0;--green:#80c080}
 html{scroll-behavior:smooth}
 body{font-family:"Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.65}
 a{color:var(--accent);text-decoration:none}
@@ -84,9 +84,13 @@ kbd{font-family:inherit;font-size:.8em;background:var(--surface-0);border:1px so
 <h1>Reading Responses</h1>
 <p><a href="index.html">← Back to contents</a></p>
 <p>When a request returns, the right panel fills in. The <strong>status bar</strong> at the top
-shows the status code and text, the elapsed time, and the response size — plus a
-<strong>captured</strong> badge if any <a href="variables-and-environments.html#captures">captures</a> ran,
-and a green/red <strong>test</strong> badge if any <a href="#tests">assertions</a> ran.</p>
+shows the status code and text, the date and time of the run, and directly
+beneath it the elapsed time and the response size — plus a <strong>captured</strong> badge if any
+<a href="variables-and-environments.html#captures">captures</a> ran, and a green/red <strong>test</strong>
+badge if any <a href="#tests">assertions</a> ran.</p>
+<p>The date and time always describe the run you are looking at: replay a past run
+from the <a href="#timeline">Timeline</a> and the status bar shows when <em>that</em> run happened,
+not when you replayed it.</p>
 <p><img src="images/overview.png" alt="A JSON response"></p>
 <p>Below the status bar, a row of tabs organizes the response: <strong>Body</strong>,
 <strong>Preview</strong>, <strong>Headers</strong>, <strong>Cookies</strong>, <strong>Console</strong>, <strong>Tests</strong>, and <strong>Timeline</strong>.
@@ -190,8 +194,9 @@ shows whether that run passed.</p>
 <h2 id="timeline">Timeline</h2>
 <p>The <strong>Timeline</strong> tab keeps a short history of the request&#39;s recent runs. Each
 entry records the status, timing, a pass/fail count for any assertions that ran,
-and a snapshot of what was sent — method, URL, parameters, headers, and auth — so
-you can compare runs and reopen an earlier response. <a href="#streaming-responses">Streaming
+and a snapshot of what was sent — method, URL, parameters, headers, auth, and the
+variable values the run resolved — so you can compare runs and reopen an earlier
+response. <a href="#streaming-responses">Streaming
 runs</a> appear here too, recorded as a summary (duration,
 event/byte counts, and the last events) rather than a body:</p>
 <p><img src="images/response-timeline.png" alt="The response timeline"></p>
@@ -206,6 +211,13 @@ whole history.</li>
 <li><strong>Right-click the Timeline tab</strong> itself to switch to it and get a quick
 <strong>Delete All History</strong> — the same as clearing from an entry&#39;s menu.</li>
 </ul>
+<p>The snapshot&#39;s <strong>Variables</strong> section lists the concrete <code>name=value</code> pairs that
+the run&#39;s <code>{{placeholders}}</code> resolved to at the moment it was sent — useful when
+you need to know what a value actually was on a past run. Select any value to copy
+it, or use the copy icon at the top-right of the section to copy every variable at
+once in the <a href="variables-and-environments.html#using-variables">bulk-editor</a> format.
+Secret variables are
+never captured, and only the variables the request actually referenced are shown.</p>
 <p>How many runs are kept is configurable in
 <a href="settings-and-themes.html#history">Settings → History</a>.</p>
 <h2 id="searching-the-body">Searching the body</h2>

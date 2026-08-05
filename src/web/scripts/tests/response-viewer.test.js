@@ -36,6 +36,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { ResponseViewer } from "../components/response-viewer.js";
+import { formatRunAt } from "../components/response/run-timestamp.js";
 
 /** Fresh DOM + viewer + a dev-mode window.hippo for each case. */
 function mountViewer() {
@@ -177,6 +178,92 @@ test("renders response cookies into the cookies pane", async () => {
   assert.ok(cookies.includes("sid"), "cookie name rendered");
   assert.ok(cookies.includes("abc123"), "cookie value rendered");
   assert.ok(cookies.includes("HttpOnly"), "cookie attribute rendered");
+});
+
+// ── Status-bar run metadata (elapsed / size / when it ran) ──────────────────
+
+test("the status bar stacks the run's date+time over the elapsed and size readouts", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(window, baseResponse({ elapsed: 42, size: 2048 }));
+
+  const meta = viewer.element.querySelector(".res-meta");
+  const metrics = meta.querySelector(".res-meta-metrics");
+  const runAt = meta.querySelector(".res-run-at");
+
+  // Elapsed + size stay together on one line…
+  assert.ok(
+    metrics.contains(meta.querySelector(".res-time")),
+    "time in metrics",
+  );
+  assert.ok(
+    metrics.contains(meta.querySelector(".res-size")),
+    "size in metrics",
+  );
+  assert.equal(meta.querySelector(".res-time").textContent, "42 ms");
+  assert.equal(meta.querySelector(".res-size").textContent, "2.0 KB");
+  // …and the run's date+time sits above them, inside the same meta column.
+  assert.ok(runAt, "run-at line rendered");
+  assert.equal(runAt.parentElement, meta, "run-at is a sibling of the metrics");
+  assert.equal(
+    metrics.compareDocumentPosition(runAt) &
+      window.Node.DOCUMENT_POSITION_PRECEDING,
+    window.Node.DOCUMENT_POSITION_PRECEDING,
+    "run-at comes before the metrics line (renders above it)",
+  );
+  assert.ok(runAt.textContent.length > 0, "a live response is dated");
+});
+
+test("a replayed run keeps its own date+time, not the time of the replay", async () => {
+  const { window, viewer } = mountViewer();
+  const ranAt = Date.UTC(2026, 0, 2, 3, 4, 5);
+  await showResponse(window, baseResponse({ timestamp: ranAt }));
+
+  assert.equal(
+    viewer.element.querySelector(".res-run-at").textContent,
+    formatRunAt(ranAt),
+    "history replay shows when the run actually happened",
+  );
+  assert.notEqual(
+    viewer.element.querySelector(".res-run-at").textContent,
+    formatRunAt(Date.now()),
+    "and not 'now'",
+  );
+});
+
+test("a failed run is dated too", async () => {
+  const { window, viewer } = mountViewer();
+  const ranAt = Date.UTC(2026, 0, 2, 3, 4, 5);
+  window.dispatchEvent(
+    new window.CustomEvent("hippo:request-error", {
+      detail: {
+        name: "NetworkError",
+        message: "connect ECONNREFUSED",
+        elapsed: 12,
+        timestamp: ranAt,
+      },
+    }),
+  );
+  await new Promise((r) => setTimeout(r, 10));
+
+  assert.equal(
+    viewer.element.querySelector(".res-run-at").textContent,
+    formatRunAt(ranAt),
+  );
+});
+
+test("the run date clears while a new request is in flight", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(window, baseResponse({}));
+  assert.ok(viewer.element.querySelector(".res-run-at").textContent.length > 0);
+
+  window.dispatchEvent(new window.CustomEvent("hippo:request-loading"));
+  await new Promise((r) => setTimeout(r, 10));
+
+  assert.equal(
+    viewer.element.querySelector(".res-run-at").textContent,
+    "",
+    "no run to date while one is in flight",
+  );
 });
 
 test("shows a loading placeholder on hippo:request-loading", async () => {

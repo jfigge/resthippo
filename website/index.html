@@ -56,8 +56,16 @@
       --overlay-0: #686868;
       --text:      #e8e8e8;
       --subtext:   #b0b0b0;
-      --accent:    #d0d0d0;
-      --accent2:   #a0a0a0;
+
+      /* Rest Hippo's colour in the herd (hippoherd.com/resthippo) — the violet
+         of the app icon. --brand is that violet neat, for fills and tints that
+         nothing has to be read THROUGH; --accent is the same hue lifted into a
+         legible luminance, because #6C5CE7 as text on --bg is only 3.5:1 while
+         --accent is 6.9:1. --accent2 sits between them for quieter links. */
+      --brand:     #6C5CE7;
+      --accent:    #a49af0;
+      --accent2:   #8b7bee;
+
       --green:     #80c080;
       --peach:     #d09060;
       --mauve:     #a880c0;
@@ -220,14 +228,17 @@
       line-height: 1;
     }
 
+    /* White on --brand, the way the icon pairs them, and the one direction that
+       clears AA (4.9:1 — dark-on-violet is 3.9:1). Hover deepens the fill
+       instead of lightening it, since lightening violet sinks the white text. */
     .btn-primary {
-      background: var(--accent);
-      color: var(--crust);
+      background: var(--brand);
+      color: #fff;
     }
     .btn-primary:hover {
-      background: #e2e2e2;
+      background: color-mix(in srgb, var(--brand) 86%, var(--crust));
       transform: translateY(-1px);
-      box-shadow: 0 4px 16px rgba(208, 208, 208, 0.25);
+      box-shadow: 0 4px 18px color-mix(in srgb, var(--brand) 45%, transparent);
     }
 
     .btn-ghost {
@@ -439,7 +450,7 @@
     .url-pill {
       display: inline-flex;
       align-items: center;
-      background: color-mix(in srgb,#d0d0d0 22%,transparent);
+      background: color-mix(in srgb, var(--accent) 22%, transparent);
       color: var(--accent);
       border-radius: 4px;
       padding: 0 5px;
@@ -448,8 +459,8 @@
     }
 
     .send-btn {
-      background: var(--accent);
-      color: var(--crust);
+      background: var(--brand);
+      color: #fff;
       border: none;
       border-radius: 6px;
       padding: 5px 14px;
@@ -768,26 +779,7 @@
   </a>
   <div class="nav-right">
     <a class="nav-link" href="#features">Features</a>
-    <details class="nav-dropdown">
-      <summary class="nav-link nav-dropdown-summary">
-        Other Hippos
-        <svg class="nav-dropdown-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-      </summary>
-      <div class="nav-dropdown-menu">
-        <a class="nav-dropdown-item" href="https://chiphippo.com" rel="noopener noreferrer">
-          <svg class="nav-dropdown-favicon" width="16" height="16" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="114" fill="#2F855A"/><circle cx="170" cy="146" r="40" fill="#fff"/><circle cx="342" cy="146" r="40" fill="#fff"/><rect x="144" y="140" width="224" height="190" rx="74" fill="#fff"/><rect x="118" y="260" width="276" height="150" rx="74" fill="#fff"/><circle cx="201" cy="198" r="17" fill="#2F855A"/><circle cx="311" cy="198" r="17" fill="#2F855A"/><rect x="186" y="320" width="140" height="52" rx="10" fill="#2F855A"/></svg>
-          Chip Hippo
-        </a>
-        <a class="nav-dropdown-item" href="https://jumphippo.com" rel="noopener noreferrer">
-          <svg class="nav-dropdown-favicon" width="16" height="16" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="114" fill="#4785F0"/><circle cx="170" cy="146" r="40" fill="#fff"/><circle cx="342" cy="146" r="40" fill="#fff"/><rect x="144" y="140" width="224" height="190" rx="74" fill="#fff"/><rect x="118" y="260" width="276" height="150" rx="74" fill="#fff"/><circle cx="201" cy="198" r="17" fill="#1C1C1C"/><circle cx="311" cy="198" r="17" fill="#1C1C1C"/><line x1="210" y1="332" x2="302" y2="332" stroke="#4785F0" stroke-width="13" stroke-linecap="round"/><ellipse cx="210" cy="332" rx="18" ry="23" fill="#1C1C1C"/><ellipse cx="302" cy="332" rx="18" ry="23" fill="#1C1C1C"/></svg>
-          Jump Hippo
-        </a>
-        <a class="nav-dropdown-item" href="https://keephippo.com" rel="noopener noreferrer">
-          <svg class="nav-dropdown-favicon" width="16" height="16" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="114" fill="#F5A623"/><circle cx="170" cy="146" r="40" fill="#fff"/><circle cx="342" cy="146" r="40" fill="#fff"/><rect x="144" y="140" width="224" height="190" rx="74" fill="#fff"/><rect x="118" y="260" width="276" height="150" rx="74" fill="#fff"/><circle cx="201" cy="198" r="17" fill="#F5A623"/><circle cx="311" cy="198" r="17" fill="#F5A623"/><ellipse cx="210" cy="330" rx="14" ry="20" fill="#F5A623"/><ellipse cx="302" cy="330" rx="14" ry="20" fill="#F5A623"/></svg>
-          Keep Hippo
-        </a>
-      </div>
-    </details>
+    <a class="nav-link" href="https://hippoherd.com" rel="noopener noreferrer">Visit the Herd</a>
     <a class="nav-link" href="/vs-postman.html">Compare</a>
     <a class="nav-link" href="/features.html">Feature Requests</a>
     <a class="nav-link" href="/docs/">Guide</a>
@@ -805,7 +797,7 @@
 <div class="hero">
   <div class="hero-badge">
     <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
-    <span id="hero-version">v1.1.4</span> — Now Available
+    <span id="hero-version">v1.1.5</span> — Now Available
   </div>
   <h1>The REST API client<br>you actually <span class="accent">want to use</span></h1>
   <p class="hero-desc">
@@ -1021,7 +1013,7 @@
   <div class="section-inner">
     <p class="section-tag">Downloads</p>
     <h2 class="section-title">Available for every desktop</h2>
-    <p class="section-body">Version <span id="dl-version">1.1.4</span> — free to download and use. No account required.</p>
+    <p class="section-body">Version <span id="dl-version">1.1.5</span> — free to download and use. No account required.</p>
 
     <div class="os-grid">
 
@@ -1150,7 +1142,7 @@
       </div>
       <span class="footer-name">Rest Hippo</span>
     </div>
-    <div class="ver-tag" id="footer-version">v1.1.4</div>
+    <div class="ver-tag" id="footer-version">v1.1.5</div>
     <p style="margin-bottom:14px">
       <a href="/docs/" style="color:var(--accent);text-decoration:none">User Guide</a>
       &nbsp;·&nbsp;

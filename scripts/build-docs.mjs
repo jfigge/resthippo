@@ -138,9 +138,12 @@ export function renderBody(md) {
 
 export const LOGO_SVG = `<svg width="24" height="24" viewBox="0 0 512 512" role="img" aria-label="Rest Hippo"><rect width="512" height="512" rx="114" fill="#6C5CE7"/><circle cx="170" cy="146" r="40" fill="#fff"/><circle cx="342" cy="146" r="40" fill="#fff"/><rect x="144" y="140" width="224" height="190" rx="74" fill="#fff"/><rect x="118" y="260" width="276" height="150" rx="74" fill="#fff"/><circle cx="201" cy="198" r="17" fill="#6C5CE7"/><circle cx="311" cy="198" r="17" fill="#6C5CE7"/><ellipse cx="210" cy="330" rx="14" ry="20" fill="#6C5CE7"/><ellipse cx="302" cy="330" rx="14" ry="20" fill="#6C5CE7"/></svg>`;
 
+// Palette mirrors website/index.html: --brand is Rest Hippo's herd colour (the
+// icon violet) used neat for fills and tints, --accent the same hue lifted into
+// a luminance that reads as text on the dark background.
 const STYLE = `
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#1c1c1c;--mantle:#161616;--crust:#101010;--surface-0:#2a2a2a;--surface-1:#383838;--overlay-0:#686868;--text:#e8e8e8;--subtext:#b0b0b0;--accent:#d0d0d0;--green:#80c080}
+:root{--bg:#1c1c1c;--mantle:#161616;--crust:#101010;--surface-0:#2a2a2a;--surface-1:#383838;--overlay-0:#686868;--text:#e8e8e8;--subtext:#b0b0b0;--brand:#6C5CE7;--accent:#a49af0;--green:#80c080}
 html{scroll-behavior:smooth}
 body{font-family:"Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.65}
 a{color:var(--accent);text-decoration:none}

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#6C5CE7" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <meta name="description" content="Rest Hippo's code signing policy: Windows releases are Authenticode-signed through SignPath Foundation's free certification program for open-source projects." />
   <title>Code Signing Policy — Rest Hippo</title>
@@ -31,8 +32,14 @@
       --overlay-0: #686868;
       --text:      #e8e8e8;
       --subtext:   #b0b0b0;
-      --accent:    #d0d0d0;
-      --accent2:   #a0a0a0;
+
+      /* Rest Hippo's colour in the herd — see the note in index.html. --brand is
+         the icon violet neat (fills, tints); --accent is the same hue lifted
+         into a legible luminance for text on the dark background. */
+      --brand:     #6C5CE7;
+      --accent:    #a49af0;
+      --accent2:   #8b7bee;
+
       --green:     #80c080;
       --peach:     #d09060;
       --mauve:     #a880c0;
@@ -110,11 +117,11 @@
       line-height: 1;
     }
 
-    .btn-primary { background: var(--accent); color: var(--crust); }
+    .btn-primary { background: var(--brand); color: #fff; }
     .btn-primary:hover {
-      background: #e2e2e2;
+      background: color-mix(in srgb, var(--brand) 86%, var(--crust));
       transform: translateY(-1px);
-      box-shadow: 0 4px 16px rgba(208, 208, 208, 0.25);
+      box-shadow: 0 4px 18px color-mix(in srgb, var(--brand) 45%, transparent);
     }
 
     /* ── Page ──────────────────────────────────────────────────────────────── */

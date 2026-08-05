@@ -35,6 +35,7 @@
 import { t, formatDate, formatNumber } from "../../i18n.js";
 import { WsConsole } from "../ws-console.js";
 import { buildNdjsonStreamHint } from "./body-render.js";
+import { formatRunAt } from "./run-timestamp.js";
 
 // Live-streaming limits (Feature 33). The DOM log is capped so an unbounded
 // stream stays memory-bounded; the full stream still lives in the main-process
@@ -65,7 +66,7 @@ export class StreamView {
   /**
    * @param {object} host  facade onto the bits ResponseViewer owns:
    *   getActiveTab(), getBodyPane(), getStatusBar(), isLoading(),
-   *   statusClass(code), formatSize(bytes), setStatus(code,text,time,size),
+   *   statusClass(code), formatSize(bytes), setStatus(code,text,time,size,runAt),
    *   setCurrentMethod(m), setPreviewTabVisible(b), switchTab(id),
    *   renderHeadersPane(h), renderCookiesPane(c), renderConsole(lines),
    *   teardownBinaryEphemera(), destroyHtmlPreview(), clearSearchHighlights(),
@@ -115,12 +116,14 @@ export class StreamView {
     if (response.request?.method)
       this.#host.setCurrentMethod(response.request.method);
 
-    // Status bar — status code/text plus a live size readout.
+    // Status bar — status code/text plus a live size readout, dated like any
+    // other run (the marker's timestamp on a replay, else the stream's start).
     this.#host.setStatus(
       response.status ?? "",
       response.statusText ?? "",
       `${response.elapsed ?? 0} ms`,
       "",
+      formatRunAt(response.timestamp ?? Date.now()),
     );
     const badge = this.#host.getStatusBar().querySelector(".res-status-badge");
     badge.className = `res-status-badge ${this.#host.statusClass(response.status ?? 0)}`;

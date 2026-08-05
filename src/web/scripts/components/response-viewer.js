@@ -43,6 +43,7 @@ import {
 } from "./response/body-render.js";
 import { TimelineView } from "./response/timeline-view.js";
 import { StreamView } from "./response/stream-view.js";
+import { formatRunAt } from "./response/run-timestamp.js";
 
 // Tab labels resolve from the i18n catalog at render time (labelKey, not a
 // literal) — this array is built at module load, before the catalog is ready.
@@ -401,8 +402,8 @@ export class ResponseViewer {
     isLoading: () => !!this.#loadingTimer,
     statusClass: (code) => this.#statusClass(code),
     formatSize: (bytes) => this.#formatSize(bytes),
-    setStatus: (code, text, time, size) =>
-      this.#setStatus(code, text, time, size),
+    setStatus: (code, text, time, size, runAt = "") =>
+      this.#setStatus(code, text, time, size, runAt),
     setCurrentMethod: (m) => this.#setCurrentMethod(m),
     setPreviewTabVisible: (b) => this.#setPreviewTabVisible(b),
     switchTab: (id) => this.#switchTab(id),
@@ -543,9 +544,10 @@ export class ResponseViewer {
             ...entry.response.error,
             elapsed: entry.response.elapsed,
             consoleLog: entry.response.consoleLog,
+            timestamp: entry.timestamp,
           });
         } else if (entry?.response) {
-          this.#showResponse(entry.response, entry.requestUrl);
+          this.#showResponse(entry.response, entry.requestUrl, entry.timestamp);
         } else {
           this.#clearToEmpty();
         }
@@ -737,8 +739,11 @@ export class ResponseViewer {
       <span class="res-tests-badge" title="${t("response.status.testsTitle")}" hidden></span>
       <span class="res-captured-badge" title="${t("response.status.capturedTitle")}" hidden></span>
       <span class="res-meta">
-        <span class="res-time"  title="${t("response.status.elapsedTitle")}"></span>
-        <span class="res-size"  title="${t("response.status.sizeTitle")}"></span>
+        <span class="res-run-at" title="${t("response.status.runAtTitle")}"></span>
+        <span class="res-meta-metrics">
+          <span class="res-time"  title="${t("response.status.elapsedTitle")}"></span>
+          <span class="res-size"  title="${t("response.status.sizeTitle")}"></span>
+        </span>
       </span>
     `;
 
@@ -2153,7 +2158,15 @@ export class ResponseViewer {
       detail?.statusText || detail?.name || t("response.error.connection");
     const elapsed = detail?.elapsed ? `${detail.elapsed} ms` : "";
 
-    this.#setStatus(statusCode, statusTxt, elapsed, "");
+    // A failed run is still a run — date it like a successful one (history
+    // replays pass the original timestamp; a live failure just happened).
+    this.#setStatus(
+      statusCode,
+      statusTxt,
+      elapsed,
+      "",
+      formatRunAt(detail?.timestamp ?? Date.now()),
+    );
     const badge = this.#statusBar.querySelector(".res-status-badge");
     badge.className = `res-status-badge ${hasStatus ? this.#statusClass(detail.status) : "res-status--error"}`;
 
@@ -2218,8 +2231,13 @@ export class ResponseViewer {
    * @param {number}   response.elapsed   - milliseconds
    * @param {number}   response.size      - bytes
    * @param {string[]} response.consoleLog
+   * @param {string} [requestUrl]
+   * @param {number} [timestamp]  Epoch ms of the run, for the status bar's
+   *   date/time line. Supplied when the response comes from run history (a
+   *   timeline replay or a request switch) so a past run shows when it actually
+   *   ran; a live send omits it and is stamped as it lands.
    */
-  #showResponse(response, requestUrl) {
+  #showResponse(response, requestUrl, timestamp) {
     this.#stopLoadingTimer();
 
     // Live streaming (Feature 33): the marker carries no body — switch to the
@@ -2252,6 +2270,10 @@ export class ResponseViewer {
       // live send (the hippo:test-results event fills them in shortly after).
       testResults = [],
     } = response;
+
+    // When the run happened: carried by a history replay, otherwise this is a
+    // live response and it just ran.
+    const runAt = timestamp ?? response.timestamp ?? Date.now();
 
     // A fresh response starts in its default view; drop any binary overlay/blob
     // left over from the previous one.
@@ -2296,6 +2318,7 @@ export class ResponseViewer {
       statusText,
       `${elapsed} ms`,
       this.#formatSize(size),
+      formatRunAt(runAt),
     );
     const badge = this.#statusBar.querySelector(".res-status-badge");
     badge.className = `res-status-badge ${statusClass}`;
@@ -2574,11 +2597,17 @@ export class ResponseViewer {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  #setStatus(code, text, time, size) {
+  /**
+   * Paint the status bar's readouts. `runAt` is the already-formatted date/time
+   * of the run (see formatRunAt) shown over the elapsed/size pair — "" on the
+   * cleared / loading states, where there is no run to date.
+   */
+  #setStatus(code, text, time, size, runAt = "") {
     this.#statusBar.querySelector(".res-status-badge").textContent = code;
     this.#statusBar.querySelector(".res-status-text").textContent = text;
     this.#statusBar.querySelector(".res-time").textContent = time;
     this.#statusBar.querySelector(".res-size").textContent = size;
+    this.#statusBar.querySelector(".res-run-at").textContent = runAt;
     // A fresh status render clears any captured marker from the previous
     // response; the next hippo:captures-applied (fired after the response is
     // shown) re-shows it if this response captured anything.
