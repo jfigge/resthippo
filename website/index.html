@@ -56,8 +56,16 @@
       --overlay-0: #686868;
       --text:      #e8e8e8;
       --subtext:   #b0b0b0;
-      --accent:    #d0d0d0;
-      --accent2:   #a0a0a0;
+
+      /* Rest Hippo's colour in the herd (hippoherd.com/resthippo) — the violet
+         of the app icon. --brand is that violet neat, for fills and tints that
+         nothing has to be read THROUGH; --accent is the same hue lifted into a
+         legible luminance, because #6C5CE7 as text on --bg is only 3.5:1 while
+         --accent is 6.9:1. --accent2 sits between them for quieter links. */
+      --brand:     #6C5CE7;
+      --accent:    #a49af0;
+      --accent2:   #8b7bee;
+
       --green:     #80c080;
       --peach:     #d09060;
       --mauve:     #a880c0;
@@ -220,14 +228,17 @@
       line-height: 1;
     }
 
+    /* White on --brand, the way the icon pairs them, and the one direction that
+       clears AA (4.9:1 — dark-on-violet is 3.9:1). Hover deepens the fill
+       instead of lightening it, since lightening violet sinks the white text. */
     .btn-primary {
-      background: var(--accent);
-      color: var(--crust);
+      background: var(--brand);
+      color: #fff;
     }
     .btn-primary:hover {
-      background: #e2e2e2;
+      background: color-mix(in srgb, var(--brand) 86%, var(--crust));
       transform: translateY(-1px);
-      box-shadow: 0 4px 16px rgba(208, 208, 208, 0.25);
+      box-shadow: 0 4px 18px color-mix(in srgb, var(--brand) 45%, transparent);
     }
 
     .btn-ghost {
@@ -439,7 +450,7 @@
     .url-pill {
       display: inline-flex;
       align-items: center;
-      background: color-mix(in srgb,#d0d0d0 22%,transparent);
+      background: color-mix(in srgb, var(--accent) 22%, transparent);
       color: var(--accent);
       border-radius: 4px;
       padding: 0 5px;
@@ -448,8 +459,8 @@
     }
 
     .send-btn {
-      background: var(--accent);
-      color: var(--crust);
+      background: var(--brand);
+      color: #fff;
       border: none;
       border-radius: 6px;
       padding: 5px 14px;
