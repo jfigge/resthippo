@@ -13,12 +13,12 @@ each store build — `process.mas` (Mac App Store) and `process.windowsStore`
 `isMas()`, and `isAppx()`. A few features can't run in a store sandbox, so they
 gate on those helpers at runtime instead of being compiled out:
 
-| Disabled in… | Feature | Why |
-| --- | --- | --- |
-| Both stores | In-app self-updater + "Check for Updates…" menu item | The store delivers updates; there is no update feed. |
-| Both stores | `hippo` CLI launcher install | MAS can't write outside its container; the Microsoft Store virtualizes the per-user PATH. |
-| Mac App Store only | mTLS client certificates (Feature 37) | The sandbox can't re-read saved cert file paths without a security-scoped bookmark (a later enhancement). |
-| Mac App Store only | cURL import file-existence check | The sandbox can't `stat` arbitrary paths. |
+| Disabled in…       | Feature                                              | Why                                                                                                       |
+| ------------------ | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Both stores        | In-app self-updater + "Check for Updates…" menu item | The store delivers updates; there is no update feed.                                                      |
+| Both stores        | `hippo` CLI launcher install                         | MAS can't write outside its container; the Microsoft Store virtualizes the per-user PATH.                 |
+| Mac App Store only | mTLS client certificates (Feature 37)                | The sandbox can't re-read saved cert file paths without a security-scoped bookmark (a later enhancement). |
+| Mac App Store only | cURL import file-existence check                     | The sandbox can't `stat` arbitrary paths.                                                                 |
 
 Everything else — OAuth (popup-window navigation interception, no loopback
 server), import/export/backup (native open/save dialogs), Keychain secret storage
@@ -60,19 +60,19 @@ keychain**:
 - **Apple Distribution** — signs the `.app`.
 - **Mac Installer Distribution** — signs the `.pkg` that you upload.
 
-> These are *distinct* from the **Developer ID Application** cert used for the
+> These are _distinct_ from the **Developer ID Application** cert used for the
 > direct (non-store) DMG. A machine can hold all three.
 
 ### 4. Provisioning profiles
 
 Developer portal → **Profiles** → **+**:
 
-- A **Mac App Store** *distribution* profile for `com.resthippo.app`, tied to the
+- A **Mac App Store** _distribution_ profile for `com.resthippo.app`, tied to the
   Apple Distribution cert. Download it and save it as:
   ```
   src/packaging/embedded.provisionprofile
   ```
-- (Optional, for local sandbox testing) a **Mac App Store** *development* profile
+- (Optional, for local sandbox testing) a **Mac App Store** _development_ profile
   → save as `src/packaging/development.provisionprofile`.
 
 Both paths are **git-ignored** (`*.provisionprofile`) — never commit them.
@@ -116,11 +116,11 @@ In Partner Center → your app → **Product management** → **Product identity
 these three values into either `src/package.json` (`build.appx`) or `release.env`
 (the `APPX_*` vars the Makefile reads):
 
-| Partner Center field | `build.appx` key | `release.env` var |
-| --- | --- | --- |
-| Package/Identity/Name | `identityName` | `APPX_IDENTITY_NAME` |
-| Package/Identity/Publisher | `publisher` (`CN=…`) | `APPX_PUBLISHER` |
-| Publisher display name | `publisherDisplayName` | `APPX_PUBLISHER_DISPLAY_NAME` |
+| Partner Center field       | `build.appx` key       | `release.env` var             |
+| -------------------------- | ---------------------- | ----------------------------- |
+| Package/Identity/Name      | `identityName`         | `APPX_IDENTITY_NAME`          |
+| Package/Identity/Publisher | `publisher` (`CN=…`)   | `APPX_PUBLISHER`              |
+| Publisher display name     | `publisherDisplayName` | `APPX_PUBLISHER_DISPLAY_NAME` |
 
 The committed `build.appx` currently holds `FILL-LATER-…` placeholders — replace
 them, or leave them and pass the real values via `release.env`/CI (the
@@ -139,6 +139,24 @@ The `.appx` lands in `build/src/dist/`.
 Partner Center → your app → **Submissions** → **Packages** → upload the `.appx`,
 complete the listing, and submit for certification.
 
+> **⚠️ The package version must strictly exceed the published one — forever.** The Store
+> compares the 4-part AppX identity version and rejects anything not greater than what is
+> already live. That version comes straight from `src/package.json`
+> (`appInfo.getVersionInWeirdWindowsForm()` → `major.minor.patch.0`); electron-builder has
+> **no per-target version override**, so a mis-numbered release poisons the whole line
+> below it. This already bit us once: `1.18.4` shipped from a typo'd `package.json` on
+> 2026-06-30, which stranded the entire corrected `1.1.x` line (`1.1.5.0 < 1.18.4.0`) and
+> forced the jump to `1.19.0`. Check what is live before tagging:
+>
+> ```bash
+> curl -s "https://displaycatalog.mp.microsoft.com/v7.0/products/9NPC93LNBT9Q?languages=en-us&market=US" \
+>   | grep -o '"PackageFullName":"[^"]*"' | head -2
+> ```
+>
+> The `runFullTrust` restricted capability flagged at submission is **intrinsic** to
+> Electron/Desktop Bridge (`EntryPoint=Windows.FullTrustApplication`) — it cannot be
+> removed, only justified.
+
 ---
 
 ## CI (GitHub Actions)
@@ -150,10 +168,10 @@ GitHub Release (that only globs `installers-*`); download them from the run and
 submit manually. Each job is gated so it is a **clean no-op** until you set its
 variable:
 
-| Job | Enable with | Plus these secrets |
-| --- | --- | --- |
-| `store-mas` | `vars.MAS_ENABLED = 'true'` | `MAS_CSC_LINK`, `MAS_CSC_KEY_PASSWORD`, `MAS_INSTALLER_CSC_LINK`, `MAS_INSTALLER_CSC_KEY_PASSWORD`, `MAS_PROVISIONING_PROFILE_BASE64` |
-| `store-appx` | `vars.APPX_IDENTITY_NAME != ''` | also `vars.APPX_PUBLISHER`, `vars.APPX_PUBLISHER_DISPLAY_NAME` |
+| Job          | Enable with                     | Plus these secrets                                                                                                                    |
+| ------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `store-mas`  | `vars.MAS_ENABLED = 'true'`     | `MAS_CSC_LINK`, `MAS_CSC_KEY_PASSWORD`, `MAS_INSTALLER_CSC_LINK`, `MAS_INSTALLER_CSC_KEY_PASSWORD`, `MAS_PROVISIONING_PROFILE_BASE64` |
+| `store-appx` | `vars.APPX_IDENTITY_NAME != ''` | also `vars.APPX_PUBLISHER`, `vars.APPX_PUBLISHER_DISPLAY_NAME`                                                                        |
 
 Encode the macOS material as base64 (`base64 -i AppleDistribution.p12 | pbcopy`,
 `base64 -i embedded.provisionprofile | pbcopy`) and paste into
@@ -183,10 +201,10 @@ CI never ships to users on its own. (The Microsoft Store step likewise publishes
 
 Auto-submit auth (add when you flip the switch on):
 
-| Store | Variable to enable | Submit secrets |
-| --- | --- | --- |
-| App Store Connect | `vars.STORE_SUBMIT_ENABLED = 'true'` | `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`, `APPLE_API_KEY_BASE64` (base64 of `AuthKey_<id>.p8`) |
-| Microsoft Store | same | `MS_STORE_TENANT_ID`, `MS_STORE_CLIENT_ID`, `MS_STORE_CLIENT_SECRET`, `vars.MS_STORE_PRODUCT_ID` (Partner Center Azure-AD app — set up when Partner Center exists) |
+| Store             | Variable to enable                   | Submit secrets                                                                                                                                                     |
+| ----------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| App Store Connect | `vars.STORE_SUBMIT_ENABLED = 'true'` | `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`, `APPLE_API_KEY_BASE64` (base64 of `AuthKey_<id>.p8`)                                                                       |
+| Microsoft Store   | same                                 | `MS_STORE_TENANT_ID`, `MS_STORE_CLIENT_ID`, `MS_STORE_CLIENT_SECRET`, `vars.MS_STORE_PRODUCT_ID` (Partner Center Azure-AD app — set up when Partner Center exists) |
 
 The App Store Connect API key is the same `.p8` (Key ID `G9W84MCW73`) usable for
 notarization; get the **Issuer ID** from App Store Connect → **Users and Access →
