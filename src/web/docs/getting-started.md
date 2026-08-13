@@ -9,6 +9,14 @@ Download the installer for your platform, run it, and launch Rest Hippo — ther
 nothing else to set up. Your data lives in a local folder under your user
 profile, so requests, environments, and settings persist between sessions.
 
+You can also install it from the
+[Mac App Store](https://apps.apple.com/us/app/rest-hippo/id6784875828) or the
+[Microsoft Store](https://apps.microsoft.com/detail/9npc93lnbt9q). Store editions
+are sandboxed, so a few things differ from the direct download: updates arrive
+through the store rather than in-app (the two paragraphs below don't apply), the
+`hippo` command-line launcher isn't offered, and the Mac App Store build leaves
+out mTLS client certificates.
+
 Rest Hippo can keep itself current: when you turn on automatic checks it looks
 for new releases shortly after launch, downloads them in the background, and asks
 before restarting to install. Automatic checking is **off by default** — enable
