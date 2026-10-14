@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -1627,6 +1630,100 @@ describe("Folder-variable profiles — persistence + granular tree save", () => 
     assert.deepEqual(loaded.collections[0].profileValues, {
       prod: { host: "prod-host" },
     });
+  });
+
+  test("a folder's OWNED profiles round-trip through saveCollections → getCollections", () => {
+    // node.profiles is the profile DEFINITION list (scoping). Both the encode and
+    // decode paths build folder nodes from explicit field lists, so an unlisted
+    // field is dropped silently — this pins that `profiles` is carried.
+    stores.collections.saveCollections(COL, {
+      version: 1,
+      collections: [
+        {
+          id: "f1",
+          type: "collection",
+          name: "API",
+          variables: [{ name: "host", value: "dev", secure: false }],
+          profiles: [
+            { id: "eu", name: "eu" },
+            { id: "us", name: "us" },
+          ],
+          profileValues: { eu: { host: "eu-host" } },
+          children: [
+            {
+              id: "f2",
+              type: "collection",
+              name: "Auth",
+              variables: [],
+              profiles: [{ id: "user1", name: "user1" }],
+              children: [],
+            },
+          ],
+        },
+      ],
+    });
+    const root = stores.collections.getCollections(COL).collections[0];
+    assert.deepEqual(root.profiles, [
+      { id: "eu", name: "eu" },
+      { id: "us", name: "us" },
+    ]);
+    assert.deepEqual(
+      root.children[0].profiles,
+      [{ id: "user1", name: "user1" }],
+      "a nested folder owns its own profiles too",
+    );
+    assert.deepEqual(root.profileValues, { eu: { host: "eu-host" } });
+  });
+
+  test("owned profiles survive the granular tree save (the folder-variable path)", () => {
+    stores.collections.saveCollections(COL, {
+      version: 1,
+      collections: [
+        {
+          id: "f1",
+          type: "collection",
+          name: "API",
+          variables: [{ name: "host", value: "dev", secure: false }],
+          profiles: [{ id: "eu", name: "eu" }],
+          children: [makeRequest({ id: "r1", url: "/things" })],
+        },
+      ],
+    });
+    stores.collections.saveTreeStructure(COL, {
+      collections: [
+        {
+          id: "f1",
+          type: "collection",
+          name: "API",
+          variables: [{ name: "host", value: "dev2", secure: false }],
+          profiles: [{ id: "eu", name: "eu" }],
+          profileValues: { eu: { host: "eu2" } },
+          children: [{ id: "r1", type: "request" }],
+        },
+      ],
+    });
+    const folder = stores.collections.getCollections(COL).collections[0];
+    assert.deepEqual(folder.profiles, [{ id: "eu", name: "eu" }]);
+    assert.deepEqual(folder.profileValues, { eu: { host: "eu2" } });
+  });
+
+  test("a folder that owns no profiles gains no `profiles` key", () => {
+    stores.collections.saveCollections(COL, {
+      version: 1,
+      collections: [
+        {
+          id: "f1",
+          type: "collection",
+          name: "API",
+          variables: [],
+          children: [],
+        },
+      ],
+    });
+    assert.equal(
+      stores.collections.getCollections(COL).collections[0].profiles,
+      undefined,
+    );
   });
 
   test("saveTreeStructure persists folder vars + profiles WITHOUT rewriting request files", () => {

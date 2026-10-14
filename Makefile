@@ -210,10 +210,10 @@ fmt-check:
 	@echo "--------------------------------"
 
 # ─── License headers ──────────────────────────────────────────────────────────
-# Stamp the Apache 2.0 header onto any first-party src/ JS+CSS or build script
+# Stamp the GPL-3.0 header onto any first-party src/ JS+CSS or build script
 # that is missing it (see CLAUDE.md → "License headers" for the scope).
 license-headers:
-	@echo "Stamping Apache 2.0 license headers..."
+	@echo "Stamping GPL-3.0 license headers..."
 	@node $(WORKSPACE)/scripts/license-header.mjs
 	@echo "--------------------------------"
 
@@ -229,10 +229,10 @@ lint:
 test: test-js test-cookies test-auth test-net test-scripting test-content-type test-ipc test-store-build test-oauth test-export test-components test-import test-data-store test-quick-access test-i18n test-diagnostics test-renderer-components test-renderer-e2e test-a11y test-scripts test-license-headers
 
 # Guard: every first-party src/ JS+CSS file and build script must carry the
-# Apache 2.0 header. Run by `make test` (CI) and the pre-commit hook. Fix any
+# GPL-3.0 header. Run by `make test` (CI) and the pre-commit hook. Fix any
 # failure with `make license-headers`.
 test-license-headers:
-	@echo "Checking Apache 2.0 license headers (guard)..."
+	@echo "Checking GPL-3.0 license headers (guard)..."
 	@node $(WORKSPACE)/scripts/license-header.mjs --check
 	@echo "--------------------------------"
 
@@ -288,7 +288,7 @@ test-export:
 
 test-components:
 	@echo "Running renderer component tests (variable resolution, request payload)..."
-	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/request-refs.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js $(WEB_DIR)/scripts/components/tests/graphql-introspection.test.js $(WEB_DIR)/scripts/components/tests/captures.test.js $(WEB_DIR)/scripts/components/tests/status-match.test.js $(WEB_DIR)/scripts/components/tests/captures-xml.test.js $(WEB_DIR)/scripts/components/tests/tree-model.test.js $(WEB_DIR)/scripts/components/tests/drag-drop.test.js $(WEB_DIR)/scripts/components/tests/body-filter.test.js $(WEB_DIR)/scripts/components/tests/kv-editor-shared.test.js $(WEB_DIR)/scripts/components/tests/graphql-body-editor.test.js $(WEB_DIR)/scripts/components/tests/folder-profiles.test.js $(WEB_DIR)/scripts/components/auth/tests/oauth2-fields.test.js $(WEB_DIR)/scripts/components/code-gen/tests/code-gen.test.js $(WEB_DIR)/scripts/utils/tests/theme-css.test.js $(WEB_DIR)/scripts/utils/tests/html.test.js $(WEB_DIR)/scripts/utils/tests/base64.test.js $(WEB_DIR)/scripts/components/tests/variable-shape.test.js $(WEB_DIR)/scripts/components/tests/response-cache.test.js $(WEB_DIR)/scripts/components/tests/run-timestamp.test.js $(WEB_DIR)/scripts/utils/tests/coalesce.test.js
+	@node --test $(WEB_DIR)/scripts/components/tests/variable-resolver.test.js $(WEB_DIR)/scripts/components/tests/request-payload.test.js $(WEB_DIR)/scripts/components/tests/request-refs.test.js $(WEB_DIR)/scripts/components/tests/graphql-schema.test.js $(WEB_DIR)/scripts/components/tests/graphql-validate.test.js $(WEB_DIR)/scripts/components/tests/graphql-introspection.test.js $(WEB_DIR)/scripts/components/tests/captures.test.js $(WEB_DIR)/scripts/components/tests/status-match.test.js $(WEB_DIR)/scripts/components/tests/captures-xml.test.js $(WEB_DIR)/scripts/components/tests/tree-model.test.js $(WEB_DIR)/scripts/components/tests/drag-drop.test.js $(WEB_DIR)/scripts/components/tests/body-filter.test.js $(WEB_DIR)/scripts/components/tests/kv-editor-shared.test.js $(WEB_DIR)/scripts/components/tests/graphql-body-editor.test.js $(WEB_DIR)/scripts/components/tests/folder-profiles.test.js $(WEB_DIR)/scripts/components/tests/profile-scope.test.js $(WEB_DIR)/scripts/components/tests/profile-migration.test.js $(WEB_DIR)/scripts/components/tests/profile-controller.test.js $(WEB_DIR)/scripts/components/auth/tests/oauth2-fields.test.js $(WEB_DIR)/scripts/components/code-gen/tests/code-gen.test.js $(WEB_DIR)/scripts/utils/tests/theme-css.test.js $(WEB_DIR)/scripts/utils/tests/html.test.js $(WEB_DIR)/scripts/utils/tests/base64.test.js $(WEB_DIR)/scripts/components/tests/variable-shape.test.js $(WEB_DIR)/scripts/components/tests/response-cache.test.js $(WEB_DIR)/scripts/components/tests/run-timestamp.test.js $(WEB_DIR)/scripts/utils/tests/coalesce.test.js $(WEB_DIR)/scripts/utils/tests/trimmed-paste.test.js
 	@echo "--------------------------------"
 
 test-import:
@@ -318,7 +318,7 @@ test-diagnostics:
 
 test-renderer-components:
 	@echo "Running renderer component render tests (editor + viewer + notifications + pill editors, jsdom)..."
-	@node --test $(WEB_DIR)/scripts/tests/request-editor.test.js $(WEB_DIR)/scripts/tests/request-auth-editor.test.js $(WEB_DIR)/scripts/tests/response-viewer.test.js $(WEB_DIR)/scripts/components/tests/body-render.test.js $(WEB_DIR)/scripts/components/tests/stream-view.test.js $(WEB_DIR)/scripts/components/tests/timeline-view.test.js $(WEB_DIR)/scripts/components/tests/collections-popup.test.js $(WEB_DIR)/scripts/components/tests/headers-editor.test.js $(WEB_DIR)/scripts/tests/notifications.test.js $(WEB_DIR)/scripts/tests/pill-editors.test.js $(WEB_DIR)/scripts/components/tests/pill-editor-popup.test.js $(WEB_DIR)/scripts/tests/pill-caret.test.js $(WEB_DIR)/scripts/tests/scheduled-send.test.js $(WEB_DIR)/scripts/tests/tree-view.test.js $(WEB_DIR)/scripts/tests/popup-manager.test.js $(WEB_DIR)/scripts/tests/settings-popup.test.js $(WEB_DIR)/scripts/tests/graphql-schema-viewer.test.js $(WEB_DIR)/scripts/components/tests/variable-editor-shared.test.js $(WEB_DIR)/scripts/components/tests/vars-editor.test.js $(WEB_DIR)/scripts/components/tests/profile-picker.test.js $(WEB_DIR)/scripts/components/tests/about-dialog.test.js $(WEB_DIR)/scripts/event-bus/tests/zoom-handlers.test.js $(WEB_DIR)/scripts/event-bus/tests/timeline-handlers.test.js $(WEB_DIR)/scripts/event-bus/tests/run-folder-handlers.test.js $(WEB_DIR)/scripts/event-bus/tests/settings-handlers.test.js $(WEB_DIR)/scripts/event-bus/tests/ws-handlers.test.js $(WEB_DIR)/scripts/event-bus/tests/updater-handlers.test.js $(WEB_DIR)/scripts/event-bus/tests/menu-handlers.test.js
+	@node --test $(WEB_DIR)/scripts/tests/request-editor.test.js $(WEB_DIR)/scripts/tests/request-auth-editor.test.js $(WEB_DIR)/scripts/tests/response-viewer.test.js $(WEB_DIR)/scripts/components/tests/body-render.test.js $(WEB_DIR)/scripts/components/tests/stream-view.test.js $(WEB_DIR)/scripts/components/tests/timeline-view.test.js $(WEB_DIR)/scripts/components/tests/collections-popup.test.js $(WEB_DIR)/scripts/components/tests/headers-editor.test.js $(WEB_DIR)/scripts/tests/notifications.test.js $(WEB_DIR)/scripts/tests/pill-editors.test.js $(WEB_DIR)/scripts/components/tests/pill-editor-popup.test.js $(WEB_DIR)/scripts/tests/pill-caret.test.js $(WEB_DIR)/scripts/tests/scheduled-send.test.js $(WEB_DIR)/scripts/tests/tree-view.test.js $(WEB_DIR)/scripts/tests/popup-manager.test.js $(WEB_DIR)/scripts/tests/settings-popup.test.js $(WEB_DIR)/scripts/tests/graphql-schema-viewer.test.js $(WEB_DIR)/scripts/components/tests/variable-editor-shared.test.js $(WEB_DIR)/scripts/components/tests/vars-editor.test.js $(WEB_DIR)/scripts/components/tests/vars-profile-bar.test.js $(WEB_DIR)/scripts/components/tests/profile-picker.test.js $(WEB_DIR)/scripts/components/tests/about-dialog.test.js $(WEB_DIR)/scripts/event-bus/tests/zoom-handlers.test.js $(WEB_DIR)/scripts/event-bus/tests/timeline-handlers.test.js $(WEB_DIR)/scripts/event-bus/tests/run-folder-handlers.test.js $(WEB_DIR)/scripts/event-bus/tests/settings-handlers.test.js $(WEB_DIR)/scripts/event-bus/tests/ws-handlers.test.js $(WEB_DIR)/scripts/event-bus/tests/updater-handlers.test.js $(WEB_DIR)/scripts/event-bus/tests/menu-handlers.test.js
 	@echo "--------------------------------"
 
 test-renderer-e2e:

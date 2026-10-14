@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 "use strict";
@@ -54,14 +57,91 @@ export function detectRestHippo(data) {
 }
 
 /**
+ * Every variable-profile id owned by a container anywhere in `nodes`, plus the
+ * ids each node holds VALUES for. Used to detect collisions on import.
+ * @param {object[]} nodes
+ * @returns {Set<string>}
+ */
+function collectProfileIds(nodes) {
+  const out = new Set();
+  const walk = (ns) => {
+    for (const n of ns ?? []) {
+      if (n?.type !== "collection") continue;
+      for (const p of n.profiles ?? [])
+        if (p?.id != null) out.add(String(p.id));
+      walk(n.children);
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
+/**
+ * Give a freshly imported subtree its own profile ids wherever the archive's
+ * would collide with one already in use, rekeying every descendant's
+ * `profileValues` so the overrides follow. Returns a NEW node.
+ *
+ * Only ids that actually collide are touched, so re-importing an archive into
+ * the folder it came from keeps its ids and stays idempotent; importing the same
+ * archive a second time as a NEW folder gets an independent set instead of two
+ * owners claiming one profile.
+ *
+ * @param {object} node
+ * @param {Set<string>} usedIds  ids already owned in the target (mutated: the new
+ *   ids are added so two imported siblings can't collide with each other either)
+ * @returns {object}
+ */
+function deconflictProfileIds(node, usedIds) {
+  const map = new Map();
+  const walk = (n) => {
+    if (!n || n.type !== "collection") return n;
+    const out = { ...n };
+    if (Array.isArray(n.profiles)) {
+      out.profiles = n.profiles.map((p) => {
+        const id = String(p?.id ?? "");
+        if (!id) return p;
+        if (!usedIds.has(id)) {
+          usedIds.add(id);
+          return { ...p, id };
+        }
+        const fresh = newId();
+        map.set(id, fresh);
+        usedIds.add(fresh);
+        return { ...p, id: fresh };
+      });
+    }
+    // A node can only hold values for a profile owned by itself or an ancestor,
+    // and this walk is top-down, so `map` is complete by the time it is read.
+    if (n.profileValues && typeof n.profileValues === "object") {
+      out.profileValues = Object.fromEntries(
+        Object.entries(n.profileValues).map(([pid, values]) => [
+          map.get(pid) ?? pid,
+          values,
+        ]),
+      );
+    }
+    if (Array.isArray(n.children)) out.children = n.children.map(walk);
+    return out;
+  };
+  return walk(node);
+}
+
+/**
  * Merge an archive's items into a target tree (the active collection's items).
  * Returns a NEW items array (inputs are not mutated) plus create/replace counts.
  *
+ * Folder-owned variable profiles travel inside the nodes. A folder matched to an
+ * existing one has its profiles merged in (add-if-missing); a folder created
+ * fresh has any COLLIDING profile id regenerated, so an archive imported twice
+ * never leaves two owners claiming the same profile.
+ *
  * @param {object[]} targetItems   Current tree nodes.
  * @param {object[]} archiveItems  Nodes from the archive.
+ * @param {Set<string>} [usedIds]  internal — profile ids already in use.
  * @returns {{ items: object[], created: number, replaced: number }}
  */
-export function mergeArchiveIntoTree(targetItems, archiveItems) {
+export function mergeArchiveIntoTree(targetItems, archiveItems, usedIds) {
+  const used = usedIds ?? collectProfileIds(targetItems);
   const result = Array.isArray(targetItems) ? [...targetItems] : [];
   let created = 0;
   let replaced = 0;
@@ -86,16 +166,25 @@ export function mergeArchiveIntoTree(targetItems, archiveItems) {
       const idx = indexOfMatch("collection", node);
       if (idx >= 0) {
         // Reuse the existing folder; restore the archive's contents into it.
+        // The spread keeps the EXISTING node's fields, so the archive's owned
+        // profiles would be dropped — merge them in explicitly (add-if-missing by
+        // id or name, the same contract as the collection tier).
         const existing = result[idx];
         const sub = mergeArchiveIntoTree(
           existing.children ?? [],
           node.children ?? [],
+          used,
         );
         result[idx] = { ...existing, children: sub.items };
+        const ownProfiles = mergeProfileList(existing.profiles, node.profiles);
+        if (ownProfiles.list.length) {
+          result[idx].profiles = ownProfiles.list;
+          for (const p of ownProfiles.list) used.add(String(p.id));
+        }
         created += sub.created;
         replaced += sub.replaced;
       } else {
-        result.push(structuredClone(node));
+        result.push(deconflictProfileIds(structuredClone(node), used));
         const counts = countNodes(node);
         created += counts.folders + counts.requests;
       }

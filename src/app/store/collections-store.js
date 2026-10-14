@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -164,7 +167,13 @@ class CollectionsStore {
       .map((n) => this._buildLegacyFolder(collId, n));
   }
 
-  /** Assemble one internal folder node into a legacyCollDoc (with profileValues). */
+  /**
+   * Assemble one internal folder node into a legacyCollDoc (with the profiles it
+   * OWNS and its per-profile value overrides).
+   *
+   * Explicit field list — anything not named here is dropped on the read path, so
+   * `profiles` must be carried for scoped profiles to survive a reload.
+   */
   _buildLegacyFolder(collId, node) {
     const variables = decryptVariables(node.variables ?? [], "folder", node.id);
     const folder = {
@@ -174,6 +183,8 @@ class CollectionsStore {
       variables,
       children: this._buildLegacyChildren(collId, node.children ?? []),
     };
+    // Profile DEFINITIONS ({id,name}) hold no secrets — carried verbatim.
+    if (Array.isArray(node.profiles)) folder.profiles = node.profiles;
     const profileValues = decryptProfileValues(
       node.profileValues,
       secureNamesOf(variables),
@@ -218,7 +229,7 @@ class CollectionsStore {
 
   /**
    * Build an internal folder node ({ id, type:"folder", name, variables,
-   * profileValues? }) from a legacyCollDoc — the shared head of both decompose
+   * profiles?, profileValues? }) from a legacyCollDoc — the shared head of both decompose
    * paths (full save and granular tree save). `children` is left empty for the
    * caller to fill. Folder variables + secret profile-override values are
    * encrypted at rest; the clobber guard restores still-recoverable ciphertext.
@@ -236,6 +247,9 @@ class CollectionsStore {
       ),
       children: [],
     };
+    // Profile DEFINITIONS ({id,name}) hold no secrets — stored verbatim. Must be
+    // carried explicitly or a folder's owned profiles are lost on every save.
+    if (Array.isArray(coll.profiles)) node.profiles = coll.profiles;
     const profileValues = encryptProfileValues(
       coll.profileValues,
       secureNamesOf(incomingVars),

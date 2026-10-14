@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -86,13 +89,13 @@ import {
   varsArrayToMap,
   varsArrayToSecureSet,
 } from "./components/variable-shape.js";
+import { applyProfileEdit } from "./components/folder-profiles.js";
 import {
-  effectiveProfileVars,
-  resolvedProfileVars,
-  applyProfileEdit,
-  removeProfileFromFolder,
-  MAX_NAMED_PROFILES,
-} from "./components/folder-profiles.js";
+  flattenGroups,
+  hoistScopedProfiles,
+  resolvedFolderChain,
+} from "./components/profile-scope.js";
+import { ProfileController } from "./components/profile-controller.js";
 import {
   makeEntry,
   addRecent,
@@ -648,10 +651,10 @@ function initComponents() {
   varsEditor = new VarsEditor({
     onSave: handleVarsSave,
     onBulkEditorChange: handleVarsBulkEditorChange,
-    onProfileAdd: handleProfileAdd,
-    onProfileRename: handleProfileRename,
-    onProfileSelect: handleProfileSelect,
-    onProfileDelete: handleProfileDelete,
+    onProfileAdd: (payload) => profiles.add(payload),
+    onProfileRename: (payload) => profiles.rename(payload),
+    onProfileSelect: (payload) => profiles.select(payload),
+    onProfileDelete: (payload) => profiles.remove(payload),
   });
   panelRequest.mount(varsEditor);
   varsEditor.element.style.display = "none";
@@ -1585,10 +1588,13 @@ function initEventBus() {
 
 // A profile chosen in the request editor's switcher activates it — the same path
 // as the vars-editor selector and the ⌥⌘0–9 shortcuts (all funnel through
-// handleProfileSelect, which persists + re-resolves live).
+// ProfileController.select, which persists + re-resolves live).
 function installProfileSelectHandler() {
   window.addEventListener("hippo:profile-select", (e) => {
-    handleProfileSelect({ profileId: e.detail?.profileId ?? null });
+    profiles.select({
+      ownerKey: e.detail?.ownerKey ?? null,
+      profileId: e.detail?.profileId ?? null,
+    });
   });
 }
 
@@ -1715,7 +1721,7 @@ function installContainerSelectionHandler() {
     if (isColl) {
       // Top-level collection → edits its Global environment. No profiles here
       // (the Environment picker is the collection-level value switcher).
-      _varsScope = null;
+      profiles.setVarsScope(null);
       varsEditor.load({
         scopeId: nodeId,
         scopeName: name,
@@ -1726,222 +1732,62 @@ function installContainerSelectionHandler() {
     } else {
       // Nested folder → profile-aware editor. Remember the scope so profile
       // add/select/delete can reload the same folder.
-      _varsScope = { nodeId, name };
-      _loadFolderVars(nodeId, name);
+      profiles.setVarsScope({ nodeId, name });
+      profiles.loadFolderVars(nodeId, name);
     }
     _showVarsEditor(name);
   });
 }
 
 // ── Folder-variable profiles ────────────────────────────────────────────────
-// Profiles are collection-wide named alternates for FOLDER variables. Their
-// names + the active selection live on the collection metadata; each folder's
-// per-profile value overrides live on its tree node (`node.profileValues`). See
-// components/folder-profiles.js for the (pure) model. `_varsScope` tracks the
-// folder currently shown in the vars editor so the profile controls can reload
-// it after a profile change.
-
-/** The folder node currently shown in the vars editor, or null. */
-let _varsScope = null;
-
-/** The active collection's metadata entry (holds its profile list + selection). */
-function _activeCollEntry() {
-  return (
-    currentColls.collections.find(
-      (c) => c.id === currentColls.activeCollectionId,
-    ) ?? null
-  );
-}
-
-/** Named profiles [{id,name}] for the active collection (Default is implicit). */
-function _activeProfiles() {
-  return _activeCollEntry()?.variableProfiles ?? [];
-}
-
-/** The active profile id for the collection, or null (= Default). */
-function _activeProfileId() {
-  return _activeCollEntry()?.activeVariableProfileId ?? null;
-}
+// Profiles are named alternates for FOLDER variables, SCOPED to where they are
+// defined: the collection tier (`entry.variableProfiles`, visible everywhere) or
+// one folder (`node.profiles`, visible to it and its descendants). One is active
+// per owner (`entry.activeVariableProfileIds`) and they layer at send time.
+//
+// All of the orchestration — which folder the variable editor is showing, and
+// every create / rename / select / delete — lives in ProfileController; the pure
+// model is split across components/profile-scope.js (visibility + layering),
+// folder-profiles.js (values) and profile-migration.js (the one-shot move of
+// pre-scoping collection-wide profiles down to their folders).
 
 /**
- * Push the active collection's profile list + selection to the request editor so
- * its profile switcher (the "swap" menu by the URL preview / Send button) shows
- * the right entries, checks the active one, and hides when no named profiles exist.
+ * Bring the active collection's profiles up to the scoped model, then drop any
+ * selection whose owner folder or profile is gone. Run once per collection, right
+ * after its tree is loaded AND `currentColls` has settled — the migration needs
+ * the manifest entry and that collection's tree together. A collection already
+ * migrated is a cheap no-op, and one never visited keeps its collection-wide
+ * profiles (which still work) until it is.
  */
-function _pushProfilesToEditor() {
-  requestEditor?.setProfiles({
-    profiles: _activeProfiles(),
-    activeProfileId: _activeProfileId(),
-  });
+async function _adoptProfileScopes() {
+  if (!treeView) return;
+  await profiles.migrateIfNeeded(treeView.getItems());
+  await profiles.pruneStale();
 }
 
-/** Show a folder in the vars editor under the collection's active profile. */
-function _loadFolderVars(nodeId, name) {
-  const node = _findNodeById(treeView?.getItems() ?? [], nodeId);
-  const activeProfileId = _activeProfileId();
-  varsEditor.load({
-    scopeId: nodeId,
-    scopeName: name,
-    variables: effectiveProfileVars(
-      node?.variables ?? [],
-      node?.profileValues,
-      activeProfileId,
-    ),
-    bulkEditor: currentSettings.varsBulkEditor ?? true,
-    profilesEnabled: true,
-    profiles: _activeProfiles(),
-    activeProfileId,
-  });
-}
-
-/** Patch the active collection's profile metadata and persist the manifest. */
-async function _updateActiveCollProfiles(patch) {
-  const id = currentColls.activeCollectionId;
-  const collections = currentColls.collections.map((c) =>
-    c.id === id ? { ...c, ...patch } : c,
-  );
-  currentColls = { ...currentColls, collections };
-  await saveManifest({ collections, activeCollectionId: id });
-}
-
-/** Remove a deleted profile's overrides from every folder in a tree (recursive). */
-function _pruneProfileFromTree(items, profileId) {
-  return (items ?? []).map((n) => {
-    if (n?.type !== "collection") return n;
-    const next = { ...n };
-    if (n.profileValues) {
-      next.profileValues = removeProfileFromFolder(n.profileValues, profileId);
-    }
-    if (Array.isArray(n.children)) {
-      next.children = _pruneProfileFromTree(n.children, profileId);
-    }
-    return next;
-  });
-}
-
-/**
- * [+] popup committed a new profile name. The new profile is created and made
- * ACTIVE: it clones the Default's variable names with cleared values (an unset
- * profile value renders blank — see effectiveProfileVars), so the editor shows
- * the Default's names ready for the user to fill in this profile's values.
- */
-async function handleProfileAdd({ name }) {
-  const trimmed = (name ?? "").trim();
-  if (!trimmed || !_activeCollEntry()) return;
-  const profiles = _activeProfiles();
-  // Cap named profiles at MAX_NAMED_PROFILES so the set maps onto ⌥⌘1–9. The
-  // editor's [+] is already disabled at the limit; this guards other paths.
-  if (profiles.length >= MAX_NAMED_PROFILES) {
-    Notifications.warning(t("profiles.limit", { max: MAX_NAMED_PROFILES }));
-    return;
-  }
-  if (profiles.some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) {
-    Notifications.warning(t("profiles.duplicate", { name: trimmed }));
-    return;
-  }
-  const id = crypto.randomUUID();
-  const variableProfiles = [...profiles, { id, name: trimmed }];
-  await _updateActiveCollProfiles({
-    variableProfiles,
-    activeVariableProfileId: id,
-  });
-  if (_varsScope) _loadFolderVars(_varsScope.nodeId, _varsScope.name);
-  _refreshEditorVariableContext(
-    currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
-  );
-}
-
-/**
- * Rename an existing named profile. Names span the whole collection and are keyed
- * to the profile id (folder `profileValues` are id-keyed, so a rename touches only
- * the collection's profile list). The Default profile has no id and can't be
- * renamed; a blank or duplicate name is rejected.
- */
-async function handleProfileRename({ profileId, name }) {
-  const trimmed = (name ?? "").trim();
-  if (!profileId || !trimmed || !_activeCollEntry()) return;
-  const profiles = _activeProfiles();
-  const current = profiles.find((p) => p.id === profileId);
-  if (!current || current.name === trimmed) return;
-  if (
-    profiles.some(
-      (p) =>
-        p.id !== profileId && p.name.toLowerCase() === trimmed.toLowerCase(),
-    )
-  ) {
-    Notifications.warning(t("profiles.duplicate", { name: trimmed }));
-    return;
-  }
-  const variableProfiles = profiles.map((p) =>
-    p.id === profileId ? { ...p, name: trimmed } : p,
-  );
-  await _updateActiveCollProfiles({ variableProfiles });
-  if (_varsScope) _loadFolderVars(_varsScope.nodeId, _varsScope.name);
-  // A rename doesn't change values (so no variable-context refresh), but the
-  // request editor's profile menu shows the name — refresh its list.
-  _pushProfilesToEditor();
-}
-
-/** Profile selector changed (null = Default). Live at send time → re-resolve. */
-async function handleProfileSelect({ profileId }) {
-  if (!_activeCollEntry()) return;
-  await _updateActiveCollProfiles({
-    activeVariableProfileId: profileId || null,
-  });
-  if (_varsScope) _loadFolderVars(_varsScope.nodeId, _varsScope.name);
-  _refreshEditorVariableContext(
-    currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
-  );
-}
-
-/**
- * Switch the active collection's variable profile by keyboard SLOT (⌥⌘0–9):
- * slot 0 = the Default profile, 1–9 = the Nth named profile. Two cases are silent
- * no-ops: a slot with no matching profile (e.g. ⌥⌘7 with only three profiles), and
- * a target that is ALREADY active. Only a real switch persists and shows a toast —
- * the shortcut may fire with no folder open in the vars editor, so the change is
- * otherwise invisible.
- */
-function selectProfileBySlot(slot) {
-  if (!_activeCollEntry()) return;
-  let target = null; // null = Default
-  if (slot > 0) {
-    target = _activeProfiles()[slot - 1];
-    if (!target) return; // no profile in that slot
-  }
-  const targetId = target?.id ?? null;
-  if (_activeProfileId() === targetId) return; // already active — do nothing
-  handleProfileSelect({ profileId: targetId });
-  Notifications.info(
-    t("profiles.switched", {
-      name: target ? target.name : t("profiles.default"),
-    }),
-  );
-}
-
-/** Delete the active named profile: drop it collection-wide + prune folders. */
-async function handleProfileDelete({ profileId }) {
-  const entry = _activeCollEntry();
-  if (!entry || !profileId) return;
-  const variableProfiles = _activeProfiles().filter((p) => p.id !== profileId);
-  const activeVariableProfileId =
-    entry.activeVariableProfileId === profileId
-      ? null
-      : (entry.activeVariableProfileId ?? null);
-  await _updateActiveCollProfiles({
-    variableProfiles,
-    activeVariableProfileId,
-  });
-  if (treeView) {
-    const items = _pruneProfileFromTree(treeView.getItems(), profileId);
-    treeView.setItems(items);
-    await saveCollections(items);
-  }
-  if (_varsScope) _loadFolderVars(_varsScope.nodeId, _varsScope.name);
-  _refreshEditorVariableContext(
-    currentSettings.selectedRequestIds?.[currentColls.activeCollectionId],
-  );
-}
+/** @type {ProfileController} */
+const profiles = new ProfileController({
+  getCollections: () => currentColls,
+  setCollections: (next) => {
+    currentColls = next;
+  },
+  saveManifest,
+  saveTree: (items) => saveCollections(items),
+  getTreeView: () => treeView,
+  getVarsEditor: () => varsEditor,
+  getRequestEditor: () => requestEditor,
+  getSettings: () => currentSettings,
+  getSelectedRequestId: () =>
+    _selectedNode?.id ??
+    currentSettings.selectedRequestIds?.[currentColls.activeCollectionId] ??
+    null,
+  refreshContext: () => _refreshEditorVariableContext(),
+  t,
+  notify: {
+    warning: (msg) => Notifications.warning(msg),
+    info: (msg) => Notifications.info(msg),
+  },
+});
 
 /** Show the inline variable editor (hide the request editor); set panel title. */
 function _showVarsEditor(scopeName) {
@@ -2491,6 +2337,8 @@ async function activateCollection(id) {
   currentEnvironments = await loadEnvironments(id);
   envPicker.load(currentEnvironments);
 
+  await _adoptProfileScopes();
+
   collPicker.load(currentColls);
   collPopup.update(collPopupState());
   _refreshEditorVariableContext();
@@ -2612,6 +2460,8 @@ async function handleCollDelete({ id }) {
   currentColls = { collections, activeCollectionId: activeId };
   collPicker.load(currentColls);
   await saveManifest({ collections, activeCollectionId: activeId });
+  // The tree we switched to may still hold pre-scoping collection-wide profiles.
+  await _adoptProfileScopes();
   // Reclaim the collection's on-disk directory now that the manifest no longer
   // references it (requests, history, responses, cookies, metadata).
   await deleteCollection(id);
@@ -2670,18 +2520,24 @@ async function handleVarsSave({
     return;
   }
 
-  // It's a folder node — reconcile the edit against the active profile and patch
-  // the LIVE node (getNode: no whole-tree clone), then queue a coalesced
+  // It's a folder node — reconcile the edit against the profile being edited and
+  // patch the LIVE node (getNode: no whole-tree clone), then queue a coalesced
   // background persist. Every save serializes the whole collection across IPC, so
   // this stays off the hot path: no await here, and overlapping saves collapse to
   // one (see _queueSaveTree).
   if (!treeView) return;
   const node = treeView.getNode(scopeId);
+  // Only the profiles VISIBLE here are reconciled; values stored for any other id
+  // are carried forward untouched (a folder moved out from under a profile's
+  // owner keeps its overrides dormant rather than losing them).
+  const inScopeIds = flattenGroups(profiles.groupsFor(scopeId)).map(
+    (p) => p.id,
+  );
   const { variables: defaultVars, profileValues } = applyProfileEdit(
     { variables: node?.variables, profileValues: node?.profileValues },
     profileId,
     variables,
-    _activeProfiles().map((p) => p.id),
+    inScopeIds,
     overrides,
   );
   treeView.updateNode(
@@ -2787,6 +2643,24 @@ async function handleEnvVarsSave({ id, variables }) {
  *   defaults to the active collection's selectedRequestId.
  */
 /**
+ * The resolver-ready folder chain for `nodeId` — nearest-first, each folder's
+ * variables flattened to a map under the profiles active in its scope. The one
+ * place profile layering happens; every consumer (editor context, script
+ * snapshot, cURL / code-gen) goes through it so they can never disagree.
+ *
+ * @param {string|null} nodeId
+ */
+function _resolvedChainFor(nodeId) {
+  if (!treeView || !nodeId) return [];
+  return resolvedFolderChain({
+    items: treeView.getItems(),
+    nodeId,
+    collectionProfiles: profiles.collectionProfiles(),
+    activeByOwner: profiles.activeByOwner(),
+  });
+}
+
+/**
  * Build the full variable-resolution context for a node at `nodeId` from the
  * current global / environment / collection / folder-chain state — the shape
  * `resolveStringAsync` consumes. Shared by the editor's live context refresh
@@ -2797,29 +2671,16 @@ async function handleEnvVarsSave({ id, variables }) {
  * @param {object|null} [node]  the node itself, for requestName (optional)
  */
 function _buildVariableContextForNode(nodeId, node = null) {
-  // Variables are stored canonically as arrays; the resolver consumes maps,
-  // so flatten each scope (and every folder-chain node) here at the boundary.
-  // Each folder resolves under the collection's ACTIVE profile: its Default
-  // variables with the active profile's overrides applied (Default names + secure
-  // flags unchanged). By presence, a variable the profile overrides uses its
-  // stored value (empty included) and one it doesn't inherits the Default —
-  // resolvedProfileVars, not effectiveProfileVars (which blanks inheriting values
-  // for the editor). The active profile is live at send time.
-  const activeProfileId = _activeProfileId();
-  const folderChain = (
-    treeView && nodeId ? buildFolderChain(treeView.getItems(), nodeId) : []
-  ).map((folder) => ({
-    ...folder,
-    variables: varsArrayToMap(
-      resolvedProfileVars(
-        folder.variables,
-        folder.profileValues,
-        activeProfileId,
-      ),
-    ),
-    // Parallel set of secret names — the map above drops the secure flag.
-    secureVariables: varsArrayToSecureSet(folder.variables),
-  }));
+  // Variables are stored canonically as arrays; the resolver consumes maps, so
+  // resolvedFolderChain flattens each folder-chain node here at the boundary. It
+  // is the single site of LAYERED profile resolution: each folder resolves its
+  // Default variables with the overrides of every profile active in ITS scope
+  // applied outermost owner → innermost, so a subfolder's profile beats its
+  // parent's on a shared name and a profile never reaches outside its owner's
+  // subtree. By presence, a variable a profile overrides uses its stored value
+  // (empty included) and one it doesn't falls through to the layer below, then to
+  // the Default. Selections are live at send time.
+  const folderChain = _resolvedChainFor(nodeId);
   const activeColl = currentColls.collections.find(
     (coll) => coll.id === currentColls.activeCollectionId,
   );
@@ -2862,7 +2723,7 @@ function _refreshEditorVariableContext(nodeId) {
 
   const ctx = _buildVariableContextForNode(id, node);
   requestEditor.setVariableContext(ctx);
-  _pushProfilesToEditor();
+  profiles.pushToEditor();
 
   // Feed merged variables to the tree-view so "Generate cURL" resolves correctly.
   // Environment wins over global.
@@ -2873,7 +2734,10 @@ function _refreshEditorVariableContext(nodeId) {
     });
     // Active profile, so tree-view cURL / code-gen resolve folder variables under
     // it (not always the Default) — matching a send under the same profile.
-    treeView.setActiveProfileId(_activeProfileId());
+    treeView.setProfileState({
+      collectionProfiles: profiles.collectionProfiles(),
+      activeByOwner: profiles.activeByOwner(),
+    });
     // Collection default headers, so tree-view cURL / code-gen merge them too.
     treeView.setCollectionHeaders(ctx.collectionHeaders);
   }
@@ -3044,6 +2908,11 @@ function _captureNameList(entries) {
  * name) for a request node, mirroring the resolver scopes — the read-side
  * context handed to a script's `hippo.variables.get` / `environment`. Folder vars
  * are flattened nearest-wins (the same precedence the resolver uses).
+ *
+ * This shares `_resolvedChainFor` with the send path, so a script sees the SAME
+ * values a send would — including the active profiles' overrides. It previously
+ * read each folder's raw `variables` and so always reported the Default, silently
+ * disagreeing with the URL preview, cURL and code-gen whenever a profile was on.
  * @param {string} nodeId
  */
 function _variableSnapshotForNode(nodeId) {
@@ -3051,13 +2920,11 @@ function _variableSnapshotForNode(nodeId) {
     (e) => e.id === currentEnvironments.activeEnvironmentId,
   );
   const folder = {};
-  if (treeView && nodeId) {
-    // buildFolderChain is nearest-first; assign farthest → nearest so the
-    // nearest folder wins on a name clash.
-    const chain = buildFolderChain(treeView.getItems(), nodeId);
-    for (let i = chain.length - 1; i >= 0; i--) {
-      Object.assign(folder, varsArrayToMap(chain[i].variables));
-    }
+  // The chain is nearest-first; assign farthest → nearest so the nearest folder
+  // wins on a name clash. Each entry's `variables` is already a resolved map.
+  const chain = _resolvedChainFor(nodeId);
+  for (let i = chain.length - 1; i >= 0; i--) {
+    Object.assign(folder, chain[i].variables);
   }
   return {
     global: varsArrayToMap(currentEnvironments.globalVariables),
@@ -3755,6 +3622,10 @@ async function initCollections() {
   collPicker.load(currentColls);
   envPicker.load(currentEnvironments);
 
+  // First load of this collection since scoping shipped: move its collection-wide
+  // profiles down to the folders that own them.
+  await _adoptProfileScopes();
+
   // Restore the previously selected request for this collection (or clear if none)
   const savedId = settings.selectedRequestIds?.[activeCollectionId];
   if (!savedId || !treeView.selectById(savedId)) {
@@ -3983,7 +3854,7 @@ function installKeyboardShortcuts() {
       if (slot < 0) return;
       e.preventDefault();
       e.stopPropagation();
-      selectProfileBySlot(slot);
+      profiles.selectSlot(slot);
     },
     { capture: true },
   );
@@ -5062,12 +4933,16 @@ async function runRestHippoCollectionExport(collection) {
     /* non-fatal — export without collection variables / headers */
   }
   const archive = buildRestHippoArchive({
-    items: [collection],
+    // A NESTED folder can be exported too, and its subtree may hold overrides for
+    // profiles owned by an ancestor that isn't travelling with it. Hoist those
+    // definitions onto the exported root so the archive never carries values no
+    // profile claims. Collection-tier ones are excluded — they travel below.
+    items: [hoistScopedProfiles(collection, profiles.groupsFor(collection.id))],
     collectionVariables,
     collectionHeaders,
     // Both export paths (per-collection button, tree collection menu) run against
     // the active collection, so its profile list is the right one to travel.
-    collectionProfiles: _activeProfiles(),
+    collectionProfiles: profiles.collectionProfiles(),
     environments: currentEnvironments,
     exportedAt: new Date().toISOString(),
   });

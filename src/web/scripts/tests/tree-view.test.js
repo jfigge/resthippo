@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -926,6 +929,7 @@ test("copy-as-curl resolves folder variables under the ACTIVE profile, not alway
           variables: [
             { name: "host", value: "default.example.com", secure: false },
           ],
+          profiles: [{ id: "p1", name: "Prod" }],
           profileValues: { p1: { host: "prod.example.com" } },
           children: [
             {
@@ -951,14 +955,14 @@ test("copy-as-curl resolves folder variables under the ACTIVE profile, not alway
     configurable: true,
   });
 
-  // Default profile → the Default value.
-  tv.setActiveProfileId(null);
+  // Nothing active → the Default value.
+  tv.setProfileState({ activeByOwner: {} });
   await contextAction(tv, "r2", "copy-as-curl");
   assert.match(copied, /default\.example\.com/);
   assert.doesNotMatch(copied, /prod\.example\.com/);
 
-  // Named profile active → its overriding value resolves into the cURL.
-  tv.setActiveProfileId("p1");
+  // The owning folder's profile active → its override resolves into the cURL.
+  tv.setProfileState({ activeByOwner: { f1: "p1" } });
   await contextAction(tv, "r2", "copy-as-curl");
   assert.match(copied, /prod\.example\.com/);
 });
@@ -975,6 +979,10 @@ test("copy-as-curl resolves profile values by presence: absent inherits, explici
           type: "collection",
           name: "Auth",
           variables: [{ name: "token", value: "default-token", secure: false }],
+          profiles: [
+            { id: "inherit", name: "Inherit" },
+            { id: "empty", name: "Empty" },
+          ],
           // "inherit" has no override for token; "empty" overrides it to "".
           profileValues: { inherit: {}, empty: { token: "" } },
           children: [
@@ -1002,14 +1010,163 @@ test("copy-as-curl resolves profile values by presence: absent inherits, explici
   });
 
   // No override for token → inherits the Default value.
-  tv.setActiveProfileId("inherit");
+  tv.setProfileState({ activeByOwner: { f1: "inherit" } });
   await contextAction(tv, "r2", "copy-as-curl");
   assert.match(copied, /default-token/);
 
   // Explicit empty override → sends empty, does NOT inherit.
-  tv.setActiveProfileId("empty");
+  tv.setProfileState({ activeByOwner: { f1: "empty" } });
   await contextAction(tv, "r2", "copy-as-curl");
   assert.doesNotMatch(copied, /default-token/);
+});
+
+test("copy-as-curl: an ancestor-owned profile applies at a descendant, but never at a sibling", async () => {
+  // "eu" is owned by API. Auth (a child) overrides it; Reports (a sibling of API)
+  // must be untouched by it even though the same selection is live.
+  const items = [
+    {
+      id: "api",
+      type: "collection",
+      name: "API",
+      variables: [{ name: "host", value: "dev.example.com", secure: false }],
+      profiles: [{ id: "eu", name: "eu" }],
+      profileValues: { eu: { host: "eu.example.com" } },
+      children: [
+        {
+          id: "auth",
+          type: "collection",
+          name: "Auth",
+          variables: [{ name: "user", value: "dev-user", secure: false }],
+          profileValues: { eu: { user: "eu-user" } },
+          children: [
+            {
+              id: "r-auth",
+              type: "request",
+              name: "Login",
+              method: "GET",
+              url: "{{host}}/login?u={{user}}",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "reports",
+      type: "collection",
+      name: "Reports",
+      variables: [
+        { name: "host", value: "reports.example.com", secure: false },
+      ],
+      // A stale override for a profile Reports cannot see — must never apply.
+      profileValues: { eu: { host: "LEAKED" } },
+      children: [
+        {
+          id: "r-rep",
+          type: "request",
+          name: "Daily",
+          method: "GET",
+          url: "{{host}}/daily",
+        },
+      ],
+    },
+  ];
+  const tv = mount(items);
+  let copied = "";
+  Object.defineProperty(globalThis.navigator, "clipboard", {
+    value: {
+      writeText: async (txt) => {
+        copied = txt;
+      },
+    },
+    configurable: true,
+  });
+
+  tv.setProfileState({ activeByOwner: { api: "eu" } });
+
+  await contextAction(tv, "r-auth", "copy-as-curl");
+  assert.match(copied, /eu\.example\.com/, "the owner's own override applies");
+  assert.match(
+    copied,
+    /eu-user/,
+    "the descendant's override for it applies too",
+  );
+
+  await contextAction(tv, "r-rep", "copy-as-curl");
+  assert.match(copied, /reports\.example\.com/);
+  assert.doesNotMatch(
+    copied,
+    /LEAKED/,
+    "a profile must not reach a folder outside its owner's subtree",
+  );
+});
+
+test("copy-as-curl: within one folder the INNER profile layer wins on a shared name", async () => {
+  // Two distinct precedence rules meet here, and they are not the same thing:
+  //   • the resolver walks the folder chain NEAREST-first, so the closest folder
+  //     that DECLARES a variable owns it; a profile can only override names the
+  //     folder's own Default set declares, never introduce one; and
+  //   • within that folder, the in-scope profile layers apply outermost owner →
+  //     innermost, so the innermost override of a declared name wins.
+  // Auth declares `host` itself and holds overrides for both an ancestor-owned
+  // profile (eu) and its own (sandbox).
+  const items = [
+    {
+      id: "api",
+      type: "collection",
+      name: "API",
+      variables: [{ name: "host", value: "api-default", secure: false }],
+      profiles: [{ id: "eu", name: "eu" }],
+      profileValues: { eu: { host: "eu.example.com" } },
+      children: [
+        {
+          id: "auth",
+          type: "collection",
+          name: "Auth",
+          variables: [{ name: "host", value: "auth-default", secure: false }],
+          profiles: [{ id: "sandbox", name: "sandbox" }],
+          profileValues: {
+            eu: { host: "auth-eu.example.com" },
+            sandbox: { host: "auth-sandbox.example.com" },
+          },
+          children: [
+            {
+              id: "r2",
+              type: "request",
+              name: "Login",
+              method: "GET",
+              url: "{{host}}/login",
+            },
+          ],
+        },
+      ],
+    },
+  ];
+  const tv = mount(items);
+  let copied = "";
+  Object.defineProperty(globalThis.navigator, "clipboard", {
+    value: {
+      writeText: async (txt) => {
+        copied = txt;
+      },
+    },
+    configurable: true,
+  });
+
+  // Only the ancestor-owned profile active → Auth's override for it.
+  tv.setProfileState({ activeByOwner: { api: "eu" } });
+  await contextAction(tv, "r2", "copy-as-curl");
+  assert.match(copied, /auth-eu\.example\.com/);
+
+  // Both active → the inner owner's layer wins.
+  tv.setProfileState({ activeByOwner: { api: "eu", auth: "sandbox" } });
+  await contextAction(tv, "r2", "copy-as-curl");
+  assert.match(copied, /auth-sandbox\.example\.com/);
+  assert.doesNotMatch(copied, /auth-eu\.example\.com/);
+
+  // Nothing active → Auth's Default, still shadowing API's.
+  tv.setProfileState({ activeByOwner: {} });
+  await contextAction(tv, "r2", "copy-as-curl");
+  assert.match(copied, /auth-default/);
 });
 
 // ── Keyboard navigation (roving tabindex) ────────────────────────────────────

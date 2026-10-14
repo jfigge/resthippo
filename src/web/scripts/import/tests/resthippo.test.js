@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -489,4 +492,97 @@ test("round-trip: every canonical WebSocket field is individually preserved", ()
       `WebSocket field "${field}" was lost in the export→import round-trip`,
     );
   }
+});
+
+// ── Folder-owned profiles on import ─────────────────────────────────────────
+// Profiles are scoped, so a folder's own profile list travels inside its node.
+
+const folder = (id, name, extra = {}) => ({
+  id,
+  type: "collection",
+  name,
+  variables: [],
+  children: [],
+  ...extra,
+});
+
+test("a matched folder keeps its own profiles AND gains the archive's", () => {
+  const target = [
+    folder("api", "API", { profiles: [{ id: "eu", name: "eu" }] }),
+  ];
+  const archive = [
+    folder("api", "API", { profiles: [{ id: "us", name: "us" }] }),
+  ];
+  const { items } = mergeArchiveIntoTree(target, archive);
+  assert.deepEqual(
+    items[0].profiles.map((p) => p.id),
+    ["eu", "us"],
+    "the reused node's spread would otherwise drop the archive's",
+  );
+});
+
+test("re-importing the same archive into the same folder is idempotent", () => {
+  const archive = [
+    folder("api", "API", { profiles: [{ id: "eu", name: "eu" }] }),
+  ];
+  const once = mergeArchiveIntoTree([], archive).items;
+  const twice = mergeArchiveIntoTree(once, archive).items;
+  assert.deepEqual(twice[0].profiles, [{ id: "eu", name: "eu" }]);
+});
+
+test("a NEW folder whose profile id is already in use gets a fresh id", () => {
+  const target = [
+    folder("api", "API", { profiles: [{ id: "eu", name: "eu" }] }),
+  ];
+  // Same profile id, different folder — importing it as-is would leave two owners.
+  const archive = [
+    folder("other", "Other", {
+      profiles: [{ id: "eu", name: "eu" }],
+      profileValues: { eu: { host: "h" } },
+    }),
+  ];
+  const { items } = mergeArchiveIntoTree(target, archive);
+  const imported = items.find((n) => n.id === "other");
+  assert.notEqual(imported.profiles[0].id, "eu");
+  assert.equal(imported.profiles[0].name, "eu", "the name is kept");
+  assert.deepEqual(
+    Object.keys(imported.profileValues),
+    [imported.profiles[0].id],
+    "its overrides follow the new id",
+  );
+  assert.deepEqual(
+    items[0].profiles,
+    [{ id: "eu", name: "eu" }],
+    "the target is untouched",
+  );
+});
+
+test("a descendant's overrides for a remapped ancestor profile are rekeyed too", () => {
+  const target = [
+    folder("api", "API", { profiles: [{ id: "eu", name: "eu" }] }),
+  ];
+  const archive = [
+    folder("other", "Other", {
+      profiles: [{ id: "eu", name: "eu" }],
+      children: [
+        folder("child", "Child", { profileValues: { eu: { k: "v" } } }),
+      ],
+    }),
+  ];
+  const { items } = mergeArchiveIntoTree(target, archive);
+  const imported = items.find((n) => n.id === "other");
+  const newId = imported.profiles[0].id;
+  assert.deepEqual(Object.keys(imported.children[0].profileValues), [newId]);
+});
+
+test("a non-colliding profile id is preserved verbatim", () => {
+  const archive = [
+    folder("other", "Other", {
+      profiles: [{ id: "fresh", name: "fresh" }],
+      profileValues: { fresh: { k: "v" } },
+    }),
+  ];
+  const { items } = mergeArchiveIntoTree([], archive);
+  assert.deepEqual(items[0].profiles, [{ id: "fresh", name: "fresh" }]);
+  assert.deepEqual(items[0].profileValues, { fresh: { k: "v" } });
 });

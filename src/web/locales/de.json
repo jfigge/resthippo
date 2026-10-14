@@ -1409,7 +1409,16 @@
     "switched": "Aktives Profil: {name}",
     "switcherTitle": "Ordner-Variablenprofil wechseln",
     "inheritsDefault": "Erbt den Standardwert",
-    "resetToInherit": "Zurücksetzen, um den Standardwert zu erben"
+    "resetToInherit": "Zurücksetzen, um den Standardwert zu erben",
+    "scopeAria": "Profilbereich",
+    "scopeFolder": "Dieser Ordner",
+    "scopeCollection": "Gesamte Sammlung",
+    "groupCollection": "Sammlung",
+    "allDefault": "Alle auf Standard",
+    "ownedElsewhere": "„{name}“ ist in {owner} definiert – öffnen Sie diesen Ordner, um es umzubenennen oder zu löschen.",
+    "switchedScoped": "Aktives Profil: {name} ({owner})",
+    "switchedAllDefault": "Alle Profile auf Standard gesetzt",
+    "limitOwner": "Maximal {max} Profile pro Ordner erreicht"
   },
   "passwordPrompt": {
     "exportTitle": "Export mit Passwort schützen",
@@ -1436,7 +1445,7 @@
     "tabRequests": "Tab „Anfragen“ anzeigen",
     "tabFavorites": "Tab „Favoriten“ anzeigen",
     "tabRecents": "Tab „Zuletzt verwendet“ anzeigen",
-    "selectProfile": "Variablenprofil wechseln (0 = Standard)",
+    "selectProfile": "Ein verfügbares Variablenprofil wechseln (0 = alle auf Standard)",
     "find": "In Antwort suchen oder Seitenleiste filtern",
     "filter": "Antworttext filtern (JSON / YAML / XML)",
     "selectBody": "Gesamten Antworttext auswählen",

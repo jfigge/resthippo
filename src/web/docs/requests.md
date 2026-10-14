@@ -72,7 +72,8 @@ keeps it in sync with the URL — editing one updates the other.
 - Use **+** to add a row, the trash icon to remove one, and **Delete All** to
   clear them.
 - Toggle **Bulk Editor** to edit all parameters as plain text instead of rows —
-  handy for pasting.
+  handy for pasting. Pasted text is trimmed of leading and trailing whitespace
+  (spaces, tabs, stray newlines) in every bulk editor.
 
 ## Headers
 

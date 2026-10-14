@@ -70,25 +70,47 @@ A **profile** is a named alternate set of _values_ for a folder's variables —
 handy when the same requests point at different back-ends (say **Dev**, **Staging**
 and **Prod**) that differ only in a host, key, or token. Profiles name value-sets
 for a **folder's** variables only — they never rename or re-value environment or
-Global variables (that's what [environments](#environments) are for). Profiles are
-defined once and **span the whole collection**, so every folder shares the same
-profile names while keeping its own per-profile values.
+Global variables (that's what [environments](#environments) are for).
+
+#### Where a profile is visible
+
+A profile belongs to the scope it was **defined in**, and is offered there and
+**below it** — nowhere else:
+
+- **This folder** — visible on that folder and every folder inside it. A folder
+  elsewhere in the collection never sees it, so its values can't be mistaken for
+  ones that are available there.
+- **Whole collection** — visible from every folder in the collection.
+
+So if a folder defines two profiles and a subfolder inside it defines three,
+anything under that subfolder sees **five**, the parent folder sees its own
+**two**, and a folder alongside the parent sees **none**.
+
+Because a profile only ever reaches its own subtree, two unrelated branches can
+each have their own **Prod** without either shadowing the other.
 
 Every folder starts with a single **Default** profile — the plain variables you
-edit when no named profiles exist. The **Default profile owns the variable set**:
-it is the only profile where you can add, rename, remove, or mark a variable
-secure. Its controls live on the **far right of the folder variable editor's
-toolbar**:
+edit when no named profiles are in scope. The **Default profile owns the variable
+set**: it is the only profile where you can add, rename, remove, or mark a
+variable secure. Its controls live on the **far right of the folder variable
+editor's toolbar**:
 
 - **＋ (Add profile)** — always shown. It opens a small popup to name a new
-  profile; press **Enter** to create it, or **Escape** / click away to cancel.
-  Creating a profile **switches to it** and copies the Default's variable
-  **names** with their values **cleared**, ready for you to fill in. A collection
-  holds up to **nine** named profiles; the ＋ control disables once you reach the
-  limit.
-- **Profile selector** and **🗑 (Delete profile)** — appear once at least one named
-  profile exists. The selector lists **Default** plus your named profiles; Delete
-  removes the selected profile (Default can't be deleted).
+  profile and choose its **scope**: **This folder** (the default) or **Whole
+  collection**. Press **Enter** to create it, or **Escape** / click away to
+  cancel. Creating a profile **switches to it** and copies the Default's variable
+  **names** with their values **cleared**, ready for you to fill in. Each scope
+  holds up to **nine** named profiles — the limit is per folder, so a full folder
+  never stops its parent (or the collection) taking more. A scope at its limit is
+  greyed out in the popup, and ＋ itself only when both are.
+- **Profile selector** and **🗑 (Delete profile)** — appear once at least one
+  named profile is in scope. The selector lists **Default** plus every profile you
+  can see here, **grouped by where it was defined** so you can tell at a glance
+  which folder a profile belongs to.
+- **✎ (Rename)** and **🗑 (Delete)** work on a profile **defined on this folder**,
+  or on a collection-wide one. A profile inherited from a parent folder is shown
+  greyed out with a tip naming the folder that owns it — go there to rename or
+  delete it, so one folder can't pull a profile out from under its siblings.
 
 How values behave:
 
@@ -111,27 +133,43 @@ How values behave:
   the secure toggle is disabled. Add, rename, or remove a variable on the
   **Default** profile and every profile picks up the change (a new variable is
   inherited everywhere; a removed one drops out).
-- **Switching folders** keeps your selected profile; the editor just re-shows the
-  new folder's variables under it.
+- **A profile can only override names its folder already declares.** It changes
+  values; it never introduces a new variable.
 
-Once a collection has named profiles, a **switch icon** also appears in the
-request editor — to the right of the URL preview's Copy button, or beside the
-Send button when the URL preview is hidden. Click it to open a menu of every
-profile (with its shortcut) and a check beside the active one; pick one to
-activate it.
+#### Running several profiles at once
 
-You can also switch the active profile from anywhere with the keyboard — hold
-**⌥⌘** (Cmd+Opt; **Ctrl+Alt** on Windows / Linux) and press the profile's number:
-**⌥⌘0**–**⌥⌘9**, where **0** selects the Default and **1**–**9** the first through
-ninth named profiles, in the order they appear in the selector. A number with no
-matching profile does nothing.
+Because profiles are scoped, more than one can apply to the same request — **one
+per scope**. A collection-wide **Staging** and a folder's **eu** can both be
+active, and each folder resolves its variables with the outer profile applied
+first and the inner one on top. If both set the same variable name, the **innermost
+one wins**; a name only the outer profile touches still comes through. Selecting a
+profile only changes the selection **for the scope that defines it** — the others
+stay as they are.
 
-The selected profile is **live**: requests in the collection resolve their folder
-variables using the active profile's values, so switching profiles switches which
-back-end your requests hit. Profiles are independent of
-[Environments](#environments) — Environments switch the collection-wide (Global)
-values, profiles switch a folder's values; the two compose. A folder's per-profile
-values travel with it in a **Rest Hippo** export/backup.
+A selection you make in one branch is remembered while you work in another. Step
+into a folder that can't see it and it simply doesn't apply; come back and it's
+still there.
+
+Once a request has profiles in scope, a **switch icon** appears in the request
+editor — to the right of the URL preview's Copy button, or beside the Send button
+when the URL preview is hidden. Click it for a menu of every profile available to
+that request, grouped under the folder that defines it, with each group's own
+selection marked. **All Default** at the top clears every selection that applies
+here. A request in a folder with no profiles in scope gets no switch icon at all.
+
+You can also switch from anywhere with the keyboard — hold **⌥⌘** (Cmd+Opt;
+**Ctrl+Alt** on Windows / Linux) and press a number: **⌥⌘0** sets everything in
+scope back to Default, and **⌥⌘1**–**⌥⌘9** pick the first through ninth profile
+available to the selected request, counting from the outermost scope inward (the
+order they appear in the selector). A number with no matching profile does nothing.
+Once more than nine profiles are in scope, only the first nine have a shortcut.
+
+The selected profiles are **live**: requests resolve their folder variables using
+them, so switching profiles switches which back-end your requests hit. Profiles are
+independent of [Environments](#environments) — Environments switch the
+collection-wide (Global) values, profiles switch a folder's values; the two
+compose. A folder's own profiles and its per-profile values travel with it in a
+**Rest Hippo** export/backup, so exporting a folder carries the profiles it needs.
 
 ## Environments
 

@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -36,6 +39,7 @@ import { PopupManager } from "../popup-manager.js";
 import { Notifications } from "../notifications.js";
 import { icon } from "../icons.js";
 import { copyWithIconFlash } from "../utils/clipboard.js";
+import { wireTrimmedPaste } from "../utils/trimmed-paste.js";
 import { t } from "../i18n.js";
 import { bindingDisplay } from "../keymap.js";
 import { oauthExecutor } from "../auth/oauth-executor.js";
@@ -329,8 +333,11 @@ export class RequestEditor {
   // Variable-profile switcher (only shown when the collection has named profiles).
   #profilePicker = null; // ProfilePicker (native menu) bound to #profileBtn
   #profileBtn = null; // the persistent "swap" trigger button
-  #profiles = []; // [{ id, name }] named profiles for the active collection
-  #activeProfileId = null; // active profile id, or null (= Default)
+  // Owner groups visible at the current request (outermost → innermost) and the
+  // active profile per owner. Profiles are scoped, so this depends on which
+  // request is open — see components/profile-scope.js.
+  #profileGroups = [];
+  #activeByOwner = {};
   // Drag-to-reorder (phantom-placeholder pattern; see DragReorderController)
   #paramsDrag = new DragReorderController({
     getItems: () => this.#params,
@@ -536,7 +543,7 @@ export class RequestEditor {
     // is placed by #mountProfileBtn; picking a profile is an app-wide state
     // change, so it routes out as a global event (see #selectProfile).
     this.#profilePicker = new ProfilePicker({
-      onActivate: (id) => this.#selectProfile(id),
+      onActivate: (sel) => this.#selectProfile(sel),
     });
 
     this.#renderUrlBar();
@@ -1788,6 +1795,7 @@ export class RequestEditor {
     bulkTa.spellcheck = false;
     bulkTa.setAttribute("aria-label", o.bulkAriaLabel);
     bulkTa.addEventListener("input", () => o.onBulkInput(bulkTa.value));
+    wireTrimmedPaste(bulkTa);
     container.appendChild(bulkTa);
 
     // ── KV wrap (column headers + list) ──────────────────────────────────
@@ -2541,19 +2549,29 @@ export class RequestEditor {
   // ── Variable-profile switcher ────────────────────────────────────────────
 
   /**
-   * Push the active collection's profile list + selection in from app.js. The
-   * switcher icon shows only when there are named profiles (the Default alone
-   * needs no switcher); its checkmark and placement update here.
-   * @param {{ profiles?: {id:string,name:string}[], activeProfileId?: string|null }} data
+   * Push the profiles visible at the CURRENT request in from app.js, plus the
+   * active profile per owner. The switcher icon shows only when this request has
+   * profiles in scope (a sibling of the folder that defines them has none, so it
+   * gets no switcher at all); its check marks and placement update here.
+   * @param {{ groups?: object[], activeByOwner?: Record<string,string> }} data
    */
-  setProfiles({ profiles = [], activeProfileId = null } = {}) {
-    this.#profiles = Array.isArray(profiles) ? profiles : [];
-    this.#activeProfileId = activeProfileId ?? null;
+  setProfiles({ groups = [], activeByOwner = {} } = {}) {
+    this.#profileGroups = Array.isArray(groups) ? groups : [];
+    this.#activeByOwner =
+      activeByOwner && typeof activeByOwner === "object" ? activeByOwner : {};
     this.#profilePicker.load({
-      profiles: this.#profiles,
-      activeProfileId: this.#activeProfileId,
+      groups: this.#profileGroups,
+      activeByOwner: this.#activeByOwner,
     });
     this.#mountProfileBtn();
+  }
+
+  /** True when any owner in scope here has a non-Default profile selected. */
+  #anyProfileActive() {
+    return this.#profileGroups.some((g) => {
+      const id = this.#activeByOwner[g.ownerKey];
+      return id && (g.profiles ?? []).some((p) => p.id === id);
+    });
   }
 
   /** Build (once) the persistent "swap" trigger button and bind the picker. */
@@ -2577,13 +2595,13 @@ export class RequestEditor {
    * the preview is visible, otherwise to the right of the Send button.
    */
   #mountProfileBtn() {
-    if (!this.#profiles.length) {
+    if (!this.#profileGroups.length) {
       this.#profileBtn?.remove();
       return;
     }
     const btn = this.#ensureProfileBtn();
     // A non-Default active profile gets a subtle emphasis on the icon.
-    btn.classList.toggle("req-profile-btn--active", !!this.#activeProfileId);
+    btn.classList.toggle("req-profile-btn--active", this.#anyProfileActive());
     // isConnected guards the WebSocket bar, where #urlPreviewEl is a stale,
     // detached reference (that bar has no preview and doesn't reassign it).
     if (this.#urlPreviewEnabled && this.#urlPreviewEl?.isConnected) {
@@ -2598,11 +2616,16 @@ export class RequestEditor {
     }
   }
 
-  /** A profile was chosen in the picker — broadcast the app-wide switch. */
-  #selectProfile(profileId) {
+  /**
+   * A profile was chosen in the picker — broadcast the app-wide switch.
+   * `ownerKey` null clears every owner in scope at this request; a null
+   * `profileId` returns just that owner to its Default.
+   * @param {{ownerKey: string|null, profileId: string|null}} sel
+   */
+  #selectProfile({ ownerKey = null, profileId = null } = {}) {
     window.dispatchEvent(
       new CustomEvent("hippo:profile-select", {
-        detail: { profileId: profileId ?? null },
+        detail: { ownerKey, profileId },
       }),
     );
   }

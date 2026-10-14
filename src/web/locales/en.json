@@ -1409,7 +1409,16 @@
     "switched": "Active profile: {name}",
     "switcherTitle": "Switch folder variables profile",
     "inheritsDefault": "Inherits default value",
-    "resetToInherit": "Reset to inherit the default value"
+    "resetToInherit": "Reset to inherit the default value",
+    "scopeAria": "Profile scope",
+    "scopeFolder": "This folder",
+    "scopeCollection": "Whole collection",
+    "groupCollection": "Collection",
+    "allDefault": "All Default",
+    "ownedElsewhere": "“{name}” is defined on {owner} — open that folder to rename or delete it.",
+    "switchedScoped": "Active profile: {name} ({owner})",
+    "switchedAllDefault": "All profiles set to Default",
+    "limitOwner": "Maximum of {max} profiles per folder reached"
   },
   "passwordPrompt": {
     "exportTitle": "Password-Protect Export",
@@ -1436,7 +1445,7 @@
     "tabRequests": "Show the Requests tab",
     "tabFavorites": "Show the Favorites tab",
     "tabRecents": "Show the Recent tab",
-    "selectProfile": "Switch variable profile (0 = Default)",
+    "selectProfile": "Switch an in-scope variable profile (0 = all Default)",
     "find": "Find in response, or filter the sidebar",
     "filter": "Filter the response body (JSON / YAML / XML)",
     "selectBody": "Select the entire response body",

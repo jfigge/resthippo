@@ -6,10 +6,11 @@ certify your contributions via the **Developer Certificate of Origin (DCO)**.
 
 ## License of contributions
 
-Rest Hippo is licensed under the [Apache License, Version 2.0](LICENSE). By
-contributing, you agree that your contributions are licensed under the same
-terms (Apache-2.0), as set out in section 5 ("Submission of Contributions") of
-the license.
+Rest Hippo is licensed under the [GNU General Public License, version 3 or
+later](LICENSE) (`GPL-3.0-or-later`). By contributing, you agree that your
+contributions are licensed under the same terms (GPL-3.0-or-later), and you
+certify that you have the right to submit them under that license via the DCO
+below.
 
 ## Developer Certificate of Origin (DCO)
 
@@ -73,25 +74,28 @@ etc.). Please follow them — they are enforced by tests and the pre-commit hook
 
 ## License headers
 
-Every first-party source file should carry the standard Apache 2.0 header
+Every first-party source file should carry the standard GPL-3.0 header
 comment at the top (after any shebang). When you add a new `.js`/`.css` file
 under `src/`, prepend:
 
 ```js
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 ```
 

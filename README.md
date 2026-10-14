@@ -1,7 +1,7 @@
 # Rest Hippo — A free, offline, open-source REST API client
 
 [![CI](https://github.com/jfigge/resthippo/actions/workflows/ci.yml/badge.svg)](https://github.com/jfigge/resthippo/actions/workflows/ci.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)
 [![GitHub stars](https://img.shields.io/github/stars/jfigge/resthippo?style=social)](https://github.com/jfigge/resthippo/stargazers)
 
@@ -12,7 +12,7 @@ cloud** — just install it and send a request. Built with **Electron** and
 HTTP running natively in the main process so requests are never subject to browser
 CORS.
 
-> **Why Rest Hippo?** Free forever · Open source (Apache 2.0) · 100% offline · No
+> **Why Rest Hippo?** Free forever · Open source (GPL-3.0) · 100% offline · No
 > sign-in · No tracking · Your collections stay in local files.
 > [See how it compares →](https://resthippo.com/vs-postman.html)
 
@@ -320,16 +320,23 @@ Contributions are welcome! Rest Hippo uses the
 [Developer Certificate of Origin](DCO) (DCO): every commit must be signed off
 with `git commit -s`, certifying you wrote the patch or have the right to submit
 it under the project's license. New source files should carry the standard
-Apache 2.0 header. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full
+GPL-3.0 header. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full
 workflow.
 
 ## License
 
 Copyright © 2026 Jason Figge.
 
-Licensed under the [Apache License, Version 2.0](LICENSE). You may obtain a copy
-of the License in the [`LICENSE`](LICENSE) file or at
-<http://www.apache.org/licenses/LICENSE-2.0>. Unless required by applicable law
-or agreed to in writing, software distributed under the License is distributed
-on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND. See
-[`NOTICE`](NOTICE) for attribution details.
+Rest Hippo is free software: you can redistribute it and/or modify it under the
+terms of the [GNU General Public License](LICENSE) as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version (`GPL-3.0-or-later`). It is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+[`LICENSE`](LICENSE) file or <https://www.gnu.org/licenses/> for details.
+
+Rest Hippo bundles third-party components, each distributed under its own
+license. Their copyright notices and license terms are retained within the
+respective files under `src/node_modules/` (development) and the generated
+bundles under `src/web/scripts/vendor/` (e.g. Prism.js, marked, graphql-js, yaml,
+jqjs, DOMPurify).

@@ -21,7 +21,7 @@ name: Release
 #   Windows signing      Authenticode via SignPath Foundation (free OSS code
 #   (SignPath)           signing). The publisher shows as "SignPath Foundation",
 #                        not Jason Figge — accepted tradeoff for a free, trusted
-#                        signature on an Apache-2.0 project. Signing is SKIPPED
+#                        signature on a GPL-3.0 project. Signing is SKIPPED
 #                        (the unsigned build still ships) until the org-id VARIABLE
 #                        is set, so this workflow works before SignPath is wired.
 #                        Configure (Settings → Secrets and variables → Actions):

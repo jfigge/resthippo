@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -80,13 +83,49 @@ export function findNode(nodes, targetId) {
 }
 
 /**
- * Deep-clone a node, replacing every `id` (the node, its tree children, and its
- * request-level row arrays) with a fresh UUID so a duplicate never shares ids.
+ * Deep-clone a node, replacing every `id` (the node, its tree children, its
+ * request-level row arrays, and the variable PROFILES it owns) with a fresh UUID
+ * so a duplicate never shares ids.
+ *
+ * Profiles need care. A folder owns profiles in `node.profiles`, and any node in
+ * its subtree may hold overrides for them in `node.profileValues` keyed by
+ * profile id. Copying those ids verbatim would leave two folders claiming the
+ * same profile — it would appear twice in the picker and the two copies could
+ * never be edited independently. So each owned profile is minted a new id and
+ * every descendant's `profileValues` key is rewritten through `profileIdMap`.
+ *
+ * A node can only reference profiles owned by itself or an ANCESTOR, and this
+ * recursion is top-down, so the map is always complete by the time a descendant
+ * consults it. An id that is NOT in the map belongs to an owner outside the
+ * cloned subtree — left alone, so the copy keeps resolving under that owner.
+ *
+ * @param {object} node
+ * @param {Map<string,string>} [profileIdMap]  old profile id → new (internal)
  */
-export function cloneWithNewIds(node) {
+export function cloneWithNewIds(node, profileIdMap = new Map()) {
   const clone = { ...node, id: crypto.randomUUID() };
+  if (Array.isArray(node.profiles)) {
+    clone.profiles = node.profiles.map((p) => {
+      const newId = crypto.randomUUID();
+      profileIdMap.set(p.id, newId);
+      return { ...p, id: newId };
+    });
+  }
+  if (node.profileValues && typeof node.profileValues === "object") {
+    clone.profileValues = Object.fromEntries(
+      Object.entries(node.profileValues).map(([pid, values]) => [
+        profileIdMap.get(pid) ?? pid,
+        { ...values },
+      ]),
+    );
+  }
+  // The spread above aliases `variables` (and its row objects) with the original;
+  // copy the array so editing the duplicate can't write through to its source.
+  if (Array.isArray(node.variables)) {
+    clone.variables = node.variables.map((v) => ({ ...v }));
+  }
   if (Array.isArray(node.children)) {
-    clone.children = node.children.map((c) => cloneWithNewIds(c));
+    clone.children = node.children.map((c) => cloneWithNewIds(c, profileIdMap));
   }
   if (Array.isArray(node.bodyFormRows)) {
     clone.bodyFormRows = node.bodyFormRows.map((r) => ({

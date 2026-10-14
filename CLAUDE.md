@@ -164,9 +164,10 @@ of `hippo:*` events (names + payloads) lives in a comment block at the top of
 
 ## License headers
 
-The project is licensed under **Apache-2.0** (`LICENSE` + `NOTICE` at the repo
-root; `"license": "Apache-2.0"` in `src/package.json`). Every **first-party
-source file must begin with the standard Apache 2.0 header comment**, and this is
+The project is licensed under **GPL-3.0-or-later** (`LICENSE` at the repo root;
+`"license": "GPL-3.0-or-later"` in `src/package.json`; there is no `NOTICE`
+file). Every **first-party source file must begin with the standard GPL-3.0
+header comment**, and this is
 a **hard requirement enforced by a guard** — treat it like the i18n and
 User-Guide rules, applied by hand as you write each file.
 
@@ -179,23 +180,26 @@ User-Guide rules, applied by hand as you write each file.
   dependencies (`node_modules/`), and non-comment file types (`*.json`, `*.md`,
   `*.html`). The guard already skips these; don't add headers to them.
 - **The header** (a block comment, valid in both JS and CSS) — keep the
-  `Licensed under the Apache License, Version 2.0` marker line verbatim, since
-  the guard detects presence by that substring:
+  `SPDX-License-Identifier: GPL-3.0-or-later` marker line verbatim, since the
+  guard detects presence by that substring:
   ```js
   /*
    * Copyright 2026 Jason Figge
+   * SPDX-License-Identifier: GPL-3.0-or-later
    *
-   * Licensed under the Apache License, Version 2.0 (the "License");
-   * you may not use this file except in compliance with the License.
-   * You may obtain a copy of the License at
+   * This file is part of Rest Hippo.
    *
-   *     http://www.apache.org/licenses/LICENSE-2.0
+   * Rest Hippo is free software: you can redistribute it and/or modify it under
+   * the terms of the GNU General Public License as published by the Free Software
+   * Foundation, either version 3 of the License, or (at your option) any later
+   * version.
    *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS,
-   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   * See the License for the specific language governing permissions and
-   * limitations under the License.
+   * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+   * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+   * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+   *
+   * You should have received a copy of the GNU General Public License along with
+   * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
    */
   ```
   It goes at the very top, **after a shebang line** if the file has one.
@@ -208,8 +212,9 @@ User-Guide rules, applied by hand as you write each file.
   gate; a fresh clone re-adds the hook check by hand.)
 - **Auto-fix** — never hand-add headers one by one across many files. Run
   `make license-headers` (alias for `node scripts/license-header.mjs`) to stamp
-  every in-scope file missing the header; it preserves shebangs and is
-  idempotent. Keep the script's `ROOTS`/`EXCLUDE_DIRS` in lockstep with the scope
+  every in-scope file missing the header; it preserves shebangs, is idempotent,
+  and swaps a leftover pre-relicense Apache-2.0 header in place (e.g. from an
+  old branch or stash) instead of stacking a second header. Keep the script's `ROOTS`/`EXCLUDE_DIRS` in lockstep with the scope
   above when directories move.
 
 ## Internationalization (i18n)

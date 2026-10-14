@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -286,4 +289,141 @@ test("removeProfileFromFolder: drops just the named profile's snapshot", () => {
   const pv = { prod: { host: "p" }, stg: { host: "s" } };
   assert.deepEqual(removeProfileFromFolder(pv, "prod"), { stg: { host: "s" } });
   assert.deepEqual(removeProfileFromFolder(null, "prod"), {});
+});
+
+// ── Layered resolution (scoped profiles) ────────────────────────────────────
+// `profileIds` is ordered OUTERMOST owner → INNERMOST. Each id whose map this
+// folder stores is applied in turn, so the innermost override of a name wins
+// while a name only an outer profile touches still comes through.
+
+test("resolvedProfileVars: a bare string id still works (one-element list)", () => {
+  const pv = { prod: { host: "p.example.com" } };
+  assert.deepEqual(resolvedProfileVars(dflt, pv, "prod"), [
+    { name: "host", value: "p.example.com", secure: false },
+    { name: "key", value: "dev-key", secure: true },
+  ]);
+});
+
+test("resolvedProfileVars: empty / null id lists resolve to the Default set", () => {
+  const pv = { prod: { host: "p" } };
+  assert.deepEqual(resolvedProfileVars(dflt, pv, []), dflt);
+  assert.deepEqual(resolvedProfileVars(dflt, pv, null), dflt);
+  assert.deepEqual(resolvedProfileVars(dflt, pv, [null, ""]), dflt);
+});
+
+test("resolvedProfileVars: the INNERMOST layer wins on a shared name", () => {
+  const pv = {
+    outer: { host: "outer.example.com", key: "outer-key" },
+    inner: { host: "inner.example.com" },
+  };
+  // outer → inner: host comes from inner, key from outer (inner doesn't set it).
+  assert.deepEqual(resolvedProfileVars(dflt, pv, ["outer", "inner"]), [
+    { name: "host", value: "inner.example.com", secure: false },
+    { name: "key", value: "outer-key", secure: true },
+  ]);
+});
+
+test("resolvedProfileVars: layer order is honoured, not id order", () => {
+  const pv = { a: { host: "A" }, b: { host: "B" } };
+  assert.equal(resolvedProfileVars(dflt, pv, ["a", "b"])[0].value, "B");
+  assert.equal(resolvedProfileVars(dflt, pv, ["b", "a"])[0].value, "A");
+});
+
+test("resolvedProfileVars: an inner EMPTY override beats an outer value", () => {
+  // Presence, not truthiness — an explicit "" from the inner profile must win.
+  const pv = { outer: { host: "outer.example.com" }, inner: { host: "" } };
+  assert.equal(resolvedProfileVars(dflt, pv, ["outer", "inner"])[0].value, "");
+});
+
+test("resolvedProfileVars: ids this folder stores no map for are skipped", () => {
+  // A profile owned by an ancestor that this folder never overrode: it must fall
+  // through to the Default rather than blanking the value.
+  const pv = { inner: { key: "inner-key" } };
+  assert.deepEqual(resolvedProfileVars(dflt, pv, ["absent", "inner"]), [
+    { name: "host", value: "dev.example.com", secure: false },
+    { name: "key", value: "inner-key", secure: true },
+  ]);
+});
+
+test("resolvedProfileVars: secure flags always come from the Default, never a layer", () => {
+  const pv = { outer: { key: "x" }, inner: { host: "y" } };
+  const out = resolvedProfileVars(dflt, pv, ["outer", "inner"]);
+  assert.equal(out.find((v) => v.name === "key").secure, true);
+  assert.equal(out.find((v) => v.name === "host").secure, false);
+});
+
+// ── applyProfileEdit: never prune ids the caller didn't list ────────────────
+
+test("applyProfileEdit: an id outside profileIds is carried forward untouched", () => {
+  // "dormant" values — the folder was dragged out from under the profile's owner.
+  const current = {
+    variables: dflt,
+    profileValues: { prod: { host: "p" }, dormant: { host: "d", key: "dk" } },
+  };
+  const out = applyProfileEdit(
+    current,
+    "prod",
+    [
+      { name: "host", value: "p2", secure: false },
+      { name: "key", value: "", secure: true },
+    ],
+    ["prod"], // only "prod" is in scope
+    ["host"],
+  );
+  assert.deepEqual(out.profileValues.prod, { host: "p2" });
+  assert.deepEqual(
+    out.profileValues.dormant,
+    { host: "d", key: "dk" },
+    "an out-of-scope profile's values must survive an unrelated edit",
+  );
+});
+
+test("applyProfileEdit: a Default edit still prunes dropped names from EVERY stored id", () => {
+  // Pruning by NAME (the Default owns the set) is unrelated to pruning by ID.
+  const current = {
+    variables: dflt,
+    profileValues: { prod: { host: "p", key: "pk" }, dormant: { key: "dk" } },
+  };
+  const out = applyProfileEdit(
+    current,
+    null,
+    [{ name: "host", value: "dev.example.com", secure: false }], // "key" deleted
+    [],
+  );
+  assert.deepEqual(out.profileValues.prod, { host: "p" });
+  assert.equal(
+    out.profileValues.dormant,
+    undefined,
+    "dormant kept only a dropped name → its map is empty → omitted",
+  );
+});
+
+// ── applyProfileEdit: no empty maps ─────────────────────────────────────────
+// `{}` and "absent" are indistinguishable at read time, and writing `{}` for
+// every known profile on every save destroyed "has a profileValues key" as a
+// signal for which folders actually use a profile.
+
+test("applyProfileEdit: a profile that overrides nothing is OMITTED, not stored as {}", () => {
+  const current = { variables: dflt, profileValues: {} };
+  const out = applyProfileEdit(current, null, dflt, ["prod", "stg"]);
+  assert.deepEqual(
+    out.profileValues,
+    {},
+    "an untouched profile must not gain a bookkeeping key",
+  );
+});
+
+test("applyProfileEdit: clearing the last override drops the key entirely", () => {
+  const current = { variables: dflt, profileValues: { prod: { host: "p" } } };
+  const out = applyProfileEdit(
+    current,
+    "prod",
+    [
+      { name: "host", value: "", secure: false },
+      { name: "key", value: "", secure: true },
+    ],
+    ["prod"],
+    [], // nothing is an override any more — both inherit
+  );
+  assert.equal(out.profileValues.prod, undefined);
 });

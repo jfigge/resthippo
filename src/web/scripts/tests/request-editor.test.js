@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -1149,28 +1152,44 @@ test("loading a second request clears the previous params, headers and path para
 });
 
 // ── Variable-profile switcher ─────────────────────────────────────────────────
+// Profiles are scoped, so the switcher reflects what is visible at the CURRENT
+// request: a group per owning folder (plus the collection tier), each with its
+// own selection. See components/profile-scope.js for the group shape.
 
-test("no profile switcher until the collection has named profiles", () => {
-  const { editor } = mountEditor({ id: "r1", method: "GET", url: "https://x" });
-  assert.equal(editor.element.querySelector(".req-profile-btn"), null);
-  editor.setProfiles({ profiles: [], activeProfileId: null });
-  assert.equal(editor.element.querySelector(".req-profile-btn"), null);
+const GROUP = (profiles, over = {}) => ({
+  ownerKey: "auth",
+  ownerId: "auth",
+  ownerName: "Auth",
+  tier: "folder",
+  profiles,
+  ...over,
 });
 
-test("switcher appears beside the URL-preview Copy button when named profiles exist", () => {
+test("no profile switcher until this request has profiles in scope", () => {
+  const { editor } = mountEditor({ id: "r1", method: "GET", url: "https://x" });
+  assert.equal(editor.element.querySelector(".req-profile-btn"), null);
+  editor.setProfiles({ groups: [], activeByOwner: {} });
+  assert.equal(
+    editor.element.querySelector(".req-profile-btn"),
+    null,
+    "a folder outside every owner's subtree gets no switcher at all",
+  );
+});
+
+test("switcher appears beside the URL-preview Copy button when profiles are in scope", () => {
   const { editor } = mountEditor({ id: "r1", method: "GET", url: "https://x" });
   editor.setProfiles({
-    profiles: [{ id: "p1", name: "Staging" }],
-    activeProfileId: null,
+    groups: [GROUP([{ id: "p1", name: "Staging" }])],
+    activeByOwner: {},
   });
   const btn = editor.element.querySelector(".req-profile-btn");
   assert.ok(btn, "switcher present");
   assert.ok(btn.closest(".req-url-preview"), "sits inside the URL preview bar");
-  // Default active → no emphasis; a named profile active → emphasis class.
+  // Nothing active → no emphasis; any owner on a named profile → emphasis class.
   assert.equal(btn.classList.contains("req-profile-btn--active"), false);
   editor.setProfiles({
-    profiles: [{ id: "p1", name: "Staging" }],
-    activeProfileId: "p1",
+    groups: [GROUP([{ id: "p1", name: "Staging" }])],
+    activeByOwner: { auth: "p1" },
   });
   assert.equal(
     editor.element
@@ -1180,11 +1199,25 @@ test("switcher appears beside the URL-preview Copy button when named profiles ex
   );
 });
 
+test("a selection for an owner NOT in scope here leaves the switcher unemphasised", () => {
+  const { editor } = mountEditor({ id: "r1", method: "GET", url: "https://x" });
+  editor.setProfiles({
+    groups: [GROUP([{ id: "p1", name: "Staging" }])],
+    activeByOwner: { somewhereElse: "p9" },
+  });
+  assert.equal(
+    editor.element
+      .querySelector(".req-profile-btn")
+      .classList.contains("req-profile-btn--active"),
+    false,
+  );
+});
+
 test("switcher moves next to the Send button when the URL preview is hidden", async () => {
   const { editor } = mountEditor({ id: "r1", method: "GET", url: "https://x" });
   editor.setProfiles({
-    profiles: [{ id: "p1", name: "Staging" }],
-    activeProfileId: null,
+    groups: [GROUP([{ id: "p1", name: "Staging" }])],
+    activeByOwner: {},
   });
   editor.applySettings({ showUrlPreview: false });
   await new Promise((r) => setTimeout(r, 0)); // #updateUrlPreview is async
@@ -1208,21 +1241,23 @@ test("clicking the switcher and picking a profile dispatches hippo:profile-selec
     url: "https://x",
   });
   editor.setProfiles({
-    profiles: [{ id: "p1", name: "Staging" }],
-    activeProfileId: null,
+    groups: [GROUP([{ id: "p1", name: "Staging" }])],
+    activeByOwner: {},
   });
-  // Native menu returns the second row (first named profile → index 1).
+  // Pick the named profile out of the built menu by label.
   window.hippo.ui = {
-    contextMenu: { show: async ({ items }) => items[1].id },
+    contextMenu: {
+      show: async ({ items }) => items.find((it) => it.label === "Staging").id,
+    },
   };
   const selects = [];
   window.addEventListener("hippo:profile-select", (e) =>
-    selects.push(e.detail?.profileId),
+    selects.push(e.detail),
   );
   const btn = editor.element.querySelector(".req-profile-btn");
   btn.dispatchEvent(
     new window.MouseEvent("mousedown", { button: 0, bubbles: true }),
   );
   await new Promise((r) => setTimeout(r, 0));
-  assert.deepEqual(selects, ["p1"]);
+  assert.deepEqual(selects, [{ ownerKey: "auth", profileId: "p1" }]);
 });

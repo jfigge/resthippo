@@ -1409,7 +1409,16 @@
     "switched": "Profil actif : {name}",
     "switcherTitle": "Changer de profil de variables du dossier",
     "inheritsDefault": "Hérite de la valeur par défaut",
-    "resetToInherit": "Réinitialiser pour hériter de la valeur par défaut"
+    "resetToInherit": "Réinitialiser pour hériter de la valeur par défaut",
+    "scopeAria": "Portée du profil",
+    "scopeFolder": "Ce dossier",
+    "scopeCollection": "Toute la collection",
+    "groupCollection": "Collection",
+    "allDefault": "Tout par défaut",
+    "ownedElsewhere": "« {name} » est défini sur {owner} — ouvrez ce dossier pour le renommer ou le supprimer.",
+    "switchedScoped": "Profil actif : {name} ({owner})",
+    "switchedAllDefault": "Tous les profils réglés sur Par défaut",
+    "limitOwner": "Maximum de {max} profils par dossier atteint"
   },
   "passwordPrompt": {
     "exportTitle": "Protéger l'export par mot de passe",
@@ -1436,7 +1445,7 @@
     "tabRequests": "Afficher l’onglet Requêtes",
     "tabFavorites": "Afficher l’onglet Favoris",
     "tabRecents": "Afficher l’onglet Récents",
-    "selectProfile": "Changer de profil de variables (0 = Par défaut)",
+    "selectProfile": "Changer un profil de variables disponible (0 = tout par défaut)",
     "find": "Rechercher dans la réponse ou filtrer la barre latérale",
     "filter": "Filtrer le corps de la réponse (JSON / YAML / XML)",
     "selectBody": "Sélectionner tout le corps de la réponse",

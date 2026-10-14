@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -31,17 +34,17 @@
  *       - OFF → key/value row list (same appearance as request params)
  *   • Auto-save (debounced) on every keystroke / row change.
  *
- * FOLDER PROFILES (folders only): when `profilesEnabled`, the toolbar gains a
- * profile switcher on the far right — a selector (Default + named profiles), a
- * [+] add button, and a delete button. Only the [+] shows while just the Default
- * profile exists; the selector + delete appear once at least one named profile
- * is defined. The [+] opens a small anchored popup to name a new profile (Enter
- * adds, Escape / outside-click cancels). All the model logic (which values a
- * profile shows, how the Default owns the set) lives in app.js +
- * folder-profiles.js; this component only renders the controls and reports
- * intent. The variable rows always show the EFFECTIVE values for the active
- * profile (computed by the creator and passed to `load`), and every save carries
- * the active `profileId` so the creator can route it to the right profile.
+ * FOLDER PROFILES (folders only): when `profilesEnabled`, the toolbar gains the
+ * profile switcher on the far right — {@link VarsProfileBar}, which owns the
+ * grouped selector, the add/rename/delete controls and the name popup. Profiles
+ * are SCOPED, so what it lists depends on the folder: the collection tier plus
+ * every ancestor's profiles plus this folder's own. This editor keeps only
+ * `#activeProfileId` — the profile whose overrides its rows are showing — and
+ * forwards the bar's callbacks to its own creator. All the model logic lives in
+ * components/profile-scope.js (visibility, layering) and folder-profiles.js
+ * (values); the rows always show the EFFECTIVE values for that profile (computed
+ * by the creator and passed to `load`), and every save carries its `profileId` so
+ * the creator can route the edit to the right profile.
  *
  * Only the Default profile owns the variable SET. On a named profile the editor
  * locks structure: the KV table's name inputs are read-only, the per-row secure
@@ -55,16 +58,19 @@
  * "Component ↔ app communication" rule in CLAUDE.md):
  *   onSave({ scopeId, profileId, variables }) — debounced 500ms auto-save
  *   onBulkEditorChange({ bulkEditor })        — bulk-textarea / KV-row toggle changed
- *   onProfileAdd({ name })                    — [+] popup committed a new profile name
+ *   onProfileAdd({ name, scope })             — [+] popup committed a name + scope
+ *                                               ("folder" | "collection")
  *   onProfileRename({ profileId, name })      — rename popup committed a new name
- *   onProfileSelect({ profileId })            — profile selector changed (null = Default)
- *   onProfileDelete({ profileId })            — delete pressed for the active named profile
+ *   onProfileSelect({ ownerKey, profileId })  — selector changed; null profileId
+ *                                               returns that owner to its Default
+ *   onProfileDelete({ profileId })            — delete pressed for the selected profile
  */
 
 "use strict";
 
 import { icon } from "../icons.js";
 import { debounce } from "../utils/debounce.js";
+import { wireTrimmedPaste } from "../utils/trimmed-paste.js";
 import { normalizeVariables } from "./variable-shape.js";
 import {
   variablesToText,
@@ -74,9 +80,8 @@ import {
   rowsToVariables,
   buildVariableRow,
 } from "./variable-editor-shared.js";
-import { escapeHtml } from "../utils/html.js";
 import { t } from "../i18n.js";
-import { MAX_NAMED_PROFILES } from "./folder-profiles.js";
+import { VarsProfileBar } from "./vars-profile-bar.js";
 
 export class VarsEditor {
   /** @type {HTMLElement} */ #el;
@@ -88,16 +93,10 @@ export class VarsEditor {
   /** @type {HTMLButtonElement} */ #addBtnEl;
 
   // ── Profile controls (folder scope only) ───────────────────────────────────
-  /** @type {HTMLElement} */ #profileControlsEl;
-  /** @type {HTMLSelectElement} */ #profileSelectEl;
-  /** @type {HTMLButtonElement} */ #profileRenameBtnEl;
-  /** @type {HTMLButtonElement} */ #profileAddBtnEl;
-  /** @type {HTMLButtonElement} */ #profileDelBtnEl;
-  #profilesEnabled = false;
-  /** @type {{id:string,name:string}[]} */ #profiles = [];
+  // The whole profile switcher lives in VarsProfileBar; this editor only knows
+  // which profile's overrides its rows are showing.
+  /** @type {VarsProfileBar} */ #profileBar;
   /** @type {string|null} */ #activeProfileId = null;
-  /** @type {HTMLElement|null} */ #profilePopupEl = null;
-  /** @type {(() => void)|null} */ #profilePopupCleanup = null;
 
   // Only the Default profile (blank name → null id) owns the variable SET. On a
   // named profile the names + secure flags are frozen to the Default's structure
@@ -136,22 +135,13 @@ export class VarsEditor {
   #onSave;
   /** @type {(payload: { bulkEditor: boolean }) => void} */
   #onBulkEditorChange;
-  /** @type {(payload: { name: string }) => void} */
-  #onProfileAdd;
-  /** @type {(payload: { profileId: string, name: string }) => void} */
-  #onProfileRename;
-  /** @type {(payload: { profileId: string|null }) => void} */
-  #onProfileSelect;
-  /** @type {(payload: { profileId: string }) => void} */
-  #onProfileDelete;
-
   /**
    * @param {{
    *   onSave?: (payload: { scopeId: string, profileId: string|null, variables: Array }) => void,
    *   onBulkEditorChange?: (payload: { bulkEditor: boolean }) => void,
-   *   onProfileAdd?: (payload: { name: string }) => void,
+   *   onProfileAdd?: (payload: { name: string, scope: string }) => void,
    *   onProfileRename?: (payload: { profileId: string, name: string }) => void,
-   *   onProfileSelect?: (payload: { profileId: string|null }) => void,
+   *   onProfileSelect?: (payload: { ownerKey: string|null, profileId: string|null }) => void,
    *   onProfileDelete?: (payload: { profileId: string }) => void,
    * }} [opts]
    */
@@ -165,10 +155,16 @@ export class VarsEditor {
   } = {}) {
     this.#onSave = onSave;
     this.#onBulkEditorChange = onBulkEditorChange;
-    this.#onProfileAdd = onProfileAdd;
-    this.#onProfileRename = onProfileRename;
-    this.#onProfileSelect = onProfileSelect;
-    this.#onProfileDelete = onProfileDelete;
+    // The profile bar is a parent-owned widget: it computes a change and hands it
+    // straight back to whoever created this editor.
+    this.#profileBar = new VarsProfileBar({
+      onAdd: onProfileAdd,
+      onRename: onProfileRename,
+      onDelete: onProfileDelete,
+      onSelect: onProfileSelect,
+      // Persist any in-flight edit to the CURRENT profile before switching.
+      onBeforeSelect: () => this.flush(),
+    });
     this.#el = this.#build();
   }
 
@@ -194,14 +190,16 @@ export class VarsEditor {
    * Render the editor for a scope. Replaces the previous scope's contents; any
    * pending debounced save for the previous scope is flushed first.
    *
-   * `variables` are the EFFECTIVE values for `activeProfileId` (the creator
-   * merges the folder's Default + the profile's overrides before calling in).
-   * `profilesEnabled` is true only for folders; `profiles` lists the collection's
-   * named profiles (Default is implicit and always offered in the selector).
+   * `variables` are the EFFECTIVE values for `editingProfileId` (the creator
+   * merges the folder's Default + that profile's overrides before calling in).
+   * `profilesEnabled` is true only for folders; `profileGroups` are the profiles
+   * visible at this folder, grouped by their owner (Default is implicit and
+   * always offered in the selector) — see components/profile-scope.js.
    *
    * @param {{
    *   scopeId: string, scopeName: string, variables: Array|object, bulkEditor?: boolean,
-   *   profilesEnabled?: boolean, profiles?: {id:string,name:string}[], activeProfileId?: string|null,
+   *   profilesEnabled?: boolean, profileGroups?: object[],
+   *   editingProfileId?: string|null, ownerKey?: string|null,
    * }} opts
    */
   load({
@@ -210,17 +208,21 @@ export class VarsEditor {
     variables,
     bulkEditor = true,
     profilesEnabled = false,
-    profiles = [],
-    activeProfileId = null,
+    profileGroups = [],
+    editingProfileId = null,
+    ownerKey = null,
   }) {
     // Flush a pending save for whatever scope/profile was showing before.
     this.flush();
-    this.#closeProfilePopup();
 
     this.#scopeId = scopeId;
-    this.#profilesEnabled = profilesEnabled;
-    this.#profiles = Array.isArray(profiles) ? profiles : [];
-    this.#activeProfileId = activeProfileId ?? null;
+    this.#activeProfileId = editingProfileId ?? null;
+    this.#profileBar.load({
+      enabled: profilesEnabled,
+      groups: profileGroups,
+      editingProfileId: this.#activeProfileId,
+      ownerKey: ownerKey ?? scopeId,
+    });
     // The set is editable only on the Default profile (null id). Names + secure
     // flags in the effective vars are always the Default's — capture them so the
     // KV table can stay locked to that structure on a named profile.
@@ -247,7 +249,6 @@ export class VarsEditor {
       this.#renderRows();
     }
 
-    this.#renderProfileControls();
     this.#applyRemoveHeaders();
   }
 
@@ -286,12 +287,6 @@ export class VarsEditor {
         </label>
         <button class="icon-btn params-toolbar-btn vars-add-btn" title="${t("vars.add")}" aria-label="${t("vars.add")}" style="display:none"><span class="icon">${icon("add", { size: 15 })}</span></button>
         <span class="vars-hint">${t("kv.varsHint")}</span>
-        <div class="vars-profile-controls" style="display:none">
-          <select class="vars-profile-select" aria-label="${t("profiles.selectAria")}"></select>
-          <button class="icon-btn vars-profile-rename-btn" title="${t("profiles.rename")}" aria-label="${t("profiles.rename")}">${icon("rename", { size: 14 })}</button>
-          <button class="icon-btn vars-profile-add-btn" title="${t("profiles.add")}" aria-label="${t("profiles.add")}">${icon("add", { size: 15 })}</button>
-          <button class="icon-btn vars-profile-del-btn" title="${t("profiles.delete")}" aria-label="${t("profiles.delete")}">${icon("trash", { size: 13 })}</button>
-        </div>
       </div>
       <textarea
         class="body-text-editor vars-textarea"
@@ -314,202 +309,16 @@ export class VarsEditor {
     this.#kvListEl = el.querySelector(".vars-kv-list");
     this.#hintEl = el.querySelector(".vars-hint");
     this.#addBtnEl = el.querySelector(".vars-add-btn");
-    this.#profileControlsEl = el.querySelector(".vars-profile-controls");
-    this.#profileSelectEl = el.querySelector(".vars-profile-select");
-    this.#profileRenameBtnEl = el.querySelector(".vars-profile-rename-btn");
-    this.#profileAddBtnEl = el.querySelector(".vars-profile-add-btn");
-    this.#profileDelBtnEl = el.querySelector(".vars-profile-del-btn");
+    el.querySelector(".vars-toolbar").appendChild(this.#profileBar.element);
 
     this.#bulkToggleEl.addEventListener("change", () =>
       this.#handleBulkToggle(),
     );
     this.#textareaEl.addEventListener("input", () => this.#debouncedSave());
+    wireTrimmedPaste(this.#textareaEl);
     this.#addBtnEl.addEventListener("click", () => this.#addRow());
 
-    this.#profileSelectEl.addEventListener("change", () => {
-      // Persist any in-flight edit to the CURRENT profile before switching.
-      this.flush();
-      this.#onProfileSelect?.({
-        profileId: this.#profileSelectEl.value || null,
-      });
-    });
-    this.#profileAddBtnEl.addEventListener("click", () =>
-      this.#toggleProfileNamePopup(),
-    );
-    this.#profileRenameBtnEl.addEventListener("click", () =>
-      this.#toggleProfileRenamePopup(),
-    );
-    this.#profileDelBtnEl.addEventListener("click", () => {
-      if (this.#activeProfileId) {
-        this.#onProfileDelete?.({ profileId: this.#activeProfileId });
-      }
-    });
-
     return el;
-  }
-
-  // ── Profile controls ──────────────────────────────────────────────────────
-
-  /**
-   * Show/populate the profile switcher. The whole group is hidden for the
-   * collection scope; the selector + rename + delete stay hidden until at least
-   * one named profile exists (only the [+] shows for a lone Default). Rename and
-   * delete are disabled while the Default profile is the active selection (the
-   * Default profile can neither be renamed nor deleted).
-   */
-  #renderProfileControls() {
-    if (!this.#profilesEnabled) {
-      this.#profileControlsEl.style.display = "none";
-      this.#closeProfilePopup();
-      return;
-    }
-    this.#profileControlsEl.style.display = "";
-
-    const hasNamed = this.#profiles.length > 0;
-    this.#profileSelectEl.style.display = hasNamed ? "" : "none";
-    this.#profileRenameBtnEl.style.display = hasNamed ? "" : "none";
-    this.#profileDelBtnEl.style.display = hasNamed ? "" : "none";
-
-    if (hasNamed) {
-      const active = this.#activeProfileId ?? "";
-      const opts = [
-        `<option value="">${escapeHtml(t("profiles.default"))}</option>`,
-      ];
-      for (const p of this.#profiles) {
-        const sel = p.id === active ? " selected" : "";
-        opts.push(
-          `<option value="${escapeHtml(p.id)}"${sel}>${escapeHtml(p.name)}</option>`,
-        );
-      }
-      this.#profileSelectEl.innerHTML = opts.join("");
-      this.#profileSelectEl.value = active;
-      // Default (empty selection) is neither renamable nor deletable.
-      this.#profileRenameBtnEl.disabled = !this.#activeProfileId;
-      this.#profileDelBtnEl.disabled = !this.#activeProfileId;
-    }
-
-    // Cap creation at MAX_NAMED_PROFILES (⌥⌘1–9 map to the nine slots). At the
-    // limit the [+] is disabled and its tooltip explains why.
-    const atLimit = this.#profiles.length >= MAX_NAMED_PROFILES;
-    this.#profileAddBtnEl.disabled = atLimit;
-    this.#profileAddBtnEl.title = atLimit
-      ? t("profiles.limit", { max: MAX_NAMED_PROFILES })
-      : t("profiles.add");
-  }
-
-  /** Toggle the [+] popup that names a NEW profile (Enter adds, Esc/away cancels). */
-  #toggleProfileNamePopup() {
-    if (this.#profilePopupEl) {
-      this.#closeProfilePopup();
-      return;
-    }
-    this.#openProfileNamePopup({
-      anchor: this.#profileAddBtnEl,
-      ariaLabel: t("profiles.add"),
-      onCommit: (name) => this.#onProfileAdd?.({ name }),
-    });
-  }
-
-  /**
-   * Toggle the RENAME popup for the active named profile — the same anchored box,
-   * pre-filled with (and selecting) the current name. The Default profile (empty
-   * selection) can't be renamed, so this is a no-op there.
-   */
-  #toggleProfileRenamePopup() {
-    if (this.#profilePopupEl) {
-      this.#closeProfilePopup();
-      return;
-    }
-    const id = this.#activeProfileId;
-    if (!id) return; // Default profile can't be renamed
-    const current = this.#profiles.find((p) => p.id === id);
-    this.#openProfileNamePopup({
-      anchor: this.#profileRenameBtnEl,
-      ariaLabel: t("profiles.rename"),
-      initialValue: current?.name ?? "",
-      onCommit: (name) => this.#onProfileRename?.({ profileId: id, name }),
-    });
-  }
-
-  /**
-   * Small anchored popup that captures a profile name (Enter commits with the
-   * trimmed value, Esc / outside-click cancels). Shared by the add and rename
-   * flows: `initialValue` pre-fills + selects the text, `onCommit(name)` receives
-   * the trimmed non-empty result.
-   *
-   * @param {{ anchor: HTMLElement, ariaLabel: string, initialValue?: string,
-   *   onCommit: (name: string) => void }} opts
-   */
-  #openProfileNamePopup({ anchor, ariaLabel, initialValue = "", onCommit }) {
-    this.#closeProfilePopup();
-
-    const pop = document.createElement("div");
-    pop.className = "vars-profile-popup";
-    pop.setAttribute("role", "dialog");
-    pop.setAttribute("aria-label", ariaLabel);
-    pop.innerHTML = `<input type="text" class="settings-input vars-profile-name-input"
-      placeholder="${escapeHtml(t("profiles.namePlaceholder"))}"
-      aria-label="${escapeHtml(t("profiles.nameAria"))}"
-      autocomplete="off" autocapitalize="off" spellcheck="false">`;
-    document.body.appendChild(pop);
-    this.#profilePopupEl = pop;
-
-    // Anchor below the trigger button, right-aligned to it, clamped to viewport.
-    const r = anchor.getBoundingClientRect();
-    pop.style.position = "fixed";
-    pop.style.top = `${Math.round(r.bottom + 4)}px`;
-    const width = pop.getBoundingClientRect().width || 200;
-    const left = Math.min(
-      Math.max(8, Math.round(r.right - width)),
-      window.innerWidth - width - 8,
-    );
-    pop.style.left = `${left}px`;
-
-    const input = pop.querySelector("input");
-    input.value = initialValue;
-    const commit = () => {
-      const name = input.value.trim();
-      this.#closeProfilePopup();
-      if (name) onCommit?.(name);
-    };
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        commit();
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        this.#closeProfilePopup();
-      }
-    });
-
-    // Outside pointer-down cancels (the trigger's own toggle handles a click on
-    // the anchor itself).
-    const onDown = (e) => {
-      if (!pop.contains(e.target) && !anchor.contains(e.target)) {
-        this.#closeProfilePopup();
-      }
-    };
-    // Defer so the click that opened the popup doesn't immediately close it.
-    setTimeout(() => document.addEventListener("pointerdown", onDown, true), 0);
-    this.#profilePopupCleanup = () =>
-      document.removeEventListener("pointerdown", onDown, true);
-
-    requestAnimationFrame(() => {
-      input.focus();
-      // Rename: select the whole current name with the caret at the right end.
-      if (initialValue)
-        input.setSelectionRange(0, input.value.length, "forward");
-    });
-  }
-
-  #closeProfilePopup() {
-    this.#profilePopupCleanup?.();
-    this.#profilePopupCleanup = null;
-    if (this.#profilePopupEl) {
-      this.#profilePopupEl.remove();
-      this.#profilePopupEl = null;
-    }
   }
 
   // ── Mode switching ──────────────────────────────────────────────────────────

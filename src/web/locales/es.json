@@ -1409,7 +1409,16 @@
     "switched": "Perfil activo: {name}",
     "switcherTitle": "Cambiar de perfil de variables de la carpeta",
     "inheritsDefault": "Hereda el valor predeterminado",
-    "resetToInherit": "Restablecer para heredar el valor predeterminado"
+    "resetToInherit": "Restablecer para heredar el valor predeterminado",
+    "scopeAria": "Ámbito del perfil",
+    "scopeFolder": "Esta carpeta",
+    "scopeCollection": "Toda la colección",
+    "groupCollection": "Colección",
+    "allDefault": "Todos predeterminados",
+    "ownedElsewhere": "«{name}» está definido en {owner}: abre esa carpeta para cambiarle el nombre o eliminarlo.",
+    "switchedScoped": "Perfil activo: {name} ({owner})",
+    "switchedAllDefault": "Todos los perfiles establecidos en Predeterminado",
+    "limitOwner": "Máximo de {max} perfiles por carpeta alcanzado"
   },
   "passwordPrompt": {
     "exportTitle": "Proteger la exportación con contraseña",
@@ -1436,7 +1445,7 @@
     "tabRequests": "Mostrar la pestaña Solicitudes",
     "tabFavorites": "Mostrar la pestaña Favoritos",
     "tabRecents": "Mostrar la pestaña Recientes",
-    "selectProfile": "Cambiar de perfil de variables (0 = Predeterminado)",
+    "selectProfile": "Cambiar un perfil de variables disponible (0 = todos predeterminados)",
     "find": "Buscar en la respuesta o filtrar la barra lateral",
     "filter": "Filtrar el cuerpo de la respuesta (JSON / YAML / XML)",
     "selectBody": "Seleccionar todo el cuerpo de la respuesta",

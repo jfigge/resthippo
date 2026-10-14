@@ -1402,7 +1402,16 @@
     "switched": "アクティブなプロファイル: {name}",
     "switcherTitle": "フォルダー変数プロファイルを切り替え",
     "inheritsDefault": "デフォルト値を継承",
-    "resetToInherit": "リセットしてデフォルト値を継承"
+    "resetToInherit": "リセットしてデフォルト値を継承",
+    "scopeAria": "プロファイルのスコープ",
+    "scopeFolder": "このフォルダー",
+    "scopeCollection": "コレクション全体",
+    "groupCollection": "コレクション",
+    "allDefault": "すべてデフォルト",
+    "ownedElsewhere": "「{name}」は {owner} で定義されています。名前の変更や削除はそのフォルダーで行ってください。",
+    "switchedScoped": "アクティブなプロファイル: {name}（{owner}）",
+    "switchedAllDefault": "すべてのプロファイルをデフォルトに設定しました",
+    "limitOwner": "フォルダーあたりのプロファイルは最大{max}個までです"
   },
   "passwordPrompt": {
     "exportTitle": "エクスポートをパスワードで保護",
@@ -1429,7 +1438,7 @@
     "tabRequests": "「リクエスト」タブを表示",
     "tabFavorites": "「お気に入り」タブを表示",
     "tabRecents": "「最近」タブを表示",
-    "selectProfile": "変数プロファイルを切り替え（0 = デフォルト）",
+    "selectProfile": "利用可能な変数プロファイルを切り替え（0 = すべてデフォルト）",
     "find": "レスポンス内を検索、またはサイドバーを絞り込み",
     "filter": "レスポンス本文を絞り込み (JSON / YAML / XML)",
     "selectBody": "レスポンス本文全体を選択",

@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -162,7 +165,17 @@ test("flush is a no-op when there is no pending save", () => {
 
 // ── Folder profiles: rename + structure lock ─────────────────────────────────
 
-const PROFILES = [{ id: "p1", name: "Prod" }];
+// One owner group: the folder "f1" (the one the editor is showing) owns "Prod",
+// so it is manageable here. See components/profile-scope.js for the group shape.
+const PROFILE_GROUPS = [
+  {
+    ownerKey: "f1",
+    ownerId: "f1",
+    ownerName: "Auth",
+    tier: "folder",
+    profiles: [{ id: "p1", name: "Prod" }],
+  },
+];
 
 function loadFolder(ed, { activeProfileId = null, bulkEditor = true } = {}) {
   ed.load({
@@ -171,8 +184,8 @@ function loadFolder(ed, { activeProfileId = null, bulkEditor = true } = {}) {
     variables: [{ name: "host", value: "", secure: false }],
     bulkEditor,
     profilesEnabled: true,
-    profiles: PROFILES,
-    activeProfileId,
+    profileGroups: PROFILE_GROUPS,
+    editingProfileId: activeProfileId,
   });
 }
 
@@ -265,8 +278,8 @@ function loadOverridden(ed) {
     ],
     bulkEditor: false,
     profilesEnabled: true,
-    profiles: PROFILES,
-    activeProfileId: "p1",
+    profileGroups: PROFILE_GROUPS,
+    editingProfileId: "p1",
   });
 }
 

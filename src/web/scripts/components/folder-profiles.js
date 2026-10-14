@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 "use strict";
@@ -21,8 +24,14 @@
  *
  * A folder's variables (`node.variables`, the canonical `[{name,value,secure}]`
  * array) are its **Default** profile — a profile whose name is BLANK. Named
- * profiles — whose names span the whole collection — store their own *value* per
- * variable in `node.profileValues[profileId] = { [name]: value }`.
+ * profiles store their own *value* per variable in
+ * `node.profileValues[profileId] = { [name]: value }`.
+ *
+ * A named profile is OWNED by one scope — the collection tier
+ * (`collections[i].variableProfiles`) or one folder (`node.profiles`) — and is
+ * visible only to its owner and that owner's descendants. This module stays
+ * ownership-agnostic: it takes ids and values. Which ids are in scope at a given
+ * node, and in what order, is {@link module:components/profile-scope}'s job.
  *
  * Model rules:
  *   • The Default profile OWNS the variable set. A variable's **name and secure
@@ -48,8 +57,9 @@
  *     taken from the Default: a name in the edit that is not in the Default set
  *     is ignored, and a Default name the edit dropped (e.g. deleted in the bulk
  *     editor) is restored with a blank value.
- *   • The active profile is live at send time: resolution uses
- *     `resolvedProfileVars(...)` for each folder in the chain (blank → Default).
+ *   • Active profiles are live at send time and LAYER: resolution passes each
+ *     folder in the chain the ids active in its scope, outermost owner first, and
+ *     the innermost override of a name wins (blank list → Default).
  *
  * The Default profile is represented by a null / empty `profileId`; named
  * profiles carry a UUID. Every function here is pure (no DOM, no persistence).
@@ -58,11 +68,13 @@
 import { normalizeVariables } from "./variable-shape.js";
 
 /**
- * Most NAMED profiles a collection may hold (the Default is implicit and always
- * present, so this is the cap on user-created profiles). Kept at 9 so the whole
- * set maps onto the ⌥⌘0–9 switch shortcuts — ⌥⌘0 selects the Default and ⌥⌘1–9
- * the nine named profiles. Enforced where a profile is created (app.js
- * `handleProfileAdd`) and mirrored in the editor's [+] control (vars-editor.js).
+ * Most NAMED profiles a single OWNER may hold — the collection tier, or one folder
+ * (the Default is implicit and always present, so this is the cap on user-created
+ * profiles per owner). Kept at 9 so one owner's set still maps onto the ⌥⌘0–9
+ * switch shortcuts. Because profiles are scoped, the total VISIBLE at a deep
+ * folder is the sum across its owner chain and may exceed 9; only the first nine
+ * in outermost→innermost order get a shortcut. Enforced where a profile is created
+ * and mirrored in the editor's [+] control (vars-profile-bar.js).
  */
 export const MAX_NAMED_PROFILES = 9;
 
@@ -102,27 +114,44 @@ export function effectiveProfileVars(defaultVars, profileValues, profileId) {
 
 /**
  * The effective `[{name,value,secure}]` to RESOLVE (send / preview / cURL / code
- * generation) for a folder under a given profile. Names + secure flags always
- * come from the Default. Values resolve by **presence** (the same distinction the
- * editor shows): a name the profile has an explicit override for resolves to that
- * stored value — empty included — while a name it does not override inherits the
- * Default's value.
+ * generation) for a folder under the profiles active in its scope. Names + secure
+ * flags always come from the Default. Values resolve by **presence** (the same
+ * distinction the editor shows): a name a profile has an explicit override for
+ * resolves to that stored value — empty included — while a name no active profile
+ * overrides inherits the Default's value.
+ *
+ * Profiles LAYER. `profileIds` is ordered **outermost owner → innermost owner**
+ * (the collection tier first, then each ancestor folder that owns an active
+ * profile, then the folder itself), and the last layer to override a name wins.
+ * So a subfolder's profile beats its parent's on a shared variable name, while a
+ * name only the parent's profile touches still comes through.
  *
  * @param {Array|object} defaultVars      The folder's Default profile variables.
  * @param {object} [profileValues]        `{ [profileId]: { [name]: value } }`.
- * @param {string|null} [profileId]       Active profile (null/"" = Default).
+ * @param {string|string[]|null} [profileIds]  Active profile ids, outermost first.
+ *   A bare string is accepted as a one-element list; null/""/[] = Default only.
  * @returns {{name:string,value:string,secure:boolean}[]}
  */
-export function resolvedProfileVars(defaultVars, profileValues, profileId) {
+export function resolvedProfileVars(defaultVars, profileValues, profileIds) {
   const base = normalizeVariables(defaultVars);
-  if (!profileId) return base; // Default profile (blank name)
-  const values = profileValues?.[profileId];
-  return base.map((v) => ({
-    name: v.name,
-    secure: v.secure,
-    // Present (override) → stored value, even ""; absent → inherit the Default.
-    value: has(values, v.name) ? values[v.name] : v.value,
-  }));
+  const ids = (Array.isArray(profileIds) ? profileIds : [profileIds]).filter(
+    Boolean,
+  );
+  if (!ids.length) return base; // Default profile (blank name)
+  // Only the layers this folder actually stores values for can change anything.
+  const layers = ids
+    .map((id) => profileValues?.[id])
+    .filter((m) => m != null && typeof m === "object");
+  if (!layers.length) return base;
+  return base.map((v) => {
+    let value = v.value;
+    // Outermost → innermost: the last layer that overrides this name wins.
+    // Present (override) → stored value, even ""; absent → leave the layer below.
+    for (const values of layers) {
+      if (has(values, v.name)) value = values[v.name];
+    }
+    return { name: v.name, secure: v.secure, value };
+  });
 }
 
 /**
@@ -142,10 +171,23 @@ export function resolvedProfileVars(defaultVars, profileValues, profileId) {
  *     falls back to "override iff its edited value is non-blank" (blank → inherit).
  *     Names outside the Default set are ignored.
  *
+ * The written key set is the UNION of `profileIds`, the ids already present in
+ * `current.profileValues`, and `profileId` — an id the caller does not know about
+ * is carried forward **untouched, never pruned**. That matters once profiles are
+ * scoped: dragging a folder out from under the ancestor that owns a profile leaves
+ * its stored values dormant rather than deleted, so moving it back restores them.
+ * Pruning is exclusive to an explicit delete ({@link removeProfileFromFolder}).
+ *
+ * A profile whose reconciled map is EMPTY is omitted rather than stored as `{}`.
+ * The two are indistinguishable at read time (both mean "overrides nothing"), and
+ * writing `{}` for every known profile on every save made "has a profileValues
+ * key" useless as a signal for which folders actually use a profile.
+ *
  * @param {{variables?:Array, profileValues?:object}} current
  * @param {string|null} profileId          Active profile (null/"" = Default).
  * @param {Array} editedVars               Effective vars emitted by the editor.
- * @param {string[]} [profileIds]          Every named profile id in the collection.
+ * @param {string[]} [profileIds]          Profile ids to reconcile (in-scope ids);
+ *                                          ids already stored are kept regardless.
  * @param {string[]|null} [overrideNames]  Names explicitly overridden (KV table);
  *                                          null/undefined → bulk fallback (non-blank).
  * @returns {{ variables: Array, profileValues: object }}
@@ -174,8 +216,14 @@ export function applyProfileEdit(
   const overrideSet = Array.isArray(overrideNames)
     ? new Set(overrideNames)
     : null;
+  // Union: the caller's in-scope ids + everything already stored + the edited one.
+  const knownIds = new Set([
+    ...(Array.isArray(profileIds) ? profileIds : []),
+    ...Object.keys(current?.profileValues ?? {}),
+    ...(profileId ? [profileId] : []),
+  ]);
   const profileValues = {};
-  for (const pid of profileIds) {
+  for (const pid of knownIds) {
     const map = {};
     if (!isDefault && pid === profileId) {
       // The edited profile: store only the names the edit marks as overrides
@@ -195,7 +243,8 @@ export function applyProfileEdit(
         if (names.has(n)) map[n] = val;
       }
     }
-    profileValues[pid] = map;
+    // Omit an empty map — "overrides nothing" is the absence of a key.
+    if (Object.keys(map).length) profileValues[pid] = map;
   }
 
   return { variables, profileValues };

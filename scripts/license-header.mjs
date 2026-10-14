@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 // License-header stamper + guard.
@@ -41,8 +44,30 @@ const ROOTS = [
 // Directory names never descended into, anywhere in the tree.
 const EXCLUDE_DIRS = new Set(["node_modules", "vendor"]);
 
-// The canonical Apache 2.0 short header, as a block comment (valid in JS & CSS).
+// The canonical GPL-3.0-or-later header, as a block comment (valid in JS & CSS).
 const HEADER = `/*
+ * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of Rest Hippo.
+ *
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
+ */`;
+
+// The Apache-2.0 header the project carried before relicensing to GPL. Kept so
+// stamping a stale branch/stash swaps it in place instead of stacking a second
+// header on top of it.
+const LEGACY_HEADER = `/*
  * Copyright 2026 Jason Figge
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -59,8 +84,8 @@ const HEADER = `/*
  */`;
 
 // A file counts as already-stamped if this marker appears near its top. Matching
-// a substring (not the exact block) keeps the guard stable across reformatting.
-const MARKER = "Licensed under the Apache License, Version 2.0";
+// the SPDX tag (not the exact block) keeps the guard stable across reformatting.
+const MARKER = "SPDX-License-Identifier: GPL-3.0-or-later";
 
 function* walk(dir, exts) {
   let entries;
@@ -92,8 +117,10 @@ function hasHeader(content) {
   return content.slice(0, 2000).includes(MARKER);
 }
 
-// Insert the header at the top, but after a shebang line if one is present.
+// Swap a legacy Apache header in place; otherwise insert the header at the
+// top, but after a shebang line if one is present.
 function stamp(content) {
+  if (content.includes(LEGACY_HEADER)) return content.replace(LEGACY_HEADER, HEADER);
   let shebang = "";
   let body = content;
   if (body.startsWith("#!")) {
@@ -121,7 +148,7 @@ const rel = (f) => relative(REPO_ROOT, f);
 if (check) {
   if (missing.length) {
     console.error(
-      `License-header guard: ${missing.length} file(s) missing the Apache 2.0 header:`,
+      `License-header guard: ${missing.length} file(s) missing the GPL-3.0 header:`,
     );
     for (const f of missing) console.error(`  ${rel(f)}`);
     console.error(`\nAdd it with:  make license-headers`);
@@ -130,7 +157,7 @@ if (check) {
   }
   console.log(`License-header guard: all ${files.length} files carry the header.`);
 } else if (missing.length) {
-  console.log(`Stamped ${missing.length} file(s) with the Apache 2.0 header:`);
+  console.log(`Stamped ${missing.length} file(s) with the GPL-3.0 header:`);
   for (const f of missing) console.log(`  ${rel(f)}`);
 } else {
   console.log(`All ${files.length} files already carry the header. Nothing to do.`);

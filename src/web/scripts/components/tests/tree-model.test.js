@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -297,4 +300,114 @@ test("moveNode returns the same array reference for a no-op", () => {
     t,
     "unrecognised position",
   );
+});
+
+// ── cloneWithNewIds: variable profiles ──────────────────────────────────────
+// A folder OWNS profiles in `node.profiles`; any node in its subtree may hold
+// overrides for them (or for an ancestor's) in `node.profileValues`. A duplicate
+// must own its own copies, or two folders claim the same profile id.
+
+test("cloneWithNewIds: an owned profile gets a fresh id, keeping its name", () => {
+  const src = {
+    id: "f1",
+    type: "collection",
+    name: "API",
+    profiles: [{ id: "eu", name: "eu" }],
+    children: [],
+  };
+  const copy = M.cloneWithNewIds(src);
+  assert.equal(copy.profiles.length, 1);
+  assert.equal(copy.profiles[0].name, "eu");
+  assert.notEqual(copy.profiles[0].id, "eu");
+  assert.equal(src.profiles[0].id, "eu", "the source is untouched");
+});
+
+test("cloneWithNewIds: descendant profileValues are rekeyed to the new ids", () => {
+  const src = {
+    id: "f1",
+    type: "collection",
+    name: "API",
+    profiles: [{ id: "eu", name: "eu" }],
+    profileValues: { eu: { host: "eu.example.com" } },
+    children: [
+      {
+        id: "f2",
+        type: "collection",
+        name: "Auth",
+        profileValues: { eu: { user: "eu-user" } },
+        children: [],
+      },
+    ],
+  };
+  const copy = M.cloneWithNewIds(src);
+  const newId = copy.profiles[0].id;
+  assert.deepEqual(Object.keys(copy.profileValues), [newId]);
+  assert.deepEqual(copy.profileValues[newId], { host: "eu.example.com" });
+  assert.deepEqual(
+    Object.keys(copy.children[0].profileValues),
+    [newId],
+    "a descendant's overrides must follow the owner's new id",
+  );
+});
+
+test("cloneWithNewIds: an id owned OUTSIDE the cloned subtree is left alone", () => {
+  // "outer" belongs to an ancestor that isn't being duplicated — the copy must
+  // keep resolving under it rather than pointing at a profile that doesn't exist.
+  const src = {
+    id: "f2",
+    type: "collection",
+    name: "Auth",
+    profileValues: { outer: { user: "u" } },
+    children: [],
+  };
+  const copy = M.cloneWithNewIds(src);
+  assert.deepEqual(copy.profileValues, { outer: { user: "u" } });
+});
+
+test("cloneWithNewIds: nested owners each get their own fresh ids", () => {
+  const src = {
+    id: "f1",
+    type: "collection",
+    name: "API",
+    profiles: [{ id: "eu", name: "eu" }],
+    children: [
+      {
+        id: "f2",
+        type: "collection",
+        name: "Auth",
+        profiles: [{ id: "user1", name: "user1" }],
+        profileValues: { eu: { a: "1" }, user1: { b: "2" } },
+        children: [],
+      },
+    ],
+  };
+  const copy = M.cloneWithNewIds(src);
+  const euNew = copy.profiles[0].id;
+  const u1New = copy.children[0].profiles[0].id;
+  assert.notEqual(euNew, u1New);
+  assert.deepEqual(
+    Object.keys(copy.children[0].profileValues).sort(),
+    [euNew, u1New].sort(),
+  );
+});
+
+test("cloneWithNewIds: profileValues and variables are copied, not aliased", () => {
+  const src = {
+    id: "f1",
+    type: "collection",
+    name: "API",
+    variables: [{ name: "host", value: "a", secure: false }],
+    profiles: [{ id: "eu", name: "eu" }],
+    profileValues: { eu: { host: "b" } },
+    children: [],
+  };
+  const copy = M.cloneWithNewIds(src);
+  copy.variables[0].value = "changed";
+  copy.profileValues[copy.profiles[0].id].host = "changed";
+  assert.equal(
+    src.variables[0].value,
+    "a",
+    "editing the copy must not write through",
+  );
+  assert.equal(src.profileValues.eu.host, "b");
 });

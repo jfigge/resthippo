@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -50,12 +53,8 @@ import { t } from "../i18n.js";
 import { electronAccelerator } from "../keymap.js";
 import { escapeHtml } from "../utils/html.js";
 import { deepClone } from "../utils/clone.js";
-import {
-  buildFolderChain,
-  collectTemplateVariables,
-} from "./variable-resolver.js";
-import { varsArrayToMap } from "./variable-shape.js";
-import { resolvedProfileVars } from "./folder-profiles.js";
+import { collectTemplateVariables } from "./variable-resolver.js";
+import { resolvedFolderChain } from "./profile-scope.js";
 import { computeDropPos } from "./drag-drop.js";
 import {
   findParentId,
@@ -115,7 +114,8 @@ export class TreeView {
   #envVariables = {};
 
   /** @type {string|null} — active folder-variable profile (null = Default); cURL / code-gen resolve folder variables under it */
-  #activeProfileId = null;
+  /** @type {{id:string,name:string}[]} */ #collectionProfiles = [];
+  /** @type {Record<string,string>} */ #activeByOwner = {};
 
   /** @type {Array} — active collection default headers, merged into cURL / code-gen */
   #collectionHeaders = [];
@@ -419,14 +419,26 @@ export class TreeView {
   }
 
   /**
-   * Set the active folder-variable profile (null/"" = Default). cURL / code-gen
-   * resolve each folder's variables under this profile — blank profile values
-   * fall through to the Default (see resolvedProfileVars). Call whenever the
-   * active profile or collection changes, mirroring setEnvVariables.
-   * @param {string|null} profileId
+   * Set the variable-profile state used when generating cURL / code snippets:
+   * the collection-tier profile list and the active profile per OWNER
+   * (`{ [ownerKey]: profileId }`, ownerKey = a folder node id or
+   * COLLECTION_OWNER_KEY). Folder-owned profiles are read from the tree itself.
+   *
+   * Generated snippets resolve each folder's variables under exactly the profiles
+   * active in that folder's scope, layered outermost owner → innermost, so a
+   * snippet matches what a send under the same selection would produce. Call
+   * whenever the active collection, its profile list, or a selection changes —
+   * mirroring setEnvVariables.
+   *
+   * @param {{collectionProfiles?: {id:string,name:string}[],
+   *          activeByOwner?: Record<string,string>}} state
    */
-  setActiveProfileId(profileId) {
-    this.#activeProfileId = profileId || null;
+  setProfileState({ collectionProfiles, activeByOwner } = {}) {
+    this.#collectionProfiles = Array.isArray(collectionProfiles)
+      ? collectionProfiles
+      : [];
+    this.#activeByOwner =
+      activeByOwner && typeof activeByOwner === "object" ? activeByOwner : {};
   }
 
   /**
@@ -1690,24 +1702,21 @@ export class TreeView {
   /**
    * Build the folder chain for variable resolution, converting each node's
    * canonical array `.variables` into the { name: value } map the resolver
-   * consumes. Each folder resolves under the active profile (blank profile values
-   * fall through to the Default), so generated cURL / code matches what a send
-   * under that profile would produce — not always the Default. The resolver
-   * context is the boundary where arrays flatten to maps.
+   * consumes. Each folder resolves under the profiles active in ITS scope,
+   * layered outermost owner → innermost (an unset value falls through to the
+   * layer below and finally the Default), so generated cURL / code matches what a
+   * send under the same selection would produce — not always the Default. The
+   * resolver context is the boundary where arrays flatten to maps.
    * @param {string} nodeId
    * @returns {object[]}  folder-chain nodes with map-shaped `.variables`
    */
   #resolverFolderChain(nodeId) {
-    return buildFolderChain(this.#items, nodeId).map((folder) => ({
-      ...folder,
-      variables: varsArrayToMap(
-        resolvedProfileVars(
-          folder.variables,
-          folder.profileValues,
-          this.#activeProfileId,
-        ),
-      ),
-    }));
+    return resolvedFolderChain({
+      items: this.#items,
+      nodeId,
+      collectionProfiles: this.#collectionProfiles,
+      activeByOwner: this.#activeByOwner,
+    });
   }
 
   // ── Rendering ───────────────────────────────────────────────────────────

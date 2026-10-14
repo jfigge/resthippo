@@ -1,17 +1,20 @@
 /*
  * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This file is part of Rest Hippo.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
  */
 
 /**
@@ -75,6 +78,7 @@ function makeRestHippoMock() {
       collections: {
         get: channel("collections.get"),
         save: channel("collections.save"),
+        saveTree: channel("collections.saveTree"),
       },
       requests: {
         update: channel("requests.update"),
@@ -341,6 +345,59 @@ test("saveManifest: strips per-collection variables before persisting", async ()
     !("variables" in saved.collections[0]),
     "variables must not leak into the manifest",
   );
+});
+
+test("saveTreeStructure: keeps folder variables, owned profiles and overrides; drops request bodies", async () => {
+  const mock = makeRestHippoMock();
+  mock.install();
+  await loadActive(mock, { id: "coll-1" });
+
+  await store.saveTreeStructure([
+    {
+      id: "f1",
+      type: "collection",
+      name: "API",
+      variables: [{ name: "host", value: "dev", secure: false }],
+      profiles: [{ id: "eu", name: "eu" }],
+      profileValues: { eu: { host: "eu-host" } },
+      children: [
+        { id: "r1", type: "request", name: "Get", url: "/x", body: "BIG" },
+        {
+          id: "f2",
+          type: "collection",
+          name: "Auth",
+          variables: [],
+          profiles: [{ id: "user1", name: "user1" }],
+          children: [],
+        },
+      ],
+    },
+  ]);
+
+  const sent = mock.one("collections.saveTree").args[1].collections;
+  assert.deepEqual(sent[0].profiles, [{ id: "eu", name: "eu" }]);
+  assert.deepEqual(sent[0].profileValues, { eu: { host: "eu-host" } });
+  assert.deepEqual(sent[0].children[1].profiles, [
+    { id: "user1", name: "user1" },
+  ]);
+  assert.deepEqual(
+    sent[0].children[0],
+    { id: "r1", type: "request" },
+    "request bodies are still stripped to bare refs",
+  );
+});
+
+test("saveTreeStructure: a folder owning no profiles sends no `profiles` key", async () => {
+  const mock = makeRestHippoMock();
+  mock.install();
+  await loadActive(mock, { id: "coll-1" });
+
+  await store.saveTreeStructure([
+    { id: "f1", type: "collection", name: "API", variables: [], children: [] },
+  ]);
+
+  const sent = mock.one("collections.saveTree").args[1].collections;
+  assert.ok(!("profiles" in sent[0]));
 });
 
 // ── Collections: read + targeted writes ───────────────────────────────────────

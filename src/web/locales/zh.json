@@ -1402,7 +1402,16 @@
     "switched": "当前配置文件：{name}",
     "switcherTitle": "切换文件夹变量配置文件",
     "inheritsDefault": "继承默认值",
-    "resetToInherit": "重置为继承默认值"
+    "resetToInherit": "重置为继承默认值",
+    "scopeAria": "配置文件范围",
+    "scopeFolder": "此文件夹",
+    "scopeCollection": "整个集合",
+    "groupCollection": "集合",
+    "allDefault": "全部默认",
+    "ownedElsewhere": "“{name}”定义在 {owner} 中 — 请打开该文件夹以重命名或删除。",
+    "switchedScoped": "当前配置文件：{name}（{owner}）",
+    "switchedAllDefault": "所有配置文件已设为默认",
+    "limitOwner": "每个文件夹最多 {max} 个配置文件"
   },
   "passwordPrompt": {
     "exportTitle": "用密码保护导出",
@@ -1429,7 +1438,7 @@
     "tabRequests": "显示“请求”标签页",
     "tabFavorites": "显示“收藏”标签页",
     "tabRecents": "显示“最近”标签页",
-    "selectProfile": "切换变量配置文件（0 = 默认）",
+    "selectProfile": "切换可用的变量配置文件（0 = 全部默认）",
     "find": "在响应中查找，或筛选侧边栏",
     "filter": "筛选响应正文 (JSON / YAML / XML)",
     "selectBody": "选择整个响应正文",
