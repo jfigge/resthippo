@@ -455,7 +455,7 @@ function Y(l3, e) {
   let t = l3.replace(m.findPipe, (r, i, o) => {
       let u = false,
         a = i;
-      for (; --a >= 0 && o[a] === "\\"; ) u = !u;
+      for (; --a >= 0 && o[a] === "\\";) u = !u;
       return u ? "|" : " |";
     }),
     n = t.split(m.splitPipe),
@@ -464,7 +464,7 @@ function Y(l3, e) {
     (n[0].trim() || n.shift(), n.length > 0 && !n.at(-1)?.trim() && n.pop(), e)
   )
     if (n.length > e) n.splice(e);
-    else for (; n.length < e; ) n.push("");
+    else for (; n.length < e;) n.push("");
   for (; s < n.length; s++) n[s] = n[s].trim().replace(m.slashPipe, "|");
   return n;
 }
@@ -472,7 +472,7 @@ function $(l3, e, t) {
   let n = l3.length;
   if (n === 0) return "";
   let s = 0;
-  for (; s < n; ) {
+  for (; s < n;) {
     let r = l3.charAt(n - s - 1);
     if (r === e && !t) s++;
     else if (r !== e && t) s++;
@@ -484,7 +484,7 @@ function ee(l3) {
   let e = l3.split(`
 `),
     t = e.length - 1;
-  for (; t >= 0 && m.blankLine.test(e[t]); ) t--;
+  for (; t >= 0 && m.blankLine.test(e[t]);) t--;
   return e.length - t <= 2
     ? l3
     : e.slice(0, t + 1).join(`
@@ -623,7 +623,7 @@ var w = class {
         s = "",
         r = "",
         i = [];
-      for (; n.length > 0; ) {
+      for (; n.length > 0;) {
         let o = false,
           u = [],
           a;
@@ -710,7 +710,7 @@ ${p}`
         this.options.pedantic && (n = s ? n : "[*+-]"));
       let i = this.rules.other.listItemRegex(n),
         o = false;
-      for (; e; ) {
+      for (; e;) {
         let a = false,
           c = "",
           p = "";
@@ -756,7 +756,7 @@ ${p}`
             re = this.rules.other.headingBeginRegex(f),
             be = this.rules.other.htmlBeginRegex(f),
             Re = this.rules.other.blockquoteBeginRegex(f);
-          for (; e; ) {
+          for (; e;) {
             let G = e.split(
                 `
 `,
@@ -1311,7 +1311,7 @@ var x = class l {
       this.options.pedantic &&
         (e = e.replace(m.tabCharGlobal, "    ").replace(m.spaceLine, "")));
     let s = 1 / 0;
-    for (; e; ) {
+    for (; e;) {
       if (e.length < s) s = e.length;
       else {
         this.infiniteLoopError(e.charCodeAt(0));
@@ -1480,13 +1480,13 @@ var x = class l {
               "]" +
               n.slice(this.tokenizer.rules.inline.reflinkSearch.lastIndex));
     }
-    for (; (s = this.tokenizer.rules.inline.anyPunctuation.exec(n)) !== null; )
+    for (; (s = this.tokenizer.rules.inline.anyPunctuation.exec(n)) !== null;)
       n =
         n.slice(0, s.index) +
         "++" +
         n.slice(this.tokenizer.rules.inline.anyPunctuation.lastIndex);
     let r;
-    for (; (s = this.tokenizer.rules.inline.blockSkip.exec(n)) !== null; )
+    for (; (s = this.tokenizer.rules.inline.blockSkip.exec(n)) !== null;)
       ((r = s[2] ? s[2].length : 0),
         (n =
           n.slice(0, s.index + r) +
@@ -1498,7 +1498,7 @@ var x = class l {
     let i = false,
       o = "",
       u = 1 / 0;
-    for (; e; ) {
+    for (; e;) {
       if (e.length < u) u = e.length;
       else {
         this.infiniteLoopError(e.charCodeAt(0));

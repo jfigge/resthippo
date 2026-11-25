@@ -526,7 +526,7 @@ var require_prism = __commonJS({
             env.container.querySelectorAll(env.selector),
           );
           _.hooks.run("before-all-elements-highlight", env);
-          for (var i = 0, element; (element = env.elements[i++]); ) {
+          for (var i = 0, element; (element = env.elements[i++]);) {
             _.highlightElement(element, async === true, env.callback);
           }
         },
@@ -729,7 +729,7 @@ var require_prism = __commonJS({
             if (!callbacks || !callbacks.length) {
               return;
             }
-            for (var i = 0, callback; (callback = callbacks[i++]); ) {
+            for (var i = 0, callback; (callback = callbacks[i++]);) {
               callback(env);
             }
           },
@@ -1642,7 +1642,7 @@ var require_prism = __commonJS({
          */
         highlight: function highlight(container) {
           var elements = (container || document).querySelectorAll(SELECTOR);
-          for (var i = 0, element; (element = elements[i++]); ) {
+          for (var i = 0, element; (element = elements[i++]);) {
             Prism3.highlightElement(element);
           }
         },
@@ -2362,7 +2362,7 @@ Prism.hooks.add("after-tokenize", function afterTokenizeGraphql(env) {
     }
     aliases.push(alias);
   }
-  for (; currentIndex < validTokens.length; ) {
+  for (; currentIndex < validTokens.length;) {
     var startToken = validTokens[currentIndex++];
     if (startToken.type === "keyword" && startToken.content === "mutation") {
       var inputVariables = [];
