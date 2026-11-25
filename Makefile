@@ -336,8 +336,8 @@ test-a11y:
 	@echo "--------------------------------"
 
 test-scripts:
-	@echo "Running build/release script tests (release-tweet OAuth signing, resign metadata)..."
-	@node --test $(WORKSPACE)/scripts/tests/post-release-tweet.test.js $(WORKSPACE)/scripts/tests/resign-update-metadata.test.mjs
+	@echo "Running build/release script tests (release-tweet OAuth signing, resign metadata, release notes)..."
+	@node --test $(WORKSPACE)/scripts/tests/post-release-tweet.test.js $(WORKSPACE)/scripts/tests/resign-update-metadata.test.mjs $(WEB_DIR)/scripts/tests/website-releases.test.js
 	@echo "--------------------------------"
 
 # ─── UI end-to-end (real app over CDP) ────────────────────────────────────────
@@ -437,6 +437,14 @@ vendor-jq:
 icons:
 	@echo "Regenerating app icons from resthippo-icon.svg..."
 	@node scripts/make-icons.mjs
+	@echo "--------------------------------"
+
+# ─── Release notes ────────────────────────────────────────────────────────────
+# Render website/releases.html (the website's release notes) from
+# website/release-notes.json. `make release` adds the new version's entry itself
+# (one line per commit since the last tag); run this after editing the JSON.
+release-notes:
+	@node $(WORKSPACE)/scripts/build-release-notes.mjs
 	@echo "--------------------------------"
 
 # ─── Docs (PDF) ───────────────────────────────────────────────────────────────
@@ -653,7 +661,10 @@ release:
 		-e "s|(id=\"dl-version\">)[0-9]+\.[0-9]+\.[0-9]+|\1$$NEW|" \
 		-e "s|(id=\"footer-version\">)v[0-9]+\.[0-9]+\.[0-9]+|\1v$$NEW|" \
 		website/index.html && rm -f website/index.html.bak; \
-	git add src/package.json src/package-lock.json website/index.html; \
+	echo "Adding v$$NEW to the release notes..."; \
+	node $(WORKSPACE)/scripts/build-release-notes.mjs --add "$$NEW"; \
+	git add src/package.json src/package-lock.json website/index.html \
+		website/release-notes.json website/releases.html; \
 	git commit -m "Release v$$NEW" >/dev/null; \
 	echo "Fast-forwarding $(RELEASE_BRANCH) to $(MAIN_BRANCH)..."; \
 	if git show-ref --verify --quiet refs/remotes/origin/$(RELEASE_BRANCH); then \
@@ -749,6 +760,7 @@ help:
 	@echo "    vendor-graphql   Bundle graphql-js → web/scripts/vendor/graphql.js"
 	@echo "    vendor-jq     Bundle jqjs → web/scripts/vendor/jq.js"
 	@echo "    pdf           Render the user guide to a PDF (PDF_OUT=… to override path)"
+	@echo "    release-notes Render website/releases.html from website/release-notes.json"
 	@echo "    fmt           Format JS/CSS/HTML (prettier)"
 	@echo "    fmt-check     Check formatting without writing (prettier --check)"
 	@echo "    lint          Lint JS (eslint)"

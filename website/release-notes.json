@@ -1,0 +1,270 @@
+{
+  "repo": "jfigge/resthippo",
+  "releases": [
+    {
+      "version": "1.19.0",
+      "date": "2026-08-10",
+      "note": "The version jumps from 1.1.5 to 1.19.0 to pass the Microsoft Store's published 1.18.4.0 package, putting GitHub, the Mac App Store and the Microsoft Store on one ascending version line.",
+      "commits": [
+        {
+          "hash": "ac8ee4b",
+          "summary": "Redirected 'Other Hippos' to 'Visit the hippo herd'"
+        },
+        {
+          "hash": "0abd0c6",
+          "summary": "Tinted the site purple"
+        }
+      ]
+    },
+    {
+      "version": "1.1.5",
+      "date": "2026-07-30",
+      "commits": [
+        {
+          "hash": "4a37c65",
+          "summary": "Added claude code link to website"
+        },
+        {
+          "hash": "5961510",
+          "summary": "Added 'Other Hippos' link"
+        },
+        {
+          "hash": "cd643af",
+          "summary": "Updated build packages"
+        },
+        {
+          "hash": "6061c85",
+          "summary": "Added language guard and alloed ESC to close variable editor"
+        },
+        {
+          "hash": "9f620c7",
+          "summary": "Various UI tweaks"
+        }
+      ]
+    },
+    {
+      "version": "1.1.4",
+      "date": "2026-07-15",
+      "commits": [
+        {
+          "hash": "b2d05a7",
+          "summary": "Fixed the release workflow's Microsoft Store submit step, which now skips itself until the Store is configured instead of failing the run."
+        },
+        {
+          "hash": "34d507f",
+          "summary": "Hardening"
+        },
+        {
+          "hash": "aee818e",
+          "summary": "Added support for capturing variable values in the timeline"
+        },
+        {
+          "hash": "b24b2d7",
+          "summary": "Finished the rebrand to Rest Hippo in the icon build script, and committed two Prettier line reflows."
+        },
+        {
+          "hash": "d4f8dcd",
+          "summary": "Harden IPC boundary: validate path-segment ids + cap import reads"
+        },
+        {
+          "hash": "57ba55d",
+          "summary": "Hardened encryption: the master password now derives its key with memory-hard scrypt, and a backup uses one key for all its secrets instead of one per secret, so export and import no longer freeze the UI. Existing secrets and backups stay readable."
+        },
+        {
+          "hash": "a52f09f",
+          "summary": "Fixed a stray NUL byte in an IPC store test that made git treat the file as binary, replacing it with genuinely forbidden ids."
+        },
+        {
+          "hash": "a643fff",
+          "summary": "Added a test suite for the Settings window, until now the largest untested part of the UI."
+        },
+        {
+          "hash": "29e7991",
+          "summary": "Moved the save-coalescing loop and the response cache out of app.js into their own unit-tested modules, with no change in behaviour."
+        },
+        {
+          "hash": "cf9a3b1",
+          "summary": "Adding support files for tracking"
+        },
+        {
+          "hash": "3b79fdd",
+          "summary": "Save Point"
+        },
+        {
+          "hash": "5ae12a5",
+          "summary": "Fixed e2e testing"
+        }
+      ]
+    },
+    {
+      "version": "1.1.3",
+      "date": "2026-07-14",
+      "note": "No changes of its own: a rebuild of v1.1.2.",
+      "commits": []
+    },
+    {
+      "version": "1.1.2",
+      "date": "2026-07-13",
+      "commits": [
+        {
+          "hash": "4fb407f",
+          "summary": "Rearranged profile logic"
+        },
+        {
+          "hash": "bc8d599",
+          "summary": "Send profile activation notification only on change"
+        },
+        {
+          "hash": "fcb271a",
+          "summary": "Added profile selector icon"
+        },
+        {
+          "hash": "75d4e56",
+          "summary": "Save Point"
+        },
+        {
+          "hash": "cd51844",
+          "summary": "Implemented presence-based profile overrides"
+        },
+        {
+          "hash": "a080b23",
+          "summary": "Request headers inherit the collection default"
+        },
+        {
+          "hash": "7771182",
+          "summary": "Collections-dialog smart Import bad-path fix"
+        },
+        {
+          "hash": "8d75cef",
+          "summary": "Secret pipeline: profile-override"
+        },
+        {
+          "hash": "c37397f",
+          "summary": "File body: broken upload"
+        },
+        {
+          "hash": "a22eaa4",
+          "summary": "credential safety on redirect + robustness + URL redaction"
+        },
+        {
+          "hash": "4338952",
+          "summary": "one-shot dialog resize lifecycle"
+        },
+        {
+          "hash": "fb62509",
+          "summary": "Reduce unnecessary publication (debounce/guard broadcasts, writes & re-renders)"
+        },
+        {
+          "hash": "d223b59",
+          "summary": "Dead & duplicated code sweep"
+        },
+        {
+          "hash": "6a4ecce",
+          "summary": "OAuth: token-store cache key, dead  field, refresh semantics"
+        },
+        {
+          "hash": "b0fe64c",
+          "summary": "Project scaffold & build system"
+        },
+        {
+          "hash": "618c486",
+          "summary": "Addined UI test coverage"
+        },
+        {
+          "hash": "d1e6f6e",
+          "summary": "Addined UI test coverage #2"
+        },
+        {
+          "hash": "05ba0d4",
+          "summary": "Updated and regenerated documentation"
+        },
+        {
+          "hash": "6772c21",
+          "summary": "Updated variables documentation"
+        },
+        {
+          "hash": "17fb336",
+          "summary": "Fixed delete collections focus bug"
+        }
+      ]
+    },
+    {
+      "version": "1.1.1",
+      "date": "2026-07-09",
+      "commits": [
+        {
+          "hash": "67de77d",
+          "summary": "Enabled copy/select on variable editor preview value"
+        },
+        {
+          "hash": "26dffbd",
+          "summary": "Initiate drag-selection in unused space below text"
+        }
+      ]
+    },
+    {
+      "version": "1.1.0",
+      "date": "2026-07-08",
+      "commits": [
+        {
+          "hash": "640b7a6",
+          "summary": "Added a security policy: vulnerability reports go through GitHub's private vulnerability reporting, and it covers supported versions, how to report, and what response to expect."
+        },
+        {
+          "hash": "1e0ef39",
+          "summary": "Remove sponsorship from m MAS app"
+        },
+        {
+          "hash": "198f24c",
+          "summary": "Added target for user-guide pdf"
+        },
+        {
+          "hash": "0558621",
+          "summary": "Consolidating imports and exports under collections dialog"
+        },
+        {
+          "hash": "c3503df",
+          "summary": "Export tweak for resthippo format"
+        },
+        {
+          "hash": "728eda7",
+          "summary": "Performance improvements #1"
+        },
+        {
+          "hash": "6492f53",
+          "summary": "Performance improvements #2"
+        }
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-07-06",
+      "commits": [
+        {
+          "hash": "a62cfa0",
+          "summary": "Changed Hide headers to show headers"
+        },
+        {
+          "hash": "b84be3f",
+          "summary": "Corrected visual issue with script example"
+        },
+        {
+          "hash": "4842851",
+          "summary": "Consolidated variables, and removed the upper-case requirement for environment names."
+        },
+        {
+          "hash": "59a9881",
+          "summary": "Removed SignPath from the website's home page."
+        },
+        {
+          "hash": "6bccae7",
+          "summary": "Review tweaks"
+        },
+        {
+          "hash": "8e9ceed",
+          "summary": "Gated release version banner"
+        }
+      ]
+    }
+  ]
+}

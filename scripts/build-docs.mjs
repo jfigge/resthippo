@@ -267,6 +267,7 @@ if (IS_MAIN) {
     `${SITE_URL}/vs-postman.html`,
     `${SITE_URL}/privacy.html`,
     `${SITE_URL}/code-signing-policy.html`,
+    `${SITE_URL}/releases.html`,
     ...PAGES.map((p) => `${SITE_URL}/docs/${outFile(p)}`),
   ];
   const sitemap =

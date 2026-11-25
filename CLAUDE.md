@@ -342,6 +342,21 @@ The shipped, in-app user guide lives in `src/web/docs/` (Markdown pages —
   in lockstep with the one in `docs-viewer.js` (both list slug + title, in order)
   — editing the body of an existing page needs no code change.
 
+## Release notes (website)
+
+`website/releases.html` ("what changed" in every release since 1.0.0, linked
+from the home page's Downloads line) is **generated** by
+`scripts/build-release-notes.mjs` from `website/release-notes.json` — never
+hand-edit the HTML. **Line rule:** a commit whose message is a single line
+(trailers like `Signed-off-by` don't count) is listed as that line, **verbatim**;
+a commit with a multi-line message is listed as a **summary of the whole
+message**. `make release` runs `--add <version>` (one subject line per commit
+since the last tag, `Release vX` bumps left out) and commits the JSON + page with
+the bump; `--add` prints the hashes whose messages are multi-line — replace those
+lines with summaries, then `make release-notes`. A release may carry a `note`
+(e.g. a rebuild with no commits). `src/web/scripts/tests/website-releases.test.js`
+(in `make test-scripts`) holds the committed page to the JSON.
+
 ## Test collection (Feature Test Suite)
 
 > **Status (2026-06-19): the generator is not in the repo.** There used to be a
