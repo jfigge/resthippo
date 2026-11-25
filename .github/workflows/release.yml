@@ -95,7 +95,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          # Pinned to macos-15, NOT macos-latest: macos-latest moved to macOS 26, where
+          # electron-builder 26.8.1's temp-keychain import fails ("SecKeychainUnlock: The
+          # user name or passphrase you entered is not correct") — it passes the .p12
+          # password to `security set-key-partition-list -k`, which macOS 26 enforces.
+          # Fixed upstream in app-builder-lib 26.18.0; unpin after upgrading.
+          - os: macos-15
             target: dist-mac
           - os: ubuntu-latest
             target: dist-linux
@@ -217,7 +222,8 @@ jobs:
   store-mas:
     name: Build Mac App Store package
     if: vars.MAS_ENABLED == 'true'
-    runs-on: macos-latest
+    # macos-15, not macos-latest — see the note on the build matrix above.
+    runs-on: macos-15
     permissions:
       contents: read
     defaults:

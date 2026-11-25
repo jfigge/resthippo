@@ -7,7 +7,7 @@
       "commits": [
         {
           "hash": "be65603",
-          "summary": "Docs: correct store status and record the AppX version-floor rule"
+          "summary": "Docs: corrected the store status (both the Microsoft Store and the Mac App Store are shipping) and recorded why 1.19.0 was needed: a Microsoft Store package must be numbered above the published one."
         },
         {
           "hash": "a22e483",
