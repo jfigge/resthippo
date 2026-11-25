@@ -2,6 +2,36 @@
   "repo": "jfigge/resthippo",
   "releases": [
     {
+      "version": "1.20.0",
+      "date": "2026-11-24",
+      "commits": [
+        {
+          "hash": "be65603",
+          "summary": "Docs: correct store status and record the AppX version-floor rule"
+        },
+        {
+          "hash": "a22e483",
+          "summary": "Replace email for hippoherd.com"
+        },
+        {
+          "hash": "a2753c4",
+          "summary": "Added app store links"
+        },
+        {
+          "hash": "4cfbd58",
+          "summary": "Bug fix"
+        },
+        {
+          "hash": "140c479",
+          "summary": "Added support for local commands"
+        },
+        {
+          "hash": "5608196",
+          "summary": "Added change log to web site"
+        }
+      ]
+    },
+    {
       "version": "1.19.0",
       "date": "2026-08-10",
       "note": "The version jumps from 1.1.5 to 1.19.0 to pass the Microsoft Store's published 1.18.4.0 package, putting GitHub, the Mac App Store and the Microsoft Store on one ascending version line.",
