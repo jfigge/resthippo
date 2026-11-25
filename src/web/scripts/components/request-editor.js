@@ -64,6 +64,14 @@ import { ScriptsEditor } from "./editors/scripts-editor.js";
 import { TestsEditor } from "./editors/tests-editor.js";
 import { BodyEditor } from "./editors/body-editor.js";
 import { ScheduledSend } from "./editors/scheduled-send.js";
+import { openDurationDialog } from "./editors/send-duration-dialog.js";
+import { snapshotToNode } from "./request-snapshot.js";
+import { HTTP_METHODS, TABS, WS_TABS } from "./request-tabs.js";
+import { CommandEditor, CMD_TABS } from "./command/command-editor.js";
+import {
+  buildCommandDescriptor,
+  commandTemplates,
+} from "./command/command-exec.js";
 import {
   DragReorderController,
   buildToolbarToggle,
@@ -85,43 +93,6 @@ import {
   hdrValDropdownAccept,
   hdrValDropdownVisible,
 } from "./header-suggestions.js";
-
-const HTTP_METHODS = [
-  "GET",
-  "POST",
-  "PUT",
-  "PATCH",
-  "DELETE",
-  "HEAD",
-  "OPTIONS",
-];
-
-// Tab labels resolve from the i18n catalog at render time (see #renderTabStrip);
-// labelKey, not a literal, because these arrays are built at module load — before
-// the catalog is ready.
-const TABS = [
-  { id: "params", labelKey: "request.tab.params" },
-  { id: "headers", labelKey: "request.tab.headers" },
-  { id: "body", labelKey: "request.tab.body" },
-  { id: "auth", labelKey: "request.tab.auth" },
-  { id: "captures", labelKey: "request.tab.captures" },
-  { id: "tests", labelKey: "request.tab.tests" },
-  { id: "scripts", labelKey: "request.tab.scripts" },
-  { id: "notes", labelKey: "request.tab.notes" },
-];
-
-// Tabs for a WebSocket request (Feature 32): the Body tab is replaced by the
-// Message composer. Params/Headers/Auth apply to the handshake; Notes are shared.
-const WS_TABS = [
-  { id: "params", labelKey: "request.tab.params" },
-  { id: "headers", labelKey: "request.tab.headers" },
-  { id: "message", labelKey: "request.tab.message" },
-  { id: "auth", labelKey: "request.tab.auth" },
-  { id: "captures", labelKey: "request.tab.captures" },
-  { id: "tests", labelKey: "request.tab.tests" },
-  { id: "scripts", labelKey: "request.tab.scripts" },
-  { id: "notes", labelKey: "request.tab.notes" },
-];
 
 function _extractResponseFunctionRefs(templates) {
   const map = new Map();
@@ -439,7 +410,7 @@ export class RequestEditor {
   // HTTP one and selects the layout (WS pill + Message tab vs method + Body).
   // The live connection lives in the main process / app.js; the editor tracks
   // only enough to label the Connect button and enable the composer's Send.
-  #protocol = "http"; // "http" | "websocket"
+  #protocol = "http"; // "http" | "websocket" | "command"
   #renderedProtocol = "http"; // protocol the current DOM was built for
   #wsMessage = ""; // last composed message (persisted)
   #wsMessageFormat = "text"; // "text" | "json" (persisted)
@@ -450,6 +421,18 @@ export class RequestEditor {
   #wsSendBtn = null; // composer Send button
   #wsConnectBtn = null; // url-bar Connect/Disconnect button
   #syncWsFormatButtons = null; // refreshes the Text/JSON toggle from state
+
+  // Command request surface (Feature 70) — owns the command line, Arguments /
+  // Environment / Stdin tabs, output type and timeout; mounted in place of the
+  // URL bar + Params/Headers/Body when protocol === "command".
+  #command = new CommandEditor({
+    getContext: () => this.#variableContext,
+    getItems: () => this.#getItems(),
+    ensureResponseCaches: (names) => this.#ensureResponseCaches?.(names),
+    makeCodeEditor: (opts) => this.#makeCodeEditor(opts),
+    getRequestId: () => this.#currentNodeId,
+    onChange: (partial) => this.#dispatchWsFieldUpdate(partial),
+  });
 
   // Params bulk editor
   #paramsBulkMode = false;
@@ -651,6 +634,7 @@ export class RequestEditor {
     if (this.#sendTypeTrigger)
       this.#sendTypeTrigger.hidden = counting || inFlight;
 
+    if (!inFlight) this.#command.clearDecoration(b);
     if (counting) {
       // Counting down to a scheduled fire: a cancellable "Cancel" with a colour
       // sweep (driven by the rAF tick that owns --send-sweep).
@@ -665,6 +649,9 @@ export class RequestEditor {
       b.classList.remove("req-send-btn--countdown");
       b.style.removeProperty("--send-sweep");
       b.classList.add("req-send-btn--cancel");
+      // Command (Feature 70): red Stop + the timeout countdown, if one is set.
+      if (this.#protocol === "command")
+        this.#command.decorateInFlight(b, this.#currentNodeId);
     } else {
       // Idle: "Send" plus the active send-type subscript glyph.
       b.classList.remove("req-send-btn--cancel", "req-send-btn--countdown");
@@ -678,10 +665,14 @@ export class RequestEditor {
    * glyph to its right for delayed/interval. Immediate carries no glyph.
    */
   #setSendButtonIdle(b) {
-    b.setAttribute("aria-label", t("request.sendAria"));
+    const cmd = this.#protocol === "command";
+    b.setAttribute(
+      "aria-label",
+      cmd ? t("request.cmd.executeAria") : t("request.sendAria"),
+    );
     const iconName = this.#scheduledSend.iconName();
     b.innerHTML =
-      `<span class="req-send-label">${t("request.send")}</span>` +
+      `<span class="req-send-label">${cmd ? t("request.cmd.execute") : t("request.send")}</span>` +
       (iconName
         ? `<span class="req-send-type-icon" aria-hidden="true">${icon(iconName, { size: 15 })}</span>`
         : "");
@@ -713,6 +704,19 @@ export class RequestEditor {
         : undefined,
     }));
 
+    // Command requests (Feature 70) add a per-request Timeout to the same menu.
+    if (this.#protocol === "command") {
+      items.push(
+        { type: "separator" },
+        {
+          id: "timeout",
+          label: t("request.cmd.timeoutMenu"),
+          type: "checkbox",
+          checked: this.#command.timeoutMs > 0,
+        },
+      );
+    }
+
     // Anchor the menu under the Send button (fall back to the caret trigger).
     const anchor = this.#sendBtn ?? trigger;
     const r = anchor.getBoundingClientRect();
@@ -723,6 +727,10 @@ export class RequestEditor {
       return; // IPC failure — leave the send type unchanged
     }
     if (choice == null) return; // dismissed
+    if (choice === "timeout") {
+      this.#openTimeoutDialog();
+      return;
+    }
 
     this.#scheduledSend.setType(choice);
     if (choice === "delayed" || choice === "interval") {
@@ -734,83 +742,43 @@ export class RequestEditor {
    * Small dialog anchored under the Send button that captures the timing for the
    * active scheduled send: Delayed asks for its Delay, Interval for its Interval
    * (one field either way). Values persist live and the dialog dismisses on
-   * outside click (PopupManager mask).
+   * outside click (PopupManager mask). See editors/send-duration-dialog.js.
    */
   #openDurationDialog(type) {
-    const dialog = document.createElement("div");
-    dialog.className = "req-send-duration-dialog";
-    dialog.setAttribute("role", "dialog");
-    dialog.setAttribute(
-      "aria-label",
-      type === "interval"
+    const interval = type === "interval";
+    openDurationDialog({
+      anchor: this.#sendBtn ?? this.#sendTypeTrigger,
+      dialogAria: interval
         ? t("request.sendType.intervalDialogAria")
         : t("request.sendType.delayDialogAria"),
-    );
-    dialog.addEventListener("mousedown", (e) => {
-      // Keep clicks inside the dialog (other than the number inputs) from blurring.
-      if (e.target.tagName !== "INPUT") e.preventDefault();
+      label: interval
+        ? t("request.sendType.intervalLabel")
+        : t("request.sendType.delayLabel"),
+      inputAria: interval
+        ? t("request.sendType.intervalAria")
+        : t("request.sendType.delayAria"),
+      valueMs: interval
+        ? this.#scheduledSend.intervalMs
+        : this.#scheduledSend.delayMs,
+      onCommit: (ms) =>
+        this.#scheduledSend.setDuration(
+          interval ? "sendIntervalMs" : "sendDelayMs",
+          ms,
+        ),
     });
-
-    // One field, scoped to the active type: Interval uses its interval, Delayed
-    // its delay.
-    if (type === "interval") {
-      dialog.appendChild(
-        this.#buildDurationRow(
-          t("request.sendType.intervalLabel"),
-          t("request.sendType.intervalAria"),
-          this.#scheduledSend.intervalMs,
-          (ms) => this.#scheduledSend.setDuration("sendIntervalMs", ms),
-        ),
-      );
-    } else {
-      dialog.appendChild(
-        this.#buildDurationRow(
-          t("request.sendType.delayLabel"),
-          t("request.sendType.delayAria"),
-          this.#scheduledSend.delayMs,
-          (ms) => this.#scheduledSend.setDuration("sendDelayMs", ms),
-        ),
-      );
-    }
-
-    const anchor = this.#sendBtn ?? this.#sendTypeTrigger;
-    const r = anchor.getBoundingClientRect();
-    PopupManager.openMenu(dialog, r.left, r.bottom + 4);
-    // Focus the first field for immediate keyboard entry.
-    requestAnimationFrame(() => dialog.querySelector("input")?.focus());
   }
 
-  /** One labelled "Name [ n ] s" duration input row for the timing dialog. */
-  #buildDurationRow(labelText, ariaText, valueMs, onCommit) {
-    const row = document.createElement("div");
-    row.className = "req-send-type-duration-row";
-
-    const label = document.createElement("span");
-    label.className = "req-send-type-duration-label";
-    label.textContent = labelText;
-
-    const input = document.createElement("input");
-    input.type = "number";
-    input.min = "0";
-    input.step = "0.5";
-    input.className = "req-send-type-duration-input";
-    input.value = String(valueMs / 1000);
-    input.setAttribute("aria-label", ariaText);
-
-    const unit = document.createElement("span");
-    unit.className = "req-send-type-duration-unit";
-    unit.textContent = t("request.sendType.seconds");
-
-    const commit = () => {
-      const secs = Math.max(0, Number(input.value) || 0);
-      const ms = Math.round(secs * 1000);
-      input.value = String(ms / 1000);
-      onCommit(ms);
-    };
-    input.addEventListener("change", commit);
-
-    row.append(label, input, unit);
-    return row;
+  /** Command requests: the per-request Timeout dialog (0 = no timeout). */
+  #openTimeoutDialog() {
+    openDurationDialog({
+      anchor: this.#sendBtn ?? this.#sendTypeTrigger,
+      dialogAria: t("request.cmd.timeoutDialogAria"),
+      label: t("request.cmd.timeoutLabel"),
+      inputAria: t("request.cmd.timeoutAria"),
+      valueMs: this.#command.timeoutMs,
+      onCommit: (ms) => this.#command.setTimeoutMs(ms),
+      hint: t("request.cmd.timeoutHint"),
+    });
   }
 
   /** Persist a send-type setting to the global Settings document (app.js). */
@@ -835,6 +803,10 @@ export class RequestEditor {
 
     if (this.#protocol === "websocket") {
       this.#renderWsUrlBar();
+      return;
+    }
+    if (this.#protocol === "command") {
+      this.#renderCommandBar();
       return;
     }
     const bar = document.createElement("div");
@@ -1003,6 +975,33 @@ export class RequestEditor {
     });
     this.#urlPillEditor = urlEditor;
 
+    const sendGroup = this.#buildSendGroup(this.#method.toLowerCase());
+
+    row.appendChild(methodSel);
+    row.appendChild(urlEditor.element);
+    row.appendChild(sendGroup);
+    bar.appendChild(row);
+    // Resolved-URL preview, directly under the URL input. Visibility is governed
+    // by Settings → Appearance ("Show URL preview") via applySettings(); see
+    // #urlPreviewEnabled / #buildUrlPreviewBar.
+    bar.appendChild(this.#buildUrlPreviewBar());
+    this.#el.appendChild(bar);
+
+    this.#methodSel = methodSel;
+    this.#methodSelLabel = methodLabel;
+    // Place the profile switcher now that the preview bar + Send button exist
+    // (a protocol switch rebuilds this bar; the button re-homes here).
+    this.#mountProfileBtn();
+  }
+
+  /**
+   * Build the split Send control (main Send/Stop/Cancel button + the send-type
+   * caret) shared by the HTTP URL bar and the Command bar (Feature 70), and
+   * point #sendBtn / #sendTypeTrigger at it.
+   * @param {string} dataMethod  colour-coding key for the button (`data-method`)
+   * @returns {HTMLElement} the .req-send-group element
+   */
+  #buildSendGroup(dataMethod) {
     // Send / Cancel button. Whether the collection's cookie jar is attached to
     // each request is governed per-collection via the Collections editor's
     // "Send cookies" checkbox (not a per-request toggle here).
@@ -1017,8 +1016,11 @@ export class RequestEditor {
     const sendBtn = document.createElement("button");
     sendBtn.className = "btn req-send-btn";
     sendBtn.type = "button";
-    sendBtn.dataset.method = this.#method.toLowerCase();
-    sendBtn.title = t("request.sendTitle", { keys: bindingDisplay("send") });
+    sendBtn.dataset.method = dataMethod;
+    sendBtn.title =
+      this.#protocol === "command"
+        ? t("request.cmd.executeTitle", { keys: bindingDisplay("send") })
+        : t("request.sendTitle", { keys: bindingDisplay("send") });
     sendBtn.addEventListener("click", () => {
       if (this.#scheduledSend.isCountingForLoaded()) {
         // A scheduled send is counting down → "Cancel": stop the timer/loop and
@@ -1079,23 +1081,8 @@ export class RequestEditor {
     // protocol-driven rebuild of the URL bar can't accumulate stale listeners.
     split.append(sendBtn, typeTrigger);
     sendGroup.appendChild(split);
-
-    row.appendChild(methodSel);
-    row.appendChild(urlEditor.element);
-    row.appendChild(sendGroup);
-    bar.appendChild(row);
-    // Resolved-URL preview, directly under the URL input. Visibility is governed
-    // by Settings → Appearance ("Show URL preview") via applySettings(); see
-    // #urlPreviewEnabled / #buildUrlPreviewBar.
-    bar.appendChild(this.#buildUrlPreviewBar());
-    this.#el.appendChild(bar);
-
-    this.#methodSel = methodSel;
-    this.#methodSelLabel = methodLabel;
     this.#sendBtn = sendBtn;
-    // Place the profile switcher now that the preview bar + Send button exist
-    // (a protocol switch rebuilds this bar; the button re-homes here).
-    this.#mountProfileBtn();
+    return sendGroup;
   }
 
   // ── WebSocket URL bar (Feature 32) ────────────────────────────────────────
@@ -1151,8 +1138,22 @@ export class RequestEditor {
     this.#applyWsState(this.#wsState);
   }
 
+  // ── Command bar (Feature 70) ──────────────────────────────────────────────
+  // CommandEditor builds the bar (CMD/output badge + command line); the split
+  // Execute control is the shared send group, so scheduling, Stop and the
+  // tree/⌘↵ `.req-send-btn` triggers all work unchanged.
+  #renderCommandBar() {
+    const { bar, lineEditor } = this.#command.buildBar({
+      sendGroup: this.#buildSendGroup("cmd"),
+      onEnter: () => this.#sendRequest(),
+    });
+    this.#urlPillEditor = lineEditor;
+    this.#el.appendChild(bar);
+  }
+
   /** Tabs to render for the current protocol. */
   #tabsForProtocol() {
+    if (this.#protocol === "command") return CMD_TABS;
     return this.#protocol === "websocket" ? WS_TABS : TABS;
   }
 
@@ -1163,6 +1164,8 @@ export class RequestEditor {
    */
   #rebuildLayout() {
     this.#renderedProtocol = this.#protocol;
+    // The command surface's pill editors/timers die with the DOM.
+    this.#command.dispose();
     // Tear down PillCodeEditors (body text / GraphQL / WS message) before the
     // DOM is wiped, so their document + ResizeObserver listeners are removed.
     this.#disposeCodeEditors();
@@ -1473,6 +1476,8 @@ export class RequestEditor {
     if (tabId === "headers") return this.#buildHeadersEditor();
     if (tabId === "body") return this.#bodyEditor.build();
     if (tabId === "message") return this.#buildMessageEditor();
+    const cmdPane = this.#command.buildTab(tabId);
+    if (cmdPane) return cmdPane;
     if (tabId === "auth") return this.#auth.element;
     if (tabId === "captures") return this.#capturesEditor.build();
     if (tabId === "tests") return this.#testsEditor.build();
@@ -2853,6 +2858,7 @@ export class RequestEditor {
 
   // ── Send ─────────────────────────────────────────────────────────────────
   async #sendRequest(force = false) {
+    if (this.#protocol === "command") return this.#sendCommand(force);
     // Capture the id now — the user may load another request while the async
     // steps below (OAuth, cache preload) run, and this send belongs to the
     // request that was loaded when it started.
@@ -3127,6 +3133,74 @@ export class RequestEditor {
   }
 
   /**
+   * Execute a Command request (Feature 70): optional pre-request script (its
+   * variable writes apply; request patches don't — there is no HTTP request),
+   * the unresolved-variable pre-flight, cross-request cache preload, then the
+   * per-token resolution into a descriptor handed to app.js via
+   * `hippo:send-command` (event-bus/command-handlers.js runs it).
+   */
+  async #sendCommand(force = false) {
+    const requestId = this.#currentNodeId ?? null;
+    const node = this.#command.toNode(requestId);
+    if (!node.commandLine.trim()) {
+      this.#urlPillEditor?.focus();
+      return;
+    }
+    let ctx = this.#variableContext;
+    const preScriptCode = (this.#preRequestScript ?? "").trim();
+    if (
+      preScriptCode &&
+      this.#preRequestScriptEnabled !== false &&
+      this.#showScriptsTab
+    ) {
+      let pre;
+      if (force && this.#preScriptCache?.id === requestId) {
+        pre = this.#preScriptCache.result;
+      } else {
+        pre = await this.#runPreRequestScript(
+          preScriptCode,
+          node.commandLine,
+          ctx,
+        );
+        this.#preScriptCache = { id: requestId, result: pre };
+      }
+      if (pre.aborted) {
+        this.#preScriptCache = null;
+        return;
+      }
+      ctx = pre.ctx;
+    }
+    const templates = commandTemplates(node);
+    if (!force) {
+      const allVars = collectTemplateVariables(templates, ctx);
+      if (allVars.some((v) => !v.found)) {
+        PopupManager.warnVariables({
+          variables: allVars,
+          actionLabel: t("request.sendAnyway"),
+          onAction: () => this.#sendRequest(true),
+        });
+        return;
+      }
+    }
+    if (this.#ensureResponseCaches) {
+      const refs = _extractResponseFunctionRefs(templates);
+      if (refs.length)
+        await this.#ensureResponseCaches(refs, this.#variableContext);
+    }
+    const descriptor = await buildCommandDescriptor(node, ctx);
+    const variables = collectTemplateVariables(templates, ctx)
+      .filter((v) => v.found && !v.secure)
+      .map((v) => ({ name: v.name, value: v.value }));
+    window.dispatchEvent(
+      new CustomEvent("hippo:send-command", {
+        detail: { requestId, descriptor, variables },
+        bubbles: true,
+      }),
+    );
+    this.#preScriptCache = null;
+  }
+
+  /**
    * Run the pre-request script in the main-process sandbox. Surfaces its result
    * (variable writes + any error) via the global `hippo:script-result` event —
    * app.js persists the writes and shows errors — and returns the augmented
@@ -3272,6 +3346,7 @@ export class RequestEditor {
     this.#bodyEditor.setVariableContext(context);
     this.#auth.revalidatePills();
     this.#updateUrlPreview();
+    if (this.#protocol === "command") this.#command.contextChanged();
   }
 
   /** Set the callback used by function-pill popups to populate request-picker params. */
@@ -3303,6 +3378,8 @@ export class RequestEditor {
     // the two durations feed the delayed/interval countdowns. Refresh the button
     // only when idle so a change mid-countdown/in-flight doesn't disturb it.
     const sendTypeChanged = this.#scheduledSend.applySettings(settings);
+    // Command requests (Feature 70): the inherited base environment.
+    if ("commandBaseEnv" in settings) this.#command.applySettings(settings);
     if (
       sendTypeChanged &&
       !this.#scheduledSend.isCountingForLoaded() &&
@@ -3412,7 +3489,11 @@ export class RequestEditor {
 
     // Protocol — rebuild the url bar + tabs when switching between HTTP and
     // WebSocket so the right controls (method vs WS, Body vs Message) render.
-    this.#protocol = node.protocol === "websocket" ? "websocket" : "http";
+    this.#protocol =
+      node.protocol === "websocket" || node.protocol === "command"
+        ? node.protocol
+        : "http";
+    this.#command.active = this.#protocol === "command";
     if (this.#protocol !== this.#renderedProtocol) {
       this.#rebuildLayout();
     }
@@ -3431,7 +3512,12 @@ export class RequestEditor {
 
     const url = node.url ?? "";
     this.#url = url;
-    this.#urlPillEditor.setValue(url);
+    if (this.#protocol === "command") {
+      // The bar's editor holds the command line (CommandEditor sets it).
+      this.#command.load(node);
+    } else {
+      this.#urlPillEditor.setValue(url);
+    }
 
     // Path params (Feature 49) — the URL is authoritative for which tokens
     // exist; stored values are merged in by name (and any whose token is gone
@@ -3536,89 +3622,7 @@ export class RequestEditor {
   loadSnapshot(snapshot) {
     if (!snapshot) return;
 
-    const node = {
-      id: snapshot.id,
-      method: snapshot.method ?? "GET",
-      url: snapshot.url ?? "",
-      params: textToKvRows(snapshot.params ?? ""),
-      pathParams: Array.isArray(snapshot.pathParams) ? snapshot.pathParams : [],
-      headers: textToHeaderRows(snapshot.headers ?? ""),
-      authType: snapshot.authType ?? "none",
-      authEnabled: snapshot.authEnabled ?? true,
-      bodyType: snapshot.bodyType ?? "no-body",
-      notes: snapshot.notes ?? "",
-    };
-
-    const kv = this.#parseBulkKVColon(snapshot.auth ?? "");
-    if (node.authType === "basic") {
-      node.authBasic = {
-        username: kv.username ?? "",
-        password: kv.password ?? "",
-      };
-    } else if (node.authType === "bearer") {
-      node.authBearer = { token: kv.token ?? "" };
-    } else if (node.authType === "apikey") {
-      node.authApiKey = {
-        name: kv.name ?? "",
-        value: kv.value ?? "",
-        addTo: kv.addTo === "query" ? "query" : "header",
-      };
-    } else if (node.authType === "digest") {
-      node.authDigest = {
-        username: kv.username ?? "",
-        password: kv.password ?? "",
-      };
-    } else if (node.authType === "ntlm") {
-      node.authNtlm = {
-        username: kv.username ?? "",
-        password: kv.password ?? "",
-        domain: kv.domain ?? "",
-        workstation: kv.workstation ?? "",
-      };
-    } else if (node.authType === "oauth2") {
-      node.authOAuth2 = {
-        grantType: kv.grantType ?? "client_credentials",
-        clientType: kv.clientType ?? "confidential",
-        clientId: kv.clientId ?? "",
-        clientSecret: kv.clientSecret ?? "",
-        accessTokenUrl: kv.accessTokenUrl ?? "",
-        authUrl: kv.authUrl ?? "",
-        username: kv.username ?? "",
-        password: kv.password ?? "",
-        scope: kv.scope ?? "",
-        responseType: kv.responseType ?? "",
-        redirectUri: kv.redirectUri ?? "",
-        state: kv.state ?? "",
-        credentials: kv.credentials ?? "",
-        audience: kv.audience ?? "",
-        resource: kv.resource ?? "",
-        origin: kv.origin ?? "",
-        headerPrefix: kv.headerPrefix ?? "",
-      };
-    } else if (node.authType === "aws-iam") {
-      node.authAwsIam = {
-        accessKeyId: kv.accessKeyId ?? "",
-        secretAccessKey: kv.secretAccessKey ?? "",
-        region: kv.region ?? "",
-        service: kv.service ?? "",
-        sessionToken: kv.sessionToken ?? "",
-      };
-    }
-
-    if (node.bodyType === "form-data" || node.bodyType === "form-urlencoded") {
-      node.bodyFormRows = textToKvRows(snapshot.body ?? "");
-    } else if (node.bodyType === "file") {
-      node.bodyFilePath = snapshot.body ?? "";
-    } else if (node.bodyType === "graphql") {
-      // GraphQL keeps query + variables structured in the snapshot; fall back to
-      // the readable `body` (the query) for older snapshots.
-      node.bodyGraphql = snapshot.bodyGraphql ?? {
-        query: snapshot.body ?? "",
-        variables: "",
-      };
-    } else {
-      node.bodyText = snapshot.body ?? "";
-    }
+    const node = snapshotToNode(snapshot);
 
     // Test / script / capture configuration. New snapshots store these so a
     // restore reinstates the exact config that ran; older snapshots predate the
@@ -3642,20 +3646,5 @@ export class RequestEditor {
 
     this.load(node);
     return node;
-  }
-
-  /** Parse  key: value  lines into a plain object (used by loadSnapshot). */
-  #parseBulkKVColon(text) {
-    const out = {};
-    for (const line of text.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      const colon = trimmed.indexOf(":");
-      if (colon === -1) continue;
-      const key = trimmed.slice(0, colon).trim();
-      const value = trimmed.slice(colon + 1).trim();
-      if (key) out[key] = value;
-    }
-    return out;
   }
 }

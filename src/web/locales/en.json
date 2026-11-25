@@ -307,7 +307,8 @@
     "cycleLayout": "Cycle Layout",
     "keyboardShortcuts": "Keyboard Shortcuts",
     "newWsRequest": "New WebSocket Request",
-    "checkUpdates": "Check for Updates…"
+    "checkUpdates": "Check for Updates…",
+    "newCommandRequest": "New Command Request"
   },
   "settings": {
     "title": "Settings",
@@ -322,7 +323,8 @@
       "certificates": "Certificates",
       "about": "About",
       "security": "Security",
-      "cli": "Command Line"
+      "cli": "Command Line",
+      "commands": "Commands"
     },
     "appearance": {
       "theme": "Theme",
@@ -463,6 +465,21 @@
       "errorGeneric": "Couldn't update the hippo command.",
       "promptTitle": "Install the hippo command?",
       "promptMessage": "Would you like to type hippo in a terminal to launch Rest Hippo? You can change this anytime in Settings → Command Line."
+    },
+    "commands": {
+      "desc": "The base environment every Command request starts from. Executables are looked up on this PATH. Rest Hippo never passes on its own environment, so this list (plus each request's Environment tab) is exactly what a command sees.",
+      "listAria": "Base environment variables",
+      "add": "Add Variable",
+      "reset": "Reset to Defaults",
+      "resetTitle": "Restore this platform's default PATH and system variables",
+      "usingDefaults": "Using this platform's defaults",
+      "empty": "No variables — commands start with an empty environment.",
+      "enableAria": "Pass this variable to commands",
+      "namePlaceholder": "NAME",
+      "nameAria": "Variable name",
+      "valuePlaceholder": "Value",
+      "valueAria": "Variable value",
+      "delete": "Remove variable"
     }
   },
   "request": {
@@ -496,7 +513,10 @@
       "captures": "Captures",
       "notes": "Notes",
       "scripts": "Scripts",
-      "tests": "Tests"
+      "tests": "Tests",
+      "args": "Arguments",
+      "env": "Environment",
+      "stdin": "Stdin"
     },
     "method": {
       "aria": "HTTP Method",
@@ -672,7 +692,8 @@
       "statusAdd": "Add code",
       "statusAddPlaceholder": "e.g. 201",
       "statusRemove": "Remove code {code}",
-      "hint": "After a response, extract a value and write it into a variable scope so later requests can use it as {{name}}. Use the Codes column to pick which response codes each rule fires on — e.g. capture a token on 2xx, an error on 4xx."
+      "hint": "After a response, extract a value and write it into a variable scope so later requests can use it as {{name}}. Use the Codes column to pick which response codes each rule fires on — e.g. capture a token on 2xx, an error on 4xx.",
+      "sourceRegex": "Regex"
     },
     "tests": {
       "source": "Source",
@@ -730,7 +751,66 @@
       "placeholder": "Enter {type} body here…",
       "plainText": "plain text"
     },
-    "sendTitle": "Send ({keys})"
+    "sendTitle": "Send ({keys})",
+    "cmd": {
+      "label": "Command request",
+      "badge": "CMD",
+      "lineAria": "Command line",
+      "linePlaceholder": "gns token --format json",
+      "execute": "Execute",
+      "executeAria": "Execute command",
+      "executeTitle": "Execute command ({keys})",
+      "outputAria": "Parse output as: {type}",
+      "outputMenuTitle": "Parse output as",
+      "output": {
+        "auto": "Auto-detect",
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "Plain text"
+      },
+      "outputShort": {
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "TXT"
+      },
+      "notFound": "“{name}” was not found on the command PATH (Settings → Commands, or this request's Environment tab).",
+      "notFoundShort": "not found on the command PATH",
+      "found": "Runs {path}",
+      "unavailable": "Command requests are not available in this build.",
+      "stopIn": "Stop · {secs}s",
+      "timeoutMenu": "Timeout…",
+      "timeoutLabel": "Timeout",
+      "timeoutAria": "Command timeout in seconds (0 = none)",
+      "timeoutDialogAria": "Command timeout",
+      "timeoutHint": "0 = no timeout. The command is stopped if it runs longer.",
+      "args": {
+        "noun": "argument",
+        "nounPlural": "arguments",
+        "executable": "Executable",
+        "noExecutable": "(none — type a command above)",
+        "empty": "No arguments. Type them after the command above, or add one here.",
+        "placeholder": "Argument",
+        "valueAria": "Argument {n}"
+      },
+      "env": {
+        "noun": "variable",
+        "nounPlural": "variables",
+        "hint": "Environment variables for this command. They override the base environment from Settings → Commands; the app's own environment is never passed on.",
+        "empty": "No variables — the command gets only the base environment.",
+        "namePlaceholder": "NAME",
+        "nameAria": "Variable name",
+        "valueAria": "Variable value",
+        "inherited": "Inherited from Settings → Commands",
+        "inheritedEmpty": "The base environment is empty."
+      },
+      "stdin": {
+        "placeholder": "Text piped to the command's standard input (supports {{variables}})",
+        "hint": "Leave empty to send no input — standard input is closed immediately.",
+        "aria": "Standard input"
+      }
+    }
   },
   "response": {
     "tab": {
@@ -742,7 +822,8 @@
       "cookies": "Cookies",
       "console": "Console",
       "tests": "Tests",
-      "timeline": "Timeline"
+      "timeline": "Timeline",
+      "stderr": "Stderr"
     },
     "cookies": {
       "name": "Name",
@@ -883,6 +964,17 @@
       "text": "Text",
       "image": "Image",
       "binary": "Binary"
+    },
+    "exit": {
+      "code": "Exit {code}",
+      "success": "Success",
+      "failure": "Failed",
+      "signal": "Terminated ({signal})"
+    },
+    "stderr": {
+      "empty": "No error output.",
+      "truncated": "Error output was large ({size} B) — showing the beginning.",
+      "viewFull": "View full"
     }
   },
   "pillEditor": {
@@ -933,7 +1025,8 @@
       "delete": "Delete",
       "confirm": "Confirm?",
       "runFolder": "Run All Requests",
-      "clearRunCounts": "Clear Test Counts"
+      "clearRunCounts": "Clear Test Counts",
+      "addCommandRequest": "Add Command Request"
     },
     "curlCopied": "The cURL command has been copied to your clipboard.",
     "code": {
@@ -958,7 +1051,8 @@
         "one": "{failed} request failed",
         "other": "{failed} requests failed"
       }
-    }
+    },
+    "newCommand": "New Command"
   },
   "collections": {
     "title": "Collections",
@@ -1460,7 +1554,8 @@
     "duplicate": "Duplicate the request",
     "rename": "Rename the request or folder",
     "newWsRequest": "New WebSocket request",
-    "delete": "Delete the request or folder (asks to confirm)"
+    "delete": "Delete the request or folder (asks to confirm)",
+    "newCommandRequest": "New Command request"
   },
   "script": {
     "errorTitle": "Script error",
@@ -1485,5 +1580,22 @@
     "failedMsg": "Could not check for updates. Please try again later.",
     "devBuild": "Updates are only available in installed builds.",
     "storeManaged": "Updates are delivered through the app store."
+  },
+  "command": {
+    "approve": {
+      "title": "Run this command?",
+      "message": "This request runs a program on your computer:",
+      "messageNamed": "“{name}” runs a program on your computer:",
+      "envLine": "Environment: {keys}",
+      "stdinLine": "Standard input: (set)",
+      "note": "Only run commands you trust. You'll be asked again if the command changes.",
+      "run": "Run"
+    },
+    "error": {
+      "notFoundHint": "Check the command name, use a full path, or add its folder to PATH in Settings → Commands.",
+      "notApprovedHint": "The command was not run. Execute it again and choose Run to approve it.",
+      "timeoutHint": "The command ran longer than its timeout and was stopped. Raise it in the Execute menu (Timeout…).",
+      "spawnHint": "The program could not be started. Check that it is executable and that you have permission to run it."
+    }
   }
 }

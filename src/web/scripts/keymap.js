@@ -103,6 +103,14 @@ export const SHORTCUT_GROUPS = [
         binding: { mod: true, alt: true, key: "n" },
         menuOwned: true,
       },
+      // Command requests (Feature 70). The native menu omits the item under MAS,
+      // so the accelerator is inert there.
+      {
+        id: "newCommandRequest",
+        descKey: "shortcuts.newCommandRequest",
+        binding: { mod: true, alt: true, shift: true, key: "n" },
+        menuOwned: true,
+      },
       // Tree-focus shortcuts — handled by TreeView's own keydown when a row is
       // focused, so display-only here (neither wired nor a menu accelerator).
       {

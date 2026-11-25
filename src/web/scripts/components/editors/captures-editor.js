@@ -217,6 +217,7 @@ export class CapturesEditor {
         { value: "body", label: t("request.captures.sourceBody") },
         { value: "header", label: t("request.captures.sourceHeader") },
         { value: "status", label: t("request.captures.sourceStatus") },
+        { value: "regex", label: t("request.captures.sourceRegex") },
       ],
       rule.source ?? "body",
       t("request.captures.sourceAria"),
@@ -233,7 +234,13 @@ export class CapturesEditor {
       const s = rule.source ?? "body";
       path.disabled = s === "status";
       path.placeholder =
-        s === "body" ? ".access_token" : s === "header" ? "Header-Name" : "—";
+        s === "body"
+          ? ".access_token"
+          : s === "header"
+            ? "Header-Name"
+            : s === "regex"
+              ? "token=(\\S+)"
+              : "—";
     };
     syncPath();
     path.addEventListener("input", () => {

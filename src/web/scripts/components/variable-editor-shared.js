@@ -41,6 +41,7 @@
 import { icon } from "../icons.js";
 import { wireDeleteConfirm } from "../delete-confirm.js";
 import { t } from "../i18n.js";
+import { wireTrimmedPaste } from "../utils/trimmed-paste.js";
 
 /**
  * Serialise a canonical variables array to multi-line `name=value` text.
@@ -172,6 +173,9 @@ export function buildVariableRow({
   nameIn.setAttribute("aria-label", t("vars.name"));
   nameIn.setAttribute("autocomplete", "off");
   nameIn.readOnly = lockStructure;
+  // Pasted names/values are trimmed of edge whitespace and invisible zero-width
+  // characters — a copied value often drags in a leading space or trailing \n.
+  wireTrimmedPaste(nameIn);
   nameIn.addEventListener("input", () => {
     row.name = nameIn.value;
     onChange?.();
@@ -208,6 +212,7 @@ export function buildVariableRow({
   valIn.placeholder = valuePlaceholder ?? t("kv.value");
   valIn.value = row.value;
   valIn.setAttribute("aria-label", t("vars.value"));
+  wireTrimmedPaste(valIn);
   valIn.addEventListener("input", () => {
     row.value = valIn.value;
     // First edit on an inheriting row turns it into an explicit override (it stays

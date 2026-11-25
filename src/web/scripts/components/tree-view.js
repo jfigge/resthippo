@@ -73,6 +73,7 @@ import {
 import { NO_BODY_METHODS } from "./request-payload.js";
 import { buildRequestModel, generateCode } from "./code-gen/index.js";
 import { CodeGenModal } from "./code-gen-modal.js";
+import { commandsAvailable } from "./command/availability.js";
 
 // SVG folder icons (Feather-style, stroke-based)
 const ICON_FOLDER_CLOSED = icon("folderClosed", {
@@ -83,6 +84,19 @@ const ICON_FOLDER_OPEN = icon("folderOpen", {
   size: 14,
   className: "tree-folder-icon",
 });
+
+/** The "Add Command Request" menu entry, or nothing where commands are hidden. */
+function _commandMenuItems() {
+  return commandsAvailable()
+    ? [
+        {
+          id: "add-command-request",
+          label: t("tree.menu.addCommandRequest"),
+          accelerator: electronAccelerator("newCommandRequest"),
+        },
+      ]
+    : [];
+}
 
 export class TreeView {
   /** @type {HTMLElement} */
@@ -547,6 +561,16 @@ export class TreeView {
   }
 
   /**
+   * Create a new Command request (Feature 70). No-op when no collection exists
+   * yet or in the Mac App Store build (commands are hidden there). Driven by
+   * ⌥⇧⌘N / Ctrl+Alt+Shift+N.
+   */
+  newCommandRequest() {
+    if (this.#btnNewRequest?.disabled || !commandsAvailable()) return;
+    this.#addRequest({ protocol: "command" });
+  }
+
+  /**
    * Create a new collection — or a nested folder when a node is selected —
    * mirroring the toolbar's New Collection button. Driven by ⌘/Ctrl+Shift+N.
    */
@@ -995,6 +1019,8 @@ export class TreeView {
             "add-request": () => this.#addRequestTo(node.id),
             "add-ws-request": () =>
               this.#addRequestTo(node.id, { protocol: "websocket" }),
+            "add-command-request": () =>
+              this.#addRequestTo(node.id, { protocol: "command" }),
             "add-folder": () => this.#addFolderTo(node.id),
             "run-folder": () => {
               const liveNode = findNode(this.#items, node.id) ?? node;
@@ -1021,6 +1047,8 @@ export class TreeView {
             "add-request": () => this.#addRequestAfter(node.id),
             "add-ws-request": () =>
               this.#addRequestAfter(node.id, { protocol: "websocket" }),
+            "add-command-request": () =>
+              this.#addRequestAfter(node.id, { protocol: "command" }),
             "add-folder": () => this.#addFolderAfter(node.id),
             rename: () => this.#renameNode(node.id),
             favorite: () => {
@@ -1065,6 +1093,7 @@ export class TreeView {
               label: t("tree.menu.addWsRequest"),
               accelerator: electronAccelerator("newWsRequest"),
             },
+            ..._commandMenuItems(),
             { type: "separator" },
             // Disabled when the folder holds no runnable (HTTP) requests — the
             // app.js handler would otherwise just toast "nothing to run".
@@ -1117,6 +1146,7 @@ export class TreeView {
               label: t("tree.menu.addWsRequest"),
               accelerator: electronAccelerator("newWsRequest"),
             },
+            ..._commandMenuItems(),
             { type: "separator" },
             {
               id: "rename",
@@ -1135,8 +1165,8 @@ export class TreeView {
               label: t("tree.menu.duplicate"),
               accelerator: electronAccelerator("duplicate"),
             },
-            // Code generation has no WebSocket equivalent, so omit it for ws.
-            ...(node.protocol !== "websocket"
+            // Code generation has no WebSocket / Command equivalent.
+            ...(node.protocol !== "websocket" && node.protocol !== "command"
               ? [
                   { id: "generate-code", label: t("tree.menu.generateCode") },
                   { id: "copy-as-curl", label: t("tree.menu.copyAsCurl") },
@@ -1222,6 +1252,9 @@ export class TreeView {
   #methodBadgeHtml(protocol, method) {
     if (protocol === "websocket") {
       return `<span class="tree-node-method tree-node-method--ws" title="${t("request.ws.label")}">${t("request.ws.badge")}</span>`;
+    }
+    if (protocol === "command") {
+      return `<span class="tree-node-method tree-node-method--cmd" title="${escapeHtml(t("request.cmd.label"))}">${escapeHtml(t("request.cmd.badge"))}</span>`;
     }
     const m = method ?? "GET";
     const title = document.documentElement.classList.contains(
@@ -1313,6 +1346,7 @@ export class TreeView {
       items: [
         { id: "add-request", label: t("tree.menu.addRequest") },
         { id: "add-ws-request", label: t("tree.menu.addWsRequest") },
+        ..._commandMenuItems(),
         { type: "separator" },
         { id: "import-curl", label: t("tree.menu.importCurl") },
       ],
@@ -1322,6 +1356,8 @@ export class TreeView {
     if (clickedId === "add-request") this.#addRequest();
     else if (clickedId === "add-ws-request")
       this.#addRequest({ protocol: "websocket" });
+    else if (clickedId === "add-command-request")
+      this.#addRequest({ protocol: "command" });
     else if (clickedId === "import-curl")
       window.dispatchEvent(new CustomEvent("hippo:import-curl-requested"));
   }
@@ -1334,6 +1370,20 @@ export class TreeView {
    * @param {string} [protocol] "websocket" to create a WebSocket request
    */
   #newRequestNode(protocol) {
+    if (protocol === "command") {
+      // Command request (Feature 70): a command line instead of method + URL.
+      return {
+        id: crypto.randomUUID(),
+        type: "request",
+        name: t("tree.newCommand"),
+        protocol: "command",
+        commandLine: "",
+        commandEnv: [],
+        commandStdin: "",
+        commandOutputType: "auto",
+        commandTimeoutMs: 0,
+      };
+    }
     const isWs = protocol === "websocket";
     return {
       id: crypto.randomUUID(),

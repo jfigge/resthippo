@@ -56,6 +56,8 @@ const { registerScripting } = require("./scripting/sandbox");
 const { registerContextMenu } = require("./ipc/context-menu");
 const { registerStoreIPC } = require("./ipc/store");
 const { registerWebSocketIPC } = require("./ipc/websocket");
+const { registerCommandIPC } = require("./ipc/command");
+const { SpillRegistry } = require("./net/body-spill");
 const { registerOAuthIPC } = require("./ipc/oauth");
 const updater = require("./updater");
 const cliLauncher = require("./cli-launcher");
@@ -304,6 +306,9 @@ registerStoreIPC({ ipcMain, app, getStores, safeCall, safeCallWrite });
 // The outgoing request engine + its http:execute / http:body:* / http:stream:*
 // handlers live in net/http-engine.js; main.js injects the Electron + store
 // collaborators it needs (see registerHttpEngine).
+// One spilled-body registry shared by the HTTP engine and command output, so
+// http:body:get / http:body:save redeem refs from either.
+const spillRegistry = new SpillRegistry();
 registerHttpEngine({
   ipcMain,
   app,
@@ -311,6 +316,7 @@ registerHttpEngine({
   getMainWin: () => _mainWin,
   getStores,
   safeCall,
+  spillRegistry,
 });
 
 // ─── Scripting IPC (Feature 25) ──────────────────────────────────────────────
@@ -330,6 +336,12 @@ registerScripting({ ipcMain, safeCall });
 // ws:open / ws:send / ws:close / ws:ping + the ws:status / ws:message push
 // channels and per-renderer socket cleanup; see ipc/websocket.js.
 registerWebSocketIPC({ ipcMain, app });
+
+// ─── Command request IPC (Feature 70) ────────────────────────────────────────
+// command:* — runs local CLI programs (spawn, shell:false, env built only from
+// Settings → Commands + the request's rows). Refuses under MAS; see
+// ipc/command.js.
+registerCommandIPC({ ipcMain, app, getStores, spillRegistry });
 
 // ─── OAuth 2.0 Popup IPC ─────────────────────────────────────────────────────
 // oauth:open-popup (sandboxed BrowserWindow that intercepts the redirect_uri
@@ -2297,6 +2309,20 @@ function buildMenu() {
               _mainWin.webContents.send("menu:new-ws-request");
           },
         },
+        // Command requests spawn local programs — impossible inside the Mac App
+        // Store sandbox, so the item is omitted there (Feature 70).
+        ...(isMas()
+          ? []
+          : [
+              {
+                label: m("menu.newCommandRequest", "New Command Request"),
+                accelerator: "CmdOrCtrl+Alt+Shift+N",
+                click: () => {
+                  if (_mainWin && !_mainWin.isDestroyed())
+                    _mainWin.webContents.send("menu:new-command-request");
+                },
+              },
+            ]),
         // Collection import (file / URL / cURL) and export now live in the
         // Collections dialog (Import / Export buttons) and the tree toolbar's
         // [+] secondary-click menu (Import from cURL). Only whole-workspace

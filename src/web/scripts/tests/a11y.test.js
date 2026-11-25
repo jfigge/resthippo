@@ -162,6 +162,28 @@ async function scanRequestEditor() {
   );
 }
 
+// Command request (Feature 70): command bar, Arguments / Environment / Stdin.
+async function scanCommandEditor() {
+  const window = resetDom();
+  window.hippo = { isElectron: true, isMas: false, platform: "darwin" };
+  const editor = new RequestEditor();
+  document.body.appendChild(editor.element);
+  editor.setVariableContext({ environmentVariables: {}, folderChain: [] });
+  editor.load({
+    id: "c",
+    protocol: "command",
+    commandLine: "gns token --json",
+    commandEnv: [{ id: "e", name: "REGION", value: "eu", enabled: true }],
+  });
+  // All three command-specific panes, not just the active one.
+  for (const id of ["args", "env", "stdin"])
+    document.getElementById(`req-tab-${id}`).hidden = false;
+  return keysFrom(
+    "CommandEditor",
+    await runAxe(window, document.body, COMPONENT_RULES),
+  );
+}
+
 async function scanResponseViewer() {
   const window = resetDom();
   window.hippo = { isElectron: false };
@@ -188,6 +210,7 @@ test("no new axe-core accessibility violations (ratchet against baseline)", asyn
   const current = [];
   current.push(...(await scanStaticShell()));
   current.push(...(await scanRequestEditor()));
+  current.push(...(await scanCommandEditor()));
   current.push(...(await scanResponseViewer()));
   current.push(...(await scanTreeView()));
   current.sort();

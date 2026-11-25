@@ -52,6 +52,7 @@ const BUILT_IN_THEMES = [
       "--color-method-head": "#f9e2af",
       "--color-method-options": "#94e2d5",
       "--color-method-ws": "#89dceb",
+      "--color-method-cmd": "#f5c2e7",
     },
   },
   {
@@ -83,6 +84,7 @@ const BUILT_IN_THEMES = [
       "--color-method-head": "#df8e1d",
       "--color-method-options": "#179299",
       "--color-method-ws": "#209fb5",
+      "--color-method-cmd": "#ea76cb",
     },
   },
   {
@@ -114,6 +116,7 @@ const BUILT_IN_THEMES = [
       "--color-method-head": "#d4b060",
       "--color-method-options": "#70b8d0",
       "--color-method-ws": "#6aa6e0",
+      "--color-method-cmd": "#d890b8",
     },
   },
   {
@@ -145,6 +148,7 @@ const BUILT_IN_THEMES = [
       "--color-method-head": "#9a6800",
       "--color-method-options": "#1870a0",
       "--color-method-ws": "#2060b8",
+      "--color-method-cmd": "#b0487e",
     },
   },
 ];
@@ -181,6 +185,7 @@ const METHOD_LABELS = {
   "--color-method-head": "HEAD",
   "--color-method-options": "OPTIONS",
   "--color-method-ws": "WS",
+  "--color-method-cmd": "CMD",
 };
 
 // Grid order: descriptive roles first, then the method swatches.

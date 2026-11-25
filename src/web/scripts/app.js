@@ -137,6 +137,14 @@ import { installTimelineHandlers } from "./event-bus/timeline-handlers.js";
 import { installZoomHandlers } from "./event-bus/zoom-handlers.js";
 import { installUpdaterHandlers } from "./event-bus/updater-handlers.js";
 import { installRunFolderHandler } from "./event-bus/run-folder-handlers.js";
+import { installCommandHandlers } from "./event-bus/command-handlers.js";
+import { buildSnapshot } from "./components/request-snapshot.js";
+import {
+  buildCommandDescriptor,
+  runCommand,
+  commandRequestSnapshot,
+} from "./components/command/command-exec.js";
+import { confirmCommandRun } from "./components/command/command-approval.js";
 import { PopupManager } from "./popup-manager.js";
 import { installKeymap, profileShortcutSlot } from "./keymap.js";
 import { KeyboardShortcuts } from "./components/keyboard-shortcuts.js";
@@ -219,128 +227,6 @@ let _requestSaveTimer = null;
 const _pendingRequestPatches = new Map(); // id → merged partial patch
 
 /**
- * Serialize a request node into the history snapshot format.
- * Params/headers/body-form rows are stored as bulk-edit strings so the data
- * is human-readable and round-trips cleanly through the bulk editors.
- * @param {object} node
- * @returns {object} snapshot
- */
-function _buildSnapshot(node) {
-  const params = Array.isArray(node.params) ? node.params : [];
-  const headers = Array.isArray(node.headers) ? node.headers : [];
-
-  const paramsBulk = params
-    .map((p) => `${p.enabled ? "" : "# "}${p.name}=${p.value}`)
-    .join("\n");
-  const headersBulk = headers
-    .map((h) => `${h.enabled ? "" : "# "}${h.name}: ${h.value}`)
-    .join("\n");
-
-  const authEnabled = node.authEnabled ?? true;
-  // A disabled auth is never applied to the request, so don't track it in the
-  // timeline snapshot — record it as "none", the same as an unselected auth.
-  const authType = authEnabled ? (node.authType ?? "none") : "none";
-  let authBulk = "";
-  if (authType === "basic") {
-    const b = node.authBasic ?? {};
-    authBulk = `username: ${b.username ?? ""}\npassword: ${b.password ?? ""}`;
-  } else if (authType === "bearer") {
-    authBulk = `token: ${node.authBearer?.token ?? ""}`;
-  } else if (authType === "oauth2") {
-    const o = node.authOAuth2 ?? {};
-    const lines = [];
-    if (o.grantType) lines.push(`grantType: ${o.grantType}`);
-    if (o.clientType) lines.push(`clientType: ${o.clientType}`);
-    if (o.clientId) lines.push(`clientId: ${o.clientId}`);
-    if (o.clientSecret) lines.push(`clientSecret: ${o.clientSecret}`);
-    if (o.accessTokenUrl) lines.push(`accessTokenUrl: ${o.accessTokenUrl}`);
-    if (o.authUrl) lines.push(`authUrl: ${o.authUrl}`);
-    if (o.username) lines.push(`username: ${o.username}`);
-    if (o.password) lines.push(`password: ${o.password}`);
-    if (o.scope) lines.push(`scope: ${o.scope}`);
-    if (o.responseType) lines.push(`responseType: ${o.responseType}`);
-    if (o.redirectUri) lines.push(`redirectUri: ${o.redirectUri}`);
-    if (o.credentials) lines.push(`credentials: ${o.credentials}`);
-    if (o.audience) lines.push(`audience: ${o.audience}`);
-    if (o.resource) lines.push(`resource: ${o.resource}`);
-    if (o.origin) lines.push(`origin: ${o.origin}`);
-    if (o.headerPrefix) lines.push(`headerPrefix: ${o.headerPrefix}`);
-    authBulk = lines.join("\n");
-  } else if (authType === "aws-iam") {
-    const a = node.authAwsIam ?? {};
-    const lines = [];
-    if (a.accessKeyId) lines.push(`accessKeyId: ${a.accessKeyId}`);
-    if (a.secretAccessKey) lines.push(`secretAccessKey: ${a.secretAccessKey}`);
-    if (a.region) lines.push(`region: ${a.region}`);
-    if (a.service) lines.push(`service: ${a.service}`);
-    if (a.sessionToken) lines.push(`sessionToken: ${a.sessionToken}`);
-    authBulk = lines.join("\n");
-  } else if (authType === "oauth1") {
-    const o = node.authOAuth1 ?? {};
-    const lines = [];
-    if (o.consumerKey) lines.push(`consumerKey: ${o.consumerKey}`);
-    if (o.consumerSecret) lines.push(`consumerSecret: ${o.consumerSecret}`);
-    if (o.token) lines.push(`token: ${o.token}`);
-    if (o.tokenSecret) lines.push(`tokenSecret: ${o.tokenSecret}`);
-    if (o.signatureMethod) lines.push(`signatureMethod: ${o.signatureMethod}`);
-    if (o.realm) lines.push(`realm: ${o.realm}`);
-    authBulk = lines.join("\n");
-  }
-
-  const bodyType = node.bodyType ?? "no-body";
-  let bodyContent = "";
-  // GraphQL keeps its query + variables structured (like pathParams below); the
-  // bulk `body` string holds the query for readability.
-  let bodyGraphql = null;
-  if (bodyType === "form-data" || bodyType === "form-urlencoded") {
-    const rows = Array.isArray(node.bodyFormRows) ? node.bodyFormRows : [];
-    bodyContent = rows
-      .map((r) => `${r.enabled ? "" : "# "}${r.name}=${r.value}`)
-      .join("\n");
-  } else if (bodyType === "file") {
-    bodyContent = node.bodyFilePath ?? "";
-  } else if (bodyType === "graphql") {
-    bodyGraphql = {
-      query: node.bodyGraphql?.query ?? "",
-      variables: node.bodyGraphql?.variables ?? "",
-    };
-    bodyContent = bodyGraphql.query;
-  } else {
-    bodyContent = node.bodyText ?? "";
-  }
-
-  return {
-    id: node.id,
-    method: node.method ?? "GET",
-    url: node.url ?? "",
-    params: paramsBulk,
-    // Path-param values are kept structured (they're URL-derived, not bulk text).
-    pathParams: Array.isArray(node.pathParams) ? node.pathParams : [],
-    headers: headersBulk,
-    authType,
-    authEnabled,
-    auth: authBulk,
-    bodyType,
-    body: bodyContent,
-    ...(bodyGraphql ? { bodyGraphql } : {}),
-    notes: node.notes ?? "",
-    // Post-response / test configuration — captured so a Timeline restore
-    // reinstates the request's tests, scripts, and captures exactly as they
-    // were for this run. Without these the snapshot would carry no test
-    // definition, so restoring it blanks the editor's Tests/Scripts/Captures
-    // tabs (the stored request keeps them, which is why re-selecting the
-    // request brings them back). Stored structured — load() consumes them as-is.
-    assertions: Array.isArray(node.assertions) ? node.assertions : [],
-    captures: Array.isArray(node.captures) ? node.captures : [],
-    preRequestScript: node.preRequestScript ?? "",
-    afterResponseScript: node.afterResponseScript ?? "",
-    preRequestScriptEnabled: node.preRequestScriptEnabled !== false,
-    afterResponseScriptEnabled: node.afterResponseScriptEnabled !== false,
-    ...(node.scriptSplit != null ? { scriptSplit: node.scriptSplit } : {}),
-  };
-}
-
-/**
  * Load persisted history for one request from storage and populate
  * _requestHistory.  Respects _maxHistory so only the most recent entries
  * are kept in memory.  Silently produces an empty array on failure.
@@ -383,6 +269,10 @@ async function _loadRequestHistory(requestId) {
             // Test assertions (Feature 29) — restored so a replayed run shows
             // its Tests tab. Pre-feature entries lack the field → empty.
             testResults: payload?.testResults ?? [],
+            // Command requests (Feature 70): exit-code status + stderr.
+            ...(payload?.kind === "command"
+              ? { kind: "command", stderr: payload?.stderr ?? "" }
+              : {}),
           },
           timestamp: meta.timestamp ?? Date.now(),
         };
@@ -1408,6 +1298,12 @@ function buildBusContext() {
     deleteHistory,
     clearHistory,
     trimHistory,
+    // Command requests (Feature 70) — event-bus/command-handlers.js.
+    inFlightExecs: _inFlightExecs,
+    findRequestNode: (id) =>
+      id && treeView ? _findNodeById(treeView.getItems(), id) : null,
+    bumpRecents: _bumpRecents,
+    buildHint: _buildHint,
     // App-level command handlers (import / export).
     handleImportBrowse,
     handleFilePathImport,
@@ -1439,6 +1335,7 @@ function initEventBus() {
   //
   // Request lifecycle           (RequestEditor / app.js ↔ panels)
   //   send-request          { requestId, method, url, headers, … }
+  //   send-command          { requestId, descriptor, variables }  Command request Execute (Feature 70) → event-bus/command-handlers.js
   //   cancel-request        { requestId, streamId? }      stop that request's run (streamId → abort a live stream)
   //   request-loading       { requestId, streamId }        in-flight; show spinner
   //   request-updated       { id, …partial }              editor mutated a field
@@ -1497,7 +1394,7 @@ function initEventBus() {
   //   import-url-requested · export-all-requested         (Collections dialog buttons → renderer)
   //
   // Keyboard shortcuts / menu commands  (preload → app.js; Feature 47)
-  //   new-request  ·  new-collection  ·  new-ws-request  ·  open-settings  ·
+  //   new-request  ·  new-collection  ·  new-ws-request  ·  new-command-request  ·  open-settings  ·
   //   keyboard-shortcuts  ·  cycle-layout  ·  show-about
   //                                  — payload-less; menu accelerator or click
   //   edit-action           { action: "undo" | "redo" }     Edit-menu undo/redo → focused editable
@@ -1568,6 +1465,7 @@ function initEventBus() {
   installMenuHandlers(ctx);
   installSettingsHandlers(ctx);
   installWsHandlers(ctx);
+  installCommandHandlers(ctx);
   installTimelineHandlers(ctx);
 
   // Core handler groups: these read/write the module-level state directly, so
@@ -1841,7 +1739,7 @@ async function _recordRunHistory(node, detail, testResults = []) {
   const histId = crypto.randomUUID();
   const nowMs = Date.now();
   const reqUrl = detail.request?.url ?? "";
-  const reqNode = _buildSnapshot(node);
+  const reqNode = buildSnapshot(node);
   // Resolved (non-secret) variables for this run — see requestSnapshot.variables.
   reqNode.variables = Array.isArray(detail.request?.variables)
     ? detail.request.variables
@@ -1866,6 +1764,10 @@ async function _recordRunHistory(node, detail, testResults = []) {
     bodyRef: detail.bodyRef ?? null,
     // Kept on the in-memory entry so a Timeline replay re-renders the Tests tab.
     testResults,
+    // Command requests (Feature 70): stderr rides along for the Stderr tab.
+    ...(detail.kind === "command"
+      ? { kind: "command", stderr: detail.stderr ?? "" }
+      : {}),
   };
   const entries = await _recordHistoryEntry(
     node.id,
@@ -1896,6 +1798,7 @@ async function _recordRunHistory(node, detail, testResults = []) {
       truncated: resp.truncated,
       fullSize: resp.fullSize,
       testResults: resp.testResults,
+      ...(resp.kind ? { kind: resp.kind, stderr: resp.stderr } : {}),
     },
   );
   const latest = entries[0];
@@ -1926,7 +1829,7 @@ async function _recordRunError(node, detail) {
   const histId = crypto.randomUUID();
   const nowMs = Date.now();
   const reqUrl = detail.request?.url ?? "";
-  const reqNode = _buildSnapshot(node);
+  const reqNode = buildSnapshot(node);
   // Resolved (non-secret) variables for this run — see requestSnapshot.variables.
   reqNode.variables = Array.isArray(detail.request?.variables)
     ? detail.request.variables
@@ -2145,7 +2048,7 @@ function installStreamHandlers() {
     };
 
     const histId = crypto.randomUUID();
-    const reqNode = _buildSnapshot(node);
+    const reqNode = buildSnapshot(node);
     // Resolved (non-secret) variables for this run — see requestSnapshot.variables.
     reqNode.variables = Array.isArray(pending.variables)
       ? pending.variables
@@ -2849,7 +2752,12 @@ async function _applyCapturesForNode(node, detail) {
   const status = detail?.status ?? 0;
 
   const { writes, warnings } = applyCaptures(
-    { status, headers: detail?.headers ?? {}, body: detail?.body ?? "" },
+    {
+      status,
+      headers: detail?.headers ?? {},
+      body: detail?.body ?? "",
+      kind: detail?.kind,
+    },
     rules,
   );
 
@@ -3311,6 +3219,8 @@ function installRequestEditSendHandlers() {
       if (exec.streamId) {
         window.hippo?.http?.abort?.(exec.streamId)?.catch?.(() => {});
       }
+      // A Command run (Feature 70) kills its process tree in main.
+      exec.cancel?.();
       snapshot = exec.snapshot;
       _inFlightExecs.delete(exec);
     }
@@ -3367,19 +3277,8 @@ function installRequestEditSendHandlers() {
       return;
     }
 
-    // A send bumps the current request to the top of recents. Skip when it is
-    // already at the front to avoid redundant settings writes on repeat sends.
-    if (
-      _selectedNode?.id &&
-      currentSettings.recents?.[0]?.requestId !== _selectedNode.id
-    ) {
-      const recents = addRecent(
-        currentSettings.recents ?? [],
-        makeEntry(_selectedNode, currentColls.activeCollectionId),
-      );
-      updateSettings({ recents });
-      if (treeView) treeView.setRecents(recents);
-    }
+    // A send bumps the current request to the top of recents.
+    if (_selectedNode?.id) _bumpRecents(_selectedNode);
 
     // Snapshot the originating tree node now: requests run concurrently, so
     // by the time the response arrives the selection may point elsewhere. The
@@ -3808,6 +3707,11 @@ function installKeyboardShortcuts() {
   const newWsRequest = () => {
     if (!popupVisible) treeView?.newWebSocketRequest();
   };
+  // Command requests (Feature 70) — hidden under the Mac App Store sandbox.
+  const newCommandRequest = () => {
+    if (!popupVisible && window.hippo?.isMas !== true)
+      treeView?.newCommandRequest();
+  };
   // Popup-openers are gated while another modal is up: their accelerators fire
   // natively regardless of app state, and PopupManager.open() would otherwise
   // detach the live popup without running its cleanup.
@@ -3862,6 +3766,7 @@ function installKeyboardShortcuts() {
   window.addEventListener("hippo:new-request", newRequest);
   window.addEventListener("hippo:new-collection", newCollection);
   window.addEventListener("hippo:new-ws-request", newWsRequest);
+  window.addEventListener("hippo:new-command-request", newCommandRequest);
   window.addEventListener("hippo:open-settings", openSettings);
   window.addEventListener("hippo:keyboard-shortcuts", openShortcuts);
   window.addEventListener("hippo:show-about", openAbout);
@@ -4124,11 +4029,46 @@ function _curlRequestFields(req) {
 }
 
 /**
+ * Bump a request to the top of recents. Skipped when it is already at the
+ * front to avoid redundant settings writes on repeat sends.
+ * @param {object} node
+ */
+function _bumpRecents(node) {
+  if (!node?.id || currentSettings.recents?.[0]?.requestId === node.id) return;
+  const recents = addRecent(
+    currentSettings.recents ?? [],
+    makeEntry(node, currentColls.activeCollectionId),
+  );
+  updateSettings({ recents });
+  if (treeView) treeView.setRecents(recents);
+}
+
+/**
+ * Resolve, approve and run a Command request (Feature 70) for the non-
+ * interactive paths (dependency prefetch, hippo.run, folder runs). Approval is
+ * still required — an imported collection can't run a program silently.
+ * @returns {Promise<{ result: object, request: object }>}
+ */
+async function _executeCommandNode(node, ctx) {
+  const desc = await buildCommandDescriptor(node, ctx);
+  const result = await runCommand(desc, { confirm: confirmCommandRun });
+  return { result, request: commandRequestSnapshot(desc) };
+}
+
+/**
  * Resolve and execute a request tree node using the given variable context.
  * Used by the "Run immediately before" refresh mode on request-output functions.
  * Returns { body, headers, status }. On failure returns empty values rather than throwing.
  */
 async function _executeRequestNode(node, ctx) {
+  if (node?.protocol === "command") {
+    try {
+      const { result, request } = await _executeCommandNode(node, ctx);
+      return await _finishPrefetch(node, result, request, request.url);
+    } catch {
+      return { body: "", headers: {}, status: 0, time: 0 };
+    }
+  }
   const rv = (s) => resolveStringAsync(s, ctx);
   const method = node.method ?? "GET";
 
@@ -4211,77 +4151,89 @@ async function _executeRequestNode(node, ctx) {
       result = await res.json();
     }
 
-    // Record a timeline entry for genuine HTTP responses (status > 0).
-    // Network-level failures (status === 0) are not recorded.
-    if (
-      result &&
-      !(result.error && result.status === 0) &&
-      node.id &&
-      _maxHistory > 0
-    ) {
-      const histId = crypto.randomUUID();
-      const nowMs = Date.now();
-      const reqSnapshot = { method, url: finalUrl, headers, body };
-      const resp = {
-        request: reqSnapshot,
-        status: result.status ?? 0,
-        statusText: result.statusText ?? "",
-        headers: result.headers ?? {},
-        cookies: result.cookies ?? [],
-        body: result.body ?? "",
-        elapsed: result.elapsed ?? 0,
-        size: result.size ?? 0,
-        consoleLog: result.consoleLog ?? [],
-        encoding: result.encoding ?? "utf8",
-        truncated: result.truncated ?? false,
-        fullSize: result.fullSize ?? result.size ?? 0,
-        bodyRef: result.bodyRef ?? null,
-      };
-      const reqNode = _buildSnapshot(node);
-
-      await _recordHistoryEntry(
-        node.id,
-        {
-          id: histId,
-          requestNode: reqNode,
-          requestUrl: finalUrl,
-          response: resp,
-          timestamp: nowMs,
-        },
-        {
-          id: histId,
-          timestamp: nowMs,
-          status: resp.status,
-          statusText: resp.statusText,
-          elapsed: resp.elapsed,
-          size: resp.size,
-          requestUrl: finalUrl,
-          requestNode: reqNode,
-        },
-        {
-          headers: resp.headers,
-          cookies: resp.cookies,
-          body: resp.body,
-          consoleLog: resp.consoleLog,
-          encoding: resp.encoding,
-          truncated: resp.truncated,
-          fullSize: resp.fullSize,
-        },
-      );
-    }
-
-    if (result.error && result.status === 0) {
-      return { body: "", headers: {}, status: 0, time: 0 };
-    }
-    return {
-      body: result.body ?? "",
-      headers: result.headers ?? {},
-      status: result.status ?? 0,
-      time: result.elapsed ?? 0,
-    };
+    return await _finishPrefetch(
+      node,
+      result,
+      { method, url: finalUrl, headers, body },
+      finalUrl,
+    );
   } catch {
     return { body: "", headers: {}, status: 0, time: 0 };
   }
+}
+
+/**
+ * Shared tail of a prefetch run (HTTP or Command): record a Timeline entry for
+ * a genuine response and reduce the result to `{ body, headers, status, time }`.
+ */
+async function _finishPrefetch(node, result, reqSnapshot, finalUrl) {
+  // Record a timeline entry for genuine HTTP responses (status > 0).
+  // Network-level failures (status === 0) are not recorded.
+  if (
+    result &&
+    !(result.error && result.status === 0) &&
+    node.id &&
+    _maxHistory > 0
+  ) {
+    const histId = crypto.randomUUID();
+    const nowMs = Date.now();
+    const resp = {
+      request: reqSnapshot,
+      status: result.status ?? 0,
+      statusText: result.statusText ?? "",
+      headers: result.headers ?? {},
+      cookies: result.cookies ?? [],
+      body: result.body ?? "",
+      elapsed: result.elapsed ?? 0,
+      size: result.size ?? 0,
+      consoleLog: result.consoleLog ?? [],
+      encoding: result.encoding ?? "utf8",
+      truncated: result.truncated ?? false,
+      fullSize: result.fullSize ?? result.size ?? 0,
+      bodyRef: result.bodyRef ?? null,
+    };
+    const reqNode = buildSnapshot(node);
+
+    await _recordHistoryEntry(
+      node.id,
+      {
+        id: histId,
+        requestNode: reqNode,
+        requestUrl: finalUrl,
+        response: resp,
+        timestamp: nowMs,
+      },
+      {
+        id: histId,
+        timestamp: nowMs,
+        status: resp.status,
+        statusText: resp.statusText,
+        elapsed: resp.elapsed,
+        size: resp.size,
+        requestUrl: finalUrl,
+        requestNode: reqNode,
+      },
+      {
+        headers: resp.headers,
+        cookies: resp.cookies,
+        body: resp.body,
+        consoleLog: resp.consoleLog,
+        encoding: resp.encoding,
+        truncated: resp.truncated,
+        fullSize: resp.fullSize,
+      },
+    );
+  }
+
+  if (result.error && result.status === 0) {
+    return { body: "", headers: {}, status: 0, time: 0 };
+  }
+  return {
+    body: result.body ?? "",
+    headers: result.headers ?? {},
+    status: result.status ?? 0,
+    time: result.elapsed ?? 0,
+  };
 }
 
 /**
@@ -4365,6 +4317,7 @@ async function _applyCapturesQuiet(node, detail) {
       status: detail?.status ?? 0,
       headers: detail?.headers ?? {},
       body: detail?.body ?? "",
+      kind: detail?.kind,
     },
     rules,
   );
@@ -4384,6 +4337,26 @@ async function _applyCapturesQuiet(node, detail) {
  * @returns {Promise<{ok:boolean, detail?:object, error?:object}>}
  */
 async function _executeForFolderRun(node, ctx) {
+  if (node?.protocol === "command") {
+    let run;
+    try {
+      run = await _executeCommandNode(node, ctx);
+    } catch (err) {
+      run = {
+        result: {
+          status: 0,
+          error: { name: "Error", message: String(err?.message ?? err) },
+        },
+        request: {
+          method: "CMD",
+          url: node.commandLine ?? "",
+          headers: {},
+          body: null,
+        },
+      };
+    }
+    return _folderRunOutcome(run.result, run.request);
+  }
   const rv = (s) => resolveStringAsync(s, ctx);
   const method = node.method ?? "GET";
   const {
@@ -4487,6 +4460,14 @@ async function _executeForFolderRun(node, ctx) {
     };
   }
 
+  return _folderRunOutcome(result, request);
+}
+
+/**
+ * Reduce a folder-run execution result (HTTP or Command) to the runner's
+ * `{ ok, detail }` / `{ ok: false, errorDetail }` outcome.
+ */
+function _folderRunOutcome(result, request) {
   // Network-level failure (status 0): no HTTP response was received.
   if (result.error && result.status === 0) {
     return {
@@ -4521,6 +4502,9 @@ async function _executeForFolderRun(node, ctx) {
       truncated: result.truncated ?? false,
       fullSize: result.fullSize ?? result.size ?? 0,
       bodyRef: result.bodyRef ?? null,
+      ...(result.kind === "command"
+        ? { kind: "command", stderr: result.stderr ?? "" }
+        : {}),
     },
   };
 }

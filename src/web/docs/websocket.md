@@ -51,4 +51,4 @@ different request.
 
 ---
 
-Next: [Reading Responses →](responses.md)
+Next: [Command Requests →](commands.md)

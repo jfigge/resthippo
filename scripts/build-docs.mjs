@@ -68,6 +68,7 @@ export const PAGES = [
   { slug: "functions", title: "Functions" },
   { slug: "graphql", title: "GraphQL" },
   { slug: "websocket", title: "WebSockets" },
+  { slug: "commands", title: "Command Requests" },
   { slug: "responses", title: "Reading Responses" },
   { slug: "scripting", title: "Scripts" },
   { slug: "import-export-and-backup", title: "Import, Export & Backup" },

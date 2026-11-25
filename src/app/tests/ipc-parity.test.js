@@ -81,6 +81,7 @@ const mainProcessSource = [
   "ipc/context-menu.js",
   "ipc/store.js",
   "ipc/websocket.js",
+  "ipc/command.js",
   "ipc/oauth.js",
 ]
   .map(read)

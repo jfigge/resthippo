@@ -330,3 +330,75 @@ test("status gate: an empty selector matches nothing", () => {
     warnings: [],
   });
 });
+
+// ── Regex source + command exit codes (Feature 70) ──────────────────────────
+
+test("regex source captures group 1 from a plain-text body", () => {
+  const { writes } = applyCaptures(
+    { status: 200, headers: {}, body: "user=me\ntoken=abc123\n" },
+    [
+      {
+        source: "regex",
+        path: "^token=(\\S+)$",
+        target: { scope: "environment", name: "tok" },
+        status: ["any"],
+      },
+    ],
+  );
+  assert.equal(writes[0]?.value, "abc123");
+});
+
+test("regex source without a group captures the whole match", () => {
+  const { writes } = applyCaptures(
+    { status: 200, headers: {}, body: "id: 42" },
+    [
+      {
+        source: "regex",
+        path: "\\d+",
+        target: { scope: "global", name: "id" },
+        status: ["any"],
+      },
+    ],
+  );
+  assert.equal(writes[0]?.value, "42");
+});
+
+test("an invalid regex or no match is a warning, never a throw", () => {
+  const { writes, warnings } = applyCaptures(
+    { status: 200, headers: {}, body: "x" },
+    [
+      {
+        source: "regex",
+        path: "(",
+        target: { scope: "global", name: "a" },
+        status: ["any"],
+      },
+      {
+        source: "regex",
+        path: "y(z)",
+        target: { scope: "global", name: "b" },
+        status: ["any"],
+      },
+    ],
+  );
+  assert.equal(writes.length, 0);
+  assert.equal(warnings.length, 2);
+});
+
+test("command responses: the default 2xx selector means exit 0", () => {
+  const rule = {
+    source: "body",
+    path: ".token",
+    target: { scope: "global", name: "t" },
+  };
+  const ok = applyCaptures(
+    { status: 0, headers: {}, body: '{"token":"a"}', kind: "command" },
+    [rule],
+  );
+  assert.equal(ok.writes[0]?.value, "a");
+  const failed = applyCaptures(
+    { status: 1, headers: {}, body: '{"token":"a"}', kind: "command" },
+    [rule],
+  );
+  assert.equal(failed.writes.length, 0);
+});

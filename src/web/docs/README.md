@@ -22,6 +22,7 @@ to OAuth 2.0, environments, GraphQL schema introspection, and encrypted backups.
 | [Functions](functions.md)                                 | Built-in `{{ }}` functions: UUIDs, timestamps, encoding, request outputs, and `run` |
 | [GraphQL](graphql.md)                                     | The query/variables editor, schema introspection, and validation               |
 | [WebSockets](websocket.md)                                | Connecting, sending frames, and reading the frame log                          |
+| [Command Requests](commands.md)                           | Run a local CLI and use its output (exit code, stdout, stderr) in requests     |
 | [Reading Responses](responses.md)                         | Body rendering, previews, headers, cookies, timeline, and search               |
 | [Scripts](scripting.md)                                   | Pre-request & after-response JavaScript with the `hippo.*` API                  |
 | [Import, Export & Backup](import-export-and-backup.md)    | Postman/Insomnia/OpenAPI/HAR and whole-workspace backups                       |

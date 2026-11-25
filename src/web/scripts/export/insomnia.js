@@ -259,6 +259,8 @@ export function exportToInsomnia(collection, variables = []) {
           metaSortKey: sortKey++,
         });
         walk(child, groupId);
+      } else if (child.type === "request" && child.protocol === "command") {
+        // Command requests (Feature 70) have no equivalent here — omit them.
       } else if (child.type === "request") {
         resources.push({
           _id: newId("req"),

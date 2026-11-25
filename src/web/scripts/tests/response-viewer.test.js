@@ -1794,3 +1794,65 @@ test("the Cookies tab shows the empty placeholder when there are no cookies", as
     "an empty-state placeholder is shown instead",
   );
 });
+
+// ── Command requests (Feature 70) ───────────────────────────────────────────
+
+test("a command result shows its exit code and a Stderr tab", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(window, {
+    kind: "command",
+    status: 0,
+    statusText: "",
+    headers: { "content-type": "application/json" },
+    body: '{"token":"abc"}',
+    stderr: "deprecated flag",
+    elapsed: 5,
+    size: 15,
+    request: { method: "CMD", url: "gns token" },
+  });
+  const el = viewer.element;
+  assert.equal(el.querySelector(".res-status-badge").textContent, "Exit 0");
+  assert.ok(
+    el
+      .querySelector(".res-status-badge")
+      .classList.contains("res-status--success"),
+  );
+  const tab = el.querySelector('.res-tab-btn[data-tab="stderr"]');
+  assert.equal(tab.hidden, false);
+  assert.ok(tab.classList.contains("res-tab-btn--flagged"));
+  assert.match(
+    el.querySelector("#res-tab-stderr").textContent,
+    /deprecated flag/,
+  );
+});
+
+test("a non-zero exit is styled as an error; HTTP responses hide Stderr", async () => {
+  const { window, viewer } = mountViewer();
+  await showResponse(window, {
+    kind: "command",
+    status: 3,
+    statusText: "",
+    headers: { "content-type": "text/plain" },
+    body: "",
+    stderr: "",
+    request: { method: "CMD", url: "x" },
+  });
+  const el = viewer.element;
+  assert.equal(el.querySelector(".res-status-badge").textContent, "Exit 3");
+  assert.ok(
+    el
+      .querySelector(".res-status-badge")
+      .classList.contains("res-status--client-error"),
+  );
+  const tab = el.querySelector('.res-tab-btn[data-tab="stderr"]');
+  assert.equal(tab.hidden, false);
+  assert.ok(!tab.classList.contains("res-tab-btn--flagged"));
+  await showResponse(window, {
+    status: 200,
+    statusText: "OK",
+    headers: { "content-type": "text/plain" },
+    body: "hi",
+    request: { method: "GET", url: "https://x" },
+  });
+  assert.equal(tab.hidden, true);
+});

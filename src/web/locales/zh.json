@@ -304,7 +304,8 @@
     "cycleLayout": "切换布局",
     "keyboardShortcuts": "键盘快捷键",
     "newWsRequest": "新建 WebSocket 请求",
-    "checkUpdates": "检查更新…"
+    "checkUpdates": "检查更新…",
+    "newCommandRequest": "新建命令请求"
   },
   "settings": {
     "title": "设置",
@@ -319,7 +320,8 @@
       "certificates": "证书",
       "about": "关于",
       "security": "安全",
-      "cli": "命令行"
+      "cli": "命令行",
+      "commands": "命令"
     },
     "appearance": {
       "theme": "主题",
@@ -460,6 +462,21 @@
       "errorGeneric": "无法更新 hippo 命令。",
       "promptTitle": "安装 hippo 命令？",
       "promptMessage": "是否希望在终端中输入 hippo 来启动 Rest Hippo？你可以随时在“设置 → 命令行”中更改。"
+    },
+    "commands": {
+      "desc": "每个命令请求的基础环境。可执行文件会在此 PATH 中查找。Rest Hippo 从不传递自身的环境变量，因此命令所见的正是此列表（加上每个请求的“环境变量”选项卡）。",
+      "listAria": "基础环境变量",
+      "add": "添加变量",
+      "reset": "恢复默认",
+      "resetTitle": "恢复此平台的默认 PATH 和系统变量",
+      "usingDefaults": "正在使用此平台的默认值",
+      "empty": "没有变量 — 命令将以空环境启动。",
+      "enableAria": "将此变量传递给命令",
+      "namePlaceholder": "NAME",
+      "nameAria": "变量名",
+      "valuePlaceholder": "值",
+      "valueAria": "变量值",
+      "delete": "移除变量"
     }
   },
   "request": {
@@ -493,7 +510,10 @@
       "captures": "捕获",
       "notes": "备注",
       "scripts": "脚本",
-      "tests": "测试"
+      "tests": "测试",
+      "args": "参数",
+      "env": "环境变量",
+      "stdin": "标准输入"
     },
     "method": {
       "aria": "HTTP 方法",
@@ -668,7 +688,8 @@
       "statusAdd": "添加状态码",
       "statusAddPlaceholder": "例如 201",
       "statusRemove": "移除状态码 {code}",
-      "hint": "在收到响应后，提取一个值并写入变量作用域，以便后续请求可将其用作 {{name}}。使用“状态码”列选择每条规则在哪些响应码时触发——例如在 2xx 时捕获令牌，在 4xx 时捕获错误。"
+      "hint": "在收到响应后，提取一个值并写入变量作用域，以便后续请求可将其用作 {{name}}。使用“状态码”列选择每条规则在哪些响应码时触发——例如在 2xx 时捕获令牌，在 4xx 时捕获错误。",
+      "sourceRegex": "正则表达式"
     },
     "tests": {
       "source": "来源",
@@ -726,7 +747,66 @@
       "placeholder": "在此输入 {type} 正文…",
       "plainText": "纯文本"
     },
-    "sendTitle": "发送 ({keys})"
+    "sendTitle": "发送 ({keys})",
+    "cmd": {
+      "label": "命令请求",
+      "badge": "CMD",
+      "lineAria": "命令行",
+      "linePlaceholder": "gns token --format json",
+      "execute": "执行",
+      "executeAria": "执行命令",
+      "executeTitle": "执行命令（{keys}）",
+      "outputAria": "输出解析为：{type}",
+      "outputMenuTitle": "输出解析为",
+      "output": {
+        "auto": "自动检测",
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "纯文本"
+      },
+      "outputShort": {
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "TXT"
+      },
+      "notFound": "在命令 PATH 中找不到“{name}”（设置 → 命令，或此请求的“环境变量”选项卡）。",
+      "notFoundShort": "在命令 PATH 中未找到",
+      "found": "运行 {path}",
+      "unavailable": "此版本不支持命令请求。",
+      "stopIn": "停止 · {secs} 秒",
+      "timeoutMenu": "超时…",
+      "timeoutLabel": "超时",
+      "timeoutAria": "命令超时（秒，0 = 无）",
+      "timeoutDialogAria": "命令超时",
+      "timeoutHint": "0 = 不超时。运行时间超过此值时将停止命令。",
+      "args": {
+        "noun": "参数",
+        "nounPlural": "参数",
+        "executable": "可执行文件",
+        "noExecutable": "（无 — 请在上方输入命令）",
+        "empty": "没有参数。请在上方命令后输入，或在此处添加。",
+        "placeholder": "参数",
+        "valueAria": "参数 {n}"
+      },
+      "env": {
+        "noun": "变量",
+        "nounPlural": "变量",
+        "hint": "此命令的环境变量。它们会覆盖“设置 → 命令”中的基础环境；应用自身的环境变量永远不会传递。",
+        "empty": "没有变量 — 命令仅获得基础环境。",
+        "namePlaceholder": "NAME",
+        "nameAria": "变量名",
+        "valueAria": "变量值",
+        "inherited": "继承自“设置 → 命令”",
+        "inheritedEmpty": "基础环境为空。"
+      },
+      "stdin": {
+        "placeholder": "传给命令标准输入的文本（支持 {{variables}}）",
+        "hint": "留空则不发送输入 — 标准输入会立即关闭。",
+        "aria": "标准输入"
+      }
+    }
   },
   "response": {
     "tab": {
@@ -738,7 +818,8 @@
       "cookies": "Cookie",
       "console": "控制台",
       "tests": "测试",
-      "timeline": "时间线"
+      "timeline": "时间线",
+      "stderr": "标准错误"
     },
     "cookies": {
       "name": "名称",
@@ -879,6 +960,17 @@
       "text": "文本",
       "image": "图片",
       "binary": "二进制"
+    },
+    "exit": {
+      "code": "退出 {code}",
+      "success": "成功",
+      "failure": "失败",
+      "signal": "已终止（{signal}）"
+    },
+    "stderr": {
+      "empty": "没有错误输出。",
+      "truncated": "错误输出较大（{size} B）— 仅显示开头部分。",
+      "viewFull": "查看全部"
     }
   },
   "pillEditor": {
@@ -929,7 +1021,8 @@
       "delete": "删除",
       "confirm": "确认？",
       "runFolder": "运行所有请求",
-      "clearRunCounts": "清除测试计数"
+      "clearRunCounts": "清除测试计数",
+      "addCommandRequest": "添加命令请求"
     },
     "curlCopied": "cURL 命令已复制到剪贴板。",
     "code": {
@@ -952,7 +1045,8 @@
       "failedReqs": {
         "other": "{failed} 个请求失败"
       }
-    }
+    },
+    "newCommand": "新建命令"
   },
   "collections": {
     "title": "集合",
@@ -1453,7 +1547,8 @@
     "duplicate": "复制请求",
     "rename": "重命名请求或文件夹",
     "newWsRequest": "新建 WebSocket 请求",
-    "delete": "删除请求或文件夹（需确认）"
+    "delete": "删除请求或文件夹（需确认）",
+    "newCommandRequest": "新建命令请求"
   },
   "script": {
     "errorTitle": "脚本错误",
@@ -1478,5 +1573,22 @@
     "failedMsg": "无法检查更新。请稍后重试。",
     "devBuild": "仅安装版本支持更新。",
     "storeManaged": "更新通过应用商店提供。"
+  },
+  "command": {
+    "approve": {
+      "title": "运行此命令？",
+      "message": "此请求会在你的计算机上运行一个程序：",
+      "messageNamed": "“{name}”会在你的计算机上运行一个程序：",
+      "envLine": "环境变量：{keys}",
+      "stdinLine": "标准输入：（已设置）",
+      "note": "只运行你信任的命令。如果命令发生变化，将再次询问你。",
+      "run": "运行"
+    },
+    "error": {
+      "notFoundHint": "请检查命令名称、使用完整路径，或在“设置 → 命令”中将其所在文件夹添加到 PATH。",
+      "notApprovedHint": "命令未运行。请再次执行并选择“运行”以批准。",
+      "timeoutHint": "命令运行超时，已被停止。可在“执行”菜单中通过“超时…”调高。",
+      "spawnHint": "无法启动该程序。请检查它是否可执行以及你是否有运行权限。"
+    }
   }
 }

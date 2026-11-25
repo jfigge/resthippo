@@ -29,6 +29,11 @@
  *   - "1xx".."5xx"   — a status-class group (e.g. "2xx" = 200–299)
  *   - "100".."599"   — an exact status code
  *
+ * Command requests (Feature 70) report a process EXIT CODE as their status, so
+ * `statusMatches(…, { command: true })` reads the groups as outcomes: "2xx" =
+ * success (exit 0), "4xx"/"5xx" = failure (non-zero exit), and exact tokens
+ * "0".."255" match an exit code. The default ["2xx"] thus means "on success".
+ *
  * Pure and DOM/i18n-free so it can be unit-tested under `node --test` and shared
  * by both the editor UI (`captures-editor.js`) and the executor (`captures.js`).
  * The default for an absent selector is `["2xx"]`, preserving the historical
@@ -51,6 +56,8 @@ export const STATUS_ANY = "any";
 /** Lowest / highest plausible HTTP status code we accept as an exact match. */
 const CODE_MIN = 100;
 const CODE_MAX = 599;
+/** Exact tokens may also name a process exit code (Command requests). */
+const TOKEN_MIN = 0;
 
 const GROUP_TOKENS = new Set(STATUS_GROUPS.map((g) => g.token));
 
@@ -59,11 +66,15 @@ function isGroupToken(token) {
   return GROUP_TOKENS.has(token);
 }
 
-/** True for an exact-code token in the 100–599 range. */
+/**
+ * True for an exact-code token: an HTTP status (100–599) or, for Command
+ * requests, a process exit code (0–255). A token below 100 never matches an
+ * HTTP response (see statusMatches).
+ */
 export function isCodeToken(token) {
   return (
-    /^\d{3}$/.test(token) &&
-    Number(token) >= CODE_MIN &&
+    /^(0|[1-9]\d{0,2})$/.test(token) &&
+    Number(token) >= TOKEN_MIN &&
     Number(token) <= CODE_MAX
   );
 }
@@ -97,13 +108,24 @@ export function normalizeStatusMatch(raw) {
 /**
  * Does `status` satisfy the selector `tokens`?
  *
- * @param {number} status  the response's HTTP status code
+ * @param {number} status  the response's HTTP status code (or exit code)
  * @param {string[]} tokens  normalised selector tokens
+ * @param {{ command?: boolean }} [opts]  `command` → `status` is an exit code
  * @returns {boolean}  false for an empty selector (matches nothing)
  */
-export function statusMatches(status, tokens) {
+export function statusMatches(status, tokens, { command = false } = {}) {
   if (!Array.isArray(tokens) || tokens.length === 0) return false;
   const code = Number(status);
+  if (command) {
+    if (!Number.isInteger(code) || code < 0) return false;
+    for (const token of tokens) {
+      if (token === STATUS_ANY) return true;
+      if (token === "2xx" && code === 0) return true;
+      if ((token === "4xx" || token === "5xx") && code !== 0) return true;
+      if (isCodeToken(token) && Number(token) === code) return true;
+    }
+    return false;
+  }
   // A code outside the plausible HTTP range (e.g. 0 = no response) is not a real
   // status, so it matches nothing — not even "any".
   if (!Number.isFinite(code) || code < CODE_MIN || code > CODE_MAX)

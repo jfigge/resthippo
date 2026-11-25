@@ -207,6 +207,10 @@ switches the active environment.)
 - Below the selector, the variable editor edits the selected environment's
   variables as a key/value grid (or as plain text via **Bulk editor**). Changes
   save automatically.
+- Text you **paste** into a variable or profile name/value (grid or bulk editor)
+  is trimmed of leading and trailing spaces, tabs, newlines and invisible
+  zero-width characters, so a value copied from a terminal or web page doesn't
+  pick up a stray space. Text you type is kept exactly as entered.
 
 ### Secure variables
 
@@ -230,8 +234,8 @@ Each capture rule has:
 
 | Field           | Meaning                                                                |
 | --------------- | ---------------------------------------------------------------------- |
-| **Source**      | Where to read from: the **Body**, a **Header**, or the **Status** code |
-| **Path / Name** | For Body, a dot-path like `.data.token`; for Header, the header name   |
+| **Source**      | Where to read from: the **Body**, a **Header**, the **Status** code, or a **Regex** over the raw body |
+| **Path / Name** | For Body, a dot-path like `.data.token`; for Header, the header name; for Regex, a pattern (group 1 is captured, e.g. `token=(\S+)`) |
 | **Scope**       | Where to write: **Environment** or **Global**                          |
 | **Variable**    | The variable name to write                                             |
 | **Codes**       | Which response codes the rule fires on (see below)                     |
@@ -254,6 +258,10 @@ runs only when the response status matches its selector, so a single request can
 capture different values into different variables depending on the outcome — for
 example capture the access token from a `2xx` body into `token`, but capture the
 error message from a `4xx` body into `lastError`.
+
+For a [Command request](commands.md) the status is the program's exit code:
+**2xx** means success (exit `0`), **4xx**/**5xx** mean any non-zero exit, and a
+specific code such as `3` matches that exit code exactly.
 
 New rules default to **2xx**, so captures keep firing only on success unless you
 opt a rule into other codes. When a value can't be found (missing field, empty

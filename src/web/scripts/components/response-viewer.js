@@ -47,6 +47,7 @@ import {
 import { TimelineView } from "./response/timeline-view.js";
 import { StreamView } from "./response/stream-view.js";
 import { formatRunAt } from "./response/run-timestamp.js";
+import { commandStatus, renderStderrPane } from "./response/stderr-pane.js";
 
 // Tab labels resolve from the i18n catalog at render time (labelKey, not a
 // literal) — this array is built at module load, before the catalog is ready.
@@ -56,6 +57,7 @@ const TABS = [
   { id: "headers", labelKey: "response.tab.headers" },
   { id: "cookies", labelKey: "response.tab.cookies" },
   { id: "console", labelKey: "response.tab.console" },
+  { id: "stderr", labelKey: "response.tab.stderr" }, // shown only for Command runs (Feature 70)
   { id: "tests", labelKey: "response.tab.tests" }, // shown only when a run has assertions
   { id: "timeline", labelKey: "response.tab.timeline" },
 ];
@@ -869,7 +871,8 @@ export class ResponseViewer {
         btn.textContent = t(tab.labelKey);
         // Preview (HTML only) and Tests (only when a run has assertions) start
         // hidden; #setPreviewTabVisible / #setTestsTabVisible reveal them.
-        if (tab.id === "preview" || tab.id === "tests") btn.hidden = true;
+        if (tab.id === "preview" || tab.id === "tests" || tab.id === "stderr")
+          btn.hidden = true;
         // Right-click on the Timeline tab → switch to it, then show a one-item
         // "Delete All History" menu (the same clear the per-entry menu offers).
         if (tab.id === "timeline") {
@@ -2136,6 +2139,7 @@ export class ResponseViewer {
     // Clear console + tests panes on each new request
     this.#renderConsole([]);
     this.#applyTestResults([]);
+    this.#applyStderr(null);
   }
 
   /** Stop the live elapsed readout (idempotent). */
@@ -2170,6 +2174,7 @@ export class ResponseViewer {
       "",
       formatRunAt(detail?.timestamp ?? Date.now()),
     );
+    this.#applyStderr(detail?.kind === "command" ? detail : null);
     const badge = this.#statusBar.querySelector(".res-status-badge");
     badge.className = `res-status-badge ${hasStatus ? this.#statusClass(detail.status) : "res-status--error"}`;
 
@@ -2314,17 +2319,20 @@ export class ResponseViewer {
       classifyContentType(this.#contentTypeOf(headers)) === "html";
     this.#setPreviewTabVisible(this.#isHtmlResponse);
 
-    // Status bar
-    const statusClass = this.#statusClass(status);
+    // Status bar — a Command run (Feature 70) shows its exit code instead.
+    const isCommand = response.kind === "command";
+    const cmd = isCommand ? commandStatus(status, statusText) : null;
+    const statusClass = cmd ? cmd.cls : this.#statusClass(status);
     this.#setStatus(
-      status,
-      statusText,
+      cmd ? cmd.code : status,
+      cmd ? cmd.text : statusText,
       `${elapsed} ms`,
       this.#formatSize(size),
       formatRunAt(runAt),
     );
     const badge = this.#statusBar.querySelector(".res-status-badge");
     badge.className = `res-status-badge ${statusClass}`;
+    this.#applyStderr(isCommand ? response : null);
 
     // ── Body pane ──────────────────────────────────────────────────────────
     // A fresh response closes any filter left open on the previous one.
@@ -2586,6 +2594,27 @@ export class ResponseViewer {
       badge.hidden = true;
       badge.textContent = "";
       badge.classList.remove("res-tests--pass", "res-tests--fail");
+    }
+  }
+
+  /**
+   * Command runs (Feature 70): fill + reveal the Stderr tab (marked when it has
+   * output); anything else hides it, falling back to Body if it was active.
+   * @param {object|null} r  the command response/error detail, or null
+   */
+  #applyStderr(r) {
+    const btn = this.#tabStrip?.querySelector('[data-tab="stderr"]');
+    const pane = this.#tabContent?.querySelector("#res-tab-stderr");
+    if (!r) {
+      if (btn) btn.hidden = true;
+      pane?.replaceChildren();
+      if (this.#activeTab === "stderr") this.#switchTab("body");
+      return;
+    }
+    renderStderrPane(pane, r);
+    if (btn) {
+      btn.hidden = false;
+      btn.classList.toggle("res-tab-btn--flagged", !!r.stderr);
     }
   }
 

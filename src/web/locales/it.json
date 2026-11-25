@@ -307,7 +307,8 @@
     "cycleLayout": "Cambia layout",
     "keyboardShortcuts": "Scorciatoie da tastiera",
     "newWsRequest": "Nuova richiesta WebSocket",
-    "checkUpdates": "Controlla aggiornamenti…"
+    "checkUpdates": "Controlla aggiornamenti…",
+    "newCommandRequest": "Nuova richiesta di comando"
   },
   "settings": {
     "title": "Impostazioni",
@@ -322,7 +323,8 @@
       "certificates": "Certificati",
       "about": "Informazioni",
       "security": "Sicurezza",
-      "cli": "Riga di comando"
+      "cli": "Riga di comando",
+      "commands": "Comandi"
     },
     "appearance": {
       "theme": "Tema",
@@ -463,6 +465,21 @@
       "errorGeneric": "Impossibile aggiornare il comando hippo.",
       "promptTitle": "Installare il comando hippo?",
       "promptMessage": "Vuoi digitare hippo in un terminale per avviare Rest Hippo? Puoi cambiarlo in qualsiasi momento in Impostazioni → Riga di comando."
+    },
+    "commands": {
+      "desc": "L'ambiente di base da cui parte ogni richiesta di comando. Gli eseguibili vengono cercati in questo PATH. Rest Hippo non trasmette mai il proprio ambiente, quindi questo elenco (più la scheda Ambiente di ogni richiesta) è esattamente ciò che vede un comando.",
+      "listAria": "Variabili dell'ambiente di base",
+      "add": "Aggiungi variabile",
+      "reset": "Ripristina predefiniti",
+      "resetTitle": "Ripristina il PATH e le variabili di sistema predefiniti di questa piattaforma",
+      "usingDefaults": "Valori predefiniti di questa piattaforma",
+      "empty": "Nessuna variabile: i comandi partono con un ambiente vuoto.",
+      "enableAria": "Passa questa variabile ai comandi",
+      "namePlaceholder": "NOME",
+      "nameAria": "Nome della variabile",
+      "valuePlaceholder": "Valore",
+      "valueAria": "Valore della variabile",
+      "delete": "Rimuovi variabile"
     }
   },
   "request": {
@@ -496,7 +513,10 @@
       "captures": "Acquisizioni",
       "notes": "Note",
       "scripts": "Script",
-      "tests": "Test"
+      "tests": "Test",
+      "args": "Argomenti",
+      "env": "Ambiente",
+      "stdin": "Stdin"
     },
     "method": {
       "aria": "Metodo HTTP",
@@ -672,7 +692,8 @@
       "statusAdd": "Aggiungi codice",
       "statusAddPlaceholder": "es. 201",
       "statusRemove": "Rimuovi il codice {code}",
-      "hint": "Dopo una risposta, estrai un valore e scrivilo in un ambito di variabili così che le richieste successive possano usarlo come {{name}}. Usa la colonna «Codici» per scegliere su quali codici di risposta si attiva ogni regola, ad es. acquisire un token su 2xx e un errore su 4xx."
+      "hint": "Dopo una risposta, estrai un valore e scrivilo in un ambito di variabili così che le richieste successive possano usarlo come {{name}}. Usa la colonna «Codici» per scegliere su quali codici di risposta si attiva ogni regola, ad es. acquisire un token su 2xx e un errore su 4xx.",
+      "sourceRegex": "Regex"
     },
     "tests": {
       "source": "Origine",
@@ -730,7 +751,66 @@
       "placeholder": "Inserisci qui il corpo {type}…",
       "plainText": "testo semplice"
     },
-    "sendTitle": "Invia ({keys})"
+    "sendTitle": "Invia ({keys})",
+    "cmd": {
+      "label": "Richiesta di comando",
+      "badge": "CMD",
+      "lineAria": "Riga di comando",
+      "linePlaceholder": "gns token --format json",
+      "execute": "Esegui",
+      "executeAria": "Esegui comando",
+      "executeTitle": "Esegui comando ({keys})",
+      "outputAria": "Interpreta l'output come: {type}",
+      "outputMenuTitle": "Interpreta l'output come",
+      "output": {
+        "auto": "Rilevamento automatico",
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "Testo semplice"
+      },
+      "outputShort": {
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "TXT"
+      },
+      "notFound": "«{name}» non trovato nel PATH dei comandi (Impostazioni → Comandi o la scheda Ambiente di questa richiesta).",
+      "notFoundShort": "non trovato nel PATH dei comandi",
+      "found": "Esegue {path}",
+      "unavailable": "Le richieste di comando non sono disponibili in questa build.",
+      "stopIn": "Ferma · {secs} s",
+      "timeoutMenu": "Timeout…",
+      "timeoutLabel": "Timeout",
+      "timeoutAria": "Timeout del comando in secondi (0 = nessuno)",
+      "timeoutDialogAria": "Timeout del comando",
+      "timeoutHint": "0 = nessun timeout. Il comando viene fermato se dura di più.",
+      "args": {
+        "noun": "argomento",
+        "nounPlural": "argomenti",
+        "executable": "Eseguibile",
+        "noExecutable": "(nessuno — digita un comando sopra)",
+        "empty": "Nessun argomento. Digitali dopo il comando sopra o aggiungine uno qui.",
+        "placeholder": "Argomento",
+        "valueAria": "Argomento {n}"
+      },
+      "env": {
+        "noun": "variabile",
+        "nounPlural": "variabili",
+        "hint": "Variabili d'ambiente per questo comando. Sostituiscono l'ambiente di base di Impostazioni → Comandi; l'ambiente dell'app non viene mai trasmesso.",
+        "empty": "Nessuna variabile: il comando riceve solo l'ambiente di base.",
+        "namePlaceholder": "NOME",
+        "nameAria": "Nome della variabile",
+        "valueAria": "Valore della variabile",
+        "inherited": "Ereditato da Impostazioni → Comandi",
+        "inheritedEmpty": "L'ambiente di base è vuoto."
+      },
+      "stdin": {
+        "placeholder": "Testo inviato allo standard input del comando (supporta {{variables}})",
+        "hint": "Lascia vuoto per non inviare input: lo standard input viene chiuso subito.",
+        "aria": "Standard input"
+      }
+    }
   },
   "response": {
     "tab": {
@@ -742,7 +822,8 @@
       "cookies": "Cookie",
       "console": "Console",
       "tests": "Test",
-      "timeline": "Cronologia"
+      "timeline": "Cronologia",
+      "stderr": "Stderr"
     },
     "cookies": {
       "name": "Nome",
@@ -883,6 +964,17 @@
       "text": "Testo",
       "image": "Immagine",
       "binary": "Binario"
+    },
+    "exit": {
+      "code": "Uscita {code}",
+      "success": "Riuscito",
+      "failure": "Non riuscito",
+      "signal": "Terminato ({signal})"
+    },
+    "stderr": {
+      "empty": "Nessun output di errore.",
+      "truncated": "L'output di errore era grande ({size} B): viene mostrato l'inizio.",
+      "viewFull": "Mostra tutto"
     }
   },
   "pillEditor": {
@@ -933,7 +1025,8 @@
       "delete": "Elimina",
       "confirm": "Confermare?",
       "runFolder": "Esegui tutte le richieste",
-      "clearRunCounts": "Cancella conteggi dei test"
+      "clearRunCounts": "Cancella conteggi dei test",
+      "addCommandRequest": "Aggiungi richiesta di comando"
     },
     "curlCopied": "Il comando cURL è stato copiato negli appunti.",
     "code": {
@@ -958,7 +1051,8 @@
         "one": "{failed} richiesta non riuscita",
         "other": "{failed} richieste non riuscite"
       }
-    }
+    },
+    "newCommand": "Nuovo comando"
   },
   "collections": {
     "title": "Raccolte",
@@ -1460,7 +1554,8 @@
     "duplicate": "Duplica la richiesta",
     "rename": "Rinomina la richiesta o la cartella",
     "newWsRequest": "Nuova richiesta WebSocket",
-    "delete": "Elimina la richiesta o la cartella (chiede conferma)"
+    "delete": "Elimina la richiesta o la cartella (chiede conferma)",
+    "newCommandRequest": "Nuova richiesta di comando"
   },
   "script": {
     "errorTitle": "Errore di script",
@@ -1485,5 +1580,22 @@
     "failedMsg": "Impossibile controllare gli aggiornamenti. Riprova più tardi.",
     "devBuild": "Gli aggiornamenti sono disponibili solo nelle versioni installate.",
     "storeManaged": "Gli aggiornamenti vengono gestiti tramite l'app store."
+  },
+  "command": {
+    "approve": {
+      "title": "Eseguire questo comando?",
+      "message": "Questa richiesta esegue un programma sul tuo computer:",
+      "messageNamed": "«{name}» esegue un programma sul tuo computer:",
+      "envLine": "Ambiente: {keys}",
+      "stdinLine": "Standard input: (impostato)",
+      "note": "Esegui solo comandi di cui ti fidi. Ti verrà chiesto di nuovo se il comando cambia.",
+      "run": "Esegui"
+    },
+    "error": {
+      "notFoundHint": "Controlla il nome del comando, usa un percorso completo o aggiungi la sua cartella al PATH in Impostazioni → Comandi.",
+      "notApprovedHint": "Il comando non è stato eseguito. Eseguilo di nuovo e scegli Esegui per approvarlo.",
+      "timeoutHint": "Il comando ha superato il timeout ed è stato fermato. Aumentalo dal menu Esegui (Timeout…).",
+      "spawnHint": "Impossibile avviare il programma. Verifica che sia eseguibile e di avere i permessi per eseguirlo."
+    }
   }
 }

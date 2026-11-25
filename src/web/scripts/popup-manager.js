@@ -383,6 +383,7 @@ export const PopupManager = {
    *   title?:        string,
    *   message:       string,
    *   note?:         string,
+   *   detail?:       string,  monospace pre-formatted block (e.g. a command line)
    *   confirmLabel?: string,
    *   confirmClass?: string,
    *   onConfirm:     () => void,
@@ -393,6 +394,7 @@ export const PopupManager = {
     title = t("common.areYouSure"),
     message,
     note,
+    detail,
     confirmLabel = t("common.confirm"),
     confirmClass = "btn--danger",
     onConfirm,
@@ -400,6 +402,9 @@ export const PopupManager = {
   }) {
     const noteHtml = note
       ? `<p class="popup-confirm-note">${escapeHtml(note)}</p>`
+      : "";
+    const detailHtml = detail
+      ? `<pre class="popup-confirm-detail">${escapeHtml(detail)}</pre>`
       : "";
     const { dlg, dismiss } = _showOneShotDialog({
       cssClass: "popup-confirm",
@@ -411,6 +416,7 @@ export const PopupManager = {
         </div>
         <div class="popup-body popup-confirm-body">
           <p>${escapeHtml(message)}</p>
+          ${detailHtml}
           ${noteHtml}
         </div>
         <div class="popup-footer">

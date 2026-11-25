@@ -76,6 +76,11 @@ const DEFAULT_SETTINGS = {
   locale: "system",
   layout: 2,
   timeout: 30000,
+  // Command requests (Feature 70): the base process environment (PATH, HOME, …)
+  // as [{ key, value, enabled }] rows. null = the platform defaults computed by
+  // the main process (net/command-env.js); Settings → Commands edits it. The
+  // host environment is never inherited.
+  commandBaseEnv: null,
   followRedirects: true,
   verifySsl: true,
   // When an application/x-ndjson response is received, consume it live (line by

@@ -60,6 +60,10 @@ Inside a collection you build a tree of folders and requests:
 - **New WebSocket Request** — right-click a folder → **Add WebSocket Request**,
   or right-click the **+** button above the tree and choose
   **Add WebSocket Request** (see [WebSockets](websocket.md)).
+- **New Command Request** — right-click a folder → **Add Command Request**, or
+  right-click the **+** button above the tree. A Command request runs a local
+  program (see [Command Requests](commands.md)). Not available in the Mac App
+  Store build.
 - **Reorder / re-nest** — hover a request or folder to reveal a drag grip on its
   right edge, then drag the grip to move it; a placeholder shows where it will
   land.

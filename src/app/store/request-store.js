@@ -54,6 +54,14 @@ const PATCHABLE_FIELDS = [
   "wsMessage",
   "wsMessageFormat",
   "wsSubprotocols",
+  // Command requests (Feature 70, protocol "command"): the command line (the
+  // canonical source — the Arguments tab is derived from it), Environment rows,
+  // stdin, the stdout output type and the per-request timeout.
+  "commandLine",
+  "commandEnv",
+  "commandStdin",
+  "commandOutputType",
+  "commandTimeoutMs",
   // Live streaming responses (Feature 33): consume SSE / chunked bodies live.
   "streaming",
   "bodyType",

@@ -227,3 +227,50 @@ test("buildVariableRow: lockStructure freezes name/secure and swaps delete for r
   assert.equal(resets, 1);
   assert.equal(reset.disabled, true);
 });
+
+// ── Trimmed paste ────────────────────────────────────────────────────────────
+
+/** Paste `text` into `input` (whole value selected, as a replace-all paste). */
+function pasteInto(input, text) {
+  input.setSelectionRange(0, input.value.length);
+  const e = new window.Event("paste", { bubbles: true, cancelable: true });
+  e.clipboardData = { getData: (type) => (type === "text/plain" ? text : "") };
+  input.dispatchEvent(e);
+  return e;
+}
+
+test("buildVariableRow: a pasted value is trimmed of whitespace and zero-width chars", () => {
+  let changes = 0;
+  const { row, el } = makeRow({}, { onChange: () => changes++ });
+  const valIn = el.querySelector(".params-value");
+  const e = pasteInto(valIn, "​ abc 123\t\n");
+  assert.equal(e.defaultPrevented, true);
+  assert.equal(valIn.value, "abc 123");
+  assert.equal(row.value, "abc 123");
+  assert.equal(changes, 1);
+});
+
+test("buildVariableRow: a pasted name is trimmed", () => {
+  const { row, el } = makeRow();
+  const nameIn = el.querySelector(".params-name");
+  pasteInto(nameIn, " apiKey\r\n");
+  assert.equal(row.name, "apiKey");
+});
+
+test("buildVariableRow: a trimmed paste on a named-profile row becomes an override", () => {
+  const { row, el } = makeRow(
+    { value: "", overridden: false },
+    { lockStructure: true },
+  );
+  const valIn = el.querySelector(".params-value");
+  pasteInto(valIn, " secret\n");
+  assert.equal(row.value, "secret");
+  assert.equal(row.overridden, true);
+
+  // The locked (read-only) name input is not written through the paste fallback.
+  const nameIn = el.querySelector(".params-name");
+  const e = pasteInto(nameIn, " other ");
+  assert.equal(e.defaultPrevented, false);
+  assert.equal(row.name, "token");
+  assert.equal(nameIn.value, "token");
+});

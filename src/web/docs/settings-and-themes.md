@@ -128,6 +128,25 @@ shows it didn't act on the request.)
 Set how many runs each request keeps in its
 [**Timeline**](responses.md#timeline) (1–10).
 
+## Commands
+
+The **Commands** panel sets the **base environment** for every
+[Command request](commands.md). Commands never inherit Rest Hippo's own
+environment, so the programs you run see only this list plus each request's
+**Environment** rows.
+
+It starts with sensible defaults for your platform:
+
+- **macOS** — `PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin` and `HOME`.
+- **Linux** — `PATH=/usr/local/bin:/usr/bin:/bin` and `HOME`.
+- **Windows** — a system `PATH`, `PATHEXT`, `SystemRoot`, `USERPROFILE`,
+  `APPDATA`, `LOCALAPPDATA` and `TEMP`.
+
+Executables are looked up on this `PATH`, so add the folder where your CLI is
+installed (for example `~/.local/bin` or `C:\Program Files\…\wbin`). You can
+add, disable or remove variables; **Reset to Defaults** restores the platform
+defaults. The panel isn't shown in the Mac App Store build.
+
 ## Command Line
 
 The **Command Line** panel installs a `hippo` command so you can launch Rest

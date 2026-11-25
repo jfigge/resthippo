@@ -4473,6 +4473,21 @@ html.show-method-icons .req-method-menu-item-label::before {
   font-size: var(--font-size-sm);
 }
 
+/* Pre-formatted detail on a confirm dialog (e.g. the command being approved). */
+.popup-confirm-detail {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2);
+  max-height: 200px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  background: var(--color-surface-0);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* Notify (info) popup */
 .popup-notify {
   min-width: 340px;

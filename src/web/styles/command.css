@@ -1,0 +1,241 @@
+/*
+ * Copyright 2026 Jason Figge
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * This file is part of Rest Hippo.
+ *
+ * Rest Hippo is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * Rest Hippo is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * Rest Hippo. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/*
+ * command.css — Command requests (Feature 70): the CMD badge / output-type
+ * picker, the Execute / red Stop / timeout-countdown button states, the
+ * unresolved-executable highlight, the Arguments / Environment / Stdin tabs,
+ * the response Stderr tab and the Settings → Commands base-environment list.
+ */
+
+/* ── Identity colour (tree badge, bar badge, Execute button) ─────────────── */
+.tree-node-method.tree-node-method--cmd,
+.req-method-select--cmd,
+.req-send-btn[data-method="cmd"] {
+  color: var(--color-method-cmd);
+}
+.req-send-btn[data-method="cmd"] {
+  border-color: var(--color-method-cmd);
+}
+.tree-node-method--cmd,
+.req-method-select--cmd .req-method-select-label {
+  --method-icon: var(--method-icon-cmd);
+}
+:root {
+  /* Command: a terminal prompt (Lucide square-terminal) */
+  --method-icon-cmd: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 11 2-2-2-2'/%3E%3Cpath d='M11 13h4'/%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3C/svg%3E");
+}
+
+/* ── In-flight Stop: red for commands (HTTP keeps the warning colour) ──────── */
+.req-send-btn.req-send-btn--cancel[data-method="cmd"] {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+/* Timeout countdown — a draining bar along the bottom edge plus "Stop · Ns".
+   --timeout-progress is the REMAINING fraction (1 → 0), set by CommandEditor.
+   Deliberately unlike the scheduled-send colour sweep (a full-button gradient),
+   so a timeout can't be mistaken for a pending scheduled run. */
+.req-send-btn.req-send-btn--timeout {
+  --timeout-progress: 1;
+  position: relative;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+.req-send-btn.req-send-btn--timeout::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: calc(var(--timeout-progress) * 100%);
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-error) 0 6px,
+    var(--color-warning) 6px 12px
+  );
+  transition: width 0.1s linear;
+}
+
+.req-send-duration-hint {
+  padding: var(--space-1) var(--space-4) var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+}
+
+/* ── Command bar ──────────────────────────────────────────────────────────── */
+.req-method-select--cmd {
+  font-family: var(--font-mono);
+}
+
+/* Executable not found on the command PATH (checked after a typing pause). */
+.pill-editor.req-url-input.cmd-line-input--unresolved,
+.pill-editor.req-url-input.cmd-line-input--unresolved:hover,
+.pill-editor.req-url-input.cmd-line-input--unresolved:focus-within {
+  border-color: var(--color-error);
+  box-shadow: inset 0 -2px 0 var(--color-error);
+}
+
+.cmd-unavailable {
+  padding: var(--space-2) var(--space-4) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-warning);
+}
+
+.cmd-output-menu-heading {
+  padding: var(--space-1) var(--space-4) var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Arguments tab ────────────────────────────────────────────────────────── */
+.cmd-exe-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+}
+.cmd-exe-info-value {
+  font-family: var(--font-mono);
+  color: var(--color-method-cmd);
+}
+.cmd-exe-info-path {
+  font-family: var(--font-mono);
+  color: var(--color-overlay-0);
+  word-break: break-all;
+}
+.cmd-exe-info-path--missing {
+  font-family: inherit;
+  color: var(--color-error);
+}
+
+/* Arguments have no enable flag or name: the position number takes the
+   checkbox slot and the value spans the name + value columns. */
+.cmd-args-editor .params-row {
+  grid-template-columns: 24px 28px 1fr 28px;
+}
+.cmd-arg-filler {
+  display: none;
+}
+.cmd-arg-index {
+  justify-self: center;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+}
+
+/* ── Environment tab ──────────────────────────────────────────────────────── */
+.cmd-env-hint,
+.cmd-stdin-hint {
+  margin: var(--space-2) var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-overlay-0);
+}
+.cmd-env-name {
+  font-family: var(--font-mono);
+}
+.cmd-env-inherited {
+  margin: var(--space-3) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-subtext);
+}
+.cmd-env-inherited summary {
+  cursor: pointer;
+  user-select: none;
+}
+.cmd-env-inherited-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-4);
+  margin: var(--space-2) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+.cmd-env-inherited-list dt {
+  color: var(--color-text);
+}
+.cmd-env-inherited-list dd {
+  margin: 0;
+  word-break: break-all;
+}
+.cmd-env-inherited-empty {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+/* ── Stdin tab ────────────────────────────────────────────────────────────── */
+.cmd-stdin-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.cmd-stdin-code {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Response: Stderr tab ─────────────────────────────────────────────────── */
+.res-tab-btn--flagged::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: var(--space-2);
+  border-radius: 50%;
+  background: var(--color-error);
+  vertical-align: middle;
+}
+.res-stderr-pre {
+  color: var(--color-error);
+}
+.res-stderr-truncated {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* ── Settings → Commands ──────────────────────────────────────────────────── */
+.cmd-base-env-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+.cmd-base-env-row {
+  display: grid;
+  grid-template-columns: 20px minmax(90px, 1fr) 3fr 24px;
+  align-items: center;
+  gap: var(--space-2);
+}
+.cmd-base-env-key,
+.cmd-base-env-value {
+  font-family: var(--font-mono);
+  min-width: 0;
+}
+.cmd-base-env-actions {
+  gap: var(--space-3);
+}
+.cmd-base-env-status {
+  color: var(--color-overlay-0);
+}

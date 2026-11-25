@@ -304,7 +304,8 @@
     "cycleLayout": "レイアウトを切り替え",
     "keyboardShortcuts": "キーボードショートカット",
     "newWsRequest": "新規 WebSocket リクエスト",
-    "checkUpdates": "アップデートを確認…"
+    "checkUpdates": "アップデートを確認…",
+    "newCommandRequest": "新規コマンドリクエスト"
   },
   "settings": {
     "title": "設定",
@@ -319,7 +320,8 @@
       "certificates": "証明書",
       "about": "情報",
       "security": "セキュリティ",
-      "cli": "コマンドライン"
+      "cli": "コマンドライン",
+      "commands": "コマンド"
     },
     "appearance": {
       "theme": "テーマ",
@@ -460,6 +462,21 @@
       "errorGeneric": "hippo コマンドを更新できませんでした。",
       "promptTitle": "hippo コマンドをインストールしますか？",
       "promptMessage": "ターミナルで hippo と入力して Rest Hippo を起動できるようにしますか？この設定は後から「設定 → コマンドライン」で変更できます。"
+    },
+    "commands": {
+      "desc": "すべてのコマンドリクエストの基本となる環境です。実行ファイルはこの PATH から検索されます。Rest Hippo は自身の環境変数を渡さないため、コマンドから見えるのはこの一覧（と各リクエストの環境変数タブ）だけです。",
+      "listAria": "基本環境の変数",
+      "add": "変数を追加",
+      "reset": "デフォルトに戻す",
+      "resetTitle": "このプラットフォームのデフォルト PATH とシステム変数に戻す",
+      "usingDefaults": "このプラットフォームのデフォルトを使用中",
+      "empty": "変数はありません — コマンドは空の環境で起動します。",
+      "enableAria": "この変数をコマンドに渡す",
+      "namePlaceholder": "NAME",
+      "nameAria": "変数名",
+      "valuePlaceholder": "値",
+      "valueAria": "変数の値",
+      "delete": "変数を削除"
     }
   },
   "request": {
@@ -493,7 +510,10 @@
       "captures": "キャプチャ",
       "notes": "メモ",
       "scripts": "スクリプト",
-      "tests": "テスト"
+      "tests": "テスト",
+      "args": "引数",
+      "env": "環境変数",
+      "stdin": "標準入力"
     },
     "method": {
       "aria": "HTTP メソッド",
@@ -668,7 +688,8 @@
       "statusAdd": "コードを追加",
       "statusAddPlaceholder": "例: 201",
       "statusRemove": "コード {code} を削除",
-      "hint": "レスポンスの後に値を抽出して変数スコープに書き込むと、以降のリクエストで {{name}} として使用できます。「コード」列で各ルールがどのレスポンスコードで実行されるかを選べます（例: 2xx でトークン、4xx でエラーを取得）。"
+      "hint": "レスポンスの後に値を抽出して変数スコープに書き込むと、以降のリクエストで {{name}} として使用できます。「コード」列で各ルールがどのレスポンスコードで実行されるかを選べます（例: 2xx でトークン、4xx でエラーを取得）。",
+      "sourceRegex": "正規表現"
     },
     "tests": {
       "source": "ソース",
@@ -726,7 +747,66 @@
       "placeholder": "ここに {type} の本文を入力…",
       "plainText": "プレーンテキスト"
     },
-    "sendTitle": "送信 ({keys})"
+    "sendTitle": "送信 ({keys})",
+    "cmd": {
+      "label": "コマンドリクエスト",
+      "badge": "CMD",
+      "lineAria": "コマンドライン",
+      "linePlaceholder": "gns token --format json",
+      "execute": "実行",
+      "executeAria": "コマンドを実行",
+      "executeTitle": "コマンドを実行（{keys}）",
+      "outputAria": "出力の解析形式: {type}",
+      "outputMenuTitle": "出力の解析形式",
+      "output": {
+        "auto": "自動検出",
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "プレーンテキスト"
+      },
+      "outputShort": {
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "TXT"
+      },
+      "notFound": "「{name}」がコマンド PATH に見つかりません（設定 → コマンド、またはこのリクエストの環境変数タブ）。",
+      "notFoundShort": "コマンド PATH に見つかりません",
+      "found": "{path} を実行します",
+      "unavailable": "このビルドではコマンドリクエストを使用できません。",
+      "stopIn": "停止 · {secs}秒",
+      "timeoutMenu": "タイムアウト…",
+      "timeoutLabel": "タイムアウト",
+      "timeoutAria": "コマンドのタイムアウト（秒、0 = なし）",
+      "timeoutDialogAria": "コマンドのタイムアウト",
+      "timeoutHint": "0 = タイムアウトなし。これより長く実行されるとコマンドを停止します。",
+      "args": {
+        "noun": "引数",
+        "nounPlural": "引数",
+        "executable": "実行ファイル",
+        "noExecutable": "（なし — 上にコマンドを入力）",
+        "empty": "引数はありません。上のコマンドの後に入力するか、ここで追加してください。",
+        "placeholder": "引数",
+        "valueAria": "引数 {n}"
+      },
+      "env": {
+        "noun": "変数",
+        "nounPlural": "変数",
+        "hint": "このコマンドの環境変数です。設定 → コマンドの基本環境を上書きします。アプリ自体の環境変数が渡されることはありません。",
+        "empty": "変数はありません — コマンドには基本環境のみが渡されます。",
+        "namePlaceholder": "NAME",
+        "nameAria": "変数名",
+        "valueAria": "変数の値",
+        "inherited": "設定 → コマンドから継承",
+        "inheritedEmpty": "基本環境は空です。"
+      },
+      "stdin": {
+        "placeholder": "コマンドの標準入力に渡すテキスト（{{variables}} に対応）",
+        "hint": "空欄にすると入力は送られず、標準入力はすぐに閉じられます。",
+        "aria": "標準入力"
+      }
+    }
   },
   "response": {
     "tab": {
@@ -738,7 +818,8 @@
       "cookies": "Cookie",
       "console": "コンソール",
       "tests": "テスト",
-      "timeline": "タイムライン"
+      "timeline": "タイムライン",
+      "stderr": "標準エラー"
     },
     "cookies": {
       "name": "名前",
@@ -879,6 +960,17 @@
       "text": "テキスト",
       "image": "画像",
       "binary": "バイナリ"
+    },
+    "exit": {
+      "code": "終了 {code}",
+      "success": "成功",
+      "failure": "失敗",
+      "signal": "強制終了（{signal}）"
+    },
+    "stderr": {
+      "empty": "エラー出力はありません。",
+      "truncated": "エラー出力が大きいため（{size} B）、先頭部分を表示しています。",
+      "viewFull": "すべて表示"
     }
   },
   "pillEditor": {
@@ -929,7 +1021,8 @@
       "delete": "削除",
       "confirm": "確認しますか？",
       "runFolder": "すべてのリクエストを実行",
-      "clearRunCounts": "テスト数をクリア"
+      "clearRunCounts": "テスト数をクリア",
+      "addCommandRequest": "コマンドリクエストを追加"
     },
     "curlCopied": "cURL コマンドをクリップボードにコピーしました。",
     "code": {
@@ -952,7 +1045,8 @@
       "failedReqs": {
         "other": "{failed} 件のリクエストが失敗"
       }
-    }
+    },
+    "newCommand": "新規コマンド"
   },
   "collections": {
     "title": "コレクション",
@@ -1453,7 +1547,8 @@
     "duplicate": "リクエストを複製",
     "rename": "リクエストまたはフォルダーの名前を変更",
     "newWsRequest": "新規 WebSocket リクエスト",
-    "delete": "リクエストまたはフォルダーを削除（確認あり）"
+    "delete": "リクエストまたはフォルダーを削除（確認あり）",
+    "newCommandRequest": "新規コマンドリクエスト"
   },
   "script": {
     "errorTitle": "スクリプトエラー",
@@ -1478,5 +1573,22 @@
     "failedMsg": "アップデートを確認できませんでした。しばらくしてからもう一度お試しください。",
     "devBuild": "アップデートはインストール済みのビルドでのみ利用できます。",
     "storeManaged": "アップデートはアプリストアを通じて提供されます。"
+  },
+  "command": {
+    "approve": {
+      "title": "このコマンドを実行しますか？",
+      "message": "このリクエストはお使いのコンピュータでプログラムを実行します:",
+      "messageNamed": "「{name}」はお使いのコンピュータでプログラムを実行します:",
+      "envLine": "環境変数: {keys}",
+      "stdinLine": "標準入力: （設定あり）",
+      "note": "信頼できるコマンドのみ実行してください。コマンドが変更されると再度確認します。",
+      "run": "実行"
+    },
+    "error": {
+      "notFoundHint": "コマンド名を確認するか、フルパスを使うか、設定 → コマンドでそのフォルダを PATH に追加してください。",
+      "notApprovedHint": "コマンドは実行されませんでした。もう一度実行し、「実行」を選んで承認してください。",
+      "timeoutHint": "コマンドがタイムアウトを超えたため停止しました。実行メニューの「タイムアウト…」で延長できます。",
+      "spawnHint": "プログラムを起動できませんでした。実行可能であること、実行権限があることを確認してください。"
+    }
   }
 }

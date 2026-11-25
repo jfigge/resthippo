@@ -46,6 +46,11 @@ const { URL } = require("url");
 
 const io = require("../store/io");
 const {
+  RESPONSE_SPILL_THRESHOLD,
+  RESPONSE_PREVIEW_BYTES,
+  SpillRegistry,
+} = require("./body-spill");
+const {
   isBinaryContentType,
   looksBinary,
   decodeText,
@@ -206,6 +211,7 @@ function createDecompressor(encoding) {
  * @param {() => object|null} deps.getMainWin  current main BrowserWindow (dialog parent)
  * @param {() => object} deps.getStores        stores accessor (cookie jar, TLS settings)
  * @param {Function} deps.safeCall   logging-guarded call wrapper from main.js
+ * @param {SpillRegistry} [deps.spillRegistry] shared spilled-body registry
  */
 function registerHttpEngine({
   ipcMain,
@@ -214,6 +220,7 @@ function registerHttpEngine({
   getMainWin,
   getStores,
   safeCall,
+  spillRegistry = new SpillRegistry(),
 }) {
   // ── Large-response spill-to-disk ───────────────────────────────────────────
   //
@@ -222,36 +229,9 @@ function registerHttpEngine({
   // socket paused under backpressure so memory stays bounded), and only a small
   // preview crosses to the renderer. The renderer can then fetch the full body
   // or save it straight to disk on demand via `http:body:get` / `http:body:save`.
-
-  /** Spill bodies larger than this (bytes) to disk instead of buffering. */
-  const RESPONSE_SPILL_THRESHOLD = 8 * 1024 * 1024; // 8 MB
-  /** Preview kept in memory / sent to the renderer for a spilled response. */
-  const RESPONSE_PREVIEW_BYTES = 256 * 1024; // 256 KB
-  /** Most-recent spilled bodies retained before the oldest is evicted. */
-  const SPILL_REGISTRY_MAX = 20;
-
-  /** ref → { path, size, contentType, isBinary } for bodies spilled to disk. */
-  const spilledBodies = new Map();
-
-  /**
-   * Register a spilled body and return an opaque ref the renderer can redeem.
-   * Evicts (and unlinks) the oldest entry once the registry is full — Map
-   * preserves insertion order, so the first key is the least-recently spilled.
-   * @param {{ path: string, size: number, contentType: string, isBinary: boolean }} entry
-   * @returns {string} ref
-   */
-  function registerSpilledBody(entry) {
-    const ref = io.newUUID();
-    spilledBodies.set(ref, entry);
-    while (spilledBodies.size > SPILL_REGISTRY_MAX) {
-      const oldestRef = spilledBodies.keys().next().value;
-      const old = spilledBodies.get(oldestRef);
-      spilledBodies.delete(oldestRef);
-      // Already gone (manual delete or startup GC) is fine — best-effort.
-      io.remove(old.path);
-    }
-    return ref;
-  }
+  // The registry lives in net/body-spill.js and is shared (injected) so command
+  // output spilled by ipc/command.js is redeemable through the same channels.
+  const registerSpilledBody = (entry) => spillRegistry.register(entry);
 
   // ── Live streaming responses (Feature 33) ──────────────────────────────────
   //
@@ -1981,7 +1961,7 @@ function registerHttpEngine({
 
   // Redeem a spill ref for the full response body (user-initiated "View full").
   ipcMain.handle("http:body:get", async (_event, ref) => {
-    const entry = spilledBodies.get(ref);
+    const entry = spillRegistry.get(ref);
     if (!entry) {
       return {
         error: {
@@ -2008,7 +1988,7 @@ function registerHttpEngine({
   // Copy a spilled response body straight to a user-chosen file — the full
   // payload never travels back through the renderer.
   ipcMain.handle("http:body:save", async (_event, { ref, filename } = {}) => {
-    const entry = spilledBodies.get(ref);
+    const entry = spillRegistry.get(ref);
     if (!entry) return { ok: false, reason: "not-found" };
     const result = await dialog.showSaveDialog(getMainWin() ?? undefined, {
       defaultPath: filename || "response.bin",

@@ -69,6 +69,7 @@
   --color-method-head: var(--color-warning);
   --color-method-options: #94e2d5;
   --color-method-ws: #89dceb; /* WebSocket — full-duplex protocol badge */
+  --color-method-cmd: #f5c2e7; /* Command request (Feature 70) — Catppuccin pink */
 
   /* ── Derived tints ───────────────────────────────────────────────────── */
   /* Destructive / dismiss controls (delete, danger, close) share one
@@ -172,6 +173,7 @@
   --color-method-patch: #8839ef;
   --color-method-options: #179299;
   --color-method-ws: #209fb5; /* Catppuccin Latte sapphire — distinct from OPTIONS' teal */
+  --color-method-cmd: #ea76cb; /* Command — Catppuccin Latte pink */
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -202,6 +204,7 @@
   --color-method-patch: #a880c0;
   --color-method-options: #70b8d0;
   --color-method-ws: #6aa6e0; /* bluer cyan — distinct from OPTIONS' #70b8d0 */
+  --color-method-cmd: #d890b8; /* Command — muted pink */
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -232,6 +235,7 @@
   --color-method-patch: #6820b0;
   --color-method-options: #1870a0;
   --color-method-ws: #2060b8; /* bluer cyan — distinct from OPTIONS' #1870a0 */
+  --color-method-cmd: #b0487e; /* Command — deep pink */
 }
 
 /* ── Global styles ────────────────────────────────────────────────────────── */

@@ -14,6 +14,7 @@ to pop up a quick reference to the most common shortcuts inside Rest Hippo.
 | <kbd>⌘/Ctrl</kbd>+<kbd>Enter</kbd>                | Send the request (or WebSocket message when connected)  |
 | <kbd>⌘/Ctrl</kbd>+<kbd>N</kbd>                    | New request                                             |
 | <kbd>⌥⌘</kbd>/<kbd>Ctrl+Alt</kbd>+<kbd>N</kbd>    | New WebSocket request                                   |
+| <kbd>⌥⇧⌘</kbd>/<kbd>Ctrl+Alt+Shift</kbd>+<kbd>N</kbd> | New Command request                                 |
 | <kbd>⌘/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd>   | New collection (or folder when a node is selected)      |
 | <kbd>⌘/Ctrl</kbd>+<kbd>L</kbd>                    | Focus the URL bar                                       |
 | <kbd>⌥⌘</kbd>/<kbd>Ctrl+Alt</kbd>+<kbd>↑</kbd>    | Select the previous request                             |

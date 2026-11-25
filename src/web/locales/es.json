@@ -307,7 +307,8 @@
     "cycleLayout": "Cambiar diseño",
     "keyboardShortcuts": "Atajos de teclado",
     "newWsRequest": "Nueva solicitud WebSocket",
-    "checkUpdates": "Buscar actualizaciones…"
+    "checkUpdates": "Buscar actualizaciones…",
+    "newCommandRequest": "Nueva solicitud de comando"
   },
   "settings": {
     "title": "Ajustes",
@@ -322,7 +323,8 @@
       "certificates": "Certificados",
       "about": "Acerca de",
       "security": "Seguridad",
-      "cli": "Línea de comandos"
+      "cli": "Línea de comandos",
+      "commands": "Comandos"
     },
     "appearance": {
       "theme": "Tema",
@@ -463,6 +465,21 @@
       "errorGeneric": "No se pudo actualizar el comando hippo.",
       "promptTitle": "¿Instalar el comando hippo?",
       "promptMessage": "¿Quieres escribir hippo en una terminal para iniciar Rest Hippo? Puedes cambiarlo cuando quieras en Ajustes → Línea de comandos."
+    },
+    "commands": {
+      "desc": "El entorno base con el que empieza cada solicitud de comando. Los ejecutables se buscan en este PATH. Rest Hippo nunca transmite su propio entorno, así que esta lista (más la pestaña Entorno de cada solicitud) es exactamente lo que ve un comando.",
+      "listAria": "Variables del entorno base",
+      "add": "Añadir variable",
+      "reset": "Restablecer valores predeterminados",
+      "resetTitle": "Restaurar el PATH y las variables de sistema predeterminados de esta plataforma",
+      "usingDefaults": "Usando los valores predeterminados de esta plataforma",
+      "empty": "Sin variables: los comandos empiezan con un entorno vacío.",
+      "enableAria": "Pasar esta variable a los comandos",
+      "namePlaceholder": "NOMBRE",
+      "nameAria": "Nombre de la variable",
+      "valuePlaceholder": "Valor",
+      "valueAria": "Valor de la variable",
+      "delete": "Quitar variable"
     }
   },
   "request": {
@@ -496,7 +513,10 @@
       "captures": "Capturas",
       "notes": "Notas",
       "scripts": "Scripts",
-      "tests": "Pruebas"
+      "tests": "Pruebas",
+      "args": "Argumentos",
+      "env": "Entorno",
+      "stdin": "Stdin"
     },
     "method": {
       "aria": "Método HTTP",
@@ -672,7 +692,8 @@
       "statusAdd": "Añadir código",
       "statusAddPlaceholder": "p. ej. 201",
       "statusRemove": "Quitar el código {code}",
-      "hint": "Tras una respuesta, extrae un valor y escríbelo en un ámbito de variables para que las solicitudes posteriores puedan usarlo como {{name}}. Usa la columna «Códigos» para elegir con qué códigos de respuesta se activa cada regla, p. ej. capturar un token con 2xx y un error con 4xx."
+      "hint": "Tras una respuesta, extrae un valor y escríbelo en un ámbito de variables para que las solicitudes posteriores puedan usarlo como {{name}}. Usa la columna «Códigos» para elegir con qué códigos de respuesta se activa cada regla, p. ej. capturar un token con 2xx y un error con 4xx.",
+      "sourceRegex": "Regex"
     },
     "tests": {
       "source": "Origen",
@@ -730,7 +751,66 @@
       "placeholder": "Escribe aquí el cuerpo {type}…",
       "plainText": "texto sin formato"
     },
-    "sendTitle": "Enviar ({keys})"
+    "sendTitle": "Enviar ({keys})",
+    "cmd": {
+      "label": "Solicitud de comando",
+      "badge": "CMD",
+      "lineAria": "Línea de comandos",
+      "linePlaceholder": "gns token --format json",
+      "execute": "Ejecutar",
+      "executeAria": "Ejecutar comando",
+      "executeTitle": "Ejecutar comando ({keys})",
+      "outputAria": "Interpretar la salida como: {type}",
+      "outputMenuTitle": "Interpretar la salida como",
+      "output": {
+        "auto": "Detección automática",
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "Texto sin formato"
+      },
+      "outputShort": {
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "TXT"
+      },
+      "notFound": "No se encontró «{name}» en el PATH de comandos (Ajustes → Comandos o la pestaña Entorno de esta solicitud).",
+      "notFoundShort": "no encontrado en el PATH de comandos",
+      "found": "Ejecuta {path}",
+      "unavailable": "Las solicitudes de comando no están disponibles en esta versión.",
+      "stopIn": "Detener · {secs} s",
+      "timeoutMenu": "Tiempo de espera…",
+      "timeoutLabel": "Tiempo de espera",
+      "timeoutAria": "Tiempo de espera del comando en segundos (0 = ninguno)",
+      "timeoutDialogAria": "Tiempo de espera del comando",
+      "timeoutHint": "0 = sin límite. El comando se detiene si tarda más.",
+      "args": {
+        "noun": "argumento",
+        "nounPlural": "argumentos",
+        "executable": "Ejecutable",
+        "noExecutable": "(ninguno: escribe un comando arriba)",
+        "empty": "Sin argumentos. Escríbelos después del comando arriba o añade uno aquí.",
+        "placeholder": "Argumento",
+        "valueAria": "Argumento {n}"
+      },
+      "env": {
+        "noun": "variable",
+        "nounPlural": "variables",
+        "hint": "Variables de entorno para este comando. Sustituyen al entorno base de Ajustes → Comandos; el entorno propio de la aplicación nunca se transmite.",
+        "empty": "Sin variables: el comando recibe solo el entorno base.",
+        "namePlaceholder": "NOMBRE",
+        "nameAria": "Nombre de la variable",
+        "valueAria": "Valor de la variable",
+        "inherited": "Heredado de Ajustes → Comandos",
+        "inheritedEmpty": "El entorno base está vacío."
+      },
+      "stdin": {
+        "placeholder": "Texto enviado a la entrada estándar del comando (admite {{variables}})",
+        "hint": "Déjalo vacío para no enviar entrada: la entrada estándar se cierra de inmediato.",
+        "aria": "Entrada estándar"
+      }
+    }
   },
   "response": {
     "tab": {
@@ -742,7 +822,8 @@
       "cookies": "Cookies",
       "console": "Consola",
       "tests": "Pruebas",
-      "timeline": "Cronología"
+      "timeline": "Cronología",
+      "stderr": "Stderr"
     },
     "cookies": {
       "name": "Nombre",
@@ -883,6 +964,17 @@
       "text": "Texto",
       "image": "Imagen",
       "binary": "Binario"
+    },
+    "exit": {
+      "code": "Salida {code}",
+      "success": "Correcto",
+      "failure": "Error",
+      "signal": "Terminado ({signal})"
+    },
+    "stderr": {
+      "empty": "Sin salida de errores.",
+      "truncated": "La salida de errores era grande ({size} B): se muestra el principio.",
+      "viewFull": "Ver todo"
     }
   },
   "pillEditor": {
@@ -933,7 +1025,8 @@
       "delete": "Eliminar",
       "confirm": "¿Confirmar?",
       "runFolder": "Ejecutar todas las solicitudes",
-      "clearRunCounts": "Borrar recuentos de pruebas"
+      "clearRunCounts": "Borrar recuentos de pruebas",
+      "addCommandRequest": "Añadir solicitud de comando"
     },
     "curlCopied": "El comando cURL se ha copiado al portapapeles.",
     "code": {
@@ -958,7 +1051,8 @@
         "one": "{failed} solicitud fallida",
         "other": "{failed} solicitudes fallidas"
       }
-    }
+    },
+    "newCommand": "Nuevo comando"
   },
   "collections": {
     "title": "Colecciones",
@@ -1460,7 +1554,8 @@
     "duplicate": "Duplicar la solicitud",
     "rename": "Renombrar la solicitud o carpeta",
     "newWsRequest": "Nueva solicitud WebSocket",
-    "delete": "Eliminar la solicitud o carpeta (pide confirmación)"
+    "delete": "Eliminar la solicitud o carpeta (pide confirmación)",
+    "newCommandRequest": "Nueva solicitud de comando"
   },
   "script": {
     "errorTitle": "Error de script",
@@ -1485,5 +1580,22 @@
     "failedMsg": "No se pudieron buscar actualizaciones. Inténtalo de nuevo más tarde.",
     "devBuild": "Las actualizaciones solo están disponibles en versiones instaladas.",
     "storeManaged": "Las actualizaciones se gestionan a través de la tienda de aplicaciones."
+  },
+  "command": {
+    "approve": {
+      "title": "¿Ejecutar este comando?",
+      "message": "Esta solicitud ejecuta un programa en tu equipo:",
+      "messageNamed": "«{name}» ejecuta un programa en tu equipo:",
+      "envLine": "Entorno: {keys}",
+      "stdinLine": "Entrada estándar: (definida)",
+      "note": "Ejecuta solo comandos de confianza. Se te volverá a preguntar si el comando cambia.",
+      "run": "Ejecutar"
+    },
+    "error": {
+      "notFoundHint": "Comprueba el nombre del comando, usa una ruta completa o añade su carpeta al PATH en Ajustes → Comandos.",
+      "notApprovedHint": "El comando no se ejecutó. Vuelve a ejecutarlo y elige Ejecutar para aprobarlo.",
+      "timeoutHint": "El comando superó su tiempo de espera y se detuvo. Auméntalo en el menú Ejecutar (Tiempo de espera…).",
+      "spawnHint": "No se pudo iniciar el programa. Comprueba que sea ejecutable y que tengas permiso para ejecutarlo."
+    }
   }
 }

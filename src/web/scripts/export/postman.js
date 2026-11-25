@@ -212,6 +212,8 @@ function exportItem(node) {
     if (variable.length) item.variable = variable;
     return item;
   }
+  // Command requests (Feature 70) have no Postman equivalent — omit them.
+  if (node.type === "request" && node.protocol === "command") return null;
   if (node.type === "request") {
     const req = {
       method: node.method ?? "GET",

@@ -73,6 +73,10 @@ ipcRenderer.on("menu:new-ws-request", () => {
   window.dispatchEvent(new CustomEvent("hippo:new-ws-request"));
 });
 
+ipcRenderer.on("menu:new-command-request", () => {
+  window.dispatchEvent(new CustomEvent("hippo:new-command-request"));
+});
+
 ipcRenderer.on("menu:open-settings", () => {
   window.dispatchEvent(new CustomEvent("hippo:open-settings"));
 });
@@ -149,6 +153,13 @@ contextBridge.exposeInMainWorld("hippo", {
    * the auto-update toggle in Settings → About. See src/app/store-build.js.
    */
   isStoreBuild: process.mas === true || process.windowsStore === true,
+
+  /**
+   * True in the Mac App Store build only. The App Sandbox blocks spawning
+   * arbitrary processes, so Command requests (Feature 70) are hidden entirely
+   * there; the Microsoft Store (full-trust MSIX) keeps them.
+   */
+  isMas: process.mas === true,
 
   /**
    * Internationalization — the main process resolves the active locale
@@ -489,6 +500,32 @@ contextBridge.exposeInMainWorld("hippo", {
    * onStatus(cb) / onMessage(cb) register a push listener and RETURN an
    * unsubscribe function — call it to detach the listener (no leaks across reloads).
    */
+  /**
+   * Command requests (Feature 70) — run a local CLI program in main.
+   *   execute({ id, requestId, executable, args, env, stdin, timeoutMs,
+   *             outputType, template })  → HTTP-shaped result
+   *             { status (exit code), statusText, headers, body, stderr, elapsed,
+   *               size, consoleLog, kind: "command", truncated?, bodyRef?,
+   *               stderrRef?, error? }
+   *   cancel({ id })                       → { ok, reason? }
+   *   resolve({ executable, env })         → { found, path }
+   *   defaults()                           → { rows, platform }
+   *   approval.check({ requestId, template }) → { approved }
+   *   approval.grant({ requestId, template }) → { ok }
+   * `env` is the request's resolved Environment rows; main merges them over the
+   * Settings → Commands base environment (never the host environment).
+   */
+  command: {
+    execute: (desc) => ipcRenderer.invoke("command:execute", desc),
+    cancel: (args) => ipcRenderer.invoke("command:cancel", args),
+    resolve: (args) => ipcRenderer.invoke("command:resolve", args),
+    defaults: () => ipcRenderer.invoke("command:defaults"),
+    approval: {
+      check: (args) => ipcRenderer.invoke("command:approval:check", args),
+      grant: (args) => ipcRenderer.invoke("command:approval:grant", args),
+    },
+  },
+
   ws: {
     open: (opts) => ipcRenderer.invoke("ws:open", opts),
     send: (args) => ipcRenderer.invoke("ws:send", args),

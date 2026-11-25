@@ -39,7 +39,10 @@ import { parse as parseYaml } from "../vendor/yaml.js";
  *
  * Capture rule shape:
  *   { id, enabled, source, path, target: { scope, name }, secure, status }
- *     source       ∈ "body" | "header" (name) | "status"
+ *     source       ∈ "body" | "header" (name) | "status" | "regex" (pattern)
+ *                    A "regex" rule applies `path` as a regular expression to
+ *                    the raw body and captures group 1 (or the whole match) —
+ *                    handy for plain-text CLI output (Feature 70).
  *                    A "body" rule walks a dot-path (.a.b.[0]) over the parsed
  *                    body; the body may be JSON, YAML, or XML — anything else is
  *                    reported as "no value", never captured.
@@ -76,7 +79,12 @@ export function applyCaptures(response, rules) {
     if (!rule || rule.enabled === false) continue;
 
     // Per-rule status gate: skip rules whose selector doesn't cover this code.
-    if (!statusMatches(status, normalizeStatusMatch(rule.status))) continue;
+    if (
+      !statusMatches(status, normalizeStatusMatch(rule.status), {
+        command: response?.kind === "command",
+      })
+    )
+      continue;
 
     const name = String(rule.target?.name ?? "").trim();
     if (!name) continue; // no destination — nothing to write
@@ -102,6 +110,9 @@ function _extract(rule, { status, headers, body }) {
     case "status":
       return String(status);
 
+    case "regex":
+      return _extractRegex(rule.path, body);
+
     case "header": {
       const key = String(rule.path ?? "")
         .trim()
@@ -126,6 +137,29 @@ function _extract(rule, { status, headers, body }) {
       }
     }
   }
+}
+
+/** Bodies longer than this are not regex-scanned (ReDoS / UI-freeze guard). */
+export const MAX_REGEX_CAPTURE_CHARS = 2_000_000;
+
+/**
+ * Apply a capture regex to the raw body: group 1 when the pattern has a group,
+ * else the whole match. Multiline (`^`/`$` per line). An invalid pattern, an
+ * oversized body, no match or an empty capture all yield `undefined`.
+ */
+function _extractRegex(pattern, body) {
+  const src = String(pattern ?? "");
+  if (!src || body.length > MAX_REGEX_CAPTURE_CHARS) return undefined;
+  let re;
+  try {
+    re = new RegExp(src, "m");
+  } catch {
+    return undefined;
+  }
+  const m = re.exec(body);
+  if (!m) return undefined;
+  const v = m.length > 1 ? m[1] : m[0];
+  return v == null || v === "" ? undefined : v;
 }
 
 /**

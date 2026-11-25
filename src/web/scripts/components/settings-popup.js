@@ -42,6 +42,8 @@ import { LAYOUT_ICONS } from "./layout-icons.js";
 import { t, LOCALE_OPTIONS } from "../i18n.js";
 import { reportCliResult } from "../cli-command.js";
 import { debounce } from "../utils/debounce.js";
+import { CommandsPanel } from "./settings/commands-panel.js";
+import { commandsAvailable } from "./command/availability.js";
 
 // Trailing delay before a typed field commits. Text/number/textarea controls
 // fire on every keystroke; without this a 30-char proxy URL would trigger 30
@@ -68,6 +70,10 @@ export class SettingsPopup {
     () => this.#emitChange(),
     SETTINGS_SAVE_DEBOUNCE_MS,
   );
+
+  // Settings → Commands (Feature 70): the base process environment. Built with
+  // the popup when the build can run commands; null otherwise (MAS / browser).
+  #commands = null;
 
   // Live secret-storage backend state ({ mode, locked, available, hasPassword }),
   // fetched from main on open / when the Security panel is shown.
@@ -136,8 +142,36 @@ export class SettingsPopup {
   #ensureBuilt() {
     if (this.#el) return;
     this.#el = this.#build();
+    this.#mountCommandsPanel();
     this.#wrapSecretFields();
     this.#bindEvents();
+  }
+
+  /**
+   * Settings → Commands (Feature 70): add the nav entry + panel (before
+   * Command Line) when this build can run commands. Hidden entirely — not
+   * greyed out — under the Mac App Store sandbox.
+   */
+  #mountCommandsPanel() {
+    if (!commandsAvailable()) return;
+    this.#commands = new CommandsPanel({
+      onChange: () => this.#emitDebounced(),
+    });
+    const nav = document.createElement("button");
+    nav.className = "settings-nav-item";
+    nav.type = "button";
+    nav.setAttribute("role", "tab");
+    nav.setAttribute("aria-selected", "false");
+    nav.dataset.panel = "commands";
+    nav.textContent = t("settings.nav.commands");
+    const cliNav = this.#el.querySelector(
+      '.settings-nav-item[data-panel="cli"]',
+    );
+    cliNav?.parentNode.insertBefore(nav, cliNav);
+    const cliPanel = this.#el.querySelector(
+      '.settings-panel[data-panel="cli"]',
+    );
+    cliPanel?.parentNode.insertBefore(this.#commands.element, cliPanel);
   }
 
   /** Wrap secret inputs (proxy password) with the mask/reveal eye toggle. */
@@ -1253,6 +1287,8 @@ export class SettingsPopup {
   /** Collect all setting values into a plain object (historyCount excluded — deferred). */
   #readValues() {
     return {
+      // Command base environment (Feature 70); null = platform defaults.
+      ...(this.#commands ? { commandBaseEnv: this.#commands.getValue() } : {}),
       locale: this.#el.querySelector("#setting-language").value,
       theme: this.#el.querySelector("#setting-theme").value,
       fontSize:
@@ -1617,6 +1653,9 @@ export class SettingsPopup {
 
   /** Write a settings object back into the form controls. */
   #applyValues(settings) {
+    if (this.#commands && "commandBaseEnv" in settings) {
+      this.#commands.setValue(settings.commandBaseEnv);
+    }
     if (settings.locale !== undefined) {
       this.#el.querySelector("#setting-language").value = settings.locale;
     }

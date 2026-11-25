@@ -99,6 +99,15 @@ class Paths {
     return path.join(this.dataDir, "response-cache");
   }
 
+  /**
+   * Local-only approvals for Command requests (Feature 70): requestId → hash of
+   * the approved command template. Never exported, backed up or projected into
+   * the git repo — approval is a property of THIS machine, not the collection.
+   */
+  commandApprovalsPath() {
+    return path.join(this.dataDir, "command-approvals.json");
+  }
+
   // ── Per-collection paths ────────────────────────────────────────────────────
 
   collectionDir(collId) {

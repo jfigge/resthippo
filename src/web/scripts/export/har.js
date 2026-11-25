@@ -214,6 +214,8 @@ export function exportToHar(collection, historyByRequestId) {
     for (const child of node.children ?? []) {
       if (child.type === "collection") {
         walk(child);
+      } else if (child.type === "request" && child.protocol === "command") {
+        // Command requests (Feature 70) have no equivalent here — omit them.
       } else if (child.type === "request") {
         const record = lookup(historyByRequestId, child.id);
         if (record) entries.push(buildEntry(record));

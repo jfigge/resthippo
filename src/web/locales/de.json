@@ -307,7 +307,8 @@
     "cycleLayout": "Layout wechseln",
     "keyboardShortcuts": "Tastenkürzel",
     "newWsRequest": "Neue WebSocket-Anfrage",
-    "checkUpdates": "Nach Updates suchen…"
+    "checkUpdates": "Nach Updates suchen…",
+    "newCommandRequest": "Neue Befehlsanfrage"
   },
   "settings": {
     "title": "Einstellungen",
@@ -322,7 +323,8 @@
       "certificates": "Zertifikate",
       "about": "Über",
       "security": "Sicherheit",
-      "cli": "Befehlszeile"
+      "cli": "Befehlszeile",
+      "commands": "Befehle"
     },
     "appearance": {
       "theme": "Design",
@@ -463,6 +465,21 @@
       "errorGeneric": "Der Befehl hippo konnte nicht aktualisiert werden.",
       "promptTitle": "Befehl hippo installieren?",
       "promptMessage": "Möchten Sie hippo in ein Terminal eingeben, um Rest Hippo zu starten? Sie können dies jederzeit unter Einstellungen → Befehlszeile ändern."
+    },
+    "commands": {
+      "desc": "Die Basisumgebung, mit der jede Befehlsanfrage startet. Programme werden in diesem PATH gesucht. Rest Hippo gibt seine eigene Umgebung nie weiter – diese Liste (plus der Umgebung-Tab jeder Anfrage) ist genau das, was ein Befehl sieht.",
+      "listAria": "Variablen der Basisumgebung",
+      "add": "Variable hinzufügen",
+      "reset": "Auf Standard zurücksetzen",
+      "resetTitle": "Standard-PATH und Systemvariablen dieser Plattform wiederherstellen",
+      "usingDefaults": "Standardwerte dieser Plattform",
+      "empty": "Keine Variablen — Befehle starten mit einer leeren Umgebung.",
+      "enableAria": "Diese Variable an Befehle übergeben",
+      "namePlaceholder": "NAME",
+      "nameAria": "Variablenname",
+      "valuePlaceholder": "Wert",
+      "valueAria": "Variablenwert",
+      "delete": "Variable entfernen"
     }
   },
   "request": {
@@ -496,7 +513,10 @@
       "captures": "Erfassungen",
       "notes": "Notizen",
       "scripts": "Skripte",
-      "tests": "Tests"
+      "tests": "Tests",
+      "args": "Argumente",
+      "env": "Umgebung",
+      "stdin": "Stdin"
     },
     "method": {
       "aria": "HTTP-Methode",
@@ -672,7 +692,8 @@
       "statusAdd": "Code hinzufügen",
       "statusAddPlaceholder": "z. B. 201",
       "statusRemove": "Code {code} entfernen",
-      "hint": "Extrahiere nach einer Antwort einen Wert und schreibe ihn in einen Variablen-Scope, damit spätere Requests ihn als {{name}} verwenden können. Wähle in der Spalte „Codes“, bei welchen Antwortcodes jede Regel ausgelöst wird – z. B. ein Token bei 2xx, ein Fehler bei 4xx."
+      "hint": "Extrahiere nach einer Antwort einen Wert und schreibe ihn in einen Variablen-Scope, damit spätere Requests ihn als {{name}} verwenden können. Wähle in der Spalte „Codes“, bei welchen Antwortcodes jede Regel ausgelöst wird – z. B. ein Token bei 2xx, ein Fehler bei 4xx.",
+      "sourceRegex": "Regex"
     },
     "tests": {
       "source": "Quelle",
@@ -730,7 +751,66 @@
       "placeholder": "Hier {type}-Inhalt eingeben…",
       "plainText": "Klartext"
     },
-    "sendTitle": "Senden ({keys})"
+    "sendTitle": "Senden ({keys})",
+    "cmd": {
+      "label": "Befehlsanfrage",
+      "badge": "CMD",
+      "lineAria": "Befehlszeile",
+      "linePlaceholder": "gns token --format json",
+      "execute": "Ausführen",
+      "executeAria": "Befehl ausführen",
+      "executeTitle": "Befehl ausführen ({keys})",
+      "outputAria": "Ausgabe interpretieren als: {type}",
+      "outputMenuTitle": "Ausgabe interpretieren als",
+      "output": {
+        "auto": "Automatisch erkennen",
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "Klartext"
+      },
+      "outputShort": {
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "TXT"
+      },
+      "notFound": "„{name}“ wurde im Befehls-PATH nicht gefunden (Einstellungen → Befehle oder der Umgebung-Tab dieser Anfrage).",
+      "notFoundShort": "nicht im Befehls-PATH gefunden",
+      "found": "Führt {path} aus",
+      "unavailable": "Befehlsanfragen sind in diesem Build nicht verfügbar.",
+      "stopIn": "Stopp · {secs} s",
+      "timeoutMenu": "Zeitlimit…",
+      "timeoutLabel": "Zeitlimit",
+      "timeoutAria": "Befehls-Zeitlimit in Sekunden (0 = keins)",
+      "timeoutDialogAria": "Befehls-Zeitlimit",
+      "timeoutHint": "0 = kein Zeitlimit. Der Befehl wird gestoppt, wenn er länger läuft.",
+      "args": {
+        "noun": "Argument",
+        "nounPlural": "Argumente",
+        "executable": "Programm",
+        "noExecutable": "(keines — oben einen Befehl eingeben)",
+        "empty": "Keine Argumente. Gib sie oben nach dem Befehl ein oder füge hier eines hinzu.",
+        "placeholder": "Argument",
+        "valueAria": "Argument {n}"
+      },
+      "env": {
+        "noun": "Variable",
+        "nounPlural": "Variablen",
+        "hint": "Umgebungsvariablen für diesen Befehl. Sie überschreiben die Basisumgebung aus Einstellungen → Befehle; die Umgebung der App wird nie weitergegeben.",
+        "empty": "Keine Variablen — der Befehl erhält nur die Basisumgebung.",
+        "namePlaceholder": "NAME",
+        "nameAria": "Variablenname",
+        "valueAria": "Variablenwert",
+        "inherited": "Geerbt aus Einstellungen → Befehle",
+        "inheritedEmpty": "Die Basisumgebung ist leer."
+      },
+      "stdin": {
+        "placeholder": "Text, der an die Standardeingabe des Befehls geleitet wird (unterstützt {{variables}})",
+        "hint": "Leer lassen, um keine Eingabe zu senden — die Standardeingabe wird sofort geschlossen.",
+        "aria": "Standardeingabe"
+      }
+    }
   },
   "response": {
     "tab": {
@@ -742,7 +822,8 @@
       "cookies": "Cookies",
       "console": "Konsole",
       "tests": "Tests",
-      "timeline": "Zeitachse"
+      "timeline": "Zeitachse",
+      "stderr": "Stderr"
     },
     "cookies": {
       "name": "Name",
@@ -883,6 +964,17 @@
       "text": "Text",
       "image": "Bild",
       "binary": "Binär"
+    },
+    "exit": {
+      "code": "Exit {code}",
+      "success": "Erfolgreich",
+      "failure": "Fehlgeschlagen",
+      "signal": "Beendet ({signal})"
+    },
+    "stderr": {
+      "empty": "Keine Fehlerausgabe.",
+      "truncated": "Die Fehlerausgabe war groß ({size} B) — der Anfang wird angezeigt.",
+      "viewFull": "Alles anzeigen"
     }
   },
   "pillEditor": {
@@ -933,7 +1025,8 @@
       "delete": "Löschen",
       "confirm": "Bestätigen?",
       "runFolder": "Alle Anfragen ausführen",
-      "clearRunCounts": "Testzähler löschen"
+      "clearRunCounts": "Testzähler löschen",
+      "addCommandRequest": "Befehlsanfrage hinzufügen"
     },
     "curlCopied": "Der cURL-Befehl wurde in die Zwischenablage kopiert.",
     "code": {
@@ -958,7 +1051,8 @@
         "one": "{failed} Anfrage fehlgeschlagen",
         "other": "{failed} Anfragen fehlgeschlagen"
       }
-    }
+    },
+    "newCommand": "Neuer Befehl"
   },
   "collections": {
     "title": "Sammlungen",
@@ -1460,7 +1554,8 @@
     "duplicate": "Anfrage duplizieren",
     "rename": "Anfrage oder Ordner umbenennen",
     "newWsRequest": "Neue WebSocket-Anfrage",
-    "delete": "Anfrage oder Ordner löschen (mit Bestätigung)"
+    "delete": "Anfrage oder Ordner löschen (mit Bestätigung)",
+    "newCommandRequest": "Neue Befehlsanfrage"
   },
   "script": {
     "errorTitle": "Skriptfehler",
@@ -1485,5 +1580,22 @@
     "failedMsg": "Updates konnten nicht geprüft werden. Bitte versuchen Sie es später erneut.",
     "devBuild": "Updates sind nur in installierten Versionen verfügbar.",
     "storeManaged": "Updates werden über den App Store bereitgestellt."
+  },
+  "command": {
+    "approve": {
+      "title": "Diesen Befehl ausführen?",
+      "message": "Diese Anfrage führt ein Programm auf deinem Computer aus:",
+      "messageNamed": "„{name}“ führt ein Programm auf deinem Computer aus:",
+      "envLine": "Umgebung: {keys}",
+      "stdinLine": "Standardeingabe: (gesetzt)",
+      "note": "Führe nur Befehle aus, denen du vertraust. Du wirst erneut gefragt, wenn sich der Befehl ändert.",
+      "run": "Ausführen"
+    },
+    "error": {
+      "notFoundHint": "Prüfe den Befehlsnamen, verwende einen vollständigen Pfad oder füge seinen Ordner in Einstellungen → Befehle zum PATH hinzu.",
+      "notApprovedHint": "Der Befehl wurde nicht ausgeführt. Führe ihn erneut aus und wähle „Ausführen“, um ihn zu genehmigen.",
+      "timeoutHint": "Der Befehl lief länger als sein Zeitlimit und wurde gestoppt. Erhöhe es im Ausführen-Menü (Zeitlimit…).",
+      "spawnHint": "Das Programm konnte nicht gestartet werden. Prüfe, ob es ausführbar ist und ob du es ausführen darfst."
+    }
   }
 }

@@ -307,7 +307,8 @@
     "cycleLayout": "Changer la disposition",
     "keyboardShortcuts": "Raccourcis clavier",
     "newWsRequest": "Nouvelle requête WebSocket",
-    "checkUpdates": "Rechercher des mises à jour…"
+    "checkUpdates": "Rechercher des mises à jour…",
+    "newCommandRequest": "Nouvelle requête de commande"
   },
   "settings": {
     "title": "Paramètres",
@@ -322,7 +323,8 @@
       "certificates": "Certificats",
       "about": "À propos",
       "security": "Sécurité",
-      "cli": "Ligne de commande"
+      "cli": "Ligne de commande",
+      "commands": "Commandes"
     },
     "appearance": {
       "theme": "Thème",
@@ -463,6 +465,21 @@
       "errorGeneric": "Impossible de mettre à jour la commande hippo.",
       "promptTitle": "Installer la commande hippo ?",
       "promptMessage": "Voulez-vous taper hippo dans un terminal pour lancer Rest Hippo ? Vous pouvez modifier ce choix à tout moment dans Paramètres → Ligne de commande."
+    },
+    "commands": {
+      "desc": "L'environnement de base de chaque requête de commande. Les exécutables sont recherchés dans ce PATH. Rest Hippo ne transmet jamais son propre environnement : cette liste (plus l'onglet Environnement de chaque requête) est exactement ce que voit une commande.",
+      "listAria": "Variables de l'environnement de base",
+      "add": "Ajouter une variable",
+      "reset": "Rétablir les valeurs par défaut",
+      "resetTitle": "Restaurer le PATH et les variables système par défaut de cette plateforme",
+      "usingDefaults": "Valeurs par défaut de cette plateforme",
+      "empty": "Aucune variable — les commandes démarrent avec un environnement vide.",
+      "enableAria": "Transmettre cette variable aux commandes",
+      "namePlaceholder": "NOM",
+      "nameAria": "Nom de la variable",
+      "valuePlaceholder": "Valeur",
+      "valueAria": "Valeur de la variable",
+      "delete": "Supprimer la variable"
     }
   },
   "request": {
@@ -496,7 +513,10 @@
       "captures": "Captures",
       "notes": "Notes",
       "scripts": "Scripts",
-      "tests": "Tests"
+      "tests": "Tests",
+      "args": "Arguments",
+      "env": "Environnement",
+      "stdin": "Stdin"
     },
     "method": {
       "aria": "Méthode HTTP",
@@ -672,7 +692,8 @@
       "statusAdd": "Ajouter un code",
       "statusAddPlaceholder": "ex. 201",
       "statusRemove": "Supprimer le code {code}",
-      "hint": "Après une réponse, extrayez une valeur et écrivez-la dans une portée de variables pour que les requêtes suivantes puissent l’utiliser comme {{name}}. Utilisez la colonne « Codes » pour choisir les codes de réponse qui déclenchent chaque règle — par exemple capturer un jeton sur 2xx, une erreur sur 4xx."
+      "hint": "Après une réponse, extrayez une valeur et écrivez-la dans une portée de variables pour que les requêtes suivantes puissent l’utiliser comme {{name}}. Utilisez la colonne « Codes » pour choisir les codes de réponse qui déclenchent chaque règle — par exemple capturer un jeton sur 2xx, une erreur sur 4xx.",
+      "sourceRegex": "Regex"
     },
     "tests": {
       "source": "Source",
@@ -730,7 +751,66 @@
       "placeholder": "Saisissez le corps {type} ici…",
       "plainText": "texte brut"
     },
-    "sendTitle": "Envoyer ({keys})"
+    "sendTitle": "Envoyer ({keys})",
+    "cmd": {
+      "label": "Requête de commande",
+      "badge": "CMD",
+      "lineAria": "Ligne de commande",
+      "linePlaceholder": "gns token --format json",
+      "execute": "Exécuter",
+      "executeAria": "Exécuter la commande",
+      "executeTitle": "Exécuter la commande ({keys})",
+      "outputAria": "Interpréter la sortie comme : {type}",
+      "outputMenuTitle": "Interpréter la sortie comme",
+      "output": {
+        "auto": "Détection automatique",
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "Texte brut"
+      },
+      "outputShort": {
+        "json": "JSON",
+        "yaml": "YAML",
+        "xml": "XML",
+        "text": "TXT"
+      },
+      "notFound": "« {name} » est introuvable dans le PATH des commandes (Réglages → Commandes ou l'onglet Environnement de cette requête).",
+      "notFoundShort": "introuvable dans le PATH des commandes",
+      "found": "Exécute {path}",
+      "unavailable": "Les requêtes de commande ne sont pas disponibles dans cette version.",
+      "stopIn": "Arrêter · {secs} s",
+      "timeoutMenu": "Délai d'expiration…",
+      "timeoutLabel": "Délai",
+      "timeoutAria": "Délai de la commande en secondes (0 = aucun)",
+      "timeoutDialogAria": "Délai de la commande",
+      "timeoutHint": "0 = aucun délai. La commande est arrêtée si elle dure plus longtemps.",
+      "args": {
+        "noun": "argument",
+        "nounPlural": "arguments",
+        "executable": "Exécutable",
+        "noExecutable": "(aucun — saisissez une commande ci-dessus)",
+        "empty": "Aucun argument. Saisissez-les après la commande ci-dessus ou ajoutez-en un ici.",
+        "placeholder": "Argument",
+        "valueAria": "Argument {n}"
+      },
+      "env": {
+        "noun": "variable",
+        "nounPlural": "variables",
+        "hint": "Variables d'environnement de cette commande. Elles remplacent l'environnement de base de Réglages → Commandes ; l'environnement de l'application n'est jamais transmis.",
+        "empty": "Aucune variable — la commande ne reçoit que l'environnement de base.",
+        "namePlaceholder": "NOM",
+        "nameAria": "Nom de la variable",
+        "valueAria": "Valeur de la variable",
+        "inherited": "Hérité de Réglages → Commandes",
+        "inheritedEmpty": "L'environnement de base est vide."
+      },
+      "stdin": {
+        "placeholder": "Texte envoyé sur l'entrée standard de la commande (prend en charge {{variables}})",
+        "hint": "Laissez vide pour n'envoyer aucune entrée — l'entrée standard est fermée immédiatement.",
+        "aria": "Entrée standard"
+      }
+    }
   },
   "response": {
     "tab": {
@@ -742,7 +822,8 @@
       "cookies": "Cookies",
       "console": "Console",
       "tests": "Tests",
-      "timeline": "Chronologie"
+      "timeline": "Chronologie",
+      "stderr": "Stderr"
     },
     "cookies": {
       "name": "Nom",
@@ -883,6 +964,17 @@
       "text": "Texte",
       "image": "Image",
       "binary": "Binaire"
+    },
+    "exit": {
+      "code": "Sortie {code}",
+      "success": "Succès",
+      "failure": "Échec",
+      "signal": "Terminé ({signal})"
+    },
+    "stderr": {
+      "empty": "Aucune sortie d'erreur.",
+      "truncated": "La sortie d'erreur était volumineuse ({size} o) — affichage du début.",
+      "viewFull": "Tout afficher"
     }
   },
   "pillEditor": {
@@ -933,7 +1025,8 @@
       "delete": "Supprimer",
       "confirm": "Confirmer ?",
       "runFolder": "Exécuter toutes les requêtes",
-      "clearRunCounts": "Effacer le décompte des tests"
+      "clearRunCounts": "Effacer le décompte des tests",
+      "addCommandRequest": "Ajouter une requête de commande"
     },
     "curlCopied": "La commande cURL a été copiée dans le presse-papiers.",
     "code": {
@@ -958,7 +1051,8 @@
         "one": "{failed} requête échouée",
         "other": "{failed} requêtes échouées"
       }
-    }
+    },
+    "newCommand": "Nouvelle commande"
   },
   "collections": {
     "title": "Collections",
@@ -1460,7 +1554,8 @@
     "duplicate": "Dupliquer la requête",
     "rename": "Renommer la requête ou le dossier",
     "newWsRequest": "Nouvelle requête WebSocket",
-    "delete": "Supprimer la requête ou le dossier (avec confirmation)"
+    "delete": "Supprimer la requête ou le dossier (avec confirmation)",
+    "newCommandRequest": "Nouvelle requête de commande"
   },
   "script": {
     "errorTitle": "Erreur de script",
@@ -1485,5 +1580,22 @@
     "failedMsg": "Impossible de rechercher des mises à jour. Veuillez réessayer plus tard.",
     "devBuild": "Les mises à jour ne sont disponibles que dans les versions installées.",
     "storeManaged": "Les mises à jour sont gérées par la boutique d'applications."
+  },
+  "command": {
+    "approve": {
+      "title": "Exécuter cette commande ?",
+      "message": "Cette requête exécute un programme sur votre ordinateur :",
+      "messageNamed": "« {name} » exécute un programme sur votre ordinateur :",
+      "envLine": "Environnement : {keys}",
+      "stdinLine": "Entrée standard : (définie)",
+      "note": "N'exécutez que des commandes de confiance. La question vous sera reposée si la commande change.",
+      "run": "Exécuter"
+    },
+    "error": {
+      "notFoundHint": "Vérifiez le nom de la commande, utilisez un chemin complet ou ajoutez son dossier au PATH dans Réglages → Commandes.",
+      "notApprovedHint": "La commande n'a pas été exécutée. Relancez-la et choisissez Exécuter pour l'approuver.",
+      "timeoutHint": "La commande a dépassé son délai et a été arrêtée. Augmentez-le dans le menu Exécuter (Délai d'expiration…).",
+      "spawnHint": "Le programme n'a pas pu démarrer. Vérifiez qu'il est exécutable et que vous avez l'autorisation de le lancer."
+    }
   }
 }

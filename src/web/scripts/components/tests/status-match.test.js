@@ -51,13 +51,33 @@ test("normalize: trims whitespace around tokens", () => {
   assert.deepEqual(normalizeStatusMatch([" 2xx ", " 201 "]), ["2xx", "201"]);
 });
 
-test("isCodeToken accepts 100–599 only", () => {
+test("isCodeToken accepts HTTP codes and exit codes (0–599)", () => {
   assert.equal(isCodeToken("200"), true);
   assert.equal(isCodeToken("599"), true);
-  assert.equal(isCodeToken("099"), false);
+  // Exit codes for Command requests (Feature 70).
+  assert.equal(isCodeToken("0"), true);
+  assert.equal(isCodeToken("20"), true);
+  assert.equal(isCodeToken("127"), true);
+  assert.equal(isCodeToken("099"), false); // no leading zeros
   assert.equal(isCodeToken("600"), false);
-  assert.equal(isCodeToken("20"), false);
   assert.equal(isCodeToken("2xx"), false);
+});
+
+test("HTTP matching ignores exit-code-only tokens", () => {
+  assert.equal(statusMatches(200, ["0"]), false);
+  assert.equal(statusMatches(0, ["0"]), false);
+});
+
+test("command mode: groups read as outcomes, exact tokens as exit codes", () => {
+  const cmd = { command: true };
+  assert.equal(statusMatches(0, ["2xx"], cmd), true);
+  assert.equal(statusMatches(1, ["2xx"], cmd), false);
+  assert.equal(statusMatches(1, ["4xx"], cmd), true);
+  assert.equal(statusMatches(0, ["5xx"], cmd), false);
+  assert.equal(statusMatches(3, ["3"], cmd), true);
+  assert.equal(statusMatches(3, ["any"], cmd), true);
+  assert.equal(statusMatches(0, ["0"], cmd), true);
+  assert.equal(statusMatches(0, [], cmd), false);
 });
 
 // ── statusMatches ────────────────────────────────────────────────────────────
